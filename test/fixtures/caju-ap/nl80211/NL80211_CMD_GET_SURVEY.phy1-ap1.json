@@ -1,0 +1,255 @@
+[
+	{
+		"dev": "phy1-ap1",
+		"survey_info": {
+			"frequency": 5180,
+			"time": 59,
+			"time_tx": 0,
+			"time_rx": 0,
+			"busy": 0,
+			"noise": -92
+		}
+	},
+	{
+		"dev": "phy1-ap1",
+		"survey_info": {
+			"frequency": 5200,
+			"time": 0,
+			"time_tx": 0,
+			"time_rx": 0,
+			"busy": 0
+		}
+	},
+	{
+		"dev": "phy1-ap1",
+		"survey_info": {
+			"frequency": 5220,
+			"time": 0,
+			"time_tx": 0,
+			"time_rx": 0,
+			"busy": 0
+		}
+	},
+	{
+		"dev": "phy1-ap1",
+		"survey_info": {
+			"frequency": 5240,
+			"time": 0,
+			"time_tx": 0,
+			"time_rx": 0,
+			"busy": 0
+		}
+	},
+	{
+		"dev": "phy1-ap1",
+		"survey_info": {
+			"frequency": 5260,
+			"time": 0,
+			"time_tx": 0,
+			"time_rx": 0,
+			"busy": 0
+		}
+	},
+	{
+		"dev": "phy1-ap1",
+		"survey_info": {
+			"frequency": 5280,
+			"time": 0,
+			"time_tx": 0,
+			"time_rx": 0,
+			"busy": 0
+		}
+	},
+	{
+		"dev": "phy1-ap1",
+		"survey_info": {
+			"frequency": 5300,
+			"time": 0,
+			"time_tx": 0,
+			"time_rx": 0,
+			"busy": 0
+		}
+	},
+	{
+		"dev": "phy1-ap1",
+		"survey_info": {
+			"frequency": 5320,
+			"time": 0,
+			"time_tx": 0,
+			"time_rx": 0,
+			"busy": 0
+		}
+	},
+	{
+		"dev": "phy1-ap1",
+		"survey_info": {
+			"frequency": 5500,
+			"time": 0,
+			"time_tx": 0,
+			"time_rx": 0,
+			"busy": 0
+		}
+	},
+	{
+		"dev": "phy1-ap1",
+		"survey_info": {
+			"frequency": 5520,
+			"time": 0,
+			"time_tx": 0,
+			"time_rx": 0,
+			"busy": 0
+		}
+	},
+	{
+		"dev": "phy1-ap1",
+		"survey_info": {
+			"frequency": 5540,
+			"time": 0,
+			"time_tx": 0,
+			"time_rx": 0,
+			"busy": 0
+		}
+	},
+	{
+		"dev": "phy1-ap1",
+		"survey_info": {
+			"frequency": 5560,
+			"time": 0,
+			"time_tx": 0,
+			"time_rx": 0,
+			"busy": 0
+		}
+	},
+	{
+		"dev": "phy1-ap1",
+		"survey_info": {
+			"frequency": 5580,
+			"time": 0,
+			"time_tx": 0,
+			"time_rx": 0,
+			"busy": 0
+		}
+	},
+	{
+		"dev": "phy1-ap1",
+		"survey_info": {
+			"frequency": 5600,
+			"time": 0,
+			"time_tx": 0,
+			"time_rx": 0,
+			"busy": 0
+		}
+	},
+	{
+		"dev": "phy1-ap1",
+		"survey_info": {
+			"frequency": 5620,
+			"time": 0,
+			"time_tx": 0,
+			"time_rx": 0,
+			"busy": 0
+		}
+	},
+	{
+		"dev": "phy1-ap1",
+		"survey_info": {
+			"frequency": 5640,
+			"time": 0,
+			"time_tx": 0,
+			"time_rx": 0,
+			"busy": 0
+		}
+	},
+	{
+		"dev": "phy1-ap1",
+		"survey_info": {
+			"frequency": 5660,
+			"time": 0,
+			"time_tx": 0,
+			"time_rx": 0,
+			"busy": 0
+		}
+	},
+	{
+		"dev": "phy1-ap1",
+		"survey_info": {
+			"frequency": 5680,
+			"time": 0,
+			"time_tx": 0,
+			"time_rx": 0,
+			"busy": 0
+		}
+	},
+	{
+		"dev": "phy1-ap1",
+		"survey_info": {
+			"frequency": 5700,
+			"time": 0,
+			"time_tx": 0,
+			"time_rx": 0,
+			"busy": 0
+		}
+	},
+	{
+		"dev": "phy1-ap1",
+		"survey_info": {
+			"frequency": 5720,
+			"time": 0,
+			"time_tx": 0,
+			"time_rx": 0,
+			"busy": 0
+		}
+	},
+	{
+		"dev": "phy1-ap1",
+		"survey_info": {
+			"frequency": 5745,
+			"time": 12079616,
+			"time_tx": 134859,
+			"time_rx": 294822,
+			"busy": 432731,
+			"noise": -91
+		}
+	},
+	{
+		"dev": "phy1-ap1",
+		"survey_info": {
+			"frequency": 5765,
+			"time": 175,
+			"time_tx": 0,
+			"time_rx": 0,
+			"busy": 0,
+			"noise": -91
+		}
+	},
+	{
+		"dev": "phy1-ap1",
+		"survey_info": {
+			"frequency": 5785,
+			"time": 0,
+			"time_tx": 0,
+			"time_rx": 0,
+			"busy": 0
+		}
+	},
+	{
+		"dev": "phy1-ap1",
+		"survey_info": {
+			"frequency": 5805,
+			"time": 0,
+			"time_tx": 0,
+			"time_rx": 0,
+			"busy": 0
+		}
+	},
+	{
+		"dev": "phy1-ap1",
+		"survey_info": {
+			"frequency": 5825,
+			"time": 0,
+			"time_tx": 0,
+			"time_rx": 0,
+			"busy": 0
+		}
+	}
+]

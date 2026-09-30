@@ -1,0 +1,134 @@
+[
+	{
+		"dev": "phy0-ap0",
+		"survey_info": {
+			"frequency": 2412,
+			"time": 127,
+			"time_tx": 0,
+			"time_rx": 21,
+			"busy": 21,
+			"noise": -80
+		}
+	},
+	{
+		"dev": "phy0-ap0",
+		"survey_info": {
+			"frequency": 2417,
+			"time": 0,
+			"time_tx": 0,
+			"time_rx": 0,
+			"busy": 0
+		}
+	},
+	{
+		"dev": "phy0-ap0",
+		"survey_info": {
+			"frequency": 2422,
+			"time": 0,
+			"time_tx": 0,
+			"time_rx": 0,
+			"busy": 0
+		}
+	},
+	{
+		"dev": "phy0-ap0",
+		"survey_info": {
+			"frequency": 2427,
+			"time": 0,
+			"time_tx": 0,
+			"time_rx": 0,
+			"busy": 0
+		}
+	},
+	{
+		"dev": "phy0-ap0",
+		"survey_info": {
+			"frequency": 2432,
+			"time": 0,
+			"time_tx": 0,
+			"time_rx": 0,
+			"busy": 0
+		}
+	},
+	{
+		"dev": "phy0-ap0",
+		"survey_info": {
+			"frequency": 2437,
+			"time": 0,
+			"time_tx": 0,
+			"time_rx": 0,
+			"busy": 0
+		}
+	},
+	{
+		"dev": "phy0-ap0",
+		"survey_info": {
+			"frequency": 2442,
+			"time": 0,
+			"time_tx": 0,
+			"time_rx": 0,
+			"busy": 0
+		}
+	},
+	{
+		"dev": "phy0-ap0",
+		"survey_info": {
+			"frequency": 2447,
+			"time": 0,
+			"time_tx": 0,
+			"time_rx": 0,
+			"busy": 0
+		}
+	},
+	{
+		"dev": "phy0-ap0",
+		"survey_info": {
+			"frequency": 2452,
+			"time": 0,
+			"time_tx": 0,
+			"time_rx": 0,
+			"busy": 0
+		}
+	},
+	{
+		"dev": "phy0-ap0",
+		"survey_info": {
+			"frequency": 2457,
+			"time": 0,
+			"time_tx": 0,
+			"time_rx": 0,
+			"busy": 0
+		}
+	},
+	{
+		"dev": "phy0-ap0",
+		"survey_info": {
+			"frequency": 2462,
+			"time": 12078755,
+			"time_tx": 57349,
+			"time_rx": 7181722,
+			"busy": 7969429,
+			"noise": -88
+		}
+	},
+	{
+		"dev": "phy0-ap0",
+		"survey_info": {
+			"frequency": 2467,
+			"time": 0,
+			"time_tx": 0,
+			"time_rx": 0,
+			"busy": 0
+		}
+	},
+	{
+		"dev": "phy0-ap0",
+		"survey_info": {
+			"frequency": 2472,
+			"time": 0,
+			"time_tx": 0,
+			"time_rx": 0,
+			"busy": 0
+		}
+	}
+]

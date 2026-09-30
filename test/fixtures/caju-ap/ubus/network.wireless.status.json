@@ -1,0 +1,113 @@
+{
+	"radio_2G": {
+		"up": true,
+		"pending": false,
+		"autostart": true,
+		"disabled": false,
+		"retry_setup_failed": false,
+		"config": {
+			"type": "mac80211",
+			"band": "2g",
+			"cell_density": 0,
+			"channel": "11",
+			"country": "BR",
+			"htmode": "HE20",
+			"path": "platform/soc/18000000.wifi"
+		},
+		"interfaces": [
+			{
+				"section": "WiFi_IoT_2G",
+				"config": {
+					"network": [
+						"iot"
+					],
+					"device": [
+						"radio_2G"
+					],
+					"mode": "ap",
+					"encryption": "psk2",
+					"key": "REDACTED",
+					"ssid": "iot",
+					"radios": [
+						
+					]
+				},
+				"ifname": "phy0-ap0",
+				"vlans": [
+					
+				],
+				"stations": [
+					
+				]
+			}
+		]
+	},
+	"radio_5G": {
+		"up": true,
+		"pending": false,
+		"autostart": true,
+		"disabled": false,
+		"retry_setup_failed": false,
+		"config": {
+			"type": "mac80211",
+			"band": "5g",
+			"cell_density": 0,
+			"channel": "149",
+			"country": "BR",
+			"htmode": "HE80",
+			"path": "platform/soc/18000000.wifi+1"
+		},
+		"interfaces": [
+			{
+				"section": "WiFi_Guest_5G",
+				"config": {
+					"network": [
+						"guest"
+					],
+					"device": [
+						"radio_5G"
+					],
+					"mode": "ap",
+					"encryption": "psk2",
+					"key": "REDACTED",
+					"ssid": "guest",
+					"radios": [
+						
+					]
+				},
+				"ifname": "phy1-ap0",
+				"vlans": [
+					
+				],
+				"stations": [
+					
+				]
+			},
+			{
+				"section": "WiFi_Main_5G",
+				"config": {
+					"network": [
+						"main"
+					],
+					"device": [
+						"radio_5G"
+					],
+					"mode": "ap",
+					"encryption": "psk2",
+					"key": "REDACTED",
+					"ssid": "home",
+					"radios": [
+						
+					]
+				},
+				"ifname": "phy1-ap1",
+				"vlans": [
+					
+				],
+				"stations": [
+					
+				]
+			}
+		]
+	}
+}

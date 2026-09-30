@@ -66,3 +66,15 @@ file /proc/net/dev
 # Captured by hand, with public addresses redacted, not by make fixtures:
 #   /proc/net/nf_conntrack       (caju-router)
 #   commands/*.txt               the output of nft --json list counters and ethtool -S DEVICE
+ubus network.wireless status
+ubus hostapd.phy0-ap0 get_status
+ubus hostapd.phy0-ap0 get_clients
+ubus hostapd.phy1-ap0 get_status
+ubus hostapd.phy1-ap0 get_clients
+ubus hostapd.phy1-ap1 get_status
+ubus hostapd.phy1-ap1 get_clients
+# Not captured: test/fixtures/<device>/nl80211/NL80211_CMD_<CMD>.<dev>.json are
+# the replies of ucode-mod-nl80211's request() on the device (GET requests only),
+# printed with %.J. test/fixtures/synthetic/ holds replies no device here has:
+# ubus/dawn.get_network.json is laid out as DAWN's build_network_overview()
+# (src/utils/ubus.c, DAWN 7414c34) writes it.
