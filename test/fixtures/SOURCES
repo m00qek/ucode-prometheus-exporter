@@ -58,3 +58,11 @@ ubus luci getMountPoints
 #   DEVICE/links.json     readlink -f of each /sys/class/hwmon/*/device (the mock fs has no symlinks)
 #   DEVICE/uci/dhcp.json  `uci show dhcp` as the uci mock's data, names, MACs and addresses replaced by fakes
 # test/fixtures/synthetic/ is written by hand for what neither device has; see its SOURCES.
+file /proc/net/netstat
+file /proc/net/snmp
+file /proc/net/snmp6
+file /proc/net/dev_snmp6/*
+file /proc/net/dev
+# Captured by hand, with public addresses redacted, not by make fixtures:
+#   /proc/net/nf_conntrack       (caju-router)
+#   commands/*.txt               the output of nft --json list counters and ethtool -S DEVICE
