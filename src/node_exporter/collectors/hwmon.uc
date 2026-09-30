@@ -1,5 +1,8 @@
 'use strict';
 
+// Based on utils/prometheus-node-exporter-lua/files/usr/lib/lua/prometheus-collectors/hwmon.lua
+// in OpenWrt's packages feed (Apache-2.0), rewritten in ucode; see NOTICE.
+
 // The Lua exporter's hwmon collector: every chip under /sys/class/hwmon, its
 // sensor labels, temperatures and PWM duty cycles.
 //

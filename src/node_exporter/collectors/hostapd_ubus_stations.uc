@@ -1,5 +1,8 @@
 'use strict';
 
+// Based on utils/prometheus-node-exporter-lua/files/usr/lib/lua/prometheus-collectors/hostapd_ubus_stations.lua
+// in OpenWrt's packages feed (Apache-2.0), rewritten in ucode; see NOTICE.
+
 // The Lua exporter's hostapd_ubus_stations collector: the radio resource
 // measurement (802.11k) capabilities each client of every hostapd.* ubus object
 // announced, as get_clients' `rrm` array holds them (the five octets of the RRM

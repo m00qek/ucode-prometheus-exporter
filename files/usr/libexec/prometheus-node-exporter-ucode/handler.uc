@@ -1,6 +1,9 @@
 {%
 'use strict';
 
+// Based on the uhttpd handler of utils/prometheus-node-exporter-ucode/files/metrics.uc
+// in OpenWrt's packages feed (Apache-2.0); see NOTICE.
+
 // uhttpd's ucode handler for /metrics; see /etc/init.d/prometheus-node-exporter-ucode.
 
 import { create } from 'node_exporter.app';

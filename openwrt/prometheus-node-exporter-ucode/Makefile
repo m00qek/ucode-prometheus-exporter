@@ -1,3 +1,5 @@
+# Copyright (C) 2013-2017 OpenWrt.org
+
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=prometheus-node-exporter-ucode

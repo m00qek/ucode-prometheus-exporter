@@ -1,5 +1,8 @@
 'use strict';
 
+// Based on utils/prometheus-node-exporter-ucode/files/base/uname.uc
+// in OpenWrt's packages feed (Apache-2.0), rewritten in ucode; see NOTICE.
+
 import * as Result from 'node_exporter.result';
 import * as errors from 'node_exporter.errors';
 import { first_line } from 'node_exporter.proc';

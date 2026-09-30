@@ -1,5 +1,9 @@
 'use strict';
 
+// Based on utils/prometheus-node-exporter-ucode/files/extra/openwrt.uc and
+// utils/prometheus-node-exporter-lua/files/usr/lib/lua/prometheus-collectors/openwrt.lua
+// in OpenWrt's packages feed (Apache-2.0), rewritten in ucode; see NOTICE.
+
 import * as Result from 'node_exporter.result';
 import * as errors from 'node_exporter.errors';
 

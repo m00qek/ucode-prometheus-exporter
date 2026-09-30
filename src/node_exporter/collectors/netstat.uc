@@ -1,5 +1,8 @@
 'use strict';
 
+// Based on utils/prometheus-node-exporter-ucode/files/extra/netstat.uc
+// in OpenWrt's packages feed (Apache-2.0), rewritten in ucode; see NOTICE.
+
 // The kernel's protocol statistics, as upstream's netstat collector: each
 // section of /proc/net/netstat and /proc/net/snmp is a header line of names
 // and a line of values, both starting with the section ("TcpExt:"), and each

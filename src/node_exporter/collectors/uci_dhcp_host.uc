@@ -1,5 +1,8 @@
 'use strict';
 
+// Based on utils/prometheus-node-exporter-ucode/files/extra/uci_dhcp_host.uc
+// in OpenWrt's packages feed (Apache-2.0), rewritten in ucode; see NOTICE.
+
 // The ucode exporter's uci_dhcp_host collector: dhcp_host_info 1 for every
 // static lease (`config host`) in /etc/config/dhcp, labeled with its name, MAC
 // and IP. A host with several MACs, as a list or as one space-separated value,

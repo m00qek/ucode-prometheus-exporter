@@ -1,5 +1,10 @@
 'use strict';
 
+// Based on utils/prometheus-node-exporter-lua/files/usr/lib/lua/prometheus-collectors/textfile.lua
+// in OpenWrt's packages feed (Apache-2.0) and on node_exporter's textfile
+// collector (github.com/prometheus/node_exporter, Apache-2.0), rewritten in
+// ucode; see NOTICE.
+
 // node_exporter's textfile collector: the metrics in every *.prom file in a
 // directory (option `directory`, /var/prometheus by default), the time each
 // file was last changed, and whether any file could not be used.

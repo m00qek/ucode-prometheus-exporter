@@ -1,5 +1,8 @@
 'use strict';
 
+// Based on utils/prometheus-node-exporter-ucode/files/base/netclass.uc
+// in OpenWrt's packages feed (Apache-2.0), rewritten in ucode; see NOTICE.
+
 // The links come from one rtnetlink dump, which also carries the attributes
 // that netlink and sysfs take from the same field of the device: address,
 // broadcast, operstate, mtu, type, txqlen, link_mode, group and carrier. The

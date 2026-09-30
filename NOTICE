@@ -1,15 +1,77 @@
 prometheus-node-exporter-ucode
 
-A rewrite of OpenWrt's prometheus-node-exporter-ucode and
-prometheus-node-exporter-lua packages (https://github.com/openwrt/packages,
-utils/), both licensed under the Apache License, Version 2.0. The collectors
-keep those packages' metric names and follow their logic.
+A rewrite in ucode of two packages of OpenWrt's packages feed
+(https://github.com/openwrt/packages), both licensed under the Apache License,
+Version 2.0:
 
-prometheus-node-exporter-ucode: Copyright Andre Heider <a.heider@gmail.com>
-and contributors.
-prometheus-node-exporter-lua: Copyright (c) 2016 Jeff Schornick
-<jeff@schornick.org>, (c) 2015 Kevin Lyda <kevin@lyda.ie>, Etienne Champetier
-<champetier.etienne@gmail.com> and contributors.
+utils/prometheus-node-exporter-ucode
+  Copyright (C) 2013-2017 OpenWrt.org
+  Added to the feed in 2022 by Andre Heider <a.heider@gmail.com>, who
+  maintains it, and developed by him and contributors.
+
+utils/prometheus-node-exporter-lua
+  Copyright (C) 2013-2017 OpenWrt.org
+  Copyright (c) 2016 Jeff Schornick <jeff@schornick.org>
+  Copyright (c) 2015 Kevin Lyda <kevin@lyda.ie>
+  Added to the feed in 2017 by Christian Simon <simon@swine.de>, maintained by
+  Etienne Champetier <champetier.etienne@gmail.com>, and developed by them and
+  contributors.
+
+The collectors port those packages' collectors and keep their metric names.
+Below, each upstream collector <name> is
+utils/prometheus-node-exporter-ucode/files/{base,extra}/<name>.uc (ucode) or
+utils/prometheus-node-exporter-lua/files/usr/lib/lua/prometheus-collectors/<name>.lua
+(Lua), credited to the author of its first commit in openwrt/packages; every
+file also has later contributors. The header of each collector in
+src/node_exporter/collectors/ names the files it is based on.
+
+  <name>                 ucode                 Lua
+  bmx7                   -                     Paul Spooren
+  conntrack              Andre Heider          Etienne Champetier
+  cpu                    Andre Heider          Etienne Champetier (*)
+  dawn                   -                     Nick Hainke
+  dnsmasq                Andre Heider          -
+  entropy                Andre Heider          Jonathan Davies
+  ethtool                -                     Kevin Jilissen
+  filefd                 Andre Heider          Etienne Champetier (*)
+  filesystem             -                     Will May
+  hostapd_stations       -                     David Bauer
+  hostapd_ubus_stations  -                     Nick Hainke
+  hwmon                  -                     Ivan Mironov
+  loadavg                Andre Heider          Etienne Champetier (*)
+  ltq-dsl                Andre Heider          René Treffer
+  meminfo                Andre Heider          Etienne Champetier (*)
+  modemmanager           -                     Jean-Laurent Girod
+  mwan3                  -                     Ryan Doyle
+  nat_traffic            Ricard Nacher         Etienne Champetier (*)
+  netclass               Andre Heider          René Treffer
+  netdev                 Andre Heider          Etienne Champetier (*)
+  netstat                Andre Heider          Etienne Champetier (*)
+  nft_counters           -                     Sergey Shatunov
+  openwrt                Andre Heider          Paul Spooren
+  realtek-poe            -                     Gregor Michels
+  selinux                Andre Heider          Jonathan Davies
+  snmp6                  Andre Heider          Nick Hainke
+  textfile               -                     Paul Spooren
+  thermal                -                     Joel Pettersson
+  time                   Andre Heider          Etienne Champetier (*)
+  ubnt-manager           -                     Nick Hainke
+  uci_dhcp_host          Andre Heider          Gérondal Thibault
+  uname                  Andre Heider          Etienne Champetier (*)
+  unbound                -                     Bruno Marinier
+  wifi                   Andre Heider          Etienne Champetier (*)
+  wifi_stations          -                     Etienne Champetier (*)
+  wireguard              Andre Heider          -
+
+  (*) Split out in 2017, by Etienne Champetier, of the exporter script
+      Christian Simon added (wifi_stations out of wifi.lua).
+
+The exposition writer and scrape loop (src/node_exporter/exposition.uc and
+scrape.uc) are modeled on the ucode package's files/metrics.uc; the uhttpd
+handler, init script, config and package Makefile derive from its
+files/metrics.uc, files/init, files/config and Makefile.
 
 Metric names and help texts follow the Prometheus node_exporter
-(https://github.com/prometheus/node_exporter), Apache License 2.0.
+(https://github.com/prometheus/node_exporter), Copyright 2013-2015 The
+Prometheus Authors, licensed under the Apache License, Version 2.0; the
+textfile collector also follows node_exporter's textfile collector.

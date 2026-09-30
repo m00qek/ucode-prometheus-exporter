@@ -1,5 +1,9 @@
 'use strict';
 
+// Based on utils/prometheus-node-exporter-ucode/files/extra/nat_traffic.uc and
+// utils/prometheus-node-exporter-lua/files/usr/lib/lua/prometheus-collectors/nat_traffic.lua
+// in OpenWrt's packages feed (Apache-2.0), rewritten in ucode; see NOTICE.
+
 // Bytes in the conntrack table per source and destination address, as the Lua
 // exporter's nat_traffic collector: for each connection, its first src= and
 // dst= (the original direction) and the sum of every bytes= field (both

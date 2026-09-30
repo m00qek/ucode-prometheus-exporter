@@ -1,5 +1,8 @@
 'use strict';
 
+// Based on utils/prometheus-node-exporter-lua/files/usr/lib/lua/prometheus-collectors/ethtool.lua
+// in OpenWrt's packages feed (Apache-2.0), rewritten in ucode; see NOTICE.
+
 // Network drivers' statistics, as the Lua exporter's ethtool collector, from
 // `ethtool -S <device>` for every link (an rtnl dump) instead of the
 // ethtool-lua module: an untyped family per statistic, named by the Lua
