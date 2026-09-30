@@ -1,6 +1,11 @@
 # What `make fixtures` reads from a device, one source per line:
 #   file PATH           the file, or every file the glob matches (unreadable ones are skipped)
 #   ubus OBJECT METHOD [ARGS]   the reply, saved as ubus/OBJECT.METHOD.json
+#   link GLOB           where each symlink the glob matches leads, into links.json
+#   uci CONFIG          the config's sections as the uci mock's data, saved as uci/CONFIG.json,
+#                       without secret options; names and addresses still need redacting
+# `make fixtures` adds only missing files, so redacted captures are kept; FORCE=1 would
+# replace them with the device's real data.
 # Captured by hand, MAC addresses redacted as in the sysfs captures:
 #   rtnl/RTM_GETLINK.json  ucode -e 'import {request,"const" as c} from "rtnl"; let r = request(c.RTM_GETLINK, c.NLM_F_DUMP, {});
 #                          for (let l in r) { delete l.af_spec; delete l.stats; } printf("%.2J\n", r);'
@@ -54,9 +59,9 @@ file /sys/class/thermal/thermal_zone*/mode
 file /sys/class/thermal/thermal_zone*/passive
 file /proc/self/mounts
 ubus luci getMountPoints
-# Recorded by hand, as no source kind above reads them:
-#   DEVICE/links.json     readlink -f of each /sys/class/hwmon/*/device (the mock fs has no symlinks)
-#   DEVICE/uci/dhcp.json  `uci show dhcp` as the uci mock's data, names, MACs and addresses replaced by fakes
+link /sys/class/hwmon/*/device
+uci dhcp
+uci network
 # test/fixtures/synthetic/ is written by hand for what neither device has; see its SOURCES.
 file /proc/net/netstat
 file /proc/net/snmp
