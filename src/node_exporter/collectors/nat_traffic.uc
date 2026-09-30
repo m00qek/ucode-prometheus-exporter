@@ -18,9 +18,9 @@ export const meta = {
 
 const CONNTRACK = '/proc/net/nf_conntrack';
 
-// { src, dest, bytes } of one conntrack entry.
+// { src, dst, bytes } of one conntrack entry.
 function entry(line) {
-	let e = { src: null, dest: null, bytes: 0 };
+	let e = { src: null, dst: null, bytes: 0 };
 
 	for (let f in fields(line)) {
 		let m = match(f, /^(src|dst|bytes)=(.*)$/);
@@ -33,33 +33,38 @@ function entry(line) {
 		else if (m[1] == 'src')
 			e.src ??= m[2];
 		else
-			e.dest ??= m[2];
+			e.dst ??= m[2];
 	}
 
 	return e;
 }
 
+// The labels are src and dst, as the ucode exporter's nat_traffic has them
+// (the Lua one's are src and dest). /proc/net/nf_conntrack is there only
+// while nf_conntrack is loaded: an access point without a firewall has none,
+// which is nothing to report, not a failure. A table that is there but
+// cannot be read is one.
 export function collect(deps, out) {
-	// Keyed by src, then dest, in the order the pairs first appear.
+	// Keyed by src, then dst, in the order the pairs first appear.
 	let totals = {};
 
 	let readable = each_line(deps.fs, CONNTRACK, function(line) {
 		let e = entry(line);
 
-		if (e.src == null || e.dest == null)
+		if (e.src == null || e.dst == null)
 			return;
 
 		totals[e.src] ??= {};
-		totals[e.src][e.dest] = (totals[e.src][e.dest] ?? 0) + e.bytes;
+		totals[e.src][e.dst] = (totals[e.src][e.dst] ?? 0) + e.bytes;
 	});
 
 	if (!readable)
-		return Result.err(errors.SOURCE_UNREADABLE, CONNTRACK);
+		return deps.fs.stat(CONNTRACK) == null ? Result.ok() : Result.err(errors.SOURCE_UNREADABLE, CONNTRACK);
 
-	let traffic = out.gauge('node_nat_traffic', 'Bytes of the connections from src to dest, both directions.');
-	for (let src, dests in totals)
-		for (let dest, bytes in dests)
-			traffic({ src, dest }, bytes);
+	let traffic = out.gauge('node_nat_traffic', 'Bytes of the connections from src to dst, both directions.');
+	for (let src, dsts in totals)
+		for (let dst, bytes in dsts)
+			traffic({ src, dst }, bytes);
 
 	return Result.ok();
 };

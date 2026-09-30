@@ -42,20 +42,20 @@ describe('collectors.nat_traffic', () => {
 		with_table(head(CONNTRACK, 12), (r) => {
 			assert.match(true, r.result.ok);
 			assert.match([
-				'# HELP node_nat_traffic Bytes of the connections from src to dest, both directions.',
+				'# HELP node_nat_traffic Bytes of the connections from src to dst, both directions.',
 				'# TYPE node_nat_traffic gauge',
-				'node_nat_traffic{src="10.193.13.193",dest="192.0.2.1"} 534196',
-				'node_nat_traffic{src="10.193.13.193",dest="192.0.2.3"} 65061',
-				'node_nat_traffic{src="10.193.13.193",dest="192.0.2.5"} 57450692',
-				'node_nat_traffic{src="10.193.13.193",dest="192.0.2.6"} 15606',
-				'node_nat_traffic{src="10.193.13.193",dest="192.0.2.8"} 80406',
-				'node_nat_traffic{src="10.193.13.116",dest="192.0.2.2"} 52647',
-				'node_nat_traffic{src="10.193.13.116",dest="192.0.2.7"} 9989',
-				'node_nat_traffic{src="10.193.13.116",dest="192.0.2.9"} 46492',
-				'node_nat_traffic{src="10.193.13.100",dest="192.0.2.4"} 43626',
+				'node_nat_traffic{src="10.193.13.193",dst="192.0.2.1"} 534196',
+				'node_nat_traffic{src="10.193.13.193",dst="192.0.2.3"} 65061',
+				'node_nat_traffic{src="10.193.13.193",dst="192.0.2.5"} 57450692',
+				'node_nat_traffic{src="10.193.13.193",dst="192.0.2.6"} 15606',
+				'node_nat_traffic{src="10.193.13.193",dst="192.0.2.8"} 80406',
+				'node_nat_traffic{src="10.193.13.116",dst="192.0.2.2"} 52647',
+				'node_nat_traffic{src="10.193.13.116",dst="192.0.2.7"} 9989',
+				'node_nat_traffic{src="10.193.13.116",dst="192.0.2.9"} 46492',
+				'node_nat_traffic{src="10.193.13.100",dst="192.0.2.4"} 43626',
 				// Two SSH connections, 4974 + 6018 and 6814 + 25266 bytes.
-				'node_nat_traffic{src="10.251.223.1",dest="10.193.11.1"} 43072',
-				'node_nat_traffic{src="10.193.17.70",dest="192.0.2.10"} 9133',
+				'node_nat_traffic{src="10.251.223.1",dst="10.193.11.1"} 43072',
+				'node_nat_traffic{src="10.193.17.70",dst="192.0.2.10"} 9133',
 			], r.lines);
 		});
 	});
@@ -66,7 +66,7 @@ describe('collectors.nat_traffic', () => {
 			assert.match(75, length(samples(r.lines)));
 			assert.match(242156839, total(r.lines));
 			assert.match(contains([
-				'node_nat_traffic{src="2001:0db8:0000:0001:0000:0000:0000:e157",dest="2001:0db8:0000:0002:0000:0000:0000:0001"} 77100',
+				'node_nat_traffic{src="2001:0db8:0000:0001:0000:0000:0000:e157",dst="2001:0db8:0000:0002:0000:0000:0000:0001"} 77100',
 			]), r.lines);
 		});
 	});
@@ -74,14 +74,14 @@ describe('collectors.nat_traffic', () => {
 	it('gives 0 for connections without accounting', () => {
 		with_table('ipv4     2 udp      17 29 src=10.0.0.2 dst=198.51.100.7 sport=5353 dport=5353 [UNREPLIED] ' +
 				'src=198.51.100.7 dst=10.0.0.2 sport=5353 dport=5353 mark=0 zone=0 use=2\n', (r) => {
-			assert.match([ 'node_nat_traffic{src="10.0.0.2",dest="198.51.100.7"} 0' ], samples(r.lines));
+			assert.match([ 'node_nat_traffic{src="10.0.0.2",dst="198.51.100.7"} 0' ], samples(r.lines));
 		});
 	});
 
 	it('skips lines without both addresses', () => {
 		with_table('garbage\n' + entry('10.0.0.2', '192.0.2.1', 1, 2) + 'ipv4 2 tcp 6 1 src=10.0.0.3 bytes=9\n', (r) => {
 			assert.match(true, r.result.ok);
-			assert.match([ 'node_nat_traffic{src="10.0.0.2",dest="192.0.2.1"} 3' ], samples(r.lines));
+			assert.match([ 'node_nat_traffic{src="10.0.0.2",dst="192.0.2.1"} 3' ], samples(r.lines));
 		});
 	});
 
@@ -92,8 +92,20 @@ describe('collectors.nat_traffic', () => {
 		});
 	});
 
-	it('fails with SOURCE_UNREADABLE when nf_conntrack cannot be read', () => {
+	// nat_traffic is in the network and full groups, which access points
+	// without a firewall install too.
+	it('succeeds with nothing to report where nf_conntrack is not loaded', () => {
 		with_table(null, (r) => {
+			assert.match(true, r.result.ok);
+			assert.match([], r.lines);
+			assert.match([], r.logs);
+		});
+	});
+
+	it('fails with SOURCE_UNREADABLE when a table that is there cannot be read', () => {
+		let fs = { data: { '/proc/net/nf_conntrack': entry('10.0.0.2', '192.0.2.1', 1, 2) }, behavior: { open: () => null } };
+
+		with_collector(nat_traffic, { fs }, (r) => {
 			assert.match({ ok: false, error: 'SOURCE_UNREADABLE', details: '/proc/net/nf_conntrack' },
 				{ ok: r.result.ok, error: r.result.error, details: r.result.details });
 			assert.match([], r.lines);
@@ -108,7 +120,7 @@ describe('collectors.nat_traffic', () => {
 
 			for (let c in conns) {
 				let src = `10.0.0.${c[0]}`, dst = `192.0.2.${c[1]}`;
-				let key = `node_nat_traffic{src="${src}",dest="${dst}"}`;
+				let key = `node_nat_traffic{src="${src}",dst="${dst}"}`;
 
 				text += entry(src, dst, c[2], c[3]);
 				want[key] = (want[key] ?? 0) + c[2] + c[3];
