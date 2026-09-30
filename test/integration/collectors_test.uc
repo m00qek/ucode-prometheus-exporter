@@ -4,7 +4,7 @@
 // and a package whose dependencies cover its needs and commands.
 
 import { describe, it, assert } from 'utest';
-import { readfile, lsdir } from 'fs';
+import { readfile, lsdir, popen } from 'fs';
 import * as loader from 'node_exporter.loader';
 
 const SOURCES = 'src/node_exporter/collectors';
@@ -72,6 +72,33 @@ function checks(id) {
 		});
 	});
 }
+
+// The group packages: { name, members }, members by collector name.
+function groups() {
+	let p = popen('devenv/scripts/package-info.sh groups', 'r');
+	let out = p.read('all');
+	p.close();
+
+	return map(filter(split(out, '\n'), length), (l) => {
+		let w = split(l, ' ');
+		return { name: w[0], members: slice(w, 1) };
+	});
+}
+
+describe('groups', () => {
+	it('are there', () => {
+		assert.match([ 'full', 'hardware', 'network', 'wireless' ], sort(map(groups(), (g) => g.name)));
+	});
+
+	it('are made of collector subpackages, each once', () => {
+		let subpackages = map(IDS, (id) => subpackage(id)?.name);
+
+		for (let g in groups()) {
+			assert.match([], filter(g.members, (m) => !(m in subpackages)), `${g.name}: not a collector subpackage`);
+			assert.match(length(uniq(g.members)), length(g.members), `${g.name}: a collector twice`);
+		}
+	});
+});
 
 describe('collectors', () => {
 	it('are there', () => {

@@ -20,14 +20,33 @@ check() {
 }
 
 [ -f "$BASE" ] || { echo "no $BASE (run make package)" >&2; exit 1; }
+GROUPS=$(/exporter/devenv/scripts/package-info.sh groups | cut -d' ' -f1)
 SUBS=$(ls /artifacts/$NAME-*-$PKG_FULLVERSION.apk 2>/dev/null)
+is_group() { for g in $GROUPS; do [ "$1" = "/artifacts/$NAME-$g-$PKG_FULLVERSION.apk" ] && return 0; done; return 1; }
+COLLECTOR_PKGS=$(for s in $SUBS; do is_group "$s" || echo "$s"; done)
 echo "checking $BASE" $SUBS
 
 check "installs offline" apk add --allow-untrusted --no-network "$BASE" $SUBS
 installed() { ls $COLLECTORS/*.uc | wc -l; }
 all_base_installed() { for c in $BASE_COLLECTORS; do [ -f "$COLLECTORS/$c.uc" ] || return 1; done; }
 check "installs the base collectors" all_base_installed
-check "installs one collector per subpackage" test "$(installed)" -eq $(($(echo $BASE_COLLECTORS | wc -w) + $(echo $SUBS | wc -w)))
+check "installs one collector per subpackage" test "$(installed)" -eq $(($(echo $BASE_COLLECTORS | wc -w) + $(echo $COLLECTOR_PKGS | wc -w)))
+
+# A group depends on the exporter and exactly its collectors' packages (and the
+# libc every package does), and installs no files but apk's own list of them.
+group_is() {
+	g=$1; shift
+	want=$(for c in "$@"; do echo "$NAME-$c"; done; echo "$NAME"; echo libc)
+	have=$(apk info -R "$NAME-$g" 2>/dev/null | tail -n +2 | sed 's/[<>=~].*//' | grep -v '^$')
+	files=$(apk info -L "$NAME-$g" 2>/dev/null | tail -n +2 | grep -v -e '^$' -e '^lib/apk/packages/')
+	[ "$(echo "$want" | sort -u)" = "$(echo "$have" | sort -u)" ] && [ -z "$files" ]
+}
+# Not in a pipeline: check() counts failures, which a subshell would lose.
+while read -r g members; do
+	check "the $g group is its collectors" group_is "$g" $members
+done <<EOF
+$(/exporter/devenv/scripts/package-info.sh groups)
+EOF
 check "keeps its config as a conffile" test -f /etc/config/$NAME
 check "the init script parses" sh -n /etc/init.d/$NAME
 

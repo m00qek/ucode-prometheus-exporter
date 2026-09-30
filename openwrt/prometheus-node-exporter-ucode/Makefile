@@ -98,3 +98,38 @@ $(eval $(call Collector,uci_dhcp_host,uci_dhcp_host,static DHCP leases,))
 $(eval $(call Collector,wifi,wifi,Wi-Fi radios networks and stations,+ucode-mod-nl80211))
 $(eval $(call Collector,wifi_stations,wifi_stations,Wi-Fi stations,+ucode-mod-nl80211))
 $(eval $(call Collector,wireguard,wireguard,WireGuard interfaces and peers,+rpcd-mod-wireguard))
+
+# $(1): the group's name (the package suffix), $(2): what it is for, $(3): the
+# names of its collectors. A group installs no files of its own, only its
+# collectors: removing it from a device's world lets apk remove them too.
+define Group
+  define Package/$(PKG_NAME)-$(1)
+    $$(call Package/$(PKG_NAME)/Default)
+    TITLE+= ($(2))
+    DEPENDS:=+$(PKG_NAME) $(foreach c,$(3),+$(PKG_NAME)-$(c))
+    EXTRA_DEPENDS:=$(PKG_NAME) (=$(PKG_VERSION)-r$(PKG_RELEASE))
+  endef
+
+  define Package/$(PKG_NAME)-$(1)/description
+  The collectors for $(2): $(3).
+  endef
+
+  # Empty, but defined: a package without an install step is not built.
+  define Package/$(PKG_NAME)-$(1)/install
+	true
+  endef
+
+  $$(eval $$(call BuildPackage,$(PKG_NAME)-$(1)))
+endef
+
+NETWORK_GROUP:=ethtool nat_traffic netstat nft-counters snmp6
+# Not wifi_stations, which repeats the station metrics of wifi, nor dawn, which needs DAWN.
+WIRELESS_GROUP:=hostapd_stations hostapd_ubus_stations wifi
+HARDWARE_GROUP:=filesystem hwmon thermal
+# Not the collectors of particular hardware or services: DSL, PoE, bmx7, mwan3, ModemManager, airOS.
+FULL_GROUP:=$(NETWORK_GROUP) $(WIRELESS_GROUP) $(HARDWARE_GROUP) dnsmasq openwrt textfile uci_dhcp_host wireguard
+
+$(eval $(call Group,network,network statistics,$(NETWORK_GROUP)))
+$(eval $(call Group,wireless,Wi-Fi,$(WIRELESS_GROUP)))
+$(eval $(call Group,hardware,hardware and filesystems,$(HARDWARE_GROUP)))
+$(eval $(call Group,full,a router or access point,$(FULL_GROUP)))
