@@ -78,3 +78,6 @@ ubus hostapd.phy1-ap1 get_clients
 # printed with %.J. test/fixtures/synthetic/ holds replies no device here has:
 # ubus/dawn.get_network.json is laid out as DAWN's build_network_overview()
 # (src/utils/ubus.c, DAWN 7414c34) writes it.
+ubus dnsmasq metrics
+ubus wireguard status
+ubus mwan3 status {"section":"interfaces"}
