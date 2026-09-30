@@ -3,10 +3,17 @@
 #   ubus OBJECT METHOD [ARGS]   the reply, saved as ubus/OBJECT.METHOD.json
 # Captured by hand, MAC addresses redacted as in the sysfs captures:
 #   rtnl/RTM_GETLINK.json  ucode -e 'import {request,"const" as c} from "rtnl"; let r = request(c.RTM_GETLINK, c.NLM_F_DUMP, {});
-#                          for (let l in r) { delete l.af_spec; delete l.stats64; delete l.stats; } printf("%.2J\n", r);'
+#                          for (let l in r) { delete l.af_spec; delete l.stats; } printf("%.2J\n", r);'
 # Made up, for what the devices do not have: test/fixtures/synthetic/.
 file /proc/loadavg
 ubus system board
+file /proc/stat
+file /proc/meminfo
+file /proc/sys/net/netfilter/nf_conntrack_count
+file /proc/sys/net/netfilter/nf_conntrack_max
+file /proc/sys/kernel/random/entropy_avail
+file /proc/sys/kernel/random/poolsize
+file /proc/sys/fs/file-nr
 file /proc/sys/kernel/arch
 file /proc/sys/kernel/domainname
 file /proc/sys/kernel/hostname

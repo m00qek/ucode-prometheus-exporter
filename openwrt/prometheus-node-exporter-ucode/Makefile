@@ -13,7 +13,7 @@ include $(INCLUDE_DIR)/package.mk
 COLLECTORS_DIR:=/usr/share/ucode/node_exporter/collectors
 
 # Installed with the exporter itself; every other collector is a subpackage.
-BASE_COLLECTORS:=loadavg netclass selinux time uname
+BASE_COLLECTORS:=conntrack cpu entropy filefd loadavg meminfo netclass netdev selinux time uname
 
 define Package/$(PKG_NAME)/Default
   SECTION:=utils
