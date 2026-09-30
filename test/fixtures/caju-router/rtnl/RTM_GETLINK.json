@@ -1,0 +1,292 @@
+[
+  {
+    "family": 0,
+    "type": 772,
+    "dev": "lo",
+    "flags": 65609,
+    "change": [
+      0,
+      196615
+    ],
+    "address": "00:00:00:00:00:00",
+    "broadcast": "00:00:00:00:00:00",
+    "txqlen": 1000,
+    "mtu": 65536,
+    "carrier": true,
+    "linkmode": 0,
+    "operstate": 0,
+    "num_tx_queues": 1,
+    "num_rx_queues": 1,
+    "proto_down": false,
+    "group": 0,
+    "ifname": "lo"
+  },
+  {
+    "family": 0,
+    "type": 1,
+    "dev": "eth0",
+    "flags": 69699,
+    "change": [
+      0,
+      196617
+    ],
+    "address": "02:00:00:00:01:01",
+    "broadcast": "ff:ff:ff:ff:ff:ff",
+    "txqlen": 1000,
+    "mtu": 1500,
+    "carrier": true,
+    "linkmode": 0,
+    "operstate": 6,
+    "num_tx_queues": 1,
+    "num_rx_queues": 1,
+    "proto_down": false,
+    "group": 0,
+    "ifname": "eth0"
+  },
+  {
+    "family": 0,
+    "type": 1,
+    "dev": "eth1",
+    "flags": 69699,
+    "change": [
+      0,
+      196617
+    ],
+    "address": "02:00:00:00:01:02",
+    "broadcast": "ff:ff:ff:ff:ff:ff",
+    "txqlen": 1000,
+    "mtu": 1500,
+    "carrier": true,
+    "linkmode": 0,
+    "operstate": 6,
+    "num_tx_queues": 1,
+    "num_rx_queues": 1,
+    "proto_down": false,
+    "group": 0,
+    "ifname": "eth1"
+  },
+  {
+    "family": 0,
+    "type": 1,
+    "dev": "vlan-guest",
+    "flags": 69699,
+    "change": [
+      0,
+      196623
+    ],
+    "address": "02:00:00:00:01:01",
+    "broadcast": "ff:ff:ff:ff:ff:ff",
+    "txqlen": 1000,
+    "mtu": 1500,
+    "carrier": true,
+    "linkmode": 0,
+    "operstate": 6,
+    "num_tx_queues": 1,
+    "num_rx_queues": 1,
+    "proto_down": false,
+    "group": 0,
+    "link": "eth0",
+    "ifname": "vlan-guest",
+    "linkinfo": {
+      "type": "vlan",
+      "flags": [
+        1,
+        4294967295
+      ],
+      "id": 19,
+      "protocol": 129
+    }
+  },
+  {
+    "family": 0,
+    "type": 1,
+    "dev": "vlan-iot",
+    "flags": 69699,
+    "change": [
+      0,
+      196621
+    ],
+    "address": "02:00:00:00:01:01",
+    "broadcast": "ff:ff:ff:ff:ff:ff",
+    "txqlen": 1000,
+    "mtu": 1500,
+    "carrier": true,
+    "linkmode": 0,
+    "operstate": 6,
+    "num_tx_queues": 1,
+    "num_rx_queues": 1,
+    "proto_down": false,
+    "group": 0,
+    "link": "eth0",
+    "ifname": "vlan-iot",
+    "linkinfo": {
+      "type": "vlan",
+      "flags": [
+        1,
+        4294967295
+      ],
+      "id": 17,
+      "protocol": 129
+    }
+  },
+  {
+    "family": 0,
+    "type": 1,
+    "dev": "vlan-main",
+    "flags": 69699,
+    "change": [
+      0,
+      196622
+    ],
+    "address": "02:00:00:00:01:01",
+    "broadcast": "ff:ff:ff:ff:ff:ff",
+    "txqlen": 1000,
+    "mtu": 1500,
+    "carrier": true,
+    "linkmode": 0,
+    "operstate": 6,
+    "num_tx_queues": 1,
+    "num_rx_queues": 1,
+    "proto_down": false,
+    "group": 0,
+    "link": "eth0",
+    "ifname": "vlan-main",
+    "linkinfo": {
+      "type": "vlan",
+      "flags": [
+        1,
+        4294967295
+      ],
+      "id": 13,
+      "protocol": 129
+    }
+  },
+  {
+    "family": 0,
+    "type": 1,
+    "dev": "vlan-mgmt",
+    "flags": 69699,
+    "change": [
+      0,
+      196622
+    ],
+    "address": "02:00:00:00:01:01",
+    "broadcast": "ff:ff:ff:ff:ff:ff",
+    "txqlen": 1000,
+    "mtu": 1500,
+    "carrier": true,
+    "linkmode": 0,
+    "operstate": 6,
+    "num_tx_queues": 1,
+    "num_rx_queues": 1,
+    "proto_down": false,
+    "group": 0,
+    "link": "eth0",
+    "ifname": "vlan-mgmt",
+    "linkinfo": {
+      "type": "vlan",
+      "flags": [
+        1,
+        4294967295
+      ],
+      "id": 11,
+      "protocol": 129
+    }
+  },
+  {
+    "family": 0,
+    "type": 1,
+    "dev": "ifb4vlan-guest",
+    "flags": 65731,
+    "change": [
+      0,
+      196627
+    ],
+    "address": "02:00:00:00:01:04",
+    "broadcast": "ff:ff:ff:ff:ff:ff",
+    "txqlen": 32,
+    "mtu": 1500,
+    "carrier": true,
+    "linkmode": 0,
+    "operstate": 0,
+    "num_tx_queues": 1,
+    "num_rx_queues": 1,
+    "proto_down": false,
+    "group": 0,
+    "ifname": "ifb4vlan-guest",
+    "linkinfo": {
+      "type": "ifb"
+    }
+  },
+  {
+    "family": 0,
+    "type": 65534,
+    "dev": "wg_mesh",
+    "flags": 65745,
+    "change": [
+      0,
+      196620
+    ],
+    "txqlen": 1000,
+    "mtu": 1220,
+    "carrier": true,
+    "linkmode": 0,
+    "operstate": 0,
+    "num_tx_queues": 1,
+    "num_rx_queues": 1,
+    "proto_down": false,
+    "group": 0,
+    "ifname": "wg_mesh",
+    "linkinfo": {
+      "type": "wireguard"
+    }
+  },
+  {
+    "family": 0,
+    "type": 65534,
+    "dev": "lan2playground",
+    "flags": 65745,
+    "change": [
+      0,
+      196627
+    ],
+    "txqlen": 1000,
+    "mtu": 1280,
+    "carrier": true,
+    "linkmode": 0,
+    "operstate": 0,
+    "num_tx_queues": 1,
+    "num_rx_queues": 1,
+    "proto_down": false,
+    "group": 0,
+    "ifname": "lan2playground",
+    "linkinfo": {
+      "type": "wireguard"
+    }
+  },
+  {
+    "family": 0,
+    "type": 1,
+    "dev": "ifb4eth1",
+    "flags": 65731,
+    "change": [
+      0,
+      196621
+    ],
+    "address": "02:00:00:00:01:03",
+    "broadcast": "ff:ff:ff:ff:ff:ff",
+    "txqlen": 32,
+    "mtu": 1500,
+    "carrier": true,
+    "linkmode": 0,
+    "operstate": 0,
+    "num_tx_queues": 1,
+    "num_rx_queues": 1,
+    "proto_down": false,
+    "group": 0,
+    "ifname": "ifb4eth1",
+    "linkinfo": {
+      "type": "ifb"
+    }
+  }
+]

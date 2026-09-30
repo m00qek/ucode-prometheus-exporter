@@ -1,5 +1,38 @@
 # What `make fixtures` reads from a device, one source per line:
 #   file PATH           the file, or every file the glob matches (unreadable ones are skipped)
 #   ubus OBJECT METHOD [ARGS]   the reply, saved as ubus/OBJECT.METHOD.json
+# Captured by hand, MAC addresses redacted as in the sysfs captures:
+#   rtnl/RTM_GETLINK.json  ucode -e 'import {request,"const" as c} from "rtnl"; let r = request(c.RTM_GETLINK, c.NLM_F_DUMP, {});
+#                          for (let l in r) { delete l.af_spec; delete l.stats64; delete l.stats; } printf("%.2J\n", r);'
+# Made up, for what the devices do not have: test/fixtures/synthetic/.
 file /proc/loadavg
 ubus system board
+file /proc/sys/kernel/arch
+file /proc/sys/kernel/domainname
+file /proc/sys/kernel/hostname
+file /proc/sys/kernel/osrelease
+file /proc/sys/kernel/ostype
+file /proc/sys/kernel/version
+file /sys/class/net/*/addr_assign_type
+file /sys/class/net/*/address
+file /sys/class/net/*/broadcast
+file /sys/class/net/*/carrier
+file /sys/class/net/*/carrier_changes
+file /sys/class/net/*/carrier_down_count
+file /sys/class/net/*/carrier_up_count
+file /sys/class/net/*/dev_id
+file /sys/class/net/*/dormant
+file /sys/class/net/*/duplex
+file /sys/class/net/*/flags
+file /sys/class/net/*/ifalias
+file /sys/class/net/*/ifindex
+file /sys/class/net/*/iflink
+file /sys/class/net/*/link_mode
+file /sys/class/net/*/mtu
+file /sys/class/net/*/name_assign_type
+file /sys/class/net/*/netdev_group
+file /sys/class/net/*/operstate
+file /sys/class/net/*/speed
+file /sys/class/net/*/tx_queue_len
+file /sys/class/net/*/type
+file /sys/fs/selinux/enforce
