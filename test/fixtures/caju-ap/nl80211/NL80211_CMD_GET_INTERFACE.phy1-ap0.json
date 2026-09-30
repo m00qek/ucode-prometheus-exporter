@@ -1,0 +1,15 @@
+{
+	"4addr": 0,
+	"center_freq1": 5775,
+	"channel_width": 3,
+	"dev": "phy1-ap0",
+	"ifname": "phy1-ap0",
+	"iftype": 3,
+	"mac": "02:00:00:00:a0:02",
+	"ssid": "guest",
+	"wdev": 4294967297,
+	"wiphy": 1,
+	"wiphy_freq": 5745,
+	"wiphy_tx_power_level": 2700,
+	"vif_radio_mask": 0
+}

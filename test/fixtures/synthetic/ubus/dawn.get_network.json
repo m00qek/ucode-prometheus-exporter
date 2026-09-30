@@ -1,0 +1,74 @@
+{
+	"home": {
+		"02:00:00:00:A0:03": {
+			"channel": 149,
+			"freq": 5745,
+			"channel_utilization": 17,
+			"num_sta": 2,
+			"ht_support": true,
+			"vht_support": true,
+			"op_class": 128,
+			"local": true,
+			"neighbor_report": "02000000a0038f090000809509",
+			"iface": "phy1-ap1",
+			"hostname": "ap-hall",
+			"02:00:00:00:00:02": {
+				"ht": true,
+				"vht": true,
+				"rrm-caps": ".TAP..NL",
+				"signal": -81,
+				"rcpi": 58,
+				"rsni": 0
+			},
+			"02:00:00:00:00:05": {
+				"ht": true,
+				"vht": true,
+				"rrm-caps": "........"
+			}
+		},
+		"02:00:00:00:B0:01": {
+			"channel": 36,
+			"freq": 5180,
+			"channel_utilization": 40,
+			"num_sta": 1,
+			"ht_support": true,
+			"vht_support": true,
+			"op_class": 128,
+			"local": false,
+			"neighbor_report": "02000000b0018f090000802409",
+			"iface": "phy1-ap0",
+			"hostname": "ap-neighbour",
+			"02:00:00:00:00:06": {
+				"ht": true,
+				"vht": true,
+				"rrm-caps": "........",
+				"signal": -60,
+				"rcpi": 100,
+				"rsni": 0
+			}
+		}
+	},
+	"iot": {
+		"02:00:00:00:A0:01": {
+			"channel": 11,
+			"freq": 2462,
+			"channel_utilization": 169,
+			"num_sta": 1,
+			"ht_support": true,
+			"vht_support": false,
+			"op_class": 81,
+			"local": true,
+			"neighbor_report": "02000000a0018f090000510b07",
+			"iface": "phy0-ap0",
+			"hostname": "ap-hall",
+			"02:00:00:00:00:01": {
+				"ht": true,
+				"vht": false,
+				"rrm-caps": "........",
+				"signal": -64,
+				"rcpi": 92,
+				"rsni": 0
+			}
+		}
+	}
+}

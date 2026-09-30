@@ -74,4 +74,9 @@ define Collector
   $$(eval $$(call BuildPackage,$(PKG_NAME)-$(2)))
 endef
 
+$(eval $(call Collector,dawn,dawn,DAWN access points and clients,))
+$(eval $(call Collector,hostapd_stations,hostapd_stations,hostapd stations,))
+$(eval $(call Collector,hostapd_ubus_stations,hostapd_ubus_stations,hostapd station radio measurement capabilities,))
 $(eval $(call Collector,openwrt,openwrt,OpenWrt release and board,))
+$(eval $(call Collector,wifi,wifi,Wi-Fi radios networks and stations,+ucode-mod-nl80211))
+$(eval $(call Collector,wifi_stations,wifi_stations,Wi-Fi stations,+ucode-mod-nl80211))

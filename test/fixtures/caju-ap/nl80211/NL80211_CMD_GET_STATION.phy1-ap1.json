@@ -1,0 +1,1365 @@
+[
+	{
+		"dev": "phy1-ap1",
+		"mac": "02:00:00:00:00:03",
+		"sta_info": {
+			"inactive_time": 23310,
+			"rx_bytes": 4873383,
+			"tx_bytes": 9616361,
+			"rx_bytes64": 4873383,
+			"tx_bytes64": 9616361,
+			"rx_packets": 15846,
+			"tx_packets": 14302,
+			"signal": -73,
+			"tx_bitrate": {
+				"bitrate": 2882,
+				"bitrate32": 2882,
+				"he_mcs": 3,
+				"he_nss": 2,
+				"he_gi": 0,
+				"he_dcm": 0,
+				"width_80": true
+			},
+			"rx_bitrate": {
+				"bitrate": 4323,
+				"bitrate32": 4323,
+				"he_mcs": 4,
+				"he_nss": 2,
+				"he_gi": 0,
+				"he_dcm": 0,
+				"width_80": true
+			},
+			"tx_retries": 3375,
+			"tx_failed": 3376,
+			"rx_drop_misc": 3,
+			"sta_flags": [
+				254,
+				170
+			],
+			"chain_signal": [
+				-75,
+				-76
+			],
+			"chain_signal_avg": [
+				-75,
+				-76
+			],
+			"tid_stats": [
+				{
+					"rx_msdu": 12054,
+					"tx_msdu": 1,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 11016,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 6,
+						"tx_bytes": 9206820,
+						"tx_packets": 13749
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 0,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 0,
+						"tx_packets": 0
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 0,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 0,
+						"tx_packets": 0
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 0,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 0,
+						"tx_packets": 0
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 472,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 286,
+						"tx_bytes": 405503,
+						"tx_packets": 535
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 0,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 0,
+						"tx_packets": 0
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 0,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 0,
+						"tx_packets": 0
+					}
+				},
+				{
+					"rx_msdu": 2,
+					"tx_msdu": 2,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 5,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 1858,
+						"tx_packets": 5
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 0,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 0,
+						"tx_packets": 0
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 0,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 0,
+						"tx_packets": 0
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 0,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 0,
+						"tx_packets": 0
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 0,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 0,
+						"tx_packets": 0
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 0,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 0,
+						"tx_packets": 0
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 0,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 0,
+						"tx_packets": 0
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 0,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 0,
+						"tx_packets": 0
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 0,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 0,
+						"tx_packets": 0
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 13,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0
+				}
+			],
+			"bss_param": {
+				"short_slot_time": true,
+				"dtim_period": 2,
+				"beacon_interval": 100
+			},
+			"rx_duration": 1328701,
+			"tx_duration": 1885797,
+			"ack_signal": -75,
+			"ack_signal_avg": -74,
+			"airtime_weight": 256,
+			"connected_time": 12024,
+			"assoc_at_boottime": 68871701772,
+			"expected_throughput": 252360,
+			"signal_avg": -73
+		}
+	},
+	{
+		"dev": "phy1-ap1",
+		"mac": "02:00:00:00:00:02",
+		"sta_info": {
+			"inactive_time": 140,
+			"rx_bytes": 48422804,
+			"tx_bytes": 480803379,
+			"rx_bytes64": 48422804,
+			"tx_bytes64": 480803379,
+			"rx_packets": 153592,
+			"tx_packets": 418802,
+			"signal": -81,
+			"tx_bitrate": {
+				"bitrate": 6485,
+				"bitrate32": 6485,
+				"he_mcs": 6,
+				"he_nss": 2,
+				"he_gi": 0,
+				"he_dcm": 0,
+				"width_80": true
+			},
+			"rx_bitrate": {
+				"bitrate": 1441,
+				"bitrate32": 1441,
+				"he_mcs": 1,
+				"he_nss": 2,
+				"he_gi": 0,
+				"he_dcm": 0,
+				"width_80": true
+			},
+			"tx_retries": 22470,
+			"tx_failed": 22470,
+			"rx_drop_misc": 5,
+			"sta_flags": [
+				254,
+				170
+			],
+			"chain_signal": [
+				-83,
+				-85
+			],
+			"chain_signal_avg": [
+				-82,
+				-87
+			],
+			"tid_stats": [
+				{
+					"rx_msdu": 143225,
+					"tx_msdu": 1,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 165497,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 2871,
+						"tx_bytes": 426366926,
+						"tx_packets": 376607
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 1,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 6,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 5,
+						"tx_bytes": 5936,
+						"tx_packets": 6
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 0,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 0,
+						"tx_packets": 0
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 0,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 0,
+						"tx_packets": 0
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 26080,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 9924,
+						"tx_bytes": 54411456,
+						"tx_packets": 41984
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 0,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 0,
+						"tx_packets": 0
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 179,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 14681,
+						"tx_packets": 184
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 2,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 12,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 3882,
+						"tx_packets": 12
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 0,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 0,
+						"tx_packets": 0
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 0,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 0,
+						"tx_packets": 0
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 0,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 0,
+						"tx_packets": 0
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 0,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 0,
+						"tx_packets": 0
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 0,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 0,
+						"tx_packets": 0
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 0,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 0,
+						"tx_packets": 0
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 0,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 0,
+						"tx_packets": 0
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 0,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 0,
+						"tx_packets": 0
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 9,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0
+				}
+			],
+			"bss_param": {
+				"short_slot_time": true,
+				"dtim_period": 2,
+				"beacon_interval": 100
+			},
+			"rx_duration": 11662357,
+			"tx_duration": 24327172,
+			"ack_signal": -81,
+			"ack_signal_avg": -80,
+			"airtime_weight": 256,
+			"connected_time": 8628,
+			"assoc_at_boottime": 3464092682460,
+			"expected_throughput": 564848,
+			"signal_avg": -81
+		}
+	},
+	{
+		"dev": "phy1-ap1",
+		"mac": "02:00:00:00:00:04",
+		"sta_info": {
+			"inactive_time": 37500,
+			"rx_bytes": 3744045,
+			"tx_bytes": 13015496,
+			"rx_bytes64": 3744045,
+			"tx_bytes64": 13015496,
+			"rx_packets": 16535,
+			"tx_packets": 14812,
+			"signal": -84,
+			"tx_bitrate": {
+				"bitrate": 3242,
+				"bitrate32": 3242,
+				"he_mcs": 6,
+				"he_nss": 1,
+				"he_gi": 0,
+				"he_dcm": 0,
+				"width_80": true
+			},
+			"rx_bitrate": {
+				"bitrate": 81,
+				"bitrate32": 81,
+				"he_mcs": 0,
+				"he_nss": 1,
+				"he_gi": 1,
+				"he_dcm": 0
+			},
+			"tx_retries": 1219,
+			"tx_failed": 1219,
+			"rx_drop_misc": 16,
+			"sta_flags": [
+				254,
+				170
+			],
+			"chain_signal": [
+				-85,
+				-88
+			],
+			"chain_signal_avg": [
+				-85,
+				-88
+			],
+			"tid_stats": [
+				{
+					"rx_msdu": 13121,
+					"tx_msdu": 1,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 9825,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 8,
+						"tx_bytes": 12799371,
+						"tx_packets": 14445
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 0,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 0,
+						"tx_packets": 0
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 0,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 0,
+						"tx_packets": 0
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 0,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 0,
+						"tx_packets": 0
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 80,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 54,
+						"tx_bytes": 136783,
+						"tx_packets": 108
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 0,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 0,
+						"tx_packets": 0
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 156,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 51614,
+						"tx_packets": 156
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 2,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 3,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 678,
+						"tx_packets": 3
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 0,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 0,
+						"tx_packets": 0
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 0,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 0,
+						"tx_packets": 0
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 0,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 0,
+						"tx_packets": 0
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 0,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 0,
+						"tx_packets": 0
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 0,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 0,
+						"tx_packets": 0
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 0,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 0,
+						"tx_packets": 0
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 0,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 0,
+						"tx_packets": 0
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 0,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 0,
+						"tx_packets": 0
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 100,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0
+				}
+			],
+			"bss_param": {
+				"short_slot_time": true,
+				"dtim_period": 2,
+				"beacon_interval": 100
+			},
+			"rx_duration": 1936471,
+			"tx_duration": 1598312,
+			"ack_signal": -77,
+			"ack_signal_avg": -77,
+			"airtime_weight": 256,
+			"connected_time": 5271,
+			"assoc_at_boottime": 6822006734945,
+			"expected_throughput": 283752,
+			"signal_avg": -84
+		}
+	},
+	{
+		"dev": "phy1-ap1",
+		"mac": "02:00:00:00:00:05",
+		"sta_info": {
+			"inactive_time": 15200,
+			"rx_bytes": 2422352,
+			"tx_bytes": 103585072,
+			"rx_bytes64": 2422352,
+			"tx_bytes64": 103585072,
+			"rx_packets": 10924,
+			"tx_packets": 72070,
+			"signal": -72,
+			"tx_bitrate": {
+				"bitrate": 4323,
+				"bitrate32": 4323,
+				"he_mcs": 4,
+				"he_nss": 2,
+				"he_gi": 0,
+				"he_dcm": 0,
+				"width_80": true
+			},
+			"rx_bitrate": {
+				"bitrate": 1441,
+				"bitrate32": 1441,
+				"he_mcs": 3,
+				"he_nss": 1,
+				"he_gi": 0,
+				"he_dcm": 0,
+				"width_80": true
+			},
+			"tx_retries": 5603,
+			"tx_failed": 5603,
+			"rx_drop_misc": 4,
+			"sta_flags": [
+				254,
+				170
+			],
+			"chain_signal": [
+				-72,
+				-84
+			],
+			"chain_signal_avg": [
+				-74,
+				-84
+			],
+			"tid_stats": [
+				{
+					"rx_msdu": 9828,
+					"tx_msdu": 1,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 40182,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 12,
+						"tx_bytes": 103546600,
+						"tx_packets": 71919
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 0,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 0,
+						"tx_packets": 0
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 0,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 0,
+						"tx_packets": 0
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 0,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 0,
+						"tx_packets": 0
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 5,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 4,
+						"tx_bytes": 5100,
+						"tx_packets": 6
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 0,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 0,
+						"tx_packets": 0
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 133,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 32196,
+						"tx_packets": 133
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 2,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 3,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 678,
+						"tx_packets": 3
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 0,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 0,
+						"tx_packets": 0
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 0,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 0,
+						"tx_packets": 0
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 0,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 0,
+						"tx_packets": 0
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 0,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 0,
+						"tx_packets": 0
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 0,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 0,
+						"tx_packets": 0
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 0,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 0,
+						"tx_packets": 0
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 0,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 0,
+						"tx_packets": 0
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 0,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0,
+					"txq_stats": {
+						"backlog_bytes": 0,
+						"backlog_packets": 0,
+						"flows": 0,
+						"drops": 0,
+						"ecn_marks": 0,
+						"overlimit": 0,
+						"collisions": 0,
+						"tx_bytes": 0,
+						"tx_packets": 0
+					}
+				},
+				{
+					"rx_msdu": 0,
+					"tx_msdu": 9,
+					"tx_msdu_retries": 0,
+					"tx_msdu_failed": 0
+				}
+			],
+			"bss_param": {
+				"short_slot_time": true,
+				"dtim_period": 2,
+				"beacon_interval": 100
+			},
+			"rx_duration": 1094713,
+			"tx_duration": 4420160,
+			"ack_signal": -78,
+			"ack_signal_avg": -78,
+			"airtime_weight": 256,
+			"connected_time": 5265,
+			"assoc_at_boottime": 6827467380101,
+			"expected_throughput": 382872,
+			"signal_avg": -74
+		}
+	}
+]
