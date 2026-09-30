@@ -5,7 +5,9 @@
 set -u
 
 : "${PKG_FULLVERSION:?run through make package-check}"
+: "${BASE_COLLECTORS:?run through make package-check}"
 NAME=prometheus-node-exporter-ucode
+COLLECTORS=/usr/share/ucode/node_exporter/collectors
 BASE=/artifacts/$NAME-$PKG_FULLVERSION.apk
 URL=http://127.0.0.1:9101/metrics
 failures=0
@@ -22,11 +24,14 @@ SUBS=$(ls /artifacts/$NAME-*-$PKG_FULLVERSION.apk 2>/dev/null)
 echo "checking $BASE" $SUBS
 
 check "installs offline" apk add --allow-untrusted --no-network "$BASE" $SUBS
-check "installs the base collectors" test -f /usr/share/ucode/node_exporter/collectors/loadavg.uc
+installed() { ls $COLLECTORS/*.uc | wc -l; }
+all_base_installed() { for c in $BASE_COLLECTORS; do [ -f "$COLLECTORS/$c.uc" ] || return 1; done; }
+check "installs the base collectors" all_base_installed
+check "installs one collector per subpackage" test "$(installed)" -eq $(($(echo $BASE_COLLECTORS | wc -w) + $(echo $SUBS | wc -w)))
 check "keeps its config as a conffile" test -f /etc/config/$NAME
 check "the init script parses" sh -n /etc/init.d/$NAME
 
-check "the command line lists the collectors" sh -c "$NAME -l | grep -q '^loadavg '"
+check "every installed collector loads" test "$($NAME -l 2>/dev/null | wc -l)" -eq "$(installed)"
 check "the command line scrapes" sh -c "$NAME loadavg | grep -q '^node_load1 '"
 
 # What the init script starts, less procd's jail; procd's `system` object is a
@@ -47,7 +52,11 @@ valid() {
 }
 
 check "uhttpd serves valid exposition text" valid
-check "every installed collector succeeds" sh -c "! grep -q 'node_scrape_collector_success{.*} 0' /tmp/metrics"
+base_succeed() { for c in $BASE_COLLECTORS; do grep -q "^node_scrape_collector_success{collector=\"$c\"} 1$" /tmp/metrics || return 1; done; }
+# Subpackage collectors read hardware and services a container lacks: they only
+# have to answer. The base ones have what they need here.
+check "every installed collector answers" test "$(grep -c '^node_scrape_collector_success{' /tmp/metrics)" -eq "$(installed)"
+check "every base collector succeeds" base_succeed
 check "the openwrt collector reads the board over ubus" grep -q '^node_openwrt_info{board_name="friendlyarm,nanopi-r5c",' /tmp/metrics
 check "a query selects collectors" sh -c "fetch() { wget -q -O - \"\$1\"; }; fetch '$URL?collect[]=loadavg' | grep -q 'collector=\"loadavg\"' && ! fetch '$URL?collect[]=loadavg' | grep -q 'collector=\"openwrt\"'"
 check "an unknown collector is refused" sh -c "! wget -q -O /dev/null '$URL?collect[]=nope'"
