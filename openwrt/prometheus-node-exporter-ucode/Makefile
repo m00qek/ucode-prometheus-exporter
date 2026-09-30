@@ -74,4 +74,9 @@ define Collector
   $$(eval $$(call BuildPackage,$(PKG_NAME)-$(2)))
 endef
 
+$(eval $(call Collector,ethtool,ethtool,network driver statistics,+ethtool))
+$(eval $(call Collector,nat_traffic,nat_traffic,conntrack bytes per address pair,))
+$(eval $(call Collector,netstat,netstat,protocol statistics,))
+$(eval $(call Collector,nft_counters,nft-counters,nftables counters,+nftables-json))
 $(eval $(call Collector,openwrt,openwrt,OpenWrt release and board,))
+$(eval $(call Collector,snmp6,snmp6,IPv6 statistics,))

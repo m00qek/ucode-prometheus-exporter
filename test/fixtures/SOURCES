@@ -3,3 +3,11 @@
 #   ubus OBJECT METHOD [ARGS]   the reply, saved as ubus/OBJECT.METHOD.json
 file /proc/loadavg
 ubus system board
+file /proc/net/netstat
+file /proc/net/snmp
+file /proc/net/snmp6
+file /proc/net/dev_snmp6/*
+file /proc/net/dev
+# Captured by hand, with public addresses redacted, not by make fixtures:
+#   /proc/net/nf_conntrack       (caju-router)
+#   commands/*.txt               the output of nft --json list counters and ethtool -S DEVICE

@@ -1,0 +1,5 @@
+NIC statistics:
+     rx_queue_0_packets: 2005
+     rx_queue_0_bytes: 360001
+     tx_queue_0_packets: 2005
+     tx_queue_0_bytes: 360001
