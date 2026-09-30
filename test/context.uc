@@ -5,7 +5,8 @@
 // the real ones.
 //
 // with_collector(mod, cfg, cb): run one collector module the way a scrape does,
-// with only its needs, and call cb with { result, text, lines, logs, families }.
+// with only its needs, and call cb with { result, text, lines, logs, families };
+// `logs` has what the scrape and the collector itself logged.
 // Its output must parse as exposition text, or the test fails.
 //
 // cfg: { fs, ubus, uci, rtnl, nl80211 }: each mock's config ({ data, commands, errors, ... });
@@ -72,8 +73,8 @@ export function with_collector(mod, cfg, cb) {
 		die(Result.describe(valid));
 
 	with_mods(cfg, function(mods) {
-		let session = deps.session(mods);
 		let logs = [];
+		let session = deps.session({ ...mods, log: (msg) => push(logs, msg) });
 		let env = { session: () => session, clock: () => [ 0, 0 ], log: (msg) => push(logs, msg) };
 		let run = scrape.run_one(env, session, valid.data);
 

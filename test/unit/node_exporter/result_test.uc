@@ -9,9 +9,9 @@ describe('result', () => {
 		assert.match(null, Result.ok().data);
 	});
 
-	it('err carries its code and details', () => {
-		let res = Result.err('SOURCE_INVALID', { line: 3 });
-		assert.match({ ok: false, error: 'SOURCE_INVALID', details: { line: 3 } }, { ...res });
+	it('err carries its code, details and data for the caller', () => {
+		assert.match({ ok: false, error: 'SOURCE_INVALID', details: { line: 3 }, data: null }, { ...Result.err('SOURCE_INVALID', { line: 3 }) });
+		assert.match({ status: 94 }, Result.err('COMMAND_FAILED', 'x', { status: 94 }).data);
 	});
 
 	it('is() tells a Result from a lookalike', () => {

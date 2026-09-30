@@ -13,7 +13,7 @@ export function create(log, dir) {
 	let mods = deps.modules();
 	let collectors = loader.load(mods.fs, dir ?? loader.DIR, loader.import_module, log);
 	let env = {
-		session: () => deps.session(mods),
+		session: () => deps.session({ ...mods, log }),
 		clock: () => clock(true),
 		log,
 	};

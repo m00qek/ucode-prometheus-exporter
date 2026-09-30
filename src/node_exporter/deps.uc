@@ -14,7 +14,7 @@ import { cursor } from 'uci';
 import * as Result from 'node_exporter.result';
 import * as errors from 'node_exporter.errors';
 
-export const NEEDS = [ 'fs', 'ubus', 'uci', 'rtnl', 'nl80211', 'exec', 'time' ];
+export const NEEDS = [ 'fs', 'ubus', 'uci', 'rtnl', 'nl80211', 'exec', 'time', 'log' ];
 
 // The functions of fs a collector may use. popen is exec's.
 export const FS_API = [ 'readfile', 'open', 'lsdir', 'glob', 'stat', 'realpath' ];
@@ -101,7 +101,8 @@ export function shell_quote(arg) {
 };
 
 // run(argv): the standard output of one of the `allowed` programs, run without a
-// shell's interpretation of its arguments. Its standard error is discarded.
+// shell's interpretation of its arguments. Its standard error is discarded. A
+// failure's data is { status }: the exit status, null when it could not start.
 export function exec_channel(popen_fn, allowed) {
 	return {
 		run: function(argv) {
@@ -112,20 +113,21 @@ export function exec_channel(popen_fn, allowed) {
 			let p = popen_fn(cmd + ' 2>/dev/null', 'r');
 
 			if (!p)
-				return Result.err(errors.COMMAND_FAILED, `${argv[0]}: cannot start`);
+				return Result.err(errors.COMMAND_FAILED, `${argv[0]}: cannot start`, { status: null });
 
 			let out = p.read('all');
 			let status = p.close();
 
 			return status == 0
 				? Result.ok(out)
-				: Result.err(errors.COMMAND_FAILED, `${argv[0]}: exit status ${status}`);
+				: Result.err(errors.COMMAND_FAILED, `${argv[0]}: exit status ${status}`, { status });
 		},
 	};
 };
 
 // One scrape's capabilities: a ubus connection and a uci cursor shared by its
-// collectors, and closed once it is over.
+// collectors, and closed once it is over. mods.log, the exporter's, takes what
+// collectors log, each line naming its collector.
 export function session(mods) {
 	let ubus = ubus_channel(mods.ubus.connect);
 	let uci = null;
@@ -148,6 +150,7 @@ export function session(mods) {
 		case 'nl80211': return mods.nl80211 ? nl80211_channel(mods.nl80211) : null;
 		case 'exec':    return exec_channel(mods.fs.popen, meta.commands ?? []);
 		case 'time':    return { now: mods.time };
+		case 'log':     return mods.log ? (msg) => mods.log(`collector '${meta.name}': ${msg}`) : null;
 		}
 	}
 

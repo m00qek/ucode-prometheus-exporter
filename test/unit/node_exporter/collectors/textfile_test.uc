@@ -67,7 +67,8 @@ describe('collectors.textfile', () => {
 	it('skips a file that is not valid exposition text whole, and still succeeds', () => {
 		with_collector(textfile, { fs: fs_of(FILES) }, (r) => {
 			assert.match(true, r.result.ok);
-			assert.match([], r.logs);
+			assert.match(1, length(r.logs));
+			assert.match(true, index(r.logs[0], `collector 'textfile': skipped ${TRUNCATED}: EXPOSITION_INVALID (line `) == 0, r.logs[0]);
 			assert.match(false, index(r.text, 'speedtest') >= 0);
 			assert.match([
 				'apk_upgradable_packages 3',
@@ -90,6 +91,7 @@ describe('collectors.textfile', () => {
 			assert.match(false, index(r.text, 'apk_') >= 0);
 			assert.match(true, index(r.text, 'node_textfile_mtime_seconds{file="/var/prometheus/backup.prom"}') >= 0);
 			assert.match(true, index(r.text, 'node_textfile_scrape_error 1') >= 0);
+			assert.match([ `collector 'textfile': skipped ${APK}: cannot be read` ], r.logs);
 		});
 	});
 
@@ -133,6 +135,21 @@ describe('collectors.textfile', () => {
 				'node_textfile_mtime_seconds{file="/var/prometheus/d.prom"} 0',
 				'node_textfile_scrape_error 1',
 			], samples(r.lines));
+			assert.match([
+				"collector 'textfile': skipped /var/prometheus/b.prom: gives jobs_total type untyped, an earlier file counter",
+				"collector 'textfile': skipped /var/prometheus/c.prom: gives jobs_total type gauge, an earlier file counter",
+			], r.logs);
+		});
+	});
+
+	it('skips a file that repeats a series an earlier file has', () => {
+		let data = {
+			'/var/prometheus/a.prom': '# TYPE jobs_total counter\njobs_total{job="x"} 1\n',
+			'/var/prometheus/b.prom': '# TYPE jobs_total counter\njobs_total{job="x"} 2\n',
+		};
+
+		with_collector(textfile, { fs: fs_of(data) }, (r) => {
+			assert.match([ "collector 'textfile': skipped /var/prometheus/b.prom: repeats a series of jobs_total" ], r.logs);
 		});
 	});
 
@@ -141,6 +158,7 @@ describe('collectors.textfile', () => {
 
 		with_collector(textfile, { fs: fs_of(data) }, (r) => {
 			assert.match([ 'node_textfile_scrape_error 1' ], samples(r.lines));
+			assert.match([ "collector 'textfile': skipped /var/prometheus/evil.prom: writes this collector's own node_textfile_scrape_error" ], r.logs);
 		});
 	});
 

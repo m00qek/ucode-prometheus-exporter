@@ -124,6 +124,7 @@ describe('deps.exec_channel', () => {
 
 		assert.match({ ok: false, error: 'COMMAND_FAILED', details: 'mmcli: exit status 1' }, brief(ch.run([ 'mmcli', '-L' ])));
 		assert.match({ ok: false, error: 'COMMAND_FAILED', details: 'nope: cannot start' }, brief(ch.run([ 'nope' ])));
+		assert.match([ { status: 1 }, { status: null } ], [ ch.run([ 'mmcli', '-L' ]).data, ch.run([ 'nope' ]).data ]);
 	});
 
 	prop('quotes any argument so a real shell passes it on unchanged', gen.ascii({ min_len: 0, max_len: 24 }), (arg) => {
@@ -173,6 +174,16 @@ describe('deps.session', () => {
 		});
 	});
 
+	it('names the collector in what it logs, and has no log without the exporter\'s', () => {
+		with_mods({}, (mods) => {
+			let seen = [];
+			deps.session({ ...mods, log: (m) => push(seen, m) }).for({ name: 'textfile', needs: [ 'log' ] }).data.log('skipped a.prom');
+
+			assert.match([ "collector 'textfile': skipped a.prom" ], seen);
+			assert.match('NEED_MISSING', deps.session(mods).for({ name: 'textfile', needs: [ 'log' ] }).error);
+		});
+	});
+
 	it('limits exec to the collector\'s commands', () => {
 		with_mods({}, (mods) => {
 			let exec = deps.session(mods).for({ needs: [ 'exec' ], commands: [ 'nft' ] }).data.exec;
@@ -183,7 +194,7 @@ describe('deps.session', () => {
 
 describe('deps.modules', () => {
 	it('names every capability the loader accepts', () => {
-		assert.match([ 'exec', 'fs', 'nl80211', 'rtnl', 'time', 'ubus', 'uci' ], sort([ ...deps.NEEDS ]));
+		assert.match([ 'exec', 'fs', 'log', 'nl80211', 'rtnl', 'time', 'ubus', 'uci' ], sort([ ...deps.NEEDS ]));
 	});
 
 	// rtnl's and nl80211's real wiring is lint's to check: utest's generated shims

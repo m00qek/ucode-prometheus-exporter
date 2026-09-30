@@ -15,8 +15,9 @@ export function ok(data) {
 	return proto({ ok: true, data: data }, ResultMethods);
 };
 
-export function err(error, details) {
-	return proto({ ok: false, error: error, details: details }, ResultMethods);
+// `details` is for the log; `data`, if any, for the caller to act on.
+export function err(error, details, data) {
+	return proto({ ok: false, error: error, details: details, data: data }, ResultMethods);
 };
 
 // Only string details are shown: object details are diagnostics, not log text.

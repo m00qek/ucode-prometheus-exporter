@@ -9,8 +9,8 @@
 // node_textfile_mtime_seconds is written for that file. A file cannot be used
 // when it cannot be read, is not valid exposition text, gives a family a type
 // an earlier file gave another one, repeats a series an earlier file has, or
-// writes one of this collector's own families. A missing directory is no files,
-// not an error. Unlike node_exporter, samples with timestamps are kept, as the
+// writes one of this collector's own families; the log says which and why. A
+// missing directory is no files, not an error. Unlike node_exporter, samples with timestamps are kept, as the
 // Lua exporter kept them.
 
 import * as Result from 'node_exporter.result';
@@ -19,7 +19,7 @@ import * as exposition from 'node_exporter.exposition';
 export const meta = {
 	name: 'textfile',
 	help: 'Metrics from *.prom files in a directory, as node_exporter\'s textfile collector.',
-	needs: [ 'fs' ],
+	needs: [ 'fs', 'log' ],
 	options: { directory: '/var/prometheus' },
 };
 
@@ -31,20 +31,22 @@ function series_key(s) {
 	return s.name + sprintf('%J', pairs);
 }
 
-// Whether the families of one file fit with those of the files already added
-// (`types`: family name to type, `series`: the series keys); if so, they are
-// recorded there.
-function fits(families, types, series) {
+// Why the families of one file do not fit with those of the files already
+// added (`types`: family name to type, `series`: the series keys), or null when
+// they do; then they are recorded there.
+function misfit(families, types, series) {
 	let keys = [];
 
 	for (let fam in families) {
-		if (fam.name in OWN || (types[fam.name] && types[fam.name] != fam.type))
-			return false;
+		if (fam.name in OWN)
+			return `writes this collector's own ${fam.name}`;
+		if (types[fam.name] && types[fam.name] != fam.type)
+			return `gives ${fam.name} type ${fam.type}, an earlier file ${types[fam.name]}`;
 
 		for (let s in fam.samples) {
 			let k = series_key(s);
 			if (series[k] || k in keys)
-				return false;
+				return `repeats a series of ${s.name}`;
 			push(keys, k);
 		}
 	}
@@ -54,7 +56,19 @@ function fits(families, types, series) {
 	for (let k in keys)
 		series[k] = true;
 
-	return true;
+	return null;
+}
+
+// Why a file cannot be used, or null.
+function problem(text, st, parsed, types, series) {
+	if (text == null)
+		return 'cannot be read';
+	if (st == null)
+		return 'cannot be stat()ed';
+	if (!parsed.ok)
+		return Result.describe(parsed);
+
+	return misfit(parsed.data, types, series);
 }
 
 export function collect(deps, out, options) {
@@ -69,8 +83,13 @@ export function collect(deps, out, options) {
 		let text = fs.readfile(path);
 		let st = fs.stat(path);
 		let parsed = text == null ? null : exposition.parse(text);
+		let why = problem(text, st, parsed, types, series);
 
-		if (!parsed?.ok || st == null || !fits(parsed.data, types, series) || !out.parse(text).ok) {
+		if (why == null && !out.parse(text).ok)
+			why = 'not valid exposition text';
+
+		if (why != null) {
+			deps.log(`skipped ${path}: ${why}`);
 			failed = true;
 			continue;
 		}

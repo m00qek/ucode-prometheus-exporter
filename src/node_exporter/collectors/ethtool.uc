@@ -65,7 +65,7 @@ export function statistics(text) {
 // ethtool itself is missing or cannot run, as opposed to a driver without
 // statistics: the shell's 126 and 127, or no process at all.
 function cannot_run(res) {
-	return match(res.details ?? '', /: (cannot start|exit status 12[67])$/) != null;
+	return res.data?.status == null || res.data.status in [ 126, 127 ];
 }
 
 export function collect(deps, out) {
