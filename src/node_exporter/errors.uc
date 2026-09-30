@@ -18,6 +18,7 @@ export const UBUS_CONNECT_FAILED  = 'UBUS_CONNECT_FAILED';
 export const UBUS_CALL_FAILED     = 'UBUS_CALL_FAILED';
 export const NL80211_FAILED       = 'NL80211_FAILED';
 export const RTNL_FAILED          = 'RTNL_FAILED';
+export const SOCKET_FAILED        = 'SOCKET_FAILED';
 export const COMMAND_NOT_ALLOWED  = 'COMMAND_NOT_ALLOWED';
 export const COMMAND_FAILED       = 'COMMAND_FAILED';
 

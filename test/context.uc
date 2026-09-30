@@ -9,9 +9,9 @@
 // `logs` has what the scrape and the collector itself logged.
 // Its output must parse as exposition text, or the test fails.
 //
-// cfg: { fs, ubus, uci, rtnl, nl80211 }: each mock's config ({ data, commands, errors, ... });
+// cfg: { fs, ubus, uci, rtnl, nl80211, socket }: each mock's config ({ data, commands, errors, ... });
 //      options: the collector's `config collector` section;
-//      main: the main section; no_nl80211, no_rtnl: as if that module were missing;
+//      main: the main section; no_nl80211, no_rtnl, no_socket: as if that module were missing;
 //      time: what deps.time.now() returns.
 
 import { mock } from 'utest';
@@ -22,7 +22,7 @@ import * as exposition from 'node_exporter.exposition';
 import * as config from 'node_exporter.config';
 import * as Result from 'node_exporter.result';
 
-const MOCKED = [ 'fs', 'ubus', 'uci', 'rtnl', 'nl80211' ];
+const MOCKED = [ 'fs', 'ubus', 'uci', 'rtnl', 'nl80211', 'socket' ];
 
 function uci_config(cfg, id) {
 	let data = { ...(cfg.uci?.data ?? {}) };
@@ -61,6 +61,7 @@ export function with_mods(cfg, cb, id) {
 		uci: p.uci,
 		rtnl: cfg.no_rtnl ? null : p.rtnl,
 		nl80211: cfg.no_nl80211 ? null : p.nl80211,
+		socket: cfg.no_socket ? null : p.socket,
 		time: () => cfg.time ?? 0,
 	}));
 };

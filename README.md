@@ -25,7 +25,7 @@ The base package has the collectors every device can use (cpu, meminfo, netdev, 
 | `-hardware` | hwmon, thermal, filesystem |
 | `-full` | the three above, and dnsmasq, openwrt, textfile, uci_dhcp_host, wireguard |
 
-The collectors of particular hardware or services (ltq-dsl, realtek-poe, bmx7, mwan3, modemmanager, ubnt-manager, dawn) and wifi_stations, which repeats wifi's station metrics, are in no group.
+The collectors of particular hardware or services (ltq-dsl, realtek-poe, bmx7, mwan3, modemmanager, ubnt-manager, dawn, unbound) and wifi_stations, which repeats wifi's station metrics, are in no group.
 
 The listen interface, port, keepalive, TLS and `omit_zero_values` are set in `/etc/config/prometheus-node-exporter-ucode`; a collector's own options go in a `config collector '<module>'` section there.
 
@@ -72,10 +72,10 @@ export function collect(deps, out, options) {
 };
 ```
 
-- `needs` are `fs` (`readfile open lsdir glob stat realpath`), `ubus` (`call`, `list`, as Results), `uci` (a cursor), `rtnl` and `nl80211` (`request` as Results, `const`), `exec` (`run(argv)` as a Result, for `commands` only; a failure's `data.status` is the exit status), `time` (`now()`) and `log` (`log(msg)`, for what a collector that succeeds still has to say). Only `node_exporter.deps` touches the system.
+- `needs` are `fs` (`readfile open lsdir glob stat realpath`), `ubus` (`call`, `list`, as Results), `uci` (a cursor), `rtnl` and `nl80211` (`request` as Results, `const`), `socket` (`unix_request(path, message, timeout_ms)`, a Unix socket's whole reply as a Result), `exec` (`run(argv)` as a Result, for `commands` only; a failure's `data.status` is the exit status), `time` (`now()`) and `log` (`log(msg)`, for what a collector that succeeds still has to say). Only `node_exporter.deps` touches the system.
 - `out.gauge|counter|untyped(name, help)` returns `(labels, value)`, which chains; `out.parse(text)` adds exposition text. What a collector records is kept even when it then fails.
 - `collect` returns a Result: `ok` is `node_scrape_collector_success 1`; `err` is 0 and one log line.
-- A base collector runs on every device: where its kernel feature is absent (no nf_conntrack on an AP without a firewall) it returns `ok` with no samples. A subpackage was installed on purpose, so its missing source is an `err`.
+- An absent kernel feature is nothing to report, for any collector: where nf_conntrack is not loaded (an AP without a firewall), conntrack and nat_traffic return `ok` with no samples. A missing service or program (no unbound control socket, no `ethtool`) is an `err`.
 
 Each collector needs a test in `test/unit/node_exporter/collectors/`, and a line in the package Makefile that depends on what its `needs` and `commands` call for; `test/integration/collectors_test.uc` holds every collector to both.
 
