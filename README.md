@@ -25,7 +25,7 @@ The base package has the collectors every device can use (cpu, meminfo, netdev, 
 | `-hardware` | hwmon, thermal, filesystem |
 | `-full` | the three above, and dnsmasq, openwrt, textfile, uci_dhcp_host, wireguard |
 
-The collectors of particular hardware or services (ltq-dsl, realtek-poe, bmx7, mwan3, modemmanager, ubnt-manager, dawn) and wifi_stations, which repeats wifi's station metrics, are in no group.
+The collectors of particular hardware or services (ltq-dsl, realtek-poe, bmx7, mwan3, modemmanager, ubnt-manager, dawn, unbound) and wifi_stations, which repeats wifi's station metrics, are in no group.
 
 The listen interface, port, keepalive, TLS and `omit_zero_values` are set in `/etc/config/prometheus-node-exporter-ucode`; a collector's own options go in a `config collector '<module>'` section there.
 

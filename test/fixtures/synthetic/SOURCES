@@ -13,3 +13,12 @@
 #   exposition format 0.0.4 (prometheus.io/docs/instrumenting/exposition_formats);
 #   truncated.prom is one whose writer died mid-line, which is why node_exporter
 #   recommends writing to a temporary file and renaming it.
+# sockets/unbound.stats_noreset.txt
+#   Unbound 1.26.1's (OpenWrt 25.12's) reply to `UBCT1 stats_noreset` on its
+#   control socket, what `unbound-control stats_noreset` prints: num-threads 2
+#   (the UCI's num_threads), no dnscrypt and no extended-statistics (OpenWrt's
+#   defaults). Lines and number formats: daemon/remote.c's do_stats(),
+#   print_stats() and print_uptime(); the totals as daemon/stats.c's
+#   server_stats_add() makes them (sums, the maximum for the .max counters,
+#   the mean of the thread medians); the counters' meaning:
+#   doc/unbound-control.rst, "Statistic Counters".
