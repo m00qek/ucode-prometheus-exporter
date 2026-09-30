@@ -1,7 +1,7 @@
 'use strict';
 
 // Based on utils/prometheus-node-exporter-lua/files/usr/lib/lua/prometheus-collectors/hostapd_stations.lua
-// in OpenWrt's packages feed (Apache-2.0), rewritten in ucode; see NOTICE.
+// in OpenWrt's packages feed (Apache-2.0), rewritten for this exporter; see NOTICE.
 
 // The Lua exporter's hostapd_stations collector, from hostapd's ubus objects
 // where Lua ran hostapd_cli: for each network.wireless interface with a

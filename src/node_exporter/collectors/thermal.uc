@@ -1,7 +1,7 @@
 'use strict';
 
 // Based on utils/prometheus-node-exporter-lua/files/usr/lib/lua/prometheus-collectors/thermal.lua
-// in OpenWrt's packages feed (Apache-2.0), rewritten in ucode; see NOTICE.
+// in OpenWrt's packages feed (Apache-2.0), rewritten for this exporter; see NOTICE.
 
 // The Lua exporter's thermal collector: the temperature of every thermal zone
 // in /sys/class/thermal, labeled with its zone number, type and policy, and its

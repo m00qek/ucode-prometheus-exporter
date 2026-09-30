@@ -1,7 +1,7 @@
 'use strict';
 
 // Based on utils/prometheus-node-exporter-lua/files/usr/lib/lua/prometheus-collectors/dawn.lua
-// in OpenWrt's packages feed (Apache-2.0), rewritten in ucode; see NOTICE.
+// in OpenWrt's packages feed (Apache-2.0), rewritten for this exporter; see NOTICE.
 
 // The Lua exporter's dawn collector: the access points this node serves in the
 // network overview of DAWN, the decentralized Wi-Fi controller (ubus dawn

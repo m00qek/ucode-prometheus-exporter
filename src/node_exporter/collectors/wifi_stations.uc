@@ -1,7 +1,7 @@
 'use strict';
 
 // Based on utils/prometheus-node-exporter-lua/files/usr/lib/lua/prometheus-collectors/wifi_stations.lua
-// in OpenWrt's packages feed (Apache-2.0), rewritten in ucode; see NOTICE.
+// in OpenWrt's packages feed (Apache-2.0), rewritten for this exporter; see NOTICE.
 
 // The Lua exporter's wifi_stations collector: the stations of each interface in
 // ubus network.wireless status, with its families and {ifname, mac} labels. Lua

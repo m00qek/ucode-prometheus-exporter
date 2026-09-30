@@ -1,7 +1,7 @@
 'use strict';
 
 // Based on utils/prometheus-node-exporter-ucode/files/extra/wifi.uc
-// in OpenWrt's packages feed (Apache-2.0), rewritten in ucode; see NOTICE.
+// in OpenWrt's packages feed (Apache-2.0), rewritten for this exporter; see NOTICE.
 
 // The upstream ucode exporter's wifi collector: each radio and network in ubus
 // network.wireless status, with what nl80211 knows of the network's interface,

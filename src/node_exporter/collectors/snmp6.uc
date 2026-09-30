@@ -1,7 +1,7 @@
 'use strict';
 
 // Based on utils/prometheus-node-exporter-ucode/files/extra/snmp6.uc
-// in OpenWrt's packages feed (Apache-2.0), rewritten in ucode; see NOTICE.
+// in OpenWrt's packages feed (Apache-2.0), rewritten for this exporter; see NOTICE.
 
 // IPv6 statistics, as upstream's snmp6 collector: each "<name> <value>" line
 // of /proc/net/snmp6 is a counter snmp6_<name>{device="all"}, and of
