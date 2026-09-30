@@ -17,8 +17,14 @@ const GAUGES = [
 		'Maximum size of connection tracking table.' ],
 ];
 
-// Neither file is there until nf_conntrack is loaded: an AP without a firewall.
+// Neither file is there until nf_conntrack is loaded, as on an AP without a
+// firewall. A base collector runs on every device, so a device without
+// connection tracking succeeds with nothing to say, as the earlier ucode
+// exporter did; one file without the other is an error.
 export function collect(deps, out) {
+	if (!length(filter(GAUGES, (g) => deps.fs.readfile(g[0]) != null)))
+		return Result.ok();
+
 	for (let g in GAUGES) {
 		let line = first_line(deps.fs, g[0]);
 

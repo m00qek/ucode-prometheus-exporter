@@ -30,12 +30,17 @@ describe('collectors.conntrack', () => {
 	});
 
 	// The caju AP runs no firewall: nf_conntrack is not loaded and neither file is there.
-	it('fails with SOURCE_UNREADABLE without nf_conntrack, as on the caju AP', () => {
+	it('succeeds with nothing to say without nf_conntrack, as on the caju AP', () => {
 		with_collector(conntrack, files(null, null), (r) => {
+			assert.match([ true, [], [] ], [ r.result.ok, r.lines, r.logs ]);
+		});
+	});
+
+	it('fails with SOURCE_UNREADABLE when only the entries cannot be read', () => {
+		with_collector(conntrack, files(null, '65536\n'), (r) => {
 			assert.match({ ok: false, error: 'SOURCE_UNREADABLE', details: COUNT },
 				{ ok: r.result.ok, error: r.result.error, details: r.result.details });
 			assert.match([], r.lines);
-			assert.match([ `collector 'conntrack': SOURCE_UNREADABLE (${COUNT})` ], r.logs);
 		});
 	});
 
