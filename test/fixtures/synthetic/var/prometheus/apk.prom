@@ -1,0 +1,6 @@
+# HELP apk_upgradable_packages Packages with an upgrade available.
+# TYPE apk_upgradable_packages gauge
+apk_upgradable_packages 3
+# HELP apk_installed_packages Installed packages.
+# TYPE apk_installed_packages gauge
+apk_installed_packages 212

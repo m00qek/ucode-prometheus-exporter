@@ -1,0 +1,3 @@
+{
+	"/sys/class/hwmon/hwmon0/device": "/sys/devices/platform/nct6775.656"
+}

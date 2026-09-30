@@ -1,0 +1,7 @@
+# HELP backup_last_success_timestamp_seconds When the last configuration backup finished.
+# TYPE backup_last_success_timestamp_seconds gauge
+backup_last_success_timestamp_seconds{target="nas"} 1790812800
+# HELP backup_runs_total Configuration backups run, by result.
+# TYPE backup_runs_total counter
+backup_runs_total{result="ok"} 41
+backup_runs_total{result="failed"} 2

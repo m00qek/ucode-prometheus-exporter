@@ -74,4 +74,9 @@ define Collector
   $$(eval $$(call BuildPackage,$(PKG_NAME)-$(2)))
 endef
 
+$(eval $(call Collector,filesystem,filesystem,filesystem sizes,+luci-base))
+$(eval $(call Collector,hwmon,hwmon,hardware monitor sensors,))
 $(eval $(call Collector,openwrt,openwrt,OpenWrt release and board,))
+$(eval $(call Collector,textfile,textfile,metrics from text files,))
+$(eval $(call Collector,thermal,thermal,thermal zone temperatures,))
+$(eval $(call Collector,uci_dhcp_host,uci_dhcp_host,static DHCP leases,))
