@@ -43,3 +43,18 @@ file /sys/class/net/*/speed
 file /sys/class/net/*/tx_queue_len
 file /sys/class/net/*/type
 file /sys/fs/selinux/enforce
+file /sys/class/hwmon/*/name
+file /sys/class/hwmon/*/*_label
+file /sys/class/hwmon/*/temp*_input
+file /sys/class/hwmon/*/pwm*
+file /sys/class/thermal/thermal_zone*/type
+file /sys/class/thermal/thermal_zone*/policy
+file /sys/class/thermal/thermal_zone*/temp
+file /sys/class/thermal/thermal_zone*/mode
+file /sys/class/thermal/thermal_zone*/passive
+file /proc/self/mounts
+ubus luci getMountPoints
+# Recorded by hand, as no source kind above reads them:
+#   DEVICE/links.json     readlink -f of each /sys/class/hwmon/*/device (the mock fs has no symlinks)
+#   DEVICE/uci/dhcp.json  `uci show dhcp` as the uci mock's data, names, MACs and addresses replaced by fakes
+# test/fixtures/synthetic/ is written by hand for what neither device has; see its SOURCES.

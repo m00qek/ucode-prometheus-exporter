@@ -1,0 +1,15 @@
+# Fixtures no test device can provide, written by hand after these formats:
+#
+# sys/class/hwmon/hwmon0, links.json
+#   A Nuvoton NCT6779D Super-I/O as on x86 routers: temperatures with labels and
+#   PWM outputs. Attribute names and units: the kernel's
+#   Documentation/hwmon/sysfs-interface.rst; the chip name, temperature source
+#   labels and platform device (nct6775.656): Documentation/hwmon/nct6775.rst
+#   and drivers/hwmon/nct6775-core.c.
+# sys/class/hwmon/hwmon1
+#   A chip with neither a name file nor a device link, below 0 degrees.
+# var/prometheus/*.prom
+#   Files as node_exporter's textfile collector reads them: Prometheus text
+#   exposition format 0.0.4 (prometheus.io/docs/instrumenting/exposition_formats);
+#   truncated.prom is one whose writer died mid-line, which is why node_exporter
+#   recommends writing to a temporary file and renaming it.

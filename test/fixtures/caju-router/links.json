@@ -1,0 +1,6 @@
+{
+	"/sys/class/hwmon/hwmon0/device": "/sys/devices/virtual/thermal/thermal_zone0",
+	"/sys/class/hwmon/hwmon1/device": "/sys/devices/virtual/thermal/thermal_zone1",
+	"/sys/class/hwmon/hwmon2/device": "/sys/devices/platform/3c0400000.pcie/pci0001:10/0001:10:00.0/0001:11:00.0/mdio_bus/r8169-1-1100/r8169-1-1100:00",
+	"/sys/class/hwmon/hwmon3/device": "/sys/devices/platform/3c0800000.pcie/pci0002:20/0002:20:00.0/0002:21:00.0/mdio_bus/r8169-2-2100/r8169-2-2100:00"
+}

@@ -1,0 +1,167 @@
+{
+	"cfg01411c": {
+		".type": "dnsmasq",
+		"domainneeded": "1",
+		"localise_queries": "1",
+		"readethers": "1",
+		"localservice": "1",
+		"cachesize": "1000",
+		"rebind_protection": "0",
+		"nonwildcard": "1",
+		"noresolv": "1",
+		"port": "5354",
+		"authoritative": "1",
+		"leasefile": "/tmp/dhcp.leases",
+		"expandhosts": "1",
+		"domain": "home.example",
+		"local": "/home.example/",
+		"server": [
+			"/example.net/192.168.100.1"
+		],
+		"address": [
+			"/home.example/192.168.11.1"
+		]
+	},
+	"guest": {
+		".type": "dhcp",
+		"interface": "guest",
+		"start": "100",
+		"limit": "99",
+		"leasetime": "12h",
+		"dhcpv6": "disabled",
+		"ra": "disabled",
+		"dhcp_option": [
+			"6,172.16.1.1",
+			"3,172.16.1.1",
+			"42,172.16.1.1"
+		]
+	},
+	"iot": {
+		".type": "dhcp",
+		"interface": "iot",
+		"start": "100",
+		"limit": "99",
+		"leasetime": "12h",
+		"dhcpv6": "disabled",
+		"ra": "disabled",
+		"dhcp_option": [
+			"6,192.168.17.1",
+			"3,192.168.17.1",
+			"42,192.168.17.1"
+		]
+	},
+	"cfg03f1ab": {
+		".type": "host",
+		"name": "amplifier",
+		"mac": "02:00:00:00:00:01",
+		"ip": "192.168.17.33"
+	},
+	"cfg04f1ab": {
+		".type": "host",
+		"name": "chromecast",
+		"mac": "02:00:00:00:00:02",
+		"ip": "192.168.17.79"
+	},
+	"cfg05f1ab": {
+		".type": "host",
+		"name": "speaker",
+		"mac": "02:00:00:00:00:03",
+		"ip": "192.168.17.71"
+	},
+	"cfg06f1ab": {
+		".type": "host",
+		"name": "homeassistant",
+		"mac": "02:00:00:00:00:04",
+		"ip": "192.168.17.60"
+	},
+	"cfg07f1ab": {
+		".type": "host",
+		"name": "phone-a",
+		"mac": "02:00:00:00:00:05",
+		"ip": "192.168.17.35"
+	},
+	"cfg08f1ab": {
+		".type": "host",
+		"name": "display",
+		"mac": "02:00:00:00:00:06",
+		"ip": "192.168.17.70"
+	},
+	"cfg09f1ab": {
+		".type": "host",
+		"name": "phone-b",
+		"mac": "02:00:00:00:00:07",
+		"ip": "192.168.17.30"
+	},
+	"cfg0af1ab": {
+		".type": "host",
+		"name": "bulb",
+		"mac": "02:00:00:00:00:08",
+		"ip": "192.168.17.92"
+	},
+	"cfg0bf1ab": {
+		".type": "host",
+		"name": "fan",
+		"mac": "02:00:00:00:00:09",
+		"ip": "192.168.17.91"
+	},
+	"main": {
+		".type": "dhcp",
+		"interface": "main",
+		"start": "100",
+		"limit": "99",
+		"leasetime": "12h",
+		"dhcpv6": "disabled",
+		"ra": "disabled",
+		"dhcp_option": [
+			"6,192.168.13.1",
+			"3,192.168.13.1",
+			"42,192.168.13.1"
+		]
+	},
+	"mgmt": {
+		".type": "dhcp",
+		"interface": "mgmt",
+		"start": "100",
+		"limit": "99",
+		"leasetime": "12h",
+		"dhcpv6": "disabled",
+		"ra": "disabled",
+		"dhcp_option": [
+			"6,192.168.11.1",
+			"3,192.168.11.1",
+			"42,192.168.11.1"
+		]
+	},
+	"cfg0ef1ab": {
+		".type": "host",
+		"name": "ap",
+		"ip": "192.168.11.10",
+		"leasetime": "infinite",
+		"mac": [
+			"02:00:00:00:00:10",
+			"02:00:00:00:00:11"
+		],
+		"dns": "1"
+	},
+	"cfg0ff1ab": {
+		".type": "host",
+		"name": "switch",
+		"mac": "02:00:00:00:00:12",
+		"ip": "192.168.11.2"
+	},
+	"cfg10f1ab": {
+		".type": "domain",
+		"name": "logs.home.example",
+		"ip": "192.168.11.1"
+	},
+	"cfg11f1ab": {
+		".type": "domain",
+		"name": "metrics.home.example",
+		"ip": "192.168.11.1"
+	},
+	"cfg12f1ab": {
+		".type": "domain",
+		"name": "dns.home.example",
+		"ip": "192.168.11.1"
+	}
+}

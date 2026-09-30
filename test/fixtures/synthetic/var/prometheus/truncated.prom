@@ -1,0 +1,3 @@
+# HELP speedtest_download_bits_per_second Last measured download speed.
+# TYPE speedtest_download_bits_per_second gauge
+speedtest_download_bits_per_second{server="
