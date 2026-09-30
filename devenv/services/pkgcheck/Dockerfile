@@ -6,4 +6,4 @@ FROM ghcr.io/openwrt/rootfs:${OPENWRT_ARCH}-${OPENWRT_VERSION}
 # uloop, for the stand-in of procd's `system` object (devenv/scripts/system-board.uc).
 RUN mkdir -p /var/lock /var/run && \
     apk update && \
-    apk add uhttpd uhttpd-mod-ucode ucode ucode-mod-fs ucode-mod-ubus ucode-mod-uci ucode-mod-uloop
+    apk add uhttpd uhttpd-mod-ucode ucode ucode-mod-fs ucode-mod-ubus ucode-mod-uci ucode-mod-rtnl ucode-mod-uloop

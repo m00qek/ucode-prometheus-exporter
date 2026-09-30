@@ -8,9 +8,9 @@
 // with only its needs, and call cb with { result, text, lines, logs, families }.
 // Its output must parse as exposition text, or the test fails.
 //
-// cfg: { fs, ubus, uci, nl80211 }: each mock's config ({ data, commands, errors, ... });
+// cfg: { fs, ubus, uci, rtnl, nl80211 }: each mock's config ({ data, commands, errors, ... });
 //      options: the collector's `config collector` section;
-//      main: the main section; no_nl80211: as if ucode-mod-nl80211 were missing;
+//      main: the main section; no_nl80211, no_rtnl: as if that module were missing;
 //      time: what deps.time.now() returns.
 
 import { mock } from 'utest';
@@ -21,7 +21,7 @@ import * as exposition from 'node_exporter.exposition';
 import * as config from 'node_exporter.config';
 import * as Result from 'node_exporter.result';
 
-const MOCKED = [ 'fs', 'ubus', 'uci', 'nl80211' ];
+const MOCKED = [ 'fs', 'ubus', 'uci', 'rtnl', 'nl80211' ];
 
 function uci_config(cfg, id) {
 	let data = { ...(cfg.uci?.data ?? {}) };
@@ -58,6 +58,7 @@ export function with_mods(cfg, cb, id) {
 		fs: p.fs,
 		ubus: p.ubus,
 		uci: p.uci,
+		rtnl: cfg.no_rtnl ? null : p.rtnl,
 		nl80211: cfg.no_nl80211 ? null : p.nl80211,
 		time: () => cfg.time ?? 0,
 	}));

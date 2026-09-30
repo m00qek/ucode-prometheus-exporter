@@ -11,7 +11,7 @@ const SOURCES = 'src/node_exporter/collectors';
 const MAKEFILE = readfile('openwrt/prometheus-node-exporter-ucode/Makefile');
 
 // The package each need or command calls for; `null` for what the base package has.
-const NEED_PACKAGES = { fs: null, ubus: null, uci: null, time: null, exec: null, nl80211: '+ucode-mod-nl80211' };
+const NEED_PACKAGES = { fs: null, ubus: null, uci: null, rtnl: null, time: null, exec: null, nl80211: '+ucode-mod-nl80211' };
 const COMMAND_PACKAGES = { nft: '+nftables-json', mmcli: '+modemmanager', 'ubnt-manager': '+ubnt-manager', ethtool: '+ethtool' };
 
 const IDS = sort(map(filter(lsdir(SOURCES), (f) => match(f, /\.uc$/)), (f) => substr(f, 0, -3)));

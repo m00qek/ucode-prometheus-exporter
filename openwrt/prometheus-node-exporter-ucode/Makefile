@@ -24,7 +24,7 @@ endef
 
 define Package/$(PKG_NAME)
   $(call Package/$(PKG_NAME)/Default)
-  DEPENDS:=+uhttpd +uhttpd-mod-ucode +ucode +ucode-mod-fs +ucode-mod-ubus +ucode-mod-uci
+  DEPENDS:=+uhttpd +uhttpd-mod-ucode +ucode +ucode-mod-fs +ucode-mod-ubus +ucode-mod-uci +ucode-mod-rtnl
 endef
 
 define Package/$(PKG_NAME)/description

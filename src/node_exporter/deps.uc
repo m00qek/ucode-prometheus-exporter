@@ -4,7 +4,7 @@
 // name, so one that OpenWrt 25.12's ucode lacks fails this module's load rather
 // than a scrape.
 //
-// modules(): the real fs, ubus, uci, nl80211 (when installed) and clock.
+// modules(): the real fs, ubus, uci, rtnl, nl80211 (when installed) and clock.
 // session(mods): one scrape's capabilities over module-shaped objects, the real
 // ones or utest's proxies: `for(meta)` hands a collector exactly its `needs`.
 
@@ -14,7 +14,7 @@ import { cursor } from 'uci';
 import * as Result from 'node_exporter.result';
 import * as errors from 'node_exporter.errors';
 
-export const NEEDS = [ 'fs', 'ubus', 'uci', 'nl80211', 'exec', 'time' ];
+export const NEEDS = [ 'fs', 'ubus', 'uci', 'rtnl', 'nl80211', 'exec', 'time' ];
 
 // The functions of fs a collector may use. popen is exec's.
 export const FS_API = [ 'readfile', 'open', 'lsdir', 'glob', 'stat', 'realpath' ];
@@ -73,18 +73,27 @@ export function ubus_channel(connect_fn) {
 	};
 };
 
-// request() with nl80211's failures as Results; `const` passes through.
-export function nl80211_channel(mod) {
+// request() of a netlink module (rtnl, nl80211) with its failures as Results,
+// `code` naming them; `const` passes through.
+function netlink_channel(mod, code) {
 	return {
 		const: mod.const,
 		request: function(cmd, flags, attrs) {
 			let reply = mod.request(cmd, flags, attrs);
 
 			return reply === null && mod.error()
-				? Result.err(errors.NL80211_FAILED, mod.error())
+				? Result.err(code, mod.error())
 				: Result.ok(reply);
 		},
 	};
+}
+
+export function nl80211_channel(mod) {
+	return netlink_channel(mod, errors.NL80211_FAILED);
+};
+
+export function rtnl_channel(mod) {
+	return netlink_channel(mod, errors.RTNL_FAILED);
 };
 
 export function shell_quote(arg) {
@@ -135,6 +144,7 @@ export function session(mods) {
 		case 'fs':      return fs;
 		case 'ubus':    return ubus;
 		case 'uci':     return uci_cursor();
+		case 'rtnl':    return mods.rtnl ? rtnl_channel(mods.rtnl) : null;
 		case 'nl80211': return mods.nl80211 ? nl80211_channel(mods.nl80211) : null;
 		case 'exec':    return exec_channel(mods.fs.popen, meta.commands ?? []);
 		case 'time':    return { now: mods.time };
@@ -165,18 +175,28 @@ export function session(mods) {
 	};
 };
 
-// nl80211 by name as well, loaded only where ucode-mod-nl80211 is installed.
-// Null when it is not, or does not load: then only the collectors that need it
-// fail. Lint loads it on 25.12, where a missing function would show.
-export function load_nl80211() {
+// A netlink module by name as well, loaded at run time: nl80211 is a separate
+// package, and a module exporting `const` cannot be imported under utest (its
+// generated shim does not compile). Null when it is missing or does not load:
+// then only the collectors that need it fail. Lint loads both on 25.12, where a
+// missing function would show.
+function load_netlink(name) {
 	try {
 		return loadstring(
-			"import { request, error, 'const' as consts } from 'nl80211';\n" +
+			sprintf("import { request, error, 'const' as consts } from %J;\n", name) +
 			'return { request, error, const: consts };',
 			{ raw_mode: true })();
 	} catch (e) {
 		return null;
 	}
+}
+
+export function load_rtnl() {
+	return load_netlink('rtnl');
+};
+
+export function load_nl80211() {
+	return load_netlink('nl80211');
 };
 
 export function modules() {
@@ -184,6 +204,7 @@ export function modules() {
 		fs: { readfile, open, lsdir, glob, stat, realpath, popen },
 		ubus: { connect },
 		uci: { cursor },
+		rtnl: load_rtnl(),
 		nl80211: load_nl80211(),
 		time: () => time(),
 	};

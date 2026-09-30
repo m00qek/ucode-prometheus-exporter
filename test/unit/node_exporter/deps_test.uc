@@ -85,6 +85,23 @@ describe('deps.nl80211_channel', () => {
 	});
 });
 
+describe('deps.rtnl_channel', () => {
+	it('answers requests as Results and passes the constants through', () => {
+		mock.inject('rtnl', {
+			strict: true,
+			data: { 'RTM_GETLINK': [ { dev: 'lo', mtu: 65536 } ] },
+			errors: { 'RTM_GETLINK:nope': 'No such device' },
+		}, (rtnl) => {
+			let ch = deps.rtnl_channel(rtnl);
+			let c = ch.const;
+
+			assert.match({ ok: true, data: [ { dev: 'lo', mtu: 65536 } ] }, brief(ch.request(c.RTM_GETLINK, c.NLM_F_DUMP, {})));
+			assert.match({ ok: false, error: 'RTNL_FAILED', details: 'No such device' },
+				brief(ch.request(c.RTM_GETLINK, 0, { dev: 'nope' })));
+		});
+	});
+});
+
 describe('deps.exec_channel', () => {
 	it('runs an allowed program with quoted arguments, without its stderr', () => {
 		let seen = [];
@@ -142,6 +159,13 @@ describe('deps.session', () => {
 		});
 	});
 
+	it('fails with NEED_MISSING where rtnl does not load', () => {
+		with_mods({ no_rtnl: true }, (mods) => {
+			assert.match({ ok: false, error: 'NEED_MISSING', details: 'rtnl is not installed' },
+				brief(deps.session(mods).for({ needs: [ 'rtnl' ] })));
+		});
+	});
+
 	it('fails with NEED_MISSING where nl80211 is not installed', () => {
 		with_mods({ no_nl80211: true }, (mods) => {
 			let res = deps.session(mods).for({ needs: [ 'fs', 'nl80211' ] });
@@ -159,11 +183,11 @@ describe('deps.session', () => {
 
 describe('deps.modules', () => {
 	it('names every capability the loader accepts', () => {
-		assert.match([ 'exec', 'fs', 'nl80211', 'time', 'ubus', 'uci' ], sort([ ...deps.NEEDS ]));
+		assert.match([ 'exec', 'fs', 'nl80211', 'rtnl', 'time', 'ubus', 'uci' ], sort([ ...deps.NEEDS ]));
 	});
 
-	// nl80211's real wiring is lint's to check: utest's generated shim for it
-	// does not compile (`export const const`), so here it loads as missing.
+	// rtnl's and nl80211's real wiring is lint's to check: utest's generated shims
+	// for them do not compile (`export const const`), so here they load as missing.
 	it('wires the real fs, ubus and uci', () => {
 		let m = deps.modules();
 
@@ -171,8 +195,8 @@ describe('deps.modules', () => {
 		assert.match([ 'function', 'function', 'function' ], [ type(m.ubus.connect), type(m.uci.cursor), type(m.time) ]);
 	});
 
-	it('gives no nl80211 when it does not load', () => {
-		assert.match(null, deps.load_nl80211());
+	it('gives no rtnl or nl80211 when they do not load', () => {
+		assert.match([ null, null ], [ deps.load_rtnl(), deps.load_nl80211() ]);
 	});
 });
 

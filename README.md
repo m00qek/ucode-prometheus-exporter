@@ -61,7 +61,7 @@ export function collect(deps, out, options) {
 };
 ```
 
-- `needs` are `fs` (`readfile open lsdir glob stat realpath`), `ubus` (`call`, `list`, as Results), `uci` (a cursor), `nl80211` (`request` as Results, `const`), `exec` (`run(argv)` as a Result, for `commands` only) and `time` (`now()`). Only `node_exporter.deps` touches the system.
+- `needs` are `fs` (`readfile open lsdir glob stat realpath`), `ubus` (`call`, `list`, as Results), `uci` (a cursor), `rtnl` and `nl80211` (`request` as Results, `const`), `exec` (`run(argv)` as a Result, for `commands` only) and `time` (`now()`). Only `node_exporter.deps` touches the system.
 - `out.gauge|counter|untyped(name, help)` returns `(labels, value)`, which chains; `out.parse(text)` adds exposition text. What a collector records is kept even when it then fails.
 - `collect` returns a Result: `ok` is `node_scrape_collector_success 1`; `err` is 0 and one log line.
 

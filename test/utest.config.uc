@@ -7,6 +7,7 @@ return {
 		fs:      null,
 		uci:     null,
 		ubus:    { proxy: 'proxies/ubus.uc' },
+		rtnl:    { proxy: 'proxies/rtnl.uc' },
 		nl80211: { proxy: 'proxies/nl80211.uc' },
 	},
 };

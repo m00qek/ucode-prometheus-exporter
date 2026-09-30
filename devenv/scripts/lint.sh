@@ -13,9 +13,11 @@ for f in $(find src -name '*.uc'); do
 	ucode -L "$src" -e "import * as _ from '$PWD/$f';" || fail "$f"
 done
 
-# nl80211 is imported at run time, by name too; the image has it installed.
-ucode -L "$src" -e "import { load_nl80211 } from 'node_exporter.deps'; exit(load_nl80211() ? 0 : 1);" ||
-	{ echo 'node_exporter.deps: nl80211 does not load' >&2; status=1; }
+# rtnl and nl80211 are imported at run time, by name too; the image has both.
+for m in rtnl nl80211; do
+	ucode -L "$src" -e "import { load_$m } from 'node_exporter.deps'; exit(load_$m() ? 0 : 1);" ||
+		{ echo "node_exporter.deps: $m does not load" >&2; status=1; }
+done
 
 # Tests import utest's mocks, which exist only while utest runs: compile them.
 importer=$(mktemp)
