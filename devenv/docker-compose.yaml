@@ -1,0 +1,16 @@
+name: prometheus-node-exporter-ucode
+
+services:
+  openwrt:
+    image: prometheus-node-exporter-ucode-openwrt:${IMAGE_TAG}
+    build:
+      context: ./services/openwrt
+      args:
+        OPENWRT_ARCH: ${OPENWRT_ARCH}
+        OPENWRT_VERSION: ${OPENWRT_VERSION}
+    network_mode: none
+    init: true
+    tmpfs:
+      - /tmp:mode=1777
+    volumes:
+      - ..:/exporter:ro

@@ -1,0 +1,13 @@
+config prometheus-node-exporter-ucode 'main'
+	option listen_interface 'loopback'
+	option listen_port '9101'
+	option http_keepalive '70'
+	# Leave out counters that are 0, most of which never move on a router.
+	option omit_zero_values '0'
+	# Serve HTTPS: both files must exist, and uhttpd needs a TLS library.
+	#option cert '/etc/uhttpd.crt'
+	#option key '/etc/uhttpd.key'
+
+# Options of a collector go in a section named after its module:
+#config collector 'wifi'
+#	option stations '1'

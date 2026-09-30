@@ -1,0 +1,22 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The first 25.12 release is the API floor; the latest catches regressions.
+        openwrt: [ '25.12.0', '25.12.5' ]
+    env:
+      CI: 1
+      OPENWRT_VERSION: ${{ matrix.openwrt }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: make lint
+      - run: make test
+      - run: make package-check

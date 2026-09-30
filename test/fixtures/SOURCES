@@ -1,0 +1,5 @@
+# What `make fixtures` reads from a device, one source per line:
+#   file PATH           the file, or every file the glob matches (unreadable ones are skipped)
+#   ubus OBJECT METHOD [ARGS]   the reply, saved as ubus/OBJECT.METHOD.json
+file /proc/loadavg
+ubus system board

@@ -1,0 +1,15 @@
+prometheus-node-exporter-ucode
+
+A rewrite of OpenWrt's prometheus-node-exporter-ucode and
+prometheus-node-exporter-lua packages (https://github.com/openwrt/packages,
+utils/), both licensed under the Apache License, Version 2.0. The collectors
+keep those packages' metric names and follow their logic.
+
+prometheus-node-exporter-ucode: Copyright Andre Heider <a.heider@gmail.com>
+and contributors.
+prometheus-node-exporter-lua: Copyright (c) 2016 Jeff Schornick
+<jeff@schornick.org>, (c) 2015 Kevin Lyda <kevin@lyda.ie>, Etienne Champetier
+<champetier.etienne@gmail.com> and contributors.
+
+Metric names and help texts follow the Prometheus node_exporter
+(https://github.com/prometheus/node_exporter), Apache License 2.0.
