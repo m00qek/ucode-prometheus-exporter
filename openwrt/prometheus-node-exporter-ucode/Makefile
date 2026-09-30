@@ -74,7 +74,12 @@ define Collector
   $$(eval $$(call BuildPackage,$(PKG_NAME)-$(2)))
 endef
 
+$(eval $(call Collector,bmx7,bmx7,bmx7 mesh node and links,))
 $(eval $(call Collector,dnsmasq,dnsmasq,dnsmasq DNS and DHCP metrics,))
 $(eval $(call Collector,ltq_dsl,ltq-dsl,Lantiq DSL line,))
+$(eval $(call Collector,modemmanager,modemmanager,ModemManager signal,+modemmanager))
+$(eval $(call Collector,mwan3,mwan3,mwan3 interface tracking,+mwan3))
 $(eval $(call Collector,openwrt,openwrt,OpenWrt release and board,))
+$(eval $(call Collector,realtek_poe,realtek-poe,Realtek PoE switch,))
+$(eval $(call Collector,ubnt_manager,ubnt-manager,Ubiquiti airOS radios,+ubnt-manager))
 $(eval $(call Collector,wireguard,wireguard,WireGuard interfaces and peers,+rpcd-mod-wireguard))

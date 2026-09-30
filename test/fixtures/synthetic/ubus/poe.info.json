@@ -1,0 +1,30 @@
+{
+	"firmware": "v2.2",
+	"mcu": "Nuvoton M05xx LAN Microcontroller",
+	"budget": 130.000000,
+	"consumption": 12.800000,
+	"ports": {
+		"lan1": {
+			"priority": 2,
+			"mode": "PoE+",
+			"status": "Delivering power",
+			"consumption": 7.100000
+		},
+		"lan2": {
+			"priority": 2,
+			"mode": "PoE",
+			"status": "Delivering power",
+			"consumption": 5.700000
+		},
+		"lan3": {
+			"priority": 1,
+			"mode": "PoE+",
+			"status": "Searching"
+		},
+		"lan4": {
+			"priority": 0,
+			"mode": "PoE+",
+			"status": "Disabled"
+		}
+	}
+}

@@ -5,3 +5,4 @@ file /proc/loadavg
 ubus system board
 ubus dnsmasq metrics
 ubus wireguard status
+ubus mwan3 status {"section":"interfaces"}
