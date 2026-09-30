@@ -140,6 +140,13 @@ describe('exposition.render', () => {
 			lines(text_of((out) => out.gauge('h', 'a\\b\nc')(null, 1))));
 	});
 
+	it('writes HELP text that parse() reads back, backslashes before n included', () => {
+		for (let help in [ '\\n', 'a\\\\nb', 'x\ny\\', '\\' ]) {
+			let res = exposition.parse(text_of((out) => out.gauge('h', help)(null, 1)));
+			assert.match(help, res.data[0].help);
+		}
+	});
+
 	it('omits zero counters when asked, and a counter family left empty', () => {
 		let out = exposition.recorder();
 		out.counter('c')({ i: 'a' }, 0)({ i: 'b' }, 7);

@@ -69,6 +69,12 @@ function escape_help(text) {
 	return replace(replace(text, '\\', '\\\\'), '\n', '\\n');
 }
 
+// In one pass, left to right: undoing \n first would read the \\n of a
+// backslash followed by n as a newline.
+function unescape_help(text) {
+	return replace(text, /\\(\\|n)/g, (m, c) => c == 'n' ? '\n' : '\\');
+}
+
 // Labels as [ name, value ] pairs. A null label is left out, which is what
 // Prometheus makes of an empty one anyway.
 function label_pairs(labels) {
@@ -273,7 +279,7 @@ export function parse(text) {
 			} else {
 				if (declared[name].help != null)
 					return fail(`second HELP for '${name}'`);
-				declared[name].help = replace(replace(arg, '\\n', '\n'), '\\\\', '\\');
+				declared[name].help = unescape_help(arg);
 				if (set.by_name[name])
 					set.by_name[name].help = declared[name].help;
 			}
