@@ -3,3 +3,10 @@
 #   ubus OBJECT METHOD [ARGS]   the reply, saved as ubus/OBJECT.METHOD.json
 file /proc/loadavg
 ubus system board
+file /proc/stat
+file /proc/meminfo
+file /proc/sys/net/netfilter/nf_conntrack_count
+file /proc/sys/net/netfilter/nf_conntrack_max
+file /proc/sys/kernel/random/entropy_avail
+file /proc/sys/kernel/random/poolsize
+file /proc/sys/fs/file-nr
