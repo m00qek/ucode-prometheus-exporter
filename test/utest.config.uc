@@ -9,5 +9,6 @@ return {
 		ubus:    { proxy: 'proxies/ubus.uc' },
 		rtnl:    { proxy: 'proxies/rtnl.uc' },
 		nl80211: { proxy: 'proxies/nl80211.uc' },
+		socket:  { proxy: 'proxies/socket.uc' },
 	},
 };

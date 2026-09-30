@@ -4,7 +4,8 @@
 // name, so one that OpenWrt 25.12's ucode lacks fails this module's load rather
 // than a scrape.
 //
-// modules(): the real fs, ubus, uci, rtnl, nl80211 (when installed) and clock.
+// modules(): the real fs, ubus, uci, rtnl, nl80211 and socket (these two when
+// installed) and clock.
 // session(mods): one scrape's capabilities over module-shaped objects, the real
 // ones or utest's proxies: `for(meta)` hands a collector exactly its `needs`.
 
@@ -14,7 +15,7 @@ import { cursor } from 'uci';
 import * as Result from 'node_exporter.result';
 import * as errors from 'node_exporter.errors';
 
-export const NEEDS = [ 'fs', 'ubus', 'uci', 'rtnl', 'nl80211', 'exec', 'time', 'log' ];
+export const NEEDS = [ 'fs', 'ubus', 'uci', 'rtnl', 'nl80211', 'socket', 'exec', 'time', 'log' ];
 
 // The functions of fs a collector may use. popen is exec's.
 export const FS_API = [ 'readfile', 'open', 'lsdir', 'glob', 'stat', 'realpath' ];
@@ -96,6 +97,72 @@ export function rtnl_channel(mod) {
 	return netlink_channel(mod, errors.RTNL_FAILED);
 };
 
+// What recv() fails with (errno) once SO_RCVTIMEO passes without data: EAGAIN,
+// 11 on every architecture OpenWrt builds for.
+const EAGAIN = 11;
+
+// A Unix stream socket's exchange: the message sent whole, then the reply read
+// until the server closes. Every wait (connect, send, each recv) is bounded by
+// `tv`; a failure is `path: <the socket module's error>`.
+function exchange(mod, sock, path, message, tv, timeout_ms) {
+	let failed = () => Result.err(errors.SOCKET_FAILED, `${path}: ${mod.error()}`);
+
+	if (!sock.setopt(mod.SOL_SOCKET, mod.SO_RCVTIMEO, tv) || !sock.setopt(mod.SOL_SOCKET, mod.SO_SNDTIMEO, tv))
+		return failed();
+
+	if (!sock.connect({ family: mod.AF_UNIX, path }))
+		return failed();
+
+	// MSG_NOSIGNAL: a server gone before the message is sent is an EPIPE, not a
+	// SIGPIPE that would end uhttpd.
+	for (let sent = 0; sent < length(message);) {
+		let n = sock.send(substr(message, sent), mod.MSG_NOSIGNAL);
+
+		if (n == null)
+			return failed();
+		sent += n;
+	}
+
+	let chunks = [];
+
+	while (true) {
+		let chunk = sock.recv(4096);
+
+		if (chunk == null)
+			return mod.error(true) == EAGAIN
+				? Result.err(errors.SOCKET_FAILED, `${path}: no reply for ${timeout_ms} ms`)
+				: failed();
+
+		if (chunk == '')
+			return Result.ok(join('', chunks));
+
+		push(chunks, chunk);
+	}
+}
+
+// unix_request(path, message, timeout_ms): the whole reply of the server on the
+// Unix stream socket `path` to `message`, as a Result: SOCKET_FAILED when the
+// socket is missing or refuses, or no more of the reply comes for timeout_ms
+// (a positive integer). The socket is closed either way.
+export function socket_channel(mod) {
+	return {
+		unix_request: function(path, message, timeout_ms) {
+			if (type(timeout_ms) != 'int' || timeout_ms <= 0)
+				return Result.err(errors.SOCKET_FAILED, `${path}: timeout ${timeout_ms} is not a positive number of ms`);
+
+			let sock = mod.create(mod.AF_UNIX, mod.SOCK_STREAM);
+			if (!sock)
+				return Result.err(errors.SOCKET_FAILED, `${path}: ${mod.error()}`);
+
+			let tv = { sec: timeout_ms / 1000, usec: (timeout_ms % 1000) * 1000 };
+			let res = exchange(mod, sock, path, '' + message, tv, timeout_ms);
+
+			sock.close();
+			return res;
+		},
+	};
+};
+
 export function shell_quote(arg) {
 	return "'" + replace('' + arg, "'", "'\\''") + "'";
 };
@@ -148,6 +215,7 @@ export function session(mods) {
 		case 'uci':     return uci_cursor();
 		case 'rtnl':    return mods.rtnl ? rtnl_channel(mods.rtnl) : null;
 		case 'nl80211': return mods.nl80211 ? nl80211_channel(mods.nl80211) : null;
+		case 'socket':  return mods.socket ? socket_channel(mods.socket) : null;
 		case 'exec':    return exec_channel(mods.fs.popen, meta.commands ?? []);
 		case 'time':    return { now: mods.time };
 		case 'log':     return mods.log ? (msg) => mods.log(`collector '${meta.name}': ${msg}`) : null;
@@ -158,7 +226,8 @@ export function session(mods) {
 		uci: uci_cursor,
 
 		// The deps object for a collector with this meta, or NEED_MISSING when
-		// the system lacks one of its needs (nl80211 is a separate package).
+		// the system lacks one of its needs (nl80211 and socket are separate
+		// packages).
 		for: function(meta) {
 			let deps = {};
 
@@ -202,6 +271,20 @@ export function load_nl80211() {
 	return load_netlink('nl80211');
 };
 
+// ucode-mod-socket by name at run time too: only the collectors that need it
+// (unbound) depend on its package, so a static import would stop the exporter
+// loading where it is not installed. Null then. Lint loads it on 25.12.
+export function load_socket() {
+	try {
+		return loadstring(
+			"import { create, error, AF_UNIX, SOCK_STREAM, SOL_SOCKET, SO_RCVTIMEO, SO_SNDTIMEO, MSG_NOSIGNAL } from 'socket';\n" +
+			'return { create, error, AF_UNIX, SOCK_STREAM, SOL_SOCKET, SO_RCVTIMEO, SO_SNDTIMEO, MSG_NOSIGNAL };',
+			{ raw_mode: true })();
+	} catch (e) {
+		return null;
+	}
+};
+
 export function modules() {
 	return {
 		fs: { readfile, open, lsdir, glob, stat, realpath, popen },
@@ -209,6 +292,7 @@ export function modules() {
 		uci: { cursor },
 		rtnl: load_rtnl(),
 		nl80211: load_nl80211(),
+		socket: load_socket(),
 		time: () => time(),
 	};
 };
