@@ -1,0 +1,46 @@
+{
+	"wg_mesh": {
+		"ifindex": 27,
+		"public_key": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=",
+		"listen_port": -13716,
+		"peers": {
+			"AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI=": {
+				"endpoint": "192.0.2.12:51820",
+				"allowed_ips": [
+					"10.251.224.12/32",
+					"10.197.0.0/16"
+				],
+				"last_handshake": 0,
+				"rx_bytes": 0,
+				"tx_bytes": 0
+			},
+			"AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM=": {
+				"endpoint": "[2001:db8::1]:51820",
+				"allowed_ips": [
+					"10.251.224.1/32"
+				],
+				"last_handshake": 1790806557,
+				"rx_bytes": 8740,
+				"tx_bytes": 33356,
+				"persistent_keepalive_interval": 25
+			}
+		}
+	},
+	"lan2playground": {
+		"ifindex": 32,
+		"public_key": "BAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQ=",
+		"listen_port": -13705,
+		"peers": {
+			"BQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQU=": {
+				"endpoint": "203.0.113.22:51830",
+				"allowed_ips": [
+					"10.251.223.0/24"
+				],
+				"last_handshake": 1790806578,
+				"rx_bytes": 7236360,
+				"tx_bytes": 35873200,
+				"persistent_keepalive_interval": 25
+			}
+		}
+	}
+}

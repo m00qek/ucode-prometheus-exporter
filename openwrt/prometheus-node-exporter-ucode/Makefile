@@ -74,4 +74,7 @@ define Collector
   $$(eval $$(call BuildPackage,$(PKG_NAME)-$(2)))
 endef
 
+$(eval $(call Collector,dnsmasq,dnsmasq,dnsmasq DNS and DHCP metrics,))
+$(eval $(call Collector,ltq_dsl,ltq-dsl,Lantiq DSL line,))
 $(eval $(call Collector,openwrt,openwrt,OpenWrt release and board,))
+$(eval $(call Collector,wireguard,wireguard,WireGuard interfaces and peers,+rpcd-mod-wireguard))

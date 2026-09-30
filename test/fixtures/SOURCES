@@ -3,3 +3,5 @@
 #   ubus OBJECT METHOD [ARGS]   the reply, saved as ubus/OBJECT.METHOD.json
 file /proc/loadavg
 ubus system board
+ubus dnsmasq metrics
+ubus wireguard status

@@ -1,0 +1,55 @@
+{
+	"loopback": {
+		".type": "interface",
+		"device": "lo",
+		"proto": "static",
+		"ipaddr": "127.0.0.1",
+		"netmask": "255.0.0.0"
+	},
+	"wan": {
+		".type": "interface",
+		"device": "eth1",
+		"proto": "dhcp"
+	},
+	"lan2playground": {
+		".type": "interface",
+		"proto": "wireguard",
+		"listen_port": "51831",
+		"mtu": "1280",
+		"auto": "1",
+		"addresses": "10.251.223.11/32"
+	},
+	"cfg10bea0": {
+		".type": "wireguard_lan2playground",
+		"description": "hub",
+		"public_key": "BQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQU=",
+		"endpoint_host": "203.0.113.22",
+		"endpoint_port": "51830",
+		"persistent_keepalive": "25",
+		"route_allowed_ips": "1",
+		"allowed_ips": [ "10.251.223.0/24" ]
+	},
+	"wg_mesh": {
+		".type": "interface",
+		"proto": "wireguard",
+		"addresses": "10.251.224.11/32",
+		"listen_port": "51820",
+		"mtu": "1220",
+		"auto": "1"
+	},
+	"wgmesh_site_b": {
+		".type": "wireguard_wg_mesh",
+		"public_key": "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI=",
+		"route_allowed_ips": "1",
+		"allowed_ips": [ "10.251.224.12/32", "10.197.0.0/16" ]
+	},
+	"wgmesh_hub": {
+		".type": "wireguard_wg_mesh",
+		"public_key": "AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM=",
+		"endpoint_host": "2001:db8::1",
+		"endpoint_port": "51820",
+		"persistent_keepalive": "25",
+		"route_allowed_ips": "1",
+		"allowed_ips": [ "10.251.224.1/32" ]
+	}
+}
