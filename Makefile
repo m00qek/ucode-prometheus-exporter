@@ -59,7 +59,7 @@ PKGCHECK_IMAGE := prometheus-node-exporter-ucode-pkgcheck:$(OPENWRT_ARCH)-$(OPEN
 # No network: the image carries the dependencies.
 package-check: package
 	docker build -q -t $(PKGCHECK_IMAGE) --build-arg OPENWRT_ARCH --build-arg OPENWRT_VERSION \
-		--build-arg FEED_DEPENDS="$$(devenv/scripts/package-info.sh feed-depends)" \
+		--build-arg FEED_DEPENDS="$$(devenv/scripts/package-info.sh feed-depends) $$(devenv/scripts/package-info.sh app-depends) quickjs" \
 		devenv/services/pkgcheck >/dev/null
 	docker run --rm $(if $(CI),,-t) --network none -e PKG_FULLVERSION=$(PKG_FULLVERSION) \
 		-e BASE_COLLECTORS="$$(devenv/scripts/package-info.sh base-collectors)" \

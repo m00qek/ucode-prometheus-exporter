@@ -1,9 +1,10 @@
 #!/bin/sh
 # What the package Makefile declares, for the checks that install the packages.
-# usage: package-info.sh {feed-depends|base-collectors|groups}
+# usage: package-info.sh {feed-depends|base-collectors|groups|app-depends}
 #   feed-depends     every package the base package and the collector subpackages depend on
 #   base-collectors  the collectors the base package installs
 #   groups           one line per group package: its name, then its collectors' names
+#   app-depends      the feed packages the LuCI app depends on
 set -e
 cd "$(dirname "$0")/../.."
 mk=openwrt/prometheus-node-exporter-ucode/Makefile
@@ -38,8 +39,13 @@ groups)
 			print f[1] " " expand(f[n])
 		}' "$mk"
 	;;
+# ---- luci-app-prometheus-node-exporter-ucode ----
+app-depends)
+	awk '/^define Package\/\$\(LUCI_APP\)$/ { p = 1 } p && /DEPENDS:=/ { sub(/.*DEPENDS:=/, ""); print; p = 0 }' "$mk" |
+		tr ' ' '\n' | sed 's/^+//' | grep -v -e '^$' -e '^\$(PKG_NAME)$' | sort -u | tr '\n' ' '
+	;;
 *)
-	echo "usage: $0 {feed-depends|base-collectors|groups}" >&2
+	echo "usage: $0 {feed-depends|base-collectors|groups|app-depends}" >&2
 	exit 2
 	;;
 esac
