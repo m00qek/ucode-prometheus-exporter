@@ -10,7 +10,7 @@ RUN          = $(COMPOSE) --progress quiet run --rm $(if $(CI),-T) openwrt
 IMAGE_STAMP := devenv/.built-$(IMAGE_TAG)
 TEST_ARGS    = $(if $(FILTER),-f '$(FILTER)') $(if $(VERBOSE),-v) $(MODULES)
 
-.PHONY: test unit integration watch lint shell image fixtures package package-check pot
+.PHONY: test unit integration watch lint shell image fixtures package package-check browser pot
 
 test:        $(IMAGE_STAMP) ; @$(RUN) devenv/scripts/test.sh all $(TEST_ARGS)
 unit:        $(IMAGE_STAMP) ; @$(RUN) devenv/scripts/test.sh unit $(TEST_ARGS)
@@ -68,6 +68,21 @@ package-check: package
 		$(PKGCHECK_IMAGE) /exporter/devenv/scripts/package-check.sh
 
 # ---- luci-app-prometheus-node-exporter-ucode ----------------------------------
+LUCI_IMAGE    := prometheus-node-exporter-ucode-luci:$(OPENWRT_ARCH)-$(OPENWRT_VERSION)
+BROWSER_IMAGE := prometheus-node-exporter-ucode-browser:$(shell sed -n 's/.*"@playwright\/test": "\(.*\)".*/\1/p' devenv/services/browser/package.json)
+# The collector packages the browser tests install besides the base package: options of
+# each type, configs read, a name with '-'.
+BROWSER_COLLECTORS := dhcp_leases ltq-dsl textfile unbound wifi wireguard
+
+# The LuCI pages against the built packages and a stand-in for procd; see devenv/scripts/browser.sh.
+browser: package
+	docker build -q -t $(LUCI_IMAGE) --build-arg OPENWRT_ARCH --build-arg OPENWRT_VERSION \
+		--build-arg FEED_DEPENDS="$$(devenv/scripts/package-info.sh feed-depends) $$(devenv/scripts/package-info.sh app-depends)" \
+		devenv/services/luci >/dev/null
+	docker build -q -t $(BROWSER_IMAGE) devenv/services/browser >/dev/null
+	@LUCI_IMAGE=$(LUCI_IMAGE) BROWSER_IMAGE=$(BROWSER_IMAGE) PKG_FULLVERSION=$(PKG_FULLVERSION) \
+		BROWSER_COLLECTORS='$(BROWSER_COLLECTORS)' FILTER='$(FILTER)' devenv/scripts/browser.sh
+
 # The translation template, from the LuCI sources; make lint checks it is up to date.
 I18N_IMAGE := prometheus-node-exporter-ucode-i18n:$(shell sha256sum devenv/services/i18n/Dockerfile | cut -c1-12)
 pot: ; @I18N_IMAGE=$(I18N_IMAGE) devenv/scripts/pot.sh

@@ -45,12 +45,16 @@ for f in files/etc/init.d/* devenv/scripts/*.sh; do
 done
 
 # ---- luci-app-prometheus-node-exporter-ucode ----
-# The rpcd plugin is a program that returns at top level.
-for f in files/usr/share/rpcd/ucode/*.uc; do
+# The rpcd plugin and the browser tests' fake procd are programs that return or run
+# at top level.
+for f in files/usr/share/rpcd/ucode/*.uc devenv/services/luci/*.uc; do
 	ucode -L "$src" -c -o /dev/null "$f" || fail "$f"
 done
+for f in devenv/services/luci/*.sh; do
+	sh -n "$f" || fail "$f"
+done
 
-for f in $(find luci -name '*.json'); do
+for f in $(find luci test/fixtures/luci devenv/services/luci -name '*.json'); do
 	ucode -e 'json(require("fs").readfile(ARGV[0]))' "$f" || fail "$f"
 done
 

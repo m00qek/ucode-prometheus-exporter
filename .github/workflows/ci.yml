@@ -20,3 +20,18 @@ jobs:
       - run: make lint
       - run: make test
       - run: make package-check
+
+  # ---- luci-app-prometheus-node-exporter-ucode ----
+  # The LuCI pages in a browser, against the built packages and the plugin in a real rpcd.
+  browser:
+    runs-on: ubuntu-latest
+    env:
+      CI: 1
+    steps:
+      - uses: actions/checkout@v4
+      - run: make browser
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browser
+          path: bin/browser
