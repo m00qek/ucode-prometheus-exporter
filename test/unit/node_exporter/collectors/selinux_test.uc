@@ -16,7 +16,7 @@ describe('collectors.selinux', () => {
 		with_collector(selinux, { fs: { data: { [ENFORCE]: null } } }, (r) => {
 			assert.match(true, r.result.ok);
 			assert.match([
-				'# HELP node_selinux_enabled SELinux is enabled, 1 is true, 0 is false.',
+				'# HELP node_selinux_enabled SELinux is enabled, 1 is true, 0 is false',
 				'# TYPE node_selinux_enabled gauge',
 				'node_selinux_enabled 0',
 			], r.lines);
@@ -27,10 +27,10 @@ describe('collectors.selinux', () => {
 		with_collector(selinux, { fs: { data: ENFORCING } }, (r) => {
 			assert.match(true, r.result.ok);
 			assert.match([
-				'# HELP node_selinux_enabled SELinux is enabled, 1 is true, 0 is false.',
+				'# HELP node_selinux_enabled SELinux is enabled, 1 is true, 0 is false',
 				'# TYPE node_selinux_enabled gauge',
 				'node_selinux_enabled 1',
-				'# HELP node_selinux_current_mode Current SELinux enforcement mode, 1 for enforcing, 0 for permissive.',
+				'# HELP node_selinux_current_mode Current SELinux enforcement mode',
 				'# TYPE node_selinux_current_mode gauge',
 				'node_selinux_current_mode 1',
 			], r.lines);

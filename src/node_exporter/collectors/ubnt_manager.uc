@@ -13,64 +13,69 @@ export const meta = {
 	commands: [ 'ubnt-manager' ],
 };
 
-// [ name, type, path in status.cgi's JSON, help ]. ubnt_uptime carries the full
-// labels (device, hostname, devmodel, fwversion, essid), the others only device.
+// [ name, path in status.cgi's JSON, help, scale ]: every value is a gauge, a
+// reading of now, in base units (status.cgi's MHz, Mbit/s, kbit/s and percent
+// scaled to hertz, bits per second and ratios). The radio's names and firmware
+// are node_ubnt_info's labels. airOS 6 gives memory in kB, airOS 8 in bytes;
+// the airtime use is left as airOS gives it, its scale unknown.
+const MHZ = 1000000, MBIT = 1000000, KBIT = 1000, KB = 1024, PERCENT = 0.01;
+
 const AIROS6 = [
-	[ 'ubnt_uptime', 'counter', [ 'host', 'uptime' ], 'Seconds since the radio booted.' ],
-	[ 'ubnt_totalram', 'gauge', [ 'host', 'totalram' ], 'Total memory of the radio.' ],
-	[ 'ubnt_freeram', 'gauge', [ 'host', 'freeram' ], 'Free memory of the radio.' ],
-	[ 'ubnt_cpuload', 'gauge', [ 'host', 'cpuload' ], 'CPU load of the radio, in percent.' ],
-	[ 'ubnt_cpubusy', 'gauge', [ 'host', 'cpubusy' ], 'Busy CPU time of the radio.' ],
-	[ 'ubnt_cputotal', 'gauge', [ 'host', 'cputotal' ], 'Total CPU time of the radio.' ],
-	[ 'ubnt_channel', 'gauge', [ 'wireless', 'channel' ], 'The wireless channel.' ],
-	[ 'ubnt_frequency', 'gauge', [ 'wireless', 'frequency' ], 'The wireless frequency, in MHz.' ],
-	[ 'ubnt_dfs', 'gauge', [ 'wireless', 'dfs' ], 'Whether the channel needs DFS.' ],
-	[ 'ubnt_signal', 'gauge', [ 'wireless', 'signal' ], 'Signal strength, in dBm.' ],
-	[ 'ubnt_rssi', 'gauge', [ 'wireless', 'rssi' ], 'Received signal strength indicator.' ],
-	[ 'ubnt_noisef', 'gauge', [ 'wireless', 'noisef' ], 'Noise floor, in dBm.' ],
-	[ 'ubnt_txpower', 'gauge', [ 'wireless', 'txpower' ], 'Transmit power, in dBm.' ],
-	[ 'ubnt_distance', 'gauge', [ 'wireless', 'distance' ], 'Link distance, in meters.' ],
-	[ 'ubnt_txrate', 'gauge', [ 'wireless', 'txrate' ], 'Transmit rate, in Mbit/s.' ],
-	[ 'ubnt_rxrate', 'gauge', [ 'wireless', 'rxrate' ], 'Receive rate, in Mbit/s.' ],
-	[ 'ubnt_count', 'gauge', [ 'wireless', 'count' ], 'Stations associated.' ],
+	[ 'ubnt_uptime_seconds', [ 'host', 'uptime' ], 'Seconds since the radio booted.' ],
+	[ 'ubnt_memory_total_bytes', [ 'host', 'totalram' ], 'Total memory of the radio, in bytes.', KB ],
+	[ 'ubnt_memory_free_bytes', [ 'host', 'freeram' ], 'Free memory of the radio, in bytes.', KB ],
+	[ 'ubnt_cpu_load_ratio', [ 'host', 'cpuload' ], 'CPU load of the radio, from 0 to 1.', PERCENT ],
+	[ 'ubnt_cpu_busy', [ 'host', 'cpubusy' ], 'Busy CPU time of the radio, as airOS counts it.' ],
+	[ 'ubnt_cpu_all', [ 'host', 'cputotal' ], 'All CPU time of the radio, as airOS counts it.' ],
+	[ 'ubnt_channel', [ 'wireless', 'channel' ], 'The wireless channel.' ],
+	[ 'ubnt_frequency_hertz', [ 'wireless', 'frequency' ], 'The wireless frequency, in hertz.', MHZ ],
+	[ 'ubnt_dfs', [ 'wireless', 'dfs' ], 'Whether the channel needs DFS.' ],
+	[ 'ubnt_signal_dbm', [ 'wireless', 'signal' ], 'Signal strength, in dBm.' ],
+	[ 'ubnt_rssi', [ 'wireless', 'rssi' ], 'Received signal strength indicator.' ],
+	[ 'ubnt_noise_floor_dbm', [ 'wireless', 'noisef' ], 'Noise floor, in dBm.' ],
+	[ 'ubnt_transmit_power_dbm', [ 'wireless', 'txpower' ], 'Transmit power, in dBm.' ],
+	[ 'ubnt_distance_meters', [ 'wireless', 'distance' ], 'Link distance, in meters.' ],
+	[ 'ubnt_transmit_rate_bits_per_second', [ 'wireless', 'txrate' ], 'Transmit rate, in bits per second.', MBIT ],
+	[ 'ubnt_receive_rate_bits_per_second', [ 'wireless', 'rxrate' ], 'Receive rate, in bits per second.', MBIT ],
+	[ 'ubnt_stations', [ 'wireless', 'count' ], 'Stations associated.' ],
 ];
 
 const AIROS8 = [
-	[ 'ubnt_uptime', 'counter', [ 'host', 'uptime' ], 'Seconds since the radio booted.' ],
-	[ 'ubnt_loadavg', 'gauge', [ 'host', 'loadavg' ], 'Load average of the radio.' ],
-	[ 'ubnt_totalram', 'gauge', [ 'host', 'totalram' ], 'Total memory of the radio.' ],
-	[ 'ubnt_freeram', 'gauge', [ 'host', 'freeram' ], 'Free memory of the radio.' ],
-	[ 'ubnt_temperature', 'gauge', [ 'host', 'temperature' ], 'Temperature of the radio.' ],
-	[ 'ubnt_cpuload', 'gauge', [ 'host', 'cpuload' ], 'CPU load of the radio, in percent.' ],
-	[ 'ubnt_timestamp', 'counter', [ 'host', 'timestamp' ], 'Unix time on the radio.' ],
-	[ 'ubnt_band', 'gauge', [ 'wireless', 'band' ], 'The wireless band.' ],
-	[ 'ubnt_frequency', 'gauge', [ 'wireless', 'frequency' ], 'The wireless frequency, in MHz.' ],
-	[ 'ubnt_center1_freq', 'gauge', [ 'wireless', 'center1_freq' ], 'Center frequency of the channel, in MHz.' ],
-	[ 'ubnt_dfs', 'gauge', [ 'wireless', 'dfs' ], 'Whether the channel needs DFS.' ],
-	[ 'ubnt_distance', 'gauge', [ 'wireless', 'distance' ], 'Link distance, in meters.' ],
-	[ 'ubnt_noisef', 'gauge', [ 'wireless', 'noisef' ], 'Noise floor, in dBm.' ],
-	[ 'ubnt_txpower', 'gauge', [ 'wireless', 'txpower' ], 'Transmit power, in dBm.' ],
-	[ 'ubnt_aprepeater', 'gauge', [ 'wireless', 'aprepeater' ], 'Whether the radio is an AP repeater.' ],
-	[ 'ubnt_rstatus', 'gauge', [ 'wireless', 'rstatus' ], 'Radio status.' ],
-	[ 'ubnt_chanbw', 'gauge', [ 'wireless', 'chanbw' ], 'Channel width, in MHz.' ],
-	[ 'ubnt_rx_chainmask', 'gauge', [ 'wireless', 'rx_chainmask' ], 'Receive chain mask.' ],
-	[ 'ubnt_tx_chainmask', 'gauge', [ 'wireless', 'tx_chainmask' ], 'Transmit chain mask.' ],
-	[ 'ubnt_cac_state', 'gauge', [ 'wireless', 'cac_state' ], 'DFS channel availability check state.' ],
-	[ 'ubnt_cac_timeout', 'gauge', [ 'wireless', 'cac_timeout' ], 'DFS channel availability check timeout.' ],
-	[ 'ubnt_rx_idx', 'gauge', [ 'wireless', 'rx_idx' ], 'Receive modulation index.' ],
-	[ 'ubnt_rx_nss', 'gauge', [ 'wireless', 'rx_nss' ], 'Receive spatial streams.' ],
-	[ 'ubnt_tx_idx', 'gauge', [ 'wireless', 'tx_idx' ], 'Transmit modulation index.' ],
-	[ 'ubnt_tx_nss', 'gauge', [ 'wireless', 'tx_nss' ], 'Transmit spatial streams.' ],
-	[ 'ubnt_count', 'gauge', [ 'wireless', 'count' ], 'Stations associated.' ],
-	[ 'ubnt_throughput_tx', 'gauge', [ 'wireless', 'throughput', 'tx' ], 'Transmit throughput, in kbit/s.' ],
-	[ 'ubnt_throughput_rx', 'gauge', [ 'wireless', 'throughput', 'rx' ], 'Receive throughput, in kbit/s.' ],
-	[ 'ubnt_polling_cb_capacity', 'gauge', [ 'wireless', 'polling', 'cb_capacity' ], 'airMAX combined capacity, in kbit/s.' ],
-	[ 'ubnt_polling_dl_capacity', 'gauge', [ 'wireless', 'polling', 'dl_capacity' ], 'airMAX download capacity, in kbit/s.' ],
-	[ 'ubnt_polling_ul_capacity', 'gauge', [ 'wireless', 'polling', 'ul_capacity' ], 'airMAX upload capacity, in kbit/s.' ],
-	[ 'ubnt_use', 'gauge', [ 'wireless', 'polling', 'use' ], 'airtime use, in percent.' ],
-	[ 'ubnt_tx_use', 'gauge', [ 'wireless', 'polling', 'tx_use' ], 'Transmit airtime use, in percent.' ],
-	[ 'ubnt_rx_use', 'gauge', [ 'wireless', 'polling', 'rx_use' ], 'Receive airtime use, in percent.' ],
-	[ 'ubnt_atpc_status', 'gauge', [ 'wireless', 'polling', 'atpc_status' ], 'Automatic transmit power control status.' ],
+	[ 'ubnt_uptime_seconds', [ 'host', 'uptime' ], 'Seconds since the radio booted.' ],
+	[ 'ubnt_loadavg', [ 'host', 'loadavg' ], 'Load average of the radio.' ],
+	[ 'ubnt_memory_total_bytes', [ 'host', 'totalram' ], 'Total memory of the radio, in bytes.' ],
+	[ 'ubnt_memory_free_bytes', [ 'host', 'freeram' ], 'Free memory of the radio, in bytes.' ],
+	[ 'ubnt_temperature_celsius', [ 'host', 'temperature' ], 'Temperature of the radio, in Celsius.' ],
+	[ 'ubnt_cpu_load_ratio', [ 'host', 'cpuload' ], 'CPU load of the radio, from 0 to 1.', PERCENT ],
+	[ 'ubnt_time_seconds', [ 'host', 'timestamp' ], 'Unix time on the radio.' ],
+	[ 'ubnt_band', [ 'wireless', 'band' ], 'The wireless band.' ],
+	[ 'ubnt_frequency_hertz', [ 'wireless', 'frequency' ], 'The wireless frequency, in hertz.', MHZ ],
+	[ 'ubnt_center1_frequency_hertz', [ 'wireless', 'center1_freq' ], 'Center frequency of the channel, in hertz.', MHZ ],
+	[ 'ubnt_dfs', [ 'wireless', 'dfs' ], 'Whether the channel needs DFS.' ],
+	[ 'ubnt_distance_meters', [ 'wireless', 'distance' ], 'Link distance, in meters.' ],
+	[ 'ubnt_noise_floor_dbm', [ 'wireless', 'noisef' ], 'Noise floor, in dBm.' ],
+	[ 'ubnt_transmit_power_dbm', [ 'wireless', 'txpower' ], 'Transmit power, in dBm.' ],
+	[ 'ubnt_ap_repeater', [ 'wireless', 'aprepeater' ], 'Whether the radio is an AP repeater.' ],
+	[ 'ubnt_radio_status', [ 'wireless', 'rstatus' ], 'Radio status.' ],
+	[ 'ubnt_channel_width_hertz', [ 'wireless', 'chanbw' ], 'Channel width, in hertz.', MHZ ],
+	[ 'ubnt_rx_chainmask', [ 'wireless', 'rx_chainmask' ], 'Receive chain mask.' ],
+	[ 'ubnt_tx_chainmask', [ 'wireless', 'tx_chainmask' ], 'Transmit chain mask.' ],
+	[ 'ubnt_cac_state', [ 'wireless', 'cac_state' ], 'DFS channel availability check state.' ],
+	[ 'ubnt_cac_timeout', [ 'wireless', 'cac_timeout' ], 'DFS channel availability check timeout.' ],
+	[ 'ubnt_rx_idx', [ 'wireless', 'rx_idx' ], 'Receive modulation index.' ],
+	[ 'ubnt_rx_nss', [ 'wireless', 'rx_nss' ], 'Receive spatial streams.' ],
+	[ 'ubnt_tx_idx', [ 'wireless', 'tx_idx' ], 'Transmit modulation index.' ],
+	[ 'ubnt_tx_nss', [ 'wireless', 'tx_nss' ], 'Transmit spatial streams.' ],
+	[ 'ubnt_stations', [ 'wireless', 'count' ], 'Stations associated.' ],
+	[ 'ubnt_transmit_throughput_bits_per_second', [ 'wireless', 'throughput', 'tx' ], 'Transmit throughput, in bits per second.', KBIT ],
+	[ 'ubnt_receive_throughput_bits_per_second', [ 'wireless', 'throughput', 'rx' ], 'Receive throughput, in bits per second.', KBIT ],
+	[ 'ubnt_airmax_combined_capacity_bits_per_second', [ 'wireless', 'polling', 'cb_capacity' ], 'airMAX combined capacity, in bits per second.', KBIT ],
+	[ 'ubnt_airmax_downlink_capacity_bits_per_second', [ 'wireless', 'polling', 'dl_capacity' ], 'airMAX download capacity, in bits per second.', KBIT ],
+	[ 'ubnt_airmax_uplink_capacity_bits_per_second', [ 'wireless', 'polling', 'ul_capacity' ], 'airMAX upload capacity, in bits per second.', KBIT ],
+	[ 'ubnt_airtime_use', [ 'wireless', 'polling', 'use' ], 'Airtime use, as airOS reports it.' ],
+	[ 'ubnt_transmit_airtime_use', [ 'wireless', 'polling', 'tx_use' ], 'Transmit airtime use, as airOS reports it.' ],
+	[ 'ubnt_receive_airtime_use', [ 'wireless', 'polling', 'rx_use' ], 'Receive airtime use, as airOS reports it.' ],
+	[ 'ubnt_atpc_status', [ 'wireless', 'polling', 'atpc_status' ], 'Automatic transmit power control status.' ],
 ];
 
 function dig(data, path) {
@@ -80,21 +85,23 @@ function dig(data, path) {
 	return data;
 }
 
-// airOS 6 reports the frequency as "5745 MHz".
-function frequency6(v) {
-	return type(v) == 'string' ? split(trim(v), /\s+/)[0] : v;
-}
+// A number status.cgi gives, as a number or a string ("150"; airOS 6's
+// frequency is "5745 MHz"), or null.
+export function number(v) {
+	if (type(v) in [ 'int', 'double' ])
+		return v;
+	if (type(v) == 'bool')
+		return v ? 1 : 0;
 
-function device_metrics(out, specs, data, device, full, v6) {
+	let m = (type(v) == 'string') ? match(trim(v), /^(-?[0-9]+(\.[0-9]+)?)([[:space:]]+[A-Za-z]+)?$/) : null;
+	return m ? +m[1] : null;
+};
+
+function device_metrics(out, specs, data, device) {
 	for (let spec in specs) {
-		let name = spec[0];
-		let value = dig(data, spec[2]);
+		let v = number(dig(data, spec[1]));
 
-		if (v6 && name == 'ubnt_frequency')
-			value = frequency6(value);
-
-		let sample = spec[1] == 'counter' ? out.counter(name, spec[3]) : out.gauge(name, spec[3]);
-		sample(name == 'ubnt_uptime' ? full : { device }, value);
+		out.gauge(spec[0], spec[2])({ device }, (v != null && spec[3]) ? v * spec[3] : v);
 	}
 }
 
@@ -134,19 +141,20 @@ export function collect(deps, out) {
 		if (type(host) != 'object' || type(wireless) != 'object')
 			continue;
 
-		let full = {
+		let fw = '' + (host.fwversion ?? '');
+		let specs = (index(fw, 'v8.') >= 0) ? AIROS8 : (index(fw, 'v6.') >= 0) ? AIROS6 : null;
+
+		if (!specs)
+			continue;
+
+		out.gauge('ubnt_info', 'The radio, by its names and firmware.')({
 			device,
 			hostname: host.hostname,
 			devmodel: host.devmodel,
 			fwversion: host.fwversion,
 			essid: wireless.essid,
-		};
-
-		let fw = '' + (host.fwversion ?? '');
-		if (index(fw, 'v8.') >= 0)
-			device_metrics(out, AIROS8, st.data, device, full, false);
-		else if (index(fw, 'v6.') >= 0)
-			device_metrics(out, AIROS6, st.data, device, full, true);
+		}, 1);
+		device_metrics(out, specs, st.data, device);
 	}
 
 	return failed ?? Result.ok();

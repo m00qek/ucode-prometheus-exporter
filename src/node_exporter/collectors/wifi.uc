@@ -5,13 +5,16 @@
 
 // The upstream ucode exporter's wifi collector: each radio and network in ubus
 // network.wireless status, with what nl80211 knows of the network's interface,
-// stations and channel. Families, labels and values are upstream's, NaN for a
-// network without stations included.
+// stations and channel; NaN for the averages of a network without stations.
+// Where node_exporter's wifi collector (collector/wifi_linux.go) has a metric,
+// this one has its name, help and labels (device, the interface, and
+// mac_address, the station's), and a radio label besides; the rest are
+// node_wifi_* too, in base units: bits per second, seconds, a ratio.
 //
 // With option `stations` (on by default) it also writes one sample per station
-// to the wifi_station_* families, which the wifi_stations collector writes too
-// (without the `radio` label). Install one of the two, or set `stations` off
-// here, or each station is exported twice.
+// to the node_wifi_station_* families, which the wifi_stations collector writes
+// too (without the `radio` label). Install one of the two, or set `stations`
+// off here, or each station is exported twice.
 //
 // An interface nl80211 cannot answer for is left out and fails the collector
 // once the other interfaces are written. A driver without a channel survey
@@ -33,24 +36,41 @@ const IFTYPES = [
 	'Mesh Point', 'P2P Client', 'P2P Go', 'P2P Device', 'OCB',
 ];
 
+// nl80211's bitrates are in units of 100 kbit/s, its expected throughput in kbit/s.
+const BITRATE_UNIT = 100000;
+const KBIT = 1000;
+
+// node_exporter's station families, and the expected throughput: the same
+// as the wifi_stations collector's.
+function station_metrics(out) {
+	return {
+		connected: out.counter('node_wifi_station_connected_seconds_total', 'The total number of seconds a station has been connected to an access point.'),
+		inactive: out.gauge('node_wifi_station_inactive_seconds', 'The number of seconds since any wireless activity has occurred on a station.'),
+		rx_bitrate: out.gauge('node_wifi_station_receive_bits_per_second', 'The current WiFi receive bitrate of a station, in bits per second.'),
+		tx_bitrate: out.gauge('node_wifi_station_transmit_bits_per_second', 'The current WiFi transmit bitrate of a station, in bits per second.'),
+		rx_bytes: out.counter('node_wifi_station_receive_bytes_total', 'The total number of bytes received by a WiFi station.'),
+		tx_bytes: out.counter('node_wifi_station_transmit_bytes_total', 'The total number of bytes transmitted by a WiFi station.'),
+		signal: out.gauge('node_wifi_station_signal_dbm', 'The current WiFi signal strength, in decibel-milliwatts (dBm).'),
+		tx_retries: out.counter('node_wifi_station_transmit_retries_total', 'The total number of times a station has had to retry while sending a packet.'),
+		tx_failed: out.counter('node_wifi_station_transmit_failed_total', 'The total number of times a station has failed to send a packet.'),
+		beacon_loss: out.counter('node_wifi_station_beacon_loss_total', 'The total number of times a station has detected a beacon loss.'),
+		tx_packets: out.counter('node_wifi_station_transmitted_packets_total', 'The total number of packets transmitted by a station.'),
+		rx_packets: out.counter('node_wifi_station_received_packets_total', 'The total number of packets received by a station.'),
+		expected_throughput: out.gauge('node_wifi_station_expected_throughput_bits_per_second', 'Expected throughput to the station, in bits per second.'),
+	};
+}
+
 function metrics(out) {
 	return {
-		radio_info: out.gauge('wifi_radio_info', 'A Wi-Fi radio, by its mode, channel and country.'),
-		network_info: out.gauge('wifi_network_info', 'A Wi-Fi network, by its SSID, BSSID and mode.'),
-		network_quality: out.gauge('wifi_network_quality', 'Signal quality of the network\'s stations, in percent.'),
-		network_bitrate: out.gauge('wifi_network_bitrate', 'Average transmit bitrate to the network\'s stations, in kbit/s.'),
-		network_noise: out.gauge('wifi_network_noise_dbm', 'Noise on the network\'s channel, in dBm.'),
-		network_signal: out.gauge('wifi_network_signal_dbm', 'Average signal of the network\'s stations, in dBm.'),
-		stations_total: out.counter('wifi_stations_total', 'Stations associated with the network.'),
-		inactive: out.gauge('wifi_station_inactive_milliseconds', 'Time since the station was last active, in milliseconds.'),
-		rx_bytes: out.counter('wifi_station_receive_bytes_total', 'Bytes received from the station.'),
-		tx_bytes: out.counter('wifi_station_transmit_bytes_total', 'Bytes transmitted to the station.'),
-		rx_packets: out.counter('wifi_station_receive_packets_total', 'Packets received from the station.'),
-		tx_packets: out.counter('wifi_station_transmit_packets_total', 'Packets transmitted to the station.'),
-		signal: out.gauge('wifi_station_signal_dbm', 'Signal of the station, in dBm.'),
-		rx_bitrate: out.gauge('wifi_station_receive_kilobits_per_second', 'Bitrate of the last packet received from the station, in kbit/s.'),
-		tx_bitrate: out.gauge('wifi_station_transmit_kilobits_per_second', 'Bitrate of the last packet transmitted to the station, in kbit/s.'),
-		expected_throughput: out.gauge('wifi_station_expected_throughput_kilobits_per_second', 'Expected throughput to the station, in kbit/s.'),
+		radio_info: out.gauge('node_wifi_radio_info', 'A Wi-Fi radio, by its mode, channel and country.'),
+		frequency: out.gauge('node_wifi_interface_frequency_hertz', 'The current frequency a WiFi interface is operating at, in hertz.'),
+		network_info: out.gauge('node_wifi_network_info', 'A Wi-Fi network, by its SSID, BSSID and mode.'),
+		network_quality: out.gauge('node_wifi_network_quality_ratio', 'Signal quality of the network\'s stations, from 0 (-110 dBm) to 1 (-40 dBm).'),
+		network_bitrate: out.gauge('node_wifi_network_transmit_bits_per_second', 'Average transmit bitrate to the network\'s stations, in bits per second.'),
+		network_noise: out.gauge('node_wifi_network_noise_dbm', 'Noise on the network\'s channel, in dBm.'),
+		network_signal: out.gauge('node_wifi_network_signal_dbm', 'Average signal of the network\'s stations, in dBm.'),
+		stations: out.gauge('node_wifi_stations', 'Stations associated with the interface.'),
+		...station_metrics(out),
 	};
 }
 
@@ -74,6 +94,12 @@ function mean(list, pick) {
 	return (n && sum) ? sum / (n * 1.0) : NaN;
 }
 
+// The upstream exporter's signal quality, (signal + 110) / 70, as a ratio
+// where it was a percentage: -110 dBm is 0, -40 dBm 1.
+export function quality(signal) {
+	return (signal + 110) / 70.0;
+};
+
 function noise_at(survey, freq) {
 	for (let s in (type(survey) == 'array' ? survey : [])) {
 		if (s?.survey_info?.frequency == freq)
@@ -83,22 +109,33 @@ function noise_at(survey, freq) {
 	return NaN;
 }
 
-function station(m, radio, ifname, sta) {
-	let labels = { radio, ifname, mac: sta?.mac };
+// A value in milliseconds in seconds, or null for none.
+function seconds(ms) {
+	return type(ms) in [ 'int', 'double' ] ? ms / 1000.0 : null;
+}
+
+// A field the driver does not report is left out, and so are the bitrates and
+// the expected throughput when it reports 0.
+function station(m, radio, device, sta) {
+	let labels = { radio, device, mac_address: sta?.mac };
 	let info = sta?.sta_info ?? {};
 
-	m.inactive(labels, info.inactive_time);
+	m.connected(labels, info.connected_time);
+	m.inactive(labels, seconds(info.inactive_time));
+	if (info.rx_bitrate?.bitrate32)
+		m.rx_bitrate(labels, info.rx_bitrate.bitrate32 * BITRATE_UNIT);
+	if (info.tx_bitrate?.bitrate32)
+		m.tx_bitrate(labels, info.tx_bitrate.bitrate32 * BITRATE_UNIT);
 	m.rx_bytes(labels, info.rx_bytes64 ?? info.rx_bytes);
 	m.tx_bytes(labels, info.tx_bytes64 ?? info.tx_bytes);
-	m.rx_packets(labels, info.rx_packets);
-	m.tx_packets(labels, info.tx_packets);
 	m.signal(labels, info.signal);
-	if (info.rx_bitrate?.bitrate32)
-		m.rx_bitrate(labels, info.rx_bitrate.bitrate32 * 100);
-	if (info.tx_bitrate?.bitrate32)
-		m.tx_bitrate(labels, info.tx_bitrate.bitrate32 * 100);
+	m.tx_retries(labels, info.tx_retries);
+	m.tx_failed(labels, info.tx_failed);
+	m.beacon_loss(labels, info.beacon_loss);
+	m.tx_packets(labels, info.tx_packets);
+	m.rx_packets(labels, info.rx_packets);
 	if (info.expected_throughput)
-		m.expected_throughput(labels, info.expected_throughput);
+		m.expected_throughput(labels, info.expected_throughput * KBIT);
 }
 
 // One network's samples; null, or the Result of the request that failed.
@@ -115,9 +152,13 @@ function network(nl, m, radio, iface, with_stations) {
 	if (type(wif) != 'object')
 		return null;
 
+	let labels = { radio, device: ifname };
+
+	if (type(wif.wiphy_freq) == 'int')
+		m.frequency(labels, wif.wiphy_freq * 1000000);
+
 	m.network_info({
-		radio,
-		ifname,
+		...labels,
 		ssid: nc.ssid || nc.mesh_id,
 		bssid: wif.mac,
 		mode: IFTYPES[wif.iftype],
@@ -129,13 +170,12 @@ function network(nl, m, radio, iface, with_stations) {
 
 	// An empty dump is a null reply.
 	let stations = type(res.data) == 'array' ? res.data : [];
-	let labels = { radio, ifname };
 	let bitrate = mean(stations, (s) => s?.sta_info?.tx_bitrate?.bitrate32);
 	let signal = mean(stations, (s) => s?.sta_info?.signal);
 
-	m.network_bitrate(labels, bitrate * 100);
+	m.network_bitrate(labels, bitrate * BITRATE_UNIT);
 	m.network_signal(labels, signal);
-	m.network_quality(labels, 100.0 / 70 * (signal + 110));
+	m.network_quality(labels, quality(signal));
 
 	res = nl.request(C.NL80211_CMD_GET_SURVEY, C.NLM_F_DUMP, { dev: ifname });
 	m.network_noise(labels, res.ok ? noise_at(res.data, wif.wiphy_freq) : NaN);
@@ -143,7 +183,7 @@ function network(nl, m, radio, iface, with_stations) {
 	if (!with_stations)
 		return null;
 
-	m.stations_total(labels, length(stations));
+	m.stations(labels, length(stations));
 	for (let sta in stations)
 		station(m, radio, ifname, sta);
 

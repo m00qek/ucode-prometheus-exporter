@@ -1,6 +1,6 @@
 'use strict';
 
-import { describe, it, assert, contains } from 'utest';
+import { describe, it, prop, gen, assert, contains } from 'utest';
 import { with_collector } from 'context';
 import * as fixtures from 'lib.fixtures';
 import * as commands from 'lib.commands';
@@ -34,30 +34,31 @@ function samples(lines) {
 }
 
 describe('collectors.ubnt_manager', () => {
-	it('exports an airOS 8 radio', () => {
+	it('exports an airOS 8 radio, in base units', () => {
 		run({ [LIST]: { out: ' litebeam\n' }, [status('litebeam')]: { out: AIROS8 } }, (r) => {
 			let d = '{device="litebeam"}';
 
 			assert.match(true, r.result.ok);
 			assert.match([
-				...family('ubnt_uptime', 'counter', 'Seconds since the radio booted.',
-					'ubnt_uptime{device="litebeam",hostname="link-north",devmodel="LiteBeam 5AC Gen2",fwversion="v8.7.11",essid="backhaul"} 1209617'),
+				...family('ubnt_info', 'gauge', 'The radio, by its names and firmware.',
+					'ubnt_info{device="litebeam",hostname="link-north",devmodel="LiteBeam 5AC Gen2",fwversion="v8.7.11",essid="backhaul"} 1'),
+				...family('ubnt_uptime_seconds', 'gauge', 'Seconds since the radio booted.', `ubnt_uptime_seconds${d} 1209617`),
 				...family('ubnt_loadavg', 'gauge', 'Load average of the radio.', `ubnt_loadavg${d} 0.070312`),
-				...family('ubnt_totalram', 'gauge', 'Total memory of the radio.', `ubnt_totalram${d} 63012864`),
-				...family('ubnt_freeram', 'gauge', 'Free memory of the radio.', `ubnt_freeram${d} 14909440`),
-				...family('ubnt_temperature', 'gauge', 'Temperature of the radio.', `ubnt_temperature${d} 0`),
-				...family('ubnt_cpuload', 'gauge', 'CPU load of the radio, in percent.', `ubnt_cpuload${d} 7.920792`),
-				...family('ubnt_timestamp', 'counter', 'Unix time on the radio.', `ubnt_timestamp${d} 1790856000`),
+				...family('ubnt_memory_total_bytes', 'gauge', 'Total memory of the radio, in bytes.', `ubnt_memory_total_bytes${d} 63012864`),
+				...family('ubnt_memory_free_bytes', 'gauge', 'Free memory of the radio, in bytes.', `ubnt_memory_free_bytes${d} 14909440`),
+				...family('ubnt_temperature_celsius', 'gauge', 'Temperature of the radio, in Celsius.', `ubnt_temperature_celsius${d} 0`),
+				...family('ubnt_cpu_load_ratio', 'gauge', 'CPU load of the radio, from 0 to 1.', `ubnt_cpu_load_ratio${d} 0.07920792`),
+				...family('ubnt_time_seconds', 'gauge', 'Unix time on the radio.', `ubnt_time_seconds${d} 1790856000`),
 				...family('ubnt_band', 'gauge', 'The wireless band.', `ubnt_band${d} 2`),
-				...family('ubnt_frequency', 'gauge', 'The wireless frequency, in MHz.', `ubnt_frequency${d} 5540`),
-				...family('ubnt_center1_freq', 'gauge', 'Center frequency of the channel, in MHz.', `ubnt_center1_freq${d} 5550`),
+				...family('ubnt_frequency_hertz', 'gauge', 'The wireless frequency, in hertz.', `ubnt_frequency_hertz${d} 5540000000`),
+				...family('ubnt_center1_frequency_hertz', 'gauge', 'Center frequency of the channel, in hertz.', `ubnt_center1_frequency_hertz${d} 5550000000`),
 				...family('ubnt_dfs', 'gauge', 'Whether the channel needs DFS.', `ubnt_dfs${d} 1`),
-				...family('ubnt_distance', 'gauge', 'Link distance, in meters.', `ubnt_distance${d} 1350`),
-				...family('ubnt_noisef', 'gauge', 'Noise floor, in dBm.', `ubnt_noisef${d} -94`),
-				...family('ubnt_txpower', 'gauge', 'Transmit power, in dBm.', `ubnt_txpower${d} 16`),
-				...family('ubnt_aprepeater', 'gauge', 'Whether the radio is an AP repeater.', `ubnt_aprepeater${d} 0`),
-				...family('ubnt_rstatus', 'gauge', 'Radio status.', `ubnt_rstatus${d} 5`),
-				...family('ubnt_chanbw', 'gauge', 'Channel width, in MHz.', `ubnt_chanbw${d} 40`),
+				...family('ubnt_distance_meters', 'gauge', 'Link distance, in meters.', `ubnt_distance_meters${d} 1350`),
+				...family('ubnt_noise_floor_dbm', 'gauge', 'Noise floor, in dBm.', `ubnt_noise_floor_dbm${d} -94`),
+				...family('ubnt_transmit_power_dbm', 'gauge', 'Transmit power, in dBm.', `ubnt_transmit_power_dbm${d} 16`),
+				...family('ubnt_ap_repeater', 'gauge', 'Whether the radio is an AP repeater.', `ubnt_ap_repeater${d} 0`),
+				...family('ubnt_radio_status', 'gauge', 'Radio status.', `ubnt_radio_status${d} 5`),
+				...family('ubnt_channel_width_hertz', 'gauge', 'Channel width, in hertz.', `ubnt_channel_width_hertz${d} 40000000`),
 				...family('ubnt_rx_chainmask', 'gauge', 'Receive chain mask.', `ubnt_rx_chainmask${d} 3`),
 				...family('ubnt_tx_chainmask', 'gauge', 'Transmit chain mask.', `ubnt_tx_chainmask${d} 3`),
 				...family('ubnt_cac_state', 'gauge', 'DFS channel availability check state.', `ubnt_cac_state${d} 0`),
@@ -66,44 +67,45 @@ describe('collectors.ubnt_manager', () => {
 				...family('ubnt_rx_nss', 'gauge', 'Receive spatial streams.', `ubnt_rx_nss${d} 2`),
 				...family('ubnt_tx_idx', 'gauge', 'Transmit modulation index.', `ubnt_tx_idx${d} 9`),
 				...family('ubnt_tx_nss', 'gauge', 'Transmit spatial streams.', `ubnt_tx_nss${d} 2`),
-				...family('ubnt_count', 'gauge', 'Stations associated.', `ubnt_count${d} 1`),
-				...family('ubnt_throughput_tx', 'gauge', 'Transmit throughput, in kbit/s.', `ubnt_throughput_tx${d} 1843`),
-				...family('ubnt_throughput_rx', 'gauge', 'Receive throughput, in kbit/s.', `ubnt_throughput_rx${d} 20512`),
-				...family('ubnt_polling_cb_capacity', 'gauge', 'airMAX combined capacity, in kbit/s.', `ubnt_polling_cb_capacity${d} 331140`),
-				...family('ubnt_polling_dl_capacity', 'gauge', 'airMAX download capacity, in kbit/s.', `ubnt_polling_dl_capacity${d} 297720`),
-				...family('ubnt_polling_ul_capacity', 'gauge', 'airMAX upload capacity, in kbit/s.', `ubnt_polling_ul_capacity${d} 253920`),
-				...family('ubnt_use', 'gauge', 'airtime use, in percent.', `ubnt_use${d} 17`),
-				...family('ubnt_tx_use', 'gauge', 'Transmit airtime use, in percent.', `ubnt_tx_use${d} 8`),
-				...family('ubnt_rx_use', 'gauge', 'Receive airtime use, in percent.', `ubnt_rx_use${d} 9`),
+				...family('ubnt_stations', 'gauge', 'Stations associated.', `ubnt_stations${d} 1`),
+				...family('ubnt_transmit_throughput_bits_per_second', 'gauge', 'Transmit throughput, in bits per second.', `ubnt_transmit_throughput_bits_per_second${d} 1843000`),
+				...family('ubnt_receive_throughput_bits_per_second', 'gauge', 'Receive throughput, in bits per second.', `ubnt_receive_throughput_bits_per_second${d} 20512000`),
+				...family('ubnt_airmax_combined_capacity_bits_per_second', 'gauge', 'airMAX combined capacity, in bits per second.', `ubnt_airmax_combined_capacity_bits_per_second${d} 331140000`),
+				...family('ubnt_airmax_downlink_capacity_bits_per_second', 'gauge', 'airMAX download capacity, in bits per second.', `ubnt_airmax_downlink_capacity_bits_per_second${d} 297720000`),
+				...family('ubnt_airmax_uplink_capacity_bits_per_second', 'gauge', 'airMAX upload capacity, in bits per second.', `ubnt_airmax_uplink_capacity_bits_per_second${d} 253920000`),
+				...family('ubnt_airtime_use', 'gauge', 'Airtime use, as airOS reports it.', `ubnt_airtime_use${d} 17`),
+				...family('ubnt_transmit_airtime_use', 'gauge', 'Transmit airtime use, as airOS reports it.', `ubnt_transmit_airtime_use${d} 8`),
+				...family('ubnt_receive_airtime_use', 'gauge', 'Receive airtime use, as airOS reports it.', `ubnt_receive_airtime_use${d} 9`),
 				...family('ubnt_atpc_status', 'gauge', 'Automatic transmit power control status.', `ubnt_atpc_status${d} 2`),
 			], r.lines);
 		});
 	});
 
-	it('exports an airOS 6 radio, its frequency read from "5745 MHz"', () => {
+	it('exports an airOS 6 radio, its frequency read from "5745 MHz" and its memory from kB', () => {
 		run({ [LIST]: { out: 'nsloco\n' }, [status('nsloco')]: { out: AIROS6 } }, (r) => {
 			let d = '{device="nsloco"}';
 
 			assert.match(true, r.result.ok);
 			assert.match([
-				...family('ubnt_uptime', 'counter', 'Seconds since the radio booted.',
-					'ubnt_uptime{device="nsloco",hostname="link-south",devmodel="NanoStation loco M5",fwversion="XW.v6.3.6",essid="backhaul"} 532104'),
-				...family('ubnt_totalram', 'gauge', 'Total memory of the radio.', `ubnt_totalram${d} 61120`),
-				...family('ubnt_freeram', 'gauge', 'Free memory of the radio.', `ubnt_freeram${d} 20140`),
-				...family('ubnt_cpuload', 'gauge', 'CPU load of the radio, in percent.', `ubnt_cpuload${d} 14`),
-				...family('ubnt_cpubusy', 'gauge', 'Busy CPU time of the radio.', `ubnt_cpubusy${d} 3521`),
-				...family('ubnt_cputotal', 'gauge', 'Total CPU time of the radio.', `ubnt_cputotal${d} 25150`),
+				...family('ubnt_info', 'gauge', 'The radio, by its names and firmware.',
+					'ubnt_info{device="nsloco",hostname="link-south",devmodel="NanoStation loco M5",fwversion="XW.v6.3.6",essid="backhaul"} 1'),
+				...family('ubnt_uptime_seconds', 'gauge', 'Seconds since the radio booted.', `ubnt_uptime_seconds${d} 532104`),
+				...family('ubnt_memory_total_bytes', 'gauge', 'Total memory of the radio, in bytes.', `ubnt_memory_total_bytes${d} 62586880`),
+				...family('ubnt_memory_free_bytes', 'gauge', 'Free memory of the radio, in bytes.', `ubnt_memory_free_bytes${d} 20623360`),
+				...family('ubnt_cpu_load_ratio', 'gauge', 'CPU load of the radio, from 0 to 1.', `ubnt_cpu_load_ratio${d} 0.14`),
+				...family('ubnt_cpu_busy', 'gauge', 'Busy CPU time of the radio, as airOS counts it.', `ubnt_cpu_busy${d} 3521`),
+				...family('ubnt_cpu_all', 'gauge', 'All CPU time of the radio, as airOS counts it.', `ubnt_cpu_all${d} 25150`),
 				...family('ubnt_channel', 'gauge', 'The wireless channel.', `ubnt_channel${d} 149`),
-				...family('ubnt_frequency', 'gauge', 'The wireless frequency, in MHz.', `ubnt_frequency${d} 5745`),
+				...family('ubnt_frequency_hertz', 'gauge', 'The wireless frequency, in hertz.', `ubnt_frequency_hertz${d} 5745000000`),
 				...family('ubnt_dfs', 'gauge', 'Whether the channel needs DFS.', `ubnt_dfs${d} 0`),
-				...family('ubnt_signal', 'gauge', 'Signal strength, in dBm.', `ubnt_signal${d} -62`),
+				...family('ubnt_signal_dbm', 'gauge', 'Signal strength, in dBm.', `ubnt_signal_dbm${d} -62`),
 				...family('ubnt_rssi', 'gauge', 'Received signal strength indicator.', `ubnt_rssi${d} 34`),
-				...family('ubnt_noisef', 'gauge', 'Noise floor, in dBm.', `ubnt_noisef${d} -96`),
-				...family('ubnt_txpower', 'gauge', 'Transmit power, in dBm.', `ubnt_txpower${d} 20`),
-				...family('ubnt_distance', 'gauge', 'Link distance, in meters.', `ubnt_distance${d} 1200`),
-				...family('ubnt_txrate', 'gauge', 'Transmit rate, in Mbit/s.', `ubnt_txrate${d} 150`),
-				...family('ubnt_rxrate', 'gauge', 'Receive rate, in Mbit/s.', `ubnt_rxrate${d} 135`),
-				...family('ubnt_count', 'gauge', 'Stations associated.', `ubnt_count${d} 1`),
+				...family('ubnt_noise_floor_dbm', 'gauge', 'Noise floor, in dBm.', `ubnt_noise_floor_dbm${d} -96`),
+				...family('ubnt_transmit_power_dbm', 'gauge', 'Transmit power, in dBm.', `ubnt_transmit_power_dbm${d} 20`),
+				...family('ubnt_distance_meters', 'gauge', 'Link distance, in meters.', `ubnt_distance_meters${d} 1200`),
+				...family('ubnt_transmit_rate_bits_per_second', 'gauge', 'Transmit rate, in bits per second.', `ubnt_transmit_rate_bits_per_second${d} 150000000`),
+				...family('ubnt_receive_rate_bits_per_second', 'gauge', 'Receive rate, in bits per second.', `ubnt_receive_rate_bits_per_second${d} 135000000`),
+				...family('ubnt_stations', 'gauge', 'Stations associated.', `ubnt_stations${d} 1`),
 			], r.lines);
 		});
 	});
@@ -116,9 +118,9 @@ describe('collectors.ubnt_manager', () => {
 		}, (r) => {
 			assert.match(true, r.result.ok);
 			assert.match(contains([
-				'# TYPE ubnt_frequency gauge',
-				'ubnt_frequency{device="litebeam"} 5540',
-				'ubnt_frequency{device="nsloco"} 5745',
+				'# TYPE ubnt_frequency_hertz gauge',
+				'ubnt_frequency_hertz{device="litebeam"} 5540000000',
+				'ubnt_frequency_hertz{device="nsloco"} 5745000000',
 			]), r.lines);
 		});
 	});
@@ -169,4 +171,25 @@ describe('collectors.ubnt_manager', () => {
 			assert.match([], r.lines);
 		});
 	});
+
+	it('reads the numbers status.cgi gives as numbers, strings and booleans', () => {
+		assert.match([ 150, -62, 5745, 1, 0, null, null ],
+			map([ 150, '-62', '5745 MHz', true, false, '--', null ], ubnt_manager.number));
+	});
+
+	prop('scales an airOS 8 radio\'s MHz to hertz, kbit/s to bits per second and percent to a ratio',
+		gen.tuple(gen.int(2400, 6000), gen.int(0, 1000000), gen.int(0, 100)), (x) => {
+			let doc = json(substr(AIROS8, 2));
+			doc.wireless.frequency = x[0];
+			doc.wireless.throughput.tx = x[1];
+			doc.host.cpuload = x[2];
+
+			run({ [LIST]: { out: 'litebeam\n' }, [status('litebeam')]: { out: sprintf('%J', doc) } }, (r) => {
+				assert.match(contains([
+					`ubnt_cpu_load_ratio{device="litebeam"} ${x[2] * 0.01}`,
+					`ubnt_frequency_hertz{device="litebeam"} ${x[0] * 1000000}`,
+					`ubnt_transmit_throughput_bits_per_second{device="litebeam"} ${x[1] * 1000}`,
+				]), r.lines);
+			});
+		});
 });

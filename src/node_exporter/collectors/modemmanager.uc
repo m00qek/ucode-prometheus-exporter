@@ -5,6 +5,7 @@
 
 import * as Result from 'node_exporter.result';
 import * as errors from 'node_exporter.errors';
+import { sanitize } from 'node_exporter.exposition';
 
 export const meta = {
 	name: 'modemmanager',
@@ -36,8 +37,23 @@ function number(v) {
 	return type(v) == 'string' && match(trim(v), /^[+-]?([0-9]+\.?[0-9]*|\.[0-9]+)$/) ? +v : null;
 }
 
-// modemmanager_signal_<technology>_<measure> for each number `mmcli --signal-get`
-// reports: lte rssi, rsrq, rsrp and snr, umts rscp and ecio, and so on.
+// The unit of each measure `mmcli --signal-get` reports (ModemManager's
+// MMSignal): powers in dBm, ratios of powers in dB, the refresh rate in
+// seconds. A measure not listed has no unit in its name.
+export const UNITS = {
+	rssi: '_dbm', rsrp: '_dbm', rscp: '_dbm', io: '_dbm',
+	rsrq: '_db', snr: '_db', sinr: '_db', ecio: '_db',
+	rate: '_seconds',
+};
+
+// The family of a measure: modemmanager_signal_<technology>_<measure><unit>,
+// as a metric name.
+export function family_of(tech, measure) {
+	return sanitize(`modemmanager_signal_${tech}_${measure}${UNITS[measure] ?? ''}`);
+};
+
+// For each number `mmcli --signal-get` reports: lte rssi, rsrq, rsrp and snr,
+// umts rscp and ecio, and so on.
 function signals(out, modem, signal) {
 	for (let tech, measures in signal) {
 		if (type(measures) != 'object')
@@ -46,7 +62,7 @@ function signals(out, modem, signal) {
 		for (let name, value in measures) {
 			let v = number(value);
 			if (v != null)
-				out.gauge(`modemmanager_signal_${tech}_${name}`, `The ${tech} ${name} of the modem signal.`)({ modem }, v);
+				out.gauge(family_of(tech, name), `The ${tech} ${name} of the modem signal.`)({ modem }, v);
 		}
 	}
 }
@@ -67,7 +83,8 @@ export function collect(deps, out) {
 		res = mmcli(deps.exec, [ '-m', modem ]);
 		if (res.ok) {
 			let quality = number(res.data?.modem?.generic?.['signal-quality']?.value);
-			out.gauge('modemmanager_signal_quality', 'Signal quality of the modem, in percent.')({ modem }, quality);
+			out.gauge('modemmanager_signal_quality_ratio', 'Signal quality of the modem, from 0 to 1.')(
+				{ modem }, quality == null ? null : quality / 100.0);
 		} else {
 			failed ??= res;
 		}

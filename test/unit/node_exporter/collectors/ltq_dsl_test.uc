@@ -28,9 +28,12 @@ describe('collectors.ltq_dsl', () => {
 				'# TYPE dsl_line_info gauge',
 				'dsl_line_info{annex="B",standard="G.993.2",' +
 					'mode="G.993.2 (VDSL2, Profile 17a, with down- and upstream vectoring)",profile="17a"} 1',
-				'# HELP dsl_up Whether the DSL line is up (showtime), labeled with its state.',
+				'# HELP dsl_up Whether the DSL line is up (showtime).',
 				'# TYPE dsl_up gauge',
-				'dsl_up{detail="Showtime with TC-Layer sync"} 1',
+				'dsl_up 1',
+				'# HELP dsl_state_info The state of the DSL line, as the driver names it.',
+				'# TYPE dsl_state_info gauge',
+				'dsl_state_info{state="Showtime with TC-Layer sync"} 1',
 				'# HELP dsl_uptime_seconds Time the DSL line has been up.',
 				'# TYPE dsl_uptime_seconds gauge',
 				'dsl_uptime_seconds 356718',
@@ -46,22 +49,22 @@ describe('collectors.ltq_dsl', () => {
 				'# TYPE dsl_signal_to_noise_margin_db gauge',
 				'dsl_signal_to_noise_margin_db{direction="down"} 11.7',
 				'dsl_signal_to_noise_margin_db{direction="up"} 9.1',
-				'# HELP dsl_aggregated_transmit_power_db Aggregated transmit power.',
-				'# TYPE dsl_aggregated_transmit_power_db gauge',
-				'dsl_aggregated_transmit_power_db{direction="down"} 13.8',
-				'dsl_aggregated_transmit_power_db{direction="up"} 14.3',
+				'# HELP dsl_aggregated_transmit_power_dbm Aggregated transmit power, in dBm.',
+				'# TYPE dsl_aggregated_transmit_power_dbm gauge',
+				'dsl_aggregated_transmit_power_dbm{direction="down"} 13.8',
+				'dsl_aggregated_transmit_power_dbm{direction="up"} 14.3',
 				'# HELP dsl_latency_seconds Interleaving delay.',
 				'# TYPE dsl_latency_seconds gauge',
 				'dsl_latency_seconds{direction="down"} 0.00014',
 				'dsl_latency_seconds{direction="up"} 0',
-				'# HELP dsl_datarate Data rate, in bits per second.',
-				'# TYPE dsl_datarate gauge',
-				'dsl_datarate{direction="down"} 116790000',
-				'dsl_datarate{direction="up"} 40000000',
-				'# HELP dsl_max_datarate Attainable data rate, in bits per second.',
-				'# TYPE dsl_max_datarate gauge',
-				'dsl_max_datarate{direction="down"} 131440000',
-				'dsl_max_datarate{direction="up"} 48332000',
+				'# HELP dsl_data_rate_bits_per_second Data rate, in bits per second.',
+				'# TYPE dsl_data_rate_bits_per_second gauge',
+				'dsl_data_rate_bits_per_second{direction="down"} 116790000',
+				'dsl_data_rate_bits_per_second{direction="up"} 40000000',
+				'# HELP dsl_max_data_rate_bits_per_second Attainable data rate, in bits per second.',
+				'# TYPE dsl_max_data_rate_bits_per_second gauge',
+				'dsl_max_data_rate_bits_per_second{direction="down"} 131440000',
+				'dsl_max_data_rate_bits_per_second{direction="up"} 48332000',
 				'# HELP dsl_error_seconds_total Seconds with errors, by kind.',
 				'# TYPE dsl_error_seconds_total counter',
 				'dsl_error_seconds_total{err="forward error correction",loc="near"} 4821',
@@ -108,8 +111,8 @@ describe('collectors.ltq_dsl', () => {
 			upstream: {}, downstream: {}, errors: { near: {}, far: {} },
 		}, (r) => {
 			assert.match(true, r.result.ok);
-			assert.match(contains([ 'dsl_up{detail="Handshake"} 0' ]), r.lines);
-			assert.match(false, index(r.text, 'dsl_datarate') >= 0);
+			assert.match(contains([ 'dsl_up 0', 'dsl_state_info{state="Handshake"} 1' ]), r.lines);
+			assert.match(false, index(r.text, 'dsl_data_rate') >= 0);
 		});
 	});
 

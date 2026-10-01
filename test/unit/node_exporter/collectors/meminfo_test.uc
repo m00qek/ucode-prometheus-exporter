@@ -17,7 +17,7 @@ function samples(lines) {
 }
 
 describe('collectors.meminfo', () => {
-	it('exports every field of the caju router in bytes, a gauge each', () => {
+	it('exports every field of the caju router, in bytes where the kernel gives kB, a gauge each', () => {
 		with_collector(meminfo, { fs: { data: ROUTER } }, (r) => {
 			assert.match(true, r.result.ok);
 			assert.match([
@@ -71,10 +71,10 @@ describe('collectors.meminfo', () => {
 				'node_memory_FilePmdMapped_bytes 0',
 				'node_memory_CmaTotal_bytes 16777216',
 				'node_memory_CmaFree_bytes 15204352',
-				'node_memory_HugePages_Total_bytes 0',
-				'node_memory_HugePages_Free_bytes 0',
-				'node_memory_HugePages_Rsvd_bytes 0',
-				'node_memory_HugePages_Surp_bytes 0',
+				'node_memory_HugePages_Total 0',
+				'node_memory_HugePages_Free 0',
+				'node_memory_HugePages_Rsvd 0',
+				'node_memory_HugePages_Surp 0',
 				'node_memory_Hugepagesize_bytes 2097152',
 				'node_memory_Hugetlb_bytes 0',
 			], samples(r.lines));
@@ -88,9 +88,9 @@ describe('collectors.meminfo', () => {
 		});
 	});
 
-	it("names a field's parenthesised part with an underscore and keeps unitless values as they are", () => {
+	it("names a field's parenthesised part with an underscore and names unitless values without a unit", () => {
 		with_collector(meminfo, mem('Active(anon):   2 kB\nHugePages_Total:   7\n'), (r) => {
-			assert.match([ 'node_memory_Active_anon_bytes 2048', 'node_memory_HugePages_Total_bytes 7' ], samples(r.lines));
+			assert.match([ 'node_memory_Active_anon_bytes 2048', 'node_memory_HugePages_Total 7' ], samples(r.lines));
 		});
 	});
 
@@ -119,7 +119,7 @@ describe('collectors.meminfo', () => {
 	});
 
 	// Unique names: an index, then letters and digits, then maybe a parenthesised part.
-	prop('exports every field it is given, in bytes when the kernel says kB',
+	prop('exports every field it is given, in bytes and _bytes when the kernel says kB, else as it is without a unit',
 		gen.array(gen.record({
 			name: gen.alphanumeric({ min_len: 1, max_len: 12 }),
 			sub: gen.optional(gen.alphanumeric({ min_len: 1, max_len: 6 })),
@@ -133,7 +133,7 @@ describe('collectors.meminfo', () => {
 				let name = `F${i}${f.name}`;
 
 				text += sprintf('%-16s %10d%s\n', name + (f.sub != null ? `(${f.sub})` : '') + ':', f.value, f.kb ? ' kB' : '');
-				push(want, `node_memory_${name}${f.sub != null ? '_' + f.sub : ''}_bytes ${f.kb ? f.value * 1024 : f.value}`);
+				push(want, `node_memory_${name}${f.sub != null ? '_' + f.sub : ''}${f.kb ? '_bytes' : ''} ${f.kb ? f.value * 1024 : f.value}`);
 			}
 
 			with_collector(meminfo, mem(text), (r) => {

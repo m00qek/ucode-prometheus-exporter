@@ -53,78 +53,78 @@ function stat(name, value) {
 }
 
 describe('collectors.ethtool', () => {
-	it("exports the caju router's driver statistics, leaving out the links without", () => {
+	it("exports the caju router's driver statistics, sorted by name per link, leaving out the links without", () => {
 		with_ethtool(ROUTER.links, ROUTER.outputs, (r) => {
 			assert.match(true, r.result.ok);
 			assert.match([
-				'# HELP node_ethtool_transmitted_packets_total Driver statistic tx_packets, from ethtool -S.',
-				'# TYPE node_ethtool_transmitted_packets_total untyped',
-				'node_ethtool_transmitted_packets_total{device="eth0"} 588369',
-				'node_ethtool_transmitted_packets_total{device="eth1"} 243879',
-				'# HELP node_ethtool_received_packets_total Driver statistic rx_packets, from ethtool -S.',
-				'# TYPE node_ethtool_received_packets_total untyped',
-				'node_ethtool_received_packets_total{device="eth0"} 239002',
-				'node_ethtool_received_packets_total{device="eth1"} 596237',
-				'# HELP node_ethtool_transmitted_errors_total Driver statistic tx_errors, from ethtool -S.',
-				'# TYPE node_ethtool_transmitted_errors_total untyped',
-				'node_ethtool_transmitted_errors_total{device="eth0"} 0',
-				'node_ethtool_transmitted_errors_total{device="eth1"} 0',
-				'# HELP node_ethtool_received_errors_total Driver statistic rx_errors, from ethtool -S.',
-				'# TYPE node_ethtool_received_errors_total untyped',
-				'node_ethtool_received_errors_total{device="eth0"} 0',
-				'node_ethtool_received_errors_total{device="eth1"} 0',
-				'# HELP node_ethtool_received_missed Driver statistic rx_missed, from ethtool -S.',
-				'# TYPE node_ethtool_received_missed untyped',
-				'node_ethtool_received_missed{device="eth0"} 0',
-				'node_ethtool_received_missed{device="eth1"} 2253',
-				'# HELP node_ethtool_align_errors Driver statistic align_errors, from ethtool -S.',
+				'# HELP node_ethtool_align_errors Network interface align_errors',
 				'# TYPE node_ethtool_align_errors untyped',
 				'node_ethtool_align_errors{device="eth0"} 0',
 				'node_ethtool_align_errors{device="eth1"} 0',
-				'# HELP node_ethtool_transmitted_single_collisions Driver statistic tx_single_collisions, from ethtool -S.',
-				'# TYPE node_ethtool_transmitted_single_collisions untyped',
-				'node_ethtool_transmitted_single_collisions{device="eth0"} 0',
-				'node_ethtool_transmitted_single_collisions{device="eth1"} 0',
-				'# HELP node_ethtool_transmitted_multi_collisions Driver statistic tx_multi_collisions, from ethtool -S.',
-				'# TYPE node_ethtool_transmitted_multi_collisions untyped',
-				'node_ethtool_transmitted_multi_collisions{device="eth0"} 0',
-				'node_ethtool_transmitted_multi_collisions{device="eth1"} 0',
-				'# HELP node_ethtool_unicast Driver statistic unicast, from ethtool -S.',
-				'# TYPE node_ethtool_unicast untyped',
-				'node_ethtool_unicast{device="eth0"} 236331',
-				'node_ethtool_unicast{device="eth1"} 585606',
-				'# HELP node_ethtool_broadcast Driver statistic broadcast, from ethtool -S.',
+				'# HELP node_ethtool_broadcast Network interface broadcast',
 				'# TYPE node_ethtool_broadcast untyped',
 				'node_ethtool_broadcast{device="eth0"} 744',
 				'node_ethtool_broadcast{device="eth1"} 8451',
-				'# HELP node_ethtool_multicast Driver statistic multicast, from ethtool -S.',
+				'# HELP node_ethtool_multicast Network interface multicast',
 				'# TYPE node_ethtool_multicast untyped',
 				'node_ethtool_multicast{device="eth0"} 1927',
 				'node_ethtool_multicast{device="eth1"} 2180',
-				'# HELP node_ethtool_transmitted_aborted Driver statistic tx_aborted, from ethtool -S.',
+				'# HELP node_ethtool_received_errors_total Number of received frames with errors',
+				'# TYPE node_ethtool_received_errors_total untyped',
+				'node_ethtool_received_errors_total{device="eth0"} 0',
+				'node_ethtool_received_errors_total{device="eth1"} 0',
+				'# HELP node_ethtool_received_missed Network interface rx_missed',
+				'# TYPE node_ethtool_received_missed untyped',
+				'node_ethtool_received_missed{device="eth0"} 0',
+				'node_ethtool_received_missed{device="eth1"} 2253',
+				'# HELP node_ethtool_received_packets_total Network interface packets received',
+				'# TYPE node_ethtool_received_packets_total untyped',
+				'node_ethtool_received_packets_total{device="eth0"} 239002',
+				'node_ethtool_received_packets_total{device="eth1"} 596237',
+				'# HELP node_ethtool_transmitted_aborted Network interface tx_aborted',
 				'# TYPE node_ethtool_transmitted_aborted untyped',
 				'node_ethtool_transmitted_aborted{device="eth0"} 0',
 				'node_ethtool_transmitted_aborted{device="eth1"} 0',
-				'# HELP node_ethtool_transmitted_underrun Driver statistic tx_underrun, from ethtool -S.',
+				'# HELP node_ethtool_transmitted_errors_total Number of sent frames with errors',
+				'# TYPE node_ethtool_transmitted_errors_total untyped',
+				'node_ethtool_transmitted_errors_total{device="eth0"} 0',
+				'node_ethtool_transmitted_errors_total{device="eth1"} 0',
+				'# HELP node_ethtool_transmitted_multi_collisions Network interface tx_multi_collisions',
+				'# TYPE node_ethtool_transmitted_multi_collisions untyped',
+				'node_ethtool_transmitted_multi_collisions{device="eth0"} 0',
+				'node_ethtool_transmitted_multi_collisions{device="eth1"} 0',
+				'# HELP node_ethtool_transmitted_packets_total Network interface packets sent',
+				'# TYPE node_ethtool_transmitted_packets_total untyped',
+				'node_ethtool_transmitted_packets_total{device="eth0"} 588369',
+				'node_ethtool_transmitted_packets_total{device="eth1"} 243879',
+				'# HELP node_ethtool_transmitted_single_collisions Network interface tx_single_collisions',
+				'# TYPE node_ethtool_transmitted_single_collisions untyped',
+				'node_ethtool_transmitted_single_collisions{device="eth0"} 0',
+				'node_ethtool_transmitted_single_collisions{device="eth1"} 0',
+				'# HELP node_ethtool_transmitted_underrun Network interface tx_underrun',
 				'# TYPE node_ethtool_transmitted_underrun untyped',
 				'node_ethtool_transmitted_underrun{device="eth0"} 0',
 				'node_ethtool_transmitted_underrun{device="eth1"} 0',
-				'# HELP node_ethtool_received_queue_0_packets Driver statistic rx_queue_0_packets, from ethtool -S.',
-				'# TYPE node_ethtool_received_queue_0_packets untyped',
-				'node_ethtool_received_queue_0_packets{device="ifb4vlan-guest"} 2005',
-				'node_ethtool_received_queue_0_packets{device="ifb4eth1"} 596010',
-				'# HELP node_ethtool_received_queue_0_bytes Driver statistic rx_queue_0_bytes, from ethtool -S.',
+				'# HELP node_ethtool_unicast Network interface unicast',
+				'# TYPE node_ethtool_unicast untyped',
+				'node_ethtool_unicast{device="eth0"} 236331',
+				'node_ethtool_unicast{device="eth1"} 585606',
+				'# HELP node_ethtool_received_queue_0_bytes Network interface rx_queue_0_bytes',
 				'# TYPE node_ethtool_received_queue_0_bytes untyped',
 				'node_ethtool_received_queue_0_bytes{device="ifb4vlan-guest"} 360001',
 				'node_ethtool_received_queue_0_bytes{device="ifb4eth1"} 653366727',
-				'# HELP node_ethtool_transmitted_queue_0_packets Driver statistic tx_queue_0_packets, from ethtool -S.',
-				'# TYPE node_ethtool_transmitted_queue_0_packets untyped',
-				'node_ethtool_transmitted_queue_0_packets{device="ifb4vlan-guest"} 2005',
-				'node_ethtool_transmitted_queue_0_packets{device="ifb4eth1"} 596010',
-				'# HELP node_ethtool_transmitted_queue_0_bytes Driver statistic tx_queue_0_bytes, from ethtool -S.',
+				'# HELP node_ethtool_received_queue_0_packets Network interface rx_queue_0_packets',
+				'# TYPE node_ethtool_received_queue_0_packets untyped',
+				'node_ethtool_received_queue_0_packets{device="ifb4vlan-guest"} 2005',
+				'node_ethtool_received_queue_0_packets{device="ifb4eth1"} 596010',
+				'# HELP node_ethtool_transmitted_queue_0_bytes Network interface tx_queue_0_bytes',
 				'# TYPE node_ethtool_transmitted_queue_0_bytes untyped',
 				'node_ethtool_transmitted_queue_0_bytes{device="ifb4vlan-guest"} 360001',
 				'node_ethtool_transmitted_queue_0_bytes{device="ifb4eth1"} 653366727',
+				'# HELP node_ethtool_transmitted_queue_0_packets Network interface tx_queue_0_packets',
+				'# TYPE node_ethtool_transmitted_queue_0_packets untyped',
+				'node_ethtool_transmitted_queue_0_packets{device="ifb4vlan-guest"} 2005',
+				'node_ethtool_transmitted_queue_0_packets{device="ifb4eth1"} 596010',
 			], r.lines);
 		});
 	});
@@ -154,18 +154,29 @@ describe('collectors.ethtool', () => {
 		});
 	});
 
-	it('names statistics as the Lua collector', () => {
+	it('names statistics as node_exporter', () => {
 		assert.match([
-			'node_ethtool_received_bytes_total',
-			'node_ethtool_transmitted_packets_total',
+			'node_ethtool_received_bytes',
+			'node_ethtool_transmitted_packets',
 			'node_ethtool_received_crc_errors',
 			'node_ethtool_p06_txdrop',
 			'node_ethtool_transmitted_ampdu_len_0_1',
 			'node_ethtool_weird_name_',
 			'node_ethtool_received_frames_received',
 			'node_ethtool_rxq0',
-		], map([ 'rx_bytes', 'tx_packets', 'rx_crc_errors', 'p06_TxDrop', 'tx_ampdu_len:0-1', '__weird name!', 'RX-Frames rx', 'rxq0' ],
-			ethtool.fqname));
+			'node_ethtool_rx0_x',
+			'node_ethtool_received_rx_x',
+		], map([ 'rx_bytes', 'tx_packets', 'rx_crc_errors', 'p06_TxDrop', 'tx_ampdu_len:0-1', '__weird name!', 'RX-Frames rx', 'rxq0',
+			'rx0_x', 'rx_rx_x' ], ethtool.fqname));
+	});
+
+	it("gives the common statistics node_exporter's names and help, the others the sanitized statistic", () => {
+		assert.match([
+			[ 'node_ethtool_received_bytes_total', 'Network interface bytes received' ],
+			[ 'node_ethtool_transmitted_errors_total', 'Number of sent frames with errors' ],
+			[ 'node_ethtool_received_bytes', 'Network interface RX_bytes' ],
+			[ 'node_ethtool_transmitted_ampdu_len_0_1', 'Network interface tx_ampdu_len_0_1' ],
+		], map([ 'rx_bytes', 'tx_errors', 'RX-bytes', 'tx_ampdu_len:0-1' ], ethtool.family));
 	});
 
 	it('reads names that hold ": " themselves', () => {
@@ -173,9 +184,11 @@ describe('collectors.ethtool', () => {
 			ethtool.statistics('NIC statistics:\n     tx_ampdu_len:0-1: 18968\n     q: 0: drops: 5\n\n'));
 	});
 
-	it('keeps the first of two statistics that make one name', () => {
-		with_ethtool([ { dev: 'eth0' } ], { [run('eth0')]: { out: 'NIC statistics:\n     rx-crc: 1\n     rx_crc: 2\n' } }, (r) => {
-			assert.match([ 'node_ethtool_received_crc{device="eth0"} 1' ], samples(r.lines));
+	it('leaves out every statistic of a name two of them make, as node_exporter', () => {
+		let text = 'NIC statistics:\n     rx-crc: 1\n     rx_crc: 2\n     RX_CRC: 3\n     tx_crc: 4\n';
+
+		with_ethtool([ { dev: 'eth0' } ], { [run('eth0')]: { out: text } }, (r) => {
+			assert.match([ 'node_ethtool_transmitted_crc{device="eth0"} 4' ], samples(r.lines));
 		});
 	});
 

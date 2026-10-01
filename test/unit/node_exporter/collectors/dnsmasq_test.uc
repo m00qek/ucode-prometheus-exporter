@@ -8,19 +8,19 @@ import * as dnsmasq from 'node_exporter.collectors.dnsmasq';
 const ROUTER = fixtures.ubus('caju-router', 'dnsmasq', 'metrics');
 
 describe('collectors.dnsmasq', () => {
-	it('exports every metric of the caju router dnsmasq as a dnsmasq_<key>_total gauge', () => {
+	it('exports every metric of the caju router dnsmasq: the counters with _total, the gauges without', () => {
 		with_collector(dnsmasq, { ubus: { data: { 'dnsmasq:metrics': ROUTER } } }, (r) => {
 			assert.match(true, r.result.ok);
 			assert.match(3 * length(ROUTER), length(r.lines));
 			assert.match([
 				'# HELP dnsmasq_dns_cache_inserted_total dnsmasq\'s dns_cache_inserted metric.',
-				'# TYPE dnsmasq_dns_cache_inserted_total gauge',
+				'# TYPE dnsmasq_dns_cache_inserted_total counter',
 				'dnsmasq_dns_cache_inserted_total 0',
 				'# HELP dnsmasq_dns_cache_live_freed_total dnsmasq\'s dns_cache_live_freed metric.',
-				'# TYPE dnsmasq_dns_cache_live_freed_total gauge',
+				'# TYPE dnsmasq_dns_cache_live_freed_total counter',
 				'dnsmasq_dns_cache_live_freed_total 0',
 				'# HELP dnsmasq_dns_queries_forwarded_total dnsmasq\'s dns_queries_forwarded metric.',
-				'# TYPE dnsmasq_dns_queries_forwarded_total gauge',
+				'# TYPE dnsmasq_dns_queries_forwarded_total counter',
 				'dnsmasq_dns_queries_forwarded_total 2',
 			], slice(r.lines, 0, 9));
 			assert.match(contains([
@@ -31,6 +31,13 @@ describe('collectors.dnsmasq', () => {
 				// dnsmasq's own spelling.
 				'dnsmasq_dhcp_lease_actve_total 0',
 			]), r.lines);
+			assert.match(contains([
+				'# TYPE dnsmasq_dnssec_max_crypto_use gauge',
+				'dnsmasq_dnssec_max_crypto_use 0',
+				'# TYPE dnsmasq_tcp_connections gauge',
+				'dnsmasq_tcp_connections 0',
+			]), r.lines);
+			assert.match([ 'counter', 'gauge' ], sort(uniq(map(r.families, (f) => f.type))));
 		});
 	});
 
@@ -55,7 +62,14 @@ describe('collectors.dnsmasq', () => {
 		});
 	});
 
-	prop('exports one sample per key, with its value',
+	it('exports a metric it does not know as untyped, without _total', () => {
+		with_collector(dnsmasq, { ubus: { data: { 'dnsmasq:metrics': { dns_new_thing: 3 } } } }, (r) => {
+			assert.match([ "# HELP dnsmasq_dns_new_thing dnsmasq's dns_new_thing metric.", '# TYPE dnsmasq_dns_new_thing untyped',
+				'dnsmasq_dns_new_thing 3' ], r.lines);
+		});
+	});
+
+	prop('exports one sample per key, with its value, named by what the key is',
 		gen.array(gen.tuple(gen.string({ charset: 'abcdefgh_', min_len: 1, max_len: 12 }), gen.int(0, 1000000)), { max_len: 8 }),
 		(pairs) => {
 			let reply = {};
@@ -64,8 +78,18 @@ describe('collectors.dnsmasq', () => {
 
 			with_collector(dnsmasq, { ubus: { data: { 'dnsmasq:metrics': reply } } }, (r) => {
 				assert.match(true, r.result.ok);
-				assert.match(sort(map(keys(reply), (k) => `dnsmasq_${k}_total ${reply[k]}`)),
+				assert.match(sort(map(keys(reply), (k) => `${dnsmasq.family_of(k)[1]} ${reply[k]}`)),
 					sort(filter(r.lines, (l) => substr(l, 0, 1) != '#')));
 			});
+		});
+
+	prop('names every known counter with _total and nothing else',
+		gen.oneof(gen.elements(...dnsmasq.COUNTERS), gen.elements(...dnsmasq.GAUGES), gen.string({ charset: 'abcdefgh_', min_len: 1, max_len: 12 })),
+		(key) => {
+			let f = dnsmasq.family_of(key);
+
+			assert.match(key in dnsmasq.COUNTERS, f[0] == 'counter');
+			assert.match(f[0] == 'counter', substr(f[1], -6) == '_total');
+			assert.match(key in dnsmasq.GAUGES, f[0] == 'gauge');
 		});
 });

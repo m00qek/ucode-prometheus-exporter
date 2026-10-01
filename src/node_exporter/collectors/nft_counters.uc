@@ -32,8 +32,8 @@ export function collect(deps, out) {
 	if (type(doc) != 'object' || type(doc.nftables) != 'array')
 		return Result.err(errors.SOURCE_INVALID, 'nft --json list counters: no nftables array');
 
-	let packets = out.counter('nft_counter_packets', 'Packets counted by the nftables counter.');
-	let bytes = out.counter('nft_counter_bytes', 'Bytes counted by the nftables counter.');
+	let packets = out.counter('nft_counter_packets_total', 'Packets counted by the nftables counter.');
+	let bytes = out.counter('nft_counter_bytes_total', 'Bytes counted by the nftables counter.');
 
 	for (let item in doc.nftables) {
 		let c = item?.counter;

@@ -59,9 +59,11 @@ function sysfs_view(host, links) {
 		let d = l.dev;
 		let f = (attr) => sysfs_file(host, d, attr) == null ? null : trim(sysfs_file(host, d, attr));
 		let duplex = f('duplex');
+		let admin = (+f('flags') & 1) ? 'up' : 'down';
 
+		push(lines, `node_network_up{device="${d}"} ${f('operstate') == 'up' ? 1 : 0}`);
 		push(lines, `node_network_info{device="${d}",address="${f('address')}",broadcast="${f('broadcast')}"` +
-			(duplex != null ? `,duplex="${duplex}"` : '') + `,operstate="${f('operstate')}",ifalias="${f('ifalias')}"} 1`);
+			(duplex != null ? `,duplex="${duplex}"` : '') + `,operstate="${f('operstate')}",adminstate="${admin}",ifalias="${f('ifalias')}"} 1`);
 
 		for (let p in [ [ 'carrier', 'carrier' ], [ 'iface_link_mode', 'link_mode' ], [ 'mtu_bytes', 'mtu' ],
 				[ 'net_dev_group', 'netdev_group' ], [ 'protocol_type', 'type' ], [ 'transmit_queue_length', 'tx_queue_len' ] ])
@@ -76,10 +78,14 @@ describe('collectors.netclass', () => {
 		with_collector(netclass, cfg_of(ROUTER_TWO), (r) => {
 			assert.match(true, r.result.ok);
 			assert.match([
+				'# HELP node_network_up Value is 1 if operstate is \'up\', 0 otherwise.',
+				'# TYPE node_network_up gauge',
+				'node_network_up{device="eth0"} 1',
+				'node_network_up{device="wg_mesh"} 0',
 				'# HELP node_network_info Non-numeric data from /sys/class/net/<iface>, value is always 1.',
 				'# TYPE node_network_info gauge',
-				'node_network_info{device="eth0",address="02:00:00:00:01:01",broadcast="ff:ff:ff:ff:ff:ff",duplex="full",operstate="up",ifalias=""} 1',
-				'node_network_info{device="wg_mesh",address="",broadcast="",operstate="unknown",ifalias=""} 1',
+				'node_network_info{device="eth0",address="02:00:00:00:01:01",broadcast="ff:ff:ff:ff:ff:ff",duplex="full",operstate="up",adminstate="up",ifalias=""} 1',
+				'node_network_info{device="wg_mesh",address="",broadcast="",operstate="unknown",adminstate="up",ifalias=""} 1',
 				'# HELP node_network_speed_bytes Network device property: speed_bytes',
 				'# TYPE node_network_speed_bytes gauge',
 				'node_network_speed_bytes{device="eth0"} 125000000',
@@ -173,8 +179,9 @@ describe('collectors.netclass', () => {
 				'node_network_speed_bytes{device="wan"} 125000000',
 			], filter(r.lines, (l) => match(l, /^node_network_speed_bytes\{/)));
 			assert.match(contains([
-				'node_network_info{device="lan",address="02:00:00:00:02:01",broadcast="ff:ff:ff:ff:ff:ff",duplex="unknown",operstate="lowerlayerdown",ifalias=""} 1',
-				'node_network_info{device="phy0-ap0",address="02:00:00:00:02:02",broadcast="ff:ff:ff:ff:ff:ff",operstate="up",ifalias=""} 1',
+				'node_network_up{device="lan"} 0',
+				'node_network_info{device="lan",address="02:00:00:00:02:01",broadcast="ff:ff:ff:ff:ff:ff",duplex="unknown",operstate="lowerlayerdown",adminstate="up",ifalias=""} 1',
+				'node_network_info{device="phy0-ap0",address="02:00:00:00:02:02",broadcast="ff:ff:ff:ff:ff:ff",operstate="up",adminstate="up",ifalias=""} 1',
 				'node_network_carrier{device="lan"} 0',
 				'node_network_flags{device="eth0"} 4867',
 				'node_network_iface_link{device="lan"} 2',
@@ -201,7 +208,8 @@ describe('collectors.netclass', () => {
 		with_collector(netclass, cfg_of(c), (r) => {
 			assert.match(true, r.result.ok);
 			assert.match([
-				'node_network_info{device="eth9",address="02:00:00:00:09:09",broadcast="ff:ff:ff:ff:ff:ff",operstate="down",ifalias=""} 1',
+				'node_network_up{device="eth9"} 0',
+				'node_network_info{device="eth9",address="02:00:00:00:09:09",broadcast="ff:ff:ff:ff:ff:ff",operstate="down",adminstate="down",ifalias=""} 1',
 				'node_network_flags{device="eth9"} 4098',
 				'node_network_iface_id{device="eth9"} 9',
 				'node_network_iface_link_mode{device="eth9"} 0',
@@ -241,9 +249,9 @@ describe('collectors.netclass', () => {
 		});
 	});
 
-	prop('gives a speed in bytes for a positive one in Mb/s, and none otherwise', gen.int(-1, 400000), (mbps) => {
+	prop('gives a speed in bytes for one in Mb/s, and none for -1', gen.int(-1, 400000), (mbps) => {
 		with_collector(netclass, cfg_of(one_link(ETH9, { speed: `${mbps}\n` })), (r) => {
-			assert.match(mbps > 0 ? [ `node_network_speed_bytes{device="eth9"} ${mbps * 125000}` ] : [],
+			assert.match(mbps >= 0 ? [ `node_network_speed_bytes{device="eth9"} ${mbps * 125000}` ] : [],
 				filter(r.lines, (l) => match(l, /^node_network_speed_bytes\{/)));
 		});
 	});
@@ -251,6 +259,24 @@ describe('collectors.netclass', () => {
 	prop('reads the hex sysfs flags', gen.int(0, 0x7ffff), (flags) => {
 		with_collector(netclass, cfg_of(one_link(ETH9, { flags: sprintf('0x%x\n', flags) })), (r) => {
 			assert.match(contains([ `node_network_flags{device="eth9"} ${flags}` ]), r.lines);
+		});
+	});
+
+	prop('says whether the operstate is up, and the adminstate by IFF_UP of the sysfs flags',
+		gen.tuple(gen.int(0, 6), gen.int(0, 0xffff)), (x) => {
+			let operstate = x[0], flags = x[1];
+
+			with_collector(netclass, cfg_of(one_link({ ...ETH9, operstate }, { flags: sprintf('0x%x\n', flags) })), (r) => {
+				assert.match(contains([
+					`node_network_up{device="eth9"} ${operstate == 6 ? 1 : 0}`,
+				]), r.lines);
+				assert.match(true, index(r.text, `adminstate="${(flags & 1) ? 'up' : 'down'}"`) >= 0);
+			});
+		});
+
+	it('says the adminstate is unknown without sysfs flags', () => {
+		with_collector(netclass, cfg_of(one_link(ETH9)), (r) => {
+			assert.match(true, index(r.text, 'adminstate="unknown"') >= 0);
 		});
 	});
 

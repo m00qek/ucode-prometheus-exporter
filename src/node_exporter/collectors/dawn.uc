@@ -63,7 +63,7 @@ export function collect(deps, out) {
 
 	let m = {
 		utilization: out.gauge('dawn_ap_channel_utilization_ratio', 'Channel utilization of the access point, from 0 to 1.'),
-		stations: out.gauge('dawn_ap_stations_total', 'Stations associated with the access point.'),
+		stations: out.gauge('dawn_ap_stations', 'Stations associated with the access point.'),
 		signal: out.gauge('dawn_station_signal_dbm', 'Signal of the station, in dBm; -255 when DAWN has not heard it.'),
 	};
 

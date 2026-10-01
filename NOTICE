@@ -17,7 +17,9 @@ utils/prometheus-node-exporter-lua
   Etienne Champetier <champetier.etienne@gmail.com>, and developed by them and
   contributors.
 
-The collectors port those packages' collectors and keep their metric names.
+The collectors port those packages' collectors; their metrics derive from
+those packages' metrics, renamed to node_exporter's names and the Prometheus
+naming conventions (see docs/metrics.md).
 Below, each upstream collector <name> is
 utils/prometheus-node-exporter-ucode/files/{base,extra}/<name>.uc (ucode) or
 utils/prometheus-node-exporter-lua/files/usr/lib/lua/prometheus-collectors/<name>.lua

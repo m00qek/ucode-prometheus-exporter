@@ -27,7 +27,7 @@ function of_device(lines, dev) {
 }
 
 // The columns of /proc/net/dev from a link's stats64, as the kernel's
-// dev_seq_printf_stats() computes them.
+// dev_seq_printf_stats() computes them, and rx_nohandler, as node_exporter adds it.
 function proc_net_dev(s) {
 	return {
 		receive_bytes: s.rx_bytes,
@@ -46,11 +46,12 @@ function proc_net_dev(s) {
 		transmit_colls: s.collisions,
 		transmit_carrier: s.tx_carrier_errors + s.tx_aborted_errors + s.tx_window_errors + s.tx_heartbeat_errors,
 		transmit_compressed: s.tx_compressed,
+		receive_nohandler: s.rx_nohandler,
 	};
 }
 
 describe('collectors.netdev', () => {
-	it('exports the sixteen /proc/net/dev counters of each caju router link', () => {
+	it('exports the sixteen /proc/net/dev counters and receive_nohandler of each caju router link', () => {
 		with_collector(netdev, links(ROUTER), (r) => {
 			assert.match(true, r.result.ok);
 			assert.match([
@@ -62,6 +63,7 @@ describe('collectors.netdev', () => {
 				'node_network_transmit_errs_total', 'node_network_transmit_drop_total',
 				'node_network_transmit_fifo_total', 'node_network_transmit_colls_total',
 				'node_network_transmit_carrier_total', 'node_network_transmit_compressed_total',
+				'node_network_receive_nohandler_total',
 			], map(r.families, (f) => f.name));
 			assert.match([ 'counter' ], uniq(map(r.families, (f) => f.type)));
 			assert.match([
@@ -69,7 +71,7 @@ describe('collectors.netdev', () => {
 				'# TYPE node_network_receive_bytes_total counter',
 				'node_network_receive_bytes_total{device="lo"} 73782819',
 			], slice(r.lines, 0, 3));
-			assert.match(16 * 11, length(filter(r.lines, (l) => substr(l, 0, 1) != '#')));
+			assert.match(17 * 11, length(filter(r.lines, (l) => substr(l, 0, 1) != '#')));
 
 			// eth1's receive_drop adds rx_missed_errors (2253) to rx_dropped (4056).
 			assert.match([
@@ -89,6 +91,7 @@ describe('collectors.netdev', () => {
 				'node_network_transmit_colls_total{device="eth1"} 0',
 				'node_network_transmit_carrier_total{device="eth1"} 0',
 				'node_network_transmit_compressed_total{device="eth1"} 0',
+				'node_network_receive_nohandler_total{device="eth1"} 0',
 			], of_device(r.lines, 'eth1'));
 		});
 	});
@@ -159,7 +162,7 @@ describe('collectors.netdev', () => {
 		});
 	});
 
-	prop('exports for any link what /proc/net/dev would show for it',
+	prop('exports for any link what /proc/net/dev would show for it, and receive_nohandler',
 		gen.array(gen.int(0, 1 << 48), { len: length(STATS64) }), (values) => {
 			let stats = {};
 			for (let i, name in STATS64)

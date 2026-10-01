@@ -26,20 +26,20 @@ describe('collectors.uci_dhcp_host', () => {
 		with_collector(uci_dhcp_host, { uci: { data: { dhcp: ROUTER_DHCP } } }, (r) => {
 			assert.match(true, r.result.ok);
 			assert.match([
-				'# HELP dhcp_host_info A static DHCP lease from /etc/config/dhcp.',
-				'# TYPE dhcp_host_info gauge',
-				'dhcp_host_info{name="amplifier",mac="02:00:00:00:00:01",ip="192.168.17.33"} 1',
-				'dhcp_host_info{name="chromecast",mac="02:00:00:00:00:02",ip="192.168.17.79"} 1',
-				'dhcp_host_info{name="speaker",mac="02:00:00:00:00:03",ip="192.168.17.71"} 1',
-				'dhcp_host_info{name="homeassistant",mac="02:00:00:00:00:04",ip="192.168.17.60"} 1',
-				'dhcp_host_info{name="phone-a",mac="02:00:00:00:00:05",ip="192.168.17.35"} 1',
-				'dhcp_host_info{name="display",mac="02:00:00:00:00:06",ip="192.168.17.70"} 1',
-				'dhcp_host_info{name="phone-b",mac="02:00:00:00:00:07",ip="192.168.17.30"} 1',
-				'dhcp_host_info{name="bulb",mac="02:00:00:00:00:08",ip="192.168.17.92"} 1',
-				'dhcp_host_info{name="fan",mac="02:00:00:00:00:09",ip="192.168.17.91"} 1',
-				'dhcp_host_info{name="ap",mac="02:00:00:00:00:10",ip="192.168.11.10"} 1',
-				'dhcp_host_info{name="ap",mac="02:00:00:00:00:11",ip="192.168.11.10"} 1',
-				'dhcp_host_info{name="switch",mac="02:00:00:00:00:12",ip="192.168.11.2"} 1',
+				'# HELP node_openwrt_dhcp_host_info A static DHCP lease from /etc/config/dhcp.',
+				'# TYPE node_openwrt_dhcp_host_info gauge',
+				'node_openwrt_dhcp_host_info{name="amplifier",mac="02:00:00:00:00:01",ip="192.168.17.33"} 1',
+				'node_openwrt_dhcp_host_info{name="chromecast",mac="02:00:00:00:00:02",ip="192.168.17.79"} 1',
+				'node_openwrt_dhcp_host_info{name="speaker",mac="02:00:00:00:00:03",ip="192.168.17.71"} 1',
+				'node_openwrt_dhcp_host_info{name="homeassistant",mac="02:00:00:00:00:04",ip="192.168.17.60"} 1',
+				'node_openwrt_dhcp_host_info{name="phone-a",mac="02:00:00:00:00:05",ip="192.168.17.35"} 1',
+				'node_openwrt_dhcp_host_info{name="display",mac="02:00:00:00:00:06",ip="192.168.17.70"} 1',
+				'node_openwrt_dhcp_host_info{name="phone-b",mac="02:00:00:00:00:07",ip="192.168.17.30"} 1',
+				'node_openwrt_dhcp_host_info{name="bulb",mac="02:00:00:00:00:08",ip="192.168.17.92"} 1',
+				'node_openwrt_dhcp_host_info{name="fan",mac="02:00:00:00:00:09",ip="192.168.17.91"} 1',
+				'node_openwrt_dhcp_host_info{name="ap",mac="02:00:00:00:00:10",ip="192.168.11.10"} 1',
+				'node_openwrt_dhcp_host_info{name="ap",mac="02:00:00:00:00:11",ip="192.168.11.10"} 1',
+				'node_openwrt_dhcp_host_info{name="switch",mac="02:00:00:00:00:12",ip="192.168.11.2"} 1',
 			], r.lines);
 		});
 	});
@@ -47,8 +47,8 @@ describe('collectors.uci_dhcp_host', () => {
 	it('splits a MAC option that holds several, space-separated', () => {
 		with_collector(uci_dhcp_host, cfg([ { name: 'nas', mac: ' 02:00:00:00:00:21  02:00:00:00:00:22 ', ip: '10.0.0.5' } ]), (r) => {
 			assert.match([
-				'dhcp_host_info{name="nas",mac="02:00:00:00:00:21",ip="10.0.0.5"} 1',
-				'dhcp_host_info{name="nas",mac="02:00:00:00:00:22",ip="10.0.0.5"} 1',
+				'node_openwrt_dhcp_host_info{name="nas",mac="02:00:00:00:00:21",ip="10.0.0.5"} 1',
+				'node_openwrt_dhcp_host_info{name="nas",mac="02:00:00:00:00:22",ip="10.0.0.5"} 1',
 			], samples(r.lines));
 		});
 	});
@@ -56,8 +56,8 @@ describe('collectors.uci_dhcp_host', () => {
 	it('leaves out the labels of options a host lacks', () => {
 		with_collector(uci_dhcp_host, cfg([ { name: 'printer', ip: '10.0.0.9' }, { mac: '02:00:00:00:00:31' } ]), (r) => {
 			assert.match([
-				'dhcp_host_info{name="printer",ip="10.0.0.9"} 1',
-				'dhcp_host_info{mac="02:00:00:00:00:31"} 1',
+				'node_openwrt_dhcp_host_info{name="printer",ip="10.0.0.9"} 1',
+				'node_openwrt_dhcp_host_info{mac="02:00:00:00:00:31"} 1',
 			], samples(r.lines));
 		});
 	});
@@ -66,7 +66,7 @@ describe('collectors.uci_dhcp_host', () => {
 		let h = { name: 'tv', mac: '02:00:00:00:00:41', ip: '10.0.0.4' };
 
 		with_collector(uci_dhcp_host, cfg([ h, h ]), (r) => {
-			assert.match([ 'dhcp_host_info{name="tv",mac="02:00:00:00:00:41",ip="10.0.0.4"} 1' ], samples(r.lines));
+			assert.match([ 'node_openwrt_dhcp_host_info{name="tv",mac="02:00:00:00:00:41",ip="10.0.0.4"} 1' ], samples(r.lines));
 		});
 	});
 
@@ -92,7 +92,7 @@ describe('collectors.uci_dhcp_host', () => {
 			assert.match(all, uci_dhcp_host.macs(mac));
 
 			with_collector(uci_dhcp_host, cfg([ { name: 'h', mac, ip: '10.0.0.1' } ]), (r) => {
-				assert.match(map(all, (m) => `dhcp_host_info{name="h",mac="${m}",ip="10.0.0.1"} 1`), samples(r.lines));
+				assert.match(map(all, (m) => `node_openwrt_dhcp_host_info{name="h",mac="${m}",ip="10.0.0.1"} 1`), samples(r.lines));
 			});
 		});
 });

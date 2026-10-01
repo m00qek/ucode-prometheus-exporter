@@ -50,13 +50,15 @@ export function collect(deps, out) {
 		profile: x.profile,
 	}, 1);
 
-	out.gauge('dsl_up', 'Whether the DSL line is up (showtime), labeled with its state.')({ detail: x.state }, x.up);
+	// The state apart from dsl_up, so that a state change starts no new dsl_up series.
+	out.gauge('dsl_up', 'Whether the DSL line is up (showtime).')(null, x.up);
+	out.gauge('dsl_state_info', 'The state of the DSL line, as the driver names it.')({ state: x.state }, 1);
 	out.gauge('dsl_uptime_seconds', 'Time the DSL line has been up.')(null, x.uptime);
 
 	both(out.gauge('dsl_line_attenuation_db', 'Line attenuation.'), x, 'latn');
 	both(out.gauge('dsl_signal_attenuation_db', 'Signal attenuation.'), x, 'satn');
 	both(out.gauge('dsl_signal_to_noise_margin_db', 'Signal to noise margin.'), x, 'snr');
-	both(out.gauge('dsl_aggregated_transmit_power_db', 'Aggregated transmit power.'), x, 'actatp');
+	both(out.gauge('dsl_aggregated_transmit_power_dbm', 'Aggregated transmit power, in dBm.'), x, 'actatp');
 
 	// The driver reports the delay in microseconds; none on a fast-path line.
 	if (x.downstream?.interleave_delay) {
@@ -67,8 +69,8 @@ export function collect(deps, out) {
 		}
 	}
 
-	both(out.gauge('dsl_datarate', 'Data rate, in bits per second.'), x, 'data_rate');
-	both(out.gauge('dsl_max_datarate', 'Attainable data rate, in bits per second.'), x, 'attndr');
+	both(out.gauge('dsl_data_rate_bits_per_second', 'Data rate, in bits per second.'), x, 'data_rate');
+	both(out.gauge('dsl_max_data_rate_bits_per_second', 'Attainable data rate, in bits per second.'), x, 'attndr');
 
 	let seconds = out.counter('dsl_error_seconds_total', 'Seconds with errors, by kind.');
 	per_end(seconds, x, 'forward error correction', 'fecs');
