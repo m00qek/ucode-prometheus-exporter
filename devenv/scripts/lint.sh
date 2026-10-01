@@ -33,6 +33,10 @@ for f in test/utest.config.uc test/proxies/*.uc devenv/scripts/*.uc; do
 done
 ucode -L "$src" -T -c -o /dev/null files/usr/libexec/prometheus-node-exporter-ucode/handler.uc ||
 	fail files/usr/libexec/prometheus-node-exporter-ucode/handler.uc
+for f in files/usr/libexec/prometheus-node-exporter-ucode/*.uc; do
+	[ "$f" = files/usr/libexec/prometheus-node-exporter-ucode/handler.uc ] ||
+		ucode -L "$src" -c -o /dev/null "$f" || fail "$f"
+done
 ucode -L "$src" files/usr/bin/prometheus-node-exporter-ucode -h >/dev/null ||
 	fail files/usr/bin/prometheus-node-exporter-ucode
 

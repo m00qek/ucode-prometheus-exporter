@@ -35,15 +35,29 @@ import * as Result from 'node_exporter.result';
 import * as errors from 'node_exporter.errors';
 import { fields } from 'node_exporter.proc';
 
+export const DEFAULT_LEASEFILE = '/tmp/dhcp.leases';
+
+function nonempty(s) {
+	return (type(s) == 'string' && s != '') ? s : null;
+}
+
+// The lease files of the dnsmasq instances /etc/config/dhcp has, once each.
+export function leasefiles(dhcp) {
+	let paths = [];
+
+	dhcp.foreach('dnsmasq', (s) => push(paths, nonempty(s.leasefile) ?? DEFAULT_LEASEFILE));
+
+	return uniq(paths);
+};
+
 export const meta = {
 	name: 'dhcp_leases',
 	help: 'Active DHCP leases of dnsmasq and odhcpd, by interface and family.',
 	needs: [ 'fs', 'ubus', 'uci', 'time' ],
 	configs: [ 'dhcp' ],
 	options: { leases: false },
+	paths: [ (options, uci) => leasefiles(uci.dhcp) ],
 };
-
-export const DEFAULT_LEASEFILE = '/tmp/dhcp.leases';
 
 // odhcpd's valid time of a lease that does not expire: (uint32_t)-1.
 const INFINITE = 4294967295;
@@ -144,10 +158,6 @@ function mac(hex) {
 		: hex;
 }
 
-function nonempty(s) {
-	return (type(s) == 'string' && s != '') ? s : null;
-}
-
 // A tally of leases by { server, interface, family }, and the leases themselves.
 function ledger() {
 	let counts = {};
@@ -174,12 +184,9 @@ function ledger() {
 
 // dnsmasq's leases: false when it has no lease file, a Result for a malformed one.
 function dnsmasq(deps, nets, now, book) {
-	let paths = [];
-
-	deps.uci.dhcp.foreach('dnsmasq', (s) => push(paths, nonempty(s.leasefile) ?? DEFAULT_LEASEFILE));
-
 	let found = false;
-	for (let path in uniq(paths)) {
+
+	for (let path in leasefiles(deps.uci.dhcp)) {
 		let text = deps.fs.readfile(path);
 
 		if (text == null)

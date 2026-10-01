@@ -1,7 +1,7 @@
 'use strict';
 
 import { describe, it, prop, gen, assert, contains } from 'utest';
-import { with_collector } from 'context';
+import { with_collector, jail_of } from 'context';
 import * as fixtures from 'lib.fixtures';
 import * as bmx7 from 'node_exporter.collectors.bmx7';
 
@@ -114,5 +114,11 @@ describe('collectors.bmx7', () => {
 		let delta = r * 1000 - tenths;
 
 		assert.match(true, delta > -1e-6 && delta < 1e-6, `${tenths} -> ${r}`);
+	});
+});
+
+describe('bmx7 in the jail', () => {
+	it('gets its JSON status directory', () => {
+		assert.match([ '/var/run/bmx7/json' ], jail_of(bmx7, {}).mounts);
 	});
 });

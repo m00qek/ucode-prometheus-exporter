@@ -7,6 +7,7 @@
 import * as Result from 'node_exporter.result';
 import * as errors from 'node_exporter.errors';
 import { NEEDS } from 'node_exporter.deps';
+import * as jail from 'node_exporter.jail';
 
 export const DIR = '/usr/share/ucode/node_exporter/collectors';
 
@@ -31,6 +32,32 @@ function invalid(id, msg) {
 
 function is_strings(v) {
 	return type(v) == 'array' && length(filter(v, (s) => type(s) != 'string' || s == '')) == 0;
+}
+
+// meta.paths: strings, whose {option}s name string options, that are mounts
+// once filled with the defaults; or functions, whose paths the jail checks.
+function validate_paths(id, meta) {
+	if (type(meta.paths) != 'array' || !length(meta.paths))
+		return invalid(id, 'meta.paths must list paths, or functions that give them');
+	if (!length(filter(meta.needs, (n) => n in [ 'fs', 'socket', 'exec' ])))
+		return invalid(id, 'meta.paths without fs, socket or exec in meta.needs');
+
+	for (let p in meta.paths) {
+		if (type(p) == 'function')
+			continue;
+		if (type(p) != 'string')
+			return invalid(id, 'meta.paths must list paths, or functions that give them');
+
+		for (let name in jail.placeholders(p))
+			if (type(meta.options?.[name]) != 'string')
+				return invalid(id, `meta.paths: {${name}} is not a string option`);
+
+		let why = jail.path_problem(jail.fill(p, meta.options));
+		if (why)
+			return invalid(id, `meta.paths: ${why}`);
+	}
+
+	return Result.ok();
 }
 
 // { id, meta, collect } for a module's exports, or COLLECTOR_INVALID.
@@ -76,6 +103,12 @@ export function validate(id, mod) {
 	for (let key, fallback in meta.options)
 		if (!(type(fallback) in OPTION_TYPES) || !match(key, /^[a-z][a-z0-9_]*$/))
 			return invalid(id, `option '${key}' needs a boolean, integer or string default`);
+
+	if (meta.paths != null) {
+		let res = validate_paths(id, meta);
+		if (!res.ok)
+			return res;
+	}
 
 	if (type(mod.collect) != 'function')
 		return invalid(id, 'exports no collect function');

@@ -24,6 +24,13 @@ import * as Result from 'node_exporter.result';
 import * as errors from 'node_exporter.errors';
 import { format_value } from 'node_exporter.exposition';
 
+// The directory of a socket's path: '/' for one at the root.
+export function socket_dir(path) {
+	let dir = replace(path, /\/[^\/]*$/, '');
+
+	return dir == '' ? '/' : dir;
+};
+
 export const meta = {
 	name: 'unbound',
 	help: 'Unbound DNS resolver statistics, from its remote control socket.',
@@ -37,6 +44,10 @@ export const meta = {
 	// OpenWrt /run links to /var/run (base-files' boot), beside unbound's
 	// pidfile, and unbound makes the socket before it enters its chroot.
 	options: { socket: '/run/unbound.ctl' },
+	// The socket's directory: the jail cannot mount a socket itself, and
+	// unbound makes it anew each start. A directory that holds every
+	// service's (/run) is not mounted: the socket then needs one of its own.
+	paths: [ (options) => [ socket_dir(options.socket) ] ],
 };
 
 // The Lua collector's wait for the reply, one second.

@@ -26,6 +26,7 @@ export const meta = {
 	help: 'Metrics from *.prom files in a directory, as node_exporter\'s textfile collector.',
 	needs: [ 'fs', 'log' ],
 	options: { directory: '/var/prometheus' },
+	paths: [ '{directory}' ],
 };
 
 const OWN = [ 'node_textfile_mtime_seconds', 'node_textfile_scrape_error' ];

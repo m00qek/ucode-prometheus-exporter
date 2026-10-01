@@ -9,6 +9,10 @@
 // `logs` has what the scrape and the collector itself logged.
 // Its output must parse as exposition text, or the test fails.
 //
+// jail_of(mod, cfg): what node_exporter.jail gives the collector module in the
+// exporter's jail, its config as with_collector's; cfg.files are the regular
+// files commands are found among.
+//
 // cfg: { fs, ubus, uci, rtnl, nl80211, socket }: each mock's config ({ data, commands, errors, ... });
 //      options: the collector's `config collector` section;
 //      main: the main section; no_nl80211, no_rtnl, no_socket: as if that module were missing;
@@ -20,6 +24,7 @@ import * as loader from 'node_exporter.loader';
 import * as scrape from 'node_exporter.scrape';
 import * as exposition from 'node_exporter.exposition';
 import * as config from 'node_exporter.config';
+import * as jail from 'node_exporter.jail';
 import * as Result from 'node_exporter.result';
 
 const MOCKED = [ 'fs', 'ubus', 'uci', 'rtnl', 'nl80211', 'socket' ];
@@ -94,4 +99,20 @@ export function with_collector(mod, cfg, cb) {
 			families: run.families,
 		});
 	}, id);
+};
+
+export function jail_of(mod, cfg) {
+	let id = loader.id_of(mod.meta?.name ?? '');
+	let valid = loader.validate(id, mod);
+	let out;
+
+	if (!valid.ok)
+		die(Result.describe(valid));
+
+	with_mods(cfg, function(mods) {
+		let fs = { stat: (p) => p in (cfg.files ?? []) ? { type: 'file' } : null };
+		out = jail.collector(valid.data, { uci: mods.uci.cursor(), fs, path: jail.PATH });
+	}, id);
+
+	return out;
 };

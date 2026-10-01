@@ -1,7 +1,7 @@
 'use strict';
 
 import { describe, it, prop, gen, assert } from 'utest';
-import { with_collector } from 'context';
+import { with_collector, jail_of } from 'context';
 import * as fixtures from 'lib.fixtures';
 import * as dhcp_leases from 'node_exporter.collectors.dhcp_leases';
 
@@ -302,4 +302,17 @@ describe('collectors.dhcp_leases', () => {
 					samples(r.lines));
 			});
 		});
+});
+
+describe('dhcp_leases in the jail', () => {
+	it('gets /etc/config/dhcp and the lease file of each dnsmasq instance', () => {
+		let two = { a: { '.type': 'dnsmasq' }, b: { '.type': 'dnsmasq', leasefile: '/tmp/guest.leases' }, c: { '.type': 'dnsmasq', leasefile: '' } };
+
+		assert.match([ '/etc/config/dhcp', LEASEFILE ], jail_of(dhcp_leases, router()).mounts);
+		assert.match([ '/etc/config/dhcp', LEASEFILE, '/tmp/guest.leases' ], jail_of(dhcp_leases, { uci: { data: { dhcp: two } } }).mounts);
+	});
+
+	it('gets no lease file without a dnsmasq instance', () => {
+		assert.match([ '/etc/config/dhcp' ], jail_of(dhcp_leases, { uci: { data: { dhcp: {} } } }).mounts);
+	});
 });

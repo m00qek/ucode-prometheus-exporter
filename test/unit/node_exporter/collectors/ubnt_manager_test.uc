@@ -1,7 +1,7 @@
 'use strict';
 
 import { describe, it, prop, gen, assert, contains } from 'utest';
-import { with_collector } from 'context';
+import { with_collector, jail_of } from 'context';
 import * as fixtures from 'lib.fixtures';
 import * as commands from 'lib.commands';
 import * as ubnt_manager from 'node_exporter.collectors.ubnt_manager';
@@ -192,4 +192,11 @@ describe('collectors.ubnt_manager', () => {
 				]), r.lines);
 			});
 		});
+});
+
+describe('ubnt-manager in the jail', () => {
+	it('gets the shell, the script and what the script sources and runs', () => {
+		assert.match(sort([ '/bin/sh', '/usr/bin/ubnt-manager', ...ubnt_manager.SCRIPT_NEEDS ]),
+			jail_of(ubnt_manager, { files: [ '/usr/bin/ubnt-manager' ] }).mounts);
+	});
 });

@@ -7,11 +7,17 @@ import * as Result from 'node_exporter.result';
 import * as errors from 'node_exporter.errors';
 import { sanitize } from 'node_exporter.exposition';
 
+// mmcli asks ModemManager over D-Bus, on the system bus's socket in this
+// directory (the dbus package's /var/run/dbus/system_bus_socket); the
+// directory, as the socket is made anew each time dbus starts.
+export const DBUS_DIR = '/var/run/dbus';
+
 export const meta = {
 	name: 'modemmanager',
 	help: 'Signal quality and strength of cellular modems, from mmcli.',
 	needs: [ 'exec' ],
 	commands: [ 'mmcli' ],
+	paths: [ DBUS_DIR ],
 };
 
 // The JSON mmcli prints for these arguments, or an error Result.

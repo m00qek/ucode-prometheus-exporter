@@ -2,7 +2,7 @@
 
 import { describe, it, prop, gen, assert } from 'utest';
 import * as fixtures from 'lib.fixtures';
-import { with_collector } from 'context';
+import { with_collector, jail_of } from 'context';
 import * as exposition from 'node_exporter.exposition';
 import * as textfile from 'node_exporter.collectors.textfile';
 
@@ -198,4 +198,11 @@ describe('collectors.textfile', () => {
 				assert.match(length(files), length(filter(r.lines, (l) => match(l, /^node_textfile_mtime_seconds/))));
 			});
 		});
+});
+
+describe('textfile in the jail', () => {
+	it('gets its directory', () => {
+		assert.match([ '/var/prometheus' ], jail_of(textfile, {}).mounts);
+		assert.match([ '/srv/metrics' ], jail_of(textfile, { options: { directory: '/srv/metrics' } }).mounts);
+	});
 });

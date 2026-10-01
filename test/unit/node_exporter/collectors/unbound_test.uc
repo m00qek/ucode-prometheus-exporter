@@ -1,7 +1,7 @@
 'use strict';
 
 import { describe, it, prop, gen, assert } from 'utest';
-import { with_collector } from 'context';
+import { with_collector, jail_of } from 'context';
 import * as fixtures from 'lib.fixtures';
 import * as unbound from 'node_exporter.collectors.unbound';
 
@@ -257,4 +257,20 @@ describe('collectors.unbound', () => {
 				assert.match(sort(values(want)), sort(samples(r.lines)));
 			});
 		});
+});
+
+describe('unbound in the jail', () => {
+	it('gets the directory of its socket', () => {
+		let j = jail_of(unbound, { options: { socket: '/var/run/unbound/control.sock' } });
+		assert.match([ [ '/var/run/unbound' ], [] ], [ j.mounts, j.problems ]);
+	});
+
+	it('gets nothing for a socket in a directory every service shares, and says so', () => {
+		let j = jail_of(unbound, {});
+		assert.match([ [], [ '/run is too broad to mount for one collector' ] ], [ j.mounts, j.problems ]);
+	});
+
+	it('takes a socket path\'s directory', () => {
+		assert.match([ '/run', '/var/run/unbound', '/', 'x' ], map([ '/run/unbound.ctl', '/var/run/unbound/c', '/c', 'x' ], unbound.socket_dir));
+	});
 });

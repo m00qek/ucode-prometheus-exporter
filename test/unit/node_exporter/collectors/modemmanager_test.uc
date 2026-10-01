@@ -1,7 +1,7 @@
 'use strict';
 
 import { describe, it, prop, gen, assert, contains } from 'utest';
-import { with_collector } from 'context';
+import { with_collector, jail_of } from 'context';
 import * as fixtures from 'lib.fixtures';
 import * as commands from 'lib.commands';
 import * as modemmanager from 'node_exporter.collectors.modemmanager';
@@ -131,5 +131,11 @@ describe('collectors.modemmanager', () => {
 			assert.match([ `modemmanager_signal_quality_ratio{modem="${PATH}"} ${q / 100.0}` ],
 				filter(r.lines, (l) => substr(l, 0, 1) != '#'));
 		});
+	});
+});
+
+describe('modemmanager in the jail', () => {
+	it('gets the shell, mmcli and the D-Bus system socket\'s directory', () => {
+		assert.match([ '/bin/sh', '/usr/bin/mmcli', '/var/run/dbus' ], jail_of(modemmanager, { files: [ '/usr/bin/mmcli' ] }).mounts);
 	});
 });

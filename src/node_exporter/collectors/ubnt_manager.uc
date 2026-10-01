@@ -6,11 +6,22 @@
 import * as Result from 'node_exporter.result';
 import * as errors from 'node_exporter.errors';
 
+// ubnt-manager is a shell script: in the jail it needs what it sources and
+// runs, besides the shell. It reads its devices with config_load (functions.sh,
+// uci.sh and the uci command, from its own config), sources jshn.sh, which
+// runs jshn, and runs ssh (dropbear's) and sed. A busybox applet is its own
+// path, as the jail has no other.
+export const SCRIPT_NEEDS = [
+	'/etc/config/ubnt-manager', '/lib/functions.sh', '/lib/config/uci.sh', '/sbin/uci',
+	'/usr/share/libubox/jshn.sh', '/usr/bin/jshn', '/usr/bin/ssh', '/bin/sed',
+];
+
 export const meta = {
 	name: 'ubnt-manager',
 	help: 'Ubiquiti airOS radios, from their status as ubnt-manager reads it over ssh.',
 	needs: [ 'exec' ],
 	commands: [ 'ubnt-manager' ],
+	paths: SCRIPT_NEEDS,
 };
 
 // [ name, path in status.cgi's JSON, help, scale ]: every value is a gauge, a

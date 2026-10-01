@@ -65,6 +65,7 @@ export const meta = {
 	// configs: [ 'dhcp' ],                   // with 'uci': the configs it may read
 	// commands: [ 'nft' ],                   // with 'exec': the programs it may run
 	// options: { stations: true },           // typed by their defaults; not enabled, the core's
+	// paths: [ '/var/run/bmx7/json' ],       // what it reads outside /proc and /sys; see below
 };
 
 export function collect(deps, out, options) {
@@ -78,6 +79,7 @@ export function collect(deps, out, options) {
 ```
 
 - `needs` are `fs` (`readfile open lsdir glob stat realpath`), `ubus` (`call`, `list`, as Results), `uci` (`deps.uci.<config>` for each of `configs`, read-only: `loaded get get_all sections foreach`, committed configuration only), `rtnl` and `nl80211` (`request` as Results, `const`), `socket` (`unix_request(path, message, timeout_ms)`, a Unix socket's whole reply as a Result), `exec` (`run(argv)` as a Result, for `commands` only; a failure's `data.status` is the exit status), `time` (`now()`) and `log` (`log(msg)`, for what a collector that succeeds still has to say). Only `node_exporter.deps` touches the system.
+- The exporter runs in procd's jail, which mounts what the installed and enabled collectors declare and nothing else: `/etc/config/<c>` for each of `configs`, `/bin/sh` and each of `commands` (with its libraries), and `paths`. A path may name a string option as `{option}` (textfile's `'{directory}'`), or be a function `(options, uci) => [ paths ]` for what a config decides (dhcp_leases' lease files). A socket is declared by its directory, as ujail cannot mount a socket; a shell script needs what it sources and runs (ubnt-manager).
 - `out.gauge|counter|untyped(name, help)` returns `(labels, value)`, which chains; `out.parse(text)` adds exposition text. What a collector records is kept even when it then fails.
 - `collect` returns a Result: `ok` is `node_scrape_collector_success 1`; `err` is 0 and one log line.
 - An absent kernel feature is nothing to report, for any collector: where nf_conntrack is not loaded (an AP without a firewall), conntrack and nat_traffic return `ok` with no samples. A missing service or program (no unbound control socket, no `ethtool`) is an `err`.

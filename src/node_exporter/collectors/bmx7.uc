@@ -6,13 +6,14 @@
 import * as Result from 'node_exporter.result';
 import * as errors from 'node_exporter.errors';
 
+export const DIR = '/var/run/bmx7/json';
+
 export const meta = {
 	name: 'bmx7',
 	help: 'The bmx7 mesh node, its links and tunnels, from its JSON status files.',
 	needs: [ 'fs' ],
+	paths: [ DIR ],
 };
-
-export const DIR = '/var/run/bmx7/json';
 
 const SCALE = { K: 1000, M: 1000000, G: 1000000000 };
 

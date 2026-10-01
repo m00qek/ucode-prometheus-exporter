@@ -49,6 +49,15 @@ describe('loader.validate', () => {
 			'x: meta.commands without exec in meta.needs',
 			"x: option 'enabled' is the core's, every collector has it",
 			"x: option 'stations' needs a boolean, integer or string default",
+			'x: meta.paths must list paths, or functions that give them',
+			'x: meta.paths must list paths, or functions that give them',
+			'x: meta.paths must list paths, or functions that give them',
+			'x: meta.paths without fs, socket or exec in meta.needs',
+			'x: meta.paths: {dir} is not a string option',
+			'x: meta.paths: {n} is not a string option',
+			'x: meta.paths: "relative" is not an absolute path',
+			'x: meta.paths: /var/run is too broad to mount for one collector',
+			'x: meta.paths: /tmp is too broad to mount for one collector',
 			'x: exports no collect function',
 		], [
 			problem('x', {}),
@@ -64,8 +73,27 @@ describe('loader.validate', () => {
 			problem('x', module_named('x', { commands: [ 'nft' ] })),
 			problem('x', module_named('x', { options: { enabled: true } })),
 			problem('x', module_named('x', { options: { stations: null } })),
+			problem('x', module_named('x', { needs: [ 'fs' ], paths: '/var/x' })),
+			problem('x', module_named('x', { needs: [ 'fs' ], paths: [] })),
+			problem('x', module_named('x', { needs: [ 'fs' ], paths: [ 7 ] })),
+			problem('x', module_named('x', { needs: [ 'ubus' ], paths: [ '/var/x' ] })),
+			problem('x', module_named('x', { needs: [ 'fs' ], paths: [ '{dir}' ] })),
+			problem('x', module_named('x', { needs: [ 'fs' ], options: { n: 1 }, paths: [ '/var/{n}' ] })),
+			problem('x', module_named('x', { needs: [ 'fs' ], paths: [ 'relative' ] })),
+			problem('x', module_named('x', { needs: [ 'socket' ], paths: [ '/var/run' ] })),
+			problem('x', module_named('x', { needs: [ 'fs' ], options: { dir: '/tmp' }, paths: [ '{dir}' ] })),
 			problem('x', { meta: module_named('x').meta }),
 		]);
+	});
+
+	it('takes paths, {option}s of string options filled with their defaults, and functions', () => {
+		let res = loader.validate('x', module_named('x', {
+			needs: [ 'fs', 'exec' ], commands: [ 'mmcli' ],
+			options: { directory: '/var/prometheus' },
+			paths: [ '/var/run/dbus', '{directory}', (options) => [ options.directory ] ],
+		}));
+
+		assert.match([ true, 3 ], [ res.ok, length(res.data.meta.paths) ]);
 	});
 });
 

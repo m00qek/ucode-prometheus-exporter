@@ -55,6 +55,7 @@ define Package/$(PKG_NAME)/install
 	$(foreach c,$(BASE_COLLECTORS),$(INSTALL_DATA) ./src/node_exporter/collectors/$(c).uc $(1)$(COLLECTORS_DIR)/;)
 	$(INSTALL_DIR) $(1)/usr/libexec/$(PKG_NAME)
 	$(INSTALL_DATA) ./files/usr/libexec/$(PKG_NAME)/handler.uc $(1)/usr/libexec/$(PKG_NAME)/
+	$(INSTALL_BIN) ./files/usr/libexec/$(PKG_NAME)/jail.uc $(1)/usr/libexec/$(PKG_NAME)/
 	$(INSTALL_DIR) $(1)/usr/bin
 	$(INSTALL_BIN) ./files/usr/bin/$(PKG_NAME) $(1)/usr/bin/
 	$(INSTALL_DIR) $(1)/etc/config
