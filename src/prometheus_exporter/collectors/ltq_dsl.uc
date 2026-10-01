@@ -5,6 +5,7 @@
 
 import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
+import * as services from 'prometheus_exporter.services';
 
 export const meta = {
 	name: 'ltq-dsl',
@@ -25,9 +26,13 @@ function per_end(sample, x, err, key) {
 	sample({ err, loc: 'far' }, x.errors?.far?.[key]);
 }
 
+// A device without a Lantiq DSL modem, where nothing publishes the `dsl` ubus
+// object, has nothing to observe.
 export function collect(deps, out) {
 	let res = deps.ubus.call('dsl', 'metrics');
 
+	if (services.object_missing(res))
+		return Result.none('no DSL modem (no dsl on ubus)');
 	if (!res.ok)
 		return res;
 

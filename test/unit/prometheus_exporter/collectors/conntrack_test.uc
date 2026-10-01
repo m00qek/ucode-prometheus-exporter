@@ -1,7 +1,7 @@
 'use strict';
 
 import { describe, it, prop, gen, assert } from 'utest';
-import { with_collector } from 'context';
+import { with_collector, outcome } from 'context';
 import * as fixtures from 'lib.fixtures';
 import * as conntrack from 'prometheus_exporter.collectors.conntrack';
 
@@ -71,9 +71,9 @@ describe('collectors.conntrack', () => {
 	});
 
 	// The caju AP runs no firewall: nf_conntrack is not loaded and no file is there.
-	it('succeeds with nothing to say without nf_conntrack, as on the caju AP', () => {
+	it('has nothing to observe without nf_conntrack, as on the caju AP', () => {
 		with_collector(conntrack, files(null, null, null), (r) => {
-			assert.match([ true, [], [] ], [ r.result.ok, r.lines, r.logs ]);
+			assert.match({ ok: true, none: 'no connection tracking (nf_conntrack is not loaded)', error: null, lines: [], logs: [] }, outcome(r));
 		});
 	});
 

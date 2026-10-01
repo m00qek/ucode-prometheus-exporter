@@ -1,7 +1,7 @@
 'use strict';
 
 import { describe, it, prop, gen, assert, contains } from 'utest';
-import { with_collector } from 'context';
+import { with_collector, outcome } from 'context';
 import * as fixtures from 'lib.fixtures';
 import * as hostapd_ubus_stations from 'prometheus_exporter.collectors.hostapd_ubus_stations';
 
@@ -109,10 +109,15 @@ describe('collectors.hostapd_ubus_stations', () => {
 		});
 	});
 
-	it('writes nothing, and succeeds, without hostapd', () => {
-		with_collector(hostapd_ubus_stations, { ubus: { data: { 'system:board': {} } } }, (r) => {
-			assert.match(true, r.result.ok);
-			assert.match([], r.lines);
+	it('has nothing to observe without a hostapd object, as without radios', () => {
+		with_collector(hostapd_ubus_stations, { ubus: { data: { 'system:board': {}, 'hostapd:config_add': null } } }, (r) => {
+			assert.match({ ok: true, none: 'no hostapd access points', error: null, lines: [], logs: [] }, outcome(r));
+		});
+	});
+
+	it('observes hostapd without clients: families without samples', () => {
+		with_collector(hostapd_ubus_stations, { ubus: { data: { 'hostapd.phy0-ap0:get_clients': { freq: 2462, clients: {} } } } }, (r) => {
+			assert.match([ true, null, [] ], [ r.result.ok, r.result.none, r.lines ]);
 		});
 	});
 

@@ -58,17 +58,23 @@ function access_point(ubus, out, families, object) {
 	return null;
 }
 
+// A device without hostapd objects (no radios, or no access point on them)
+// has nothing to observe.
 export function collect(deps, out) {
 	let res = deps.ubus.list();
 
 	if (!res.ok)
 		return res;
 
+	let objects = sort(filter(res.data ?? [], (name) => substr(name, 0, 8) == 'hostapd.'));
+	if (!length(objects))
+		return Result.none('no hostapd access points');
+
 	let families = map(CAPABILITIES, (cap) => out.gauge(`hostapd_ubus_station_rrm_caps_${cap[0]}`,
 		`Whether the station supports ${cap[1]}.`));
 	let failure = null;
 
-	for (let object in sort(filter(res.data ?? [], (name) => substr(name, 0, 8) == 'hostapd.'))) {
+	for (let object in objects) {
 		let fail = access_point(deps.ubus, out, families, object);
 		failure ??= fail;
 	}

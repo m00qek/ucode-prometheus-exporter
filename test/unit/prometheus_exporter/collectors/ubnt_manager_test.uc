@@ -1,7 +1,7 @@
 'use strict';
 
 import { describe, it, prop, gen, assert, contains } from 'utest';
-import { with_collector, jail_of } from 'context';
+import { with_collector, jail_of, outcome } from 'context';
 import * as fixtures from 'lib.fixtures';
 import * as commands from 'lib.commands';
 import * as ubnt_manager from 'prometheus_exporter.collectors.ubnt_manager';
@@ -125,10 +125,9 @@ describe('collectors.ubnt_manager', () => {
 		});
 	});
 
-	it('exports nothing when no device is configured', () => {
+	it('has nothing to observe when no radio is configured', () => {
 		run({ [LIST]: { out: ' \n' } }, (r) => {
-			assert.match(true, r.result.ok);
-			assert.match([], r.lines);
+			assert.match({ ok: true, none: 'ubnt-manager lists no radios', error: null, lines: [], logs: [] }, outcome(r));
 		});
 	});
 

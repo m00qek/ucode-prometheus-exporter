@@ -131,18 +131,20 @@ function status(exec, device) {
 	}
 }
 
+// ubnt-manager without a radio in its config has nothing to observe.
 export function collect(deps, out) {
 	let res = deps.exec.run([ 'ubnt-manager', '-l' ]);
 	if (!res.ok)
 		return res;
 
+	let devices = filter(split(trim(res.data ?? ''), /\s+/), (d) => d != '');
+	if (!length(devices))
+		return Result.none('ubnt-manager lists no radios');
+
 	let failed = null;
 
 	// A device that fails is the collector's error once the others are in.
-	for (let device in split(trim(res.data ?? ''), /\s+/)) {
-		if (device == '')
-			continue;
-
+	for (let device in devices) {
 		let st = status(deps.exec, device);
 		if (!st.ok) {
 			failed ??= st;

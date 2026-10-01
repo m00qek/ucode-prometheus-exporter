@@ -1,7 +1,7 @@
 'use strict';
 
 import { describe, it, prop, gen, assert, contains } from 'utest';
-import { with_collector } from 'context';
+import { with_collector, outcome } from 'context';
 import * as fixtures from 'lib.fixtures';
 import * as nat_traffic from 'prometheus_exporter.collectors.nat_traffic';
 
@@ -150,11 +150,9 @@ describe('collectors.nat_traffic', () => {
 
 	// nat_traffic is in the network and full groups, which access points
 	// without a firewall install too.
-	it('succeeds with nothing to report where nf_conntrack is not loaded', () => {
+	it('has nothing to observe where nf_conntrack is not loaded', () => {
 		with_table(null, (r) => {
-			assert.match(true, r.result.ok);
-			assert.match([], r.lines);
-			assert.match([], r.logs);
+			assert.match({ ok: true, none: 'no connection tracking (nf_conntrack is not loaded)', error: null, lines: [], logs: [] }, outcome(r));
 		});
 	});
 
