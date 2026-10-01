@@ -12,7 +12,7 @@ import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
 
 // The service's name: its uci config (and the main section's type), its init
-// script, its command, its libexec directory and its LuCI plugin's ubus object.
+// script, its command, its libexec directory and its ubus object.
 export const NAME = 'prometheus-exporter';
 
 // The apk package of the exporter; each collector package is PACKAGE-<name>.

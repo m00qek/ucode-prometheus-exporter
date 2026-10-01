@@ -44,10 +44,14 @@ for f in files/etc/init.d/* files/etc/uci-defaults/* devenv/scripts/*.sh devenv/
 	sh -n "$f" || fail "$f"
 done
 
+# The rpcd plugin, the service's ubus object, returns at top level.
+for f in files/usr/share/rpcd/ucode/*.uc; do
+	ucode -L "$src" -c -o /dev/null "$f" || fail "$f"
+done
+
 # ---- luci-app-prometheus-exporter ----
-# The rpcd plugin and the browser tests' fake procd are programs that return or run
-# at top level.
-for f in files/usr/share/rpcd/ucode/*.uc devenv/services/luci/*.uc; do
+# The browser tests' fake procd is a program that runs at top level.
+for f in devenv/services/luci/*.uc; do
 	ucode -L "$src" -c -o /dev/null "$f" || fail "$f"
 done
 for f in devenv/services/luci/*.sh; do

@@ -1,12 +1,12 @@
 'use strict';
 
-// rpcd ucode plugin of luci-app-prometheus-exporter: the exporter's
-// ubus object for LuCI (prometheus_exporter.luci.rpc). rpcd loads it when it starts or
-// reloads, so it answers whether or not the exporter runs.
+// rpcd ucode plugin of ucode-prometheus-exporter: the service's ubus object
+// (prometheus_exporter.rpc), for LuCI and for `ubus call` alike. rpcd loads it
+// when it starts or reloads, so it answers whether or not the exporter runs.
 
 import { popen } from 'fs';
 import * as uloop from 'uloop';
-import * as rpc from 'prometheus_exporter.luci.rpc';
+import * as rpc from 'prometheus_exporter.rpc';
 
 // status runs its scrape in a process of its own, and rpcd's uloop says when the
 // reply is there to read. Each handle is kept here until then.

@@ -1,10 +1,11 @@
 'use strict';
 
-// The ubus object of luci-app-prometheus-exporter, which rpcd serves
-// through /usr/share/rpcd/ucode/prometheus-exporter.uc. It reads with
-// the exporter's own modules (loader, config, jail, scrape, check), so LuCI sees
-// what the exporter sees, and writes nothing: LuCI saves the settings through
-// uci, as every page does.
+// The service's ubus object, `prometheus-exporter`, which rpcd serves through
+// /usr/share/rpcd/ucode/prometheus-exporter.uc: the exporter is a handler uhttpd
+// runs per request, and publishes nothing itself. It reads with the exporter's
+// own modules (loader, config, jail, scrape, check), so whoever asks (LuCI,
+// `ubus call` on the router, a script) sees what the exporter sees, and writes
+// nothing: settings are saved through uci.
 //
 //   collectors {} -> { collectors: [ collector ], skipped: [ message ] }
 //   validate { main?, collectors? }
@@ -23,7 +24,7 @@
 //
 // status runs one scrape of the enabled collectors, outside the jail, as
 // `service prometheus-exporter check` does: rpcd runs it in a process
-// of its own (luci-status.uc), so that collectors can call the ubus objects rpcd
+// of its own (rpc-status.uc), so that collectors can call the ubus objects rpcd
 // itself serves (wireguard, luci) and other requests are answered meanwhile.
 //
 // sys: { uci: a cursor, fs: { stat, glob, readfile }, path: the PATH commands are
@@ -43,7 +44,7 @@ import * as check from 'prometheus_exporter.check';
 export const NAME = config.NAME;
 export const PACKAGE = config.PACKAGE;
 export const OBJECT = NAME;
-export const STATUS_HELPER = `/usr/libexec/${NAME}/luci-status.uc`;
+export const STATUS_HELPER = `/usr/libexec/${NAME}/rpc-status.uc`;
 
 export const APK_LISTS = '/lib/apk/packages';
 export const RC_DIR = '/etc/rc.d';

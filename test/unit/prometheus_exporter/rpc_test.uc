@@ -1,7 +1,7 @@
 'use strict';
 
 import { describe, it, prop, gen, assert, contains } from 'utest';
-import * as rpc from 'prometheus_exporter.luci.rpc';
+import * as rpc from 'prometheus_exporter.rpc';
 import * as loader from 'prometheus_exporter.loader';
 import * as deps from 'prometheus_exporter.deps';
 import * as config from 'prometheus_exporter.config';
@@ -473,6 +473,6 @@ describe('rpc.methods', () => {
 	});
 
 	it('names the object and the helper after the exporter\'s package', () => {
-		assert.match([ NAME, `/usr/libexec/${NAME}/luci-status.uc` ], [ rpc.OBJECT, rpc.STATUS_HELPER ]);
+		assert.match([ NAME, `/usr/libexec/${NAME}/rpc-status.uc` ], [ rpc.OBJECT, rpc.STATUS_HELPER ]);
 	});
 });
