@@ -3,16 +3,19 @@
 // Based on utils/prometheus-node-exporter-lua/files/usr/lib/lua/prometheus-collectors/ethtool.lua
 // in OpenWrt's packages feed (Apache-2.0), rewritten for this exporter; see NOTICE.
 
-// Network drivers' statistics, as the Lua exporter's ethtool collector, from
-// `ethtool -S <device>` for every link (an rtnl dump) instead of the
-// ethtool-lua module: an untyped family per statistic, named by the Lua
-// collector's map where it has the name, else node_ethtool_ and the name
-// made a metric name, lowercased, with rx and tx spelled out.
+// Network drivers' statistics, as node_exporter's ethtool collector
+// (collector/ethtool_linux.go) names them, from `ethtool -S <device>` for every
+// link (an rtnl dump) where node_exporter asks the kernel: an untyped family per
+// statistic, node_ethtool_ and the name made a metric name, lowercased, with
+// the words rx and tx spelled out; seven common ones have node_exporter's own
+// names, with _total, and help texts. Per device, the statistics are written
+// sorted by name, and every statistic of a name two of them make is left out,
+// as node_exporter does.
 //
 // A device whose driver has no statistics (ethtool exits non-zero: 94 for
-// "no stats available") is left out. The Lua collector's link information
-// (supported and advertised speeds, pause, autonegotiation) is not in
-// `ethtool -S`, so this collector does not export it.
+// "no stats available") is left out. node_exporter's link information
+// (node_network_supported_speed_bytes and the like, node_ethtool_info) is not
+// in `ethtool -S`, so this collector does not export it.
 
 import * as Result from 'node_exporter.result';
 
@@ -23,31 +26,51 @@ export const meta = {
 	commands: [ 'ethtool' ],
 };
 
-// The Lua collector's names for the common statistics.
-const FQNAMES = {
-	rx_bytes: 'node_ethtool_received_bytes_total',
-	rx_dropped: 'node_ethtool_received_dropped_total',
-	rx_errors: 'node_ethtool_received_errors_total',
-	rx_packets: 'node_ethtool_received_packets_total',
-	tx_bytes: 'node_ethtool_transmitted_bytes_total',
-	tx_errors: 'node_ethtool_transmitted_errors_total',
-	tx_packets: 'node_ethtool_transmitted_packets_total',
+// node_exporter's families of the common statistics: [ name, help ].
+const ENTRIES = {
+	rx_bytes: [ 'node_ethtool_received_bytes_total', 'Network interface bytes received' ],
+	rx_dropped: [ 'node_ethtool_received_dropped_total', 'Number of received frames dropped' ],
+	rx_errors: [ 'node_ethtool_received_errors_total', 'Number of received frames with errors' ],
+	rx_packets: [ 'node_ethtool_received_packets_total', 'Network interface packets received' ],
+	tx_bytes: [ 'node_ethtool_transmitted_bytes_total', 'Network interface bytes sent' ],
+	tx_errors: [ 'node_ethtool_transmitted_errors_total', 'Number of sent frames with errors' ],
+	tx_packets: [ 'node_ethtool_transmitted_packets_total', 'Network interface packets sent' ],
 };
 
-const WORDS = { rx: 'received', tx: 'transmitted' };
+// node_exporter's SanitizeMetricName: every run of other characters, with the
+// underscores around it, one underscore.
+export function sanitize(stat) {
+	return replace(stat, /_*[^0-9A-Za-z_]+_*/g, '_');
+};
 
-// The family of statistic `stat`, as the Lua collector names it: every run of
-// other characters (with the underscores around it) one underscore, lowercase,
-// no leading underscores, and the words rx and tx spelled out.
+// node_exporter's buildEthtoolFQName: the sanitized name lowercased, without
+// leading underscores, and rx and tx between underscores (or an end) spelled out.
 export function fqname(stat) {
-	if (FQNAMES[stat])
-		return FQNAMES[stat];
+	let name = ltrim(lc(sanitize(stat)), '_');
 
-	let name = lc(replace(stat, /_*[^0-9A-Za-z_]+_*/g, '_'));
-	name = replace(name, /^_+/, '');
-	name = replace(name, /[a-z]+/g, (w) => WORDS[w] ?? w);
+	name = replace(name, /(^|_)rx(_|$)/g, (m, a, b) => a + 'received' + b);
+	name = replace(name, /(^|_)tx(_|$)/g, (m, a, b) => a + 'transmitted' + b);
 
 	return 'node_ethtool_' + name;
+};
+
+// [ name, help ] of the family of a statistic.
+export function family(stat) {
+	let key = sanitize(stat);
+
+	return ENTRIES[key] ?? [ fqname(stat), `Network interface ${key}` ];
+};
+
+// The [ statistic, value ] of a device to export, sorted by fqname, without
+// those whose fqname another one has too.
+export function exported(stats) {
+	let count = {};
+
+	for (let s in stats)
+		count[fqname(s[0])] = (count[fqname(s[0])] ?? 0) + 1;
+
+	return sort(filter(stats, (s) => count[fqname(s[0])] == 1),
+		(a, b) => fqname(a[0]) < fqname(b[0]) ? -1 : fqname(a[0]) > fqname(b[0]) ? 1 : 0);
 };
 
 // [ [ statistic, value ], ... ] from the output of ethtool -S: a title line,
@@ -93,17 +116,11 @@ export function collect(deps, out) {
 			continue;
 		}
 
-		// Two statistics may make one name: the first is kept.
-		let seen = {};
-		for (let s in statistics(res.data)) {
-			let name = fqname(s[0]);
+		for (let s in exported(statistics(res.data))) {
+			let f = family(s[0]);
 
-			if (seen[name])
-				continue;
-			seen[name] = true;
-
-			families[name] ??= out.untyped(name, `Driver statistic ${s[0]}, from ethtool -S.`);
-			families[name]({ device }, s[1]);
+			families[f[0]] ??= out.untyped(f[0], f[1]);
+			families[f[0]]({ device }, s[1]);
 		}
 	}
 

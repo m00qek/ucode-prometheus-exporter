@@ -3,10 +3,14 @@
 // Based on utils/prometheus-node-exporter-ucode/files/extra/netstat.uc
 // in OpenWrt's packages feed (Apache-2.0), rewritten for this exporter; see NOTICE.
 
-// The kernel's protocol statistics, as upstream's netstat collector: each
-// section of /proc/net/netstat and /proc/net/snmp is a header line of names
-// and a line of values, both starting with the section ("TcpExt:"), and each
-// value is a gauge node_netstat_<section>_<name>.
+// The kernel's protocol statistics, as node_exporter's netstat collector
+// (collector/netstat_linux.go) names and types them: each section of
+// /proc/net/netstat and /proc/net/snmp is a header line of names and a line of
+// values, both starting with the section ("TcpExt:"), and each value is an
+// untyped node_netstat_<section>_<name>; each "<name> <value>" line of
+// /proc/net/snmp6 is node_netstat_<protocol>_<rest of the name>, Ip6InReceives
+// being node_netstat_Ip6_InReceives. Every field is exported, where
+// node_exporter keeps a few by default (--collector.netstat.fields).
 
 import * as Result from 'node_exporter.result';
 import * as errors from 'node_exporter.errors';
@@ -14,16 +18,25 @@ import { lines, fields } from 'node_exporter.proc';
 
 export const meta = {
 	name: 'netstat',
-	help: 'Protocol statistics from /proc/net/netstat and /proc/net/snmp.',
+	help: 'Protocol statistics from /proc/net/netstat, /proc/net/snmp and /proc/net/snmp6.',
 	needs: [ 'fs' ],
 };
 
-const SOURCES = [ '/proc/net/netstat', '/proc/net/snmp' ];
+const TABLES = [ '/proc/net/netstat', '/proc/net/snmp' ];
+const SNMP6 = '/proc/net/snmp6';
 
-// The sections of one file, recorded; the sections whose two lines do not
-// match (named apart, or with more names than values or fewer), which are
-// left out. Null when the file cannot be read.
-function parse(fs, out, path) {
+// The protocols of /proc/net/snmp6's names, as node_exporter splits them.
+const SNMP6_NAME = /^(Ip6|Icmp6|UdpLite6|Udp6)(.+)$/;
+
+// With node_exporter's help: "Statistic TcpExtSyncookiesSent."
+function record(out, section, name, value) {
+	out.untyped(`node_netstat_${section}_${name}`, `Statistic ${section}${name}.`)(null, value);
+}
+
+// The sections of one table file, recorded; the sections whose two lines do not
+// match (named apart, or with more names than values or fewer), which are left
+// out. Null when the file cannot be read.
+function parse_table(fs, out, path) {
 	let l = lines(fs, path);
 
 	if (l == null)
@@ -43,7 +56,7 @@ function parse(fs, out, path) {
 
 		let section = substr(names[0], 0, -1);
 		for (let j = 1; j < length(names); j++)
-			out.gauge(`node_netstat_${section}_${names[j]}`, `${section} ${names[j]} from ${path}.`)(null, values[j]);
+			record(out, section, names[j], values[j]);
 	}
 
 	if (length(l) % 2)
@@ -52,12 +65,33 @@ function parse(fs, out, path) {
 	return bad;
 }
 
+// /proc/net/snmp6, recorded: nothing in it is a section that can break, and a
+// line without a value or a protocol is left out. Null when the file cannot be
+// read, as where IPv6 is disabled.
+function parse_snmp6(fs, out) {
+	let l = lines(fs, SNMP6);
+
+	if (l == null)
+		return null;
+
+	for (let line in l) {
+		let x = fields(line);
+		let m = length(x) >= 2 ? match(x[0], SNMP6_NAME) : null;
+
+		if (m)
+			record(out, m[1], m[2], x[1]);
+	}
+
+	return [];
+}
+
 export function collect(deps, out) {
+	let sources = [ ...TABLES, SNMP6 ];
 	let readable = 0;
 	let invalid = [];
 
-	for (let path in SOURCES) {
-		let bad = parse(deps.fs, out, path);
+	for (let path in sources) {
+		let bad = (path == SNMP6) ? parse_snmp6(deps.fs, out) : parse_table(deps.fs, out, path);
 
 		if (bad == null)
 			continue;
@@ -67,9 +101,9 @@ export function collect(deps, out) {
 			push(invalid, `${path}: ${join(' ', bad)}`);
 	}
 
-	// Either file alone is worth exporting, as upstream has it.
+	// Any file alone is worth exporting, as upstream has it.
 	if (!readable)
-		return Result.err(errors.SOURCE_UNREADABLE, join(', ', SOURCES));
+		return Result.err(errors.SOURCE_UNREADABLE, join(', ', sources));
 	if (length(invalid))
 		return Result.err(errors.SOURCE_INVALID, join('; ', invalid));
 

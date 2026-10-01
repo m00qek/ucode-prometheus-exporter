@@ -65,7 +65,7 @@ export function collect(deps, out) {
 	if (!readable)
 		return deps.fs.stat(CONNTRACK) == null ? Result.ok() : Result.err(errors.SOURCE_UNREADABLE, CONNTRACK);
 
-	let traffic = out.gauge('node_nat_traffic', 'Bytes of the connections from src to dst, both directions.');
+	let traffic = out.gauge('node_nat_traffic_bytes', 'Bytes of the connections from src to dst, both directions.');
 	for (let src, dsts in totals)
 		for (let dst, bytes in dsts)
 			traffic({ src, dst }, bytes);

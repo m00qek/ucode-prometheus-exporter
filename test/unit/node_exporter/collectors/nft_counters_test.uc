@@ -28,22 +28,22 @@ describe('collectors.nft_counters', () => {
 		with_nft({ out: ROUTER }, (r) => {
 			assert.match(true, r.result.ok);
 			assert.match([
-				'# HELP nft_counter_packets Packets counted by the nftables counter.',
-				'# TYPE nft_counter_packets counter',
-				'nft_counter_packets{family="inet",table="banIP",name="cnt_icmpflood"} 0',
-				'nft_counter_packets{family="inet",table="banIP",name="cnt_udpflood"} 117',
-				'nft_counter_packets{family="inet",table="banIP",name="cnt_synflood"} 0',
-				'nft_counter_packets{family="inet",table="banIP",name="cnt_tcpinvalid"} 0',
-				'nft_counter_packets{family="inet",table="banIP",name="cnt_ctinvalid"} 34',
-				'nft_counter_packets{family="inet",table="banIP",name="cnt_bcp38"} 0',
-				'# HELP nft_counter_bytes Bytes counted by the nftables counter.',
-				'# TYPE nft_counter_bytes counter',
-				'nft_counter_bytes{family="inet",table="banIP",name="cnt_icmpflood"} 0',
-				'nft_counter_bytes{family="inet",table="banIP",name="cnt_udpflood"} 39347',
-				'nft_counter_bytes{family="inet",table="banIP",name="cnt_synflood"} 0',
-				'nft_counter_bytes{family="inet",table="banIP",name="cnt_tcpinvalid"} 0',
-				'nft_counter_bytes{family="inet",table="banIP",name="cnt_ctinvalid"} 1900',
-				'nft_counter_bytes{family="inet",table="banIP",name="cnt_bcp38"} 0',
+				'# HELP nft_counter_packets_total Packets counted by the nftables counter.',
+				'# TYPE nft_counter_packets_total counter',
+				'nft_counter_packets_total{family="inet",table="banIP",name="cnt_icmpflood"} 0',
+				'nft_counter_packets_total{family="inet",table="banIP",name="cnt_udpflood"} 117',
+				'nft_counter_packets_total{family="inet",table="banIP",name="cnt_synflood"} 0',
+				'nft_counter_packets_total{family="inet",table="banIP",name="cnt_tcpinvalid"} 0',
+				'nft_counter_packets_total{family="inet",table="banIP",name="cnt_ctinvalid"} 34',
+				'nft_counter_packets_total{family="inet",table="banIP",name="cnt_bcp38"} 0',
+				'# HELP nft_counter_bytes_total Bytes counted by the nftables counter.',
+				'# TYPE nft_counter_bytes_total counter',
+				'nft_counter_bytes_total{family="inet",table="banIP",name="cnt_icmpflood"} 0',
+				'nft_counter_bytes_total{family="inet",table="banIP",name="cnt_udpflood"} 39347',
+				'nft_counter_bytes_total{family="inet",table="banIP",name="cnt_synflood"} 0',
+				'nft_counter_bytes_total{family="inet",table="banIP",name="cnt_tcpinvalid"} 0',
+				'nft_counter_bytes_total{family="inet",table="banIP",name="cnt_ctinvalid"} 1900',
+				'nft_counter_bytes_total{family="inet",table="banIP",name="cnt_bcp38"} 0',
 			], r.lines);
 		});
 	});
@@ -52,10 +52,10 @@ describe('collectors.nft_counters', () => {
 		with_nft({ out: COMMENTED }, (r) => {
 			assert.match(true, r.result.ok);
 			assert.match([
-				'nft_counter_packets{family="inet",table="fw4",name="wan_in",comment="WAN \\"inbound\\" traffic"} 18446744073',
-				'nft_counter_packets{family="ip6",table="stats",name="icmp6"} 12',
-				'nft_counter_bytes{family="inet",table="fw4",name="wan_in",comment="WAN \\"inbound\\" traffic"} 25769803776123',
-				'nft_counter_bytes{family="ip6",table="stats",name="icmp6"} 960',
+				'nft_counter_packets_total{family="inet",table="fw4",name="wan_in",comment="WAN \\"inbound\\" traffic"} 18446744073',
+				'nft_counter_packets_total{family="ip6",table="stats",name="icmp6"} 12',
+				'nft_counter_bytes_total{family="inet",table="fw4",name="wan_in",comment="WAN \\"inbound\\" traffic"} 25769803776123',
+				'nft_counter_bytes_total{family="ip6",table="stats",name="icmp6"} 960',
 			], samples(r.lines));
 		});
 	});
@@ -101,8 +101,8 @@ describe('collectors.nft_counters', () => {
 			with_nft({ out: sprintf('%J', { nftables: items }) }, (r) => {
 				assert.match(true, r.result.ok);
 				assert.match([
-					...map(counters, (c, i) => `nft_counter_packets{family="inet",table="t",name="${c[0]}${i}"} ${c[1]}`),
-					...map(counters, (c, i) => `nft_counter_bytes{family="inet",table="t",name="${c[0]}${i}"} ${c[2]}`),
+					...map(counters, (c, i) => `nft_counter_packets_total{family="inet",table="t",name="${c[0]}${i}"} ${c[1]}`),
+					...map(counters, (c, i) => `nft_counter_bytes_total{family="inet",table="t",name="${c[0]}${i}"} ${c[2]}`),
 				], samples(r.lines));
 			});
 		});
