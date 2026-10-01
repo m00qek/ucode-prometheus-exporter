@@ -65,6 +65,8 @@ export const meta = {
 // odhcpd's valid time of a lease that does not expire: (uint32_t)-1.
 const INFINITE = 4294967295;
 
+const DIGITS = /^[0-9]+$/;
+
 // The leases of a dnsmasq lease file, as lease_update_file() (src/lease.c)
 // writes it: `expiry mac address hostname client-id` for IPv4, then a
 // `duid ...` line and `expiry iaid address hostname duid` for IPv6, `*` for
@@ -78,7 +80,7 @@ export function parse_leasefile(text) {
 	for (let i, line in split(text, '\n')) {
 		let f = fields(line);
 
-		if (!length(f) || !match(f[0], /^[0-9]+$/))
+		if (!length(f) || !match(f[0], DIGITS))
 			continue;
 		if (length(f) != 5)
 			return `line ${i + 1}: ${length(f)} fields, not 5`;
@@ -118,9 +120,21 @@ export function in_prefix(addr, net, bits) {
 	return true;
 };
 
+// An IPv4 address (iptoarr()'s four bytes) as a 32-bit number.
+function word(b) {
+	return (b[0] << 24) | (b[1] << 16) | (b[2] << 8) | b[3];
+}
+
 // From netifd's dump: the subnets of the interfaces, from their addresses and
 // IPv6 prefix assignments, and the interface of each l3 device.
-function networks(list) {
+//
+// The subnets are kept most specific first, and in the dump's order among
+// those as specific, so a lease's interface is the first that holds it: a
+// router can have a thousand leases and tens of subnets. Those that can hold
+// no address are left out (more bits than an address has, or fewer than 0),
+// and an IPv4 subnet is kept as numbers, its network and mask, compared at
+// once rather than byte by byte.
+export function networks(list) {
 	let subnets = [];
 	let devices = {};
 
@@ -136,28 +150,52 @@ function networks(list) {
 			for (let a in (type(i[key]) == 'array' ? i[key] : [])) {
 				let bytes = type(a?.address) == 'string' ? iptoarr(a.address) : null;
 
-				if (bytes && type(a.mask) == 'int')
-					push(subnets, { interface: name, bytes, bits: a.mask });
+				if (bytes && type(a.mask) == 'int' && a.mask >= 0 && a.mask <= 8 * length(bytes))
+					push(subnets, { interface: name, bytes, bits: a.mask, order: length(subnets) });
 			}
 	}
 
-	return { subnets, devices };
-}
+	subnets = sort(subnets, (a, b) => a.bits != b.bits ? b.bits - a.bits : a.order - b.order);
+
+	let v4 = [], v6 = [];
+	for (let s in subnets) {
+		if (length(s.bytes) == 4) {
+			s.mask = s.bits ? (0xffffffff << (32 - s.bits)) & 0xffffffff : 0;
+			s.net = word(s.bytes) & s.mask;
+			push(v4, s);
+		} else {
+			push(v6, s);
+		}
+	}
+
+	return { v4, v6, devices };
+};
 
 // The interface of the most specific subnet that holds the address.
-function interface_of(subnets, bytes) {
-	let best = null;
+export function interface_of(nets, bytes) {
+	if (length(bytes) == 4) {
+		let a = word(bytes);
 
-	for (let s in subnets)
-		if (s.bits > (best?.bits ?? -1) && in_prefix(bytes, s.bytes, s.bits))
-			best = s;
+		for (let s in nets.v4)
+			if ((a & s.mask) == s.net)
+				return s.interface;
 
-	return best?.interface;
-}
+		return null;
+	}
+
+	for (let s in nets.v6)
+		if (in_prefix(bytes, s.bytes, s.bits))
+			return s.interface;
+
+	return null;
+};
+
+const MAC_HEX = /^[0-9a-fA-F]{12}$/;
+const OCTET = /../g;
 
 function mac(hex) {
-	return (type(hex) == 'string' && match(hex, /^[0-9a-fA-F]{12}$/))
-		? join(':', map(match(lc(hex), /../g), (m) => m[0]))
+	return (type(hex) == 'string' && match(hex, MAC_HEX))
+		? join(':', map(match(lc(hex), OCTET), (m) => m[0]))
 		: hex;
 }
 
@@ -204,7 +242,7 @@ function dnsmasq(deps, nets, now, book) {
 			if (l.expiry != 0 && l.expiry <= now)
 				continue;
 
-			let iface = interface_of(nets.subnets, l.bytes);
+			let iface = interface_of(nets, l.bytes);
 			book.count('dnsmasq', iface, l.family, 1);
 			book.lease({
 				server: 'dnsmasq', interface: iface, family: l.family, address: l.address,
