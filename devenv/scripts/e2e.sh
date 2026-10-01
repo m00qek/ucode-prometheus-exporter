@@ -47,7 +47,7 @@ command_line() { instance | jsonfilter -e '@[*].instances.instance1.command[*]' 
 pid() { instance | jsonfilter -e '@[*].instances.instance1.pid'; }
 mounts() { instance | jsonfilter -e '@[*].instances.instance1.mount' | ucode -e 'print(join("\n", sort(keys(json(require("fs").stdin.read("all"))))), "\n")'; }
 # What the init script mounts for the exporter's own code and libraries.
-own_mount() { case $1 in /lib/libubus.so* | /lib/libuci.so* | /usr/lib/libnl* | /usr/lib/uhttpd_ucode.so | /usr/lib/ucode | \
+own_mount() { case $1 in /lib/libubus.so* | /lib/libuci.so* | /usr/lib/libnl* | /usr/lib/libz.so* | /usr/lib/uhttpd_ucode.so | /usr/lib/ucode | \
 	/usr/share/ucode/prometheus_exporter | $LIBEXEC/handler.uc) return 0 ;; esac; return 1; }
 collector_mounts() { mounts | while read -r m; do own_mount "$m" || echo "$m"; done; }
 mounts_match_jail() { [ "$(collector_mounts)" = "$($LIBEXEC/jail.uc 2>/dev/null)" ]; }
@@ -65,6 +65,15 @@ watching() { instance | jsonfilter -e '@[*].instances.watch.command[*]' | grep -
 mount_moved() { mounts | grep -qx "$1" && not_mounted "$2"; }
 fails() { ! "$@"; }
 says() { pattern=$1; shift; "$@" 2>&1 | grep -q -- "$pattern"; }
+# A reply's head and body, by hand: wget hides the headers. HTTP/1.0, so uhttpd
+# closes the connection once it has answered.
+raw() { { printf 'GET /metrics?collect[]=loadavg HTTP/1.0\r\n%b\r\n' "$1"; sleep 2; } | nc 127.0.0.1 9100 >/tmp/raw; }
+head_of() { sed -n '1,/^\r$/p' /tmp/raw | tr -d '\r'; }
+body_of() { sed '1,/^\r$/d' /tmp/raw; }
+varies() { head_of | grep -qx 'Vary: Accept-Encoding'; }
+gzip_reply() { raw 'Accept-Encoding: gzip, deflate\r\n' && head_of | grep -qx 'Content-Encoding: gzip' && varies &&
+	body_of | gzip -dc | grep -q '^node_load1 '; }
+plain_reply() { raw "$1" && ! head_of | grep -qi '^Content-Encoding' && body_of | grep -q '^node_load1 '; }
 
 # --- the system boots
 eventually "procd, ubusd and netifd are up" ubus call network.interface.loopback status
@@ -111,7 +120,8 @@ check "its uci-defaults script runs once" test ! -e /etc/uci-defaults/$NAME-impo
 check "it makes no directory without textfile" test ! -e /var/prometheus
 all_base_served() { for c in $BASE_COLLECTORS; do served "$c" || return 1; done; }
 eventually "it serves every base collector" all_base_served
-check "it logs how many it serves at info" says "daemon.info $NAME\[[0-9]*\]: serving [0-9]* collectors$" logread
+check "and gzips a scrape asked for it, its jail giving zlib's library" gzip_reply
+check "it logs how many it serves at info" says "daemon.info $NAME\[[0-9]*\]: serving [0-9]* collectors, gzip when asked$" logread
 check "and none of that at err" fails says "daemon.err.*serving [0-9]* collectors" logread
 check "it runs in procd's jail" jailed
 check "its mounts are what jail.uc prints" mounts_match_jail
@@ -299,6 +309,32 @@ check "check says why" says 'FAIL main: CONFIG_INVALID (listen_port: expected an
 check "the reload logged why, at err" says "daemon.err $NAME: invalid configuration, keeping the running instance" logread
 set_config "$NAME.main.listen_port=9100"
 
+# --- gzip
+check "a scrape asked for gzip is gzipped, and says so" gzip_reply
+check "one not asked for it is plain" plain_reply ''
+check "and says it varies by Accept-Encoding" varies
+check "one that refuses gzip (gzip;q=0) is plain" plain_reply 'Accept-Encoding: gzip;q=0, identity\r\n'
+# What gzip saves of a whole scrape, every collector installed: its size, and the
+# mean milliseconds of a scrape, each way.
+scrape_ms() {
+	ucode -e "import { popen } from 'fs';
+		let t = clock(true), n = 0;
+		for (let i = 0; i < $RUNS; i++) { let p = popen(ARGV[0], 'r'); n = length(p.read('all')); p.close(); }
+		let u = clock(true);
+		printf('%d %.1f\\n', n, ((u[0] - t[0]) * 1000 + (u[1] - t[1]) / 1000000.0) / $RUNS);" "$1"
+}
+set -- $(scrape_ms "wget -q -O - $URL") $(scrape_ms "wget -q -O - --header='Accept-Encoding: gzip' $URL")
+echo "info a whole scrape, mean of $RUNS: $1 bytes in $2 ms plain, $3 bytes in $4 ms gzipped"
+check "gzip makes a whole scrape at least 5 times smaller ($1 -> $3 bytes)" test "$(($1 / $3))" -ge 5
+before=$(pid)
+set_config "$NAME.main.compress=0"
+eventually "compress 0 restarts the instance" restarted_from "$before"
+check "then a scrape asked for gzip is plain" plain_reply 'Accept-Encoding: gzip\r\n'
+check "and does not say it varies" fails varies
+check "check says so" says 'no compression (option compress)' "$INIT" check
+set_config "$NAME.main.compress=1"
+eventually "compress 1 gzips again" gzip_reply
+
 # --- removing a package
 # ltq-dsl is in no group, which would keep it installed.
 apk del "$PKG-ltq-dsl" >/dev/null 2>&1
@@ -310,7 +346,7 @@ check "check lists the collectors" says "^  textfile (Text files): section 'text
 check "and the jail's mounts" says '^jail mounts:' "$INIT" check
 serving=$(($(installed) - 1))
 check "status says where it listens and what it serves" \
-	says "^listening on http://127.0.0.1:9100/metrics, serving $serving collectors$" "$INIT" status
+	says "^listening on http://127.0.0.1:9100/metrics, gzip when asked, serving $serving collectors$" "$INIT" status
 check "info shows the jail" says '"jail"' "$INIT" info
 set_config "$NAME.main.enabled=0"
 eventually "disabling the service stops it" fails "$INIT" running

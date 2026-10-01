@@ -10,7 +10,7 @@
 //   collectors {} -> { collectors: [ collector ], skipped: [ message ] }
 //   validate { main?, collectors? }
 //                 -> { ok, errors: { main: { option: message }, collectors: { id: { option: message } } } }
-//   status {}     -> { service: { enabled, boot, running, error }, listen: [ url ],
+//   status {}     -> { service: { enabled, boot, running, error, compress }, listen: [ url ],
 //                      collectors: [ { name, id, title, enabled, success, duration, error, mounts } ] }
 //   interfaces {} -> { interfaces: [ { name, proto } ] }
 //
@@ -318,6 +318,7 @@ export function validate(sys, args) {
 export function service(sys) {
 	let res = sys.ubus.call('service', 'list', { name: NAME });
 	let main = config.service(sys.uci);
+	let own = config.main(sys.uci);
 	let instances = res.ok ? check.exporters(values(res.data?.[NAME]?.instances ?? {})) : [];
 	let running = filter(instances, (i) => i?.running == true);
 	let listen = [];
@@ -331,6 +332,8 @@ export function service(sys) {
 			boot: length(sys.fs.glob(`${RC_DIR}/S*${NAME}`) ?? []) > 0,
 			running: res.ok ? length(running) > 0 : null,
 			error: res.ok ? null : Result.describe(res),
+			// Whether a scrape is compressed when asked, as configured.
+			compress: own.ok ? own.data.compress : null,
 		},
 		listen: uniq(listen),
 	};

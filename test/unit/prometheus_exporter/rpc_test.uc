@@ -376,14 +376,14 @@ describe('rpc.service', () => {
 
 	it('says a running instance runs, and where it listens', () => {
 		assert.match({
-			service: { enabled: true, boot: true, running: true, error: null },
+			service: { enabled: true, boot: true, running: true, error: null, compress: true },
 			listen: [ 'http://192.168.1.1:9100/metrics', 'http://[fd00::1]:9100/metrics' ],
 		}, service({}, { data: { 'service:list': RUNNING } }, [ `${rpc.RC_DIR}/S60${NAME}` ]));
 	});
 
 	it('says a service without instances is not running, and listens nowhere', () => {
 		assert.match({
-			service: { enabled: false, boot: false, running: false, error: null },
+			service: { enabled: false, boot: false, running: false, error: null, compress: true },
 			listen: [],
 		}, service({ main: { '.type': NAME, enabled: '0' } }, { data: { 'service:list': {} } }, []));
 	});
@@ -407,9 +407,15 @@ describe('rpc.service', () => {
 		assert.match([ false, [] ], [ res.service.running, res.listen ]);
 	});
 
+	it('says whether a scrape is compressed when asked', () => {
+		let res = service({ main: { '.type': NAME, compress: '0' } }, { data: { 'service:list': {} } }, []);
+
+		assert.match(false, res.service.compress);
+	});
+
 	it('says when procd cannot be asked, and when the main section is invalid', () => {
 		assert.match({
-			service: { enabled: null, boot: false, running: null, error: 'UBUS_CALL_FAILED (service list: Not found)' },
+			service: { enabled: null, boot: false, running: null, error: 'UBUS_CALL_FAILED (service list: Not found)', compress: true },
 			listen: [],
 		}, service({ main: { '.type': NAME, enabled: 'maybe' } }, { errors: { 'service:list': 'Not found' } }));
 	});

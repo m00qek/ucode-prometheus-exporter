@@ -52,7 +52,8 @@ function check_main(sys, add) {
 	if (!svc.ok || !main.ok)
 		return;
 
-	add('ok', `main: ${svc.data.enabled ? '' : 'disabled (option enabled), '}${listen_summary(svc.data)}, exec_timeout ${main.data.exec_timeout}s`);
+	add('ok', `main: ${svc.data.enabled ? '' : 'disabled (option enabled), '}${listen_summary(svc.data)}, ` +
+		`exec_timeout ${main.data.exec_timeout}s, ${main.data.compress ? 'gzip when asked' : 'no compression (option compress)'}`);
 	check_tls(sys.fs, svc.data, add);
 }
 
@@ -207,10 +208,14 @@ export function listening(command) {
 	return urls;
 };
 
-// What status prints of a running exporter: where it listens, and how many
-// collectors it serves (the installed and enabled).
+// What status prints of a running exporter: where it listens, whether a scrape
+// is compressed when asked (compress, as configured), and how many collectors
+// it serves (the installed and enabled).
 export function status(command, collectors, uci) {
 	let serving = length(filter(collectors, (c) => config.enabled(uci, c.id)));
+	let main = config.main(uci);
+	let compress = main.ok ? main.data.compress : config.MAIN_OPTIONS.compress.default;
 
-	return `listening on ${join(', ', listening(command)) || 'nothing'}, serving ${count(serving, 'collector')}`;
+	return `listening on ${join(', ', listening(command)) || 'nothing'}` + (compress ? ', gzip when asked' : '') +
+		`, serving ${count(serving, 'collector')}`;
 };

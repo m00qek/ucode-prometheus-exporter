@@ -4,7 +4,8 @@
 // patched globally, so the named imports of prometheus_exporter.deps reach the mocks.
 
 import { describe, it, afterEach, assert, contains, mock } from 'utest';
-import { create } from 'prometheus_exporter.app';
+import { create, handler } from 'prometheus_exporter.app';
+import { inflate } from 'zlib';
 import * as exposition from 'prometheus_exporter.exposition';
 import * as config from 'prometheus_exporter.config';
 import * as fixtures from 'lib.fixtures';
@@ -24,10 +25,13 @@ function patch(files, ubus) {
 }
 
 describe('app', () => {
+	// Each load of the collectors holds a descriptor per module it compiled
+	// until the garbage collector frees them: a few loads would reach the limit.
 	afterEach(() => {
 		mock.global.unpatch('fs');
 		mock.global.unpatch('ubus');
 		mock.global.unpatch('uci');
+		gc();
 	});
 
 	it('loads the collectors of a directory', () => {
@@ -93,5 +97,57 @@ describe('app', () => {
 		assert.match([ "collector 'nft-counters': COMMAND_TIMEOUT (nft: still running after 5 s, killed)" ], logs);
 		assert.match(true, took < 4);
 		assert.match([], commands.running('sleep 3071'));
+	});
+});
+
+// A request as uhttpd-mod-ucode hands it, with these headers.
+function request(query_string, headers) {
+	return { QUERY_STRING: query_string, headers: { URL: '/metrics', ...(headers ?? {}) } };
+}
+
+describe('app.handler', () => {
+	// Each load of the collectors holds a descriptor per module it compiled
+	// until the garbage collector frees them: a few loads would reach the limit.
+	afterEach(() => {
+		mock.global.unpatch('fs');
+		mock.global.unpatch('ubus');
+		mock.global.unpatch('uci');
+		gc();
+	});
+
+	function patch_main(main, files) {
+		mock.global.patch('fs', { data: { ...ROUTER.files, ...(files ?? {}) } });
+		mock.global.patch('ubus', { strict: true, data: {} });
+		mock.global.patch('uci', { strict: true, data: { [config.NAME]: main ? { main: { '.type': config.NAME, ...main } } : {} } });
+	}
+
+	it('serves a scrape plain when not asked for gzip', () => {
+		patch_main(null);
+
+		let app = handler(() => null, SOURCES);
+		let r = app.handle(request('collect[]=loadavg', {}));
+
+		assert.match([ true, '200 OK' ], [ app.compress, r.status ]);
+		assert.match([ [ 'Content-Type', 'text/plain; version=0.0.4; charset=utf-8' ], [ 'Vary', 'Accept-Encoding' ] ], r.headers);
+		assert.match(contains([ 'node_load1 0.75' ]), split(r.body, '\n'));
+	});
+
+	it('gzips a scrape the scraper asks gzip for', () => {
+		patch_main(null);
+
+		let r = handler(() => null, SOURCES).handle(request('collect[]=loadavg', { 'accept-encoding': 'gzip, deflate' }));
+
+		assert.match(contains([ [ 'Content-Encoding', 'gzip' ] ]), r.headers);
+		assert.match(contains([ 'node_load1 0.75' ]), split(inflate(r.body), '\n'));
+	});
+
+	it('never gzips with compress off', () => {
+		patch_main({ compress: '0' });
+
+		let app = handler(() => null, SOURCES);
+		let r = app.handle(request('collect[]=loadavg', { 'accept-encoding': 'gzip' }));
+
+		assert.match([ false, [ [ 'Content-Type', 'text/plain; version=0.0.4; charset=utf-8' ] ] ], [ app.compress, r.headers ]);
+		assert.match(contains([ 'node_load1 0.75' ]), split(r.body, '\n'));
 	});
 });

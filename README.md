@@ -113,6 +113,7 @@ config prometheus-exporter 'main'
 	option http_keepalive '70'         # seconds; 0 for none
 	option omit_zero_values '0'        # 1: leave out counters that are 0
 	option exec_timeout '5'            # seconds a collector's programs get per scrape, 1 to 30
+	option compress '1'                # 0: never gzip a scrape
 	#option cert '/etc/uhttpd.crt'     # both, for HTTPS
 	#option key '/etc/uhttpd.key'
 
@@ -138,12 +139,18 @@ A config change applies on `reload_config` (LuCI does it), or `service prometheu
 
 uci rewrites the whole file when it commits a change (`uci commit`, and so LuCI's Save & Apply): the comments of the config as the package ships it do not survive a save, and options come out in uci's order.
 
+### Gzip
+
+A scrape is sent gzip-compressed when the scraper asks for it (`Accept-Encoding: gzip`, as Prometheus and vmagent send it), as node_exporter does: `Content-Encoding: gzip`, and `Vary: Accept-Encoding` on every reply while `compress` is on. A scraper that does not ask, or refuses gzip (`gzip;q=0`), gets plain text; `option compress '0'` never gzips. The handler compresses with ucode-mod-zlib at its fastest level.
+
+A whole scrape of the lab (every collector, about 1250 series, on x86_64) is 143,500 bytes plain and 21,640 gzipped, 6.6 times smaller; deflating it takes about 1 ms (3 ms at zlib's default level, for 19,160 bytes). Over loopback the scrape takes as long either way (118 ms plain, 123 ms gzipped); the gain is on the wire, 85% fewer bytes per scrape.
+
 ## The service
 
 | | |
 |---|---|
-| `service prometheus-exporter check` | checks the config, lists each collector (title, section, options with their help, needs, what the jail gives it) and runs a scrape, saying what fails and why |
-| `… status` | running, and where it listens and how many collectors it serves; or disabled |
+| `service prometheus-exporter check` | checks the config (with whether a scrape is gzipped when asked), lists each collector (title, section, options with their help, needs, what the jail gives it) and runs a scrape, saying what fails and why |
+| `… status` | running, and where it listens, whether a scrape is gzipped when asked, and how many collectors it serves; or disabled |
 | `… reload` | starts again with the new config; an invalid one keeps the running exporter, and the log says why |
 
 Start and reload refuse an invalid config. Installing or removing a collector package reloads the service.
@@ -190,7 +197,7 @@ It reads with the exporter's own modules, so it sees what the exporter sees, and
 |---|---|
 | `collectors {}` | `{ collectors: [ { name, id, title, help, enabled, package, base, options: [ { name, core, type, default, help, datatype, value, set, error } ], needs, configs, commands, jail: { paths, owned, commands, mounts, problems, missing }, error } ], skipped }` |
 | `validate { main?, collectors? }` | `{ ok, errors: { main: { <option>: message }, collectors: { <module>: { <option>: message } } } }` for values as uci holds them |
-| `status {}` | `{ service: { enabled, boot, running, error }, listen: [ url ], collectors: [ { name, id, title, enabled, success, duration, error, mounts } ] }` |
+| `status {}` | `{ service: { enabled, boot, running, error, compress }, listen: [ url ], collectors: [ { name, id, title, enabled, success, duration, error, mounts } ] }` |
 | `interfaces {}` | `{ interfaces: [ { name, proto } ] }` |
 
 - `collectors` and `validate` read the committed configuration, as the exporter does. `validate` checks each value alone, as the exporter would read it: an empty one is unset, and options nobody declared and collectors that are not installed are ignored.

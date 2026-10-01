@@ -95,6 +95,8 @@ check "it reports the package's version" grep -qx "ucode_prometheus_exporter_bui
 check "the openwrt collector reads the board over ubus" grep -q '^node_openwrt_info{board_name="friendlyarm,nanopi-r5c",' /tmp/metrics
 check "a query selects collectors" sh -c "fetch() { wget -q -O - \"\$1\"; }; fetch '$URL?collect[]=loadavg' | grep -q 'collector=\"loadavg\"' && ! fetch '$URL?collect[]=loadavg' | grep -q 'collector=\"openwrt\"'"
 check "an unknown collector is refused" sh -c "! wget -q -O /dev/null '$URL?collect[]=nope'"
+gzipped() { wget -q -O - --header='Accept-Encoding: gzip' "$URL" | gzip -dc | grep -q '^node_load1 '; }
+check "a scrape asked for gzip is gzipped" gzipped
 
 # ---- the service's ubus object ----
 # rpcd serves it from the base package's plugin, with no LuCI app installed.
@@ -131,6 +133,7 @@ check "$STATUS_HELPER 0755" has_mode 755 "$STATUS_HELPER"
 check "the base package depends on rpcd-mod-ucode" depends_on "$PKG" rpcd-mod-ucode
 check "and on ucode-mod-uloop, for status" depends_on "$PKG" ucode-mod-uloop
 check "and on ucode-mod-log, to log at each message's priority" depends_on "$PKG" ucode-mod-log
+check "and on ucode-mod-zlib, to gzip a scrape" depends_on "$PKG" ucode-mod-zlib
 check "no LuCI app is installed" fails apk info -e "luci-app-$NAME"
 
 rpcd &

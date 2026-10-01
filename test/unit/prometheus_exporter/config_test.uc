@@ -217,7 +217,7 @@ describe('config.enabled', () => {
 describe('config.main', () => {
 	it('reads omit_zero_values from the main section', () => {
 		with_uci({ main: { '.type': config.NAME, omit_zero_values: '1', listen_port: '9100' } }, (uci) => {
-			assert.match({ omit_zero_values: true, exec_timeout: config.EXEC_TIMEOUT }, config.main(uci).data);
+			assert.match({ omit_zero_values: true, compress: true, exec_timeout: config.EXEC_TIMEOUT }, config.main(uci).data);
 		});
 	});
 
@@ -337,5 +337,21 @@ describe('config.datatype', () => {
 
 	it('checks a value only once it has the type of the default', () => {
 		assert.match('o: expected an integer, got "x"', config.convert('o', 'x', spec(5, 'uinteger')).details);
+	});
+});
+
+describe('config.main, compress', () => {
+	function main(v) {
+		let out;
+		with_uci({ main: { '.type': config.NAME, ...(v != null ? { compress: v } : {}) } }, (uci) => { out = config.main(uci); });
+		return out.ok ? out.data.compress : err_details(out);
+	}
+
+	it('is on by default, and off with 0', () => {
+		assert.match([ true, true, false, false ], map([ null, '1', '0', 'off' ], main));
+	});
+
+	it('refuses what is not a boolean', () => {
+		assert.match('CONFIG_INVALID: compress: expected a boolean, got "gzip"', main('gzip'));
 	});
 });

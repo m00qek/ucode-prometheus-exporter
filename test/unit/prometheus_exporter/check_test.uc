@@ -47,7 +47,7 @@ function run(own, collectors, opts, files, skipped) {
 describe('check.run --config', () => {
 	it('passes a missing config: every option has its default', () => {
 		assert.match({ ok: true, lines: [
-			'ok   main: HTTP on interface loopback, port 9100, keepalive 70s, exec_timeout 5s',
+			'ok   main: HTTP on interface loopback, port 9100, keepalive 70s, exec_timeout 5s, gzip when asked',
 			'ok   collectors: 2 installed collectors, their options valid',
 		] }, run({}, [ OK, TEXTFILE ], { config_only: true }));
 	});
@@ -71,7 +71,7 @@ describe('check.run --config', () => {
 
 		assert.match(false, r.ok);
 		assert.match([
-			'ok   main: HTTP on interface loopback, port 9100, keepalive 70s, exec_timeout 5s',
+			'ok   main: HTTP on interface loopback, port 9100, keepalive 70s, exec_timeout 5s, gzip when asked',
 			'FAIL collector loadavg, section \'loadavg\': CONFIG_INVALID (enabled: expected a boolean, got "maybe")',
 			'FAIL collector textfile, section \'textfile\': CONFIG_INVALID (directory: expected a single value, got [ "a", "b" ])',
 		], r.lines);
@@ -99,12 +99,12 @@ describe('check.run --config', () => {
 			run(tls('/etc/x.crt', null), [], { config_only: true }).lines);
 		assert.match(contains([ 'warn main: /etc/x.key is missing; it serves HTTP until it is there' ]),
 			run(tls('/etc/x.crt', '/etc/x.key'), [], { config_only: true }, [ '/etc/x.crt' ]).lines);
-		assert.match(contains([ 'ok   main: HTTPS on interface loopback, port 9100, keepalive 70s, exec_timeout 5s' ]),
+		assert.match(contains([ 'ok   main: HTTPS on interface loopback, port 9100, keepalive 70s, exec_timeout 5s, gzip when asked' ]),
 			run(tls('/etc/x.crt', '/etc/x.key'), [], { config_only: true }, [ '/etc/x.crt', '/etc/x.key' ]).lines);
 	});
 
 	it('says when the service is disabled', () => {
-		assert.match(contains([ 'ok   main: disabled (option enabled), HTTP on every address, port 9100, keepalive 0s, exec_timeout 5s' ]),
+		assert.match(contains([ 'ok   main: disabled (option enabled), HTTP on every address, port 9100, keepalive 0s, exec_timeout 5s, gzip when asked' ]),
 			run({ main: { '.type': config.NAME, enabled: '0', listen_interface: '*', http_keepalive: '0' } }, [], { config_only: true }).lines);
 	});
 });
@@ -116,7 +116,7 @@ describe('check.run', () => {
 
 		assert.match(true, r.ok);
 		assert.match([
-			'ok   main: HTTP on interface loopback, port 9100, keepalive 70s, exec_timeout 5s',
+			'ok   main: HTTP on interface loopback, port 9100, keepalive 70s, exec_timeout 5s, gzip when asked',
 			'ok   collectors: 4 installed collectors, their options valid',
 			'warn scrape, outside the jail: 3 of 4 collectors succeeded',
 			'warn scrape: openwrt: UBUS_CALL_FAILED (system board: Not found)',
@@ -215,9 +215,21 @@ describe('check.status', () => {
 		with_mods({ uci: { data: { [config.NAME]: { openwrt: { '.type': 'collector', enabled: '0' } } } } }, (mods) => {
 			let cmd = [ '/usr/sbin/uhttpd', '-f', '-o', '/metrics', '-k', '70', '-p', '127.0.0.1:9100', '-p', '[::1]:9100' ];
 
-			assert.match('listening on http://127.0.0.1:9100/metrics, http://[::1]:9100/metrics, serving 2 collectors',
+			assert.match('listening on http://127.0.0.1:9100/metrics, http://[::1]:9100/metrics, gzip when asked, serving 2 collectors',
 				check.status(cmd, [ OK, NFT, FAILING ], mods.uci.cursor()));
 		});
+	});
+
+	it('says when compress is off', () => {
+		with_mods({ uci: { data: { [config.NAME]: { main: { '.type': config.NAME, compress: '0' } } } } }, (mods) => {
+			assert.match('listening on http://*:9100/metrics, serving 1 collector',
+				check.status([ '/usr/sbin/uhttpd', '-p', '9100' ], [ OK ], mods.uci.cursor()));
+		});
+	});
+
+	it('says no compression in check, by its option', () => {
+		assert.match(contains([ 'ok   main: HTTP on interface loopback, port 9100, keepalive 70s, exec_timeout 5s, no compression (option compress)' ]),
+			run({ main: { '.type': config.NAME, compress: '0' } }, [], { config_only: true }).lines);
 	});
 
 	it('tells uhttpd from the watch instance beside it', () => {

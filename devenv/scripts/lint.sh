@@ -19,6 +19,12 @@ for m in rtnl nl80211 socket; do
 		{ echo "prometheus_exporter.deps: $m does not load" >&2; status=1; }
 done
 
+# zlib (gzip, in http.uc) is imported by name above; what it computes is
+# checked here, on this ucode: a gzip header, and the text back.
+ucode -e "import { deflate, inflate } from 'zlib'; let g = deflate('x', true, 1);
+	exit(substr(g, 0, 3) == '\x1f\x8b\x08' && inflate(g) == 'x' ? 0 : 1);" ||
+	{ echo "zlib: deflate does not write gzip" >&2; status=1; }
+
 # Tests import utest's mocks, which exist only while utest runs: compile them.
 importer=$(mktemp)
 for f in $(find test -name '*.uc' ! -name utest.config.uc ! -path 'test/proxies/*'); do

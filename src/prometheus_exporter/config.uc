@@ -36,6 +36,7 @@ const EXEC_TIMEOUT_RANGE = `range(1,${EXEC_TIMEOUT_MAX})`;
 // init script's (SERVICE_OPTIONS).
 export const MAIN_OPTIONS = {
 	omit_zero_values: { default: false, help: 'Leave out counters that are 0, most of which never move on a router.' },
+	compress: { default: true, help: 'Send a scrape gzip-compressed when the scraper asks for it (Accept-Encoding: gzip); 0 never does.' },
 	exec_timeout: {
 		default: EXEC_TIMEOUT, datatype: EXEC_TIMEOUT_RANGE,
 		help: 'Seconds the programs a collector runs get in all in each scrape, unless the collector says otherwise; one still running then is killed.',

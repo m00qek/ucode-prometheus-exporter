@@ -6,6 +6,7 @@
 import { describe, it, afterEach, assert, contains, mock } from 'utest';
 import { DIR } from 'prometheus_exporter.loader';
 import * as config from 'prometheus_exporter.config';
+import { inflate } from 'zlib';
 
 const HANDLER = 'files/usr/libexec/prometheus-exporter/handler.uc';
 
@@ -64,7 +65,7 @@ describe('handler', () => {
 		let reply = request('collect[]=loadavg');
 		let head = split(reply, '\r\n\r\n', 2);
 
-		assert.match('Status: 200 OK\r\nContent-Type: text/plain; version=0.0.4; charset=utf-8', head[0]);
+		assert.match('Status: 200 OK\r\nContent-Type: text/plain; version=0.0.4; charset=utf-8\r\nVary: Accept-Encoding', head[0]);
 		assert.match(contains([ 'node_load1 0.01', 'node_scrape_collector_success{collector="loadavg"} 1' ]), split(head[1], '\n'));
 	});
 
@@ -87,9 +88,23 @@ describe('handler', () => {
 		assert.match([ 'loadavg' ], answered(serve()('')), 'removed, then restarted');
 	});
 
+	// uhttpd-mod-ucode's env: Accept-Encoding among the headers, named in lower case.
+	it('sends a gzip body with its headers when the scraper asks for it', () => {
+		install({ '/proc/loadavg': '0.01 0.02 0.03 1/1 1\n' });
+
+		let sent = [];
+		global.uhttpd = { send: (...parts) => push(sent, ...parts) };
+		loadfile(HANDLER, { raw_mode: false })();
+		global.handle_request({ QUERY_STRING: 'collect[]=loadavg', headers: { 'accept-encoding': 'gzip' } });
+
+		assert.match('Status: 200 OK\r\nContent-Type: text/plain; version=0.0.4; charset=utf-8\r\n' +
+			'Vary: Accept-Encoding\r\nContent-Encoding: gzip\r\n\r\n', sent[0]);
+		assert.match(contains([ 'node_load1 0.01' ]), split(inflate(sent[1]), '\n'));
+	});
+
 	it('answers 400 for an unknown collector', () => {
 		install({});
-		assert.match("Status: 400 Bad Request\r\nContent-Type: text/plain; version=0.0.4; charset=utf-8\r\n\r\n" +
+		assert.match("Status: 400 Bad Request\r\nContent-Type: text/plain; version=0.0.4; charset=utf-8\r\nVary: Accept-Encoding\r\n\r\n" +
 			"COLLECTOR_INVALID (unknown collector 'nope')\n", request('collect[]=nope'));
 	});
 });

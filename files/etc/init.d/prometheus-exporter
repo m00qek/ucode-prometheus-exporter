@@ -94,9 +94,10 @@ start_service() {
 		[ -n "$bind6" ] && procd_append_param command $listen "[$bind6]:$port"
 	fi
 
-	# The exporter's code and libraries, then what its collectors declare.
+	# The exporter's code and libraries (zlib's for gzip), then what its
+	# collectors declare.
 	procd_add_jail "$NAME" log procfs sysfs ubus
-	procd_add_jail_mount /usr/lib/uhttpd_ucode.so /lib/libubus.so* /lib/libuci.so* /usr/lib/libnl*.so*
+	procd_add_jail_mount /usr/lib/uhttpd_ucode.so /lib/libubus.so* /lib/libuci.so* /usr/lib/libnl*.so* /usr/lib/libz.so*
 	procd_add_jail_mount /usr/lib/ucode /usr/share/ucode/prometheus_exporter "$HANDLER"
 	procd_add_jail_mount $mounts
 	[ -n "$cert" ] && procd_add_jail_mount "$cert" "$key" /lib/libustream-*.so* /usr/lib/libustream-*.so*
