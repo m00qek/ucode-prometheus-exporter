@@ -139,6 +139,34 @@ check "uci_dhcp_host reads /etc/config/dhcp in the jail" metric 'node_openwrt_dh
 check "modemmanager reaches ModemManager over D-Bus in the jail" served modemmanager
 check "ubnt-manager's script runs in the jail, over ssh" metric 'ubnt_uptime_seconds{device="sample_ap"} 4242$'
 
+# --- a program that hangs, in the jail
+# A radio that takes ssh's connection and never says a word holds ssh as an
+# unreachable one does: a socket listening, which accepts nothing. dbclient
+# takes the port after the host.
+succeeded_but() { grep '^node_scrape_collector_success{.*} 1$' | grep -v "collector=\"$1\"" | sort; }
+left_behind() { ps w | grep -e 'ubnt-manager -j' -e '127.0.0.1/2222' | grep -v grep; }
+ucode -e 'let s = require("socket").listen("127.0.0.1", 2222); sleep(600000);' &
+silent=$!
+others=$(fetch | succeeded_but ubnt-manager)
+before=$(pid)
+set_config "ubnt-manager.sample_ap.target=127.0.0.1/2222"
+eventually "a radio that does not answer restarts the instance" restarted_from "$before"
+before=$(pid)
+started=$(date +%s)
+fetch >/tmp/hung
+took=$(($(date +%s) - started))
+check "a scrape still answers" test -s /tmp/hung
+check "after ubnt-manager's 5 seconds, not uhttpd's 60 ($took s)" test "$took" -ge 5 -a "$took" -lt 15
+check "failing ubnt-manager" grep -qx 'node_scrape_collector_success{collector="ubnt-manager"} 0' /tmp/hung
+check "and serving every other collector as before" test "$(succeeded_but ubnt-manager </tmp/hung)" = "$others"
+check "it logs why" says "collector 'ubnt-manager': COMMAND_TIMEOUT (ubnt-manager: still running after 5 s, killed)" logread
+sleep 1
+check "and leaves neither the script nor its ssh behind" fails left_behind
+check "the instance keeps running" test "$(pid)" = "$before"
+kill $silent
+set_config "ubnt-manager.sample_ap.target=127.0.0.1"
+eventually "the radio that answers again is read again" metric 'ubnt_uptime_seconds{device="sample_ap"} 4242$'
+
 # --- unbound, jailed, against a real unbound
 # As at boot: the exporter starts before unbound has made /var/lib/unbound.
 check "unbound has not made its directory yet" test ! -e /var/lib/unbound
