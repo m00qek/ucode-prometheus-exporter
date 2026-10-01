@@ -451,6 +451,51 @@ function ethtool(name, rand) {
 	return revalue(fixture(match(name, /^phy/) ? 'caju-ap/commands/ethtool_S_phy0-ap0.txt' : 'caju-ap/commands/ethtool_S_lan.txt'), rand);
 }
 
+// What `tc -s -j qdisc show` prints for these links: SQM's CAKE on wan and
+// its ifb (the caju router's, as the template), each with wan's ingress
+// qdisc, mq over a fq_codel per queue on eth0, fq_codel on the other
+// hardware links and noqueue on the virtual ones.
+function qdiscs(links, rand) {
+	let all = fixture_json('caju-router/commands/tc_s_j_qdisc_show.json');
+	let cake = filter(all, (q) => q.kind == 'cake' && q.dev == 'eth1')[0];
+	let fq_codel = filter(all, (q) => q.kind == 'fq_codel')[0];
+	let ingress = filter(all, (q) => q.kind == 'ingress')[0];
+	let noqueue = filter(all, (q) => q.kind == 'noqueue')[0];
+	let out = [];
+
+	let counted = function(template, dev, extra) {
+		let q = { ...json(sprintf('%J', template)), dev, ...(extra ?? {}) };
+
+		for (let k in [ 'bytes', 'packets', 'drops', 'overlimits', 'requeues' ])
+			q[k] = rand(1000000000);
+		for (let t in q.tins ?? [])
+			for (let k in [ 'sent_bytes', 'sent_packets', 'drops', 'ecn_mark', 'peak_delay_us', 'avg_delay_us', 'base_delay_us' ])
+				t[k] = rand(1000000);
+
+		return q;
+	};
+
+	for (let l in links) {
+		let name = l.dev;
+
+		if (name == 'wan' || name == 'ifb4wan')
+			push(out, counted(cake, name, { handle: sprintf('80%02x:', rand(256)) }));
+		else if (name == 'eth0') {
+			push(out, counted(fq_codel, name, { kind: 'mq', options: {} }));
+			for (let i = 1; i <= 4; i++)
+				push(out, counted(fq_codel, name, { root: null, parent: `:${i}` }));
+		} else if (is_hardware(name))
+			push(out, counted(fq_codel, name));
+		else
+			push(out, { ...noqueue, dev: name });
+
+		if (name == 'wan')
+			push(out, counted(ingress, name));
+	}
+
+	return sprintf('%J\n', out);
+}
+
 // ---- the world -------------------------------------------------------------------
 
 function generate(dir, profile) {
@@ -503,6 +548,9 @@ function generate(dir, profile) {
 	}
 	writefile(`${dir}/commands/nft.txt`, nft_counters(p, rand));
 	world.commands["'nft' '--json' 'list' 'counters'"] = 'commands/nft.txt';
+	// A generator of its own, so the rest of the world is what it was without it.
+	writefile(`${dir}/commands/tc.json`, qdiscs(all, rng(43)));
+	world.commands["'tc' '-s' '-j' 'qdisc' 'show'"] = 'commands/tc.json';
 
 	// /sys: hwmon, thermal
 	for (let h = 0; h < p.hwmon; h++) {

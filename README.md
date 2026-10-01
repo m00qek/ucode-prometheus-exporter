@@ -22,7 +22,7 @@ The base package has the collectors every device can use (cpu, meminfo, netdev, 
 
 | | |
 |---|---|
-| `-network` | ethtool, nat_traffic, netstat, nft-counters, snmp6 |
+| `-network` | ethtool, nat_traffic, netstat, nft-counters, qdisc, snmp6 |
 | `-wireless` | wifi, hostapd_stations, hostapd_ubus_stations |
 | `-hardware` | hwmon, thermal, filesystem |
 | `-full` | the three above, and dhcp_leases, dnsmasq, openwrt, textfile, uci_dhcp_host, wireguard |
@@ -58,6 +58,7 @@ Every collector, with its title and package (`ucode-prometheus-exporter-…`):
 | `nft-counters` | nftables counters | `-nft-counters`; in `-network`, `-full` |
 | `openwrt_interfaces` | OpenWrt interfaces | base |
 | `openwrt` | OpenWrt release and board | `-openwrt`; in `-full` |
+| `qdisc` | Traffic control queues | `-qdisc`; in `-network`, `-full` |
 | `realtek-poe` | Realtek PoE | `-realtek-poe` |
 | `selinux` | SELinux | base |
 | `snmp6` | IPv6 statistics per device | `-snmp6`; in `-network`, `-full` |
@@ -74,7 +75,7 @@ Every collector, with its title and package (`ucode-prometheus-exporter-…`):
 | `wifi` | Wi-Fi | `-wifi`; in `-wireless`, `-full` |
 | `wireguard` | WireGuard | `-wireguard`; in `-full` |
 
-Neither upstream exporter had these: softnet and vmstat (node_exporter's), conntrack's statistics and openwrt_interfaces (netifd's logical interfaces: up, uptime, devices, address counts) in the base package, and dhcp_leases (dnsmasq's and odhcpd's active leases).
+Neither upstream exporter had these: softnet and vmstat (node_exporter's), conntrack's statistics and openwrt_interfaces (netifd's logical interfaces: up, uptime, devices, address counts) in the base package, dhcp_leases (dnsmasq's and odhcpd's active leases), and qdisc (each device's root queueing discipline, as node_exporter's qdisc collector, and SQM's CAKE per tin).
 
 ## Coming from the feed's exporters
 
@@ -127,7 +128,7 @@ config collector 'ubnt_manager'
 	option timeout '10'                # its programs' seconds, over exec_timeout
 ```
 
-A collector without a section is enabled, with its defaults. Every collector has `enabled`, and every one that runs programs (ethtool, nft-counters, modemmanager, ubnt-manager) has `timeout` too: the core's options, which no collector declares itself (see [the service](#the-service)). These take options of their own (`check` prints each with its help):
+A collector without a section is enabled, with its defaults. Every collector has `enabled`, and every one that runs programs (ethtool, nft-counters, qdisc, modemmanager, ubnt-manager) has `timeout` too: the core's options, which no collector declares itself (see [the service](#the-service)). These take options of their own (`check` prints each with its help):
 
 | | | |
 |---|---|---|
@@ -194,7 +195,7 @@ Start and reload refuse an invalid config. Installing or removing a collector pa
 
 It logs to syslog as `prometheus-exporter` (`logread -e prometheus-exporter`), each line at its priority: `info` for what it does (how many collectors it serves when it starts, a directory it made, the settings it took over), `warning` for what it does without (a collector that fails, which the scrape answers without; a path the jail cannot mount), `err` for what stops it (an invalid config, a collector that does not load).
 
-The programs a collector runs (nft, ethtool, mmcli, ubnt-manager) get 5 seconds in all in each scrape, by default. One still running then is killed, with every process it started (ubnt-manager's ssh to a radio that does not answer), and its collector fails with COMMAND_TIMEOUT; the scrape answers with the rest. A collector stuck for its 5 seconds still leaves the scrape within Prometheus's default `scrape_timeout` of 10 seconds.
+The programs a collector runs (nft, ethtool, tc, mmcli, ubnt-manager) get 5 seconds in all in each scrape, by default. One still running then is killed, with every process it started (ubnt-manager's ssh to a radio that does not answer), and its collector fails with COMMAND_TIMEOUT; the scrape answers with the rest. A collector stuck for its 5 seconds still leaves the scrape within Prometheus's default `scrape_timeout` of 10 seconds.
 
 The seconds, 1 to 30, are the collector section's `timeout` when it sets one, else the collector's own default (`meta.timeout`, which none of the shipped collectors has), else the main section's `exec_timeout` (5 by default). A value outside 1 to 30 fails `check`, and start and reload: `exec_timeout` as the main section's, a collector's `timeout` as that collector's, which fails with CONFIG_INVALID in a scrape. A collector that runs no programs ignores a `timeout`. `check` prints each one's seconds and where they come from:
 

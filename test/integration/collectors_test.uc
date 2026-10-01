@@ -14,7 +14,7 @@ const README = readfile('README.md');
 
 // The package each need or command calls for; `null` for what the base package has.
 const NEED_PACKAGES = { fs: null, ubus: null, uci: null, rtnl: null, time: null, exec: null, log: null, nl80211: '+ucode-mod-nl80211', socket: '+ucode-mod-socket' };
-const COMMAND_PACKAGES = { nft: '+nftables-json', mmcli: '+modemmanager', 'ubnt-manager': '+ubnt-manager', ethtool: '+ethtool' };
+const COMMAND_PACKAGES = { nft: '+nftables-json', mmcli: '+modemmanager', 'ubnt-manager': '+ubnt-manager', ethtool: '+ethtool', tc: '+tc' };
 
 const IDS = sort(map(filter(lsdir(SOURCES), (f) => match(f, /\.uc$/)), (f) => substr(f, 0, -3)));
 

@@ -206,6 +206,15 @@ check "the watchdog adds less than 20 ms to a program (nft: $1 -> $2 ms)" awk "B
 check "ethtool is served" served ethtool
 check "and asks no link a device does not back, as a veth" fails metric 'node_ethtool_.*device="e2e0"'
 check "uci_dhcp_host reads /etc/config/dhcp in the jail" metric 'node_openwrt_dhcp_host_info{name="e2e-host"'
+# CAKE on the veth, as SQM would put it on a WAN, where the host's kernel has
+# sch_cake; else fq_codel, which every kernel OpenWrt runs on has.
+if tc qdisc replace dev e2e0 root cake bandwidth 10mbit besteffort >/dev/null 2>&1; then e2e_qdisc=cake; else
+	tc qdisc replace dev e2e0 root fq_codel; e2e_qdisc=fq_codel; fi
+echo "info the veth's root qdisc: $e2e_qdisc"
+check "qdisc runs tc in the jail" served qdisc
+check "and reads the veth's root $e2e_qdisc" metric "node_qdisc_packets_total{device=\"e2e0\",kind=\"$e2e_qdisc\"} "
+check "but not the noqueue of the loopback" fails metric 'node_qdisc_[a-z_]*{device="lo"'
+[ "$e2e_qdisc" = fq_codel ] || check "and CAKE's tin" metric 'node_qdisc_cake_tin_peak_delay_seconds{device="e2e0",tin="0"} '
 check "modemmanager reaches ModemManager over D-Bus in the jail" served modemmanager
 check "ubnt-manager's script runs in the jail, over ssh" metric 'ubnt_uptime_seconds{device="sample_ap"} 4242$'
 

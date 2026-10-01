@@ -35,6 +35,17 @@
 #   on the dump's lan: an IA_NA with an address in each prefix and an IA_PD.
 #   Layout: handle_dhcpv4_leases() and handle_dhcpv6_leases() in odhcpd's
 #   src/ubus.c (5d7be43f, OpenWrt 25.12's odhcpd); (uint32_t)-1 is "infinite".
+# commands/tc_s_j_qdisc_show.json
+#   `tc -s -j qdisc show` (iproute2 6.18, OpenWrt 25.12's tc-tiny) on a PPPoE
+#   router with what neither device has: SQM's layer_cake (a diffserv4 CAKE on
+#   pppoe-wan, its four tins Bulk, Best Effort, Video and Voice, with a backlog
+#   and the ACK filter on) and its ingress side shaped by simple.qos (HTB over
+#   fq_codel on the ifb). Keys and units: print_qdisc() in tc/tc_qdisc.c and
+#   print_tcstats2_attr() in tc/tc_util.c (the generic counters),
+#   cake_print_opt(), cake_print_xstats() and cake_print_json_tin() in
+#   tc/q_cake.c (rates in bytes per second, delays in microseconds),
+#   fq_codel_print_xstats() in tc/q_fq_codel.c; the tins' rates as
+#   sch_cake.c's cake_config_diffserv4() splits the bandwidth.
 # tmp/dhcp.leases
 #   A dnsmasq lease file for that lan with DHCPv6 leases too: an infinite (0)
 #   and an expired lease, one outside every subnet, a temporary (T) IPv6

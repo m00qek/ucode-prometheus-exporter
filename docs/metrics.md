@@ -221,6 +221,11 @@ Neither upstream exporter had these. Where node_exporter has the metric, the nam
 | openwrt_interfaces (base) | `node_openwrt_interface_ipv6_prefixes{interface}`, `node_openwrt_interface_errors{interface}` | gauge | Delegated prefixes; the errors netifd holds for the interface. |
 | dhcp_leases | `node_openwrt_dhcp_leases{server,interface,family}` | gauge | Active leases of dnsmasq (its lease file) and odhcpd (`ubus call dhcp ipv4leases`/`ipv6leases`). |
 | dhcp_leases (option `leases`) | `node_openwrt_dhcp_lease_info{server,interface,family,address,mac,duid,iaid,hostname}`, `node_openwrt_dhcp_lease_expiry_timestamp_seconds{server,interface,family,address}` | gauge | A series per lease; off by default, for churn and privacy. |
+| qdisc | `node_qdisc_{bytes,packets,drops,requeues,overlimits}_total{device,kind}` | counter | node_exporter's (collector/qdisc_linux.go), from `tc -s -j qdisc show`: the root qdisc of each device, as node_exporter reports them; noqueue is left out. |
+| qdisc | `node_qdisc_current_queue_length{device,kind}`, `node_qdisc_backlog{device,kind}` | gauge | node_exporter's: packets and bytes queued. |
+| qdisc | `node_qdisc_cake_capacity_estimate_bytes_per_second{device}`, `node_qdisc_cake_memory_used_bytes{device}`, `node_qdisc_cake_memory_limit_bytes{device}` | gauge | A root CAKE qdisc's shaper rate and memory. No CAKE exporter is widely used: tc's JSON keys (tc/q_cake.c), in base units. |
+| qdisc | `node_qdisc_cake_tin_{bytes,packets,drops,ecn_marks,ack_drops}_total{device,tin}` | counter | Per tin, `tin` its index as tc numbers them (0 for besteffort; 0 to 3, Bulk to Voice, for diffserv4). |
+| qdisc | `node_qdisc_cake_tin_{threshold_rate_bytes_per_second,backlog_bytes,peak_delay_seconds,average_delay_seconds,base_delay_seconds,sparse_flows,bulk_flows,unresponsive_flows}{device,tin}` | gauge | Per tin; tc's delays in µs, here in seconds (`base` is tc's `sp_delay`, the sparse flows' delay). |
 
 ## Unchanged collectors
 
