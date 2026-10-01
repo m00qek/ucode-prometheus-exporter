@@ -20,6 +20,13 @@
 #   attributes of Documentation/hwmon/ina2xx.rst, the units of
 #   sysfs-interface.rst's "Voltages", "Currents" and "Power"; the device path
 #   as an I2C client's (bus-address) under its adapter.
+# proc/diskstats, sys/block/sda/queue/rotational
+#   Kernel 4.14's /proc/diskstats (OpenWrt 19.07's), 14 fields a line: before
+#   the discard statistics (4.18) and the flush ones (5.5). Format:
+#   diskstats_show() in block/genhd.c of 4.14, fields as
+#   Documentation/iostats.txt of 4.14 lists them. A NAND router with mtdblock
+#   partitions, its rootfs on a ubiblock, zram swap, a loop device and a USB
+#   hard disk (sda, rotational) with one partition.
 # var/prometheus/*.prom
 #   Files as node_exporter's textfile collector reads them: Prometheus text
 #   exposition format 0.0.4 (prometheus.io/docs/instrumenting/exposition_formats);

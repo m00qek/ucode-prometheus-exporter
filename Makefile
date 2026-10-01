@@ -167,8 +167,8 @@ bench-device: bench-worlds bench-src
 LUCI_IMAGE    := ucode-prometheus-exporter-luci:$(OPENWRT_ARCH)-$(OPENWRT_VERSION)-$(call INPUTS_OF,devenv/services/luci/Dockerfile)
 BROWSER_IMAGE := ucode-prometheus-exporter-browser:$(shell sed -n 's/.*"@playwright\/test": "\(.*\)".*/\1/p' devenv/services/browser/package.json)
 # The collector packages the browser tests install besides the base package: options of
-# each type, configs read, a name with '-'.
-BROWSER_COLLECTORS := dhcp_leases ltq-dsl textfile unbound wifi wireguard
+# each type, a regex option (diskstats'), configs read, a name with '-'.
+BROWSER_COLLECTORS := dhcp_leases diskstats ltq-dsl textfile unbound wifi wireguard
 
 # The LuCI pages against the built packages and a stand-in for procd; see devenv/scripts/browser.sh.
 browser: package

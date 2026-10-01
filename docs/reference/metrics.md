@@ -18,6 +18,7 @@ The labels are those seen on the captures; a collector leaves out a label it has
 | [`cpu`](#cpu) | 8 | an access point, a router | — |
 | [`dawn`](#dawn) | 3 | made-up captures | — |
 | [`dhcp_leases`](#dhcp_leases) | 3 | made-up captures | — |
+| [`diskstats`](#diskstats) | 18 | a second router, made-up captures | — |
 | [`dnsmasq`](#dnsmasq) | 30 | a router | — |
 | [`entropy`](#entropy) | 2 | an access point, a router | — |
 | [`ethtool`](#ethtool) | 259 | an access point, a router | — |
@@ -177,6 +178,31 @@ DHCP leases. [Collector](collectors.md#dhcp_leases).
 | `node_openwrt_dhcp_leases` | gauge | `server`, `interface`, `family` | Active DHCP leases, by server, interface and family. | — |
 | `node_openwrt_dhcp_lease_info` | gauge | `server`, `interface`, `family`, `address`, `mac`, `hostname`, `duid`, `iaid` | An active DHCP lease: its address, client and hostname. | With `leases=1` |
 | `node_openwrt_dhcp_lease_expiry_timestamp_seconds` | gauge | `server`, `interface`, `family`, `address` | When an active DHCP lease expires, unless it never does. | With `leases=1` |
+
+## `diskstats` {#diskstats}
+
+Disk I/O. [Collector](collectors.md#diskstats).
+
+| Family | Type | Labels | Help | Notes |
+| :--- | :--- | :--- | :--- | :--- |
+| `node_disk_info` | gauge | `device`, `major`, `minor`, `rotational` | Info of /sys/block/&lt;block\_device&gt;. | — |
+| `node_disk_reads_completed_total` | counter | `device` | The total number of reads completed successfully. | — |
+| `node_disk_reads_merged_total` | counter | `device` | The total number of reads merged. | — |
+| `node_disk_read_bytes_total` | counter | `device` | The total number of bytes read successfully. | — |
+| `node_disk_read_time_seconds_total` | counter | `device` | The total number of seconds spent by all reads. | — |
+| `node_disk_writes_completed_total` | counter | `device` | The total number of writes completed successfully. | — |
+| `node_disk_writes_merged_total` | counter | `device` | The number of writes merged. | — |
+| `node_disk_written_bytes_total` | counter | `device` | The total number of bytes written successfully. | — |
+| `node_disk_write_time_seconds_total` | counter | `device` | This is the total number of seconds spent by all writes. | — |
+| `node_disk_io_now` | gauge | `device` | The number of I/Os currently in progress. | — |
+| `node_disk_io_time_seconds_total` | counter | `device` | Total seconds spent doing I/Os. | — |
+| `node_disk_io_time_weighted_seconds_total` | counter | `device` | The weighted # of seconds spent doing I/Os. | — |
+| `node_disk_discards_completed_total` | counter | `device` | The total number of discards completed successfully. | — |
+| `node_disk_discards_merged_total` | counter | `device` | The total number of discards merged. | — |
+| `node_disk_discarded_sectors_total` | counter | `device` | The total number of sectors discarded successfully. | — |
+| `node_disk_discard_time_seconds_total` | counter | `device` | This is the total number of seconds spent by all discards. | — |
+| `node_disk_flush_requests_total` | counter | `device` | The total number of flush requests completed successfully | — |
+| `node_disk_flush_requests_time_seconds_total` | counter | `device` | This is the total number of seconds spent by all flush requests. | — |
 
 ## `dnsmasq` {#dnsmasq}
 

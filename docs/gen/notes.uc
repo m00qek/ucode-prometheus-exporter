@@ -58,6 +58,10 @@ export const nothing_to_observe = {
 		when: 'No `/proc/net/dev_snmp6` (IPv6 disabled).',
 		failure: 'The directory there and unreadable.',
 	},
+	'diskstats': {
+		when: 'Every block device in `/proc/diskstats` is one `device_exclude` leaves out (by default flash, loop devices, zram and partitions): a router without a disk. Or no block device at all.',
+		failure: '`/proc/diskstats` not there or unreadable; a line of a device it exports that is malformed.',
+	},
 	'dnsmasq': {
 		when: 'dnsmasq disabled, or not installed.',
 		failure: 'dnsmasq enabled, and its `dnsmasq` object missing or failing.',

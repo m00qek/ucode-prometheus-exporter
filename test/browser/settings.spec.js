@@ -430,6 +430,34 @@ test.describe('Services → Prometheus exporter', () => {
     expect(await h.readConfig(request)).toBe(before);
   });
 
+  test('diskstats\' Edit shows device_exclude, its default and help, and takes a regular expression only', async ({ page, request }) => {
+    const before = await h.readConfig(request);
+    const plugin = await h.ubus(request, h.CONFIG, 'collectors', {});
+    const exclude = plugin.collectors.find((c) => c.id == 'diskstats').options.find((o) => o.name == 'device_exclude');
+    expect(exclude).toEqual(expect.objectContaining({ type: 'string', datatype: 'regex' }));
+    expect(exclude.default).toContain('mtdblock');
+
+    await h.openSettings(page);
+    const dialog = await h.editCollector(page, 'diskstats');
+    const fields = await dialog.locator('.cbi-value[data-option]').evaluateAll((els) => els.map((el) => el.getAttribute('data-option')));
+    expect(fields).toEqual([ 'device_exclude' ]);
+    await expect(option(page, 'diskstats', 'device_exclude')).toHaveValue('');
+    await expect(option(page, 'diskstats', 'device_exclude')).toHaveAttribute('placeholder', exclude.default);
+    await expect(dialog.locator('.cbi-value[data-option="device_exclude"] .cbi-value-description')).toHaveText(exclude.help);
+
+    await option(page, 'diskstats', 'device_exclude').fill('(mmcblk');
+    await expect(option(page, 'diskstats', 'device_exclude')).toHaveClass(/cbi-input-invalid/);
+    await h.modal(page).getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(h.modal(page)).toBeVisible();
+    await option(page, 'diskstats', 'device_exclude').fill('^(loop|mtdblock)[0-9]+$');
+    await expect(option(page, 'diskstats', 'device_exclude')).not.toHaveClass(/cbi-input-invalid/);
+    await h.screenshot(page, 'settings-dialog-diskstats');
+    await dismissDialog(page);
+
+    expect(await h.staged(page)).toEqual({});
+    expect(await h.readConfig(request)).toBe(before);
+  });
+
   test('marks what the exporter would refuse of the main section, as the ubus object says, and saves nothing', async ({ page, request }) => {
     const before = await h.readConfig(request);
     await h.openSettings(page);

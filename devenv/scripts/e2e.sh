@@ -256,7 +256,28 @@ check "check says why" says '^ok   scrape: wifi has nothing to observe: no wirel
 check "and so does the ubus object's status" is_reason wifi 'no wireless radios'
 check "modemmanager asks ModemManager, which lists no modem" says '^ok   scrape: modemmanager has nothing to observe: ModemManager lists no modems$' "$INIT" check
 
-# --- hwmon: the host's sensors, read in the jail
+# --- diskstats and hwmon: the host's kernel, read in the jail
+# /proc/diskstats and /sys are the host's: whether there is a disk to observe
+# is what device_exclude leaves of the host's block devices.
+DISK_EXCLUDE=$(ucode -e "import { DEFAULT_EXCLUDE } from 'prometheus_exporter.collectors.diskstats'; print(DEFAULT_EXCLUDE);")
+disk=$(awk 'NF >= 14 { print $3 }' /proc/diskstats | grep -Ev "$DISK_EXCLUDE" | head -1)
+echo "info the host's first disk diskstats keeps: ${disk:-none}"
+check "diskstats is served" served diskstats
+if [ -n "$disk" ]; then
+	check "and reads /proc/diskstats in the jail ($disk)" metric "node_disk_written_bytes_total{device=\"$disk\"} "
+	check "and /sys/block, whether it is rotational" metric "node_disk_info{device=\"$disk\",major=\"[0-9]*\",minor=\"[0-9]*\",rotational=\"[01]\"} 1$"
+else
+	check "with nothing to observe" observing diskstats 0
+fi
+before=$(pid)
+set_config "$NAME.diskstats=collector" "$NAME.diskstats.device_exclude=."
+eventually "a device_exclude of every device restarts the instance" restarted_from "$before"
+check "and diskstats has nothing to observe" observing diskstats 0
+check "check says why" says '^ok   scrape: diskstats has nothing to observe: device_exclude leaves out every block device$' "$INIT" check
+before=$(pid)
+uci delete "$NAME.diskstats"
+set_config
+eventually "its default again restarts the instance" restarted_from "$before"
 # A sensor the host's driver answers now: one asleep (a GPU's) answers nothing,
 # and hwmon leaves it out.
 host_reads() { for f in /sys/class/hwmon/*/$1; do cat "$f" >/dev/null 2>&1 && return 0; done; return 1; }

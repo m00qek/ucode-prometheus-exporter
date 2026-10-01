@@ -1,6 +1,6 @@
 # How to Set a Collector's Options
 
-Some collectors take options of their own: wifi's `stations`, dhcp_leases' `leases`, vmstat's `fields`, textfile's `directory`, unbound's `socket`. [Collectors](../reference/collectors.md) lists each collector's options with their defaults; `service prometheus-exporter check` prints each with its help and value.
+Some collectors take options of their own: wifi's `stations`, dhcp_leases' `leases`, vmstat's `fields`, diskstats' `device_exclude`, textfile's `directory`, unbound's `socket`. [Collectors](../reference/collectors.md) lists each collector's options with their defaults; `service prometheus-exporter check` prints each with its help and value.
 
 ## Set an option
 
@@ -45,6 +45,15 @@ Export more of `/proc/vmstat`, by a regular expression of its field names:
 uci set prometheus-exporter.vmstat=collector
 uci set prometheus-exporter.vmstat.fields='^(oom_kill|pgpg|pswp|pg.*fault|nr_free_pages).*'
 ```
+
+Watch the partitions of an eMMC or SD card too, which diskstats leaves out by default, with flash, loop devices and zram still out:
+
+```sh
+uci set prometheus-exporter.diskstats=collector
+uci set prometheus-exporter.diskstats.device_exclude='^(z?ram|loop|mtdblock|ubiblock[0-9]+_)[0-9]+$'
+```
+
+`device_exclude` is a POSIX extended regular expression, as ucode compiles it; `^$` leaves out no device.
 
 Each is followed by `uci commit prometheus-exporter` and `service prometheus-exporter reload`.
 

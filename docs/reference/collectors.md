@@ -12,6 +12,7 @@ Every collector of `ucode-prometheus-exporter 0.1.0`. A collector's name is what
 | [`cpu`](#cpu) | CPU | `ucode-prometheus-exporter` (base) | — |
 | [`dawn`](#dawn) | DAWN band steering | `ucode-prometheus-exporter-dawn` | — |
 | [`dhcp_leases`](#dhcp_leases) | DHCP leases | `ucode-prometheus-exporter-dhcp_leases` | `ucode-prometheus-exporter-full` |
+| [`diskstats`](#diskstats) | Disk I/O | `ucode-prometheus-exporter-diskstats` | `ucode-prometheus-exporter-hardware`, `ucode-prometheus-exporter-full` |
 | [`dnsmasq`](#dnsmasq) | dnsmasq DNS and DHCP | `ucode-prometheus-exporter-dnsmasq` | `ucode-prometheus-exporter-full` |
 | [`entropy`](#entropy) | Kernel entropy | `ucode-prometheus-exporter` (base) | — |
 | [`ethtool`](#ethtool) | Network driver statistics | `ucode-prometheus-exporter-ethtool` | `ucode-prometheus-exporter-network`, `ucode-prometheus-exporter-full` |
@@ -58,8 +59,8 @@ The base package, `ucode-prometheus-exporter`, installs `conntrack`, `cpu`, `ent
 | :--- | :--- | :--- |
 | `ucode-prometheus-exporter-network` | network statistics | `ethtool`, `nat_traffic`, `netstat`, `nft-counters`, `qdisc`, `snmp6` |
 | `ucode-prometheus-exporter-wireless` | Wi-Fi | `hostapd_stations`, `hostapd_ubus_stations`, `wifi` |
-| `ucode-prometheus-exporter-hardware` | hardware and filesystems | `filesystem`, `hwmon`, `thermal` |
-| `ucode-prometheus-exporter-full` | a router or access point | `ethtool`, `nat_traffic`, `netstat`, `nft-counters`, `qdisc`, `snmp6`, `hostapd_stations`, `hostapd_ubus_stations`, `wifi`, `filesystem`, `hwmon`, `thermal`, `dhcp_leases`, `dnsmasq`, `openwrt`, `textfile`, `uci_dhcp_host`, `wireguard` |
+| `ucode-prometheus-exporter-hardware` | hardware and filesystems | `diskstats`, `filesystem`, `hwmon`, `thermal` |
+| `ucode-prometheus-exporter-full` | a router or access point | `ethtool`, `nat_traffic`, `netstat`, `nft-counters`, `qdisc`, `snmp6`, `hostapd_stations`, `hostapd_ubus_stations`, `wifi`, `diskstats`, `filesystem`, `hwmon`, `thermal`, `dhcp_leases`, `dnsmasq`, `openwrt`, `textfile`, `uci_dhcp_host`, `wireguard` |
 
 In no group: `bmx7`, `chrony`, `dawn`, `ltq-dsl`, `modemmanager`, `mwan3`, `realtek-poe`, `ubnt-manager`, `unbound`, `wifi_stations`.
 
@@ -74,6 +75,7 @@ These collectors can have nothing to observe: they succeed without samples, and 
 | [`conntrack`](#conntrack) | nf\_conntrack not loaded: none of its files in `/proc/sys/net/netfilter`. | `no connection tracking (nf_conntrack is not loaded)` | Its files there and unreadable. |
 | [`dawn`](#dawn) | DAWN disabled, or not installed. | `dawn is disabled`, `dawn is not installed` | DAWN enabled, and its `dawn` object missing or failing. |
 | [`dhcp_leases`](#dhcp_leases) | dnsmasq (or no dnsmasq instance in `/etc/config/dhcp`) and odhcpd both disabled or not installed. With one of them enabled, it observes that one. | `dnsmasq is disabled`, `dnsmasq is not installed`, `odhcpd is disabled`, `odhcpd is not installed` | An enabled server that is not there: no dnsmasq lease file, odhcpd not on ubus. |
+| [`diskstats`](#diskstats) | Every block device in `/proc/diskstats` is one `device_exclude` leaves out (by default flash, loop devices, zram and partitions): a router without a disk. Or no block device at all. | `device_exclude leaves out every block device`, `no block devices` | `/proc/diskstats` not there or unreadable; a line of a device it exports that is malformed. |
 | [`dnsmasq`](#dnsmasq) | dnsmasq disabled, or not installed. | `dnsmasq is disabled`, `dnsmasq is not installed` | dnsmasq enabled, and its `dnsmasq` object missing or failing. |
 | [`hostapd_stations`](#hostapd_stations) | As wifi, or no `hostapd.<ifname>` object for any interface. | `no wireless radios`, `no hostapd access points` | A hostapd object that does not answer. |
 | [`hostapd_ubus_stations`](#hostapd_ubus_stations) | No `hostapd.*` object. | `no hostapd access points` | A hostapd object that does not answer. |
@@ -186,6 +188,23 @@ Active DHCP leases of dnsmasq and odhcpd, by interface and family.
 | Option | Type | Default | Datatype | Description |
 | :--- | :--- | :--- | :--- | :--- |
 | `leases` | boolean | `0` | — | A series per lease, with its address, MAC, hostname and expiry. |
+| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+
+## `diskstats` {#diskstats}
+
+Reads, writes, discards and flushes of each disk, and the time spent on them, from /proc/diskstats, as node\_exporter has them.
+
+- **Title:** Disk I/O
+- **Package:** `ucode-prometheus-exporter-diskstats`
+- **In the groups:** `ucode-prometheus-exporter-hardware`, `ucode-prometheus-exporter-full`
+- **Section:** `config collector 'diskstats'`
+- **Needs:** `fs`
+- **Nothing to observe:** Every block device in `/proc/diskstats` is one `device_exclude` leaves out (by default flash, loop devices, zram and partitions): a router without a disk. Or no block device at all. See [Nothing to observe](#nothing-to-observe).
+- **Metrics:** [diskstats](metrics.md#diskstats)
+
+| Option | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| `device_exclude` | string | `^(z?ram|loop|fd|(h|s|v|xv)d[a-z]|nvme[0-9]+n[0-9]+p|mtdblock|ubiblock[0-9]+_|mmcblk[0-9]+(p|boot))[0-9]+$` | `regex` | A regular expression of the block devices to leave out: by default RAM disks, zram, loop devices, flash (mtdblock, ubiblock) and the partitions of disks, whose I/O their disk counts. ^$ leaves out none. |
 | `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
 ## `dnsmasq` {#dnsmasq}

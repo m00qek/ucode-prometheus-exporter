@@ -22,19 +22,20 @@ import { readfile, writefile, mkdir, symlink, stat } from 'fs';
 const FIXTURES = 'test/fixtures';
 
 // Sizes. `typical` is a home router with an access point on it; `large` a busy
-// one: 50 links, a 20k-entry conntrack table, 200 stations, 1000 leases.
+// one: 50 links, a 20k-entry conntrack table, 200 stations, 1000 leases, and
+// a NAS's disks.
 const PROFILES = {
 	typical: {
 		cpus: 4, links: 12, conntrack: 300, conntrack_scaling: [],
 		radios: 2, ifaces_per_radio: 2, stations: 20,
 		leases: 40, odhcpd_leases: 10, hosts: 10, interfaces: 6,
-		peers: 3, counters: 20, textfile_samples: 20, hwmon: 2, thermal: 2, ntp_sources: 4,
+		peers: 3, counters: 20, textfile_samples: 20, hwmon: 2, thermal: 2, ntp_sources: 4, disks: 1,
 	},
 	large: {
 		cpus: 4, links: 50, conntrack: 20000, conntrack_scaling: [ 1000, 10000, 20000 ],
 		radios: 3, ifaces_per_radio: 3, stations: 200,
 		leases: 1000, odhcpd_leases: 200, hosts: 200, interfaces: 20,
-		peers: 30, counters: 100, textfile_samples: 500, hwmon: 4, thermal: 4, ntp_sources: 12,
+		peers: 30, counters: 100, textfile_samples: 500, hwmon: 4, thermal: 4, ntp_sources: 12, disks: 4,
 	},
 };
 
@@ -519,7 +520,39 @@ function chrony(dir, world, n, rand) {
 	}
 }
 
-// ---- hwmon ---------------------------------------------------------------------
+// ---- block devices ---------------------------------------------------------------
+
+// /proc/diskstats of a kernel 5.5 or later (20 fields): loop devices, flash,
+// an eMMC with its partitions and boot areas (the seriguela router's layout),
+// and `disks` SATA or USB disks of three partitions each; and the
+// rotational files of the devices diskstats exports by default.
+function diskstats(root, p, rand) {
+	let lines = [];
+	let line = (major, minor, name) => push(lines, sprintf('%4d %7d %s %s', major, minor, name,
+		join(' ', times(17, () => rand(100000000)))));
+
+	for (let i = 0; i < 8; i++)
+		line(7, i, `loop${i}`);
+	for (let i = 0; i < 8; i++)
+		line(31, i, `mtdblock${i}`);
+	line(179, 0, 'mmcblk0');
+	line(179, 1, 'mmcblk0p1');
+	line(179, 2, 'mmcblk0p2');
+	line(179, 32, 'mmcblk0boot0');
+	line(179, 64, 'mmcblk0boot1');
+	put(root, '/sys/block/mmcblk0/queue/rotational', '0\n');
+
+	for (let d = 0; d < p.disks; d++) {
+		let name = 'sd' + chr(97 + d);
+
+		line(8, d * 16, name);
+		for (let k = 1; k <= 3; k++)
+			line(8, d * 16 + k, `${name}${k}`);
+		put(root, `/sys/block/${name}/queue/rotational`, `${d % 2}\n`);
+	}
+
+	put(root, '/proc/diskstats', join('\n', lines) + '\n');
+}
 
 // What hwmon reads of fans, voltages, currents and power: on each chip two
 // fans and four voltages, with files it does not read beside them (as a
@@ -613,8 +646,9 @@ function generate(dir, profile) {
 		}
 		put(root, `${d}/pwm1`, `${rand(255)}\n`);
 	}
-	// A generator of its own, so the rest of the world is what it was without it.
+	// Generators of their own, so the rest of the world is what it was without them.
 	hwmon_readings(root, p, rng(45));
+	diskstats(root, p, rng(46));
 	for (let z = 0; z < p.thermal; z++) {
 		let d = `/sys/class/thermal/thermal_zone${z}`;
 		put(root, `${d}/type`, `zone${z}-thermal\n`);

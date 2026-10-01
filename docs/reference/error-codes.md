@@ -8,8 +8,8 @@ A failure carries an uppercase code, from `src/prometheus_exporter/errors.uc`, a
 
 | Code | Meaning | Raised by |
 | :--- | :--- | :--- |
-| `SOURCE_UNREADABLE` | A file the collector reads is not there or cannot be read. The detail names it. | the collectors `bmx7`, `conntrack`, `cpu`, `dhcp_leases`, `entropy`, `filefd`, `filesystem`, `loadavg`, `meminfo`, `nat_traffic`, `netstat`, `snmp6`, `softnet`, `timesync`, `uci_dhcp_host`, `uname`, `vmstat` |
-| `SOURCE_INVALID` | What the collector read is not what it expects: a file, a ubus reply or a program's output it cannot parse. The detail says where. | `services.uc`; the collectors `bmx7`, `chrony`, `conntrack`, `cpu`, `dawn`, `dhcp_leases`, `dnsmasq`, `entropy`, `filefd`, `filesystem`, `hostapd_stations`, `loadavg`, `ltq-dsl`, `meminfo`, `modemmanager`, `mwan3`, `netclass`, `netdev`, `netstat`, `nft-counters`, `openwrt`, `openwrt_interfaces`, `qdisc`, `realtek-poe`, `selinux`, `softnet`, `time`, `timesync`, `ubnt-manager`, `unbound`, `vmstat`, `wifi`, `wifi_stations`, `wireguard` |
+| `SOURCE_UNREADABLE` | A file the collector reads is not there or cannot be read. The detail names it. | the collectors `bmx7`, `conntrack`, `cpu`, `dhcp_leases`, `diskstats`, `entropy`, `filefd`, `filesystem`, `loadavg`, `meminfo`, `nat_traffic`, `netstat`, `snmp6`, `softnet`, `timesync`, `uci_dhcp_host`, `uname`, `vmstat` |
+| `SOURCE_INVALID` | What the collector read is not what it expects: a file, a ubus reply or a program's output it cannot parse. The detail says where. | `services.uc`; the collectors `bmx7`, `chrony`, `conntrack`, `cpu`, `dawn`, `dhcp_leases`, `diskstats`, `dnsmasq`, `entropy`, `filefd`, `filesystem`, `hostapd_stations`, `loadavg`, `ltq-dsl`, `meminfo`, `modemmanager`, `mwan3`, `netclass`, `netdev`, `netstat`, `nft-counters`, `openwrt`, `openwrt_interfaces`, `qdisc`, `realtek-poe`, `selinux`, `softnet`, `time`, `timesync`, `ubnt-manager`, `unbound`, `vmstat`, `wifi`, `wifi_stations`, `wireguard` |
 | `COLLECTOR_CRASHED` | The collector died with an exception. The detail is the exception's first line. | `scrape.uc` |
 | `COLLECTOR_NO_RESULT` | The collector returned something other than a Result. The detail says what. | `scrape.uc` |
 | `COLLECTOR_INVALID` | A collector module that cannot be loaded as one (its `meta` or `collect`), which the exporter leaves out; or a query that names a collector that is not installed, or one that is disabled, which is answered 400. | `loader.uc`, `scrape.uc` |
@@ -18,7 +18,7 @@ A failure carries an uppercase code, from `src/prometheus_exporter/errors.uc`, a
 
 | Code | Meaning | Raised by |
 | :--- | :--- | :--- |
-| `CONFIG_INVALID` | An option has a value the exporter does not take, or options that go together are not set together. The detail is `<option>: expected <what>, got <value>` (never the value of `auth_password`), or what is missing. | `auth.uc`, `config.uc`; the collector `vmstat` |
+| `CONFIG_INVALID` | An option has a value the exporter does not take, or options that go together are not set together. The detail is `<option>: expected <what>, got <value>` (never the value of `auth_password`), or what is missing. | `auth.uc`, `config.uc`; the collectors `diskstats`, `vmstat` |
 | `FILE_UNWRITABLE` | The init script could not write or remove uhttpd's basic auth file, `/var/run/prometheus-exporter/uhttpd.conf`. | `auth.uc` |
 
 ## Capabilities

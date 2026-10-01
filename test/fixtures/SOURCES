@@ -99,6 +99,9 @@ ubus mwan3 status {"section":"interfaces"}
 file /proc/net/stat/nf_conntrack
 file /proc/net/softnet_stat
 file /proc/vmstat
+# diskstats (caju-ap and seriguela-router).
+file /proc/diskstats
+file /sys/block/*/queue/rotational
 # openwrt_interfaces and dhcp_leases. Redacted by hand: public addresses to
 # 192.0.2.0/24, 198.51.100.0/24 and 2001:db8::/32 (in the DHCPv6 passthru hex
 # too), the ISP's link-local gateway to fe80::1, the LAN subnets as in
