@@ -105,10 +105,39 @@ async function open(page, route, user) {
   await expect(page.locator('#view .spinning')).toHaveCount(0, { timeout: 20000 });
 }
 
+// The settings page, on its Exporter tab: LuCI reopens a page on the tab last shown.
 async function openSettings(page, user) {
   await open(page, `admin/services/${CONFIG}`, user);
   await expect(page.locator('#view h2', { hasText: 'Prometheus exporter' })).toBeVisible();
-  await expect(page.locator('#view tr[data-collector]').first()).toBeVisible();
+  await expect(page.locator('#view tr[data-collector]').first()).toBeAttached();
+  await showTab(page, 'exporter');
+}
+
+// Shows a tab of the settings page: exporter or collectors.
+async function showTab(page, name) {
+  await page.locator(`#view .cbi-tabmenu li[data-tab="${name}"] > a`).click();
+  await expect(page.locator(`#view .cbi-tabmenu li[data-tab="${name}"]`)).toHaveClass(/cbi-tab(?!-)/);
+}
+
+// LuCI's dialog, as ui.showModal shows it.
+function modal(page) {
+  return page.locator('#modal_overlay > .modal');
+}
+
+// Opens the dialog of a collector's options from its row on the Collectors tab.
+async function editCollector(page, id) {
+  await showTab(page, 'collectors');
+  await collectorRow(page, id).getByRole('button', { name: 'Edit', exact: true }).click();
+  await expect(modal(page).locator(`.exporter-editor[data-collector="${id}"]`)).toBeVisible();
+  return modal(page);
+}
+
+// What this page's login has staged in uci and not applied, by config.
+async function staged(page) {
+  return page.evaluate(async () => {
+    const uci = await L.require('uci');
+    return uci.changes();
+  });
 }
 
 async function openStatus(page, user) {
@@ -139,5 +168,5 @@ async function screenshot(page, name) {
 
 module.exports = {
   CONFIG, PACKAGE, APP_USER, HOSTILE, ubus, rawCall, denied, sessionOf, useService, useConfig, readConfig, sections, open, openSettings,
-  openStatus, section, collectorRow, text, screenshot,
+  showTab, modal, editCollector, staged, openStatus, section, collectorRow, text, screenshot,
 };

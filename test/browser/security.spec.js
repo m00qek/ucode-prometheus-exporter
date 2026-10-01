@@ -13,9 +13,19 @@ async function expectInert(page) {
 test.describe('Data from the router is shown as text, never markup', () => {
   test('on the settings page', async ({ page }) => {
     await h.openSettings(page);
+    await h.showTab(page, 'collectors');
     await expectInert(page);
-    await expect(h.collectorRow(page, 'hostile').locator('td').first()).toContainText(h.HOSTILE);
-    await expect(page.locator(`[id="widget.cbid.${h.CONFIG}.hostile.note"]`)).toHaveAttribute('placeholder', h.HOSTILE);
+    await expect(h.collectorRow(page, 'hostile').locator('td').first()).toContainText(`${h.HOSTILE} hostile${h.HOSTILE}`);
+  });
+
+  test('in a collector\'s dialog', async ({ page }) => {
+    await h.openSettings(page);
+    const dialog = await h.editCollector(page, 'hostile');
+    await expectInert(page);
+    await expect(dialog.locator('h4')).toHaveText(`${h.HOSTILE} hostile`);
+    await expect(dialog.locator('.exporter-editor > p').first()).toHaveText(h.HOSTILE);
+    await expect(dialog.locator(`[id="widget.cbid.${h.CONFIG}.hostile.note"]`)).toHaveAttribute('placeholder', h.HOSTILE);
+    await expect(dialog.locator('.cbi-value[data-option="note"] .cbi-value-description')).toHaveText(h.HOSTILE);
   });
 
   test('on the status page', async ({ page }) => {
@@ -24,10 +34,17 @@ test.describe('Data from the router is shown as text, never markup', () => {
     await expect(h.collectorRow(page, 'hostile').locator('td').nth(4)).toHaveText(`SOURCE_INVALID (${h.HOSTILE})`);
   });
 
-  test('in what the plugin refuses', async ({ page }) => {
+  test('in what the ubus object refuses', async ({ page }) => {
     await h.openSettings(page);
+    const dialog = await h.editCollector(page, 'sampler');
+    await dialog.locator(`[id="widget.cbid.${h.CONFIG}.sampler.retries"]`).fill(h.HOSTILE);
+    await dialog.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(dialog.locator('.alert-message.error li')).toHaveText([ `retries: expected an integer, got "${h.HOSTILE}"` ]);
+    await expectInert(page);
+    await dialog.getByRole('button', { name: 'Dismiss', exact: true }).click();
+
+    await h.showTab(page, 'exporter');
     await page.locator(`[id="widget.cbid.${h.CONFIG}.main.listen_port"]`).fill('0');
-    await page.locator(`[id="widget.cbid.${h.CONFIG}.sampler.label"]`).fill(h.HOSTILE);
     await page.locator('#view .cbi-page-actions').getByText('Save & Apply', { exact: true }).click();
     await expect(page.locator('#view .alert-message.error')).toBeVisible();
     await expectInert(page);

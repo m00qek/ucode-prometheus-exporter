@@ -6,7 +6,7 @@
 
 import { describe, it, assert } from 'utest';
 import { lsdir } from 'fs';
-import * as rpc from 'prometheus_exporter.luci.rpc';
+import * as rpc from 'prometheus_exporter.rpc';
 import * as loader from 'prometheus_exporter.loader';
 import * as deps from 'prometheus_exporter.deps';
 import * as config from 'prometheus_exporter.config';

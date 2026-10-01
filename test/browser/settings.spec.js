@@ -1,8 +1,10 @@
 const { test, expect } = require('@playwright/test');
 const h = require('./helpers');
 
-// Services → Prometheus exporter against the real rpcd plugin and the exporter's real
-// collectors, with the configuration the tests lay out (test/fixtures/luci/config/).
+// Services → Prometheus exporter against the real ubus object in rpcd and the exporter's
+// real collectors, with the configuration the tests lay out (test/fixtures/luci/config/).
+// The Exporter tab is the main section; the Collectors tab has a row per collector, with a
+// switch, and a dialog of its options behind Edit.
 
 function field(page, option) {
   return page.locator(`[id="widget.cbid.${h.CONFIG}.main.${option}"]`);
@@ -16,16 +18,37 @@ function listen(page) {
   return page.locator(`[id="cbid.${h.CONFIG}.main.listen_interface"]`);
 }
 
+async function listenChoices(page) {
+  const values = await listen(page).locator('li[data-value]').evaluateAll((items) => items.map((li) => li.getAttribute('data-value')));
+  return values.sort();
+}
+
+// A field of the open dialog.
 function option(page, id, name) {
-  return page.locator(`[id="widget.cbid.${h.CONFIG}.${id}.${name}"]`);
+  return h.modal(page).locator(`[id="widget.cbid.${h.CONFIG}.${id}.${name}"]`);
 }
 
-function toggle(page, id, name) {
-  return page.locator(`[id="cbid.${h.CONFIG}.${id}.${name ?? 'enabled'}"] input[type="checkbox"]`);
+function checkbox(page, id, name) {
+  return h.modal(page).locator(`[id="cbid.${h.CONFIG}.${id}.${name}"] input[type="checkbox"]`);
 }
 
-function panel(page) {
-  return page.locator('#view > div > div.alert-message, #view .alert-message.error');
+// A collector's switch, on its row.
+function toggle(page, id) {
+  return page.locator(`#view [id="cbid.${h.CONFIG}.${id}.enabled"] input[type="checkbox"]`);
+}
+
+function editButton(page, id) {
+  return h.collectorRow(page, id).getByRole('button', { name: 'Edit', exact: true });
+}
+
+async function saveDialog(page) {
+  await h.modal(page).getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(h.modal(page)).toBeHidden();
+}
+
+async function dismissDialog(page) {
+  await h.modal(page).getByRole('button', { name: 'Dismiss', exact: true }).click();
+  await expect(h.modal(page)).toBeHidden();
 }
 
 async function saveAndApply(page) {
@@ -47,9 +70,15 @@ test.describe('Services → Prometheus exporter', () => {
     await h.useConfig(request, 'default');
   });
 
-  test('shows the exporter settings as saved', async ({ page, request }) => {
+  test('opens on the Exporter tab, with the main section as saved', async ({ page, request }) => {
     await h.useConfig(request, 'custom');
-    await h.openSettings(page);
+    await h.open(page, `admin/services/${h.CONFIG}`);
+    await expect(page.locator('#view .cbi-tabmenu li[data-tab="exporter"]')).toHaveClass('cbi-tab');
+    await expect(page.locator('#view .cbi-tabmenu li[data-tab="collectors"]')).toHaveClass('cbi-tab-disabled');
+    const tabs = await page.locator('#view .cbi-tabmenu li[data-tab]').evaluateAll((lis) => lis.map((li) => li.getAttribute('data-tab')));
+    expect(tabs).toEqual([ 'exporter', 'collectors' ]);
+    await expect(page.locator('#view .cbi-tabmenu li[data-tab="exporter"]')).toHaveText('Exporter');
+    await expect(page.locator('#view .cbi-tabmenu li[data-tab="collectors"]')).toHaveText('Collectors');
     await expect(flag(page, 'enabled')).toBeChecked();
     await expect(listen(page).locator('li[selected]')).toHaveAttribute('data-value', '*');
     await expect(field(page, 'listen_port')).toHaveValue('9102');
@@ -61,63 +90,71 @@ test.describe('Services → Prometheus exporter', () => {
     await h.screenshot(page, 'settings-custom');
   });
 
-  test('offers every address and the router\'s networks to listen on', async ({ page }) => {
+  test('offers every address and netifd\'s interfaces to listen on, as the ubus object lists them', async ({ page, request }) => {
+    const reply = await h.ubus(request, h.CONFIG, 'interfaces', {});
     await h.openSettings(page);
     await expect(listen(page).locator('li[selected]')).toHaveAttribute('data-value', 'loopback');
-    const values = await listen(page).locator('li[data-value]').evaluateAll((items) => items.map((li) => li.getAttribute('data-value')));
-    expect(values.sort()).toEqual([ '*', 'lan', 'loopback', 'wan' ]);
+    expect(await listenChoices(page)).toEqual([ '*', ...reply.interfaces.map((i) => i.name) ].sort());
+    expect(await listenChoices(page)).toEqual([ '*', 'lan', 'loopback', 'wan' ]);
+    await expect(listen(page).locator('li[data-value="wan"]')).toContainText('wan (dhcp)');
   });
 
-  test('has a row for each installed collector, saying where it comes from and what it reads', async ({ page, request }) => {
+  test('keeps a saved interface it does not list', async ({ page, request }) => {
+    await h.useConfig(request, 'gone');
+    await h.openSettings(page);
+    await expect(listen(page).locator('li[selected]')).toHaveAttribute('data-value', 'vpn');
+    expect(await listenChoices(page)).toEqual([ '*', 'lan', 'loopback', 'vpn', 'wan' ]);
+  });
+
+  test('has a row for each installed collector: its title and help, its package, a switch, and Edit when it has options', async ({ page, request }) => {
     const plugin = await h.ubus(request, h.CONFIG, 'collectors', {});
     await h.openSettings(page);
+    await h.showTab(page, 'collectors');
 
     const rows = await page.locator('#view tr[data-collector]').evaluateAll((trs) => trs.map((tr) => tr.getAttribute('data-collector')));
     expect(rows).toEqual(plugin.collectors.map((c) => c.id));
     expect(rows).toEqual(expect.arrayContaining([ 'loadavg', 'wifi', 'textfile', 'dhcp_leases', 'wireguard', 'ltq_dsl', 'sampler' ]));
 
-    await expect(h.collectorRow(page, 'loadavg').locator('td').first()).toContainText('In the base package');
-    await expect(h.collectorRow(page, 'wifi').locator('td').first())
-      .toContainText(`Package ${h.PACKAGE}-wifi, which can be removed`);
-    await expect(h.collectorRow(page, 'sampler').locator('td').first()).toContainText('Not installed by a package');
-    await expect(h.collectorRow(page, 'wireguard').locator('td').first()).toContainText('Reads /etc/config/network');
-    await expect(h.collectorRow(page, 'dhcp_leases').locator('td').first()).toContainText('Reads /etc/config/dhcp');
+    const headers = await page.locator('#view table.cbi-section-table th').allTextContents();
+    expect(headers).toEqual([ 'Collector', 'Package', 'Enabled', '' ]);
+
+    await expect(h.collectorRow(page, 'loadavg').locator('td').nth(0)).toContainText('Load average');
+    await expect(h.collectorRow(page, 'loadavg').locator('td').nth(0)).toContainText('Load averages');
+    await expect(h.collectorRow(page, 'loadavg').locator('td').nth(1)).toHaveText('base');
+    await expect(h.collectorRow(page, 'wifi').locator('td').nth(1)).toHaveText(`${h.PACKAGE}-wifi`);
+    await expect(h.collectorRow(page, 'sampler').locator('td').nth(1)).toHaveText('none');
     await expect(h.collectorRow(page, 'ltq_dsl').locator('td').first()).toContainText('ltq-dsl');
-    await expect(h.collectorRow(page, 'loadavg').locator('td').first()).toContainText('Load averages');
+
+    for (const id of [ 'loadavg', 'wifi', 'sampler', 'textfile' ])
+      await expect(toggle(page, id)).toBeChecked();
+
+    const editable = await page.locator('#view tr[data-collector]').evaluateAll((trs) =>
+      trs.filter((tr) => tr.querySelector('button.cbi-button-edit')).map((tr) => tr.getAttribute('data-collector')));
+    expect(editable).toEqual(plugin.collectors.filter((c) => c.options.length > 0).map((c) => c.id));
+    expect(editable).toEqual(expect.arrayContaining([ 'wifi', 'textfile', 'dhcp_leases', 'sampler' ]));
+    await expect(editButton(page, 'loadavg')).toHaveCount(0);
+    await expect(editButton(page, 'wireguard')).toHaveCount(0);
     await h.screenshot(page, 'settings-collectors');
   });
 
-  test('renders each option by its type, with its default', async ({ page }) => {
-    await h.openSettings(page);
-    await expect(toggle(page, 'wifi', 'stations')).toBeChecked();
-    await expect(toggle(page, 'dhcp_leases', 'leases')).not.toBeChecked();
-    await expect(toggle(page, 'sampler', 'verbose')).not.toBeChecked();
-    await expect(option(page, 'textfile', 'directory')).toHaveValue('');
-    await expect(option(page, 'textfile', 'directory')).toHaveAttribute('placeholder', '/var/prometheus');
-    await expect(option(page, 'sampler', 'retries')).toHaveAttribute('placeholder', '3');
-    await expect(option(page, 'sampler', 'label')).toHaveAttribute('placeholder', 'node');
-    await expect(h.collectorRow(page, 'loadavg').locator('td').last()).toHaveText('None');
-    for (const id of [ 'loadavg', 'wifi', 'sampler' ])
-      await expect(toggle(page, id)).toBeChecked();
-  });
-
-  test('shows the saved collector sections', async ({ page, request }) => {
+  test('shows the switches as saved', async ({ page, request }) => {
     await h.useConfig(request, 'custom');
     await h.openSettings(page);
-    await expect(toggle(page, 'wifi', 'stations')).not.toBeChecked();
+    await h.showTab(page, 'collectors');
     await expect(toggle(page, 'textfile')).not.toBeChecked();
-    await expect(option(page, 'textfile', 'directory')).toHaveValue('/srv/prom');
     await expect(toggle(page, 'wifi')).toBeChecked();
   });
 
   test('switching a collector off saves only that, and switching it on again removes its section', async ({ page, request }) => {
     await h.openSettings(page);
+    await h.showTab(page, 'collectors');
     await toggle(page, 'loadavg').uncheck();
     await saveAndApply(page);
     await applied(page);
     expect((await savedSections(request)).loadavg).toEqual({ '.type': 'collector', enabled: '0' });
 
     await h.openSettings(page);
+    await h.showTab(page, 'collectors');
     await expect(toggle(page, 'loadavg')).not.toBeChecked();
     await toggle(page, 'loadavg').check();
     await saveAndApply(page);
@@ -125,27 +162,112 @@ test.describe('Services → Prometheus exporter', () => {
     expect((await savedSections(request)).loadavg).toBeUndefined();
   });
 
-  test('an option off its default gets a section of its own, which goes once it is back', async ({ page, request }) => {
+  test('Edit opens a dialog with a field per option, by its type, with its help, and what the collector reads', async ({ page }) => {
     await h.openSettings(page);
+    let dialog = await h.editCollector(page, 'sampler');
+    await expect(dialog.locator('h4')).toHaveText('Sampler sampler');
+    await expect(dialog.locator('.exporter-editor > p').first()).toHaveText('Samples nothing, with an option of each type.');
+    const fields = await dialog.locator('.cbi-value[data-option]').evaluateAll((els) => els.map((el) => el.getAttribute('data-option')));
+    expect(fields).toEqual([ 'retries', 'verbose', 'label' ]);
+    await expect(option(page, 'sampler', 'retries')).toHaveValue('');
+    await expect(option(page, 'sampler', 'retries')).toHaveAttribute('placeholder', '3');
+    await expect(option(page, 'sampler', 'label')).toHaveAttribute('placeholder', 'node');
+    await expect(checkbox(page, 'sampler', 'verbose')).not.toBeChecked();
+    await expect(dialog.locator('.cbi-value[data-option="retries"] .cbi-value-description')).toHaveText('How many times to try.');
+    await expect(dialog.locator('.cbi-value[data-option="verbose"] .cbi-value-description')).toHaveText('Say more.');
+    await expect(dialog.locator('.exporter-reads')).toContainText('Its jail mounts nothing for it but what every collector gets');
+    await h.screenshot(page, 'settings-dialog');
+    await dismissDialog(page);
+
+    dialog = await h.editCollector(page, 'wifi');
+    await expect(checkbox(page, 'wifi', 'stations')).toBeChecked();
+    await dismissDialog(page);
+
+    dialog = await h.editCollector(page, 'textfile');
+    await expect(option(page, 'textfile', 'directory')).toHaveAttribute('placeholder', '/var/prometheus');
+    await expect(dialog.locator('.exporter-reads')).toContainText('Its jail mounts, as saved: /var/prometheus.');
+    await dismissDialog(page);
+
+    dialog = await h.editCollector(page, 'dhcp_leases');
+    await expect(checkbox(page, 'dhcp_leases', 'leases')).not.toBeChecked();
+    await expect(dialog.locator('.exporter-reads')).toContainText('Reads /etc/config/dhcp.');
+    await expect(dialog.locator('.exporter-reads')).toContainText('Its jail mounts, as saved: /etc/config/dhcp');
+    await dismissDialog(page);
+  });
+
+  test('the dialog\'s Save stages its values, Save & Apply applies them, and the section goes once they are back at the defaults', async ({ page, request }) => {
+    const before = await h.readConfig(request);
+    await h.openSettings(page);
+    await h.editCollector(page, 'sampler');
     await option(page, 'sampler', 'retries').fill('5');
-    await toggle(page, 'sampler', 'verbose').check();
+    await checkbox(page, 'sampler', 'verbose').check();
+    await saveDialog(page);
+
+    // Staged in uci for this login, as LuCI's own dialogs do; nothing written yet.
+    const changes = await h.staged(page);
+    expect(changes[h.CONFIG]).toEqual([ [ 'set', 'sampler', 'collector' ], [ 'set', 'sampler', 'retries', '5' ], [ 'set', 'sampler', 'verbose', '1' ] ]);
+    expect(await h.readConfig(request)).toBe(before);
+    await expect(page.locator('#indicators [data-indicator="uci-changes"]')).toContainText('Unsaved Changes');
+
+    // The dialog opens again with what it staged.
+    await h.editCollector(page, 'sampler');
+    await expect(option(page, 'sampler', 'retries')).toHaveValue('5');
+    await expect(checkbox(page, 'sampler', 'verbose')).toBeChecked();
+    await dismissDialog(page);
+
     await saveAndApply(page);
     await applied(page);
     expect((await savedSections(request)).sampler).toEqual({ '.type': 'collector', retries: '5', verbose: '1' });
 
     await h.openSettings(page);
+    await h.editCollector(page, 'sampler');
     await expect(option(page, 'sampler', 'retries')).toHaveValue('5');
     await option(page, 'sampler', 'retries').fill('3');
-    await toggle(page, 'sampler', 'verbose').uncheck();
+    await checkbox(page, 'sampler', 'verbose').uncheck();
+    await saveDialog(page);
+    expect((await savedSections(request)).sampler).toEqual({ '.type': 'collector', retries: '5', verbose: '1' });
     await saveAndApply(page);
     await applied(page);
     expect((await savedSections(request)).sampler).toBeUndefined();
   });
 
+  test('Dismiss drops what the dialog holds', async ({ page, request }) => {
+    await h.openSettings(page);
+    await h.editCollector(page, 'sampler');
+    await option(page, 'sampler', 'retries').fill('9');
+    await dismissDialog(page);
+    expect(await h.staged(page)).toEqual({});
+
+    await h.editCollector(page, 'sampler');
+    await expect(option(page, 'sampler', 'retries')).toHaveValue('');
+    await page.keyboard.press('Escape');
+    await expect(h.modal(page)).toBeHidden();
+
+    await saveAndApply(page);
+    await applied(page);
+    expect((await savedSections(request)).sampler).toBeUndefined();
+  });
+
+  test('a switch and the dialog\'s values make one section', async ({ page, request }) => {
+    await h.openSettings(page);
+    await h.showTab(page, 'collectors');
+    await toggle(page, 'textfile').uncheck();
+    await h.editCollector(page, 'textfile');
+    await option(page, 'textfile', 'directory').fill('/srv/metrics');
+    await saveDialog(page);
+    await expect(toggle(page, 'textfile')).not.toBeChecked();
+    await saveAndApply(page);
+    await applied(page);
+    expect((await savedSections(request)).textfile).toEqual({ '.type': 'collector', enabled: '0', directory: '/srv/metrics' });
+  });
+
   test('changes only the collectors whose rows changed', async ({ page, request }) => {
     await h.useConfig(request, 'custom');
     await h.openSettings(page);
+    await h.editCollector(page, 'textfile');
+    await expect(option(page, 'textfile', 'directory')).toHaveValue('/srv/prom');
     await option(page, 'textfile', 'directory').fill('');
+    await saveDialog(page);
     await saveAndApply(page);
     await applied(page);
     const saved = await savedSections(request);
@@ -154,19 +276,35 @@ test.describe('Services → Prometheus exporter', () => {
     expect(saved.main).toEqual({ '.type': h.CONFIG, listen_interface: '*', listen_port: '9102', http_keepalive: '0', omit_zero_values: '1' });
   });
 
-  test('refuses what an option\'s datatype refuses, and saves nothing', async ({ page, request }) => {
+  test('the dialog checks values as they are typed, by the option\'s datatype and as the exporter reads them, and stages nothing it refuses', async ({ page, request }) => {
     const before = await h.readConfig(request);
     await h.openSettings(page);
+    await h.editCollector(page, 'sampler');
     await option(page, 'sampler', 'retries').fill('many');
     await expect(option(page, 'sampler', 'retries')).toHaveClass(/cbi-input-invalid/);
     await expect(option(page, 'sampler', 'retries')).toHaveAttribute('data-tooltip', 'Expecting: valid integer value');
-    await saveAndApply(page);
-    // The plugin refuses it as well, so nothing reaches the form's own save.
-    await expect(page.locator('#view .alert-message.error li')).toHaveText([ 'sampler retries: expected an integer, got "many"' ]);
+    await h.modal(page).getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(h.modal(page).locator('.alert-message.error li')).toHaveText([ 'retries: expected an integer, got "many"' ]);
+    await expect(h.modal(page)).toBeVisible();
+    await dismissDialog(page);
+
+    // LuCI's directory datatype takes any value; the exporter wants an absolute path.
+    await h.editCollector(page, 'textfile');
+    await option(page, 'textfile', 'directory').fill('srv/prom');
+    await expect(option(page, 'textfile', 'directory')).toHaveClass(/cbi-input-invalid/);
+    await expect(option(page, 'textfile', 'directory')).toHaveAttribute('data-tooltip', 'expected an absolute path, got "srv/prom"');
+    await h.modal(page).getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(h.modal(page).locator('.alert-message.error')).toContainText('Nothing was staged: the exporter would refuse these values.');
+    await h.screenshot(page, 'settings-dialog-refused');
+    await option(page, 'textfile', 'directory').fill('/srv/prom');
+    await expect(option(page, 'textfile', 'directory')).not.toHaveClass(/cbi-input-invalid/);
+    await dismissDialog(page);
+
+    expect(await h.staged(page)).toEqual({});
     expect(await h.readConfig(request)).toBe(before);
   });
 
-  test('marks what the exporter would refuse, as the plugin says, and saves nothing', async ({ page, request }) => {
+  test('marks what the exporter would refuse of the main section, as the ubus object says, and saves nothing', async ({ page, request }) => {
     const before = await h.readConfig(request);
     await h.openSettings(page);
     // LuCI's port datatype takes 0; the exporter does not.
@@ -186,13 +324,27 @@ test.describe('Services → Prometheus exporter', () => {
     expect((await savedSections(request)).main.listen_port).toBe('9105');
   });
 
-  test('says a saved collector section is not valid, as the exporter reads it', async ({ page, request }) => {
+  test('says a saved collector section is not valid, as the exporter reads it, and saves nothing until it is fixed', async ({ page, request }) => {
     await h.useConfig(request, 'invalid');
+    const before = await h.readConfig(request);
     await h.openSettings(page);
-    await expect(h.collectorRow(page, 'sampler').locator('td').first())
-      .toContainText('The saved settings are not valid: CONFIG_INVALID (retries: expected an integer, got "many")');
+    await h.showTab(page, 'collectors');
+    const note = h.collectorRow(page, 'sampler').locator('.exporter-error');
+    await expect(note).toHaveText('The saved settings are not valid: CONFIG_INVALID (retries: expected an integer, got "many")');
+
+    await saveAndApply(page);
+    await expect(page.locator('#view .alert-message.error li')).toHaveText([ 'sampler retries: expected an integer, got "many"' ]);
+    expect(await h.readConfig(request)).toBe(before);
+
+    await h.editCollector(page, 'sampler');
     await expect(option(page, 'sampler', 'retries')).toHaveValue('many');
     await expect(option(page, 'sampler', 'retries')).toHaveClass(/cbi-input-invalid/);
+    await option(page, 'sampler', 'retries').fill('');
+    await saveDialog(page);
+    await expect(note).toHaveCount(0);
+    await saveAndApply(page);
+    await applied(page);
+    expect((await savedSections(request)).sampler).toBeUndefined();
   });
 });
 
@@ -201,15 +353,14 @@ test.describe('Services → Prometheus exporter, for a login with the app\'s ACL
     await h.useConfig(request, 'default');
   });
 
-  test('shows and saves the settings, without reading the network configuration', async ({ page, request }) => {
+  test('offers every interface to listen on, and saves, without reading the network configuration', async ({ page, request }) => {
     await h.openSettings(page, h.APP_USER);
-    // The picker cannot list the networks: it keeps the saved one, and every address.
-    const values = await listen(page).locator('li[data-value]').evaluateAll((items) => items.map((li) => li.getAttribute('data-value')));
-    expect(values.sort()).toEqual([ '*', 'loopback' ]);
-    await expect(page.locator('#view tr[data-collector="loadavg"]')).toBeVisible();
+    expect(await listenChoices(page)).toEqual([ '*', 'lan', 'loopback', 'wan' ]);
 
     await field(page, 'listen_port').fill('9103');
-    await toggle(page, 'wifi', 'stations').uncheck();
+    await h.editCollector(page, 'wifi');
+    await checkbox(page, 'wifi', 'stations').uncheck();
+    await saveDialog(page);
     await saveAndApply(page);
     await applied(page);
     const saved = await savedSections(request);
@@ -218,5 +369,6 @@ test.describe('Services → Prometheus exporter, for a login with the app\'s ACL
 
     const sid = await h.sessionOf(request, h.APP_USER);
     expect(h.denied(await h.rawCall(request, sid, 'uci', 'get', { config: 'network' }))).toBe(true);
+    expect(h.denied(await h.rawCall(request, sid, 'network.interface', 'dump', {}))).toBe(true);
   });
 });

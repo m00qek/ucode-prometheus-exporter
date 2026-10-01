@@ -1,15 +1,18 @@
 'use strict';
 
 import { describe, it, prop, gen, assert, contains } from 'utest';
-import * as rpc from 'prometheus_exporter.luci.rpc';
+import * as rpc from 'prometheus_exporter.rpc';
 import * as loader from 'prometheus_exporter.loader';
 import * as deps from 'prometheus_exporter.deps';
 import * as config from 'prometheus_exporter.config';
 import * as jail from 'prometheus_exporter.jail';
 import * as Result from 'prometheus_exporter.result';
+import * as fixtures from 'lib.fixtures';
 import { with_mods } from 'context';
 
 const NAME = config.NAME;
+// Read before any mock is active: fs is mocked too.
+const ROUTER_INTERFACES = fixtures.ubus('caju-router', 'network.interface', 'dump');
 const PACKAGE = config.PACKAGE;
 const DIR = '/collectors';
 const APK = '/apk';
@@ -448,6 +451,75 @@ describe('rpc.deferred_json', () => {
 	});
 });
 
+describe('rpc.interfaces', () => {
+	function interfaces(ubus, own) {
+		let out;
+
+		with_sys(own ?? {}, { ubus }, (sys) => {
+			out = rpc.interfaces(sys);
+		});
+
+		return out;
+	}
+
+	it('lists netifd\'s logical interfaces, their names and protocols only, in its order', () => {
+		assert.match({ interfaces: [
+			{ name: 'guest', proto: 'static' },
+			{ name: 'iot', proto: 'static' },
+			{ name: 'lan2playground', proto: 'wireguard' },
+			{ name: 'loopback', proto: 'static' },
+			{ name: 'main', proto: 'static' },
+			{ name: 'mgmt', proto: 'static' },
+			{ name: 'wan', proto: 'dhcp' },
+			{ name: 'wan6', proto: 'dhcpv6' },
+			{ name: 'wg_mesh', proto: 'wireguard' },
+		] }, interfaces({ data: { 'network.interface:dump': ROUTER_INTERFACES } }));
+	});
+
+	it('asks netifd once, for its dump', () => {
+		with_sys({}, { ubus: { data: { 'network.interface:dump': { interface: [] } } } }, (sys) => {
+			let calls = [];
+			let channel = sys.ubus;
+
+			sys.ubus = {
+				call: function(o, m, a) { push(calls, [ o, m, a ]); return channel.call(o, m, a); },
+				close: () => channel.close(),
+			};
+			rpc.interfaces(sys);
+			assert.match([ [ 'network.interface', 'dump', {} ] ], calls);
+		});
+	});
+
+	it('skips an entry without a name, and gives a missing protocol as null', () => {
+		assert.match({ interfaces: [ { name: 'lan', proto: null }, { name: 'wan', proto: 'dhcp' } ] }, interfaces({ data: {
+			'network.interface:dump': { interface: [
+				{ interface: 'lan' }, { proto: 'static' }, { interface: '', proto: 'static' }, null, 'x', { interface: 7 },
+				{ interface: 'wan', proto: 'dhcp', 'ipv4-address': [ { address: '192.0.2.1', mask: 24 } ] },
+			] },
+		} }));
+	});
+
+	it('gives none for a reply without interfaces', () => {
+		for (let reply in [ {}, { interface: null } ])
+			assert.match({ interfaces: [] }, interfaces({ data: { 'network.interface:dump': reply } }));
+	});
+
+	it('says when netifd cannot be asked', () => {
+		assert.match({ error: 'UBUS_CALL_FAILED', message: 'UBUS_CALL_FAILED (network.interface dump: Not found)' },
+			interfaces({ errors: { 'network.interface:dump': 'Not found' } }));
+	});
+
+	it('reads neither uci nor files, so /etc/config/network stays unread', () => {
+		with_sys({}, { ubus: { data: { 'network.interface:dump': ROUTER_INTERFACES } } }, (sys) => {
+			let refuse = () => die('read');
+
+			sys.uci = { load: refuse, get: refuse, get_all: refuse, foreach: refuse, sections: refuse };
+			sys.fs = { stat: refuse, glob: refuse, readfile: refuse, open: refuse, lsdir: refuse };
+			assert.match(9, length(rpc.interfaces(sys).interfaces));
+		});
+	});
+});
+
 describe('rpc.methods', () => {
 	it('serves collectors, validate and status, each on a fresh sys', () => {
 		let made = 0;
@@ -458,7 +530,7 @@ describe('rpc.methods', () => {
 			watch: () => null,
 		});
 
-		assert.match([ 'collectors', 'status', 'validate' ], sort(keys(m)));
+		assert.match([ 'collectors', 'interfaces', 'status', 'validate' ], sort(keys(m)));
 		assert.match({ collectors: [], skipped: [] }, m.collectors.call({ args: {} }));
 		assert.match({ ok: true, errors: { main: {}, collectors: {} } }, m.validate.call({ args: { main: { listen_port: '80' } } }));
 		assert.match(2, made);
@@ -466,13 +538,30 @@ describe('rpc.methods', () => {
 		assert.match([ `${rpc.STATUS_HELPER} 2>/dev/null` ], commands);
 	});
 
+	it('serves interfaces on a sys without collectors, and closes its ubus channel', () => {
+		let opts = [];
+		let closed = 0;
+		let m = rpc.methods(function(o) {
+			push(opts, o);
+			return {
+				ubus: {
+					call: (obj, method) => Result.ok({ interface: [ { interface: 'lan', proto: 'static' } ] }),
+					close: () => closed++,
+				},
+			};
+		}, null);
+
+		assert.match({ interfaces: [ { name: 'lan', proto: 'static' } ] }, m.interfaces.call({ args: {} }));
+		assert.match([ [ { collectors: false } ], 1 ], [ opts, closed ]);
+	});
+
 	it('declares the arguments rpcd checks', () => {
 		let m = rpc.methods(() => null, null);
 
-		assert.match([ {}, { main: {}, collectors: {} }, {} ], [ m.collectors.args, m.validate.args, m.status.args ]);
+		assert.match([ {}, { main: {}, collectors: {} }, {}, {} ], [ m.collectors.args, m.validate.args, m.status.args, m.interfaces.args ]);
 	});
 
 	it('names the object and the helper after the exporter\'s package', () => {
-		assert.match([ NAME, `/usr/libexec/${NAME}/luci-status.uc` ], [ rpc.OBJECT, rpc.STATUS_HELPER ]);
+		assert.match([ NAME, `/usr/libexec/${NAME}/rpc-status.uc` ], [ rpc.OBJECT, rpc.STATUS_HELPER ]);
 	});
 });

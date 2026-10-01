@@ -116,6 +116,33 @@ check "its mounts are what jail.uc prints" mounts_match_jail
 check "the jail has its own config and no other" test "$(jail_configs)" = "$NAME"
 check "no /etc/config/network in its mounts" not_mounted /etc/config/network
 
+# --- the service's ubus object, which rpcd serves from the base package: no LuCI here
+rpc() { ubus -t 30 call "$NAME" "$@"; }
+rpc_collectors() { rpc collectors | jsonfilter -e '@.collectors[*].id' | wc -l; }
+rpc_lists_all() { [ "$(rpc_collectors)" -eq "$(ls /usr/share/ucode/prometheus_exporter/collectors/*.uc | wc -l)" ]; }
+# netifd's own interfaces, by name and protocol, and nothing else of them.
+rpc_interfaces_are_netifds() {
+	rpc interfaces >/tmp/interfaces.json && ubus call network.interface dump >/tmp/dump.json &&
+	ucode -e "let fs = require('fs');
+		let got = json(fs.readfile('/tmp/interfaces.json')).interfaces;
+		let want = map(json(fs.readfile('/tmp/dump.json')).interface, (i) => ({ name: i.interface, proto: i.proto }));
+		exit(length(want) > 0 && sprintf('%J', got) == sprintf('%J', want) ? 0 : 1);"
+}
+rpc_status_running() {
+	rpc status >/tmp/status.json &&
+	[ "$(jsonfilter -i /tmp/status.json -e '@.service.running')" = true ] &&
+	jsonfilter -i /tmp/status.json -e '@.listen[*]' | grep -qx "$URL" &&
+	[ "$(ucode -e "print(length(filter(json(require('fs').readfile('/tmp/status.json')).collectors, (c) => c.success)))")" \
+		-eq "$(echo $BASE_COLLECTORS | wc -w)" ]
+}
+check "no LuCI app is installed" fails apk info -e "luci-app-$NAME"
+eventually "rpcd serves the service's ubus object" rpc collectors
+check "collectors lists every installed collector" rpc_lists_all
+check "interfaces lists netifd's interfaces, by name and protocol" rpc_interfaces_are_netifds
+check "status says it runs, where it listens, and scrapes every base collector" rpc_status_running
+check "validate refuses what the init script would" says 'expected an integer from 1 to 65535, got 0' \
+	rpc validate '{"main":{"listen_port":"0"}}'
+
 # --- every collector package
 before=$(pid)
 COLLECTORS=$(ls /artifacts/$PKG-*-$PKG_FULLVERSION.apk | sed "s|^/artifacts/$PKG-||; s|-$PKG_FULLVERSION.apk$||")
@@ -124,6 +151,7 @@ eventually "installing collectors restarts the instance" restarted_from "$before
 installed() { ls /usr/share/ucode/prometheus_exporter/collectors/*.uc | wc -l; }
 all_answer() { [ "$(fetch | grep -c '^node_scrape_collector_success{')" -eq "$(installed)" ]; }
 eventually "every installed collector is served" all_answer
+check "the ubus object lists the new collectors too" rpc_lists_all
 check "its mounts are still what jail.uc prints" mounts_match_jail
 check "the jail has the configs its collectors read" test "$(jail_configs | tr '\n' ' ')" = "dhcp network $NAME ubnt-manager "
 check "the service makes textfile's directory" test -d /var/prometheus

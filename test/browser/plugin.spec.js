@@ -1,11 +1,11 @@
 const { test, expect } = require('@playwright/test');
 const h = require('./helpers');
 
-// The plugin through rpcd and its ACL, and the page's checks of the option shapes the
-// exporter's collectors may declare ({ default, help, datatype }), which the
-// installed collectors do not use yet.
+// The exporter's ubus object through rpcd and the app's ACL, and the page's checks of
+// the option shapes the exporter's collectors may declare ({ default, help, datatype }),
+// which the installed collectors do not use yet.
 
-test.describe('The plugin, over rpcd', () => {
+test.describe('The ubus object, over rpcd', () => {
   test('validates collector options as the exporter reads them', async ({ request }) => {
     const res = await h.ubus(request, h.CONFIG, 'validate', {
       main: { http_keepalive: '-1', listen_interface: '*' },
@@ -17,9 +17,18 @@ test.describe('The plugin, over rpcd', () => {
     } });
   });
 
+  test('lists netifd\'s interfaces by name and protocol, and nothing else', async ({ request }) => {
+    const res = await h.ubus(request, h.CONFIG, 'interfaces', {});
+    expect(res).toEqual({ interfaces: [
+      { name: 'loopback', proto: 'static' },
+      { name: 'lan', proto: 'static' },
+      { name: 'wan', proto: 'dhcp' },
+    ] });
+  });
+
   test('answers a login with the app\'s ACL, and only the app\'s methods', async ({ request }) => {
     const sid = await h.sessionOf(request, h.APP_USER);
-    for (const method of [ 'collectors', 'validate', 'status' ])
+    for (const method of [ 'collectors', 'validate', 'status', 'interfaces' ])
       expect((await h.rawCall(request, sid, h.CONFIG, method, {})).result?.[0], method).toBe(0);
     expect(h.denied(await h.rawCall(request, sid, 'exporter.fixture', 'read', {}))).toBe(true);
     expect(h.denied(await h.rawCall(request, sid, 'uci', 'get', { config: 'network' }))).toBe(true);

@@ -4,27 +4,32 @@
 'require uci';
 'require ui';
 'require dom';
-'require network';
-'require tools.widgets as widgets';
 'require prometheus-exporter as exporter';
 
-// Services → Prometheus exporter: /etc/config/prometheus-exporter as a form.
-// The Exporter section is the main section. The Collectors section has a row per installed
-// collector, as the plugin's `collectors` lists them, with its switch and its options. A
-// collector's `config collector '<module>'` section holds only what differs from the
-// defaults: it is added when a value first differs, and removed once all are back.
+// Services → Prometheus exporter: /etc/config/prometheus-exporter as a form, in two tabs.
+// Exporter has the main section's options. Collectors has a row per installed collector, as
+// the ubus object's `collectors` lists them: its title and help, its package, its switch,
+// and, when it declares options, an Edit button. Edit opens a dialog with a field per
+// option, whose Save stages them in uci, as LuCI's own dialogs do; the page's Save & Apply
+// applies them with the rest, and Dismiss drops them.
 //
-// The plugin's `validate` checks the form's values as the exporter reads them, while they
-// are typed and again before Save, which saves nothing the exporter would refuse.
+// A collector's `config collector '<module>'` section holds only what differs from the
+// defaults, its switch included: it is added when a value first differs, and removed once
+// all are back.
 //
-// Collector names and help, package names and paths come from the router: they reach E()
-// only inside arrays, and never a form title or description, which LuCI renders as markup.
+// The object's `validate` checks values as the exporter reads them: the main section's
+// while they are typed and again before Save, a dialog's while they are typed and again
+// before it stages them. Nothing the exporter would refuse is saved.
+//
+// Collector names and help, package names, interfaces and paths come from the router: they
+// reach E() only inside arrays, and never a form title or description, which LuCI renders
+// as markup.
 
 const CONFIG = exporter.CONFIG;
 const lookup = exporter.lookup;
 const fill = exporter.fill;
 
-// How long typing pauses before the form is checked, in ms.
+// How long typing pauses before the values are checked, in ms.
 const CHECK_DELAY = 300;
 
 function alertBox(kind, children) {
@@ -43,30 +48,45 @@ function joined(items, separator) {
 	return out;
 }
 
-// The listen interface: LuCI's network picker, which also offers every address (*), as
-// the init script does, and keeps a value it does not list, such as an interface of a
-// network this login may not read.
-const ListenSelect = widgets.NetworkSelect.extend({
+function codes(items) {
+	return joined(items.map((item) => E('code', {}, [ String(item) ])), ', ');
+}
+
+// What a collector's switch holds: on when unset or true, as the exporter takes it, off
+// when false, and invalid otherwise.
+function switchState(value) {
+	if (value == null || exporter.isTrue(value))
+		return 'on';
+
+	return exporter.isFalse(value) ? 'off' : 'invalid';
+}
+
+// An interface as the picker shows it: its name, and its protocol when known.
+function ifaceBadge(name, proto) {
+	return E('span', { 'class': 'ifacebadge' }, proto ? [ name, ' ', E('small', {}, [ `(${proto})` ]) ] : [ name ]);
+}
+
+// The listen interface: the logical interfaces the ubus object's `interfaces` lists, which
+// it reads for any login allowed the object, and every address (*), as the init script
+// takes it. A saved value it does not list is kept.
+const ListenSelect = form.ListValue.extend({
 	__name__: 'CBI.PrometheusExporterListen',
 
-	// NetworkSelect's own, without its this.super(), which in a subclass of it would call
-	// this load again, and again.
-	load(section_id) {
-		return network.getNetworks().then((networks) => {
-			this.networks = networks;
-			return form.ListValue.prototype.load.call(this, section_id);
-		});
+	__init__(...args) {
+		this.super('__init__', args);
+		this.interfaces = [];
 	},
 
 	renderWidget(section_id, option_index, cfgvalue) {
 		const value = (cfgvalue != null && cfgvalue !== '') ? cfgvalue : this.default;
 		const choices = { '*': E('em', {}, [ _('Every address') ]) };
 
-		for (const network of this.networks)
-			choices[network.getName()] = this.renderIfaceBadge(network);
+		for (const iface of this.interfaces)
+			if (typeof(iface?.name) === 'string' && iface.name !== '' && iface.name !== '__proto__' && !lookup(choices, iface.name))
+				choices[iface.name] = ifaceBadge(iface.name, (typeof(iface.proto) === 'string') ? iface.proto : null);
 
 		if (!lookup(choices, value))
-			choices[value] = E('span', { 'class': 'ifacebadge' }, [ value ]);
+			choices[value] = ifaceBadge(value, null);
 
 		const widget = new ui.Dropdown(value, choices, {
 			id: this.cbid(section_id),
@@ -81,10 +101,9 @@ const ListenSelect = widgets.NetworkSelect.extend({
 	}
 });
 
-// A row per installed collector: its switch, its options by type (a checkbox for a
-// boolean, a text field with its datatype for an integer or a string) and where it comes
-// from. Saving writes only the rows that changed, and each as the smallest section that
-// holds its values.
+// A row per installed collector: its title and help, its package, its switch and, when it
+// has options, an Edit button that opens them in a dialog. The switches are the form's:
+// Save writes those that changed. The dialog stages its own values when it is saved.
 const CollectorTable = form.Value.extend({
 	__name__: 'CBI.PrometheusExporterCollectors',
 
@@ -92,14 +111,26 @@ const CollectorTable = form.Value.extend({
 		this.super('__init__', args);
 		this.collectors = [];
 		this.rows = [];
-		this.marks = {};
+		this.editor = null;
 	},
 
-	// The collector's own section, as LuCI has it with unsaved changes; null when there is
+	// The collector's own section, as LuCI has it with staged changes; null when there is
 	// none, or the name is taken by a section of another type, which the exporter ignores.
 	sectionOf(id) {
 		const s = uci.get(CONFIG, id);
 		return (L.isObject(s) && s['.type'] === 'collector') ? s : null;
+	},
+
+	// The section's values as uci holds them, empty ones left out, as unset.
+	rawValues(id) {
+		const section = this.sectionOf(id) ?? {};
+		const out = {};
+
+		for (const name in section)
+			if (name.charAt(0) !== '.' && section[name] !== '')
+				out[name] = section[name];
+
+		return out;
 	},
 
 	cfgvalue(section_id) {
@@ -107,7 +138,7 @@ const CollectorTable = form.Value.extend({
 	},
 
 	renderWidget(section_id, option_index, cfgvalue) {
-		const headers = [ _('Collector'), _('Enabled'), _('Options') ];
+		const headers = [ _('Collector'), _('Package'), _('Enabled'), '' ];
 
 		this.rows = this.collectors.map((c, i) => this.renderRow(c, i, headers));
 
@@ -117,68 +148,112 @@ const CollectorTable = form.Value.extend({
 			])
 		];
 
-		return E('table', { 'class': 'table', 'id': this.cbid(section_id) }, [
-			E('tr', { 'class': 'tr table-titles' }, headers.map((h) => E('th', { 'class': 'th' }, [ h ])))
+		return E('table', { 'class': 'table cbi-section-table', 'id': this.cbid(section_id) }, [
+			E('tr', { 'class': 'tr table-titles' }, headers.map((h, i) =>
+				E('th', { 'class': (i === headers.length - 1) ? 'th cbi-section-actions' : 'th' }, [ h ])))
 		].concat(body));
 	},
 
 	renderRow(c, i, headers) {
-		const section = this.sectionOf(c.id);
 		const readonly = this.map.readonly;
-		const cbid = (name) => `cbid.${CONFIG}.${c.id}.${name}`;
-		const row = { c: c, fields: [], node: null };
-		const saved = section?.enabled;
+		const row = { c: c, note: E('div', {}, this.errorNote(c.error)), node: null };
 
-		// A value that is not a boolean counts as enabled, as the exporter takes it.
-		row.enabled = new ui.Checkbox((saved != null && exporter.isFalse(saved)) ? '0' : '1', { id: cbid('enabled'), disabled: readonly });
-		const enabledNode = row.enabled.render();
-		enabledNode.querySelector('input').setAttribute('aria-label', fill(_('Enable %s'), c.name).join(''));
+		// An invalid value shows as on, as the exporter would take it once it is fixed.
+		row.enabled = new ui.Checkbox(switchState(this.sectionOf(c.id)?.enabled) === 'off' ? '0' : '1',
+			{ id: `cbid.${CONFIG}.${c.id}.enabled`, disabled: readonly });
 
-		const options = (c.options ?? []).map((o) => this.renderOption(c, o, section, cbid(o.name), row));
+		const toggle = row.enabled.render();
+		toggle.querySelector('input').setAttribute('aria-label', fill(_('Enable %s'), c.name).join(''));
 
-		row.initial = this.values(row);
-		row.node = E('tr', { 'class': 'tr cbi-rowstyle-' + (1 + i % 2), 'data-collector': c.id }, [
-			E('td', { 'class': 'td', 'data-title': headers[0] }, this.describe(c)),
-			E('td', { 'class': 'td', 'data-title': headers[1] }, [ enabledNode ]),
-			E('td', { 'class': 'td', 'data-title': headers[2] }, options.length ? options : [ E('em', {}, [ _('None') ]) ])
+		const edit = (c.options ?? []).length ? E('button', {
+			'class': 'cbi-button cbi-button-edit',
+			'title': fill(_('Edit the options of %s'), c.name).join(''),
+			'disabled': readonly ? '' : null,
+			'click': ui.createHandlerFn(this, 'openEditor', row)
+		}, [ _('Edit') ]) : '';
+
+		row.node = E('tr', { 'class': 'tr cbi-section-table-row cbi-rowstyle-' + (1 + i % 2), 'data-collector': c.id }, [
+			E('td', { 'class': 'td', 'data-title': headers[0] }, [
+				...exporter.nameOf(c), E('br'), E('small', {}, [ String(c.help ?? '') ]), row.note
+			]),
+			E('td', { 'class': 'td', 'data-title': headers[1] }, [ this.packageOf(c) ]),
+			E('td', { 'class': 'td', 'data-title': headers[2] }, [ toggle ]),
+			E('td', { 'class': 'td cbi-section-actions' }, [ edit ])
 		]);
 
 		return row;
 	},
 
-	// The title, the help, the package and what it reads; and what is wrong with the
-	// saved section, if anything.
-	describe(c) {
-		const notes = [];
-
+	// The base package, the removable package that installed it, or none.
+	packageOf(c) {
 		if (c.base === true)
-			notes.push([ _('In the base package') ]);
-		else if (c.package)
-			notes.push(fill(_('Package %s, which can be removed'), E('code', {}, [ c.package ])));
-		else
-			notes.push([ _('Not installed by a package') ]);
+			return E('span', {}, [ _('base') ]);
 
-		if ((c.configs ?? []).length)
-			notes.push(fill(_('Reads %s'), joined(c.configs.map((name) => E('code', {}, [ `/etc/config/${name}` ])), ', ')));
-
-		if ((c.commands ?? []).length)
-			notes.push(fill(_('Runs %s'), joined(c.commands.map((name) => E('code', {}, [ name ])), ', ')));
-
-		const out = [ ...exporter.nameOf(c), E('br'), E('small', {}, [ c.help ?? '' ]) ];
-
-		for (const note of notes)
-			out.push(E('br'), E('small', { 'class': 'exporter-note' }, note));
-
-		if (c.error)
-			out.push(E('br'), E('small', { 'class': 'exporter-error', 'style': 'color:var(--error-color-high,#c43c35)' },
-				fill(_('The saved settings are not valid: %s'), c.error)));
-
-		return out;
+		return c.package ? E('code', { 'style': 'white-space:nowrap' }, [ String(c.package) ]) : E('em', {}, [ _('none') ]);
 	},
 
-	renderOption(c, o, section, id, row) {
+	errorNote(error) {
+		return error ? [ E('small', { 'class': 'exporter-error', 'style': 'color:var(--error-color-high,#c43c35)' },
+			fill(_('The saved settings are not valid: %s'), String(error))) ] : [];
+	},
+
+	// What the collector reads, and what its jail gives it.
+	reads(c) {
+		const lines = [];
+		const mounts = c.jail?.mounts ?? [];
+
+		if ((c.configs ?? []).length)
+			lines.push(fill(_('Reads %s.'), codes(c.configs.map((name) => `/etc/config/${name}`))));
+
+		if ((c.commands ?? []).length)
+			lines.push(fill(_('Runs %s.'), codes(c.commands)));
+
+		lines.push(mounts.length
+			? fill(_('Its jail mounts, as saved: %s.'), codes(mounts))
+			: [ _('Its jail mounts nothing for it but what every collector gets: procfs, sysfs, ubus and the log.') ]);
+
+		for (const problem of (c.jail?.problems ?? []))
+			lines.push(fill(_('Jail: %s'), String(problem)));
+
+		return lines.map((line) => E('p', {}, [ E('small', {}, line) ]));
+	},
+
+	// The dialog of a collector's options: a field per option, by its type, with its help,
+	// which the object's validate checks as it is typed; and what the collector reads.
+	openEditor(row) {
+		const c = row.c;
+		const section = this.sectionOf(c.id);
+		const editor = { row: row, fields: [], marks: {}, seq: 0, timer: null, problem: E('div', {}, []) };
+		const fields = (c.options ?? []).map((o) => this.renderField(editor, o, section));
+
+		editor.node = E('div', { 'class': 'exporter-editor', 'data-collector': c.id }, [
+			E('p', {}, [ String(c.help ?? '') ]),
+			E('div', { 'class': 'cbi-section' }, [ E('div', { 'class': 'cbi-section-node' }, fields) ]),
+			E('div', { 'class': 'exporter-reads' }, this.reads(c)),
+			editor.problem,
+			E('div', { 'class': 'right' }, [
+				E('button', { 'class': 'cbi-button', 'click': ui.createHandlerFn(this, 'dismissEditor', editor) }, [ _('Dismiss') ]),
+				' ',
+				E('button', {
+					'class': 'cbi-button cbi-button-positive important',
+					'disabled': this.map.readonly ? '' : null,
+					'click': ui.createHandlerFn(this, 'saveEditor', editor)
+				}, [ _('Save') ])
+			])
+		]);
+
+		editor.node.addEventListener('input', () => this.scheduleEditorCheck(editor));
+		editor.node.addEventListener('widget-change', () => this.scheduleEditorCheck(editor));
+
+		this.editor = editor;
+		ui.showModal(exporter.nameOf(c), [ editor.node ], 'cbi-modal');
+		this.checkEditor(editor);
+	},
+
+	renderField(editor, o, section) {
+		const c = editor.row.c;
 		const raw = (section != null) ? section[o.name] : null;
-		const help = o.help ? [ E('br'), E('small', {}, [ o.help ]) ] : [];
+		const id = `cbid.${CONFIG}.${c.id}.${o.name}`;
 		let widget;
 
 		if (o.type === 'bool') {
@@ -192,7 +267,11 @@ const CollectorTable = form.Value.extend({
 				placeholder: String(o.default ?? ''),
 				datatype: exporter.datatypeOf(o),
 				disabled: this.map.readonly,
-				validate: (value) => this.checkMark(c.id, o.name, value)
+				// A failed check marks the field until its value changes.
+				validate: (value) => {
+					const mark = lookup(editor.marks, o.name);
+					return (mark && mark.value === value) ? mark.message : true;
+				}
 			});
 		}
 
@@ -202,98 +281,140 @@ const CollectorTable = form.Value.extend({
 		if (input)
 			input.setAttribute('aria-label', fill(_('%s of %s'), o.name, c.name).join(''));
 
-		row.fields.push({ option: o, widget: widget });
+		editor.fields.push({ option: o, widget: widget });
 
-		return E('div', { 'class': 'exporter-option', 'data-option': o.name }, [
-			E('label', { 'for': input?.id ?? null }, [ E('code', {}, [ o.name ]) ]),
-			node
-		].concat(help));
+		return E('div', { 'class': 'cbi-value', 'data-option': o.name }, [
+			E('label', { 'class': 'cbi-value-title', 'for': input?.id ?? null }, [ o.name ]),
+			E('div', { 'class': 'cbi-value-field' }, [ node ].concat(o.help
+				? [ E('div', { 'class': 'cbi-value-description' }, [ String(o.help) ]) ] : []))
+		]);
 	},
 
-	// What a row's fields hold: '1' or '0' for a switch, the text of a text field.
-	values(row) {
-		const out = { enabled: row.enabled.getValue() === '1' ? '1' : '0' };
+	// What a dialog's fields hold: '1' or '0' for a switch, the text of a text field.
+	editorValues(editor) {
+		const out = {};
 
-		for (const f of row.fields)
+		for (const f of editor.fields)
 			out[f.option.name] = (f.option.type === 'bool') ? (f.widget.getValue() === '1' ? '1' : '0') : f.widget.getValue();
 
 		return out;
 	},
 
-	// The form's values for the plugin's validate: empty fields left out, as unset.
-	candidate() {
-		const out = {};
-
-		for (const row of this.rows) {
-			const values = this.values(row);
-
-			for (const name in values)
-				if (values[name] === '')
-					delete values[name];
-
-			out[row.c.id] = values;
-		}
-
-		return out;
+	scheduleEditorCheck(editor) {
+		window.clearTimeout(editor.timer);
+		editor.timer = window.setTimeout(() => this.checkEditor(editor), CHECK_DELAY);
 	},
 
-	// A failed check marks its field until the field's value changes.
-	setMarks(errors, candidate) {
-		this.marks = {};
+	// Resolves to { ok, errors } of the dialog's values, or to null when there is no answer;
+	// an answer to an earlier check than the last is dropped.
+	checkEditor(editor) {
+		const seq = ++editor.seq;
+		const id = editor.row.c.id;
+		const values = this.editorValues(editor);
+		const given = {};
 
-		for (const id in (errors ?? {}))
-			for (const name in errors[id])
-				this.marks[`${id}.${name}`] = { value: candidate[id]?.[name] ?? '', message: String(errors[id][name]) };
+		window.clearTimeout(editor.timer);
 
-		this.triggerValidation();
+		for (const name in values)
+			if (values[name] !== '')
+				given[name] = values[name];
+
+		return exporter.validate({}, { [id]: given }).then((res) => {
+			if (seq !== editor.seq)
+				return null;
+
+			if (!L.isObject(res) || !L.isObject(res.errors)) {
+				this.showEditorProblem(editor, [ _('The options could not be checked:'), ' ', String(res?.message ?? res?.error ?? '') ]);
+				return null;
+			}
+
+			const errors = L.isObject(res.errors.collectors) ? (lookup(res.errors.collectors, id) ?? {}) : {};
+
+			editor.marks = {};
+			for (const name in errors)
+				editor.marks[name] = { value: values[name] ?? '', message: String(errors[name]) };
+
+			for (const f of editor.fields)
+				if (f.option.type !== 'bool')
+					f.widget.triggerValidation();
+
+			dom.content(editor.problem, []);
+			return { ok: !Object.keys(errors).length, errors: errors };
+		}, (err) => {
+			if (seq === editor.seq)
+				this.showEditorProblem(editor, [ _('The options could not be checked:'), ' ', String(err?.message ?? err) ]);
+			return null;
+		});
 	},
 
-	checkMark(id, name, value) {
-		const mark = lookup(this.marks, `${id}.${name}`);
-		return (mark && mark.value === value) ? mark.message : true;
+	showEditorProblem(editor, children) {
+		dom.content(editor.problem, alertBox('error', children));
 	},
 
-	textFields() {
-		return this.rows.flatMap((row) => row.fields.filter((f) => f.option.type !== 'bool').map((f) => ({ row: row, field: f })));
+	dismissEditor(editor) {
+		editor.seq++;
+		window.clearTimeout(editor.timer);
+		this.editor = null;
+		ui.hideModal();
 	},
 
-	formvalue(section_id) {
-		return this.candidate();
+	// Stages the dialog's values in uci when the exporter would take them all; the page's
+	// Save & Apply applies them.
+	saveEditor(editor) {
+		const c = editor.row.c;
+
+		return this.checkEditor(editor).then((res) => {
+			if (res == null)
+				return null;
+
+			const refused = [];
+
+			for (const f of editor.fields) {
+				const name = f.option.name;
+				const message = lookup(res.errors, name) ?? (f.widget.isValid() ? null : f.widget.getValidationError());
+
+				if (message != null)
+					refused.push(E('li', {}, [ E('code', {}, [ name ]), ': ', String(message) ]));
+			}
+
+			if (refused.length) {
+				this.showEditorProblem(editor, [
+					E('p', {}, [ _('Nothing was staged: the exporter would refuse these values.') ]),
+					E('ul', {}, refused)
+				]);
+				return null;
+			}
+
+			const values = this.editorValues(editor);
+			const want = {};
+
+			for (const f of editor.fields)
+				want[f.option.name] = this.minimal(f.option, values[f.option.name]);
+
+			if (!this.stage(c, want)) {
+				this.showEditorProblem(editor, fill(_('The configuration has a section %s of another type, which the exporter ignores: nothing was staged.'),
+					E('code', {}, [ c.id ])));
+				return null;
+			}
+
+			return uci.save().then(() => {
+				editor.seq++;
+				this.editor = null;
+				ui.hideModal();
+				return this.refreshNote(editor.row);
+			}, (err) => {
+				this.showEditorProblem(editor, [ _('The options could not be staged:'), ' ', String(err?.message ?? err) ]);
+				return null;
+			});
+		});
 	},
 
-	isValid(section_id) {
-		return this.textFields().every((x) => x.field.widget.isValid());
-	},
-
-	getValidationError(section_id) {
-		for (const x of this.textFields())
-			if (!x.field.widget.isValid())
-				return `${x.row.c.name} ${x.field.option.name}: ${x.field.widget.getValidationError()}`;
-
-		return '';
-	},
-
-	triggerValidation(section_id) {
-		let changed = false;
-
-		for (const x of this.textFields())
-			changed = x.field.widget.triggerValidation() || changed;
-
-		return changed;
-	},
-
-	parse(section_id) {
-		if (!this.isValid(section_id))
-			return Promise.reject(new TypeError(`${_('A collector option is not valid:')} ${this.getValidationError(section_id)}`));
-
-		for (const row of this.rows) {
-			const now = this.values(row);
-
-			if (Object.keys(now).some((name) => now[name] !== row.initial[name]))
-				this.writeCollector(row.c, now);
-		}
-
-		return Promise.resolve();
+	// Drops the note that the saved settings are not valid once the staged ones are.
+	refreshNote(row) {
+		return exporter.validate({}, { [row.c.id]: this.rawValues(row.c.id) }).then((res) => {
+			if (L.isObject(res) && res.ok === true)
+				dom.content(row.note, []);
+		}).catch(() => null);
 	},
 
 	// What a value comes to in the section: null when it is the default, and so unset.
@@ -308,22 +429,20 @@ const CollectorTable = form.Value.extend({
 		}
 	},
 
-	writeCollector(c, now) {
+	// Writes `want` ({ option: value, or null to unset }) into the collector's section in
+	// LuCI's uci, adding the section when a value is set and removing it once nothing is
+	// left. Options nobody declared keep it. False when the name is another type's section,
+	// which is not ours to change.
+	stage(c, want) {
 		const id = c.id;
-		const want = { enabled: (now.enabled === '1') ? null : '0' };
-
-		for (const o of (c.options ?? []))
-			want[o.name] = this.minimal(o, now[o.name]);
-
 		const named = uci.get(CONFIG, id);
 
-		// The name is another type's section, which the exporter ignores: not ours to change.
 		if (L.isObject(named) && named['.type'] !== 'collector')
-			return;
+			return false;
 
 		if (!named) {
 			if (Object.values(want).every((v) => v == null))
-				return;
+				return true;
 			uci.add(CONFIG, 'collector', id);
 		}
 
@@ -337,10 +456,50 @@ const CollectorTable = form.Value.extend({
 			}
 		}
 
-		// Options nobody declared keep the section; otherwise one with nothing left goes.
 		const left = Object.keys(uci.get(CONFIG, id) ?? {}).filter((k) => k.charAt(0) !== '.');
 		if (!left.length)
 			uci.remove(CONFIG, id);
+
+		return true;
+	},
+
+	// The collectors' values as the object's validate takes them: each section as uci holds
+	// it, staged values included, with the switch as it is on the page.
+	candidate() {
+		const out = {};
+
+		for (const row of this.rows)
+			out[row.c.id] = { ...this.rawValues(row.c.id), enabled: row.enabled.getValue() === '1' ? '1' : '0' };
+
+		return out;
+	},
+
+	formvalue(section_id) {
+		return this.candidate();
+	},
+
+	isValid(section_id) {
+		return true;
+	},
+
+	getValidationError(section_id) {
+		return '';
+	},
+
+	triggerValidation(section_id) {
+		return false;
+	},
+
+	// Writes the switches that differ from their sections.
+	parse(section_id) {
+		for (const row of this.rows) {
+			const on = row.enabled.getValue() === '1';
+
+			if (switchState(this.sectionOf(row.c.id)?.enabled) !== (on ? 'on' : 'off'))
+				this.stage(row.c, { enabled: on ? null : '0' });
+		}
+
+		return Promise.resolve();
 	}
 });
 
@@ -348,17 +507,19 @@ return view.extend({
 	load() {
 		return Promise.all([
 			L.resolveDefault(exporter.collectors(), null),
+			L.resolveDefault(exporter.interfaces(), null),
 			uci.load(CONFIG)
 		]);
 	},
 
-	render([ data ]) {
+	render([ data, ifaces ]) {
 		// The form edits the main section: a config without one gets it, as the exporter
 		// reads a missing one, every option at its default.
 		if (uci.get(CONFIG, 'main') == null)
 			uci.add(CONFIG, CONFIG, 'main');
 
 		const m = new form.Map(CONFIG);
+		const s = m.section(form.NamedSection, 'main', CONFIG);
 
 		this.map = m;
 		this.mainOptions = {};
@@ -366,11 +527,13 @@ return view.extend({
 		this.checkSeq = 0;
 		this.checkTimer = null;
 
-		this.renderMain(m.section(form.NamedSection, 'main', CONFIG, _('Exporter')));
+		s.tab('exporter', _('Exporter'));
+		s.tab('collectors', _('Collectors'),
+			_('A collector that is switched off is not served. Edit opens its options: Save there stages them, and Save & Apply applies them. Its section in the configuration holds only what differs from the defaults.'));
 
-		const s = m.section(form.NamedSection, 'main', CONFIG, _('Collectors'),
-			_('A collector that is not enabled is not served. Its section in the configuration holds only what differs from the defaults.'));
-		this.table = s.option(CollectorTable, '_collectors', '');
+		this.renderMain(s, (L.isObject(ifaces) && Array.isArray(ifaces.interfaces)) ? ifaces.interfaces : []);
+
+		this.table = s.taboption('collectors', CollectorTable, '_collectors', '');
 		this.table.collectors = Array.isArray(data?.collectors) ? data.collectors : [];
 
 		this.panel = E('div', {}, []);
@@ -387,29 +550,36 @@ return view.extend({
 					_('Whether it runs, and how each collector did, is under'), ' ',
 					E('a', { 'href': L.url('admin/status/prometheus-exporter') }, [ _('Status → Prometheus exporter') ]), '.'
 				]),
-				E([], this.alerts(data)),
+				E([], this.alerts(data, ifaces)),
 				this.panel,
 				node
 			]);
 		});
 	},
 
-	alerts(data) {
-		if (!L.isObject(data) || !Array.isArray(data.collectors))
-			return [ alertBox('warning', [ _('The installed collectors could not be read.') ]) ];
+	alerts(data, ifaces) {
+		const out = [];
 
-		if (Array.isArray(data.skipped) && data.skipped.length)
-			return [ alertBox('warning', [
+		if (!L.isObject(data) || !Array.isArray(data.collectors))
+			out.push(alertBox('warning', [ _('The installed collectors could not be read.') ]));
+		else if (Array.isArray(data.skipped) && data.skipped.length)
+			out.push(alertBox('warning', [
 				_('These collectors are installed but do not load:'),
 				E('ul', {}, data.skipped.map((msg) => E('li', {}, [ String(msg) ])))
-			]) ];
+			]));
 
-		return [];
+		if (!L.isObject(ifaces) || !Array.isArray(ifaces.interfaces))
+			out.push(alertBox('warning', [
+				_('The router\'s interfaces could not be read, so only every address and the saved interface are offered to listen on.'),
+				' ', String(ifaces?.message ?? '')
+			]));
+
+		return out;
 	},
 
-	// An option of the main section, which the plugin's validate may mark.
+	// An option of the main section, on the Exporter tab, which the object's validate may mark.
 	option(s, type, name, title, description) {
-		const o = s.option(type, name, title, description);
+		const o = s.taboption('exporter', type, name, title, description);
 
 		this.mainOptions[name] = o;
 		o.validate = (section_id, value) => {
@@ -420,7 +590,7 @@ return view.extend({
 		return o;
 	},
 
-	renderMain(s) {
+	renderMain(s, interfaces) {
 		let o = this.option(s, form.Flag, 'enabled', _('Enable'), _('Off, the service does not start.'));
 		// The init script takes an unset option as enabled: switched on, it is removed.
 		o.default = '1';
@@ -428,8 +598,7 @@ return view.extend({
 		o = this.option(s, ListenSelect, 'listen_interface', _('Listen on'),
 			_('The interface whose addresses serve the metrics, or every address. On loopback only programs on the router reach them.'));
 		o.default = 'loopback';
-		o.loopback = true;
-		o.nocreate = true;
+		o.interfaces = interfaces;
 
 		o = this.option(s, form.Value, 'listen_port', _('Port'));
 		o.datatype = 'port';
@@ -454,7 +623,7 @@ return view.extend({
 		o.default = '0';
 	},
 
-	// The form's values as the plugin's validate takes them: empty fields left out, as unset.
+	// The form's values as the object's validate takes them: empty fields left out, as unset.
 	candidate() {
 		const main = {};
 
@@ -472,7 +641,7 @@ return view.extend({
 		this.checkTimer = window.setTimeout(() => this.check(), delay ?? CHECK_DELAY);
 	},
 
-	// Resolves to the plugin's answer, or to null when there is none; an answer to an
+	// Resolves to the object's answer, or to null when there is none; an answer to an
 	// earlier check than the last is dropped.
 	check() {
 		const seq = ++this.checkSeq;
@@ -507,15 +676,13 @@ return view.extend({
 
 		for (const name in this.mainOptions)
 			this.mainOptions[name].triggerValidation('main');
-
-		this.table.setMarks(errors.collectors, candidate.collectors);
 	},
 
 	showProblem(children) {
 		dom.content(this.panel, alertBox('error', children));
 	},
 
-	// What the plugin found, in a list above the form.
+	// What the object found, in a list above the form.
 	showRefused(errors) {
 		const items = [];
 		const titles = { enabled: _('Enable'), listen_interface: _('Listen on'), listen_port: _('Port'),
@@ -534,7 +701,7 @@ return view.extend({
 		]));
 	},
 
-	// Saves only what the plugin passes.
+	// Saves only what the object passes.
 	checked() {
 		return this.check().then((res) => {
 			if (res == null)

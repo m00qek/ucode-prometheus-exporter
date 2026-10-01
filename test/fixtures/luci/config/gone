@@ -1,0 +1,4 @@
+
+config prometheus-exporter 'main'
+	option listen_interface 'vpn'
+	option listen_port '9100'

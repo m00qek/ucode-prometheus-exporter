@@ -29,7 +29,9 @@ endef
 
 define Package/$(PKG_NAME)
   $(call Package/$(PKG_NAME)/Default)
-  DEPENDS:=+uhttpd +uhttpd-mod-ucode +ucode +ucode-mod-fs +ucode-mod-ubus +ucode-mod-uci +ucode-mod-rtnl
+  # rpcd-mod-ucode serves the service's ubus object; ucode-mod-uloop lets it
+  # wait for a status scrape without blocking rpcd.
+  DEPENDS:=+uhttpd +uhttpd-mod-ucode +ucode +ucode-mod-fs +ucode-mod-ubus +ucode-mod-uci +ucode-mod-rtnl +rpcd-mod-ucode +ucode-mod-uloop
   # The feed's exporters it replaces, which want the same port. CONFLICTS
   # keeps an image from building both in, but apk packages do not carry it:
   # a dependency on !<name> is apk's conflict, refused either way round.
@@ -47,11 +49,22 @@ define Package/$(PKG_NAME)/conffiles
 endef
 
 # The exporter's code stays loaded while it runs: after an upgrade, a running
-# exporter is restarted. Collector packages reload it themselves.
+# exporter is restarted. Collector packages reload it themselves. rpcd loads
+# its plugins when it starts: a reload serves the ubus object, or the new code
+# of an upgrade, and on removal takes the object away.
 define Package/$(PKG_NAME)/postinst
 #!/bin/sh
-[ -n "$$IPKG_INSTROOT" ] || [ "$$PKG_UPGRADE" != 1 ] || ! /etc/init.d/$(SERVICE) running ||
-	/etc/init.d/$(SERVICE) restart
+[ -n "$$IPKG_INSTROOT" ] || {
+	/etc/init.d/rpcd reload 2>/dev/null
+	[ "$$PKG_UPGRADE" != 1 ] || ! /etc/init.d/$(SERVICE) running ||
+		/etc/init.d/$(SERVICE) restart
+}
+endef
+
+define Package/$(PKG_NAME)/postrm
+#!/bin/sh
+[ -n "$$IPKG_INSTROOT" ] || /etc/init.d/rpcd reload 2>/dev/null
+exit 0
 endef
 
 define Build/Compile
@@ -66,7 +79,10 @@ define Package/$(PKG_NAME)/install
 	$(foreach c,$(BASE_COLLECTORS),$(INSTALL_DATA) ./src/prometheus_exporter/collectors/$(c).uc $(1)$(COLLECTORS_DIR)/;)
 	$(INSTALL_DIR) $(1)/usr/libexec/$(SERVICE)
 	$(INSTALL_DATA) ./files/usr/libexec/$(SERVICE)/handler.uc $(1)/usr/libexec/$(SERVICE)/
-	$(INSTALL_BIN) $(foreach f,jail check status import watch,./files/usr/libexec/$(SERVICE)/$(f).uc) $(1)/usr/libexec/$(SERVICE)/
+	$(INSTALL_BIN) $(foreach f,jail check status import watch rpc-status,./files/usr/libexec/$(SERVICE)/$(f).uc) $(1)/usr/libexec/$(SERVICE)/
+	# The service's ubus object, which rpcd serves (prometheus_exporter.rpc).
+	$(INSTALL_DIR) $(1)/usr/share/rpcd/ucode
+	$(INSTALL_DATA) ./files/usr/share/rpcd/ucode/$(SERVICE).uc $(1)/usr/share/rpcd/ucode/
 	$(INSTALL_DIR) $(1)/usr/bin
 	$(INSTALL_BIN) ./files/usr/bin/$(SERVICE) $(1)/usr/bin/
 	$(INSTALL_DIR) $(1)/etc/config
@@ -180,9 +196,9 @@ $(eval $(call Group,hardware,hardware and filesystems,$(HARDWARE_GROUP)))
 $(eval $(call Group,full,a router or access point,$(FULL_GROUP)))
 
 # ---- luci-app-prometheus-exporter --------------------------------------------
-# The LuCI pages, and the rpcd plugin they call (prometheus_exporter.luci.rpc). The
-# plugin runs the exporter's own modules, so the app pins the exporter's release.
-# ucode-mod-uloop: the plugin waits for a status scrape without blocking rpcd.
+# The LuCI pages, over the service's ubus object, which the exporter's package
+# serves. The pages call its methods as this release has them, so the app pins
+# the exporter's release.
 LUCI_APP:=luci-app-$(SERVICE)
 
 define Package/$(LUCI_APP)
@@ -190,7 +206,7 @@ define Package/$(LUCI_APP)
   CATEGORY:=LuCI
   SUBMENU:=3. Applications
   TITLE:=LuCI support for the Prometheus exporter
-  DEPENDS:=+luci-base +rpcd-mod-ucode +ucode-mod-uloop +$(PKG_NAME)
+  DEPENDS:=+luci-base +$(PKG_NAME)
   EXTRA_DEPENDS:=$(PKG_NAME) (=$(PKG_VERSION)-r$(PKG_RELEASE))
   PKGARCH:=all
 endef
@@ -201,7 +217,7 @@ define Package/$(LUCI_APP)/description
 endef
 
 # luci.mk's default postinst, also run on removal: drop LuCI's menu and module
-# caches, and reload rpcd for the plugin and the ACL.
+# caches, and reload rpcd for the ACL.
 define Package/$(LUCI_APP)/postinst
 #!/bin/sh
 [ -n "$${IPKG_INSTROOT}" ] || {
@@ -218,12 +234,6 @@ define Package/$(LUCI_APP)/install
 	$(INSTALL_DIR) $(1)/www
 	$(CP) ./luci/htdocs/* $(1)/www/
 	$(CP) ./luci/root/* $(1)/
-	$(INSTALL_DIR) $(1)$(MODULES_DIR)/luci
-	$(INSTALL_DATA) ./src/prometheus_exporter/luci/*.uc $(1)$(MODULES_DIR)/luci/
-	$(INSTALL_DIR) $(1)/usr/share/rpcd/ucode
-	$(INSTALL_DATA) ./files/usr/share/rpcd/ucode/$(SERVICE).uc $(1)/usr/share/rpcd/ucode/
-	$(INSTALL_DIR) $(1)/usr/libexec/$(SERVICE)
-	$(INSTALL_BIN) ./files/usr/libexec/$(SERVICE)/luci-status.uc $(1)/usr/libexec/$(SERVICE)/
 endef
 
 $(eval $(call BuildPackage,$(LUCI_APP)))
