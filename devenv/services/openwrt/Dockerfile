@@ -7,15 +7,16 @@ ARG UTEST_VERSION=1.5.1
 ARG UTEST_FEED=https://m00qek.github.io/packages.ucode.dev
 
 # ucode-mod-nl80211 and ucode-mod-socket are optional on a router, but installed
-# here so lint can load the named imports deps.uc takes from them. quickjs parses
-# the LuCI app's views.
+# here so lint can load the named imports deps.uc takes from them; ucode-mod-digest
+# is the base package's (the crypt of basic auth). quickjs parses the LuCI app's
+# views.
 RUN mkdir -p /var/lock /etc/apk/keys /etc/apk/repositories.d && \
     feed="$UTEST_FEED/$(echo "$OPENWRT_VERSION" | cut -d. -f1,2)" && \
     wget -qO /etc/apk/keys/packages.ucode.dev.pem "$feed/feed.pub.pem" && \
     echo "$feed" > /etc/apk/repositories.d/ucode-dev.list && \
     apk update && \
     apk add --no-cache ucode ucode-mod-fs ucode-mod-ubus ucode-mod-uci ucode-mod-rtnl ucode-mod-log ucode-mod-nl80211 \
-      ucode-mod-socket ucode-utest inotifywait quickjs && \
+      ucode-mod-socket ucode-mod-digest ucode-utest inotifywait quickjs && \
     apk list -I 2>/dev/null | grep -q "^ucode-utest-$UTEST_VERSION-" || \
       { echo "expected ucode-utest $UTEST_VERSION" >&2; exit 1; }
 
