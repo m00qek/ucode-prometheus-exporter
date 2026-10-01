@@ -24,8 +24,10 @@
 // - chronyd answers `chronyc -c tracking`: synchronized unless its leap status
 //   is "Not synchronised", its stratum, the last offset and the reference
 //   time, when that measurement was used. chronyc is one of
-//   meta.optional_commands: it is there only where chrony is installed. The
-//   chrony collector has chronyd's details.
+//   meta.optional_commands: it is there only where chrony is installed. It
+//   runs as root (-u root): OpenWrt builds it to drop root for the chrony
+//   user, whom the jail, without /etc/passwd, cannot look up. The chrony
+//   collector has chronyd's details.
 //
 // The stratum, offset and time of the last update are written only while the
 // daemon is synchronized: an unsynchronized daemon's are 0 or meaningless.
@@ -54,6 +56,9 @@ export const meta = {
 
 // busybox ntpd's stratum while it is not synchronized (MAXSTRAT, ntpd.c).
 const MAXSTRAT = 16;
+
+// chronyc's report of what chronyd tracks, as CSV, run as the jail's root.
+export const CHRONYC_TRACKING = [ 'chronyc', '-u', 'root', '-c', 'tracking' ];
 
 // chronyc's leap status of an unsynchronized chronyd (client.c, print_report).
 const UNSYNCHRONISED = 'Not synchronised';
@@ -141,7 +146,7 @@ export function parse_tracking(text) {
 
 // { synchronized, stratum, offset, updated } of chronyd.
 function chronyd(deps) {
-	let res = deps.exec.run([ 'chronyc', '-c', 'tracking' ]);
+	let res = deps.exec.run(CHRONYC_TRACKING);
 
 	if (!res.ok)
 		return res;

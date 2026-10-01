@@ -7,7 +7,7 @@ import * as fixtures from 'lib.fixtures';
 import * as commands from 'lib.commands';
 import * as timesync from 'prometheus_exporter.collectors.timesync';
 
-const TRACKING = commands.line([ 'chronyc', '-c', 'tracking' ]);
+const TRACKING = commands.line(timesync.CHRONYC_TRACKING);
 
 // procd's instances: busybox ntpd on the caju AP, chronyd on the seriguela
 // router (its daemon, and the hotplug instance that exited once it synced).
@@ -19,7 +19,7 @@ const NONE = fixtures.ubus('seriguela-router', 'service.list', 'sysntpd');
 const SYNCED = fixtures.file('seriguela-router', '/commands/chronyc_c_tracking.txt');
 
 // chronyd with no source to reach (no network): what it answers at first.
-const UNSYNCED = '00000000,,0,0.000000000,0.000000000,0.000000000,0.000000000,0.000,0.000,0.000,1.000000000,1.000000000,0.0,Not synchronised\n';
+const UNSYNCED = fixtures.file('synthetic', '/commands/chronyc_c_tracking_unsynchronised.txt');
 
 // What the hotplug script writes of busybox ntpd's periodic event.
 const NTPD_STATE = fixtures.file('synthetic', timesync.NTPD_STATE);

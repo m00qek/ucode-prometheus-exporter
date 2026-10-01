@@ -46,6 +46,10 @@
 #   tc/q_cake.c (rates in bytes per second, delays in microseconds),
 #   fq_codel_print_xstats() in tc/q_fq_codel.c; the tins' rates as
 #   sch_cake.c's cake_config_diffserv4() splits the bandwidth.
+# commands/chronyc_c_tracking_unsynchronised.txt
+#   Not written by hand: `chronyc -c tracking` of a real chronyd 4.8 (OpenWrt
+#   25.12's chrony package) under procd in the pkgcheck container, without a
+#   network, so with no source: what chronyd answers before it first syncs.
 # var/run/prometheus-exporter/timesync/ntpd
 #   What /etc/hotplug.d/ntp/90-prometheus-exporter keeps of busybox ntpd's
 #   event: a periodic one of a synchronized ntpd at stratum 3. The environment
