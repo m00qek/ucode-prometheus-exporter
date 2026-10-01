@@ -5,17 +5,22 @@
 
 // Network drivers' statistics, as node_exporter's ethtool collector
 // (collector/ethtool_linux.go) names them, from `ethtool -S <device>` for every
-// link (an rtnl dump) where node_exporter asks the kernel: an untyped family per
-// statistic, node_ethtool_ and the name made a metric name, lowercased, with
-// the words rx and tx spelled out; seven common ones have node_exporter's own
-// names, with _total, and help texts. Per device, the statistics are written
-// sorted by name, and every statistic of a name two of them make is left out,
-// as node_exporter does.
+// link (an rtnl dump) a device backs, where node_exporter asks the kernel: an
+// untyped family per statistic, node_ethtool_ and the name made a metric name,
+// lowercased, with the words rx and tx spelled out; seven common ones have
+// node_exporter's own names, with _total, and help texts. Per device, the
+// statistics are written sorted by name, and every statistic of a name two of
+// them make is left out, as node_exporter does.
 //
 // A device whose driver has no statistics (ethtool exits non-zero: 94 for
-// "no stats available") is left out. node_exporter's link information
-// (node_network_supported_speed_bytes and the like, node_ethtool_info) is not
-// in `ethtool -S`, so this collector does not export it.
+// "no stats available") is left out. So is every link no device backs (no
+// /sys/class/net/<link>/device): bridges, VLANs, WireGuard, ifb, veth. Their
+// drivers have no statistics, or (ifb's per-queue counts) repeat what netdev
+// has; and on a router most links are such, each costing the scrape a run of
+// ethtool, which a slow CPU takes tens of milliseconds to fail. node_exporter's
+// link information (node_network_supported_speed_bytes and the like,
+// node_ethtool_info) is not in `ethtool -S`, so this collector does not export
+// it.
 
 import * as Result from 'prometheus_exporter.result';
 
@@ -23,7 +28,7 @@ export const meta = {
 	name: 'ethtool',
 	title: 'Network driver statistics',
 	help: 'Network driver statistics from ethtool -S.',
-	needs: [ 'rtnl', 'exec' ],
+	needs: [ 'rtnl', 'fs', 'exec' ],
 	commands: [ 'ethtool' ],
 };
 
@@ -89,6 +94,12 @@ export function statistics(text) {
 	return stats;
 };
 
+// Whether a device backs the link `dev`: what has a driver that may have
+// statistics.
+export function backed(fs, dev) {
+	return fs.stat(`/sys/class/net/${dev}/device`) != null;
+};
+
 // ethtool itself is missing or cannot run, as opposed to a driver without
 // statistics: the shell's 126 and 127, or no process at all; or it ran out of
 // time, which the links after it would find spent.
@@ -108,7 +119,7 @@ export function collect(deps, out) {
 	for (let link in links.data ?? []) {
 		let device = link.dev ?? link.ifname;
 
-		if (device == null)
+		if (device == null || !backed(deps.fs, device))
 			continue;
 
 		let res = deps.exec.run([ 'ethtool', '-S', device ]);

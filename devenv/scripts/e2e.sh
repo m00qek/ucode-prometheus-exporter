@@ -161,8 +161,9 @@ echo 'e2e_textfile_value 42' >/var/prometheus/e2e.prom
 eventually "textfile reads its directory in the jail" metric 'e2e_textfile_value 42$'
 check "nft-counters runs nft in the jail" served nft-counters
 check "and reads the counters" metric 'nft_counter_packets_total{.*name="e2e_hits"'
-check "ethtool runs ethtool in the jail" served ethtool
-check "and reads a veth's statistics" metric 'node_ethtool_.*device="e2e0"'
+# No device backs a link here (no /sys/class/net/<link>/device): ethtool asks none.
+check "ethtool is served" served ethtool
+check "and asks no link a device does not back, as a veth" fails metric 'node_ethtool_.*device="e2e0"'
 check "uci_dhcp_host reads /etc/config/dhcp in the jail" metric 'node_openwrt_dhcp_host_info{name="e2e-host"'
 check "modemmanager reaches ModemManager over D-Bus in the jail" served modemmanager
 check "ubnt-manager's script runs in the jail, over ssh" metric 'ubnt_uptime_seconds{device="sample_ap"} 4242$'

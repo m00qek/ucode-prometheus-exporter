@@ -37,11 +37,34 @@ function outputs(device, with_stats) {
 	return out;
 }
 
-const ROUTER = { links: links('caju-router'), outputs: outputs('caju-router', [ 'eth0', 'eth1', 'ifb4vlan-guest', 'ifb4eth1' ]) };
-const AP = { links: links('caju-ap'), outputs: outputs('caju-ap', [ 'eth0', 'lan', 'wan', 'phy0-ap0', 'phy1-ap0', 'phy1-ap1' ]) };
+// The links a device backs (/sys/class/net/<link>/device), as the kernel makes
+// them: the router's two NICs; the AP's switch, its DSA ports and its radios.
+// Not the bridges, VLANs, WireGuard, ifb or loopback. The router's ifb links
+// have statistics (their queues' counts, netdev's own), which are left out.
+const ROUTER = {
+	links: links('caju-router'),
+	outputs: outputs('caju-router', [ 'eth0', 'eth1', 'ifb4vlan-guest', 'ifb4eth1' ]),
+	backed: [ 'eth0', 'eth1' ],
+};
+const AP = {
+	links: links('caju-ap'),
+	outputs: outputs('caju-ap', [ 'eth0', 'lan', 'wan', 'phy0-ap0', 'phy1-ap0', 'phy1-ap1' ]),
+	backed: [ 'eth0', 'lan', 'wan', 'phy0-ap0', 'phy1-ap0', 'phy1-ap1' ],
+};
 
-function with_ethtool(links, outputs, cb) {
-	with_collector(ethtool, { rtnl: { data: { RTM_GETLINK: links } }, fs: commands.fs(outputs) }, cb);
+// An fs mock's stat that finds /sys/class/net/<link>/device for the `backed` links.
+function devices(backed) {
+	return (p) => {
+		let m = match(p, /^\/sys\/class\/net\/([^\/]+)\/device$/);
+		return (m && m[1] in backed) ? { type: 'directory' } : null;
+	};
+}
+
+// A device backs every link unless `backed` says which.
+function with_ethtool(links, outputs, cb, backed) {
+	let stat = devices(backed ?? map(links, (l) => l.dev));
+
+	with_collector(ethtool, { rtnl: { data: { RTM_GETLINK: links } }, fs: commands.fs(outputs, { behavior: { stat } }) }, cb);
 }
 
 function samples(lines) {
@@ -53,7 +76,7 @@ function stat(name, value) {
 }
 
 describe('collectors.ethtool', () => {
-	it("exports the caju router's driver statistics, sorted by name per link, leaving out the links without", () => {
+	it("exports the caju router's driver statistics, sorted by name per link, leaving out the links without, and those no device backs", () => {
 		with_ethtool(ROUTER.links, ROUTER.outputs, (r) => {
 			assert.match(true, r.result.ok);
 			assert.match([
@@ -109,24 +132,8 @@ describe('collectors.ethtool', () => {
 				'# TYPE node_ethtool_unicast untyped',
 				'node_ethtool_unicast{device="eth0"} 236331',
 				'node_ethtool_unicast{device="eth1"} 585606',
-				'# HELP node_ethtool_received_queue_0_bytes Network interface rx_queue_0_bytes',
-				'# TYPE node_ethtool_received_queue_0_bytes untyped',
-				'node_ethtool_received_queue_0_bytes{device="ifb4vlan-guest"} 360001',
-				'node_ethtool_received_queue_0_bytes{device="ifb4eth1"} 653366727',
-				'# HELP node_ethtool_received_queue_0_packets Network interface rx_queue_0_packets',
-				'# TYPE node_ethtool_received_queue_0_packets untyped',
-				'node_ethtool_received_queue_0_packets{device="ifb4vlan-guest"} 2005',
-				'node_ethtool_received_queue_0_packets{device="ifb4eth1"} 596010',
-				'# HELP node_ethtool_transmitted_queue_0_bytes Network interface tx_queue_0_bytes',
-				'# TYPE node_ethtool_transmitted_queue_0_bytes untyped',
-				'node_ethtool_transmitted_queue_0_bytes{device="ifb4vlan-guest"} 360001',
-				'node_ethtool_transmitted_queue_0_bytes{device="ifb4eth1"} 653366727',
-				'# HELP node_ethtool_transmitted_queue_0_packets Network interface tx_queue_0_packets',
-				'# TYPE node_ethtool_transmitted_queue_0_packets untyped',
-				'node_ethtool_transmitted_queue_0_packets{device="ifb4vlan-guest"} 2005',
-				'node_ethtool_transmitted_queue_0_packets{device="ifb4eth1"} 596010',
 			], r.lines);
-		});
+		}, ROUTER.backed);
 	});
 
 	it("exports the caju AP's switch ports and radios, names with ':' and '-' made metric names", () => {
@@ -151,7 +158,7 @@ describe('collectors.ethtool', () => {
 			for (let key, o in AP.outputs)
 				n += length(ethtool.statistics(o.out));
 			assert.match(n, length(samples(r.lines)));
-		});
+		}, AP.backed);
 	});
 
 	it('names statistics as node_exporter', () => {
@@ -239,6 +246,45 @@ describe('collectors.ethtool', () => {
 			assert.match({ ok: false, error: 'RTNL_FAILED', details: 'Operation not permitted' },
 				{ ok: r.result.ok, error: r.result.error, details: r.result.details });
 		});
+	});
+
+	prop('runs ethtool on the links a device backs, in their order, and on no other',
+		gen.array(gen.tuple(gen.elements('eth0', 'eth1', 'lan', 'wan', 'br-lan', 'wg0', 'ifb0', 'phy0-ap0', 'lo'), gen.bool()),
+			{ min_len: 0, max_len: 9 }), (rows) => {
+			let seen = {};
+			let links = [];
+			let backed = [];
+			let ran = [];
+
+			for (let row in rows) {
+				if (seen[row[0]])
+					continue;
+				seen[row[0]] = true;
+				push(links, { dev: row[0], ifname: row[0] });
+				if (row[1])
+					push(backed, row[0]);
+			}
+
+			let fs = { behavior: {
+				stat: devices(backed),
+				popen: function(cmd) {
+					push(ran, commands.parse(cmd).line);
+					return { read: () => '', close: () => 94 };
+				},
+			} };
+
+			with_collector(ethtool, { rtnl: { data: { RTM_GETLINK: links } }, fs }, (r) => {
+				assert.match(true, r.result.ok);
+			});
+			assert.match(map(backed, run), ran);
+		});
+
+	it('asks sysfs whether a device backs a link', () => {
+		let asked = [];
+		let fs = { stat: (p) => { push(asked, p); return (p == '/sys/class/net/eth0/device') ? { type: 'directory' } : null; } };
+
+		assert.match([ true, false ], [ ethtool.backed(fs, 'eth0'), ethtool.backed(fs, 'br-lan') ]);
+		assert.match([ '/sys/class/net/eth0/device', '/sys/class/net/br-lan/device' ], asked);
 	});
 
 	prop('names every statistic a valid metric name, which the exposition keeps as it is',
