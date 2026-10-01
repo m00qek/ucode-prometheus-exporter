@@ -69,8 +69,10 @@ function checks(id) {
 			for (let need in mod.meta.needs)
 				if (NEED_PACKAGES[need])
 					push(wanted, NEED_PACKAGES[need]);
+			// An optional command is run only where it is installed.
 			for (let cmd in mod.meta.commands ?? [])
-				push(wanted, COMMAND_PACKAGES[cmd] ?? `a package for '${cmd}'`);
+				if (!(cmd in (mod.meta.optional_commands ?? [])))
+					push(wanted, COMMAND_PACKAGES[cmd] ?? `a package for '${cmd}'`);
 
 			if (!sub)
 				assert.match([], wanted, `${id} is a base collector, so it can need nothing more than the base package`);

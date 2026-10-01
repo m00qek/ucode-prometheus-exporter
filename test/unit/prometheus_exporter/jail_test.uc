@@ -153,6 +153,20 @@ describe('jail.collector', () => {
 		});
 	});
 
+	it('does without an optional command that is not there, and mounts it when it is', () => {
+		let ntp = collector('ntp', { needs: [ 'exec' ], commands: [ 'nft', 'chronyc' ], optional_commands: [ 'chronyc' ] });
+
+		with_sys({}, {}, files([ '/usr/sbin/nft' ]), (sys) => {
+			let j = jail.collector(ntp, sys);
+			assert.match([ { nft: '/usr/sbin/nft', chronyc: null }, [ '/bin/sh', '/usr/sbin/nft' ], [] ], [ j.commands, j.mounts, j.problems ]);
+		});
+		with_sys({}, {}, files([ '/usr/bin/chronyc' ]), (sys) => {
+			let j = jail.collector(ntp, sys);
+			assert.match([ { nft: null, chronyc: '/usr/bin/chronyc' }, [ '/bin/sh', '/usr/bin/chronyc' ], [ 'command nft is not on /usr/sbin:/usr/bin:/sbin:/bin' ] ],
+				[ j.commands, j.mounts, j.problems ]);
+		});
+	});
+
 	it('mounts its paths that are there, and says which are not', () => {
 		with_sys({}, {}, files([ '/var/prometheus' ]), (sys) => {
 			let j = jail.collector(TEXTFILE, sys);

@@ -144,6 +144,13 @@ export function validate(id, mod) {
 		return invalid(id, 'meta.commands without exec in meta.needs');
 	}
 
+	// The commands it runs only where they are installed (timesync's
+	// chronyc, where chrony is the NTP daemon): no package it depends on
+	// has them, and the jail does without them.
+	if (meta.optional_commands != null)
+		if (!is_strings(meta.optional_commands) || length(filter(meta.optional_commands, (c) => !(c in (meta.commands ?? [])))))
+			return invalid(id, 'meta.optional_commands must list some of meta.commands');
+
 	if (meta.timeout != null) {
 		if (!('exec' in meta.needs))
 			return invalid(id, 'meta.timeout without exec in meta.needs');

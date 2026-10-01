@@ -7,9 +7,10 @@
 //
 // A collector gets /etc/config/<c> for each of its meta.configs, the paths of
 // meta.paths, and with exec, /bin/sh (popen's shell) and each of its commands
-// as found on PATH. ujail mounts a binary's shared libraries along with it. It
-// cannot mount a socket itself (it opens what it mounts), so a collector
-// declares a socket's directory.
+// as found on PATH; a command missing there is a problem, unless it is one of
+// meta.optional_commands. ujail mounts a binary's shared libraries along with
+// it. It cannot mount a socket itself (it opens what it mounts), so a
+// collector declares a socket's directory.
 //
 // A path of meta.paths that is not there is left out of the mounts (ujail
 // would leave it out too), and is `missing`: once it is there, the mounts
@@ -193,7 +194,7 @@ export function collector(c, sys) {
 			commands[cmd] = found;
 			if (found)
 				push(mounts, found);
-			else
+			else if (!(cmd in (meta.optional_commands ?? [])))
 				push(problems, `command ${cmd} is not on ${sys.path ?? PATH}`);
 		}
 	}

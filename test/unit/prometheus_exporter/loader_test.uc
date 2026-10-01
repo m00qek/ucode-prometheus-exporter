@@ -51,6 +51,9 @@ describe('loader.validate', () => {
 			'x: meta.configs without uci in meta.needs',
 			'x: meta.commands must list the programs exec runs',
 			'x: meta.commands without exec in meta.needs',
+			'x: meta.optional_commands must list some of meta.commands',
+			'x: meta.optional_commands must list some of meta.commands',
+			'x: meta.optional_commands must list some of meta.commands',
 			'x: meta.timeout without exec in meta.needs',
 			'x: meta.timeout must be the seconds its commands may take, 1 to 30',
 			'x: meta.timeout must be the seconds its commands may take, 1 to 30',
@@ -97,6 +100,9 @@ describe('loader.validate', () => {
 			problem('x', module_named('x', { configs: [ 'dhcp' ] })),
 			problem('x', module_named('x', { needs: [ 'exec' ] })),
 			problem('x', module_named('x', { commands: [ 'nft' ] })),
+			problem('x', module_named('x', { needs: [ 'exec' ], commands: [ 'nft' ], optional_commands: [ 'chronyc' ] })),
+			problem('x', module_named('x', { needs: [ 'exec' ], commands: [ 'nft' ], optional_commands: 'nft' })),
+			problem('x', module_named('x', { optional_commands: [ 'nft' ] })),
 			problem('x', module_named('x', { timeout: 10 })),
 			problem('x', module_named('x', { needs: [ 'exec' ], commands: [ 'nft' ], timeout: 0 })),
 			problem('x', module_named('x', { needs: [ 'exec' ], commands: [ 'nft' ], timeout: 31 })),
@@ -139,6 +145,12 @@ describe('loader.validate', () => {
 		}));
 
 		assert.match([ true, 3 ], [ res.ok, length(res.data.meta.paths) ]);
+	});
+
+	it('takes meta.optional_commands, some of its commands', () => {
+		let res = loader.validate('x', module_named('x', { needs: [ 'exec' ], commands: [ 'nft', 'chronyc' ], optional_commands: [ 'chronyc' ] }));
+
+		assert.match([ true, [ 'chronyc' ] ], [ res.ok, res.data.meta.optional_commands ]);
 	});
 
 	it('takes meta.timeout, the seconds an exec collector\'s commands get', () => {
