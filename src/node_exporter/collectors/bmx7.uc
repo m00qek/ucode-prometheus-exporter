@@ -24,6 +24,15 @@ export function interpret_suffix(v) {
 	return m ? +m[1] * SCALE[m[3]] : v;
 };
 
+// A percentage as bmx7 writes its CPU usage ("0.4"), as a ratio; null for what
+// is not a number.
+export function ratio(v) {
+	let n = (type(v) in [ 'int', 'double' ]) ? v
+		: (type(v) == 'string' && match(trim(v), /^-?[0-9]+(\.[0-9]+)?$/)) ? +trim(v) : null;
+
+	return n == null ? null : n / 100.0;
+};
+
 // The object under `key` in one of the JSON files, or an error Result.
 function read(fs, file, key) {
 	let path = `${DIR}/${file}`;
@@ -57,24 +66,24 @@ export function collect(deps, out) {
 
 	let status = res.data;
 
-	out.gauge('bmx7_status', 'The bmx7 node.')({
+	out.gauge('bmx7_info', 'The bmx7 node.')({
 		id: status.shortId,
 		name: status.name,
 		address: status.primaryIp,
 		revision: status.revision,
 	}, 1);
-	out.gauge('bmx7_cpu_usage', 'CPU usage of bmx7, in percent.')(null, status.cpu);
-	out.gauge('bmx7_mem_usage', 'Memory used by bmx7, in bytes.')(null, interpret_suffix(status.mem));
+	out.gauge('bmx7_cpu_usage_ratio', 'CPU usage of bmx7, from 0 to 1.')(null, ratio(status.cpu));
+	out.gauge('bmx7_memory_usage_bytes', 'Memory used by bmx7, in bytes.')(null, interpret_suffix(status.mem));
 
 	res = read(deps.fs, 'links', 'links');
 	if (!res.ok)
 		return res;
 
-	let rx = out.gauge('bmx7_link_rxRate', 'The receive rate of a link to a neighbour.');
-	let tx = out.gauge('bmx7_link_txRate', 'The transmit rate of a link to a neighbour.');
+	let rx = out.gauge('bmx7_link_receive_rate_bits_per_second', 'The receive rate of a link to a neighbour, in bits per second.');
+	let tx = out.gauge('bmx7_link_transmit_rate_bits_per_second', 'The transmit rate of a link to a neighbour, in bits per second.');
 
 	for (let link in list(res.data)) {
-		let labels = { source: status.shortId, target: link?.shortId, name: link?.name, dev: link?.dev };
+		let labels = { source: status.shortId, target: link?.shortId, name: link?.name, device: link?.dev };
 		rx(labels, interpret_suffix(link?.rxRate));
 		tx(labels, interpret_suffix(link?.txRate));
 	}
@@ -83,8 +92,8 @@ export function collect(deps, out) {
 	if (!res.ok)
 		return res;
 
-	let tun_in = out.gauge('bmx7_tunIn', 'A network this node announces with tunIn.');
-	let plugin = out.gauge('bmx7_plugin', 'A plugin bmx7 has loaded.');
+	let tun_in = out.gauge('bmx7_tun_in_info', 'A network this node announces with tunIn.');
+	let plugin = out.gauge('bmx7_plugin_info', 'A plugin bmx7 has loaded.');
 
 	for (let option in list(res.data)) {
 		if (option?.name == 'tunIn') {

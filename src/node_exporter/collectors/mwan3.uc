@@ -16,7 +16,9 @@ export const meta = {
 // reports 'unknown' when there is none.
 export const STATUSES = [ 'offline', 'online', 'disconnecting', 'connecting', 'disabled', 'notracking', 'unknown' ];
 
-// Types as the Lua exporter declared them, so the series stay the same.
+// Every value is a reading of now, so every family is a gauge (the Lua exporter
+// declared the times and the probe counts counters, but they go back to 0),
+// and the times are named in seconds.
 export function collect(deps, out) {
 	let res = deps.ubus.call('mwan3', 'status', { section: 'interfaces' });
 
@@ -27,13 +29,13 @@ export function collect(deps, out) {
 	if (type(interfaces) != 'object')
 		return Result.err(errors.SOURCE_INVALID, 'mwan3 status: no interfaces');
 
-	let age = out.counter('mwan3_interface_age', 'Seconds since mwan3track last checked the interface.');
-	let online = out.counter('mwan3_interface_online', 'Seconds the interface has been online; 0 when not.');
-	let offline = out.counter('mwan3_interface_offline', 'Seconds the interface has been offline; 0 when not.');
-	let uptime = out.counter('mwan3_interface_uptime', 'Seconds the network interface has been up.');
+	let age = out.gauge('mwan3_interface_age_seconds', 'Seconds since mwan3track last checked the interface.');
+	let online = out.gauge('mwan3_interface_online_seconds', 'Seconds the interface has been online; 0 when not.');
+	let offline = out.gauge('mwan3_interface_offline_seconds', 'Seconds the interface has been offline; 0 when not.');
+	let uptime = out.gauge('mwan3_interface_uptime_seconds', 'Seconds the network interface has been up.');
 	let score = out.gauge('mwan3_interface_score', 'The tracking score of the interface.');
-	let lost = out.counter('mwan3_interface_lost', 'Tracking probes lost in the current check.');
-	let turn = out.counter('mwan3_interface_turn', 'Tracking rounds in the current check.');
+	let lost = out.gauge('mwan3_interface_lost', 'Tracking probes lost in the current check.');
+	let turn = out.gauge('mwan3_interface_turn', 'Tracking rounds in the current check.');
 	let status = out.gauge('mwan3_interface_status', 'The tracking status of the interface: 1 for the current one.');
 	let enabled = out.gauge('mwan3_interface_enabled', 'Whether the interface is enabled in mwan3.');
 	let running = out.gauge('mwan3_interface_running', 'Whether mwan3track is tracking the interface.');

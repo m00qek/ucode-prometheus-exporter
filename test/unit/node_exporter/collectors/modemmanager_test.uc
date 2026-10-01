@@ -29,31 +29,31 @@ function run(o, cb) {
 }
 
 describe('collectors.modemmanager', () => {
-	it('exports the signal quality and every signal measure an LTE modem reports', () => {
+	it('exports the signal quality, as a ratio, and every signal measure an LTE modem reports, with its unit', () => {
 		run(outputs({ out: LIST }, { out: MODEM }, { out: SIGNAL }), (r) => {
 			assert.match(true, r.result.ok);
 			assert.match([
-				'# HELP modemmanager_signal_quality Signal quality of the modem, in percent.',
-				'# TYPE modemmanager_signal_quality gauge',
-				`modemmanager_signal_quality{modem="${PATH}"} 67`,
-				'# HELP modemmanager_signal_lte_rsrp The lte rsrp of the modem signal.',
-				'# TYPE modemmanager_signal_lte_rsrp gauge',
-				`modemmanager_signal_lte_rsrp{modem="${PATH}"} -101`,
-				'# HELP modemmanager_signal_lte_rsrq The lte rsrq of the modem signal.',
-				'# TYPE modemmanager_signal_lte_rsrq gauge',
-				`modemmanager_signal_lte_rsrq{modem="${PATH}"} -12`,
-				'# HELP modemmanager_signal_lte_rssi The lte rssi of the modem signal.',
-				'# TYPE modemmanager_signal_lte_rssi gauge',
-				`modemmanager_signal_lte_rssi{modem="${PATH}"} -71`,
-				'# HELP modemmanager_signal_lte_snr The lte snr of the modem signal.',
-				'# TYPE modemmanager_signal_lte_snr gauge',
-				`modemmanager_signal_lte_snr{modem="${PATH}"} 8.4`,
-				'# HELP modemmanager_signal_refresh_rate The refresh rate of the modem signal.',
-				'# TYPE modemmanager_signal_refresh_rate gauge',
-				`modemmanager_signal_refresh_rate{modem="${PATH}"} 10`,
-				'# HELP modemmanager_signal_threshold_rssi The threshold rssi of the modem signal.',
-				'# TYPE modemmanager_signal_threshold_rssi gauge',
-				`modemmanager_signal_threshold_rssi{modem="${PATH}"} 0`,
+				'# HELP modemmanager_signal_quality_ratio Signal quality of the modem, from 0 to 1.',
+				'# TYPE modemmanager_signal_quality_ratio gauge',
+				`modemmanager_signal_quality_ratio{modem="${PATH}"} 0.67`,
+				'# HELP modemmanager_signal_lte_rsrp_dbm The lte rsrp of the modem signal.',
+				'# TYPE modemmanager_signal_lte_rsrp_dbm gauge',
+				`modemmanager_signal_lte_rsrp_dbm{modem="${PATH}"} -101`,
+				'# HELP modemmanager_signal_lte_rsrq_db The lte rsrq of the modem signal.',
+				'# TYPE modemmanager_signal_lte_rsrq_db gauge',
+				`modemmanager_signal_lte_rsrq_db{modem="${PATH}"} -12`,
+				'# HELP modemmanager_signal_lte_rssi_dbm The lte rssi of the modem signal.',
+				'# TYPE modemmanager_signal_lte_rssi_dbm gauge',
+				`modemmanager_signal_lte_rssi_dbm{modem="${PATH}"} -71`,
+				'# HELP modemmanager_signal_lte_snr_db The lte snr of the modem signal.',
+				'# TYPE modemmanager_signal_lte_snr_db gauge',
+				`modemmanager_signal_lte_snr_db{modem="${PATH}"} 8.4`,
+				'# HELP modemmanager_signal_refresh_rate_seconds The refresh rate of the modem signal.',
+				'# TYPE modemmanager_signal_refresh_rate_seconds gauge',
+				`modemmanager_signal_refresh_rate_seconds{modem="${PATH}"} 10`,
+				'# HELP modemmanager_signal_threshold_rssi_dbm The threshold rssi of the modem signal.',
+				'# TYPE modemmanager_signal_threshold_rssi_dbm gauge',
+				`modemmanager_signal_threshold_rssi_dbm{modem="${PATH}"} 0`,
 			], r.lines);
 		});
 	});
@@ -91,14 +91,14 @@ describe('collectors.modemmanager', () => {
 		run(outputs({ out: LIST }, { out: '', status: 1 }, { out: SIGNAL }), (r) => {
 			assert.match({ ok: false, error: 'COMMAND_FAILED' }, { ok: r.result.ok, error: r.result.error });
 			assert.match(false, index(r.text, 'modemmanager_signal_quality') >= 0);
-			assert.match(contains([ `modemmanager_signal_lte_snr{modem="${PATH}"} 8.4` ]), r.lines);
+			assert.match(contains([ `modemmanager_signal_lte_snr_db{modem="${PATH}"} 8.4` ]), r.lines);
 		});
 	});
 
 	it('keeps the signal quality when --signal-get prints bad JSON', () => {
 		run(outputs({ out: LIST }, { out: MODEM }, { out: '{"modem":' }), (r) => {
 			assert.match('SOURCE_INVALID', r.result.error);
-			assert.match(contains([ `modemmanager_signal_quality{modem="${PATH}"} 67` ]), r.lines);
+			assert.match(contains([ `modemmanager_signal_quality_ratio{modem="${PATH}"} 0.67` ]), r.lines);
 		});
 	});
 
@@ -109,8 +109,27 @@ describe('collectors.modemmanager', () => {
 
 			run(outputs({ out: LIST }, { out: '{}' }, { out: signal }), (r) => {
 				assert.match(true, r.result.ok);
-				assert.match(v == null ? [] : [ `modemmanager_signal_lte_rsrp{modem="${PATH}"} ${+value}` ],
+				assert.match(v == null ? [] : [ `modemmanager_signal_lte_rsrp_dbm{modem="${PATH}"} ${+value}` ],
 					filter(r.lines, (l) => substr(l, 0, 1) != '#'));
 			});
 		});
+
+	it('names a measure with its unit, and one it does not know, or of a 5G modem, as a metric name', () => {
+		assert.match([
+			'modemmanager_signal_umts_ecio_db', 'modemmanager_signal_evdo_io_dbm', 'modemmanager_signal_nr5g_sinr_db',
+			'modemmanager_signal_lte_error_rate', 'modemmanager_signal_5g_rsrp_dbm',
+		], [
+			modemmanager.family_of('umts', 'ecio'), modemmanager.family_of('evdo', 'io'), modemmanager.family_of('nr5g', 'sinr'),
+			modemmanager.family_of('lte', 'error-rate'), modemmanager.family_of('5g', 'rsrp'),
+		]);
+	});
+
+	prop('gives any signal quality in percent as a ratio', gen.int(0, 100), (q) => {
+		let modem = sprintf('%J', { modem: { generic: { 'signal-quality': { value: `${q}`, recent: 'yes' } } } });
+
+		run(outputs({ out: LIST }, { out: modem }, { out: '{}' }), (r) => {
+			assert.match([ `modemmanager_signal_quality_ratio{modem="${PATH}"} ${q / 100.0}` ],
+				filter(r.lines, (l) => substr(l, 0, 1) != '#'));
+		});
+	});
 });
