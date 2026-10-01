@@ -25,6 +25,11 @@ ssh "$host" "rm -rf '$dir' && mkdir -p '$dir'"
 tar -czf - -C "${BENCH_SRC:-.}" src -C "$PWD" test/bench test/lib/commands.uc devenv/scripts/bench.sh -C "$PWD/bin/bench" worlds |
 	ssh "$host" "tar -xzf - -C '$dir'"
 mkdir -p bin/bench
-ssh "$host" "cd '$dir' && sh devenv/scripts/bench.sh run '$dir/worlds' '$dir/out.json' '$label' $*"
+# The bench's options, each single-quoted for the device's shell (a filter holds '|').
+args=
+for a in "$@"; do
+	args="$args '$(printf %s "$a" | sed "s/'/'\\\\''/g")'"
+done
+ssh "$host" "cd '$dir' && sh devenv/scripts/bench.sh run '$dir/worlds' '$dir/out.json' '$label' $args"
 ssh "$host" "cat '$dir/out.json'" >"bin/bench/$label.json"
 echo "results: bin/bench/$label.json"
