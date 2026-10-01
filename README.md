@@ -1,6 +1,8 @@
 # prometheus-node-exporter-ucode
 
-Node metrics for Prometheus from OpenWrt, written in ucode and served by uhttpd at `/metrics`. A rewrite of OpenWrt's `prometheus-node-exporter-ucode` and `prometheus-node-exporter-lua`: the same package name, port (9101), config file and metric names, with the Lua exporter's collectors ported alongside.
+Node metrics for Prometheus from OpenWrt, written in ucode and served by uhttpd at `/metrics`. A rewrite of OpenWrt's `prometheus-node-exporter-ucode` and `prometheus-node-exporter-lua`: the same package name, port (9101) and config file, with the Lua exporter's collectors ported alongside.
+
+The metric names are not those packages'. They are the Prometheus [node_exporter](https://github.com/prometheus/node_exporter)'s where it has the metric, so its dashboards work, and elsewhere follow the [Prometheus naming conventions](https://prometheus.io/docs/practices/naming/) (base units, `_total` on counters only, `_info` for labels); a service keeps its own prefix, and the names of its standalone exporter where they follow the conventions. [docs/metrics.md](docs/metrics.md) lists every name that changed, and why.
 
 It targets OpenWrt 25.12 and uses no ucode API newer than that release's.
 
@@ -81,4 +83,4 @@ Each collector needs a test in `test/unit/node_exporter/collectors/`, and a line
 
 ## Credits
 
-A rewrite of two packages of OpenWrt's feed, both Apache-2.0: [`prometheus-node-exporter-ucode`](https://github.com/openwrt/packages/tree/master/utils/prometheus-node-exporter-ucode), by Andre Heider (its maintainer) and contributors, and [`prometheus-node-exporter-lua`](https://github.com/openwrt/packages/tree/master/utils/prometheus-node-exporter-lua), by Jeff Schornick, Kevin Lyda, Christian Simon, Etienne Champetier (its maintainer) and contributors. Metric names and help texts follow the Prometheus [node_exporter](https://github.com/prometheus/node_exporter). Tests run on [utest](https://github.com/m00qek/utest). [NOTICE](NOTICE) credits each collector's upstream authors.
+A rewrite of two packages of OpenWrt's feed, both Apache-2.0: [`prometheus-node-exporter-ucode`](https://github.com/openwrt/packages/tree/master/utils/prometheus-node-exporter-ucode), by Andre Heider (its maintainer) and contributors, and [`prometheus-node-exporter-lua`](https://github.com/openwrt/packages/tree/master/utils/prometheus-node-exporter-lua), by Jeff Schornick, Kevin Lyda, Christian Simon, Etienne Champetier (its maintainer) and contributors. Metric names and help texts follow the Prometheus [node_exporter](https://github.com/prometheus/node_exporter) and, for unbound and WireGuard, [unbound_exporter](https://github.com/letsencrypt/unbound_exporter) and [prometheus_wireguard_exporter](https://github.com/MindFlavor/prometheus_wireguard_exporter); see [docs/metrics.md](docs/metrics.md). Tests run on [utest](https://github.com/m00qek/utest). [NOTICE](NOTICE) credits each collector's upstream authors.
