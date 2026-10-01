@@ -56,6 +56,7 @@ wifi and wifi_stations write node_exporter's wifi collector families, with its h
 | `wifi_network_bitrate` (kbit/s) | `node_wifi_network_transmit_bits_per_second` | gauge | Base unit. |
 | `wifi_network_noise_dbm` | `node_wifi_network_noise_dbm` | gauge | `node_wifi_` namespace. |
 | `wifi_network_signal_dbm` | `node_wifi_network_signal_dbm` | gauge | `node_wifi_` namespace. |
+| — | `node_wifi_channel_{active,busy,receive,transmit}_seconds_total{radio,device}` | counter | New, from the survey of the interface's channel (NL80211_SURVEY_INFO_TIME, `_BUSY`, `_RX`, `_TX`, in ms), in seconds; node_exporter has no such metric. Per interface, as the noise: the interfaces of one radio repeat its counts. A time the driver does not count is left out. |
 | `wifi_stations_total{radio,ifname}` (wifi), `wifi_stations{ifname}` (wifi_stations) | `node_wifi_stations{[radio,]device}` | counter → gauge (wifi) | The stations associated now are not a counter. |
 | — | `node_wifi_station_connected_seconds_total` | counter | New: node_exporter's. |
 | `wifi_station_inactive_milliseconds` | `node_wifi_station_inactive_seconds` | gauge | node_exporter's name, in seconds. |

@@ -64,6 +64,46 @@ function station_metrics(out) {
 	};
 }
 
+// ---- The channel's times ----------------------------------------------------
+// From the survey of the channel an interface is on (NL80211_SURVEY_INFO_TIME,
+// _TIME_BUSY, _TIME_RX, _TIME_TX): how long the radio has been on it, sensed
+// it busy, received and transmitted, counted by the driver in milliseconds.
+// node_exporter's wifi collector has none of them: node_wifi_channel_*, in
+// seconds, per interface as the noise is, so the interfaces of one radio
+// repeat its counts (max by (radio)). A new channel starts them again, as a
+// counter reset; a time the driver does not count is left out.
+function channel_metrics(out) {
+	return {
+		channel_active: out.counter('node_wifi_channel_active_seconds_total', 'Time the radio has been on the interface\'s channel, in seconds.'),
+		channel_busy: out.counter('node_wifi_channel_busy_seconds_total', 'Time the radio has sensed the interface\'s channel busy, in seconds.'),
+		channel_receive: out.counter('node_wifi_channel_receive_seconds_total', 'Time the radio has spent receiving on the interface\'s channel, in seconds.'),
+		channel_transmit: out.counter('node_wifi_channel_transmit_seconds_total', 'Time the radio has spent transmitting on the interface\'s channel, in seconds.'),
+	};
+}
+
+// [ the survey's attribute, the family ]
+const CHANNEL_TIMES = [ [ 'time', 'channel_active' ], [ 'busy', 'channel_busy' ], [ 'time_rx', 'channel_receive' ], [ 'time_tx', 'channel_transmit' ] ];
+
+function channel_times(m, labels, survey, freq) {
+	for (let s in (type(survey) == 'array' ? survey : [])) {
+		let info = s?.survey_info;
+
+		if (info?.frequency != freq)
+			continue;
+
+		let l = m.labels(labels);
+
+		for (let t in CHANNEL_TIMES) {
+			let ms = info[t[0]];
+
+			if (type(ms) in [ 'int', 'double' ])
+				m[t[1]](l, ms / 1000.0);
+		}
+		return;
+	}
+}
+// ---- end of the channel's times ---------------------------------------------
+
 function metrics(out) {
 	return {
 		radio_info: out.gauge('node_wifi_radio_info', 'A Wi-Fi radio, by its mode, channel and country.'),
@@ -75,6 +115,7 @@ function metrics(out) {
 		network_signal: out.gauge('node_wifi_network_signal_dbm', 'Average signal of the network\'s stations, in dBm.'),
 		stations: out.gauge('node_wifi_stations', 'Stations associated with the interface.'),
 		...station_metrics(out),
+		...channel_metrics(out),
 		labels: out.labels,
 	};
 }
@@ -184,6 +225,8 @@ function network(nl, m, radio, iface, with_stations) {
 
 	res = nl.request(C.NL80211_CMD_GET_SURVEY, C.NLM_F_DUMP, { dev: ifname });
 	m.network_noise(labels, res.ok ? noise_at(res.data, wif.wiphy_freq) : NaN);
+	if (res.ok)
+		channel_times(m, labels, res.data, wif.wiphy_freq);
 
 	if (!with_stations)
 		return null;

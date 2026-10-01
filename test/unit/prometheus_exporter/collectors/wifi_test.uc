@@ -4,6 +4,7 @@ import { describe, it, prop, gen, assert, contains } from 'utest';
 import { with_collector, outcome } from 'context';
 import * as fixtures from 'lib.fixtures';
 import * as wifi from 'prometheus_exporter.collectors.wifi';
+import { format_value } from 'prometheus_exporter.exposition';
 
 // caju-ap: radio_2G serves phy0-ap0 (one station), radio_5G phy1-ap0 (none,
 // an empty dump) and phy1-ap1 (four).
@@ -59,6 +60,31 @@ const NETWORKS = [
 	'node_wifi_network_signal_dbm{radio="radio_2G",device="phy0-ap0"} -63',
 	'node_wifi_network_signal_dbm{radio="radio_5G",device="phy1-ap0"} NaN',
 	'node_wifi_network_signal_dbm{radio="radio_5G",device="phy1-ap1"} -77.5',
+];
+
+// The channel each interface is on, as its survey says: the time the radio
+// was on it, sensed it busy, received and transmitted, in seconds.
+const CHANNEL = [
+	'# HELP node_wifi_channel_active_seconds_total Time the radio has been on the interface\'s channel, in seconds.',
+	'# TYPE node_wifi_channel_active_seconds_total counter',
+	'node_wifi_channel_active_seconds_total{radio="radio_2G",device="phy0-ap0"} 12078.755',
+	'node_wifi_channel_active_seconds_total{radio="radio_5G",device="phy1-ap0"} 12079.591',
+	'node_wifi_channel_active_seconds_total{radio="radio_5G",device="phy1-ap1"} 12079.616',
+	'# HELP node_wifi_channel_busy_seconds_total Time the radio has sensed the interface\'s channel busy, in seconds.',
+	'# TYPE node_wifi_channel_busy_seconds_total counter',
+	'node_wifi_channel_busy_seconds_total{radio="radio_2G",device="phy0-ap0"} 7969.429',
+	'node_wifi_channel_busy_seconds_total{radio="radio_5G",device="phy1-ap0"} 432.731',
+	'node_wifi_channel_busy_seconds_total{radio="radio_5G",device="phy1-ap1"} 432.731',
+	'# HELP node_wifi_channel_receive_seconds_total Time the radio has spent receiving on the interface\'s channel, in seconds.',
+	'# TYPE node_wifi_channel_receive_seconds_total counter',
+	'node_wifi_channel_receive_seconds_total{radio="radio_2G",device="phy0-ap0"} 7181.722',
+	'node_wifi_channel_receive_seconds_total{radio="radio_5G",device="phy1-ap0"} 294.822',
+	'node_wifi_channel_receive_seconds_total{radio="radio_5G",device="phy1-ap1"} 294.822',
+	'# HELP node_wifi_channel_transmit_seconds_total Time the radio has spent transmitting on the interface\'s channel, in seconds.',
+	'# TYPE node_wifi_channel_transmit_seconds_total counter',
+	'node_wifi_channel_transmit_seconds_total{radio="radio_2G",device="phy0-ap0"} 57.349',
+	'node_wifi_channel_transmit_seconds_total{radio="radio_5G",device="phy1-ap0"} 134.859',
+	'node_wifi_channel_transmit_seconds_total{radio="radio_5G",device="phy1-ap1"} 134.859',
 ];
 
 function sta(dev, mac) {
@@ -191,14 +217,14 @@ describe('collectors.wifi', () => {
 	it('exports the radios, networks and stations of the caju AP', () => {
 		with_collector(wifi, ap(), (r) => {
 			assert.match(true, r.result.ok);
-			assert.match([ ...NETWORKS, ...STATIONS ], r.lines);
+			assert.match([ ...NETWORKS, ...STATIONS, ...CHANNEL ], r.lines);
 		});
 	});
 
 	it('leaves the stations out with option stations off', () => {
 		with_collector(wifi, ap({ options: { stations: '0' } }), (r) => {
 			assert.match(true, r.result.ok);
-			assert.match(NETWORKS, r.lines);
+			assert.match([ ...NETWORKS, ...CHANNEL ], r.lines);
 		});
 	});
 
@@ -275,6 +301,42 @@ describe('collectors.wifi', () => {
 			]), r.lines);
 		});
 	});
+
+	it('writes the channel\'s times the driver reports, and none without a survey of it', () => {
+		let cfg = one_network([], []);
+		cfg.nl80211.data['NL80211_CMD_GET_SURVEY:wlan0'] = [
+			{ survey_info: { frequency: 5180, noise: -95, time: 1500, busy: 250 } },
+			{ survey_info: { frequency: 5200, time: 99, busy: 99, time_rx: 99, time_tx: 99 } },
+		];
+
+		with_collector(wifi, cfg, (r) => {
+			assert.match(true, r.result.ok);
+			assert.match([
+				'node_wifi_channel_active_seconds_total{radio="radio0",device="wlan0"} 1.5',
+				'node_wifi_channel_busy_seconds_total{radio="radio0",device="wlan0"} 0.25',
+			], filter(r.lines, (l) => index(l, 'node_wifi_channel_') == 0));
+		});
+
+		cfg.nl80211.data['NL80211_CMD_GET_SURVEY:wlan0'] = [ { survey_info: { frequency: 2412, time: 7 } } ];
+		with_collector(wifi, cfg, (r) => {
+			assert.match([ true, [] ], [ r.result.ok, filter(r.lines, (l) => index(l, 'node_wifi_channel_') == 0) ]);
+		});
+	});
+
+	prop('converts the channel\'s times from milliseconds to seconds',
+		gen.tuple(gen.int(0, 4000000000000), gen.int(0, 4000000000000), gen.int(0, 4000000000000), gen.int(0, 4000000000000)), (t) => {
+			let cfg = one_network([], []);
+			cfg.nl80211.data['NL80211_CMD_GET_SURVEY:wlan0'] = [
+				{ survey_info: { frequency: 5180, time: t[0], busy: t[1], time_rx: t[2], time_tx: t[3] } },
+			];
+
+			with_collector(wifi, cfg, (r) => {
+				assert.match(map(t, (ms) => format_value(ms / 1000.0)), map([
+					'node_wifi_channel_active_seconds_total', 'node_wifi_channel_busy_seconds_total',
+					'node_wifi_channel_receive_seconds_total', 'node_wifi_channel_transmit_seconds_total',
+				], (n) => split(filter(r.lines, (l) => index(l, n + '{') == 0)[0], ' ')[1]));
+			});
+		});
 
 	it('skips an interface without an ifname, as a radio that is down has', () => {
 		let cfg = one_network([], []);
