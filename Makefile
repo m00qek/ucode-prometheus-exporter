@@ -10,13 +10,13 @@ RUN          = $(COMPOSE) --progress quiet run --rm $(if $(CI),-T) openwrt
 IMAGE_STAMP := devenv/.built-$(IMAGE_TAG)
 TEST_ARGS    = $(if $(FILTER),-f '$(FILTER)') $(if $(VERBOSE),-v) $(MODULES)
 
-.PHONY: test unit integration watch lint shell image fixtures package pkgcheck-image package-check e2e
+.PHONY: test unit integration watch lint shell image fixtures package pkgcheck-image package-check e2e browser pot
 
 test:        $(IMAGE_STAMP) ; @$(RUN) devenv/scripts/test.sh all $(TEST_ARGS)
 unit:        $(IMAGE_STAMP) ; @$(RUN) devenv/scripts/test.sh unit $(TEST_ARGS)
 integration: $(IMAGE_STAMP) ; @$(RUN) devenv/scripts/test.sh integration $(TEST_ARGS)
 watch:       $(IMAGE_STAMP) ; @$(RUN) devenv/scripts/test.sh watch $(TEST_ARGS)
-lint:        $(IMAGE_STAMP) ; @$(RUN) devenv/scripts/lint.sh
+lint:        $(IMAGE_STAMP) ; @$(RUN) devenv/scripts/lint.sh && I18N_IMAGE=$(I18N_IMAGE) devenv/scripts/pot.sh check
 shell:       $(IMAGE_STAMP) ; @$(RUN) sh
 
 image:
@@ -45,18 +45,20 @@ package:
 		-v $(CURDIR)/openwrt/prometheus-node-exporter-ucode/Makefile:$(PKG_DIR)/Makefile:ro \
 		-v $(CURDIR)/src:$(PKG_DIR)/src:ro \
 		-v $(CURDIR)/files:$(PKG_DIR)/files:ro \
+		-v $(CURDIR)/luci:$(PKG_DIR)/luci:ro \
 		-v $(CURDIR)/LICENSE:$(PKG_DIR)/LICENSE:ro \
 		-v $(CURDIR)/NOTICE:$(PKG_DIR)/NOTICE:ro \
 		-v $(CURDIR)/bin:/artifacts \
 		$(SDK_IMAGE) sh -c 'make defconfig >/dev/null && \
 			make package/prometheus-node-exporter-ucode/compile $(if $(VERBOSE),V=s) && \
-			find bin -name "prometheus-node-exporter-ucode*-$(PKG_FULLVERSION).apk" -exec cp {} /artifacts/ \;'
+			find bin \( -name "prometheus-node-exporter-ucode*-$(PKG_FULLVERSION).apk" \
+				-o -name "luci-app-prometheus-node-exporter-ucode-$(PKG_FULLVERSION).apk" \) -exec cp {} /artifacts/ \;'
 
 PKGCHECK_IMAGE := prometheus-node-exporter-ucode-pkgcheck:$(OPENWRT_ARCH)-$(OPENWRT_VERSION)
 
 pkgcheck-image:
 	docker build -q -t $(PKGCHECK_IMAGE) --build-arg OPENWRT_ARCH --build-arg OPENWRT_VERSION \
-		--build-arg FEED_DEPENDS="$$(devenv/scripts/package-info.sh feed-depends)" \
+		--build-arg FEED_DEPENDS="$$(devenv/scripts/package-info.sh feed-depends) $$(devenv/scripts/package-info.sh app-depends) quickjs" \
 		devenv/services/pkgcheck >/dev/null
 
 # No network: the image carries the dependencies.
@@ -79,3 +81,23 @@ e2e: package pkgcheck-image
 		-e BASE_COLLECTORS="$$(devenv/scripts/package-info.sh base-collectors)" \
 		$(E2E_CONTAINER) /exporter/devenv/scripts/e2e.sh; \
 		status=$$?; docker rm -f $(E2E_CONTAINER) >/dev/null; exit $$status
+
+# ---- luci-app-prometheus-node-exporter-ucode ----------------------------------
+LUCI_IMAGE    := prometheus-node-exporter-ucode-luci:$(OPENWRT_ARCH)-$(OPENWRT_VERSION)
+BROWSER_IMAGE := prometheus-node-exporter-ucode-browser:$(shell sed -n 's/.*"@playwright\/test": "\(.*\)".*/\1/p' devenv/services/browser/package.json)
+# The collector packages the browser tests install besides the base package: options of
+# each type, configs read, a name with '-'.
+BROWSER_COLLECTORS := dhcp_leases ltq-dsl textfile unbound wifi wireguard
+
+# The LuCI pages against the built packages and a stand-in for procd; see devenv/scripts/browser.sh.
+browser: package
+	docker build -q -t $(LUCI_IMAGE) --build-arg OPENWRT_ARCH --build-arg OPENWRT_VERSION \
+		--build-arg FEED_DEPENDS="$$(devenv/scripts/package-info.sh feed-depends) $$(devenv/scripts/package-info.sh app-depends)" \
+		devenv/services/luci >/dev/null
+	docker build -q -t $(BROWSER_IMAGE) devenv/services/browser >/dev/null
+	@LUCI_IMAGE=$(LUCI_IMAGE) BROWSER_IMAGE=$(BROWSER_IMAGE) PKG_FULLVERSION=$(PKG_FULLVERSION) \
+		BROWSER_COLLECTORS='$(BROWSER_COLLECTORS)' FILTER='$(FILTER)' devenv/scripts/browser.sh
+
+# The translation template, from the LuCI sources; make lint checks it is up to date.
+I18N_IMAGE := prometheus-node-exporter-ucode-i18n:$(shell sha256sum devenv/services/i18n/Dockerfile | cut -c1-12)
+pot: ; @I18N_IMAGE=$(I18N_IMAGE) devenv/scripts/pot.sh

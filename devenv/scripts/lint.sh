@@ -44,4 +44,34 @@ for f in files/etc/init.d/* devenv/scripts/*.sh; do
 	sh -n "$f" || fail "$f"
 done
 
+# ---- luci-app-prometheus-node-exporter-ucode ----
+# The rpcd plugin and the browser tests' fake procd are programs that return or run
+# at top level.
+for f in files/usr/share/rpcd/ucode/*.uc devenv/services/luci/*.uc; do
+	ucode -L "$src" -c -o /dev/null "$f" || fail "$f"
+done
+for f in devenv/services/luci/*.sh; do
+	sh -n "$f" || fail "$f"
+done
+
+for f in $(find luci test/fixtures/luci devenv/services/luci -name '*.json'); do
+	ucode -e 'json(require("fs").readfile(ARGV[0]))' "$f" || fail "$f"
+done
+
+# LuCI compiles a view as a function body (top-level `return`), so it is parsed the same way.
+for f in $(find luci -name '*.js'); do
+	qjs --std -e 'new Function(std.loadFile(scriptArgs[0]))' "$f" || fail "$f"
+done
+
+devenv/scripts/luci-dom-lint.sh $(find luci/htdocs -name '*.js') || status=1
+
+# The check above must still catch what it is for.
+bad=$(mktemp)
+for line in "el.innerHTML = x;" "_('Collector %s').format(name);" "'%s'.format(name);"; do
+	echo "$line" >"$bad"
+	devenv/scripts/luci-dom-lint.sh "$bad" >/dev/null 2>&1 &&
+		{ echo "luci-dom-lint.sh let through: $line" >&2; status=1; }
+done
+rm -f "$bad"
+
 exit $status

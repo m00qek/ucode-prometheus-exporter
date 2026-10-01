@@ -1,0 +1,14 @@
+
+config prometheus-node-exporter-ucode 'main'
+	option listen_interface '*'
+	option listen_port '9102'
+	option http_keepalive '0'
+	option omit_zero_values '1'
+
+config collector 'wifi'
+	option stations '0'
+
+config collector 'textfile'
+	option enabled '0'
+	option directory '/srv/prom'
+

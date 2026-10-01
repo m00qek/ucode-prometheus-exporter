@@ -1,0 +1,18 @@
+{
+	"prometheus-node-exporter-ucode": {
+		"instances": {
+			"instance1": {
+				"running": true,
+				"pid": 4242,
+				"command": [
+					"/usr/sbin/uhttpd", "-f", "-c", "/dev/null", "-h", "/dev/null", "-S", "-D", "-o", "/metrics",
+					"-O", "/usr/libexec/prometheus-node-exporter-ucode/handler.uc", "-k", "70",
+					"-p", "127.0.0.1:9101", "-p", "[::1]:9101"
+				],
+				"term_timeout": 5,
+				"respawn": { "threshold": 3600, "timeout": 5, "retry": 5 },
+				"jail": { "name": "prometheus-node-exporter-ucode", "procfs": true, "sysfs": true, "ubus": true, "log": true }
+			}
+		}
+	}
+}

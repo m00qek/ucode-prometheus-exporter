@@ -1,0 +1,10 @@
+{
+	"exporter-browser-tests": {
+		"description": "Lets the browser tests switch the fake procd's fixture and lay out the exporter's configuration",
+		"write": {
+			"ubus": {
+				"exporter.fixture": [ "service", "config", "read" ]
+			}
+		}
+	}
+}

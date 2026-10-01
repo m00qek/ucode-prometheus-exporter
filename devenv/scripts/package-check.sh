@@ -80,6 +80,69 @@ check "the openwrt collector reads the board over ubus" grep -q '^node_openwrt_i
 check "a query selects collectors" sh -c "fetch() { wget -q -O - \"\$1\"; }; fetch '$URL?collect[]=loadavg' | grep -q 'collector=\"loadavg\"' && ! fetch '$URL?collect[]=loadavg' | grep -q 'collector=\"openwrt\"'"
 check "an unknown collector is refused" sh -c "! wget -q -O /dev/null '$URL?collect[]=nope'"
 
+# ---- luci-app-prometheus-node-exporter-ucode ----
+# The LuCI app on top of the exporter: its files, its package scripts, and its plugin
+# in a real rpcd on the ubusd above.
+APP=/artifacts/luci-app-$NAME-$PKG_FULLVERSION.apk
+APP_LIST=/lib/apk/packages/luci-app-$NAME.list
+VIEWS=/www/luci-static/resources/view/$NAME
+APP_FILES="/usr/share/luci/menu.d/luci-app-$NAME.json /usr/share/rpcd/acl.d/luci-app-$NAME.json
+	/www/luci-static/resources/$NAME.js $VIEWS/settings.js $VIEWS/status.js
+	/usr/share/ucode/node_exporter/luci/rpc.uc /usr/share/rpcd/ucode/$NAME.uc"
+STATUS_HELPER=/usr/libexec/$NAME/luci-status.uc
+
+has_mode() { [ -n "$(find "$2" -prune -perm "$1")" ]; }
+pins_exporter() { apk adbdump "$APP" | grep -qx "    - $NAME=$PKG_FULLVERSION"; }
+seed_luci_caches() { mkdir -p /tmp/luci-modulecache && touch /tmp/luci-indexcache.test.json /tmp/luci-modulecache/test; }
+luci_caches_cleared() { [ ! -e /tmp/luci-indexcache.test.json ] && [ ! -e /tmp/luci-modulecache ]; }
+parses() {
+	case $1 in
+	*.json) ucode -e 'json(require("fs").readfile(ARGV[0]))' "$1" ;;
+	# LuCI compiles a view as a function body (top-level `return`).
+	*.js) qjs --std -e 'new Function(std.loadFile(scriptArgs[0]))' "$1" ;;
+	# A module is loaded, from the default search path.
+	/usr/share/ucode/*) ucode -e "import * as _ from '$1';" ;;
+	*) ucode -c -o /dev/null "$1" ;;
+	esac
+}
+# The number of collectors in a reply of the plugin.
+collectors_in() { ucode -e 'print(length(json(ARGV[0]).collectors))' "$1"; }
+
+[ -f "$APP" ] || fail "no $APP (run make package)"
+check "app pins the exporter's version" pins_exporter
+seed_luci_caches
+check "app installs offline" apk add --allow-untrusted --no-network "$APP"
+check "app install clears the LuCI caches" luci_caches_cleared
+check "app ships its menu, ACL, views, module, plugin and status helper only" \
+	test "$(grep -c . "$APP_LIST")" -eq "$(($(echo $APP_FILES | wc -w) + 1))"
+for f in $APP_FILES; do
+	check "$f 0644" has_mode 644 "$f"
+	check "$f parses" parses "$f"
+done
+check "$STATUS_HELPER 0755" has_mode 755 "$STATUS_HELPER"
+
+rpcd &
+check "rpcd serves the plugin" ubus -t 10 wait_for "$NAME"
+reply=$(ubus -t 30 call "$NAME" collectors 2>/dev/null)
+check "collectors lists every installed collector" test "$(collectors_in "$reply")" -eq "$(installed)"
+check "validate refuses what the init script would" sh -c \
+	"ubus -t 30 call $NAME validate '{\"main\":{\"listen_port\":\"0\"}}' | grep -q 'expected an integer from 1 to 65535, got 0'"
+# No procd here: status says so, and still scrapes, in a process of its own.
+reply=$(ubus -t 30 call "$NAME" status 2>/dev/null)
+check "status scrapes every enabled collector" test "$(collectors_in "$reply")" -eq "$(installed)"
+status_unknown() { echo "$reply" | grep -q '"running": null'; }
+check "status says when procd cannot be asked" status_unknown
+
+seed_luci_caches
+app_removed() {
+	apk del "luci-app-$NAME" >/dev/null 2>&1 || return 1
+	for f in $APP_FILES "$STATUS_HELPER"; do [ ! -e "$f" ] || return 1; done
+	apk info -e "$NAME" >/dev/null
+}
+check "app removes cleanly and keeps the exporter" app_removed
+check "app removal clears the LuCI caches" luci_caches_cleared
+# ---- end luci-app-prometheus-node-exporter-ucode ----
+
 if [ "$failures" -gt 0 ]; then
 	echo "--- uhttpd"; cat /tmp/uhttpd.log; echo "--- metrics"; cat /tmp/metrics 2>/dev/null
 fi
