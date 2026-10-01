@@ -86,6 +86,30 @@ export function collect(deps, out, options) {
 
 Each collector needs a test in `test/unit/node_exporter/collectors/`, and a line in the package Makefile that depends on what its `needs` and `commands` call for; `test/integration/collectors_test.uc` holds every collector to both.
 
+## LuCI app
+
+`luci-app-prometheus-node-exporter-ucode` adds two pages, and pins the exporter's release:
+
+- **Services → Prometheus exporter**: the main section (enabled, listen interface or every address, port, keepalive, TLS files, `omit_zero_values`) and a row per installed collector, with its switch, its options by type and what it is: in the base package or a removable one, and the configs it reads. A collector's `config collector` section holds only what differs from the defaults: it is added when a value first differs and removed once all are back. Values are checked as they are typed and again before Save, as the exporter reads them; nothing it would refuse is saved.
+- **Status → Prometheus exporter**: whether the service is enabled and runs, where it serves `/metrics`, and each collector's result, duration and error in a scrape run on the router (outside the jail) when the page opens or on Refresh, with what the jail mounts for it.
+
+Both call the `prometheus-node-exporter-ucode` ubus object, an rpcd ucode plugin (`files/usr/share/rpcd/ucode/`) over `src/node_exporter/luci/rpc.uc`, which reads with the exporter's own modules and writes nothing; the pages save through uci. Its ACL grants the exporter's config and the plugin's methods, nothing else.
+
+| | |
+|---|---|
+| `collectors {}` | `{ collectors: [ { name, id, title, help, enabled, package, base, options: [ { name, type, default, help, datatype, value, set, error } ], needs, configs, commands, jail: { paths, commands, mounts, problems, missing }, error } ], skipped }` |
+| `validate { main?, collectors? }` | `{ ok, errors: { main: { <option>: message }, collectors: { <module>: { <option>: message } } } }` for values as uci holds them |
+| `status {}` | `{ service: { enabled, boot, running, error }, listen: [ url ], collectors: [ { name, id, title, enabled, success, duration, error, mounts } ] }` |
+
+`status` scrapes in a process of its own (`/usr/libexec/prometheus-node-exporter-ucode/luci-status.uc`) and replies when it is done, so rpcd answers other calls meanwhile, the collectors' calls to objects rpcd itself serves (`wireguard`, `luci`) among them.
+
+| | |
+|---|---|
+| `make browser` | the Playwright tests in `test/browser/` against LuCI in a container: the built packages, the plugin in a real rpcd, real collectors and a stand-in for procd (`devenv/services/luci/`); `FILTER=`. Screenshots in `bin/browser/screenshots/` |
+| `make pot` | `luci/po/templates/prometheus-node-exporter-ucode.pot`, with openwrt/luci's scanner; `make lint` fails while it is out of date |
+
+`make lint` also parses the views (as the function bodies LuCI compiles them into) and the JSON, and fails on LuCI code that could turn data into markup (`devenv/scripts/luci-dom-lint.sh`); `make package-check` installs the app, checks its files and runs its plugin in rpcd.
+
 ## Credits
 
 A rewrite of two packages of OpenWrt's feed, both Apache-2.0: [`prometheus-node-exporter-ucode`](https://github.com/openwrt/packages/tree/master/utils/prometheus-node-exporter-ucode), by Andre Heider (its maintainer) and contributors, and [`prometheus-node-exporter-lua`](https://github.com/openwrt/packages/tree/master/utils/prometheus-node-exporter-lua), by Jeff Schornick, Kevin Lyda, Christian Simon, Etienne Champetier (its maintainer) and contributors. Metric names and help texts follow the Prometheus [node_exporter](https://github.com/prometheus/node_exporter) and, for unbound and WireGuard, [unbound_exporter](https://github.com/letsencrypt/unbound_exporter) and [prometheus_wireguard_exporter](https://github.com/MindFlavor/prometheus_wireguard_exporter); see [docs/metrics.md](docs/metrics.md). Tests run on [utest](https://github.com/m00qek/utest). [NOTICE](NOTICE) credits each collector's upstream authors.
