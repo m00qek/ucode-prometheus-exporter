@@ -13,10 +13,11 @@
 // every request. Neither the password nor the hash is ever logged.
 //
 // Computing the hash is what a check costs, and on a router's CPU it costs
-// much (see the README): so the handler remembers the last header it let in,
-// in the instance's state (prometheus_exporter.state), as a digest bound to
-// the user and hash it was checked against (CACHE). A request with that very
-// header is let in on the digest alone; any other pays the full check.
+// much (see docs/explanation/performance.md): so the handler remembers the
+// last header it let in, in the instance's state (prometheus_exporter.state),
+// as a digest bound to the user and hash it was checked against (CACHE). A
+// request with that very header is let in on the digest alone; any other pays
+// the full check.
 
 import { sha256 } from 'digest';
 import * as crypt from 'prometheus_exporter.crypt';
@@ -173,7 +174,7 @@ export function password_problem(password) {
 };
 
 // The rounds of the hashes hash_password makes: musl's least, as the handler
-// computes the hash in ucode at each scrape; see the README.
+// computes the hash in ucode at each scrape; see docs/explanation/performance.md.
 export const HASH_ROUNDS = 1000;
 
 // A Result of a new SHA-512-crypt hash of `password`, salted with random(n),
