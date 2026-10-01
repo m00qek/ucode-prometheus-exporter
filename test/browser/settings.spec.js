@@ -169,9 +169,8 @@ test.describe('Services → Prometheus exporter', () => {
       trs.filter((tr) => tr.querySelector('button.cbi-button-edit')).map((tr) => tr.getAttribute('data-collector')));
     expect(editable).toEqual(plugin.collectors.filter((c) => c.options.length > 0).map((c) => c.id));
     // runner declares no option, but runs a program: it has the core's timeout.
-    expect(editable).toEqual(expect.arrayContaining([ 'wifi', 'textfile', 'dhcp_leases', 'sampler', 'runner' ]));
+    expect(editable).toEqual(expect.arrayContaining([ 'wifi', 'textfile', 'dhcp_leases', 'wireguard', 'sampler', 'runner' ]));
     await expect(editButton(page, 'loadavg')).toHaveCount(0);
-    await expect(editButton(page, 'wireguard')).toHaveCount(0);
     await h.screenshot(page, 'settings-collectors');
   });
 

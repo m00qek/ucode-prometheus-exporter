@@ -193,7 +193,7 @@ all_answer() { [ "$(fetch | grep -c '^node_scrape_collector_success{')" -eq "$(i
 eventually "every installed collector is served" all_answer
 check "the ubus object lists the new collectors too" rpc_lists_all
 check "its mounts are still what jail.uc prints" mounts_match_jail
-check "the jail has the configs its collectors read" test "$(jail_configs | tr '\n' ' ')" = "chrony dhcp network $NAME ubnt-manager "
+check "the jail has the configs its collectors read" test "$(jail_configs | tr '\n' ' ')" = "chrony dhcp $NAME ubnt-manager "
 check "the service makes textfile's directory" test -d /var/prometheus
 check "and says so, at info" says "daemon.info $NAME: made /var/prometheus$" logread
 check "and mounts it" mounted /var/prometheus

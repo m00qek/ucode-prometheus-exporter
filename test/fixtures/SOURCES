@@ -62,6 +62,9 @@ ubus luci getMountPoints
 link /sys/class/hwmon/*/device
 uci dhcp
 uci network
+# ubus/uci.get.json (caju-router): rpcd's `uci get { config: network, type:
+# wireguard_<iface> }` for wireguard's peer_names, written from uci/network.json's
+# peer sections; both interfaces' in one reply, as the collector keeps its own.
 # test/fixtures/synthetic/ is written by hand for what neither device has; see its SOURCES.
 file /proc/net/netstat
 file /proc/net/snmp

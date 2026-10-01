@@ -1,0 +1,45 @@
+{
+	"values": {
+		"cfg10bea0": {
+			".anonymous": true,
+			".type": "wireguard_lan2playground",
+			".name": "cfg10bea0",
+			".index": 3,
+			"description": "hub",
+			"public_key": "BQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQU=",
+			"endpoint_host": "203.0.113.22",
+			"endpoint_port": "51830",
+			"persistent_keepalive": "25",
+			"route_allowed_ips": "1",
+			"allowed_ips": [
+				"10.251.223.0/24"
+			]
+		},
+		"wgmesh_site_b": {
+			".anonymous": false,
+			".type": "wireguard_wg_mesh",
+			".name": "wgmesh_site_b",
+			".index": 5,
+			"public_key": "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI=",
+			"route_allowed_ips": "1",
+			"allowed_ips": [
+				"10.251.224.12/32",
+				"10.197.0.0/16"
+			]
+		},
+		"wgmesh_hub": {
+			".anonymous": false,
+			".type": "wireguard_wg_mesh",
+			".name": "wgmesh_hub",
+			".index": 6,
+			"public_key": "AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM=",
+			"endpoint_host": "2001:db8::1",
+			"endpoint_port": "51820",
+			"persistent_keepalive": "25",
+			"route_allowed_ips": "1",
+			"allowed_ips": [
+				"10.251.224.1/32"
+			]
+		}
+	}
+}

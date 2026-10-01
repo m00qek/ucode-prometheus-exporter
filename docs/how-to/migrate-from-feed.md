@@ -55,6 +55,7 @@ The log names every option it took, and every value it left at the default and w
 - **The port.** If the old exporter was the ucode one on 9101, scrape 9100, or set `listen_port` back to 9101.
 - **The metric names.** They are not the old exporters': most follow node_exporter, and every change is in [Renamed metrics](../metrics.md). Update the queries, alerts and recording rules that use an old name. Dashboards made for node_exporter work as they are.
 - **The collectors.** A query that selected collectors with `collect[]=` still does; `collect=`, the ucode exporter's spelling, too.
+- **WireGuard peer names.** The old exporters labelled peers with their description always; this one only with `uci set prometheus-exporter.wireguard=collector; uci set prometheus-exporter.wireguard.peer_names=1; uci commit prometheus-exporter; service prometheus-exporter reload`. See [Security model](../explanation/security.md) for why it is off.
 
 ---
 
