@@ -10,7 +10,7 @@ import { create } from 'node_exporter.app';
 
 const app = create((msg) => warn(`prometheus-node-exporter-ucode: ${msg}\n`));
 
-warn(`prometheus-node-exporter-ucode: serving ${length(app.collectors)} collectors\n`);
+warn(`prometheus-node-exporter-ucode: serving ${length(app.collectors())} collectors\n`);
 
 global.handle_request = function(env) {
 	const res = app.scrape(env.QUERY_STRING);

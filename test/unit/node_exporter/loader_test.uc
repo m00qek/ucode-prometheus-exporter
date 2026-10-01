@@ -65,6 +65,23 @@ describe('loader.discover and load', () => {
 	const DIR = '/usr/share/ucode/node_exporter/collectors';
 	const FILES = { [DIR + '/b.uc']: '', [DIR + '/a.uc']: '', [DIR + '/broken.uc']: '', [DIR + '/odd.uc']: '', [DIR + '/README']: '' };
 
+	it('fingerprints the collector files, so any change to them shows', () => {
+		mock.inject('fs', { strict: true, data: { [DIR + '/a.uc']: 'x', [DIR + '/README']: '' } }, (fs) => {
+			let before = loader.fingerprint(fs, DIR);
+
+			assert.match(before, loader.fingerprint(fs, DIR));
+			fs.writefile(DIR + '/notes.txt', 'not a collector');
+			assert.match(before, loader.fingerprint(fs, DIR));
+			fs.writefile(DIR + '/a.uc', 'xy');
+			assert.match(true, loader.fingerprint(fs, DIR) != before, 'a replaced file');
+			fs.writefile(DIR + '/a.uc', 'x');
+			fs.writefile(DIR + '/b.uc', '');
+			assert.match(true, loader.fingerprint(fs, DIR) != before, 'an added file');
+			fs.unlink(DIR + '/b.uc');
+			assert.match(before, loader.fingerprint(fs, DIR));
+		});
+	});
+
 	it('finds the modules of a directory, sorted', () => {
 		mock.inject('fs', { strict: true, data: FILES }, (fs) => {
 			assert.match([ 'a', 'b', 'broken', 'odd' ], loader.discover(fs, DIR));

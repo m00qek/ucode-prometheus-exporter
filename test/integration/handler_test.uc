@@ -12,9 +12,28 @@ const HANDLER = 'files/usr/libexec/prometheus-node-exporter-ucode/handler.uc';
 // The collectors as installed: their files listed in DIR, their modules found on
 // the search path.
 function install(files) {
-	mock.global.patch('fs', { data: { [DIR + '/loadavg.uc']: '', ...files } });
+	let fs = mock.global.patch('fs', { data: { [DIR + '/loadavg.uc']: '', ...files } });
 	mock.global.patch('ubus', { strict: true, data: {} });
 	mock.global.patch('uci', { strict: true, data: { [config.PACKAGE]: {} } });
+	return fs;
+}
+
+// The handler, loaded once as uhttpd does; each call of the result is a request.
+function serve() {
+	let sent = [];
+	global.uhttpd = { send: (...parts) => push(sent, join('', parts)) };
+	loadfile(HANDLER, { raw_mode: false })();
+
+	return function(query_string) {
+		sent = [];
+		global.handle_request({ QUERY_STRING: query_string, PATH_INFO: '/metrics' });
+		return join('', sent);
+	};
+}
+
+function answered(reply) {
+	return map(filter(split(reply, '\n'), (l) => index(l, 'node_scrape_collector_success{') == 0),
+		(l) => match(l, /collector="([^"]+)"/)[1]);
 }
 
 function request(query_string) {
@@ -44,6 +63,19 @@ describe('handler', () => {
 
 		assert.match('Status: 200 OK\r\nContent-Type: text/plain; version=0.0.4; charset=utf-8', head[0]);
 		assert.match(contains([ 'node_load1 0.01', 'node_scrape_collector_success{collector="loadavg"} 1' ]), split(head[1], '\n'));
+	});
+
+	it('serves a collector installed after it started, and stops serving a removed one', () => {
+		let fs = install({ '/proc/loadavg': '0.01 0.02 0.03 1/1 1\n' });
+		let request = serve();
+
+		assert.match([ 'loadavg' ], answered(request('')));
+
+		fs.writefile(DIR + '/time.uc', '');
+		assert.match([ 'loadavg', 'time' ], answered(request('')));
+
+		fs.unlink(DIR + '/time.uc');
+		assert.match([ 'loadavg' ], answered(request('')));
 	});
 
 	it('answers 400 for an unknown collector', () => {

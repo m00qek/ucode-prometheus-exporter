@@ -50,7 +50,7 @@ export function run(argv, create, out, err) {
 	let app = create((msg) => err(msg + '\n'), args.dir);
 
 	if (args.list) {
-		for (let c in app.collectors)
+		for (let c in app.collectors())
 			out(sprintf('%-24s %s\n', c.meta.name, c.meta.help));
 		return 0;
 	}

@@ -38,6 +38,14 @@ define Package/$(PKG_NAME)/conffiles
 /etc/config/$(PKG_NAME)
 endef
 
+# The exporter picks up collector packages as they come and go, but its own
+# code stays loaded: after an upgrade, a running exporter is restarted.
+define Package/$(PKG_NAME)/postinst
+#!/bin/sh
+[ -n "$$IPKG_INSTROOT" ] || [ "$$PKG_UPGRADE" != 1 ] || ! /etc/init.d/$(PKG_NAME) running ||
+	/etc/init.d/$(PKG_NAME) restart
+endef
+
 define Build/Compile
 endef
 

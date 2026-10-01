@@ -9,7 +9,7 @@ function app_factory(reply, seen) {
 		seen.dir = dir;
 		log('loaded');
 		return {
-			collectors: [ { meta: { name: 'cpu', help: 'CPU time.' } }, { meta: { name: 'ltq-dsl', help: 'DSL line.' } } ],
+			collectors: () => [ { meta: { name: 'cpu', help: 'CPU time.' } }, { meta: { name: 'ltq-dsl', help: 'DSL line.' } } ],
 			scrape: function(q) { seen.query = q; return reply; },
 		};
 	};

@@ -31,7 +31,7 @@ describe('app', () => {
 
 	it('loads the collectors of a directory', () => {
 		patch({}, {});
-		assert.match(contains([ 'loadavg', 'openwrt' ]), map(create(() => null, SOURCES).collectors, (c) => c.meta.name));
+		assert.match(contains([ 'loadavg', 'openwrt' ]), map(create(() => null, SOURCES).collectors(), (c) => c.meta.name));
 	});
 
 	it('scrapes the caju router', () => {
