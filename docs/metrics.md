@@ -203,9 +203,27 @@ The counters of each thread (`threadN.*` in unbound's statistics), labeled `thre
 | — | `unbound_request_list_current_replies{thread}` | gauge | New: unbound_exporter's. |
 | `unbound_recursion_time_avg`, `unbound_recursion_time_median` | `unbound_recursion_time_seconds_avg`, `unbound_recursion_time_seconds_median` | gauge | unbound_exporter's names, from `total.*`. |
 
+## New metrics
+
+Neither upstream exporter had these. Where node_exporter has the metric, the name, type, labels and help are its own.
+
+| Collector | Families | Type | Source |
+|---|---|---|---|
+| conntrack (base) | `node_nf_conntrack_stat_{found,invalid,ignore,insert,insert_failed,drop,early_drop,search_restart}` | gauge | node_exporter's, from `/proc/net/stat/nf_conntrack` summed over the CPUs. |
+| softnet (base) | `node_softnet_{processed,dropped,times_squeezed,cpu_collision,received_rps,flow_limit_count}_total{cpu}` | counter | node_exporter's, from `/proc/net/softnet_stat`. |
+| softnet (base) | `node_softnet_backlog_len{cpu}` | gauge | node_exporter's. |
+| vmstat (base) | `node_vmstat_<field>` (default fields: `oom_kill`, `pgpg*`, `pswp*`, `pg*fault*`; option `fields`) | untyped | node_exporter's, from `/proc/vmstat`. |
+| openwrt_interfaces (base) | `node_openwrt_interface_{up,pending,available,autostart}{interface}` | gauge | netifd's `network.interface dump`, 0 or 1. |
+| openwrt_interfaces (base) | `node_openwrt_interface_uptime_seconds{interface}` | gauge | netifd's uptime, while the interface is up. |
+| openwrt_interfaces (base) | `node_openwrt_interface_info{interface,proto,device,l3_device}` | gauge | 1; a label netifd does not report is left out. |
+| openwrt_interfaces (base) | `node_openwrt_interface_addresses{interface,family}`, `node_openwrt_interface_routes{interface,family}` | gauge | Counts: an address as a label would change with every WAN lease. |
+| openwrt_interfaces (base) | `node_openwrt_interface_ipv6_prefixes{interface}`, `node_openwrt_interface_errors{interface}` | gauge | Delegated prefixes; the errors netifd holds for the interface. |
+| dhcp_leases | `node_openwrt_dhcp_leases{server,interface,family}` | gauge | Active leases of dnsmasq (its lease file) and odhcpd (`ubus call dhcp ipv4leases`/`ipv6leases`). |
+| dhcp_leases (option `leases`) | `node_openwrt_dhcp_lease_info{server,interface,family,address,mac,duid,iaid,hostname}`, `node_openwrt_dhcp_lease_expiry_timestamp_seconds{server,interface,family,address}` | gauge | A series per lease; off by default, for churn and privacy. |
+
 ## Unchanged collectors
 
-conntrack, entropy, filefd, filesystem, hostapd_stations, hostapd_ubus_stations, loadavg, realtek-poe, textfile, time and uname write the families they wrote before.
+conntrack (beyond the statistics above), entropy, filefd, filesystem, hostapd_stations, hostapd_ubus_stations, loadavg, realtek-poe, textfile, time and uname write the families they wrote before.
 
 ## Standalone exporters
 

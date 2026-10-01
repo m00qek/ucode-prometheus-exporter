@@ -4,10 +4,10 @@
 // exporter counted: dnsmasq's, from its lease file, and odhcpd's (DHCPv6, and
 // DHCPv4 where odhcpd serves it), from `ubus call dhcp ipv4leases|ipv6leases`.
 //
-// dhcp_leases{server, interface, family} counts them. `interface` is the
-// logical interface (lan, guest, ...), as openwrt_interfaces names it: the one
-// whose subnet holds a dnsmasq lease's address (its lease file does not say;
-// the subnet is how dnsmasq picks the range), and for odhcpd the one whose
+// node_openwrt_dhcp_leases{server, interface, family} counts them. `interface`
+// is the logical interface (lan, guest, ...), as openwrt_interfaces names it:
+// the one whose subnet holds a dnsmasq lease's address (its lease file does
+// not say; the subnet is how dnsmasq picks the range), and for odhcpd the one whose
 // l3 device it serves (the first in netifd's dump, for a device several
 // share). A lease no up interface's subnet holds has no `interface`. odhcpd
 // lists every interface it serves, so those without leases have a 0; dnsmasq
@@ -17,9 +17,9 @@
 // in each of the interface's prefixes) for odhcpd's DHCPv6.
 //
 // The `leases` option (off by default) adds a series per lease:
-// dhcp_lease_info{server, interface, family, address, mac, duid, iaid,
-// hostname} 1, and dhcp_lease_expiry_timestamp_seconds{server, interface,
-// family, address}, left out for a lease that never expires. Off, because
+// node_openwrt_dhcp_lease_info{server, interface, family, address, mac, duid,
+// iaid, hostname} 1, and node_openwrt_dhcp_lease_expiry_timestamp_seconds{server,
+// interface, family, address}, left out for a lease that never expires. Off, because
 // each new client, and each phone with a random MAC, is a new series, and the
 // names and MACs of a household's devices are more than most dashboards need.
 // An odhcpd DHCPv6 lease has a series per address or delegated prefix
@@ -291,15 +291,15 @@ export function collect(deps, out, options) {
 	if (!found)
 		return Result.err(errors.SOURCE_UNREADABLE, 'no dnsmasq lease file and no odhcpd on ubus');
 
-	let count = out.gauge('dhcp_leases', 'Active DHCP leases, by server, interface and family.');
+	let count = out.gauge('node_openwrt_dhcp_leases', 'Active DHCP leases, by server, interface and family.');
 	for (let c in book.counts())
 		count(c.labels, c.n);
 
 	if (!options.leases)
 		return Result.ok();
 
-	let info = out.gauge('dhcp_lease_info', 'An active DHCP lease: its address, client and hostname.');
-	let expiry = out.gauge('dhcp_lease_expiry_timestamp_seconds', 'When an active DHCP lease expires, unless it never does.');
+	let info = out.gauge('node_openwrt_dhcp_lease_info', 'An active DHCP lease: its address, client and hostname.');
+	let expiry = out.gauge('node_openwrt_dhcp_lease_expiry_timestamp_seconds', 'When an active DHCP lease expires, unless it never does.');
 	let seen = {};
 
 	for (let l in book.leases()) {

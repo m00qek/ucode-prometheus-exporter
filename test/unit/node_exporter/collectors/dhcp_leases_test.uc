@@ -82,11 +82,11 @@ describe('collectors.dhcp_leases', () => {
 		with_collector(dhcp_leases, router(), (r) => {
 			assert.match(true, r.result.ok);
 			assert.match([
-				'# HELP dhcp_leases Active DHCP leases, by server, interface and family.',
-				'# TYPE dhcp_leases gauge',
-				'dhcp_leases{server="dnsmasq",interface="main",family="ipv4"} 4',
-				'dhcp_leases{server="dnsmasq",interface="guest",family="ipv4"} 1',
-				'dhcp_leases{server="dnsmasq",interface="iot",family="ipv4"} 2',
+				'# HELP node_openwrt_dhcp_leases Active DHCP leases, by server, interface and family.',
+				'# TYPE node_openwrt_dhcp_leases gauge',
+				'node_openwrt_dhcp_leases{server="dnsmasq",interface="main",family="ipv4"} 4',
+				'node_openwrt_dhcp_leases{server="dnsmasq",interface="guest",family="ipv4"} 1',
+				'node_openwrt_dhcp_leases{server="dnsmasq",interface="iot",family="ipv4"} 2',
 			], r.lines);
 		});
 	});
@@ -95,24 +95,24 @@ describe('collectors.dhcp_leases', () => {
 		with_collector(dhcp_leases, router({ leases: '1' }), (r) => {
 			assert.match(true, r.result.ok);
 			assert.match([
-				'# HELP dhcp_lease_info An active DHCP lease: its address, client and hostname.',
-				'# TYPE dhcp_lease_info gauge',
-				'dhcp_lease_info{server="dnsmasq",interface="main",family="ipv4",address="192.168.13.130",mac="02:00:00:00:00:13",hostname="laptop"} 1',
-				'dhcp_lease_info{server="dnsmasq",interface="main",family="ipv4",address="192.168.13.155",mac="02:00:00:00:00:14",hostname="phone-c"} 1',
-				'dhcp_lease_info{server="dnsmasq",interface="main",family="ipv4",address="192.168.13.113",mac="02:00:00:00:00:15",hostname="desktop"} 1',
-				'dhcp_lease_info{server="dnsmasq",interface="guest",family="ipv4",address="172.16.1.167",mac="02:00:00:00:00:16",hostname="watch"} 1',
-				'dhcp_lease_info{server="dnsmasq",interface="main",family="ipv4",address="192.168.13.116",mac="02:00:00:00:00:17",hostname="phone-d"} 1',
-				'dhcp_lease_info{server="dnsmasq",interface="iot",family="ipv4",address="192.168.17.70",mac="02:00:00:00:00:06",hostname="display"} 1',
-				'dhcp_lease_info{server="dnsmasq",interface="iot",family="ipv4",address="192.168.17.152",mac="02:00:00:00:00:18"} 1',
-				'# HELP dhcp_lease_expiry_timestamp_seconds When an active DHCP lease expires, unless it never does.',
-				'# TYPE dhcp_lease_expiry_timestamp_seconds gauge',
-				'dhcp_lease_expiry_timestamp_seconds{server="dnsmasq",interface="main",family="ipv4",address="192.168.13.130"} 1790861559',
-				'dhcp_lease_expiry_timestamp_seconds{server="dnsmasq",interface="main",family="ipv4",address="192.168.13.155"} 1790860618',
-				'dhcp_lease_expiry_timestamp_seconds{server="dnsmasq",interface="main",family="ipv4",address="192.168.13.113"} 1790860499',
-				'dhcp_lease_expiry_timestamp_seconds{server="dnsmasq",interface="guest",family="ipv4",address="172.16.1.167"} 1790859808',
-				'dhcp_lease_expiry_timestamp_seconds{server="dnsmasq",interface="main",family="ipv4",address="192.168.13.116"} 1790859277',
-				'dhcp_lease_expiry_timestamp_seconds{server="dnsmasq",interface="iot",family="ipv4",address="192.168.17.70"} 1790859246',
-				'dhcp_lease_expiry_timestamp_seconds{server="dnsmasq",interface="iot",family="ipv4",address="192.168.17.152"} 1790859222',
+				'# HELP node_openwrt_dhcp_lease_info An active DHCP lease: its address, client and hostname.',
+				'# TYPE node_openwrt_dhcp_lease_info gauge',
+				'node_openwrt_dhcp_lease_info{server="dnsmasq",interface="main",family="ipv4",address="192.168.13.130",mac="02:00:00:00:00:13",hostname="laptop"} 1',
+				'node_openwrt_dhcp_lease_info{server="dnsmasq",interface="main",family="ipv4",address="192.168.13.155",mac="02:00:00:00:00:14",hostname="phone-c"} 1',
+				'node_openwrt_dhcp_lease_info{server="dnsmasq",interface="main",family="ipv4",address="192.168.13.113",mac="02:00:00:00:00:15",hostname="desktop"} 1',
+				'node_openwrt_dhcp_lease_info{server="dnsmasq",interface="guest",family="ipv4",address="172.16.1.167",mac="02:00:00:00:00:16",hostname="watch"} 1',
+				'node_openwrt_dhcp_lease_info{server="dnsmasq",interface="main",family="ipv4",address="192.168.13.116",mac="02:00:00:00:00:17",hostname="phone-d"} 1',
+				'node_openwrt_dhcp_lease_info{server="dnsmasq",interface="iot",family="ipv4",address="192.168.17.70",mac="02:00:00:00:00:06",hostname="display"} 1',
+				'node_openwrt_dhcp_lease_info{server="dnsmasq",interface="iot",family="ipv4",address="192.168.17.152",mac="02:00:00:00:00:18"} 1',
+				'# HELP node_openwrt_dhcp_lease_expiry_timestamp_seconds When an active DHCP lease expires, unless it never does.',
+				'# TYPE node_openwrt_dhcp_lease_expiry_timestamp_seconds gauge',
+				'node_openwrt_dhcp_lease_expiry_timestamp_seconds{server="dnsmasq",interface="main",family="ipv4",address="192.168.13.130"} 1790861559',
+				'node_openwrt_dhcp_lease_expiry_timestamp_seconds{server="dnsmasq",interface="main",family="ipv4",address="192.168.13.155"} 1790860618',
+				'node_openwrt_dhcp_lease_expiry_timestamp_seconds{server="dnsmasq",interface="main",family="ipv4",address="192.168.13.113"} 1790860499',
+				'node_openwrt_dhcp_lease_expiry_timestamp_seconds{server="dnsmasq",interface="guest",family="ipv4",address="172.16.1.167"} 1790859808',
+				'node_openwrt_dhcp_lease_expiry_timestamp_seconds{server="dnsmasq",interface="main",family="ipv4",address="192.168.13.116"} 1790859277',
+				'node_openwrt_dhcp_lease_expiry_timestamp_seconds{server="dnsmasq",interface="iot",family="ipv4",address="192.168.17.70"} 1790859246',
+				'node_openwrt_dhcp_lease_expiry_timestamp_seconds{server="dnsmasq",interface="iot",family="ipv4",address="192.168.17.152"} 1790859222',
 			], slice(r.lines, 5));
 		});
 	});
@@ -121,12 +121,12 @@ describe('collectors.dhcp_leases', () => {
 		with_collector(dhcp_leases, synthetic(), (r) => {
 			assert.match(true, r.result.ok);
 			assert.match([
-				'dhcp_leases{server="dnsmasq",interface="lan",family="ipv4"} 2',
-				'dhcp_leases{server="dnsmasq",family="ipv4"} 1',
-				'dhcp_leases{server="dnsmasq",interface="lan",family="ipv6"} 2',
-				'dhcp_leases{server="odhcpd",interface="lan",family="ipv4"} 2',
-				'dhcp_leases{server="odhcpd",family="ipv4"} 0',
-				'dhcp_leases{server="odhcpd",interface="lan",family="ipv6"} 2',
+				'node_openwrt_dhcp_leases{server="dnsmasq",interface="lan",family="ipv4"} 2',
+				'node_openwrt_dhcp_leases{server="dnsmasq",family="ipv4"} 1',
+				'node_openwrt_dhcp_leases{server="dnsmasq",interface="lan",family="ipv6"} 2',
+				'node_openwrt_dhcp_leases{server="odhcpd",interface="lan",family="ipv4"} 2',
+				'node_openwrt_dhcp_leases{server="odhcpd",family="ipv4"} 0',
+				'node_openwrt_dhcp_leases{server="odhcpd",interface="lan",family="ipv6"} 2',
 			], samples(r.lines));
 		});
 	});
@@ -134,27 +134,27 @@ describe('collectors.dhcp_leases', () => {
 	it('exports a series per address and delegated prefix of each lease, and no expiry for those that never expire', () => {
 		with_collector(dhcp_leases, synthetic({ leases: '1' }), (r) => {
 			assert.match([
-				'dhcp_lease_info{server="dnsmasq",interface="lan",family="ipv4",address="192.168.1.101",mac="02:00:00:00:00:31",hostname="tablet"} 1',
-				'dhcp_lease_info{server="dnsmasq",interface="lan",family="ipv4",address="192.168.1.102",mac="02:00:00:00:00:32",hostname="nas"} 1',
-				'dhcp_lease_info{server="dnsmasq",family="ipv4",address="10.99.0.5",mac="02:00:00:00:00:34",hostname="roamer"} 1',
-				'dhcp_lease_info{server="dnsmasq",interface="lan",family="ipv6",address="2001:db8:1:10::abcd",duid="000100012f3c4d5e020000000035",iaid="305419896",hostname="laptop-3"} 1',
-				'dhcp_lease_info{server="dnsmasq",interface="lan",family="ipv6",address="fd00:5:6:10::42",iaid="T42"} 1',
-				'dhcp_lease_info{server="odhcpd",interface="lan",family="ipv4",address="192.168.1.50",mac="02:00:00:00:00:21",hostname="printer"} 1',
-				'dhcp_lease_info{server="odhcpd",interface="lan",family="ipv4",address="192.168.1.10",mac="02:00:00:00:00:22",duid="00040102030405060708090a0b0c0d0e0f10",iaid="1"} 1',
-				'dhcp_lease_info{server="odhcpd",interface="lan",family="ipv6",address="2001:db8:1:10::1234",duid="000100012f3c4d5e020000000023",iaid="287454020",hostname="laptop-2"} 1',
-				'dhcp_lease_info{server="odhcpd",interface="lan",family="ipv6",address="fd00:5:6:10::1234",duid="000100012f3c4d5e020000000023",iaid="287454020",hostname="laptop-2"} 1',
-				'dhcp_lease_info{server="odhcpd",interface="lan",family="ipv6",address="2001:db8:1:1c::/62",duid="00030001020000000024",iaid="1"} 1',
-			], of(r.lines, 'dhcp_lease_info'));
+				'node_openwrt_dhcp_lease_info{server="dnsmasq",interface="lan",family="ipv4",address="192.168.1.101",mac="02:00:00:00:00:31",hostname="tablet"} 1',
+				'node_openwrt_dhcp_lease_info{server="dnsmasq",interface="lan",family="ipv4",address="192.168.1.102",mac="02:00:00:00:00:32",hostname="nas"} 1',
+				'node_openwrt_dhcp_lease_info{server="dnsmasq",family="ipv4",address="10.99.0.5",mac="02:00:00:00:00:34",hostname="roamer"} 1',
+				'node_openwrt_dhcp_lease_info{server="dnsmasq",interface="lan",family="ipv6",address="2001:db8:1:10::abcd",duid="000100012f3c4d5e020000000035",iaid="305419896",hostname="laptop-3"} 1',
+				'node_openwrt_dhcp_lease_info{server="dnsmasq",interface="lan",family="ipv6",address="fd00:5:6:10::42",iaid="T42"} 1',
+				'node_openwrt_dhcp_lease_info{server="odhcpd",interface="lan",family="ipv4",address="192.168.1.50",mac="02:00:00:00:00:21",hostname="printer"} 1',
+				'node_openwrt_dhcp_lease_info{server="odhcpd",interface="lan",family="ipv4",address="192.168.1.10",mac="02:00:00:00:00:22",duid="00040102030405060708090a0b0c0d0e0f10",iaid="1"} 1',
+				'node_openwrt_dhcp_lease_info{server="odhcpd",interface="lan",family="ipv6",address="2001:db8:1:10::1234",duid="000100012f3c4d5e020000000023",iaid="287454020",hostname="laptop-2"} 1',
+				'node_openwrt_dhcp_lease_info{server="odhcpd",interface="lan",family="ipv6",address="fd00:5:6:10::1234",duid="000100012f3c4d5e020000000023",iaid="287454020",hostname="laptop-2"} 1',
+				'node_openwrt_dhcp_lease_info{server="odhcpd",interface="lan",family="ipv6",address="2001:db8:1:1c::/62",duid="00030001020000000024",iaid="1"} 1',
+			], of(r.lines, 'node_openwrt_dhcp_lease_info'));
 			assert.match([
-				'dhcp_lease_expiry_timestamp_seconds{server="dnsmasq",interface="lan",family="ipv4",address="192.168.1.101"} 1790900000',
-				'dhcp_lease_expiry_timestamp_seconds{server="dnsmasq",family="ipv4",address="10.99.0.5"} 1790900000',
-				'dhcp_lease_expiry_timestamp_seconds{server="dnsmasq",interface="lan",family="ipv6",address="2001:db8:1:10::abcd"} 1790900000',
-				'dhcp_lease_expiry_timestamp_seconds{server="dnsmasq",interface="lan",family="ipv6",address="fd00:5:6:10::42"} 1790900000',
-				`dhcp_lease_expiry_timestamp_seconds{server="odhcpd",interface="lan",family="ipv4",address="192.168.1.50"} ${NOW + 41000}`,
-				`dhcp_lease_expiry_timestamp_seconds{server="odhcpd",interface="lan",family="ipv6",address="2001:db8:1:10::1234"} ${NOW + 7190}`,
-				`dhcp_lease_expiry_timestamp_seconds{server="odhcpd",interface="lan",family="ipv6",address="fd00:5:6:10::1234"} ${NOW + 7190}`,
-				`dhcp_lease_expiry_timestamp_seconds{server="odhcpd",interface="lan",family="ipv6",address="2001:db8:1:1c::/62"} ${NOW + 7190}`,
-			], of(r.lines, 'dhcp_lease_expiry_timestamp_seconds'));
+				'node_openwrt_dhcp_lease_expiry_timestamp_seconds{server="dnsmasq",interface="lan",family="ipv4",address="192.168.1.101"} 1790900000',
+				'node_openwrt_dhcp_lease_expiry_timestamp_seconds{server="dnsmasq",family="ipv4",address="10.99.0.5"} 1790900000',
+				'node_openwrt_dhcp_lease_expiry_timestamp_seconds{server="dnsmasq",interface="lan",family="ipv6",address="2001:db8:1:10::abcd"} 1790900000',
+				'node_openwrt_dhcp_lease_expiry_timestamp_seconds{server="dnsmasq",interface="lan",family="ipv6",address="fd00:5:6:10::42"} 1790900000',
+				`node_openwrt_dhcp_lease_expiry_timestamp_seconds{server="odhcpd",interface="lan",family="ipv4",address="192.168.1.50"} ${NOW + 41000}`,
+				`node_openwrt_dhcp_lease_expiry_timestamp_seconds{server="odhcpd",interface="lan",family="ipv6",address="2001:db8:1:10::1234"} ${NOW + 7190}`,
+				`node_openwrt_dhcp_lease_expiry_timestamp_seconds{server="odhcpd",interface="lan",family="ipv6",address="fd00:5:6:10::1234"} ${NOW + 7190}`,
+				`node_openwrt_dhcp_lease_expiry_timestamp_seconds{server="odhcpd",interface="lan",family="ipv6",address="2001:db8:1:1c::/62"} ${NOW + 7190}`,
+			], of(r.lines, 'node_openwrt_dhcp_lease_expiry_timestamp_seconds'));
 		});
 	});
 
@@ -170,8 +170,8 @@ describe('collectors.dhcp_leases', () => {
 		with_collector(dhcp_leases, cfg, (r) => {
 			assert.match(true, r.result.ok);
 			assert.match([
-				'dhcp_leases{server="dnsmasq",interface="main",family="ipv4"} 2',
-				'dhcp_leases{server="dnsmasq",interface="mgmt",family="ipv4"} 1',
+				'node_openwrt_dhcp_leases{server="dnsmasq",interface="main",family="ipv4"} 2',
+				'node_openwrt_dhcp_leases{server="dnsmasq",interface="mgmt",family="ipv4"} 1',
 			], samples(r.lines));
 		});
 	});
@@ -298,7 +298,7 @@ describe('collectors.dhcp_leases', () => {
 
 			with_collector(dhcp_leases, dnsmasq(text), (r) => {
 				assert.match(true, r.result.ok);
-				assert.match(map(order, (name) => `dhcp_leases{server="dnsmasq",interface="${name}",family="ipv4"} ${want[name]}`),
+				assert.match(map(order, (name) => `node_openwrt_dhcp_leases{server="dnsmasq",interface="${name}",family="ipv4"} ${want[name]}`),
 					samples(r.lines));
 			});
 		});
