@@ -25,110 +25,136 @@ function ap(overrides) {
 }
 
 const NETWORKS = [
-	'# HELP wifi_radio_info A Wi-Fi radio, by its mode, channel and country.',
-	'# TYPE wifi_radio_info gauge',
-	'wifi_radio_info{radio="radio_2G",htmode="HE20",channel="11",country="BR"} 1',
-	'wifi_radio_info{radio="radio_5G",htmode="HE80",channel="149",country="BR"} 1',
-	'# HELP wifi_network_info A Wi-Fi network, by its SSID, BSSID and mode.',
-	'# TYPE wifi_network_info gauge',
-	'wifi_network_info{radio="radio_2G",ifname="phy0-ap0",ssid="iot",bssid="02:00:00:00:a0:01",mode="Master"} 1',
-	'wifi_network_info{radio="radio_5G",ifname="phy1-ap0",ssid="guest",bssid="02:00:00:00:a0:02",mode="Master"} 1',
-	'wifi_network_info{radio="radio_5G",ifname="phy1-ap1",ssid="home",bssid="02:00:00:00:a0:03",mode="Master"} 1',
-	'# HELP wifi_network_quality Signal quality of the network\'s stations, in percent.',
-	'# TYPE wifi_network_quality gauge',
-	'wifi_network_quality{radio="radio_2G",ifname="phy0-ap0"} 67.142857142857',
-	'wifi_network_quality{radio="radio_5G",ifname="phy1-ap0"} NaN',
-	'wifi_network_quality{radio="radio_5G",ifname="phy1-ap1"} 46.428571428571',
-	'# HELP wifi_network_bitrate Average transmit bitrate to the network\'s stations, in kbit/s.',
-	'# TYPE wifi_network_bitrate gauge',
-	'wifi_network_bitrate{radio="radio_2G",ifname="phy0-ap0"} 65000',
-	'wifi_network_bitrate{radio="radio_5G",ifname="phy1-ap0"} NaN',
-	'wifi_network_bitrate{radio="radio_5G",ifname="phy1-ap1"} 423300',
-	'# HELP wifi_network_noise_dbm Noise on the network\'s channel, in dBm.',
-	'# TYPE wifi_network_noise_dbm gauge',
-	'wifi_network_noise_dbm{radio="radio_2G",ifname="phy0-ap0"} -88',
-	'wifi_network_noise_dbm{radio="radio_5G",ifname="phy1-ap0"} -92',
-	'wifi_network_noise_dbm{radio="radio_5G",ifname="phy1-ap1"} -91',
-	'# HELP wifi_network_signal_dbm Average signal of the network\'s stations, in dBm.',
-	'# TYPE wifi_network_signal_dbm gauge',
-	'wifi_network_signal_dbm{radio="radio_2G",ifname="phy0-ap0"} -63',
-	'wifi_network_signal_dbm{radio="radio_5G",ifname="phy1-ap0"} NaN',
-	'wifi_network_signal_dbm{radio="radio_5G",ifname="phy1-ap1"} -77.5',
+	'# HELP node_wifi_radio_info A Wi-Fi radio, by its mode, channel and country.',
+	'# TYPE node_wifi_radio_info gauge',
+	'node_wifi_radio_info{radio="radio_2G",htmode="HE20",channel="11",country="BR"} 1',
+	'node_wifi_radio_info{radio="radio_5G",htmode="HE80",channel="149",country="BR"} 1',
+	'# HELP node_wifi_interface_frequency_hertz The current frequency a WiFi interface is operating at, in hertz.',
+	'# TYPE node_wifi_interface_frequency_hertz gauge',
+	'node_wifi_interface_frequency_hertz{radio="radio_2G",device="phy0-ap0"} 2462000000',
+	'node_wifi_interface_frequency_hertz{radio="radio_5G",device="phy1-ap0"} 5745000000',
+	'node_wifi_interface_frequency_hertz{radio="radio_5G",device="phy1-ap1"} 5745000000',
+	'# HELP node_wifi_network_info A Wi-Fi network, by its SSID, BSSID and mode.',
+	'# TYPE node_wifi_network_info gauge',
+	'node_wifi_network_info{radio="radio_2G",device="phy0-ap0",ssid="iot",bssid="02:00:00:00:a0:01",mode="Master"} 1',
+	'node_wifi_network_info{radio="radio_5G",device="phy1-ap0",ssid="guest",bssid="02:00:00:00:a0:02",mode="Master"} 1',
+	'node_wifi_network_info{radio="radio_5G",device="phy1-ap1",ssid="home",bssid="02:00:00:00:a0:03",mode="Master"} 1',
+	'# HELP node_wifi_network_quality_ratio Signal quality of the network\'s stations, from 0 (-110 dBm) to 1 (-40 dBm).',
+	'# TYPE node_wifi_network_quality_ratio gauge',
+	'node_wifi_network_quality_ratio{radio="radio_2G",device="phy0-ap0"} 0.67142857142857',
+	'node_wifi_network_quality_ratio{radio="radio_5G",device="phy1-ap0"} NaN',
+	'node_wifi_network_quality_ratio{radio="radio_5G",device="phy1-ap1"} 0.46428571428571',
+	'# HELP node_wifi_network_transmit_bits_per_second Average transmit bitrate to the network\'s stations, in bits per second.',
+	'# TYPE node_wifi_network_transmit_bits_per_second gauge',
+	'node_wifi_network_transmit_bits_per_second{radio="radio_2G",device="phy0-ap0"} 65000000',
+	'node_wifi_network_transmit_bits_per_second{radio="radio_5G",device="phy1-ap0"} NaN',
+	'node_wifi_network_transmit_bits_per_second{radio="radio_5G",device="phy1-ap1"} 423300000',
+	'# HELP node_wifi_network_noise_dbm Noise on the network\'s channel, in dBm.',
+	'# TYPE node_wifi_network_noise_dbm gauge',
+	'node_wifi_network_noise_dbm{radio="radio_2G",device="phy0-ap0"} -88',
+	'node_wifi_network_noise_dbm{radio="radio_5G",device="phy1-ap0"} -92',
+	'node_wifi_network_noise_dbm{radio="radio_5G",device="phy1-ap1"} -91',
+	'# HELP node_wifi_network_signal_dbm Average signal of the network\'s stations, in dBm.',
+	'# TYPE node_wifi_network_signal_dbm gauge',
+	'node_wifi_network_signal_dbm{radio="radio_2G",device="phy0-ap0"} -63',
+	'node_wifi_network_signal_dbm{radio="radio_5G",device="phy1-ap0"} NaN',
+	'node_wifi_network_signal_dbm{radio="radio_5G",device="phy1-ap1"} -77.5',
 ];
 
 function sta(dev, mac) {
-	return `{radio="${dev == 'phy0-ap0' ? 'radio_2G' : 'radio_5G'}",ifname="${dev}",mac="02:00:00:00:00:${mac}"}`;
+	return `{radio="${dev == 'phy0-ap0' ? 'radio_2G' : 'radio_5G'}",device="${dev}",mac_address="02:00:00:00:00:${mac}"}`;
 }
 
 const STATIONS = [
-	'# HELP wifi_stations_total Stations associated with the network.',
-	'# TYPE wifi_stations_total counter',
-	'wifi_stations_total{radio="radio_2G",ifname="phy0-ap0"} 1',
-	'wifi_stations_total{radio="radio_5G",ifname="phy1-ap0"} 0',
-	'wifi_stations_total{radio="radio_5G",ifname="phy1-ap1"} 4',
-	'# HELP wifi_station_inactive_milliseconds Time since the station was last active, in milliseconds.',
-	'# TYPE wifi_station_inactive_milliseconds gauge',
-	'wifi_station_inactive_milliseconds' + sta('phy0-ap0', '01') + ' 10',
-	'wifi_station_inactive_milliseconds' + sta('phy1-ap1', '03') + ' 23310',
-	'wifi_station_inactive_milliseconds' + sta('phy1-ap1', '02') + ' 140',
-	'wifi_station_inactive_milliseconds' + sta('phy1-ap1', '04') + ' 37500',
-	'wifi_station_inactive_milliseconds' + sta('phy1-ap1', '05') + ' 15200',
-	'# HELP wifi_station_receive_bytes_total Bytes received from the station.',
-	'# TYPE wifi_station_receive_bytes_total counter',
-	'wifi_station_receive_bytes_total' + sta('phy0-ap0', '01') + ' 14613247',
-	'wifi_station_receive_bytes_total' + sta('phy1-ap1', '03') + ' 4873383',
-	'wifi_station_receive_bytes_total' + sta('phy1-ap1', '02') + ' 48422804',
-	'wifi_station_receive_bytes_total' + sta('phy1-ap1', '04') + ' 3744045',
-	'wifi_station_receive_bytes_total' + sta('phy1-ap1', '05') + ' 2422352',
-	'# HELP wifi_station_transmit_bytes_total Bytes transmitted to the station.',
-	'# TYPE wifi_station_transmit_bytes_total counter',
-	'wifi_station_transmit_bytes_total' + sta('phy0-ap0', '01') + ' 43766742',
-	'wifi_station_transmit_bytes_total' + sta('phy1-ap1', '03') + ' 9616361',
-	'wifi_station_transmit_bytes_total' + sta('phy1-ap1', '02') + ' 480803379',
-	'wifi_station_transmit_bytes_total' + sta('phy1-ap1', '04') + ' 13015496',
-	'wifi_station_transmit_bytes_total' + sta('phy1-ap1', '05') + ' 103585072',
-	'# HELP wifi_station_receive_packets_total Packets received from the station.',
-	'# TYPE wifi_station_receive_packets_total counter',
-	'wifi_station_receive_packets_total' + sta('phy0-ap0', '01') + ' 354610',
-	'wifi_station_receive_packets_total' + sta('phy1-ap1', '03') + ' 15846',
-	'wifi_station_receive_packets_total' + sta('phy1-ap1', '02') + ' 153592',
-	'wifi_station_receive_packets_total' + sta('phy1-ap1', '04') + ' 16535',
-	'wifi_station_receive_packets_total' + sta('phy1-ap1', '05') + ' 10924',
-	'# HELP wifi_station_transmit_packets_total Packets transmitted to the station.',
-	'# TYPE wifi_station_transmit_packets_total counter',
-	'wifi_station_transmit_packets_total' + sta('phy0-ap0', '01') + ' 47105',
-	'wifi_station_transmit_packets_total' + sta('phy1-ap1', '03') + ' 14302',
-	'wifi_station_transmit_packets_total' + sta('phy1-ap1', '02') + ' 418802',
-	'wifi_station_transmit_packets_total' + sta('phy1-ap1', '04') + ' 14812',
-	'wifi_station_transmit_packets_total' + sta('phy1-ap1', '05') + ' 72070',
-	'# HELP wifi_station_signal_dbm Signal of the station, in dBm.',
-	'# TYPE wifi_station_signal_dbm gauge',
-	'wifi_station_signal_dbm' + sta('phy0-ap0', '01') + ' -63',
-	'wifi_station_signal_dbm' + sta('phy1-ap1', '03') + ' -73',
-	'wifi_station_signal_dbm' + sta('phy1-ap1', '02') + ' -81',
-	'wifi_station_signal_dbm' + sta('phy1-ap1', '04') + ' -84',
-	'wifi_station_signal_dbm' + sta('phy1-ap1', '05') + ' -72',
-	'# HELP wifi_station_receive_kilobits_per_second Bitrate of the last packet received from the station, in kbit/s.',
-	'# TYPE wifi_station_receive_kilobits_per_second gauge',
-	'wifi_station_receive_kilobits_per_second' + sta('phy0-ap0', '01') + ' 72200',
-	'wifi_station_receive_kilobits_per_second' + sta('phy1-ap1', '03') + ' 432300',
-	'wifi_station_receive_kilobits_per_second' + sta('phy1-ap1', '02') + ' 144100',
-	'wifi_station_receive_kilobits_per_second' + sta('phy1-ap1', '04') + ' 8100',
-	'wifi_station_receive_kilobits_per_second' + sta('phy1-ap1', '05') + ' 144100',
-	'# HELP wifi_station_transmit_kilobits_per_second Bitrate of the last packet transmitted to the station, in kbit/s.',
-	'# TYPE wifi_station_transmit_kilobits_per_second gauge',
-	'wifi_station_transmit_kilobits_per_second' + sta('phy0-ap0', '01') + ' 65000',
-	'wifi_station_transmit_kilobits_per_second' + sta('phy1-ap1', '03') + ' 288200',
-	'wifi_station_transmit_kilobits_per_second' + sta('phy1-ap1', '02') + ' 648500',
-	'wifi_station_transmit_kilobits_per_second' + sta('phy1-ap1', '04') + ' 324200',
-	'wifi_station_transmit_kilobits_per_second' + sta('phy1-ap1', '05') + ' 432300',
-	'# HELP wifi_station_expected_throughput_kilobits_per_second Expected throughput to the station, in kbit/s.',
-	'# TYPE wifi_station_expected_throughput_kilobits_per_second gauge',
-	'wifi_station_expected_throughput_kilobits_per_second' + sta('phy0-ap0', '01') + ' 58576',
-	'wifi_station_expected_throughput_kilobits_per_second' + sta('phy1-ap1', '03') + ' 252360',
-	'wifi_station_expected_throughput_kilobits_per_second' + sta('phy1-ap1', '02') + ' 564848',
-	'wifi_station_expected_throughput_kilobits_per_second' + sta('phy1-ap1', '04') + ' 283752',
-	'wifi_station_expected_throughput_kilobits_per_second' + sta('phy1-ap1', '05') + ' 382872',
+	'# HELP node_wifi_stations Stations associated with the interface.',
+	'# TYPE node_wifi_stations gauge',
+	'node_wifi_stations{radio="radio_2G",device="phy0-ap0"} 1',
+	'node_wifi_stations{radio="radio_5G",device="phy1-ap0"} 0',
+	'node_wifi_stations{radio="radio_5G",device="phy1-ap1"} 4',
+	'# HELP node_wifi_station_connected_seconds_total The total number of seconds a station has been connected to an access point.',
+	'# TYPE node_wifi_station_connected_seconds_total counter',
+	'node_wifi_station_connected_seconds_total' + sta('phy0-ap0', '01') + ' 12053',
+	'node_wifi_station_connected_seconds_total' + sta('phy1-ap1', '03') + ' 12024',
+	'node_wifi_station_connected_seconds_total' + sta('phy1-ap1', '02') + ' 8628',
+	'node_wifi_station_connected_seconds_total' + sta('phy1-ap1', '04') + ' 5271',
+	'node_wifi_station_connected_seconds_total' + sta('phy1-ap1', '05') + ' 5265',
+	'# HELP node_wifi_station_inactive_seconds The number of seconds since any wireless activity has occurred on a station.',
+	'# TYPE node_wifi_station_inactive_seconds gauge',
+	'node_wifi_station_inactive_seconds' + sta('phy0-ap0', '01') + ' 0.01',
+	'node_wifi_station_inactive_seconds' + sta('phy1-ap1', '03') + ' 23.31',
+	'node_wifi_station_inactive_seconds' + sta('phy1-ap1', '02') + ' 0.14',
+	'node_wifi_station_inactive_seconds' + sta('phy1-ap1', '04') + ' 37.5',
+	'node_wifi_station_inactive_seconds' + sta('phy1-ap1', '05') + ' 15.2',
+	'# HELP node_wifi_station_receive_bits_per_second The current WiFi receive bitrate of a station, in bits per second.',
+	'# TYPE node_wifi_station_receive_bits_per_second gauge',
+	'node_wifi_station_receive_bits_per_second' + sta('phy0-ap0', '01') + ' 72200000',
+	'node_wifi_station_receive_bits_per_second' + sta('phy1-ap1', '03') + ' 432300000',
+	'node_wifi_station_receive_bits_per_second' + sta('phy1-ap1', '02') + ' 144100000',
+	'node_wifi_station_receive_bits_per_second' + sta('phy1-ap1', '04') + ' 8100000',
+	'node_wifi_station_receive_bits_per_second' + sta('phy1-ap1', '05') + ' 144100000',
+	'# HELP node_wifi_station_transmit_bits_per_second The current WiFi transmit bitrate of a station, in bits per second.',
+	'# TYPE node_wifi_station_transmit_bits_per_second gauge',
+	'node_wifi_station_transmit_bits_per_second' + sta('phy0-ap0', '01') + ' 65000000',
+	'node_wifi_station_transmit_bits_per_second' + sta('phy1-ap1', '03') + ' 288200000',
+	'node_wifi_station_transmit_bits_per_second' + sta('phy1-ap1', '02') + ' 648500000',
+	'node_wifi_station_transmit_bits_per_second' + sta('phy1-ap1', '04') + ' 324200000',
+	'node_wifi_station_transmit_bits_per_second' + sta('phy1-ap1', '05') + ' 432300000',
+	'# HELP node_wifi_station_receive_bytes_total The total number of bytes received by a WiFi station.',
+	'# TYPE node_wifi_station_receive_bytes_total counter',
+	'node_wifi_station_receive_bytes_total' + sta('phy0-ap0', '01') + ' 14613247',
+	'node_wifi_station_receive_bytes_total' + sta('phy1-ap1', '03') + ' 4873383',
+	'node_wifi_station_receive_bytes_total' + sta('phy1-ap1', '02') + ' 48422804',
+	'node_wifi_station_receive_bytes_total' + sta('phy1-ap1', '04') + ' 3744045',
+	'node_wifi_station_receive_bytes_total' + sta('phy1-ap1', '05') + ' 2422352',
+	'# HELP node_wifi_station_transmit_bytes_total The total number of bytes transmitted by a WiFi station.',
+	'# TYPE node_wifi_station_transmit_bytes_total counter',
+	'node_wifi_station_transmit_bytes_total' + sta('phy0-ap0', '01') + ' 43766742',
+	'node_wifi_station_transmit_bytes_total' + sta('phy1-ap1', '03') + ' 9616361',
+	'node_wifi_station_transmit_bytes_total' + sta('phy1-ap1', '02') + ' 480803379',
+	'node_wifi_station_transmit_bytes_total' + sta('phy1-ap1', '04') + ' 13015496',
+	'node_wifi_station_transmit_bytes_total' + sta('phy1-ap1', '05') + ' 103585072',
+	'# HELP node_wifi_station_signal_dbm The current WiFi signal strength, in decibel-milliwatts (dBm).',
+	'# TYPE node_wifi_station_signal_dbm gauge',
+	'node_wifi_station_signal_dbm' + sta('phy0-ap0', '01') + ' -63',
+	'node_wifi_station_signal_dbm' + sta('phy1-ap1', '03') + ' -73',
+	'node_wifi_station_signal_dbm' + sta('phy1-ap1', '02') + ' -81',
+	'node_wifi_station_signal_dbm' + sta('phy1-ap1', '04') + ' -84',
+	'node_wifi_station_signal_dbm' + sta('phy1-ap1', '05') + ' -72',
+	'# HELP node_wifi_station_transmit_retries_total The total number of times a station has had to retry while sending a packet.',
+	'# TYPE node_wifi_station_transmit_retries_total counter',
+	'node_wifi_station_transmit_retries_total' + sta('phy0-ap0', '01') + ' 11791',
+	'node_wifi_station_transmit_retries_total' + sta('phy1-ap1', '03') + ' 3375',
+	'node_wifi_station_transmit_retries_total' + sta('phy1-ap1', '02') + ' 22470',
+	'node_wifi_station_transmit_retries_total' + sta('phy1-ap1', '04') + ' 1219',
+	'node_wifi_station_transmit_retries_total' + sta('phy1-ap1', '05') + ' 5603',
+	'# HELP node_wifi_station_transmit_failed_total The total number of times a station has failed to send a packet.',
+	'# TYPE node_wifi_station_transmit_failed_total counter',
+	'node_wifi_station_transmit_failed_total' + sta('phy0-ap0', '01') + ' 11813',
+	'node_wifi_station_transmit_failed_total' + sta('phy1-ap1', '03') + ' 3376',
+	'node_wifi_station_transmit_failed_total' + sta('phy1-ap1', '02') + ' 22470',
+	'node_wifi_station_transmit_failed_total' + sta('phy1-ap1', '04') + ' 1219',
+	'node_wifi_station_transmit_failed_total' + sta('phy1-ap1', '05') + ' 5603',
+	'# HELP node_wifi_station_transmitted_packets_total The total number of packets transmitted by a station.',
+	'# TYPE node_wifi_station_transmitted_packets_total counter',
+	'node_wifi_station_transmitted_packets_total' + sta('phy0-ap0', '01') + ' 47105',
+	'node_wifi_station_transmitted_packets_total' + sta('phy1-ap1', '03') + ' 14302',
+	'node_wifi_station_transmitted_packets_total' + sta('phy1-ap1', '02') + ' 418802',
+	'node_wifi_station_transmitted_packets_total' + sta('phy1-ap1', '04') + ' 14812',
+	'node_wifi_station_transmitted_packets_total' + sta('phy1-ap1', '05') + ' 72070',
+	'# HELP node_wifi_station_received_packets_total The total number of packets received by a station.',
+	'# TYPE node_wifi_station_received_packets_total counter',
+	'node_wifi_station_received_packets_total' + sta('phy0-ap0', '01') + ' 354610',
+	'node_wifi_station_received_packets_total' + sta('phy1-ap1', '03') + ' 15846',
+	'node_wifi_station_received_packets_total' + sta('phy1-ap1', '02') + ' 153592',
+	'node_wifi_station_received_packets_total' + sta('phy1-ap1', '04') + ' 16535',
+	'node_wifi_station_received_packets_total' + sta('phy1-ap1', '05') + ' 10924',
+	'# HELP node_wifi_station_expected_throughput_bits_per_second Expected throughput to the station, in bits per second.',
+	'# TYPE node_wifi_station_expected_throughput_bits_per_second gauge',
+	'node_wifi_station_expected_throughput_bits_per_second' + sta('phy0-ap0', '01') + ' 58576000',
+	'node_wifi_station_expected_throughput_bits_per_second' + sta('phy1-ap1', '03') + ' 252360000',
+	'node_wifi_station_expected_throughput_bits_per_second' + sta('phy1-ap1', '02') + ' 564848000',
+	'node_wifi_station_expected_throughput_bits_per_second' + sta('phy1-ap1', '04') + ' 283752000',
+	'node_wifi_station_expected_throughput_bits_per_second' + sta('phy1-ap1', '05') + ' 382872000',
 ];
 
 // One radio with one AP interface whose station dump has these signals and
@@ -197,13 +223,14 @@ describe('collectors.wifi', () => {
 			assert.match({ ok: false, error: 'NL80211_FAILED', details: 'phy1-ap1: Operation not supported' },
 				{ ok: r.result.ok, error: r.result.error, details: r.result.details });
 			assert.match(contains([
-				'wifi_network_info{radio="radio_5G",ifname="phy1-ap1",ssid="home",bssid="02:00:00:00:a0:03",mode="Master"} 1',
-				'wifi_network_signal_dbm{radio="radio_2G",ifname="phy0-ap0"} -63',
-				'wifi_stations_total{radio="radio_5G",ifname="phy1-ap0"} 0',
+				'node_wifi_network_info{radio="radio_5G",device="phy1-ap1",ssid="home",bssid="02:00:00:00:a0:03",mode="Master"} 1',
+				'node_wifi_network_signal_dbm{radio="radio_2G",device="phy0-ap0"} -63',
+				'node_wifi_stations{radio="radio_5G",device="phy1-ap0"} 0',
 			]), r.lines);
 			assert.match([
-				'wifi_network_info{radio="radio_5G",ifname="phy1-ap1",ssid="home",bssid="02:00:00:00:a0:03",mode="Master"} 1',
-			], filter(r.lines, (l) => index(l, 'ifname="phy1-ap1"') >= 0));
+				'node_wifi_interface_frequency_hertz{radio="radio_5G",device="phy1-ap1"} 5745000000',
+				'node_wifi_network_info{radio="radio_5G",device="phy1-ap1",ssid="home",bssid="02:00:00:00:a0:03",mode="Master"} 1',
+			], filter(r.lines, (l) => index(l, 'device="phy1-ap1"') >= 0));
 		});
 	});
 
@@ -212,7 +239,7 @@ describe('collectors.wifi', () => {
 			assert.match({ error: 'NL80211_FAILED', details: 'phy0-ap0: No such device' },
 				{ error: r.result.error, details: r.result.details });
 			assert.match([], filter(r.lines, (l) => index(l, 'phy0-ap0') >= 0));
-			assert.match(contains([ 'wifi_stations_total{radio="radio_5G",ifname="phy1-ap1"} 4' ]), r.lines);
+			assert.match(contains([ 'node_wifi_stations{radio="radio_5G",device="phy1-ap1"} 4' ]), r.lines);
 		});
 	});
 
@@ -224,8 +251,8 @@ describe('collectors.wifi', () => {
 		with_collector(wifi, ap({ errors }), (r) => {
 			assert.match(true, r.result.ok);
 			assert.match(contains([
-				'wifi_network_noise_dbm{radio="radio_2G",ifname="phy0-ap0"} NaN',
-				'wifi_network_noise_dbm{radio="radio_5G",ifname="phy1-ap1"} NaN',
+				'node_wifi_network_noise_dbm{radio="radio_2G",device="phy0-ap0"} NaN',
+				'node_wifi_network_noise_dbm{radio="radio_5G",device="phy1-ap1"} NaN',
 			]), r.lines);
 		});
 	});
@@ -236,25 +263,25 @@ describe('collectors.wifi', () => {
 
 		with_collector(wifi, cfg, (r) => {
 			assert.match(true, r.result.ok);
-			assert.match(1, length(filter(r.lines, (l) => index(l, 'wifi_network_info{') == 0)));
+			assert.match(1, length(filter(r.lines, (l) => index(l, 'node_wifi_network_info{') == 0)));
 		});
 	});
 
-	prop('averages the stations\' signal and bitrate, and counts them',
+	prop('averages the stations\' signal and bitrate (in bits per second), and counts them',
 		gen.array(gen.tuple(gen.int(-95, -20), gen.int(1, 24000)), { min_len: 1, max_len: 12 }), (stations) => {
 			let signals = map(stations, (s) => s[0]);
 			let bitrates = map(stations, (s) => s[1]);
 
 			with_collector(wifi, one_network(signals, bitrates), (r) => {
-				let signal = sample(r.lines, 'wifi_network_signal_dbm');
-				let bitrate = sample(r.lines, 'wifi_network_bitrate');
-				let quality = sample(r.lines, 'wifi_network_quality');
+				let signal = sample(r.lines, 'node_wifi_network_signal_dbm');
+				let bitrate = sample(r.lines, 'node_wifi_network_transmit_bits_per_second');
+				let quality = sample(r.lines, 'node_wifi_network_quality_ratio');
 
 				assert.match(true, r.result.ok);
-				assert.match(length(stations), sample(r.lines, 'wifi_stations_total'));
+				assert.match(length(stations), sample(r.lines, 'node_wifi_stations'));
 				assert.match(true, signal >= min(...signals) && signal <= max(...signals), `${signal}`);
-				assert.match(true, bitrate >= min(...bitrates) * 100 && bitrate <= max(...bitrates) * 100, `${bitrate}`);
-				let error = quality - 100.0 / 70 * (signal + 110);
+				assert.match(true, bitrate >= min(...bitrates) * 100000 && bitrate <= max(...bitrates) * 100000, `${bitrate}`);
+				let error = quality - (signal + 110) / 70.0;
 
 				assert.match(true, error > -1e-6 && error < 1e-6, `${quality}`);
 			});
@@ -263,12 +290,37 @@ describe('collectors.wifi', () => {
 	it('writes NaN averages for a network without stations', () => {
 		with_collector(wifi, one_network([], []), (r) => {
 			assert.match(contains([
-				'wifi_network_quality{radio="radio0",ifname="wlan0"} NaN',
-				'wifi_network_bitrate{radio="radio0",ifname="wlan0"} NaN',
-				'wifi_network_noise_dbm{radio="radio0",ifname="wlan0"} -95',
-				'wifi_network_signal_dbm{radio="radio0",ifname="wlan0"} NaN',
-				'wifi_stations_total{radio="radio0",ifname="wlan0"} 0',
+				'node_wifi_interface_frequency_hertz{radio="radio0",device="wlan0"} 5180000000',
+				'node_wifi_network_quality_ratio{radio="radio0",device="wlan0"} NaN',
+				'node_wifi_network_transmit_bits_per_second{radio="radio0",device="wlan0"} NaN',
+				'node_wifi_network_noise_dbm{radio="radio0",device="wlan0"} -95',
+				'node_wifi_network_signal_dbm{radio="radio0",device="wlan0"} NaN',
+				'node_wifi_stations{radio="radio0",device="wlan0"} 0',
 			]), r.lines);
 		});
 	});
+
+	it('gives the quality as a ratio: 0 at -110 dBm, 1 at -40 dBm', () => {
+		assert.match([ 0.0, 0.5, 1.0 ], [ wifi.quality(-110), wifi.quality(-75), wifi.quality(-40) ]);
+	});
+
+	prop('converts a station\'s times to seconds and its rates to bits per second',
+		gen.tuple(gen.int(0, 10000000), gen.int(1, 50000), gen.int(1, 50000), gen.int(1, 5000000)), (x) => {
+			let cfg = one_network([], []);
+			cfg.nl80211.data['NL80211_CMD_GET_STATION:wlan0'] = [ { mac: '02:00:00:00:01:00', sta_info: {
+				inactive_time: x[0], rx_bitrate: { bitrate32: x[1] }, tx_bitrate: { bitrate32: x[2] }, expected_throughput: x[3],
+			} } ];
+
+			with_collector(wifi, cfg, (r) => {
+				assert.match(true, r.result.ok);
+				let inactive = sample(r.lines, 'node_wifi_station_inactive_seconds');
+
+				assert.match(true, inactive - x[0] / 1000.0 < 1e-9 && x[0] / 1000.0 - inactive < 1e-9, `${inactive}`);
+				assert.match([ x[1] * 100000, x[2] * 100000, x[3] * 1000 ], [
+					sample(r.lines, 'node_wifi_station_receive_bits_per_second'),
+					sample(r.lines, 'node_wifi_station_transmit_bits_per_second'),
+					sample(r.lines, 'node_wifi_station_expected_throughput_bits_per_second'),
+				]);
+			});
+		});
 });
