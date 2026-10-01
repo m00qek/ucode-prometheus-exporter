@@ -9,6 +9,7 @@
 //   ucode -L src -L test test/bench/run.uc WORLD CASE
 //
 // CASE is
+//   calibrate:vm              the VM's own speed: an empty loop's turn and a builtin's call
 //   load:<set>                compile and validate the set's collectors, as uhttpd does when it starts
 //   collector:<name>[@<n>]    one collector's run and its rendering; @n reads the n-entry conntrack table
 //   scrape:<set>              a whole scrape of the set, as uhttpd answers /metrics
@@ -91,7 +92,22 @@ function load_set(set) {
 let result = { case: name, kind };
 let mem_before;
 
-if (kind == 'load') {
+if (kind == 'calibrate') {
+	// The VM's speed, which every case is a multiple of: µs per turn of an
+	// empty loop and per call of a builtin, to compare machines by.
+	mem_before = memory();
+
+	let n = 200000, t = now();
+	for (let i = 0; i < n; i++)
+		;
+	result.loop_us = (now() - t) * 1000000 / n;
+
+	t = now();
+	for (let i = 0; i < n; i++)
+		length('abc');
+	result.call_us = (now() - t) * 1000000 / n - result.loop_us;
+	result.time = result.loop_us / 1000000;
+} else if (kind == 'load') {
 	mem_before = reset_peak();
 
 	let t = now();
@@ -149,10 +165,13 @@ if (kind == 'load') {
 
 	let collecting = 0, failed = [];
 
+	result.durations = {};
 	for (let line in split(res.body, '\n')) {
 		let m = match(line, DURATION);
-		if (m)
+		if (m) {
 			collecting += +m[2];
+			result.durations[m[1]] = +m[2];
+		}
 		m = match(line, FAILED);
 		if (m)
 			push(failed, m[1]);

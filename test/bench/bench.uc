@@ -55,7 +55,7 @@ let src = fs.realpath(`${here}/../../src`), test = fs.realpath(`${here}/..`);
 let search = (src ? `-L '${src}' ` : '') + `-L '${test}'`;
 
 // [ world, case ]
-let cases = [ [ 'large', 'load:base' ], [ 'large', 'load:full' ] ];
+let cases = [ [ 'large', 'calibrate:vm' ], [ 'large', 'load:base' ], [ 'large', 'load:full' ] ];
 
 for (let n in sets.full)
 	if (n != 'nat_traffic')
@@ -83,7 +83,9 @@ function host() {
 	let cpus = length(filter(split(fs.readfile('/proc/cpuinfo') ?? '', '\n'), (l) => match(l, /^processor\s*:/)));
 	let model = trim(fs.readfile('/tmp/sysinfo/model') ?? '') || null;
 
-	return { model, cpu, cpus, kernel: trim(fs.readfile('/proc/sys/kernel/osrelease') ?? '') };
+	let bogomips = match(fs.readfile('/proc/cpuinfo') ?? '', /BogoMIPS\s*:\s*([0-9.]+)/i);
+
+	return { model, cpu, cpus, bogomips: bogomips ? +bogomips[1] : null, kernel: trim(fs.readfile('/proc/sys/kernel/osrelease') ?? '') };
 }
 
 function run_once(world, name) {
@@ -164,8 +166,13 @@ for (let c in cases) {
 	push(results, r);
 
 	let note = r.ok === false ? (r.error ?? 'failed') : '';
-	if (r.kind == 'scrape')
-		note = sprintf('collectors %s ms, outside %s ms, load %s ms %s', ms(r.collecting), ms(r.outside), ms(r.load), note);
+	if (r.kind == 'calibrate')
+		note = sprintf('%.3f us a loop turn, %.3f us a builtin call', r.loop_us, r.call_us);
+	if (r.kind == 'scrape') {
+		let top = slice(sort(keys(r.durations ?? {}), (a, b) => r.durations[b] - r.durations[a]), 0, 4);
+		note = sprintf('collectors %s ms (%s), outside %s ms, load %s ms %s', ms(r.collecting),
+			join(' ', map(top, (n) => `${n} ${ms(r.durations[n])}`)), ms(r.outside), ms(r.load), note);
+	}
 
 	print(sprintf('%-8s %-32s %10s %10s %10s %8s %9s  %s\n', c[0], c[1], ms(r.time?.min), ms(r.time?.median),
 		ms(r.render?.min), r.samples ?? '-', r.growth_kb ?? '-', note));

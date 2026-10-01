@@ -111,7 +111,13 @@ lab-down:
 # and --memory: a slower router. BENCH_ARGS go to bench.uc (-r 1: one run each).
 # BENCH_REV benches the exporter of another revision (src/ only) with this
 # bench: BENCH_REV=main for a before and after.
-BENCH_LIMITS = $(strip $(if $(BENCH_CPUS),--cpus $(BENCH_CPUS)) $(if $(BENCH_CPUSET),--cpuset-cpus $(BENCH_CPUSET)) \
+# --cpus is a CFS quota per 100 ms period: a run shorter than the quota runs
+# at full speed when it starts a period, and waits out the rest of one when
+# it does not, which makes short cases bimodal. The same share of a 20 ms
+# period (--cpu-period, --cpu-quota) is as fast on average, and steadier;
+# docker takes no quota under 1 ms, so BENCH_CPUS goes down to 0.05.
+BENCH_LIMITS = $(strip $(if $(BENCH_CPUS),--cpu-period 20000 --cpu-quota $(shell awk 'BEGIN { print int($(BENCH_CPUS) * 20000) }')) \
+	$(if $(BENCH_CPUSET),--cpuset-cpus $(BENCH_CPUSET)) \
 	$(if $(BENCH_MEMORY),--memory $(BENCH_MEMORY) --memory-swap $(BENCH_MEMORY)))
 BENCH_LABEL ?= devenv$(if $(BENCH_REV),-$(BENCH_REV))$(if $(BENCH_CPUS),-cpus$(BENCH_CPUS))$(if $(BENCH_CPUSET),-cpuset$(BENCH_CPUSET))$(if $(BENCH_MEMORY),-mem$(BENCH_MEMORY))
 BENCH_SRC    = $(if $(BENCH_REV),bin/bench/rev-$(BENCH_REV),.)
