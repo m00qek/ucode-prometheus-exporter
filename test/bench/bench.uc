@@ -17,7 +17,7 @@
 //   collector:<name>              each collector of `full` on the large world
 //   collector:nat_traffic@<n>     the n-entry conntrack tables (1k, 10k, 20k)
 //   scrape:base, scrape:full      whole scrapes, on the typical and the large world
-//   auth:<hash>                   basic auth's check of a password, by each hash
+//   auth:<hash>, auth:cached      basic auth's check of a password, by each hash and by the cache
 
 import * as fs from 'fs';
 import * as budgets from 'bench.budgets';
@@ -68,8 +68,9 @@ for (let w in [ 'typical', 'large' ])
 	for (let s in [ 'base', 'full' ])
 		push(cases, [ w, `scrape:${s}` ]);
 // Basic auth's check of a password: MD5-crypt, SHA-512-crypt at the rounds
-// hash_password makes, and SHA-crypt at the most auth_password takes.
-for (let c in [ 'md5', `sha512@${auth.HASH_ROUNDS}`, `sha256@${auth.ROUNDS_MAX}`, `sha512@${auth.ROUNDS_MAX}` ])
+// hash_password makes, SHA-crypt at the most auth_password takes, and a
+// request let in by the cache.
+for (let c in [ 'md5', `sha512@${auth.HASH_ROUNDS}`, `sha256@${auth.ROUNDS_MAX}`, `sha512@${auth.ROUNDS_MAX}`, 'cached' ])
 	push(cases, [ 'typical', `auth:${c}` ]);
 
 if (args.filter)
@@ -175,7 +176,7 @@ for (let c in cases) {
 	if (r.kind == 'calibrate')
 		note = sprintf('%.3f us a loop turn, %.3f us a builtin call, %.1f ms a program run', r.loop_us, r.call_us, r.exec_ms);
 	if (r.kind == 'auth' && r.ok !== false)
-		note = sprintf('%d rounds', r.rounds);
+		note = r.cached ? 'by the cache' : sprintf('%d rounds', r.rounds);
 	if (r.kind == 'scrape') {
 		let top = slice(sort(keys(r.durations ?? {}), (a, b) => r.durations[b] - r.durations[a]), 0, 4);
 		note = sprintf('collectors %s ms (%s), outside %s ms, load %s ms %s', ms(r.collecting),

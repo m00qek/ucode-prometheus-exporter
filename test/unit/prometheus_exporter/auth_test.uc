@@ -262,3 +262,96 @@ describe('auth.parse_conf, over the cap', () => {
 		]);
 	});
 });
+
+// The instance's state, in memory, counting its writes.
+function memory_state(entries) {
+	let st = { entries: entries ?? {}, writes: 0 };
+
+	st.read = (name) => st.entries[name];
+	st.write = function(name, data) { st.entries[name] = data; st.writes++; return true; };
+
+	return st;
+}
+
+describe('auth.digest', () => {
+	it('is SHA-256 of the header, the user and the hash, each ended by a NUL', () => {
+		assert.match(true, match(auth.digest(A, basic('prom:secret')), /^[0-9a-f]{64}$/) != null);
+	});
+
+	prop('differs when the header, the user or the hash does', gen.tuple(PASSWORD, PASSWORD, gen.elements(HASH, SHA), gen.elements(HASH, SHA),
+		gen.elements('prom', 'other')), (t) => {
+		let a = { user: 'prom', hash: t[2] }, b = { user: t[4], hash: t[3] };
+
+		assert.match(t[0] == t[1] && t[2] == t[3] && t[4] == 'prom',
+			auth.digest(a, basic('prom:' + t[0])) == auth.digest(b, basic('prom:' + t[1])));
+	});
+});
+
+describe('auth.allowed, with the cache', () => {
+	const RIGHT = basic('prom:secret');
+
+	it('lets in the right header by the full check, and keeps its digest', () => {
+		let st = memory_state();
+
+		assert.match([ true, auth.digest(A, RIGHT), 1 ], [ auth.allowed(A, RIGHT, st), st.read(auth.CACHE), st.writes ]);
+	});
+
+	// The digest of a header the full check refuses: let in only when the hash
+	// is not computed.
+	it('lets in the header the cache holds without computing the hash, and writes nothing', () => {
+		let wrong = basic('prom:not-the-password');
+		let st = memory_state({ [auth.CACHE]: auth.digest(A, wrong) });
+
+		assert.match([ false, true, 0 ], [ auth.allowed(A, wrong), auth.allowed(A, wrong, st), st.writes ]);
+	});
+
+	it('checks any other header in full: a wrong one stays out, and the cache keeps its entry', () => {
+		let st = memory_state();
+
+		auth.allowed(A, RIGHT, st);
+		assert.match([ false, false, false, auth.digest(A, RIGHT), 1 ], [
+			auth.allowed(A, basic('prom:wrong'), st),
+			auth.allowed(A, basic('other:secret'), st),
+			auth.allowed(A, null, st),
+			st.read(auth.CACHE), st.writes,
+		]);
+	});
+
+	it('checks the same credentials in another header in full, and keeps that one instead', () => {
+		let st = memory_state();
+		let other = 'basic ' + b64enc('prom:secret');
+
+		auth.allowed(A, RIGHT, st);
+		assert.match([ true, auth.digest(A, other), 2 ], [ auth.allowed(A, other, st), st.read(auth.CACHE), st.writes ]);
+	});
+
+	it('lets nothing in by an entry of another hash or user: a changed config invalidates it', () => {
+		let st = memory_state();
+		let changed = { user: 'prom', hash: crypt.md5_crypt('new-secret', 'salt') };
+
+		auth.allowed(A, RIGHT, st);
+		assert.match([ false, false ], [ auth.allowed(changed, RIGHT, st), auth.allowed({ user: 'other', hash: HASH }, RIGHT, st) ]);
+		assert.match([ true, auth.digest(changed, basic('prom:new-secret')) ],
+			[ auth.allowed(changed, basic('prom:new-secret'), st), st.read(auth.CACHE) ]);
+	});
+
+	it('takes no entry that is not the digest: cut short, longer or empty', () => {
+		let wrong = basic('prom:wrong');
+		let d = auth.digest(A, wrong);
+
+		assert.match([ false, false, false ], map([ substr(d, 0, 63), d + '\n', '' ],
+			(e) => auth.allowed(A, wrong, memory_state({ [auth.CACHE]: e }))));
+	});
+
+	prop('answers as the full check does, whatever came before', gen.array(gen.tuple(gen.elements('prom', 'other'), PASSWORD), { min_len: 1, max_len: 5 }),
+		(tries) => {
+			let a = { user: 'prom', hash: crypt.md5_crypt(tries[0][1], 'salt') };
+			let st = memory_state();
+
+			for (let t in tries) {
+				let h = basic(t[0] + ':' + t[1]);
+
+				assert.match(auth.allowed(a, h), auth.allowed(a, h, st), h);
+			}
+		}, { runs: 30 });
+});

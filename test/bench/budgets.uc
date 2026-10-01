@@ -37,6 +37,12 @@ const TIME = [
 	[ 'typical/auth:sha512@2000', 0.03, 'basic auth\'s check of a SHA-512-crypt hash of the most rounds it takes' ],
 ];
 
+// How much of the full check of hash_password's hash (SHA-512-crypt of 1000
+// rounds) a request the cache lets in may take: measured about 2% (0.09 ms of
+// 4.1 ms in the devenv, 0.5 ms of 19 ms on the R3S, 2.4 ms of 135 ms on a MIPS
+// 24Kc); without the cache it is all of it.
+const AUTH_CACHED_SHARE = 0.1;
+
 // [ world/case, kB, what ]: how far a run's peak memory may rise, about three
 // times what was measured on x86_64 (a 32-bit router's is less), which a
 // return of per-sample objects (67 MB for the large full scrape before) or of
@@ -79,6 +85,12 @@ export function check(results, absolute) {
 			push(over, sprintf('nat_traffic: %.2f times the time per entry at %d entries as at %d, over %.1f',
 				ratio, big[0], small[0], SCALING));
 	}
+
+	let full = r['typical/auth:sha512@1000'], cached = r['typical/auth:cached'];
+
+	if (full?.time && cached?.time && cached.time.median > full.time.median * AUTH_CACHED_SHARE)
+		push(over, sprintf('auth:cached: %.2f ms, over %d%% of the full check\'s %.2f ms', cached.time.median * 1000,
+			AUTH_CACHED_SHARE * 100, full.time.median * 1000));
 
 	for (let b in MEMORY)
 		if (r[b[0]]?.growth_kb > b[1])
