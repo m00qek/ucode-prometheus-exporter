@@ -10,13 +10,13 @@ RUN          = $(COMPOSE) --progress quiet run --rm $(if $(CI),-T) openwrt
 IMAGE_STAMP := devenv/.built-$(IMAGE_TAG)
 TEST_ARGS    = $(if $(FILTER),-f '$(FILTER)') $(if $(VERBOSE),-v) $(MODULES)
 
-.PHONY: test unit integration watch lint shell image fixtures package package-check
+.PHONY: test unit integration watch lint shell image fixtures package package-check pot
 
 test:        $(IMAGE_STAMP) ; @$(RUN) devenv/scripts/test.sh all $(TEST_ARGS)
 unit:        $(IMAGE_STAMP) ; @$(RUN) devenv/scripts/test.sh unit $(TEST_ARGS)
 integration: $(IMAGE_STAMP) ; @$(RUN) devenv/scripts/test.sh integration $(TEST_ARGS)
 watch:       $(IMAGE_STAMP) ; @$(RUN) devenv/scripts/test.sh watch $(TEST_ARGS)
-lint:        $(IMAGE_STAMP) ; @$(RUN) devenv/scripts/lint.sh
+lint:        $(IMAGE_STAMP) ; @$(RUN) devenv/scripts/lint.sh && I18N_IMAGE=$(I18N_IMAGE) devenv/scripts/pot.sh check
 shell:       $(IMAGE_STAMP) ; @$(RUN) sh
 
 image:
@@ -66,3 +66,8 @@ package-check: package
 		-v $(CURDIR)/bin:/artifacts:ro \
 		-v $(CURDIR):/exporter:ro \
 		$(PKGCHECK_IMAGE) /exporter/devenv/scripts/package-check.sh
+
+# ---- luci-app-prometheus-node-exporter-ucode ----------------------------------
+# The translation template, from the LuCI sources; make lint checks it is up to date.
+I18N_IMAGE := prometheus-node-exporter-ucode-i18n:$(shell sha256sum devenv/services/i18n/Dockerfile | cut -c1-12)
+pot: ; @I18N_IMAGE=$(I18N_IMAGE) devenv/scripts/pot.sh
