@@ -54,7 +54,9 @@ package:
 			find bin \( -name "ucode-prometheus-exporter*-$(PKG_FULLVERSION).apk" \
 				-o -name "luci-app-prometheus-exporter-$(PKG_FULLVERSION).apk" \) -exec cp {} /artifacts/ \;'
 
-PKGCHECK_IMAGE := ucode-prometheus-exporter-pkgcheck:$(OPENWRT_ARCH)-$(OPENWRT_VERSION)
+# Keyed by its inputs, the Dockerfile and the packages it installs, as IMAGE_TAG is.
+INPUTS_OF       = $(shell { cat $(1); devenv/scripts/package-info.sh feed-depends; devenv/scripts/package-info.sh app-depends; } | sha256sum | cut -c1-12)
+PKGCHECK_IMAGE := ucode-prometheus-exporter-pkgcheck:$(OPENWRT_ARCH)-$(OPENWRT_VERSION)-$(call INPUTS_OF,devenv/services/pkgcheck/Dockerfile)
 
 pkgcheck-image:
 	docker build -q -t $(PKGCHECK_IMAGE) --build-arg OPENWRT_ARCH --build-arg OPENWRT_VERSION \
@@ -91,7 +93,7 @@ LAB_NAME         ?= ucode-prometheus-exporter-lab
 LAB_ADDRESS      ?= 127.0.0.1
 LAB_LUCI_PORT    ?= 8080
 LAB_METRICS_PORT ?= 9100
-LAB_IMAGE        := ucode-prometheus-exporter-lab:$(OPENWRT_ARCH)-$(OPENWRT_VERSION)
+LAB_IMAGE        := ucode-prometheus-exporter-lab:$(OPENWRT_ARCH)-$(OPENWRT_VERSION)-$(call INPUTS_OF,devenv/services/luci/Dockerfile)
 
 lab: package
 	docker build -q -t $(LAB_IMAGE) --build-arg OPENWRT_ARCH --build-arg OPENWRT_VERSION \
@@ -104,7 +106,7 @@ lab-down:
 	@LAB_NAME=$(LAB_NAME) devenv/scripts/lab.sh down
 
 # ---- luci-app-prometheus-exporter --------------------------------------------
-LUCI_IMAGE    := ucode-prometheus-exporter-luci:$(OPENWRT_ARCH)-$(OPENWRT_VERSION)
+LUCI_IMAGE    := ucode-prometheus-exporter-luci:$(OPENWRT_ARCH)-$(OPENWRT_VERSION)-$(call INPUTS_OF,devenv/services/luci/Dockerfile)
 BROWSER_IMAGE := ucode-prometheus-exporter-browser:$(shell sed -n 's/.*"@playwright\/test": "\(.*\)".*/\1/p' devenv/services/browser/package.json)
 # The collector packages the browser tests install besides the base package: options of
 # each type, configs read, a name with '-'.
