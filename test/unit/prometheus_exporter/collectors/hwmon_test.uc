@@ -69,13 +69,14 @@ describe('collectors.hwmon', () => {
 		});
 	});
 
-	it('exports labels and PWM outputs, in sensor number order, and falls back to hwmonN without chip_names', () => {
+	it('exports labels, PWM outputs, fans, voltages, currents and power, in sensor number order, and falls back to hwmonN without chip_names', () => {
 		with_collector(hwmon, { fs: fs_of(SYNTHETIC, SYNTHETIC_LINKS) }, (r) => {
 			assert.match(true, r.result.ok);
 			assert.match([
 				'# HELP node_hwmon_chip_names Annotation metric for human-readable chip names',
 				'# TYPE node_hwmon_chip_names gauge',
 				'node_hwmon_chip_names{chip="platform_nct6775_656",chip_name="nct6779"} 1',
+				'node_hwmon_chip_names{chip="i2c_0_0_0040",chip_name="ina219"} 1',
 				'# HELP node_hwmon_sensor_label Label for given chip and sensor',
 				'# TYPE node_hwmon_sensor_label gauge',
 				'node_hwmon_sensor_label{chip="platform_nct6775_656",sensor="temp1",label="SYSTIN"} 1',
@@ -91,9 +92,96 @@ describe('collectors.hwmon', () => {
 				'# TYPE node_hwmon_pwm gauge',
 				'node_hwmon_pwm{chip="platform_nct6775_656",sensor="pwm1"} 128',
 				'node_hwmon_pwm{chip="platform_nct6775_656",sensor="pwm2"} 255',
+				'# HELP node_hwmon_fan_rpm Hardware monitor for fan revolutions per minute (input)',
+				'# TYPE node_hwmon_fan_rpm gauge',
+				'node_hwmon_fan_rpm{chip="platform_nct6775_656",sensor="fan1"} 1205',
+				'node_hwmon_fan_rpm{chip="platform_nct6775_656",sensor="fan2"} 0',
+				'# HELP node_hwmon_fan_min_rpm Hardware monitor for fan revolutions per minute (min)',
+				'# TYPE node_hwmon_fan_min_rpm gauge',
+				'node_hwmon_fan_min_rpm{chip="platform_nct6775_656",sensor="fan1"} 0',
+				'node_hwmon_fan_min_rpm{chip="platform_nct6775_656",sensor="fan2"} 300',
+				'# HELP node_hwmon_fan_alarm Hardware sensor alarm status (fan)',
+				'# TYPE node_hwmon_fan_alarm gauge',
+				'node_hwmon_fan_alarm{chip="platform_nct6775_656",sensor="fan1"} 0',
+				'node_hwmon_fan_alarm{chip="platform_nct6775_656",sensor="fan2"} 1',
+				'# HELP node_hwmon_in_volts Hardware monitor for voltage (input)',
+				'# TYPE node_hwmon_in_volts gauge',
+				'node_hwmon_in_volts{chip="platform_nct6775_656",sensor="in0"} 1.048',
+				'node_hwmon_in_volts{chip="platform_nct6775_656",sensor="in1"} 3.344',
+				'node_hwmon_in_volts{chip="i2c_0_0_0040",sensor="in0"} 0.012',
+				'node_hwmon_in_volts{chip="i2c_0_0_0040",sensor="in1"} 12.016',
+				'# HELP node_hwmon_in_min_volts Hardware monitor for voltage (min)',
+				'# TYPE node_hwmon_in_min_volts gauge',
+				'node_hwmon_in_min_volts{chip="platform_nct6775_656",sensor="in0"} 0',
+				'node_hwmon_in_min_volts{chip="platform_nct6775_656",sensor="in1"} 2.976',
+				'# HELP node_hwmon_in_max_volts Hardware monitor for voltage (max)',
+				'# TYPE node_hwmon_in_max_volts gauge',
+				'node_hwmon_in_max_volts{chip="platform_nct6775_656",sensor="in0"} 1.744',
+				'node_hwmon_in_max_volts{chip="platform_nct6775_656",sensor="in1"} 3.632',
+				'# HELP node_hwmon_in_alarm Hardware sensor alarm status (in)',
+				'# TYPE node_hwmon_in_alarm gauge',
+				'node_hwmon_in_alarm{chip="platform_nct6775_656",sensor="in0"} 0',
+				'node_hwmon_in_alarm{chip="platform_nct6775_656",sensor="in1"} 0',
+				'# HELP node_hwmon_curr_amps Hardware monitor for current (input)',
+				'# TYPE node_hwmon_curr_amps gauge',
+				'node_hwmon_curr_amps{chip="i2c_0_0_0040",sensor="curr1"} 1.25',
+				'# HELP node_hwmon_power_watt Hardware monitor for power usage in watts (input)',
+				'# TYPE node_hwmon_power_watt gauge',
+				'node_hwmon_power_watt{chip="i2c_0_0_0040",sensor="power1"} 15.02',
 			], r.lines);
 		});
 	});
+
+	it('reads only the files of what it exports, of one listing per chip', () => {
+		let read = [];
+		let behavior = {
+			readfile: (p) => { push(read, p); return SYNTHETIC[p]; },
+		};
+
+		with_collector(hwmon, { fs: fs_of(SYNTHETIC, SYNTHETIC_LINKS, behavior) }, (r) => {
+			let files = sort(map(filter(read, (p) => !match(p, /\/name$/)), (p) => split(p, '/')[-1]));
+
+			assert.match(true, r.result.ok);
+			assert.match([], filter(files, (f) => match(f, /^(fan1_pulses|in0_beep|pwm[0-9]_(enable|mode)|shunt_resistor|update_interval)$/)));
+			assert.match(length(filter(r.lines, (l) => substr(l, 0, 1) != '#' && !match(l, /^node_hwmon_chip_names/))), length(files));
+		});
+	});
+
+	it('leaves out a reading that is no integer, and one of an item it does not export', () => {
+		let data = {
+			'/sys/class/hwmon/hwmon0/name': 'ina3221\n',
+			'/sys/class/hwmon/hwmon0/in1_input': 'n/a\n',
+			'/sys/class/hwmon/hwmon0/in2_input': '5008\n',
+			'/sys/class/hwmon/hwmon0/curr1_crit': '2000\n',
+			'/sys/class/hwmon/hwmon0/curr1_max_alarm': '0\n',
+			'/sys/class/hwmon/hwmon0/power1_input': '-1\n',
+		};
+
+		with_collector(hwmon, { fs: fs_of(data, {}) }, (r) => {
+			assert.match([
+				'node_hwmon_chip_names{chip="ina3221",chip_name="ina3221"} 1',
+				'node_hwmon_in_volts{chip="ina3221",sensor="in2"} 5.008',
+				'node_hwmon_power_watt{chip="ina3221",sensor="power1"} -1e-06',
+			], filter(r.lines, (l) => substr(l, 0, 1) != '#'));
+		});
+	});
+
+	prop('reports millivolts, milliamperes and microwatts in volts, amperes and watts, and RPM as it is',
+		gen.tuple(gen.elements('in', 'curr', 'power', 'fan'), gen.int(0, 9), gen.int(0, 100000000)), (t) => {
+			let data = {
+				'/sys/class/hwmon/hwmon0/name': 'chip\n',
+				[`/sys/class/hwmon/hwmon0/${t[0]}${t[1]}_input`]: `${t[2]}\n`,
+			};
+			let per = { in: 1000, curr: 1000, power: 1000000, fan: 1 }[t[0]];
+
+			with_collector(hwmon, { fs: fs_of(data, {}) }, (r) => {
+				let fam = filter(r.families, (f) => f.name != 'node_hwmon_chip_names')[0];
+				let delta = +fam.samples[0].value * per - t[2];
+
+				assert.match(true, delta > -0.001 * per && delta < 0.001 * per, `${t[2]} -> ${fam.samples[0].value}`);
+				assert.match([ [ 'chip', 'chip' ], [ 'sensor', `${t[0]}${t[1]}` ] ], fam.samples[0].labels);
+			});
+		});
 
 	it('leaves out a sensor it cannot read and keeps the others', () => {
 		let unreadable = '/sys/class/hwmon/hwmon2/temp1_input';

@@ -235,6 +235,9 @@ Neither upstream exporter had these. Where node_exporter has the metric, the nam
 | qdisc | `node_qdisc_cake_capacity_estimate_bytes_per_second{device}`, `node_qdisc_cake_memory_used_bytes{device}`, `node_qdisc_cake_memory_limit_bytes{device}` | gauge | A root CAKE qdisc's shaper rate and memory. No CAKE exporter is widely used: tc's JSON keys (tc/q_cake.c), in base units. |
 | qdisc | `node_qdisc_cake_tin_{bytes,packets,drops,ecn_marks,ack_drops}_total{device,tin}` | counter | Per tin, `tin` its index as tc numbers them (0 for besteffort; 0 to 3, Bulk to Voice, for diffserv4). |
 | qdisc | `node_qdisc_cake_tin_{threshold_rate_bytes_per_second,backlog_bytes,peak_delay_seconds,average_delay_seconds,base_delay_seconds,sparse_flows,bulk_flows,unresponsive_flows}{device,tin}` | gauge | Per tin; tc's delays in µs, here in seconds (`base` is tc's `sp_delay`, the sparse flows' delay). |
+| hwmon | `node_hwmon_fan_rpm{chip,sensor}`, `node_hwmon_fan_min_rpm{chip,sensor}`, `node_hwmon_fan_alarm{chip,sensor}` | gauge | node_exporter's, from a chip's `fanN_input`, `_min` and `_alarm`. |
+| hwmon | `node_hwmon_in_volts{chip,sensor}`, `node_hwmon_in_min_volts{chip,sensor}`, `node_hwmon_in_max_volts{chip,sensor}`, `node_hwmon_in_alarm{chip,sensor}` | gauge | node_exporter's, from `inN_input`, `_min`, `_max` (mV, here volts) and `_alarm`. |
+| hwmon | `node_hwmon_curr_amps{chip,sensor}`, `node_hwmon_power_watt{chip,sensor}` | gauge | node_exporter's, from `currN_input` (mA, here amperes) and `powerN_input` (µW, here watts). |
 
 ## Unchanged collectors
 

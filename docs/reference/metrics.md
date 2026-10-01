@@ -25,7 +25,7 @@ The labels are those seen on the captures; a collector leaves out a label it has
 | [`filesystem`](#filesystem) | 4 | an access point, a router | — |
 | [`hostapd_stations`](#hostapd_stations) | 14 | an access point | — |
 | [`hostapd_ubus_stations`](#hostapd_ubus_stations) | 7 | an access point | — |
-| [`hwmon`](#hwmon) | 4 | an access point, a router, made-up captures | — |
+| [`hwmon`](#hwmon) | 13 | an access point, a router, made-up captures | — |
 | [`loadavg`](#loadavg) | 3 | an access point, a router | — |
 | [`ltq-dsl`](#ltq-dsl) | 15 | made-up captures | — |
 | [`meminfo`](#meminfo) | 50 | an access point, a router | — |
@@ -304,6 +304,15 @@ Hardware sensors. [Collector](collectors.md#hwmon).
 | `node_hwmon_temp_celsius` | gauge | `chip`, `sensor` | Hardware monitor for temperature (input) | — |
 | `node_hwmon_sensor_label` | gauge | `chip`, `sensor`, `label` | Label for given chip and sensor | — |
 | `node_hwmon_pwm` | gauge | `chip`, `sensor` | Hardware monitor pwm element  | — |
+| `node_hwmon_fan_rpm` | gauge | `chip`, `sensor` | Hardware monitor for fan revolutions per minute (input) | — |
+| `node_hwmon_fan_min_rpm` | gauge | `chip`, `sensor` | Hardware monitor for fan revolutions per minute (min) | — |
+| `node_hwmon_fan_alarm` | gauge | `chip`, `sensor` | Hardware sensor alarm status (fan) | — |
+| `node_hwmon_in_volts` | gauge | `chip`, `sensor` | Hardware monitor for voltage (input) | — |
+| `node_hwmon_in_min_volts` | gauge | `chip`, `sensor` | Hardware monitor for voltage (min) | — |
+| `node_hwmon_in_max_volts` | gauge | `chip`, `sensor` | Hardware monitor for voltage (max) | — |
+| `node_hwmon_in_alarm` | gauge | `chip`, `sensor` | Hardware sensor alarm status (in) | — |
+| `node_hwmon_curr_amps` | gauge | `chip`, `sensor` | Hardware monitor for current (input) | — |
+| `node_hwmon_power_watt` | gauge | `chip`, `sensor` | Hardware monitor for power usage in watts (input) | — |
 
 ## `loadavg` {#loadavg}
 

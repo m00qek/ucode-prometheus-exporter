@@ -301,7 +301,7 @@ Radio measurement capabilities of hostapd's stations, from hostapd's ubus object
 
 ## `hwmon` {#hwmon}
 
-Hardware monitor chips, sensor labels, temperatures and PWM from /sys/class/hwmon.
+Hardware monitor chips: sensor labels, temperatures, PWM, fans, voltages, currents and power, from /sys/class/hwmon.
 
 - **Title:** Hardware sensors
 - **Package:** `ucode-prometheus-exporter-hwmon`

@@ -519,6 +519,29 @@ function chrony(dir, world, n, rand) {
 	}
 }
 
+// ---- hwmon ---------------------------------------------------------------------
+
+// What hwmon reads of fans, voltages, currents and power: on each chip two
+// fans and four voltages, with files it does not read beside them (as a
+// Super-I/O's), and a current and power monitor's readings on every other one.
+function hwmon_readings(root, p, rand) {
+	for (let h = 0; h < p.hwmon; h++) {
+		let d = `/sys/class/hwmon/hwmon${h}`;
+
+		for (let f = 1; f <= 2; f++)
+			for (let e in [ [ 'input', rand(3000) ], [ 'min', 300 ], [ 'alarm', rand(2) ], [ 'beep', 0 ], [ 'pulses', 2 ] ])
+				put(root, `${d}/fan${f}_${e[0]}`, `${e[1]}\n`);
+		for (let v = 0; v < 4; v++)
+			for (let e in [ [ 'input', 1000 + rand(11000) ], [ 'min', 900 ], [ 'max', 13000 ], [ 'alarm', 0 ], [ 'beep', 0 ] ])
+				put(root, `${d}/in${v}_${e[0]}`, `${e[1]}\n`);
+		if (h % 2) {
+			put(root, `${d}/curr1_input`, `${rand(5000)}\n`);
+			put(root, `${d}/power1_input`, `${rand(60000000)}\n`);
+			put(root, `${d}/shunt_resistor`, '10000\n');
+		}
+	}
+}
+
 // ---- the world -------------------------------------------------------------------
 
 function generate(dir, profile) {
@@ -590,6 +613,8 @@ function generate(dir, profile) {
 		}
 		put(root, `${d}/pwm1`, `${rand(255)}\n`);
 	}
+	// A generator of its own, so the rest of the world is what it was without it.
+	hwmon_readings(root, p, rng(45));
 	for (let z = 0; z < p.thermal; z++) {
 		let d = `/sys/class/thermal/thermal_zone${z}`;
 		put(root, `${d}/type`, `zone${z}-thermal\n`);

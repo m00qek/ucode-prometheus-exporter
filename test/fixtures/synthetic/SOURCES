@@ -5,9 +5,21 @@
 #   PWM outputs. Attribute names and units: the kernel's
 #   Documentation/hwmon/sysfs-interface.rst; the chip name, temperature source
 #   labels and platform device (nct6775.656): Documentation/hwmon/nct6775.rst
-#   and drivers/hwmon/nct6775-core.c.
+#   and drivers/hwmon/nct6775-core.c. Its fans (fanN_input, _min, _alarm; fan2
+#   stopped below its minimum, so in alarm) and voltages (inN_input, _min,
+#   _max, _alarm, in millivolts after the driver's scaling), with the _beep
+#   and _pulses files the driver has besides: sysfs-interface.rst's "Fans"
+#   and "Voltages", and the attributes nct6775.rst lists.
 # sys/class/hwmon/hwmon1
 #   A chip with neither a name file nor a device link, below 0 degrees.
+# sys/class/hwmon/hwmon2, links.json
+#   A TI INA219 current and power monitor on I2C bus 0 at 0x40, as on PoE and
+#   battery boards, with a 10 mOhm shunt: shunt voltage (in0_input, mV), bus
+#   voltage (in1_input, mV), current (curr1_input, mA) and power
+#   (power1_input, uW), and shunt_resistor and update_interval: the
+#   attributes of Documentation/hwmon/ina2xx.rst, the units of
+#   sysfs-interface.rst's "Voltages", "Currents" and "Power"; the device path
+#   as an I2C client's (bus-address) under its adapter.
 # var/prometheus/*.prom
 #   Files as node_exporter's textfile collector reads them: Prometheus text
 #   exposition format 0.0.4 (prometheus.io/docs/instrumenting/exposition_formats);

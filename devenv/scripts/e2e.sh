@@ -255,6 +255,15 @@ check "and writes no sample" fails metric 'node_wifi_'
 check "check says why" says '^ok   scrape: wifi has nothing to observe: no wireless radios$' "$INIT" check
 check "and so does the ubus object's status" is_reason wifi 'no wireless radios'
 check "modemmanager asks ModemManager, which lists no modem" says '^ok   scrape: modemmanager has nothing to observe: ModemManager lists no modems$' "$INIT" check
+
+# --- hwmon: the host's sensors, read in the jail
+# A sensor the host's driver answers now: one asleep (a GPU's) answers nothing,
+# and hwmon leaves it out.
+host_reads() { for f in /sys/class/hwmon/*/$1; do cat "$f" >/dev/null 2>&1 && return 0; done; return 1; }
+! host_reads 'in[0-9]*_input' || eventually "hwmon reads the host's voltages in the jail" metric 'node_hwmon_in_volts{'
+! host_reads 'fan[0-9]*_input' || eventually "and its fans" metric 'node_hwmon_fan_rpm{'
+! host_reads 'curr[0-9]*_input' || eventually "and its currents" metric 'node_hwmon_curr_amps{'
+
 check "dnsmasq runs, and is observed" observing dnsmasq 1
 check "its metrics are written" metric 'dnsmasq_'
 /etc/init.d/dnsmasq disable
