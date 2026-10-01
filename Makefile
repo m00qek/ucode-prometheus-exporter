@@ -10,7 +10,7 @@ RUN          = $(COMPOSE) --progress quiet run --rm $(if $(CI),-T) openwrt
 IMAGE_STAMP := devenv/.built-$(IMAGE_TAG)
 TEST_ARGS    = $(if $(FILTER),-f '$(FILTER)') $(if $(VERBOSE),-v) $(MODULES)
 
-.PHONY: test unit integration watch lint shell image fixtures package pkgcheck-image package-check e2e lab lab-down browser pot bench
+.PHONY: test unit integration watch lint shell image fixtures package pkgcheck-image package-check e2e lab lab-down browser pot bench bench-worlds bench-device
 
 test:        $(IMAGE_STAMP) ; @$(RUN) devenv/scripts/test.sh all $(TEST_ARGS)
 unit:        $(IMAGE_STAMP) ; @$(RUN) devenv/scripts/test.sh unit $(TEST_ARGS)
@@ -116,8 +116,20 @@ BENCH_LABEL ?= devenv$(if $(BENCH_CPUS),-cpus$(BENCH_CPUS))$(if $(BENCH_CPUSET),
 bench: pkgcheck-image
 	@mkdir -p bin/bench && chmod a+rwx bin bin/bench
 	@docker run --rm --network none $(BENCH_LIMITS) -v $(CURDIR):/exporter:ro -v $(CURDIR)/bin:/artifacts \
-		$(PKGCHECK_IMAGE) /exporter/devenv/scripts/bench.sh /artifacts/bench/$(BENCH_LABEL).json $(BENCH_LABEL) \
-		-c $(if $(BENCH_LIMITS),,-a) $(if $(FILTER),-f '$(FILTER)') $(BENCH_ARGS)
+		$(PKGCHECK_IMAGE) /exporter/devenv/scripts/bench.sh run /tmp/bench-worlds /artifacts/bench/$(BENCH_LABEL).json \
+		$(BENCH_LABEL) -c $(if $(BENCH_LIMITS),,-a) $(if $(FILTER),-f '$(FILTER)') $(BENCH_ARGS)
+
+# The worlds in bin/bench/worlds, for bench-device and bench-qemu.
+bench-worlds: pkgcheck-image
+	@mkdir -p bin/bench && chmod a+rwx bin bin/bench && rm -rf bin/bench/worlds
+	@docker run --rm --network none -u $$(id -u):$$(id -g) -v $(CURDIR):/exporter:ro -v $(CURDIR)/bin:/artifacts \
+		$(PKGCHECK_IMAGE) /exporter/devenv/scripts/bench.sh gen /artifacts/bench/worlds
+
+# The benchmark on a device over ssh, from /tmp, removed afterwards; nothing
+# is installed: make bench-device HOST=router [BENCH_LABEL=router]
+bench-device: bench-worlds
+	@devenv/scripts/bench-device.sh '$(HOST)' '$(or $(filter-out devenv,$(BENCH_LABEL)),$(HOST))' \
+		-c $(if $(FILTER),-f '$(FILTER)') $(BENCH_ARGS)
 
 # ---- luci-app-prometheus-exporter --------------------------------------------
 LUCI_IMAGE    := ucode-prometheus-exporter-luci:$(OPENWRT_ARCH)-$(OPENWRT_VERSION)

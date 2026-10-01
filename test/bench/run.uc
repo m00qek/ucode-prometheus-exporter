@@ -61,6 +61,8 @@ function stats(list) {
 }
 
 // fn() timed as the header says; fn returns what to keep of the last run.
+// What a run leaves is collected before the next, untimed: the peak memory is
+// one run's, not the garbage of many.
 function repeat(min_seconds, min_reps, fn, max_reps) {
 	let times = [];
 	// The run that warms up is skipped when a single run is asked for, as on
@@ -69,6 +71,9 @@ function repeat(min_seconds, min_reps, fn, max_reps) {
 	let started = now();
 
 	while (length(times) < min_reps || (now() - started < min_seconds && length(times) < (max_reps ?? 50))) {
+		last = null;
+		gc();
+
 		let t = now();
 		last = fn();
 		push(times, now() - t);
@@ -134,7 +139,7 @@ if (kind == 'load') {
 	c = c.data;
 
 	let redirect = entries != null ? { '/proc/net/nf_conntrack': `${world_dir}/conntrack/${entries}` } : {};
-	let mods = bench_world.modules(world, { redirect });
+	let mods = bench_world.modules(world, c.meta.needs, { redirect });
 	let env = { clock: () => clock(true), log };
 	let render_times = [];
 
@@ -165,7 +170,10 @@ if (kind == 'load') {
 	let t = now();
 	let collectors = load_set(arg);
 	let load_time = now() - t;
-	let mods = bench_world.modules(world);
+	let needs = [];
+	for (let c in collectors)
+		push(needs, ...c.meta.needs);
+	let mods = bench_world.modules(world, uniq(needs));
 	let env = { session: () => deps.session({ ...mods, log }), clock: () => clock(true), log, version: 'bench' };
 
 	mem_before = reset_peak();

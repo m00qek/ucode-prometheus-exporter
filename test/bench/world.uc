@@ -3,7 +3,7 @@
 // A world gen.uc wrote, as the modules prometheus_exporter.deps.session()
 // takes: the real fs under the world's root, the real uci on its
 // /etc/config, and stand-ins for ubus, rtnl and nl80211 answering from
-// world.json. Programs (nft, ethtool) run for real, under deps' own watchdog,
+// its JSON files. Programs (nft, ethtool) run for real, under deps' own watchdog,
 // as `cat` of what the world says they print: a scrape pays for each process
 // as on a router.
 
@@ -90,9 +90,21 @@ function netlink(replies, consts) {
 	};
 }
 
+// What a source answers, read once: a case reads only the sources its
+// collectors need, so its memory is theirs and not the whole world's.
+function source(world, name) {
+	world[name] ??= json(fs.readfile(`${world.dir}/${name}.json`));
+	return world[name];
+}
+
 // The modules deps.session() takes, as deps.modules() gives the real ones.
+// needs: the collectors' needs (meta.needs), whose sources are read now.
 // opts.redirect: { path: file } read in place of the world's.
-export function modules(world, opts) {
+export function modules(world, needs, opts) {
+	for (let need in needs)
+		if (need in [ 'ubus', 'nl80211', 'rtnl' ])
+			source(world, need);
+
 	return {
 		fs: rooted_fs(world, opts?.redirect ?? {}),
 		ubus: ubus(world),

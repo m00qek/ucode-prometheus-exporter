@@ -12,7 +12,8 @@
 // OUTDIR/<profile>/root/       files at their paths: /proc, /sys, /etc/config, /tmp, /var
 // OUTDIR/<profile>/conntrack/N conntrack tables of N entries, for the scaling cases
 // OUTDIR/<profile>/commands/   what the programs print (nft, ethtool)
-// OUTDIR/<profile>/world.json  { profile, sizes, ubus, nl80211, rtnl, commands }
+// OUTDIR/<profile>/world.json  { profile, sizes, commands }
+// OUTDIR/<profile>/<source>.json what ubus, nl80211 and rtnl answer, a file each
 //
 // bench.world reads a world back as the modules deps.session() takes.
 
@@ -546,6 +547,13 @@ function generate(dir, profile) {
 	world.ubus['dhcp:ipv6leases'] = odhcpd(p, rand);
 	world.ubus['wireguard:status'] = wg.status;
 	wireless(p, rand, world);
+
+	// Apart, so a case loads only what its collectors ask: the benchmark
+	// measures their memory, not the world's.
+	for (let source in [ 'ubus', 'nl80211', 'rtnl' ]) {
+		writefile(`${dir}/${source}.json`, sprintf('%J', world[source]));
+		delete world[source];
+	}
 
 	writefile(`${dir}/world.json`, sprintf('%J', world));
 }
