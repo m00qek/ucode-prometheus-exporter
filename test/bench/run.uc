@@ -106,6 +106,15 @@ if (kind == 'calibrate') {
 	for (let i = 0; i < n; i++)
 		length('abc');
 	result.call_us = (now() - t) * 1000000 / n - result.loop_us;
+
+	// A program run as a collector's are, under deps' watchdog: a shell, its
+	// two subshells and the program (false, which the world has no output for).
+	let exec = deps.exec_channel(bench_world.modules(world, []).fs.popen, [ 'probe' ], 30);
+	n = 10;
+	t = now();
+	for (let i = 0; i < n; i++)
+		exec.run([ 'probe' ]);
+	result.exec_ms = (now() - t) * 1000 / n;
 	result.time = result.loop_us / 1000000;
 } else if (kind == 'load') {
 	mem_before = reset_peak();

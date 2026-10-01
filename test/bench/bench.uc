@@ -167,7 +167,7 @@ for (let c in cases) {
 
 	let note = r.ok === false ? (r.error ?? 'failed') : '';
 	if (r.kind == 'calibrate')
-		note = sprintf('%.3f us a loop turn, %.3f us a builtin call', r.loop_us, r.call_us);
+		note = sprintf('%.3f us a loop turn, %.3f us a builtin call, %.1f ms a program run', r.loop_us, r.call_us, r.exec_ms);
 	if (r.kind == 'scrape') {
 		let top = slice(sort(keys(r.durations ?? {}), (a, b) => r.durations[b] - r.durations[a]), 0, 4);
 		note = sprintf('collectors %s ms (%s), outside %s ms, load %s ms %s', ms(r.collecting),
