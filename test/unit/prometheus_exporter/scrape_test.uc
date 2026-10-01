@@ -6,6 +6,7 @@ import * as loader from 'prometheus_exporter.loader';
 import * as deps from 'prometheus_exporter.deps';
 import * as exposition from 'prometheus_exporter.exposition';
 import * as Result from 'prometheus_exporter.result';
+import * as ledger from 'prometheus_exporter.ledger';
 import * as commands from 'lib.commands';
 import { with_mods } from 'context';
 
@@ -219,6 +220,86 @@ describe('scrape.scrape', () => {
 
 			assert.match([ [], 3 ], [ r.logs, length(filter(lines(r.body), (l) => match(l, /^node_scrape_collector_success\{.*\} 1$/))) ], opts);
 		}
+	});
+
+	// The instance's state, in memory: a ledger as `text`.
+	function memory_state(text) {
+		let st = { text, updates: 0 };
+
+		st.read = (name) => (name == ledger.NAME) ? st.text : null;
+		st.update = function(name, fn) {
+			let out = fn(st.text);
+
+			st.updates++;
+			if (type(out) == 'string')
+				st.text = out;
+			return true;
+		};
+		return st;
+	}
+
+	// A collector that says when it ran.
+	function noting(name, ran) {
+		return collector(name, function(d, out) {
+			push(ran, name);
+			out.gauge(`${replace(name, '-', '_')}_value`)(null, 1);
+			return Result.ok();
+		});
+	}
+
+	function ledger_of(durations) {
+		return ledger.serialize(ledger.record(ledger.empty(),
+			map(keys(durations), (id) => ({ id, duration: durations[id], samples: 1, result: Result.ok() })), null, keys(durations)));
+	}
+
+	it('runs the collectors fastest first by the ledger, and writes them in the order selected', () => {
+		let ran = [];
+		let r = scrape_with([ noting('a', ran), noting('b-two', ran), noting('c', ran) ], '', {},
+			{ state: memory_state(ledger_of({ a: 3, b_two: 0.1, c: 1 })) });
+
+		assert.match([ 'b-two', 'c', 'a' ], ran);
+		assert.match([ 'a', 'b-two', 'c' ], map(filter(lines(r.body), (l) => index(l, 'node_scrape_collector_success{') == 0),
+			(l) => match(l, /collector="([^"]+)"/)[1]));
+	});
+
+	prop('writes the same reply whatever order the ledger runs the collectors in',
+		gen.tuple(gen.int(0, 9), gen.int(0, 9), gen.int(0, 9)), (t) => {
+			let plain = scrape_with([ A, B, C ], '').body;
+			let ordered = scrape_with([ A, B, C ], '', {}, { state: memory_state(ledger_of({ a: t[0], b_two: t[1], c: t[2] })) }).body;
+
+			assert.match(plain, ordered);
+		});
+
+	it('records each collector\'s duration and samples in the ledger, and the scrape', () => {
+		let st = memory_state(null);
+
+		scrape_with([ A, collector('two', (d, out) => { out.gauge('x')({ i: '1' }, 1)({ i: '2' }, 2); return Result.ok(); }) ], '', {}, { state: st });
+
+		let l = ledger.parse(st.text);
+
+		assert.match([ 1, 1, { d: 0.25, n: 1 }, { d: 0.25, n: 2 } ], [ st.updates, l.scrapes, l.c.a, l.c.two ]);
+		assert.match('double', type(l.k));
+	});
+
+	// The clock reads 0.25 s, then 0.5 s: at 0.25, 0.5 s left before 0.75.
+	it('leaves out a collector the ledger expects to take longer than is left', () => {
+		let ran = [];
+		let r = scrape_with([ noting('slow', ran), noting('quick', ran) ], '', {},
+			{ deadline: 0.75, budget: 0.75, state: memory_state(ledger_of({ slow: 0.6, quick: 0.1 })) });
+
+		assert.match([ 'quick' ], ran);
+		assert.match(contains([ 'node_scrape_collector_success{collector="slow"} 0', 'node_scrape_collector_success{collector="quick"} 1' ]),
+			lines(r.body));
+		assert.match([ 'scrape deadline: 1 collector not served in its 0.8 s: slow' ], r.logs);
+	});
+
+	it('keeps back the time the reply is expected to take to write, by the samples', () => {
+		let ran = [];
+		let l = ledger.record(ledger.empty(), [ { id: 'big', duration: 0.1, samples: 1000, result: Result.ok() } ],
+			{ seconds: 1, samples: 1000 }, [ 'big' ]);
+
+		scrape_with([ noting('big', ran) ], '', {}, { deadline: 1.2, budget: 1.2, state: memory_state(ledger.serialize(l)) });
+		assert.match([], ran);
 	});
 
 	// The programs' clock is the real one.

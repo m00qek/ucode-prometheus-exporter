@@ -12,11 +12,17 @@
 // node_scrape_collector_observing is 0, so a dashboard tells it from one that
 // observes and finds nothing to count; every other collector's is 1.
 //
+// The handler's scrapes keep a ledger in the instance's state
+// (prometheus_exporter.ledger): how long each collector took, and how many
+// samples it wrote. They run the collectors fastest first by it, so that a
+// deadline leaves out the few slow ones rather than the many fast ones; the
+// reply has them in the order the query selects, whatever order they ran in.
+//
 // A scrape may have a deadline (prometheus_exporter.deadline): it then starts
-// no collector once its budget is spent, and none of their programs runs past
-// it. A collector left out so fails with SCRAPE_DEADLINE, as one whose program
-// was killed at the deadline does, and the scrape logs them once, all
-// together, not a line each.
+// no collector the ledger does not expect done in time to write the reply,
+// and none of their programs runs past that. A collector left out so fails
+// with SCRAPE_DEADLINE, as one whose program was killed at the deadline does,
+// and the scrape logs them once, all together, not a line each.
 //
 // env: { session() -> a deps session, clock() -> [ s, ns ] monotonic,
 //        log(level, msg): a collector that fails at warning, as the scrape
@@ -29,6 +35,7 @@ import * as exposition from 'prometheus_exporter.exposition';
 import * as config from 'prometheus_exporter.config';
 import * as query from 'prometheus_exporter.query';
 import { seconds as now_of } from 'prometheus_exporter.deadline';
+import * as ledger from 'prometheus_exporter.ledger';
 
 export const CONTENT_TYPE = 'text/plain; version=0.0.4; charset=utf-8';
 
@@ -72,7 +79,7 @@ export function select(collectors, query_string, disabled) {
 	}));
 };
 
-// Runs one collector: { name, id, result, families, duration }. What it
+// Runs one collector: { name, id, result, families, samples, duration }. What it
 // recorded is kept even when it fails, as upstream exporters do; nothing is
 // when it has nothing to observe. Its programs never run past `cutoff`
 // (monotonic seconds), when given.
@@ -103,13 +110,19 @@ export function run_one(env, session, c, cutoff) {
 	for (let name in rec.conflicts())
 		env.log('warning', `collector '${c.meta.name}': '${name}' declared with two types; later samples dropped`);
 
-	return { name: c.meta.name, id: c.id, result: res, families: Result.is_none(res) ? [] : rec.families(), duration };
+	let families = Result.is_none(res) ? [] : rec.families();
+	let samples = 0;
+
+	for (let f in families)
+		samples += length(f.lines);
+
+	return { name: c.meta.name, id: c.id, result: res, families, samples, duration };
 };
 
 // A collector left out, without running: { name, id, result, families: [],
-// duration: 0, skipped }.
+// samples: 0, duration: 0, skipped }.
 export function not_run(c, res, why) {
-	return { name: c.meta.name, id: c.id, result: res, families: [], duration: 0, skipped: why };
+	return { name: c.meta.name, id: c.id, result: res, families: [], samples: 0, duration: 0, skipped: why };
 };
 
 // The line the scrape logs of the collectors the deadline left out or cut, or
@@ -128,9 +141,55 @@ function reply(status, body) {
 	return { status, content_type: CONTENT_TYPE, body };
 }
 
+// Whether the collector is to be left out at the deadline, on `l`'s word: the
+// time left before `cutoff`, when the reply must start being written, is not
+// enough for what it is expected to take, or there is none. Its result then,
+// or null to run it.
+function too_late(l, c, now, cutoff) {
+	let need = ledger.estimate(l, c.id);
+
+	if (now >= cutoff)
+		return Result.err(errors.SCRAPE_DEADLINE, 'not run: the scrape\'s time was spent');
+	if (need != null && now + need >= cutoff)
+		return Result.err(errors.SCRAPE_DEADLINE, sprintf('not run: it takes %.2f s, and %.2f s were left', need, cutoff - now));
+
+	return null;
+}
+
+// Runs the selected collectors, fastest first by the ledger `l`: each one's
+// run, by id. With a deadline, a collector runs only if the ledger expects it
+// done in time to write the reply, its own samples included; its programs
+// never run past that.
+function run_all(env, session, l, chosen, deadline) {
+	let by_id = {};
+	let collected = 0;
+
+	for (let c in ledger.order(l, chosen)) {
+		let r;
+
+		if (deadline == null) {
+			r = run_one(env, session, c);
+		} else {
+			let cutoff = deadline - ledger.writing(l, collected + ledger.samples(l, c.id));
+			let late = too_late(l, c, now_of(env.clock()), cutoff);
+
+			r = late ? not_run(c, late, 'deadline') : run_one(env, session, c, cutoff);
+		}
+
+		collected += r.samples;
+		by_id[c.id] = r;
+	}
+
+	return by_id;
+}
+
 // { status, content_type, body } for a scrape with this query string. opts:
 // { deadline: when the collectors must be done by (monotonic seconds),
-//   budget: the seconds that left them, for the log }.
+//   budget: the seconds that left them, for the log,
+//   state: the instance's state (prometheus_exporter.state), whose ledger
+//          orders the collectors, says which ones the deadline has time
+//          for, and records this scrape }.
+// Whatever order they ran in, the reply has them in the order selected.
 export function scrape(env, collectors, query_string, opts) {
 	let session = env.session();
 	let uci = session.uci();
@@ -149,15 +208,10 @@ export function scrape(env, collectors, query_string, opts) {
 		main = Result.ok(config.defaults(config.MAIN_OPTIONS));
 	}
 
-	let deadline = opts?.deadline;
-	let runs = [];
-
-	for (let c in sel.data) {
-		if (deadline != null && now_of(env.clock()) >= deadline)
-			push(runs, not_run(c, Result.err(errors.SCRAPE_DEADLINE, 'not run: the scrape\'s time was spent'), 'deadline'));
-		else
-			push(runs, run_one(env, session, c, deadline));
-	}
+	let st = opts?.state;
+	let l = ledger.parse(st?.read(ledger.NAME));
+	let by_id = run_all(env, session, l, sel.data, opts?.deadline);
+	let runs = map(sel.data, (c) => by_id[c.id]);
 
 	session.close();
 
@@ -165,6 +219,7 @@ export function scrape(env, collectors, query_string, opts) {
 	if (late)
 		env.log('warning', late);
 
+	let t1 = env.clock();
 	let scrape_meta = exposition.recorder();
 	let duration = scrape_meta.gauge('node_scrape_collector_duration_seconds',
 		'node_exporter: Duration of a collector scrape.');
@@ -189,5 +244,17 @@ export function scrape(env, collectors, query_string, opts) {
 	for (let name in merged.conflicts)
 		env.log('warning', `'${name}' declared with two types by different collectors; later samples dropped`);
 
-	return reply('200 OK', exposition.render(merged.families, { omit_zero_counters: main.data.omit_zero_values }));
+	let body = exposition.render(merged.families, { omit_zero_counters: main.data.omit_zero_values });
+
+	if (st) {
+		let written = { seconds: seconds(t1, env.clock()), samples: 0 };
+		let ids = map(collectors, (c) => c.id);
+
+		for (let r in runs)
+			written.samples += r.samples;
+
+		st.update(ledger.NAME, (text) => ledger.serialize(ledger.record(ledger.parse(text), runs, written, ids)));
+	}
+
+	return reply('200 OK', body);
 };

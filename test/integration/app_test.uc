@@ -13,6 +13,7 @@ import * as exposition from 'prometheus_exporter.exposition';
 import * as config from 'prometheus_exporter.config';
 import * as fixtures from 'lib.fixtures';
 import * as commands from 'lib.commands';
+import * as lockable from 'lib.lockable';
 
 const SOURCES = 'src/prometheus_exporter/collectors';
 const ROUTER = {
@@ -126,12 +127,8 @@ describe('app.handler', () => {
 		gc();
 	});
 
-	// utest's fs mock opens files without lock(): the state's lock is one
-	// that is always taken.
 	function patch_main(main, files) {
-		mock.global.patch('fs', { data: { ...ROUTER.files, ...(files ?? {}) }, behavior: {
-			open: (path) => (substr(path, -5) == '.lock') ? { lock: () => true, close: () => true } : null,
-		} });
+		mock.global.patch('fs', { data: { ...ROUTER.files, ...(files ?? {}) }, behavior: { open: lockable.open } });
 		mock.global.patch('ubus', { strict: true, data: {} });
 		mock.global.patch('uci', { strict: true, data: { [config.NAME]: main ? { main: { '.type': config.NAME, ...main } } : {} } });
 	}
@@ -152,6 +149,7 @@ describe('app.handler', () => {
 		let seen = [];
 
 		mock.global.patch('fs', { data: ROUTER.files, behavior: {
+			open: lockable.open,
 			popen: function(cmd) { push(seen, commands.parse(cmd).seconds); return { read: () => '{}', close: () => 0 }; },
 		} });
 		mock.global.patch('ubus', { strict: true, data: {} });

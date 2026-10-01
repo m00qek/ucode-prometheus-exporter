@@ -105,7 +105,7 @@ export function handler(log, dir, state_dir) {
 				return refused;
 
 			let budget = deadline.budget(deadline.timeout(http.header(req, deadline.HEADER), scrape_timeout));
-			let res = app.scrape(req?.QUERY_STRING, { deadline: start + budget, budget });
+			let res = app.scrape(req?.QUERY_STRING, { deadline: start + budget, budget, state: st });
 
 			return http.scrape_reply(res, http.header(req, 'accept-encoding'), compress);
 		},

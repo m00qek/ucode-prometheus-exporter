@@ -8,13 +8,14 @@ import { DIR } from 'prometheus_exporter.loader';
 import * as config from 'prometheus_exporter.config';
 import * as auth from 'prometheus_exporter.auth';
 import { inflate } from 'zlib';
+import * as lockable from 'lib.lockable';
 
 const HANDLER = 'files/usr/libexec/prometheus-exporter/handler.uc';
 
 // The collectors as installed: their files listed in DIR, their modules found on
 // the search path.
 function install(files) {
-	let fs = mock.global.patch('fs', { data: { [DIR + '/loadavg.uc']: '', ...files } });
+	let fs = mock.global.patch('fs', { data: { [DIR + '/loadavg.uc']: '', ...files }, behavior: { open: lockable.open } });
 	mock.global.patch('ubus', { strict: true, data: {} });
 	mock.global.patch('uci', { strict: true, data: { [config.NAME]: {} } });
 	return fs;
