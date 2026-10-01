@@ -1,0 +1,23 @@
+{
+	"chronyd": {
+		"instances": {
+			"instance1": {
+				"running": true,
+				"pid": 775,
+				"command": [
+					"/usr/sbin/chronyd",
+					"-n"
+				],
+				"term_timeout": 5
+			},
+			"instance2": {
+				"running": false,
+				"command": [
+					"/usr/sbin/chrony-hotplug"
+				],
+				"term_timeout": 5,
+				"exit_code": 0
+			}
+		}
+	}
+}

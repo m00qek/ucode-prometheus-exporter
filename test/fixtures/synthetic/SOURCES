@@ -46,6 +46,13 @@
 #   tc/q_cake.c (rates in bytes per second, delays in microseconds),
 #   fq_codel_print_xstats() in tc/q_fq_codel.c; the tins' rates as
 #   sch_cake.c's cake_config_diffserv4() splits the bandwidth.
+# var/run/prometheus-exporter/timesync/ntpd
+#   What /etc/hotplug.d/ntp/90-prometheus-exporter keeps of busybox ntpd's
+#   event: a periodic one of a synchronized ntpd at stratum 3. The environment
+#   busybox 1.37 (OpenWrt 25.12's) gives /usr/sbin/ntpd-hotplug: run_script()
+#   in networking/ntpd.c (stratum, freq_drift_ppm, poll_interval, offset as
+#   %f); ACTION is ntpd-hotplug's argument. A real ntpd without a network (a
+#   25.12 container) sends `periodic` with stratum=16, offset=0.000000.
 # tmp/dhcp.leases
 #   A dnsmasq lease file for that lan with DHCPv6 leases too: an infinite (0)
 #   and an expired lease, one outside every subnet, a temporary (T) IPv6

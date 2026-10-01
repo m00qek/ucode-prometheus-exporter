@@ -594,6 +594,12 @@ function generate(dir, profile) {
 	world.ubus['dhcp:ipv4leases'] = { device: {} };
 	world.ubus['dhcp:ipv6leases'] = odhcpd(p, rand);
 	world.ubus['wireguard:status'] = wg.status;
+
+	// timesync: busybox ntpd runs, synchronized, as its last event says; no
+	// chronyd (rc knows no init script of that name).
+	world.ubus['service:list'] = fixture_json('caju-ap/ubus/service.list.sysntpd.json');
+	world.ubus['rc:list'] = {};
+	put(root, '/var/run/prometheus-exporter/timesync/ntpd', fixture('synthetic/var/run/prometheus-exporter/timesync/ntpd'));
 	wireless(p, rand, world);
 
 	// Apart, so a case loads only what its collectors ask: the benchmark

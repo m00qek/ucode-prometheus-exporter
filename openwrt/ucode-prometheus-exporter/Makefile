@@ -18,7 +18,7 @@ MODULES_DIR:=/usr/share/ucode/prometheus_exporter
 COLLECTORS_DIR:=$(MODULES_DIR)/collectors
 
 # Installed with the exporter itself; every other collector is a subpackage.
-BASE_COLLECTORS:=conntrack cpu entropy filefd loadavg meminfo netclass netdev openwrt_interfaces selinux softnet time uname vmstat
+BASE_COLLECTORS:=conntrack cpu entropy filefd loadavg meminfo netclass netdev openwrt_interfaces selinux softnet time timesync uname vmstat
 
 define Package/$(PKG_NAME)/Default
   SECTION:=utils
@@ -90,6 +90,9 @@ define Package/$(PKG_NAME)/install
 	$(INSTALL_CONF) ./files/etc/config/$(SERVICE) $(1)/etc/config/
 	$(INSTALL_DIR) $(1)/etc/init.d
 	$(INSTALL_BIN) ./files/etc/init.d/$(SERVICE) $(1)/etc/init.d/
+	# busybox ntpd's last event, for timesync; procd runs it on hotplug.ntp.
+	$(INSTALL_DIR) $(1)/etc/hotplug.d/ntp
+	$(INSTALL_DATA) ./files/etc/hotplug.d/ntp/90-$(SERVICE) $(1)/etc/hotplug.d/ntp/
 	# Run once, before the service first starts: takes over a feed exporter's settings.
 	$(INSTALL_DIR) $(1)/etc/uci-defaults
 	$(INSTALL_BIN) ./files/etc/uci-defaults/$(SERVICE)-import $(1)/etc/uci-defaults/

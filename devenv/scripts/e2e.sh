@@ -128,6 +128,28 @@ check "its mounts are what jail.uc prints" mounts_match_jail
 check "the jail has its own config and no other" test "$(jail_configs)" = "$NAME"
 check "no /etc/config/network in its mounts" not_mounted /etc/config/network
 
+# --- timesync: busybox ntpd's events, kept by the base package's hotplug script
+# ntpd runs here, unsynchronized (no network), and reports every 11 minutes:
+# its events are made as it makes them, by its own hotplug script, with the
+# environment busybox gives it, through procd's hotplug.ntp. A real event may
+# come between, so each is made again until it is read.
+NTPD_STATE=/var/run/$NAME/timesync/ntpd
+ntpd_event() { action=$1; shift; env "$@" /usr/sbin/ntpd-hotplug "$action" >/dev/null 2>&1; }
+synced() { ntpd_event stratum stratum=2 offset=0.001234 freq_drift_ppm=12 poll_interval=64 &&
+	metric 'node_timesync_synchronized{daemon="ntpd"} 1$' && metric 'node_timesync_stratum{daemon="ntpd"} 2$' &&
+	metric 'node_timesync_offset_seconds{daemon="ntpd"} 0.001234$'; }
+unsynced() { ntpd_event unsync stratum=16 offset=0.000000 freq_drift_ppm=12 poll_interval=64 &&
+	metric 'node_timesync_synchronized{daemon="ntpd"} 0$' && fails metric 'node_timesync_stratum'; }
+check "the service makes timesync's directory" test -d "${NTPD_STATE%/*}"
+check "and mounts it" mounted "${NTPD_STATE%/*}"
+check "timesync is served with busybox ntpd running" served timesync
+eventually "busybox ntpd's event, through hotplug.ntp, says it is synchronized, in the jail" synced
+check "the hotplug script keeps it, written whole" grep -qx 'action=stratum' "$NTPD_STATE"
+check "and leaves no temporary file" test "$(ls "${NTPD_STATE%/*}")" = ntpd
+ubus call hotplug.ntp call '{"env":["ACTION=stratum"]}'; sleep 1
+check "chrony's own event, without busybox's environment, is not kept" grep -qx 'stratum=2' "$NTPD_STATE"
+eventually "losing sync, it is not" unsynced
+
 # --- the service's ubus object, which rpcd serves from the base package: no LuCI here
 rpc() { ubus -t 30 call "$NAME" "$@"; }
 rpc_collectors() { rpc collectors | jsonfilter -e '@.collectors[*].id' | wc -l; }

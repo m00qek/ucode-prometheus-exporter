@@ -69,9 +69,12 @@ check "every installed collector loads" test "$($NAME -l 2>/dev/null | wc -l)" -
 check "the command line scrapes" sh -c "$NAME loadavg | grep -q '^node_load1 '"
 
 # What the init script starts, less procd's jail; procd's and netifd's objects are
-# stand-ins answering with the caju router's replies.
+# stand-ins answering with the caju router's replies, and procd's service list
+# and rpcd's rc say nothing runs here (until rpcd starts, below).
 ubusd & sleep 1
 ucode /exporter/devenv/scripts/ubus-stand-ins.uc /exporter/test/fixtures/caju-router &
+ucode /exporter/devenv/scripts/ubus-stand-ins.uc /exporter/test/fixtures/caju-router services &
+services_stand_in=$!
 sleep 1
 /usr/sbin/uhttpd -f -c /dev/null -h /dev/null -S -D -o /metrics -O /usr/libexec/$NAME/handler.uc \
 	-p 127.0.0.1:9100 2>/tmp/uhttpd.log &
@@ -157,8 +160,12 @@ AUTH_HELPER=/usr/libexec/$NAME/auth.uc
 check "the base package ships $AUTH_HELPER" grep -qx "$AUTH_HELPER" "$BASE_LIST"
 check "$AUTH_HELPER 0755" has_mode 755 "$AUTH_HELPER"
 check "$AUTH_HELPER parses" parses "$AUTH_HELPER"
+NTP_HOOK=/etc/hotplug.d/ntp/90-$NAME
+check "the base package ships $NTP_HOOK, for timesync" grep -qx "$NTP_HOOK" "$BASE_LIST"
+check "$NTP_HOOK parses" sh -n "$NTP_HOOK"
 check "no LuCI app is installed" fails apk info -e "luci-app-$NAME"
 
+kill "$services_stand_in"; sleep 1
 rpcd &
 check "rpcd serves the ubus object" ubus -t 10 wait_for "$NAME"
 reply=$(ubus -t 30 call "$NAME" collectors 2>/dev/null)

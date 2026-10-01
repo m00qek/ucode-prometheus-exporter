@@ -1,0 +1,48 @@
+{
+	"sysntpd": {
+		"instances": {
+			"instance1": {
+				"running": true,
+				"pid": 2454,
+				"command": [
+					"/usr/sbin/ntpd",
+					"-n",
+					"-N",
+					"-S",
+					"/usr/sbin/ntpd-hotplug",
+					"-p",
+					"10.193.11.1"
+				],
+				"term_timeout": 5,
+				"respawn": {
+					"threshold": 3600,
+					"timeout": 5,
+					"retry": 5
+				},
+				"no_new_privs": true,
+				"capabilities": "/etc/capabilities/ntpd.json",
+				"user": "ntp",
+				"group": "ntp",
+				"jail": {
+					"name": "ntpd",
+					"procfs": false,
+					"sysfs": false,
+					"ubus": true,
+					"log": false,
+					"ronly": false,
+					"netns": false,
+					"userns": false,
+					"cgroupsns": false,
+					"console": false
+				},
+				"mount": {
+					"/bin/ubus": "0",
+					"/usr/bin/env": "0",
+					"/usr/bin/jshn": "0",
+					"/usr/sbin/ntpd-hotplug": "0",
+					"/usr/share/libubox/jshn.sh": "0"
+				}
+			}
+		}
+	}
+}

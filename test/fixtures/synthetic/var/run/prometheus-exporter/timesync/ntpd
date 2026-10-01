@@ -1,0 +1,6 @@
+time=1790873100
+action=periodic
+stratum=3
+offset=-0.000213
+freq_drift_ppm=-12
+poll_interval=1024

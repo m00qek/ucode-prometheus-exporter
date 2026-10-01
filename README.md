@@ -18,7 +18,7 @@ prometheus-exporter -l                                      # list the collector
 prometheus-exporter loadavg                                 # a scrape, on the command line
 ```
 
-The base package has the collectors every device can use (cpu, meminfo, netdev, netclass, loadavg, conntrack and more); each other collector is its own `ucode-prometheus-exporter-<name>` package. Groups install several at once:
+The base package has the collectors every device can use (cpu, meminfo, netdev, netclass, loadavg, conntrack, timesync and more); each other collector is its own `ucode-prometheus-exporter-<name>` package. Groups install several at once:
 
 | | |
 |---|---|
@@ -66,6 +66,7 @@ Every collector, with its title and package (`ucode-prometheus-exporter-…`):
 | `textfile` | Text files | `-textfile`; in `-full` |
 | `thermal` | Thermal zones | `-thermal`; in `-hardware`, `-full` |
 | `time` | System time | base |
+| `timesync` | Time synchronization | base |
 | `ubnt-manager` | Ubiquiti airOS radios | `-ubnt-manager` |
 | `uci_dhcp_host` | Static DHCP hosts | `-uci_dhcp_host`; in `-full` |
 | `uname` | Kernel and host names | base |
@@ -106,6 +107,7 @@ Whether a service is enabled is what rpcd's `rc` object says (`ubus call rc list
 | `dawn` | DAWN disabled, or not installed | enabled, and its `dawn` object missing or failing |
 | `bmx7` | bmx7 disabled, or not installed | enabled, and its status files unreadable |
 | `dhcp_leases` | dnsmasq (or no dnsmasq instance in `/etc/config/dhcp`) and odhcpd both disabled or not installed; with one enabled, it observes that one | an enabled server not there: no dnsmasq lease file, odhcpd not on ubus |
+| `timesync` | neither busybox ntpd nor chronyd runs (procd's instances: sysntpd runs ntpd only while `/etc/config/system` turns NTP on); with one running, it observes that one | chronyd enabled and not running, or chronyc failing; busybox ntpd's event file unreadable |
 
 Every other collector reads what every device has, and fails as before when it cannot; `openwrt_interfaces` fails without netifd.
 
@@ -160,7 +162,7 @@ config collector 'ubnt_manager'
 	option timeout '10'                # its programs' seconds, over exec_timeout
 ```
 
-A collector without a section is enabled, with its defaults. Every collector has `enabled`, and every one that runs programs (ethtool, nft-counters, qdisc, modemmanager, ubnt-manager) has `timeout` too: the core's options, which no collector declares itself (see [the service](#the-service)). These take options of their own (`check` prints each with its help):
+A collector without a section is enabled, with its defaults. Every collector has `enabled`, and every one that runs programs (ethtool, nft-counters, qdisc, timesync, modemmanager, ubnt-manager) has `timeout` too: the core's options, which no collector declares itself (see [the service](#the-service)). These take options of their own (`check` prints each with its help):
 
 | | | |
 |---|---|---|
@@ -227,7 +229,7 @@ Start and reload refuse an invalid config. Installing or removing a collector pa
 
 It logs to syslog as `prometheus-exporter` (`logread -e prometheus-exporter`), each line at its priority: `info` for what it does (how many collectors it serves when it starts, a directory it made, the settings it took over), `warning` for what it does without (a collector that fails, which the scrape answers without; a path the jail cannot mount; never a collector with [nothing to observe](#nothing-to-observe)), `err` for what stops it (an invalid config, a collector that does not load).
 
-The programs a collector runs (nft, ethtool, tc, mmcli, ubnt-manager) get 5 seconds in all in each scrape, by default. One still running then is killed, with every process it started (ubnt-manager's ssh to a radio that does not answer), and its collector fails with COMMAND_TIMEOUT; the scrape answers with the rest. A collector stuck for its 5 seconds still leaves the scrape within Prometheus's default `scrape_timeout` of 10 seconds.
+The programs a collector runs (nft, ethtool, tc, chronyc, mmcli, ubnt-manager) get 5 seconds in all in each scrape, by default. One still running then is killed, with every process it started (ubnt-manager's ssh to a radio that does not answer), and its collector fails with COMMAND_TIMEOUT; the scrape answers with the rest. A collector stuck for its 5 seconds still leaves the scrape within Prometheus's default `scrape_timeout` of 10 seconds.
 
 The seconds, 1 to 30, are the collector section's `timeout` when it sets one, else the collector's own default (`meta.timeout`, which none of the shipped collectors has), else the main section's `exec_timeout` (5 by default). A value outside 1 to 30 fails `check`, and start and reload: `exec_timeout` as the main section's, a collector's `timeout` as that collector's, which fails with CONFIG_INVALID in a scrape. A collector that runs no programs ignores a `timeout`. `check` prints each one's seconds and where they come from:
 
@@ -238,7 +240,7 @@ The seconds, 1 to 30, are the collector section's `timeout` when it sets one, el
 
 uhttpd runs in procd's jail, and a collector gets what it declares: procfs, sysfs, ubus and the log for all, then the configs it reads (`/etc/config/dhcp` for uci_dhcp_host), the files and directories it reads (textfile's directory, dhcp_leases' lease files, bmx7's status), and the programs it runs with their libraries (`/bin/sh` and `nft` for nft-counters). Nothing else of `/etc/config` is there. What the jail cannot give is a warning in `check`:
 
-- textfile's directory (`/var/prometheus` by default) is the exporter's own: the service makes it, with its parents, when it starts and it is not there, so the jail always mounts it. No other service's directory is ever made.
+- textfile's directory (`/var/prometheus` by default) is the exporter's own: the service makes it, with its parents, when it starts and it is not there, so the jail always mounts it. No other service's directory is ever made. So is timesync's, `/var/run/prometheus-exporter/timesync`, where the base package's hotplug script (`/etc/hotplug.d/ntp/90-prometheus-exporter`, which procd runs on busybox ntpd's events) keeps ntpd's last event: busybox ntpd has no interface to ask. The jail mounts the directory, not the file, which the script replaces whole at each event.
 - Any other path that is not there when the service starts is left out, and a `watch` instance beside uhttpd looks for it every 5 seconds: once it is there, procd reloads the service, which mounts it. So unbound's socket directory, which unbound makes when it starts (after the exporter, at boot), is mounted a few seconds later.
 - ujail cannot mount a socket, so a collector gets the socket's directory. That is never one every service shares, such as `/run`. OpenWrt's unbound package makes no Unix control socket; the `socket` option's default is where to have it, in `/var/lib/unbound`, the directory the package makes for unbound alone (and its chroot). In `/etc/unbound/unbound_ext.conf`:
 

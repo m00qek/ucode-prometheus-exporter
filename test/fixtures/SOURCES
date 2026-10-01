@@ -73,6 +73,10 @@ file /proc/net/dev
 #   commands/*.txt               the output of nft --json list counters and ethtool -S DEVICE
 #   commands/tc_s_j_qdisc_show.json  tc -s -j qdisc show (caju-router, with SQM's CAKE; and
 #                                seriguela-router, a router of its own with the kernel's defaults)
+#   commands/chronyc_c_*.txt     chronyc -c tracking|sources|serverstats (seriguela-router, which runs
+#                                chronyd: the servers' public addresses made 2001:db8::/32's)
+#   ubus/service.list.*.json     ubus call service list '{"name":"sysntpd"}' (caju-ap) and
+#                                '{"name":"chronyd"}' (seriguela-router), and the other, not running
 ubus network.wireless status
 ubus hostapd.phy0-ap0 get_status
 ubus hostapd.phy0-ap0 get_clients

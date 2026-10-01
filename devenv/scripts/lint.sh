@@ -49,7 +49,7 @@ done
 ucode -L "$src" files/usr/bin/prometheus-exporter -h >/dev/null ||
 	fail files/usr/bin/prometheus-exporter
 
-for f in files/etc/init.d/* files/etc/uci-defaults/* devenv/scripts/*.sh devenv/services/lab/*.sh; do
+for f in files/etc/init.d/* files/etc/uci-defaults/* files/etc/hotplug.d/*/* devenv/scripts/*.sh devenv/services/lab/*.sh; do
 	sh -n "$f" || fail "$f"
 done
 
