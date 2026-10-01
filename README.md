@@ -156,6 +156,33 @@ uhttpd runs in procd's jail, and a collector gets what it declares: procfs, sysf
 
   The jail then mounts `/var/lib/unbound` read-only, and with it unbound's generated config and `root.key`, and its TLS keys if `unbound_control` makes them.
 
+## The ubus object
+
+The service has a ubus object, `prometheus-exporter`, which the base package installs: the exporter is a handler uhttpd runs per request and publishes nothing itself, so rpcd serves the object, from a ucode plugin (`/usr/share/rpcd/ucode/prometheus-exporter.uc`, over `src/prometheus_exporter/rpc.uc`). It is what the LuCI app calls, and needs no LuCI: a script on the router, or anything that reaches ubus, can ask it.
+
+```sh
+ubus call prometheus-exporter collectors                              # the installed collectors, their options and jail
+ubus call prometheus-exporter validate '{"main":{"listen_port":"0"}}' # what the exporter would refuse, and why
+ubus call prometheus-exporter status                                  # runs a scrape: how each collector does
+ubus call prometheus-exporter interfaces                              # the logical interfaces to listen on
+```
+
+It reads with the exporter's own modules, so it sees what the exporter sees, and writes nothing: settings change through uci.
+
+| | |
+|---|---|
+| `collectors {}` | `{ collectors: [ { name, id, title, help, enabled, package, base, options: [ { name, type, default, help, datatype, value, set, error } ], needs, configs, commands, jail: { paths, owned, commands, mounts, problems, missing }, error } ], skipped }` |
+| `validate { main?, collectors? }` | `{ ok, errors: { main: { <option>: message }, collectors: { <module>: { <option>: message } } } }` for values as uci holds them |
+| `status {}` | `{ service: { enabled, boot, running, error }, listen: [ url ], collectors: [ { name, id, title, enabled, success, duration, error, mounts } ] }` |
+| `interfaces {}` | `{ interfaces: [ { name, proto } ] }` |
+
+- `collectors` and `validate` read the committed configuration, as the exporter does. `validate` checks each value alone, as the exporter would read it: an empty one is unset, and options nobody declared and collectors that are not installed are ignored.
+- `status` scrapes the enabled collectors once, outside the jail, as `check` does, in a process of its own (`/usr/libexec/prometheus-exporter/rpc-status.uc`), and replies when it is done: rpcd answers other calls meanwhile, the collectors' calls to objects rpcd itself serves (`wireguard`, `luci`) among them.
+- `interfaces` is what netifd says (`network.interface dump`), names and protocols only. It never reads `/etc/config/network`, which holds secrets, so a caller allowed this object alone gets every interface.
+- Malformed arguments, and a call that fails, are answered `{ error, message }`.
+
+Over HTTP (uhttpd-mod-ubus) a login needs the methods in its ACL; the LuCI app's grants them.
+
 ## Developing
 
 Everything runs in OpenWrt's own images (Docker), on the release in `OPENWRT_VERSION` (25.12.5 by default; CI also runs 25.12.0).
@@ -165,15 +192,15 @@ Everything runs in OpenWrt's own images (Docker), on the release in `OPENWRT_VER
 | `make test` | unit and integration tests (utest); `unit`, `integration`, `watch`; `FILTER=`, `VERBOSE=1`, `MODULES=` |
 | `make lint` | loads every module on 25.12's ucode, so a function it lacks fails here |
 | `make package` | the apks, built with the OpenWrt SDK, into `bin/` |
-| `make package-check` | installs them offline and scrapes a real uhttpd on loopback |
-| `make e2e` | boots OpenWrt (procd, ubusd, netifd) in a privileged container and checks the service, in its jail, as packages come and go and its config changes |
+| `make package-check` | installs them offline, scrapes a real uhttpd on loopback and calls the ubus object in a real rpcd, with the base package alone and then with the LuCI app |
+| `make e2e` | boots OpenWrt (procd, ubusd, netifd) in a privileged container and checks the service, in its jail, as packages come and go and its config changes, and its ubus object, with no LuCI installed |
 | `make lab` | the built packages, every collector and the LuCI app on OpenWrt under procd, in a privileged container left running: LuCI on <http://127.0.0.1:8080/> (root, no password), `/metrics` on <http://127.0.0.1:9100/metrics>; `LAB_ADDRESS=`, `LAB_LUCI_PORT=`, `LAB_METRICS_PORT=`, `LAB_NAME=` |
 | `make lab-down` | removes it |
 | `make fixtures HOST= NAME=` | reads `test/fixtures/SOURCES` from a device over ssh into `test/fixtures/NAME/` |
 
 The lab is a device to try things on: `docker exec -it ucode-prometheus-exporter-lab ash` for a shell, and `make lab` again for new packages, which starts it afresh. It has its own network namespace on docker's default bridge, where docker gave eth0 its address and route and forwards the published ports there. So OpenWrt's network config is written before it boots (`devenv/services/lab/boot.sh`): `lan` is eth0 itself, with the address and gateway docker gave it, and no bridge (the generated config's lan bridge over eth0 would take the address away, and netifd takes down a device it is not told about). The firewall and mwan3 do not start: fw4 would reject what docker forwards, and mwan3 would rewrite the routing. The exporter listens on every address (`listen_interface '*'`), unbound on port 5353 with its control socket where the unbound collector looks, textfile has a file to read, and ubnt-manager's sample radio is gone (with a route out, ssh to it would hold each scrape until it gave up).
 
-Layout: `src/prometheus_exporter/` is the ucode library (installed to `/usr/share/ucode/prometheus_exporter/`), `files/` the handler, command, init script and config, `openwrt/` the package Makefile, `test/unit/` mirrors `src/`.
+Layout: `src/prometheus_exporter/` is the ucode library (installed to `/usr/share/ucode/prometheus_exporter/`), `files/` the handler, command, init script, config and rpcd plugin, `openwrt/` the package Makefile, `test/unit/` mirrors `src/`.
 
 ## Writing a collector
 
@@ -220,27 +247,25 @@ Each collector needs a test in `test/unit/prometheus_exporter/collectors/`, and 
 
 ## LuCI app
 
-`luci-app-prometheus-exporter` adds two pages, and pins the exporter's release:
+`luci-app-prometheus-exporter` adds two pages, and pins the exporter's release. It has its views, menu, a shared resource and an ACL, and calls the service's [ubus object](#the-ubus-object), which the base package serves.
 
-- **Services → Prometheus exporter**: the main section (enabled, listen interface or every address, port, keepalive, TLS files, `omit_zero_values`) and a row per installed collector, with its switch, its options by type and what it is: in the base package or a removable one, and the configs it reads. A collector's `config collector` section holds only what differs from the defaults: it is added when a value first differs and removed once all are back. Values are checked as they are typed and again before Save, as the exporter reads them; nothing it would refuse is saved.
-- **Status → Prometheus exporter**: whether the service is enabled and runs, where it serves `/metrics`, and each collector's result, duration and error in a scrape run on the router (outside the jail) when the page opens or on Refresh, with what the jail mounts for it.
+**Services → Prometheus exporter** has two tabs:
 
-Both call the `prometheus-exporter` ubus object, an rpcd ucode plugin (`files/usr/share/rpcd/ucode/`) over `src/prometheus_exporter/luci/rpc.uc`, which reads with the exporter's own modules and writes nothing; the pages save through uci. Its ACL grants the exporter's config and the plugin's methods, nothing else.
+- **Exporter**: the main section: enabled, the interface to listen on (or every address), port, keepalive, TLS files, `omit_zero_values`. The interfaces are the ubus object's `interfaces`, netifd's logical interfaces, so a login granted this app's ACL alone, which may not read `/etc/config/network`, is offered every one; a saved interface netifd does not list is kept.
+- **Collectors**: a row per installed collector: its title, with its help below; its package (base, or the removable package's name); its switch; and, when it has options, an Edit button. Edit opens LuCI's dialog, as Network → Interfaces does: a field per option by its type, with its help and its datatype, and, read-only, the configs the collector reads and what its jail mounts.
 
-| | |
-|---|---|
-| `collectors {}` | `{ collectors: [ { name, id, title, help, enabled, package, base, options: [ { name, type, default, help, datatype, value, set, error } ], needs, configs, commands, jail: { paths, commands, mounts, problems, missing }, error } ], skipped }` |
-| `validate { main?, collectors? }` | `{ ok, errors: { main: { <option>: message }, collectors: { <module>: { <option>: message } } } }` for values as uci holds them |
-| `status {}` | `{ service: { enabled, boot, running, error }, listen: [ url ], collectors: [ { name, id, title, enabled, success, duration, error, mounts } ] }` |
+The dialog's Save stages its values in uci, as LuCI's own dialogs do (they show among the unsaved changes), and Dismiss drops them; the page's Save & Apply applies them with the rest. A collector's `config collector` section holds only what differs from the defaults, its switch included: it is added when a value first differs and removed once all are back. Values are checked as they are typed, by their datatype and by the object's `validate`, as the exporter reads them, and again before the dialog stages them and before Save; nothing the exporter would refuse is saved.
 
-`status` scrapes in a process of its own (`/usr/libexec/prometheus-exporter/luci-status.uc`) and replies when it is done, so rpcd answers other calls meanwhile, the collectors' calls to objects rpcd itself serves (`wireguard`, `luci`) among them.
+**Status → Prometheus exporter**: whether the service is enabled and runs, where it serves `/metrics`, and each collector's result, duration and error in a scrape run on the router (outside the jail) when the page opens or on Refresh, with what the jail mounts for it.
+
+The app's ACL grants the ubus object's four methods, and `/etc/config/prometheus-exporter` to read and write; nothing else.
 
 | | |
 |---|---|
-| `make browser` | the Playwright tests in `test/browser/` against LuCI in a container: the built packages, the plugin in a real rpcd, real collectors and a stand-in for procd (`devenv/services/luci/`); `FILTER=`. Screenshots in `bin/browser/screenshots/` |
+| `make browser` | the Playwright tests in `test/browser/` against LuCI in a container: the built packages, the ubus object in a real rpcd, real collectors and a stand-in for procd and netifd (`devenv/services/luci/`); `FILTER=`. Screenshots in `bin/browser/screenshots/` |
 | `make pot` | `luci/po/templates/prometheus-exporter.pot`, with openwrt/luci's scanner; `make lint` fails while it is out of date |
 
-`make lint` also parses the views (as the function bodies LuCI compiles them into) and the JSON, and fails on LuCI code that could turn data into markup (`devenv/scripts/luci-dom-lint.sh`); `make package-check` installs the app, checks its files and runs its plugin in rpcd.
+`make lint` also parses the views (as the function bodies LuCI compiles them into) and the JSON, and fails on LuCI code that could turn data into markup (`devenv/scripts/luci-dom-lint.sh`); `make package-check` installs the app, and checks its files, its dependencies and its ACL.
 
 ## Credits
 
