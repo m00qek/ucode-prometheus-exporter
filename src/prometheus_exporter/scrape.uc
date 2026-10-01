@@ -61,15 +61,15 @@ export function select(collectors, query_string, disabled) {
 export function run_one(env, session, c) {
 	let rec = exposition.recorder();
 	let t1 = env.clock();
-	let res = config.collector(session.uci(), c.id, c.meta.options);
+	let res = config.settings(session.uci(), c.id, c.meta);
 
 	if (res.ok) {
-		let options = res.data;
+		let settings = res.data;
 
-		res = session.for(c.meta);
+		res = session.for(c.meta, settings);
 		if (res.ok) {
 			try {
-				let r = c.collect(res.data, rec, options);
+				let r = c.collect(res.data, rec, settings.options);
 				res = Result.is(r) ? r : Result.err(errors.COLLECTOR_NO_RESULT, `returned ${type(r) ?? 'null'}`);
 			} catch (e) {
 				res = Result.err(errors.COLLECTOR_CRASHED, split(e.message, '\n')[0]);

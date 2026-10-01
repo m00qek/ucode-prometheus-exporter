@@ -52,7 +52,7 @@ function check_main(sys, add) {
 	if (!svc.ok || !main.ok)
 		return;
 
-	add('ok', `main: ${svc.data.enabled ? '' : 'disabled (option enabled), '}${listen_summary(svc.data)}`);
+	add('ok', `main: ${svc.data.enabled ? '' : 'disabled (option enabled), '}${listen_summary(svc.data)}, exec_timeout ${main.data.exec_timeout}s`);
 	check_tls(sys.fs, svc.data, add);
 }
 
@@ -70,7 +70,7 @@ function check_sections(sys, add) {
 	});
 
 	for (let c in sys.collectors) {
-		let res = config.collector(sys.uci, c.id, c.meta.options);
+		let res = config.collector(sys.uci, c.id, c.meta);
 
 		if (!res.ok) {
 			add('fail', `collector ${c.meta.name}, section '${c.id}': ${Result.describe(res)}`);
@@ -94,13 +94,23 @@ function value_of(v) {
 	return type(v) == 'string' ? sprintf('%J', v) : `${v}`;
 }
 
+// Where the seconds of a collector's programs come from (config.timeout_source).
+const TIMEOUT_SOURCES = {
+	timeout: "its section's option timeout",
+	'meta.timeout': "the collector's own (meta.timeout)",
+	exec_timeout: "the main section's exec_timeout",
+};
+
 // The lines that describe one collector.
-function describe_collector(c, j) {
+function describe_collector(sys, c, j) {
 	let lines = [ `${c.meta.name} (${c.meta.title}): section '${c.id}', ${j.enabled ? 'enabled' : 'disabled'}` ];
 	let row = (label, items) => length(items) && push(lines, sprintf('    %-9s%s', label, join(' ', items)));
+	let settings = config.settings(sys.uci, c.id, c.meta);
 
 	for (let k in (j.options.ok ? sort(keys(j.options.data)) : []))
 		row('option', [ `${k}=${value_of(j.options.data[k])}`, '#', c.meta.options[k].help ]);
+	if (settings.ok && settings.data.timeout != null)
+		row('timeout', [ `${settings.data.timeout}s`, '#', TIMEOUT_SOURCES[config.timeout_source(sys.uci, c.id, c.meta)] ]);
 	row('needs', c.meta.needs);
 	row('configs', c.meta.configs ?? []);
 	row('paths', j.paths);
@@ -124,7 +134,7 @@ function describe_collectors(sys, add_line, add) {
 			add('warn', `jail: ${c.meta.name}: ${p}`);
 		for (let p in (j.enabled ? j.missing : []))
 			add('warn', `jail: ${c.meta.name}: ${p} is not there; the service mounts it once it is`);
-		for (let l in describe_collector(c, j))
+		for (let l in describe_collector(sys, c, j))
 			add_line(l);
 	}
 

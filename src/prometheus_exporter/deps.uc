@@ -14,6 +14,7 @@ import { connect } from 'ubus';
 import { cursor } from 'uci';
 import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
+import { EXEC_TIMEOUT } from 'prometheus_exporter.config';
 
 export const NEEDS = [ 'fs', 'ubus', 'uci', 'rtnl', 'nl80211', 'socket', 'exec', 'time', 'log' ];
 
@@ -167,13 +168,9 @@ export function shell_quote(arg) {
 	return "'" + replace('' + arg, "'", "'\\''") + "'";
 };
 
-// The seconds a collector's commands get in all, in one scrape, unless its
-// meta.timeout says otherwise. Prometheus gives a scrape 10 s by default
-// (scrape_timeout): a collector whose program hangs for all of its 5 s still
-// leaves the rest of the scrape, well under a second, time to answer. The
-// programs collectors run answer in milliseconds (nft, ethtool, mmcli over
-// D-Bus) or in a second or so (an ssh login to a radio).
-export const EXEC_SECONDS = 5;
+// The seconds a collector's commands get in all, in one scrape, when nobody
+// says otherwise: the main section's exec_timeout by default (see config).
+export const EXEC_SECONDS = EXEC_TIMEOUT;
 
 // What a program's handle closes with when the watchdog killed it: the shell
 // that ran it, killed by SIGKILL, which nothing else sends it.
@@ -354,7 +351,7 @@ export function session(mods) {
 		return uci;
 	}
 
-	function capability(need, meta) {
+	function capability(need, meta, settings) {
 		switch (need) {
 		case 'fs':      return fs;
 		case 'ubus':    return ubus;
@@ -362,7 +359,7 @@ export function session(mods) {
 		case 'rtnl':    return mods.rtnl ? rtnl_channel(mods.rtnl) : null;
 		case 'nl80211': return mods.nl80211 ? nl80211_channel(mods.nl80211) : null;
 		case 'socket':  return mods.socket ? socket_channel(mods.socket) : null;
-		case 'exec':    return exec_channel(mods.fs.popen, meta.commands ?? [], meta.timeout, mods.clock);
+		case 'exec':    return exec_channel(mods.fs.popen, meta.commands ?? [], settings?.timeout ?? meta.timeout, mods.clock);
 		case 'time':    return { now: mods.time };
 		case 'log':     return mods.log ? (msg) => mods.log(`collector '${meta.name}': ${msg}`) : null;
 		}
@@ -373,12 +370,13 @@ export function session(mods) {
 
 		// The deps object for a collector with this meta, or NEED_MISSING when
 		// the system lacks one of its needs (nl80211 and socket are separate
-		// packages).
-		for: function(meta) {
+		// packages). settings: what its config says (config.settings): exec's
+		// programs get settings.timeout seconds, else meta.timeout's.
+		for: function(meta, settings) {
 			let deps = {};
 
 			for (let need in meta.needs) {
-				let cap = capability(need, meta);
+				let cap = capability(need, meta, settings);
 
 				if (cap == null)
 					return Result.err(errors.NEED_MISSING, `${need} is not installed`);

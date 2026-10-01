@@ -103,9 +103,9 @@ function entry(sys, name) {
 describe('rpc.option_spec', () => {
 	it('takes a bare default, typed by it, with no help or datatype', () => {
 		assert.match([
-			{ name: 'stations', type: 'bool', default: true, help: null, datatype: null },
-			{ name: 'retries', type: 'int', default: 3, help: null, datatype: null },
-			{ name: 'directory', type: 'string', default: '/var/prometheus', help: null, datatype: null },
+			{ name: 'stations', core: false, type: 'bool', default: true, help: null, datatype: null },
+			{ name: 'retries', core: false, type: 'int', default: 3, help: null, datatype: null },
+			{ name: 'directory', core: false, type: 'string', default: '/var/prometheus', help: null, datatype: null },
 		], [
 			rpc.option_spec('stations', true),
 			rpc.option_spec('retries', 3),
@@ -115,9 +115,9 @@ describe('rpc.option_spec', () => {
 
 	it('takes { default, help, datatype }, and leaves out an empty help or datatype', () => {
 		assert.match([
-			{ name: 'directory', type: 'string', default: '/var/prometheus', help: 'Where the .prom files are.', datatype: 'directory' },
-			{ name: 'fields', type: 'string', default: '^pg', help: null, datatype: 'regex' },
-			{ name: 'stations', type: 'bool', default: false, help: null, datatype: null },
+			{ name: 'directory', core: false, type: 'string', default: '/var/prometheus', help: 'Where the .prom files are.', datatype: 'directory' },
+			{ name: 'fields', core: false, type: 'string', default: '^pg', help: null, datatype: 'regex' },
+			{ name: 'stations', core: false, type: 'bool', default: false, help: null, datatype: null },
 		], [
 			rpc.option_spec('directory', { default: '/var/prometheus', help: 'Where the .prom files are.', datatype: 'directory' }),
 			rpc.option_spec('fields', { default: '^pg', help: '', datatype: 'regex' }),
@@ -128,7 +128,7 @@ describe('rpc.option_spec', () => {
 	prop('gives the same spec for a bare default and the object that holds only it',
 		gen.oneof(gen.bool(), gen.int(-1000, 1000), gen.string({ min_len: 0, max_len: 12 })), (v) => {
 			assert.match(rpc.option_spec('o', { default: v }), rpc.option_spec('o', v));
-			assert.match({ name: 'o', type: type(v), default: v, help: null, datatype: null }, rpc.option_spec('o', v));
+			assert.match({ name: 'o', core: false, type: type(v), default: v, help: null, datatype: null }, rpc.option_spec('o', v));
 		});
 });
 
@@ -157,7 +157,7 @@ describe('rpc.collectors', () => {
 				name: 'wifi', id: 'wifi', title: 'wifi', help: 'The wifi test collector.',
 				enabled: true,
 				package: `${PACKAGE}-wifi`, base: false,
-				options: [ { name: 'stations', type: 'bool', default: true, help: 'The stations option.', datatype: null, value: false, set: true, error: null } ],
+				options: [ { name: 'stations', core: false, type: 'bool', default: true, help: 'The stations option.', datatype: null, value: false, set: true, error: null } ],
 				needs: [ 'ubus' ], configs: [], commands: [],
 				jail: { paths: [], owned: [], commands: {}, mounts: [], problems: [], missing: [] },
 				error: null,
@@ -232,6 +232,36 @@ describe('rpc.collectors', () => {
 		});
 	});
 
+	it('gives a collector that runs programs the core\'s timeout, after its own options', () => {
+		let radio = collector('ubnt-manager', { needs: [ 'exec' ], commands: [ 'ubnt-manager' ], timeout: 12, options: { verbose: false } });
+
+		with_sys({ main: { '.type': NAME, exec_timeout: '8' } }, { collectors: [ NFT, radio, LOADAVG ] }, (sys) => {
+			assert.match([
+				{ name: 'timeout', core: true, type: 'int', default: 8, default_from: 'exec_timeout', help: config.TIMEOUT.help,
+				  datatype: 'range(1,30)', value: 8, set: false, error: null },
+			], entry(sys, 'nft-counters').options);
+			assert.match([ [ 'verbose', false ], [ 'timeout', true ] ], map(entry(sys, 'ubnt-manager').options, (o) => [ o.name, o.core ]));
+			let t = entry(sys, 'ubnt-manager').options[1];
+			assert.match({ default: 12, default_from: 'meta.timeout', value: 12, set: false },
+				{ default: t.default, default_from: t.default_from, value: t.value, set: t.set });
+			assert.match([], entry(sys, 'loadavg').options);
+		});
+	});
+
+	it('gives a timeout set in the section, or what is wrong with it', () => {
+		with_sys({ nft_counters: { '.type': 'collector', timeout: '3' }, ubnt_manager: { '.type': 'collector', timeout: '99' } }, {
+			collectors: [ NFT, collector('ubnt-manager', { needs: [ 'exec' ], commands: [ 'ubnt-manager' ], timeout: 12 }) ],
+		}, (sys) => {
+			let nft = entry(sys, 'nft-counters').options[0];
+			let radio = entry(sys, 'ubnt-manager');
+
+			assert.match({ value: 3, set: true, error: null, default: 5 }, { value: nft.value, set: nft.set, error: nft.error, default: nft.default });
+			assert.match({ value: '99', set: true, error: 'expected an integer from 1 to 30, got 99' },
+				{ value: radio.options[0].value, set: radio.options[0].set, error: radio.options[0].error });
+			assert.match('CONFIG_INVALID (timeout: expected an integer from 1 to 30, got 99)', radio.error);
+		});
+	});
+
 	it('takes the title of a collector that declares one', () => {
 		let titled = collector('dawn', { needs: [], title: 'DAWN' });
 
@@ -277,6 +307,19 @@ describe('rpc.validate', () => {
 		} } }, validate({
 			collectors: { wifi: { enabled: 'maybe', stations: 'x' }, sampler: { retries: '1.5', label: [ 'a', 'b' ], verbose: '1' } },
 		}));
+	});
+
+	it('checks exec_timeout, and the timeout of collectors that run programs, which the others ignore', () => {
+		assert.match({ ok: false, errors: {
+			main: { exec_timeout: 'expected an integer from 1 to 30, got 0' },
+			collectors: { nft_counters: { timeout: 'expected an integer, got "5s"' } },
+		} }, validate({ main: { exec_timeout: '0' }, collectors: { nft_counters: { timeout: '5s' }, wifi: { timeout: 'whatever' } } }));
+		assert.match(true, validate({ main: { exec_timeout: '30' }, collectors: { nft_counters: { timeout: '1' } } }).ok);
+	});
+
+	prop('refuses a timeout exactly when it is not 1 to 30 seconds', gen.int(-40, 40), (n) => {
+		let res = validate({ collectors: { nft_counters: { timeout: '' + n } } });
+		assert.match(n < 1 || n > 30, res.errors.collectors.nft_counters?.timeout != null);
 	});
 
 	it('takes an empty or missing value as unset, which is the default', () => {

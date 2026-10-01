@@ -6,6 +6,7 @@ import * as loader from 'prometheus_exporter.loader';
 import * as deps from 'prometheus_exporter.deps';
 import * as exposition from 'prometheus_exporter.exposition';
 import * as Result from 'prometheus_exporter.result';
+import * as commands from 'lib.commands';
 import { with_mods } from 'context';
 
 function collector(name, collect, meta) {
@@ -131,6 +132,39 @@ describe('scrape.run_one', () => {
 		let r = run(collector('wifi', () => { called = true; return Result.ok(); }, { needs: [ 'nl80211' ] }), { no_nl80211: true });
 
 		assert.match([ false, 'NEED_MISSING' ], [ called, r.result.error ]);
+	});
+
+	it('gives a collector\'s programs the seconds of its section\'s timeout, then its meta.timeout, then exec_timeout', () => {
+		let seen = [];
+		let fs = { behavior: { popen: function(cmd) { push(seen, commands.parse(cmd).seconds); return null; } } };
+		let runner = (extra) => collector('runner', (d) => d.exec.run([ 'nft' ]), { needs: [ 'exec' ], commands: [ 'nft' ], ...(extra ?? {}) });
+
+		run(runner(), { fs, main: { exec_timeout: '8' } });
+		run(runner({ timeout: 12 }), { fs, main: { exec_timeout: '8' } });
+		run(runner({ timeout: 12 }), { fs, main: { exec_timeout: '8' }, options: { timeout: '3' } });
+		run(runner(), { fs, options: { timeout: '4' } });
+		run(runner(), { fs });
+
+		assert.match([ 8, 12, 3, 4, deps.EXEC_SECONDS ], seen);
+	});
+
+	it('kills a program once the seconds of the collector\'s own timeout are spent', () => {
+		let c = collector('runner', (d) => d.exec.run([ 'nft' ]), { needs: [ 'exec' ], commands: [ 'nft' ] });
+		let t = clock(true);
+		let r = run(c, { fs: commands.fs({ [commands.line([ 'nft' ])]: { run: [ 'sh', '-c', 'sleep 3079; :' ] } }), options: { timeout: '1' } });
+		let took = (clock(true)[0] - t[0]);
+
+		assert.match({ error: 'COMMAND_TIMEOUT', details: 'nft: still running after 1 s, killed' }, { error: r.result.error, details: r.result.details });
+		assert.match(true, took < deps.EXEC_SECONDS, `took ${took} s`);
+		assert.match([], commands.running('sleep 3079'));
+	});
+
+	it('does not run a collector whose timeout is not 1 to 30 seconds', () => {
+		let called = false;
+		let c = collector('runner', () => { called = true; return Result.ok(); }, { needs: [ 'exec' ], commands: [ 'nft' ] });
+		let r = run(c, { options: { timeout: '31' } });
+
+		assert.match([ false, 'CONFIG_INVALID (timeout: expected an integer from 1 to 30, got 31)' ], [ called, Result.describe(r.result) ]);
 	});
 
 	it('logs a family declared with two types', () => {

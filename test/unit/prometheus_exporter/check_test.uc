@@ -47,7 +47,7 @@ function run(own, collectors, opts, files, skipped) {
 describe('check.run --config', () => {
 	it('passes a missing config: every option has its default', () => {
 		assert.match({ ok: true, lines: [
-			'ok   main: HTTP on interface loopback, port 9100, keepalive 70s',
+			'ok   main: HTTP on interface loopback, port 9100, keepalive 70s, exec_timeout 5s',
 			'ok   collectors: 2 installed collectors, their options valid',
 		] }, run({}, [ OK, TEXTFILE ], { config_only: true }));
 	});
@@ -71,7 +71,7 @@ describe('check.run --config', () => {
 
 		assert.match(false, r.ok);
 		assert.match([
-			'ok   main: HTTP on interface loopback, port 9100, keepalive 70s',
+			'ok   main: HTTP on interface loopback, port 9100, keepalive 70s, exec_timeout 5s',
 			'FAIL collector loadavg, section \'loadavg\': CONFIG_INVALID (enabled: expected a boolean, got "maybe")',
 			'FAIL collector textfile, section \'textfile\': CONFIG_INVALID (directory: expected a single value, got [ "a", "b" ])',
 		], r.lines);
@@ -99,12 +99,12 @@ describe('check.run --config', () => {
 			run(tls('/etc/x.crt', null), [], { config_only: true }).lines);
 		assert.match(contains([ 'warn main: /etc/x.key is missing; it serves HTTP until it is there' ]),
 			run(tls('/etc/x.crt', '/etc/x.key'), [], { config_only: true }, [ '/etc/x.crt' ]).lines);
-		assert.match(contains([ 'ok   main: HTTPS on interface loopback, port 9100, keepalive 70s' ]),
+		assert.match(contains([ 'ok   main: HTTPS on interface loopback, port 9100, keepalive 70s, exec_timeout 5s' ]),
 			run(tls('/etc/x.crt', '/etc/x.key'), [], { config_only: true }, [ '/etc/x.crt', '/etc/x.key' ]).lines);
 	});
 
 	it('says when the service is disabled', () => {
-		assert.match(contains([ 'ok   main: disabled (option enabled), HTTP on every address, port 9100, keepalive 0s' ]),
+		assert.match(contains([ 'ok   main: disabled (option enabled), HTTP on every address, port 9100, keepalive 0s, exec_timeout 5s' ]),
 			run({ main: { '.type': config.NAME, enabled: '0', listen_interface: '*', http_keepalive: '0' } }, [], { config_only: true }).lines);
 	});
 });
@@ -116,7 +116,7 @@ describe('check.run', () => {
 
 		assert.match(true, r.ok);
 		assert.match([
-			'ok   main: HTTP on interface loopback, port 9100, keepalive 70s',
+			'ok   main: HTTP on interface loopback, port 9100, keepalive 70s, exec_timeout 5s',
 			'ok   collectors: 4 installed collectors, their options valid',
 			'warn scrape, outside the jail: 3 of 4 collectors succeeded',
 			'warn scrape: openwrt: UBUS_CALL_FAILED (system board: Not found)',
@@ -125,6 +125,7 @@ describe('check.run', () => {
 			'  loadavg (Test): section \'loadavg\', enabled',
 			'      needs    fs',
 			'  nft-counters (Test): section \'nft_counters\', enabled',
+			'      timeout  5s # the main section\'s exec_timeout',
 			'      needs    exec',
 			'      commands nft=/usr/sbin/nft',
 			'      mounts   /bin/sh /usr/sbin/nft',
@@ -172,6 +173,34 @@ describe('check.run', () => {
 
 		assert.match(contains([ '      paths    /var/own', '      makes    /var/own', '      mounts   /var/own' ]), r.lines);
 		assert.match([], filter(r.lines, (l) => index(l, 'not there') >= 0));
+	});
+
+	it('says how many seconds each collector that runs programs gets, and where they come from', () => {
+		let radio = collector('ubnt-manager', () => Result.ok(), { needs: [ 'exec' ], commands: [ 'ubnt-manager' ], timeout: 12 });
+		let timeouts = (own) => filter(run(own, [ OK, NFT, radio ], {}).lines, (l) => index(l, ' timeout ') >= 0);
+
+		assert.match([
+			'      timeout  5s # the main section\'s exec_timeout',
+			'      timeout  12s # the collector\'s own (meta.timeout)',
+		], timeouts({}));
+		assert.match([
+			'      timeout  8s # the main section\'s exec_timeout',
+			'      timeout  3s # its section\'s option timeout',
+		], timeouts({ main: { '.type': config.NAME, exec_timeout: '8' }, ubnt_manager: { '.type': 'collector', timeout: '3' } }));
+	});
+
+	it('fails a timeout or an exec_timeout that is not 1 to 30 seconds, and ignores timeout where no program runs', () => {
+		let r = run({
+			main: { '.type': config.NAME, exec_timeout: '60' },
+			nft_counters: { '.type': 'collector', timeout: '0' },
+			loadavg: { '.type': 'collector', timeout: 'whatever' },
+		}, [ OK, NFT ], { config_only: true });
+
+		assert.match(false, r.ok);
+		assert.match([
+			'FAIL main: CONFIG_INVALID (exec_timeout: expected an integer from 1 to 30, got 60)',
+			'FAIL collector nft-counters, section \'nft_counters\': CONFIG_INVALID (timeout: expected an integer from 1 to 30, got 0)',
+		], r.lines);
 	});
 
 	prop('fails exactly when a collector\'s enabled is not a boolean',

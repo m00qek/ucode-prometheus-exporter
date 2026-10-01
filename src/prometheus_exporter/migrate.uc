@@ -34,7 +34,7 @@ export const SOURCES = [
 export const OPTIONS = [ 'listen_interface', 'listen_port', 'http_keepalive', 'cert', 'key', 'omit_zero_values' ];
 
 // The main section as the package ships it (files/etc/config/prometheus-exporter).
-export const SHIPPED = { enabled: '1', listen_interface: 'loopback', listen_port: '9100', http_keepalive: '70', omit_zero_values: '0' };
+export const SHIPPED = { enabled: '1', listen_interface: 'loopback', listen_port: '9100', http_keepalive: '70', omit_zero_values: '0', exec_timeout: '5' };
 
 const SPECS = { ...config.SERVICE_OPTIONS, ...config.MAIN_OPTIONS };
 

@@ -16,7 +16,13 @@
 //
 //   collector: { name, id, title, help, enabled, package, base, options: [ option ],
 //                needs, configs, commands, jail: { paths, owned, commands, mounts, problems, missing }, error }
-//   option:    { name, type, default, help, datatype, value, set, error }
+//   option:    { name, core, type, default, help, datatype, value, set, error }
+//
+// options are the collector's own, in the order it declares them, then the
+// core's `timeout` (core: true) when it runs programs: the seconds they get in
+// each scrape. Its default is the collector's meta.timeout or else the main
+// section's exec_timeout, which `default_from` names ('meta.timeout' or
+// 'exec_timeout'). The core's `enabled` is the collector's own field.
 //
 // validate takes values as uci holds them (strings) and checks each alone, as
 // the exporter would read it: an empty or missing value is unset. Options nobody
@@ -73,6 +79,7 @@ export function option_spec(name, decl) {
 
 	return {
 		name,
+		core: false,
 		type: type(spec.default),
 		default: spec.default,
 		help: text(spec.help),
@@ -141,16 +148,28 @@ export function main_value(name, value) {
 	return Result.ok((name in keys(config.SERVICE_OPTIONS)) ? svc.data[name] : own.data[name]);
 };
 
-// What the exporter makes of `value` for option `name` (or `enabled`) of
-// collector `c`: a Result of the typed value, the default when it is unset.
+// What the exporter makes of `value` for option `name` (or the core's enabled
+// or timeout) of collector `c`: a Result of the typed value, the default when
+// it is unset. The section is read alone: an unset timeout is meta.timeout's,
+// or exec_timeout's default.
 export function collector_value(c, name, value) {
 	let uci = lone_section(c.id, 'collector', { [name]: value });
-	let res = config.collector(uci, c.id, c.meta.options);
+	let res = config.settings(uci, c.id, c.meta);
 
 	if (!res.ok)
 		return res;
 
-	return Result.ok((name == 'enabled') ? config.enabled(uci, c.id) : res.data[name]);
+	switch (name) {
+	case 'enabled': return Result.ok(config.enabled(uci, c.id));
+	case 'timeout': return Result.ok(res.data.timeout);
+	}
+
+	return Result.ok(res.data.options[name]);
+};
+
+// The option names a collector's section takes: the core's, then its own.
+export function option_names(c) {
+	return [ ...keys(config.core(c.meta, config.EXEC_TIMEOUT)), ...keys(c.meta.options ?? {}) ];
 };
 
 // { path: package } for the files of the exporter's packages: apk keeps a list
@@ -181,6 +200,28 @@ function option_entry(c, spec, section) {
 	};
 }
 
+// The core's timeout of a collector that runs programs, whose default follows
+// the configuration as saved: meta.timeout, or else the main section's
+// exec_timeout.
+function timeout_entry(sys, c, section) {
+	let set = ('timeout' in keys(section));
+	let fallback = config.default_timeout(sys.uci, c.meta);
+	let res = set ? collector_value(c, 'timeout', section.timeout) : Result.ok(fallback);
+
+	return {
+		name: 'timeout',
+		core: true,
+		type: 'int',
+		default: fallback,
+		default_from: (c.meta.timeout != null) ? 'meta.timeout' : 'exec_timeout',
+		help: config.TIMEOUT.help,
+		datatype: config.TIMEOUT.datatype,
+		value: res.ok ? res.data : section.timeout,
+		set,
+		error: res.ok ? null : message('timeout', res),
+	};
+}
+
 function collector_entry(sys, c, owner_of) {
 	let meta = c.meta;
 	let j = jail.collector(c, sys);
@@ -198,7 +239,10 @@ function collector_entry(sys, c, owner_of) {
 		enabled: j.enabled,
 		package: owner ?? null,
 		base: (owner == null) ? null : owner == PACKAGE,
-		options: map(options_of(meta), (spec) => option_entry(c, spec, section)),
+		options: [
+			...map(options_of(meta), (spec) => option_entry(c, spec, section)),
+			...(('exec' in meta.needs) ? [ timeout_entry(sys, c, section) ] : []),
+		],
 		needs: meta.needs,
 		configs: meta.configs ?? [],
 		commands: meta.commands ?? [],
@@ -250,7 +294,7 @@ export function validate(sys, args) {
 		if (type(values) != 'object')
 			return invalid_args(`collectors.${id} must be an object`);
 
-		let names = [ 'enabled', ...keys(c.meta.options ?? {}) ];
+		let names = option_names(c);
 
 		for (let name, value in values) {
 			if (!(name in names) || is_unset(value))

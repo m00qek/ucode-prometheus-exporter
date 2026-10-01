@@ -3,6 +3,7 @@
 import { describe, it, prop, gen, assert, mock, regex } from 'utest';
 import * as loader from 'prometheus_exporter.loader';
 import * as Result from 'prometheus_exporter.result';
+import * as config from 'prometheus_exporter.config';
 
 const OK = () => Result.ok();
 
@@ -55,6 +56,8 @@ describe('loader.validate', () => {
 			'x: meta.timeout must be the seconds its commands may take, 1 to 30',
 			'x: meta.timeout must be the seconds its commands may take, 1 to 30',
 			"x: option 'enabled' is the core's, every collector has it",
+			"x: option 'timeout' is the core's, every collector that runs programs has it; meta.timeout sets its default",
+			"x: option 'timeout' is the core's, every collector that runs programs has it; meta.timeout sets its default",
 			"x: option 'stations' must be { default, help, datatype }",
 			"x: option 'stations' needs a boolean, integer or string default",
 			"x: option 'stations' needs a help sentence",
@@ -99,6 +102,8 @@ describe('loader.validate', () => {
 			problem('x', module_named('x', { needs: [ 'exec' ], commands: [ 'nft' ], timeout: 31 })),
 			problem('x', module_named('x', { needs: [ 'exec' ], commands: [ 'nft' ], timeout: 2.5 })),
 			problem('x', module_named('x', { options: { enabled: { default: true, help: 'H.' } } })),
+			problem('x', module_named('x', { needs: [ 'exec' ], commands: [ 'nft' ], options: { timeout: { default: 9, help: 'H.' } } })),
+			problem('x', module_named('x', { options: { timeout: { default: 'soon', help: 'H.' } } })),
 			problem('x', module_named('x', { options: { stations: true } })),
 			problem('x', module_named('x', { options: { stations: { default: null, help: 'H.' } } })),
 			problem('x', module_named('x', { options: { stations: { default: true } } })),
@@ -140,6 +145,19 @@ describe('loader.validate', () => {
 		let res = loader.validate('x', module_named('x', { needs: [ 'exec' ], commands: [ 'ssh' ], timeout: loader.TIMEOUT_MAX }));
 
 		assert.match([ true, 30 ], [ res.ok, res.data.meta.timeout ]);
+	});
+
+	prop('refuses every option name the core reserves, whatever the collector needs',
+		gen.tuple(gen.elements(...config.RESERVED), gen.elements([], [ 'fs' ], [ 'exec' ])), (t) => {
+			let needs = t[1];
+			let extra = ('exec' in needs) ? { commands: [ 'nft' ] } : {};
+			let res = loader.validate('x', module_named('x', { needs, ...extra, options: { [t[0]]: { default: 1, help: 'H.' } } }));
+
+			assert.match([ false, true ], [ res.ok, index(res.details, `option '${t[0]}' is the core's`) >= 0 ]);
+		});
+
+	it('caps meta.timeout as the main section caps exec_timeout', () => {
+		assert.match(config.EXEC_TIMEOUT_MAX, loader.TIMEOUT_MAX);
 	});
 
 	it('takes options declared as { default, help, datatype }', () => {

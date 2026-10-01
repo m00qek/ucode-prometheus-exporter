@@ -165,7 +165,7 @@ export function resolve_paths(meta, options, handles) {
 // owned ones, which the service makes before it mounts them.
 export function collector(c, sys) {
 	let meta = c.meta;
-	let options = config.collector(sys.uci, c.id, meta.options);
+	let options = config.collector(sys.uci, c.id, meta);
 	let configs = map(meta.configs ?? [], (n) => `${CONFIG_DIR}/${n}`);
 	let paths = [];
 	let owned = [];

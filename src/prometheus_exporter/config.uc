@@ -18,14 +18,55 @@ export const NAME = 'prometheus-exporter';
 // The apk package of the exporter; each collector package is PACKAGE-<name>.
 export const PACKAGE = 'ucode-prometheus-exporter';
 
+// The seconds the programs a collector runs (exec) get in all in each scrape,
+// unless it says otherwise. Prometheus gives a scrape 10 s by default
+// (scrape_timeout): a collector whose program hangs for all of its 5 s still
+// leaves the rest of the scrape, well under a second, time to answer. The
+// programs collectors run answer in milliseconds (nft, ethtool, mmcli over
+// D-Bus) or in a second or so (an ssh login to a radio).
+export const EXEC_TIMEOUT = 5;
+
+// The most seconds they may get: half of the 60 s uhttpd gives a scrape before
+// it kills it, answering nothing.
+export const EXEC_TIMEOUT_MAX = 30;
+
+const EXEC_TIMEOUT_RANGE = `range(1,${EXEC_TIMEOUT_MAX})`;
+
 // The main section's options the exporter itself reads; the others are the
 // init script's (SERVICE_OPTIONS).
 export const MAIN_OPTIONS = {
 	omit_zero_values: { default: false, help: 'Leave out counters that are 0, most of which never move on a router.' },
+	exec_timeout: {
+		default: EXEC_TIMEOUT, datatype: EXEC_TIMEOUT_RANGE,
+		help: 'Seconds the programs a collector runs get in all in each scrape, unless the collector says otherwise; one still running then is killed.',
+	},
 };
 
 // What every collector has besides its own options: the core's.
 export const ENABLED = { default: true, help: 'Serve this collector; 0 leaves it out, and naming it in a query is a 400.' };
+
+// The core's option of a collector that runs programs (exec in meta.needs),
+// without its default, which is the collector's meta.timeout or else the main
+// section's exec_timeout (default_timeout).
+export const TIMEOUT = {
+	datatype: EXEC_TIMEOUT_RANGE,
+	help: 'Seconds the programs of this collector get in all in each scrape; one still running then is killed.',
+};
+
+// The option names the core keeps for itself: no collector declares them.
+// `timeout` is only an exec collector's; the others ignore it.
+export const RESERVED = [ 'enabled', 'timeout' ];
+
+// The core's options of a collector with this meta, by name: enabled, and
+// timeout, whose default is `seconds`, when it runs programs.
+export function core(meta, seconds) {
+	let out = { enabled: ENABLED };
+
+	if ('exec' in (meta?.needs ?? []))
+		out.timeout = { default: seconds, ...TIMEOUT };
+
+	return out;
+};
 
 const TRUE = [ '1', 'yes', 'on', 'true', 'enabled' ];
 const FALSE = [ '0', 'no', 'off', 'false', 'disabled' ];
@@ -167,18 +208,63 @@ export function service(uci) {
 	return res;
 };
 
+// The seconds a collector's programs get when its section sets no timeout:
+// its meta.timeout, or else the main section's exec_timeout (its default while
+// the main section is not valid, which check and the init script refuse).
+export function default_timeout(uci, meta) {
+	if (meta?.timeout != null)
+		return meta.timeout;
+
+	let res = main(uci);
+
+	return res.ok ? res.data.exec_timeout : EXEC_TIMEOUT;
+};
+
+// Where a collector's seconds come from: its section's `timeout`, its
+// `meta.timeout` or the main section's `exec_timeout`; null for a collector
+// that runs no programs.
+export function timeout_source(uci, id, meta) {
+	if (!('exec' in (meta?.needs ?? [])))
+		return null;
+
+	let s = uci.get_all(NAME, id);
+
+	if (type(s) == 'object' && s['.type'] == 'collector' && 'timeout' in s)
+		return 'timeout';
+
+	return (meta.timeout != null) ? 'meta.timeout' : 'exec_timeout';
+};
+
 // `config collector '<id>'`: the collector's module name, as a uci section name
 // cannot hold the '-' of ltq-dsl.
 //
-// Every collector also has `enabled`, the core's: it is checked here like the
-// collector's own options, and left out of what the collector gets.
-export function collector(uci, id, specs) {
-	let res = section(uci, id, 'collector', { enabled: ENABLED, ...specs });
+// Every setting of the collector with this meta, as a Result of { enabled,
+// timeout, options }: the core's options (enabled, and timeout when it runs
+// programs, null otherwise) are checked like its own, which `options` holds.
+// So timeout's precedence: the section's, then meta.timeout, then the main
+// section's exec_timeout.
+export function settings(uci, id, meta) {
+	let core_specs = core(meta, ('exec' in (meta?.needs ?? [])) ? default_timeout(uci, meta) : null);
+	let res = section(uci, id, 'collector', { ...(meta?.options ?? {}), ...core_specs });
 
-	if (res.ok)
-		delete res.data.enabled;
+	if (!res.ok)
+		return res;
 
-	return res;
+	let options = res.data;
+	let out = { enabled: options.enabled, timeout: options.timeout ?? null };
+
+	for (let name in RESERVED)
+		delete options[name];
+
+	return Result.ok({ ...out, options });
+};
+
+// The collector's own options, as a Result: what `collect` gets. The core's are
+// checked too, and left out.
+export function collector(uci, id, meta) {
+	let res = settings(uci, id, meta);
+
+	return res.ok ? Result.ok(res.data.options) : res;
 };
 
 // Whether a collector is enabled: true unless its section says otherwise. A

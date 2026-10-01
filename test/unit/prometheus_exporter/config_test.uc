@@ -15,6 +15,11 @@ function specs(defaults) {
 	return out;
 }
 
+// The meta of a collector with options of these defaults, and these needs.
+function meta(defaults, needs, extra) {
+	return { needs: needs ?? [], options: specs(defaults), ...(extra ?? {}) };
+}
+
 function spec(fallback, datatype) {
 	return { default: fallback, help: 'H.', datatype };
 }
@@ -60,27 +65,27 @@ describe('config.collector', () => {
 	it('fills unset options with their defaults, typed', () => {
 		with_uci({ wifi: { '.type': 'collector', stations: '0' } }, (uci) => {
 			assert.match({ stations: false, directory: '/var/prometheus' },
-				config.collector(uci, 'wifi', specs({ stations: true, directory: '/var/prometheus' })).data);
+				config.collector(uci, 'wifi', meta({ stations: true, directory: '/var/prometheus' })).data);
 		});
 	});
 
 	it('gives the defaults for a missing section, or one of another type', () => {
 		with_uci({ wifi: { '.type': 'interface', stations: '0' } }, (uci) => {
-			assert.match({ stations: true }, config.collector(uci, 'wifi', specs({ stations: true })).data);
-			assert.match({ stations: true }, config.collector(uci, 'other', specs({ stations: true })).data);
+			assert.match({ stations: true }, config.collector(uci, 'wifi', meta({ stations: true })).data);
+			assert.match({ stations: true }, config.collector(uci, 'other', meta({ stations: true })).data);
 		});
 	});
 
 	it('ignores options nobody declared', () => {
 		with_uci({ wifi: { '.type': 'collector', stations: '1', removed_long_ago: 'x' } }, (uci) => {
-			assert.match({ stations: true }, config.collector(uci, 'wifi', specs({ stations: false })).data);
+			assert.match({ stations: true }, config.collector(uci, 'wifi', meta({ stations: false })).data);
 		});
 	});
 
 	it('fails on the first invalid option', () => {
 		with_uci({ wifi: { '.type': 'collector', stations: 'maybe' } }, (uci) => {
 			assert.match('CONFIG_INVALID: stations: expected a boolean, got "maybe"',
-				err_details(config.collector(uci, 'wifi', specs({ stations: true }))));
+				err_details(config.collector(uci, 'wifi', meta({ stations: true }))));
 		});
 	});
 
@@ -89,10 +94,102 @@ describe('config.collector', () => {
 			wifi: { '.type': 'collector', enabled: '0', stations: '0' },
 			cpu: { '.type': 'collector', enabled: 'maybe' },
 		}, (uci) => {
-			assert.match({ stations: false }, config.collector(uci, 'wifi', specs({ stations: true })).data);
-			assert.match({}, config.collector(uci, 'time', specs({})).data);
-			assert.match('CONFIG_INVALID: enabled: expected a boolean, got "maybe"', err_details(config.collector(uci, 'cpu', specs({}))));
+			assert.match({ stations: false }, config.collector(uci, 'wifi', meta({ stations: true })).data);
+			assert.match({}, config.collector(uci, 'time', meta({})).data);
+			assert.match('CONFIG_INVALID: enabled: expected a boolean, got "maybe"', err_details(config.collector(uci, 'cpu', meta({}))));
 		});
+	});
+});
+
+describe('config.settings', () => {
+	const EXEC = meta({ stations: true }, [ 'exec' ]);
+	const OWN = meta({}, [ 'exec' ], { timeout: 12 });
+
+	// The seconds of a collector with this meta, for a main section's exec_timeout
+	// and its section's timeout (null for none).
+	function seconds(m, exec_timeout, timeout) {
+		let out;
+		let sections = {};
+
+		if (exec_timeout != null)
+			sections.main = { '.type': config.NAME, exec_timeout };
+		if (timeout != null)
+			sections.c = { '.type': 'collector', timeout };
+
+		with_uci(sections, (uci) => {
+			let res = config.settings(uci, 'c', m);
+			out = res.ok ? [ res.data.timeout, config.timeout_source(uci, 'c', m) ] : `${res.error}: ${res.details}`;
+		});
+
+		return out;
+	}
+
+	it('gives enabled, the timeout and the options apart', () => {
+		with_uci({ c: { '.type': 'collector', enabled: '0', stations: '0', timeout: '7' } }, (uci) => {
+			assert.match({ enabled: false, timeout: 7, options: { stations: false } }, config.settings(uci, 'c', EXEC).data);
+			assert.match({ stations: false }, config.collector(uci, 'c', EXEC).data);
+		});
+	});
+
+	it('takes the section\'s timeout, then meta.timeout, then the main section\'s exec_timeout', () => {
+		assert.match([
+			[ config.EXEC_TIMEOUT, 'exec_timeout' ],
+			[ 8, 'exec_timeout' ],
+			[ 12, 'meta.timeout' ],
+			[ 3, 'timeout' ],
+			[ 3, 'timeout' ],
+		], [
+			seconds(EXEC, null, null),
+			seconds(EXEC, '8', null),
+			seconds(OWN, '8', null),
+			seconds(EXEC, '8', '3'),
+			seconds(OWN, '8', '3'),
+		]);
+	});
+
+	it('has no timeout for a collector that runs no programs, which ignores one in its section', () => {
+		assert.match([ null, null ], seconds(meta({}, [ 'fs' ]), '8', 'not seconds'));
+		assert.match(null, seconds(meta({}, [ 'fs' ]), '8', '3')[1]);
+	});
+
+	it('fails the collector on a timeout that is not 1 to 30 seconds', () => {
+		assert.match([
+			'CONFIG_INVALID: timeout: expected an integer from 1 to 30, got 0',
+			'CONFIG_INVALID: timeout: expected an integer from 1 to 30, got 31',
+			'CONFIG_INVALID: timeout: expected an integer, got "soon"',
+		], [ seconds(EXEC, null, '0'), seconds(OWN, null, '31'), seconds(EXEC, null, 'soon') ]);
+	});
+
+	it('falls back to the default exec_timeout while the main section is not valid', () => {
+		assert.match([ config.EXEC_TIMEOUT, 'exec_timeout' ], seconds(EXEC, '0', null));
+	});
+
+	prop('the section\'s timeout wins whenever it is valid', gen.tuple(gen.int(-5, 35), gen.int(1, 30), gen.bool()), (t) => {
+		let n = t[0], exec_timeout = t[1], own = t[2];
+		let got = seconds(own ? OWN : EXEC, '' + exec_timeout, '' + n);
+
+		if (n >= 1 && n <= config.EXEC_TIMEOUT_MAX)
+			assert.match([ n, 'timeout' ], got);
+		else
+			assert.match(`CONFIG_INVALID: timeout: expected an integer from 1 to 30, got ${n}`, got);
+	});
+
+	prop('without one, meta.timeout wins over exec_timeout', gen.tuple(gen.int(1, 30), gen.bool()), (t) => {
+		let exec_timeout = t[0], own = t[1];
+
+		assert.match(own ? [ 12, 'meta.timeout' ] : [ exec_timeout, 'exec_timeout' ], seconds(own ? OWN : EXEC, '' + exec_timeout, null));
+	});
+});
+
+describe('config.core', () => {
+	it('gives every collector enabled, and one that runs programs timeout too', () => {
+		assert.match([ 'enabled' ], keys(config.core(meta({}, [ 'fs', 'ubus' ]), 5)));
+		assert.match({ enabled: config.ENABLED, timeout: { default: 9, ...config.TIMEOUT } }, config.core(meta({}, [ 'exec' ]), 9));
+	});
+
+	it('reserves the names of its options', () => {
+		assert.match(config.RESERVED, keys(config.core(meta({}, [ 'exec' ]), 5)));
+		assert.match('range(1,30)', config.TIMEOUT.datatype);
 	});
 });
 
@@ -120,7 +217,30 @@ describe('config.enabled', () => {
 describe('config.main', () => {
 	it('reads omit_zero_values from the main section', () => {
 		with_uci({ main: { '.type': config.NAME, omit_zero_values: '1', listen_port: '9100' } }, (uci) => {
-			assert.match({ omit_zero_values: true }, config.main(uci).data);
+			assert.match({ omit_zero_values: true, exec_timeout: config.EXEC_TIMEOUT }, config.main(uci).data);
+		});
+	});
+
+	it('reads exec_timeout, 1 to 30 seconds, and refuses any other', () => {
+		let main = (v) => {
+			let out;
+			with_uci({ main: { '.type': config.NAME, exec_timeout: v } }, (uci) => { out = config.main(uci); });
+			return out.ok ? out.data.exec_timeout : `${out.error}: ${out.details}`;
+		};
+
+		assert.match([
+			1, 30,
+			'CONFIG_INVALID: exec_timeout: expected an integer from 1 to 30, got 0',
+			'CONFIG_INVALID: exec_timeout: expected an integer from 1 to 30, got 31',
+			'CONFIG_INVALID: exec_timeout: expected an integer, got "5s"',
+		], map([ '1', '30', '0', '31', '5s' ], main));
+	});
+
+	prop('takes exec_timeout from 1 to 30 and no other integer', gen.int(-100, 100), (n) => {
+		with_uci({ main: { '.type': config.NAME, exec_timeout: '' + n } }, (uci) => {
+			let res = config.main(uci);
+			assert.match(n >= 1 && n <= config.EXEC_TIMEOUT_MAX, res.ok);
+			assert.match(res.ok ? n : 'CONFIG_INVALID', res.ok ? res.data.exec_timeout : res.error);
 		});
 	});
 });

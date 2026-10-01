@@ -112,15 +112,19 @@ config prometheus-exporter 'main'
 	option listen_port '9100'
 	option http_keepalive '70'         # seconds; 0 for none
 	option omit_zero_values '0'        # 1: leave out counters that are 0
+	option exec_timeout '5'            # seconds a collector's programs get per scrape, 1 to 30
 	#option cert '/etc/uhttpd.crt'     # both, for HTTPS
 	#option key '/etc/uhttpd.key'
 
 config collector 'textfile'          # named after the module: ltq_dsl for ltq-dsl
 	option enabled '1'                 # 0: not served; naming it in a query is a 400
 	option directory '/var/prometheus'
+
+config collector 'ubnt_manager'
+	option timeout '10'                # its programs' seconds, over exec_timeout
 ```
 
-A collector without a section is enabled, with its defaults. These take options (`check` prints each with its help):
+A collector without a section is enabled, with its defaults. Every collector has `enabled`, and every one that runs programs (ethtool, nft-counters, modemmanager, ubnt-manager) has `timeout` too: the core's options, which no collector declares itself (see [the service](#the-service)). These take options of their own (`check` prints each with its help):
 
 | | | |
 |---|---|---|
@@ -142,7 +146,14 @@ A config change applies on `reload_config` (LuCI does it), or `service prometheu
 
 Start and reload refuse an invalid config. Installing or removing a collector package reloads the service.
 
-The programs a collector runs (nft, ethtool, mmcli, ubnt-manager) get 5 seconds in all in each scrape. One still running then is killed, with every process it started (ubnt-manager's ssh to a radio that does not answer), and its collector fails with COMMAND_TIMEOUT; the scrape answers with the rest. A collector stuck for its 5 seconds still leaves the scrape within Prometheus's default `scrape_timeout` of 10 seconds.
+The programs a collector runs (nft, ethtool, mmcli, ubnt-manager) get 5 seconds in all in each scrape, by default. One still running then is killed, with every process it started (ubnt-manager's ssh to a radio that does not answer), and its collector fails with COMMAND_TIMEOUT; the scrape answers with the rest. A collector stuck for its 5 seconds still leaves the scrape within Prometheus's default `scrape_timeout` of 10 seconds.
+
+The seconds, 1 to 30, are the collector section's `timeout` when it sets one, else the collector's own default (`meta.timeout`, which none of the shipped collectors has), else the main section's `exec_timeout` (5 by default). A value outside 1 to 30 fails `check`, and start and reload: `exec_timeout` as the main section's, a collector's `timeout` as that collector's, which fails with CONFIG_INVALID in a scrape. A collector that runs no programs ignores a `timeout`. `check` prints each one's seconds and where they come from:
+
+```
+  ubnt-manager (Ubiquiti airOS radios): section 'ubnt_manager', enabled
+      timeout  10s # its section's option timeout
+```
 
 uhttpd runs in procd's jail, and a collector gets what it declares: procfs, sysfs, ubus and the log for all, then the configs it reads (`/etc/config/dhcp` for uci_dhcp_host), the files and directories it reads (textfile's directory, dhcp_leases' lease files, bmx7's status), and the programs it runs with their libraries (`/bin/sh` and `nft` for nft-counters). Nothing else of `/etc/config` is there. What the jail cannot give is a warning in `check`:
 
@@ -173,12 +184,13 @@ It reads with the exporter's own modules, so it sees what the exporter sees, and
 
 | | |
 |---|---|
-| `collectors {}` | `{ collectors: [ { name, id, title, help, enabled, package, base, options: [ { name, type, default, help, datatype, value, set, error } ], needs, configs, commands, jail: { paths, owned, commands, mounts, problems, missing }, error } ], skipped }` |
+| `collectors {}` | `{ collectors: [ { name, id, title, help, enabled, package, base, options: [ { name, core, type, default, help, datatype, value, set, error } ], needs, configs, commands, jail: { paths, owned, commands, mounts, problems, missing }, error } ], skipped }` |
 | `validate { main?, collectors? }` | `{ ok, errors: { main: { <option>: message }, collectors: { <module>: { <option>: message } } } }` for values as uci holds them |
 | `status {}` | `{ service: { enabled, boot, running, error }, listen: [ url ], collectors: [ { name, id, title, enabled, success, duration, error, mounts } ] }` |
 | `interfaces {}` | `{ interfaces: [ { name, proto } ] }` |
 
 - `collectors` and `validate` read the committed configuration, as the exporter does. `validate` checks each value alone, as the exporter would read it: an empty one is unset, and options nobody declared and collectors that are not installed are ignored.
+- A collector's `options` are its own (`core: false`), then, when it runs programs, the core's `timeout` (`core: true`, `datatype` `range(1,30)`): its `default` is the seconds it gets while unset, and `default_from` says whose they are, `meta.timeout` or `exec_timeout`. `validate` takes `timeout` for those collectors, and `exec_timeout` in `main`.
 - `status` scrapes the enabled collectors once, outside the jail, as `check` does, in a process of its own (`/usr/libexec/prometheus-exporter/rpc-status.uc`), and replies when it is done: rpcd answers other calls meanwhile, the collectors' calls to objects rpcd itself serves (`wireguard`, `luci`) among them.
 - `interfaces` is what netifd says (`network.interface dump`), names and protocols only. It never reads `/etc/config/network`, which holds secrets, so a caller allowed this object alone gets every interface.
 - Malformed arguments, and a call that fails, are answered `{ error, message }`.
@@ -222,8 +234,8 @@ export const meta = {
 	needs: [ 'fs' ],                          // all it gets in `deps`
 	// configs: [ 'dhcp' ],                   // with 'uci': the configs it may read
 	// commands: [ 'nft' ],                   // with 'exec': the programs it may run
-	// timeout: 10,                           // with 'exec': the seconds they get in all per scrape, 5 by default
-	// options: {                             // not enabled, the core's
+	// timeout: 10,                           // with 'exec': the seconds they get in all per scrape, unless its section says otherwise; exec_timeout by default
+	// options: {                             // not enabled nor timeout, the core's
 	//	directory: { default: '/var/prometheus', datatype: 'directory', help: 'The directory of the *.prom files.' },
 	// },
 	// paths: [ { path: '{directory}', owned: true } ], // what it reads outside /proc and /sys; see below
@@ -239,7 +251,7 @@ export function collect(deps, out, options) {
 };
 ```
 
-- `needs` are `fs` (`readfile open lsdir glob stat realpath`), `ubus` (`call`, `list`, as Results), `uci` (`deps.uci.<config>` for each of `configs`, read-only: `loaded get get_all sections foreach`, committed configuration only), `rtnl` and `nl80211` (`request` as Results, `const`), `socket` (`unix_request(path, message, timeout_ms)`, a Unix socket's whole reply as a Result), `exec` (`run(argv)` as a Result, for `commands` only; a failure's `data.status` is the exit status; the programs get `timeout` seconds in all per scrape, 5 by default and at most 30, and one still running then is killed with every process it started and fails with COMMAND_TIMEOUT and `data.timed_out`, as does any `run` after it), `time` (`now()`) and `log` (`log(msg)`, for what a collector that succeeds still has to say). Only `prometheus_exporter.deps` touches the system.
+- `needs` are `fs` (`readfile open lsdir glob stat realpath`), `ubus` (`call`, `list`, as Results), `uci` (`deps.uci.<config>` for each of `configs`, read-only: `loaded get get_all sections foreach`, committed configuration only), `rtnl` and `nl80211` (`request` as Results, `const`), `socket` (`unix_request(path, message, timeout_ms)`, a Unix socket's whole reply as a Result), `exec` (`run(argv)` as a Result, for `commands` only; a failure's `data.status` is the exit status; the programs get the seconds of the section's `timeout`, else `meta.timeout`, else the main section's `exec_timeout` (5 by default), at most 30, in all per scrape, and one still running then is killed with every process it started and fails with COMMAND_TIMEOUT and `data.timed_out`, as does any `run` after it), `time` (`now()`) and `log` (`log(msg)`, for what a collector that succeeds still has to say). Only `prometheus_exporter.deps` touches the system.
 - The exporter runs in procd's jail, which mounts what the installed and enabled collectors declare and nothing else: `/etc/config/<c>` for each of `configs`, `/bin/sh` and each of `commands` (with its libraries), and `paths`. A path may name a string option as `{option}` (`'{directory}'`), be `{ path, owned: true }` for a directory that is the exporter's alone, which the service makes when it is not there (textfile's), or be a function `(options, uci) => [ paths ]` for what a config decides (dhcp_leases' lease files). A path that is not there is mounted once it is. A socket is declared by its directory, as ujail cannot mount a socket; a shell script needs what it sources and runs (ubnt-manager).
 - An option's `default` sets its type (boolean, integer or string), `help` says what it does, and `datatype`, optional, narrows its values with one of LuCI's names that the core checks: `uinteger`, `range(min,max)`, `directory` and `file` (an absolute path; it need not exist), and `regex` (one ucode compiles), which LuCI lacks. `collect` gets the options typed; a value that does not fit fails the collector with CONFIG_INVALID.
 - `out.gauge|counter|untyped(name, help)` returns `(labels, value)`, which chains; `out.parse(text)` adds exposition text. What a collector records is kept even when it then fails.

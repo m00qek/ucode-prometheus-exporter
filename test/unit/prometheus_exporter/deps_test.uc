@@ -3,6 +3,7 @@
 import { describe, it, prop, gen, assert, mock, spy } from 'utest';
 import { popen } from 'fs';
 import * as deps from 'prometheus_exporter.deps';
+import * as config from 'prometheus_exporter.config';
 import { with_mods } from 'context';
 import * as commands from 'lib.commands';
 
@@ -473,6 +474,26 @@ describe('deps.session', () => {
 		});
 
 		assert.match([ 12, deps.EXEC_SECONDS ], seen);
+	});
+
+	it('gives exec the seconds its config settles on over meta.timeout', () => {
+		let seen = [];
+		let fs = { behavior: { popen: function(cmd) { push(seen, commands.parse(cmd).seconds); return null; } } };
+
+		with_mods({ fs }, (mods) => {
+			let s = deps.session(mods);
+			let meta = { needs: [ 'exec' ], commands: [ 'nft' ], timeout: 12 };
+
+			s.for(meta, { timeout: 2 }).data.exec.run([ 'nft' ]);
+			s.for(meta, { timeout: null }).data.exec.run([ 'nft' ]);
+			s.for({ needs: [ 'exec' ], commands: [ 'nft' ] }, { timeout: 9 }).data.exec.run([ 'nft' ]);
+		});
+
+		assert.match([ 2, 12, 9 ], seen);
+	});
+
+	it('defaults to the main section\'s default exec_timeout', () => {
+		assert.match(config.EXEC_TIMEOUT, deps.EXEC_SECONDS);
 	});
 });
 

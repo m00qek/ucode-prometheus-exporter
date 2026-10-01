@@ -19,9 +19,8 @@ const OPTION_KEYS = [ 'default', 'help', 'datatype' ];
 // A collector's title, as a list or a form shows it.
 export const TITLE_MAX = 40;
 
-// The most seconds meta.timeout may give a collector's commands: half of the
-// 60 s uhttpd gives a scrape before it kills it, answering nothing.
-export const TIMEOUT_MAX = 30;
+// The most seconds meta.timeout may give a collector's commands.
+export const TIMEOUT_MAX = config.EXEC_TIMEOUT_MAX;
 
 // The module a collector's name lives in: a module name cannot hold '-'.
 export function id_of(name) {
@@ -157,6 +156,8 @@ export function validate(id, mod) {
 
 	if ('enabled' in keys(meta.options ?? {}))
 		return invalid(id, "option 'enabled' is the core's, every collector has it");
+	if ('timeout' in keys(meta.options ?? {}))
+		return invalid(id, "option 'timeout' is the core's, every collector that runs programs has it; meta.timeout sets its default");
 
 	for (let key, spec in meta.options) {
 		let res = validate_option(id, key, spec);

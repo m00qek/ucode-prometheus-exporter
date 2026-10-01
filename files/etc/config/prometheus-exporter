@@ -9,14 +9,21 @@ config prometheus-exporter 'main'
 	option http_keepalive '70'
 	# Leave out counters that are 0, most of which never move on a router.
 	option omit_zero_values '0'
+	# Seconds the programs a collector runs get in all in each scrape (1-30),
+	# unless the collector says otherwise.
+	option exec_timeout '5'
 	# Serve HTTPS: both files must exist, and uhttpd needs a TLS library.
 	#option cert '/etc/uhttpd.crt'
 	#option key '/etc/uhttpd.key'
 
 # A collector's section is named after its module ('ltq_dsl' for ltq-dsl) and
 # is optional: without one, the collector runs with its default options.
-# Every collector has enabled; '0' stops serving it.
+# Every collector has enabled; '0' stops serving it. One that runs programs
+# (ethtool, nft-counters, modemmanager, ubnt-manager) also has timeout, which
+# overrides exec_timeout for it.
 #config collector 'wifi'
 #	option stations '1'
 #config collector 'ltq_dsl'
 #	option enabled '0'
+#config collector 'ubnt_manager'
+#	option timeout '10'
