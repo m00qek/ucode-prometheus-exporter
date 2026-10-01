@@ -68,3 +68,7 @@
 #   and an expired lease, one outside every subnet, a temporary (T) IPv6
 #   address, and the agent-info line dnsmasq appends for relayed clients.
 #   Layout: lease_update_file() in dnsmasq's src/lease.c (2.93).
+# commands/ubnt-manager-l.txt
+#   What `ubnt-manager -l` prints for the radios of the two
+#   commands/ubnt-manager-j-t-*.json captures, as the collector's unit test has
+#   it; the documentation's metrics reference runs every collector on this set.

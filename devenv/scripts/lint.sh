@@ -3,6 +3,7 @@
 cd "$(dirname "$0")/../.."
 status=0
 src=$PWD/src
+scripts=$PWD/devenv/scripts
 
 fail() { echo "  in $1" >&2; status=1; }
 
@@ -11,6 +12,11 @@ fail() { echo "  in $1" >&2; status=1; }
 # prometheus_exporter.deps takes by name is checked against this ucode.
 for f in $(find src -name '*.uc'); do
 	ucode -L "$src" -e "import * as _ from '$PWD/$f';" || fail "$f"
+done
+
+# The docs generator's modules and its notes, loaded too.
+for f in $(find devenv/scripts/docs_gen docs/gen -name '*.uc'); do
+	ucode -L "$src" -L "$scripts" -e "import * as _ from '$PWD/$f';" || fail "$f"
 done
 
 # rtnl, nl80211 and socket are imported at run time, by name too; the image has them.
@@ -32,13 +38,13 @@ ucode -e "import { md5 } from 'digest'; exit(md5('') == 'd41d8cd98f00b204e980099
 importer=$(mktemp)
 for f in $(find test -name '*.uc' ! -name utest.config.uc ! -path 'test/proxies/*'); do
 	echo "import * as _ from '$PWD/$f';" >"$importer"
-	ucode -L "$src" -L "$PWD/test" -c -o /dev/null "$importer" || fail "$f"
+	ucode -L "$src" -L "$PWD/test" -L "$scripts" -c -o /dev/null "$importer" || fail "$f"
 done
 rm -f "$importer"
 
 # Programs: the utest config and proxies return at top level; the handler is a template.
 for f in test/utest.config.uc test/proxies/*.uc devenv/scripts/*.uc; do
-	ucode -c -o /dev/null "$f" || fail "$f"
+	ucode -L "$src" -L "$scripts" -c -o /dev/null "$f" || fail "$f"
 done
 ucode -L "$src" -T -c -o /dev/null files/usr/libexec/prometheus-exporter/handler.uc ||
 	fail files/usr/libexec/prometheus-exporter/handler.uc
@@ -87,7 +93,9 @@ for line in "el.innerHTML = x;" "_('Collector %s').format(name);" "'%s'.format(n
 done
 rm -f "$bad"
 
-# The docs' pinned links, to the package's minor.
+# The docs: pinned links to the package's minor, and the reference pages the
+# code holds as data as make docs-gen would write them.
 devenv/scripts/docs-links.sh || status=1
+ucode -L "$src" -L "$scripts" devenv/scripts/docs-gen.uc --check || status=1
 
 exit $status

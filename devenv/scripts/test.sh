@@ -8,7 +8,8 @@ suites() {
 	case "$1" in
 	unit) roots=test/unit ;;
 	integration) roots=test/integration ;;
-	*) roots="test/unit test/integration" ;;
+	# The docs generator's tests (test/docs/gen) run with the rest.
+	*) roots="test/unit test/integration test/docs" ;;
 	esac
 	find $roots -name '*_test.uc' -exec dirname {} \; | sort -u
 }
@@ -39,7 +40,7 @@ watch)
 	trap 'exit 130' INT TERM
 	while :; do
 		run all "$@" || true
-		inotifywait -qq -r -e close_write,create,delete,move src test files
+		inotifywait -qq -r -e close_write,create,delete,move src test files devenv/scripts docs/gen
 	done
 	;;
 *)

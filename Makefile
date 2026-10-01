@@ -10,7 +10,7 @@ RUN          = $(COMPOSE) --progress quiet run --rm $(if $(CI),-T) openwrt
 IMAGE_STAMP := devenv/.built-$(IMAGE_TAG)
 TEST_ARGS    = $(if $(FILTER),-f '$(FILTER)') $(if $(VERBOSE),-v) $(MODULES)
 
-.PHONY: test unit integration watch lint shell image fixtures package pkgcheck-image package-check e2e lab lab-down browser pot bench bench-src bench-worlds bench-device bench-qemu docs docs-mike docs-test docs-serve
+.PHONY: test unit integration watch lint shell image fixtures package pkgcheck-image package-check e2e lab lab-down browser pot bench bench-src bench-worlds bench-device bench-qemu docs docs-mike docs-test docs-serve docs-gen
 
 test:        $(IMAGE_STAMP) ; @$(RUN) devenv/scripts/test.sh all $(TEST_ARGS)
 unit:        $(IMAGE_STAMP) ; @$(RUN) devenv/scripts/test.sh unit $(TEST_ARGS)
@@ -190,3 +190,11 @@ docs-mike:  ; @$(MAKE) -C docs build-mike
 docs-test:  ; @$(MAKE) -C docs test
 docs-serve: ; @$(MAKE) -C docs serve
 
+# The reference pages the code holds as data (docs/reference/collectors.md,
+# metrics.md, uci-config.md, error-codes.md), from the code, the fixtures and
+# docs/gen/notes.uc; make lint fails while one is out of date. Only
+# docs/reference is writable, and the files stay the invoking user's.
+docs-gen: $(IMAGE_STAMP)
+	@$(COMPOSE) --progress quiet run --rm $(if $(CI),-T) --user $$(id -u):$$(id -g) \
+		-v $(CURDIR)/docs/reference:/exporter/docs/reference openwrt \
+		ucode -L /exporter/src -L /exporter/devenv/scripts devenv/scripts/docs-gen.uc

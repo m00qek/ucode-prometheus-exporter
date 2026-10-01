@@ -78,6 +78,8 @@ file /proc/net/dev
 #   ubus/service.list.*.json     ubus call service list '{"name":"sysntpd"}' (caju-ap) and
 #                                '{"name":"chronyd"}' (seriguela-router), and the other, not running
 #   uci/chrony.json              as `uci` captures are made (seriguela-router)
+#   var/run/chrony/chronyd.sock  empty: where chronyd's command socket is (seriguela-router), which
+#                                the chrony collector looks for before it asks for serverstats
 ubus network.wireless status
 ubus hostapd.phy0-ap0 get_status
 ubus hostapd.phy0-ap0 get_clients

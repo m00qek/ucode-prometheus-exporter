@@ -1,8 +1,8 @@
 'use strict';
 
-// What every collector in src/ owes the repository: a valid meta, a line in the
-// README, a unit test, and a package whose dependencies cover its needs and
-// commands.
+// What every collector in src/ owes the repository: a valid meta, a section in
+// the generated reference (make docs-gen), a unit test, and a package whose
+// dependencies cover its needs and commands.
 
 import { describe, it, assert } from 'utest';
 import { readfile, lsdir, popen } from 'fs';
@@ -10,7 +10,7 @@ import * as loader from 'prometheus_exporter.loader';
 
 const SOURCES = 'src/prometheus_exporter/collectors';
 const MAKEFILE = readfile('openwrt/ucode-prometheus-exporter/Makefile');
-const README = readfile('README.md');
+const REFERENCE = readfile('docs/reference/collectors.md');
 
 // The package each need or command calls for; `null` for what the base package has.
 const NEED_PACKAGES = { fs: null, ubus: null, uci: null, rtnl: null, time: null, exec: null, log: null, nl80211: '+ucode-mod-nl80211', socket: '+ucode-mod-socket' };
@@ -42,9 +42,9 @@ function checks(id) {
 			assert.match(true, res.ok, res.details);
 		});
 
-		it('is in the README\'s list, with its title', () => {
-			let row = `| \`${mod.meta.name}\` | ${mod.meta.title} |`;
-			assert.match(true, index(README, row) >= 0, `add ${row} to the README's list of collectors`);
+		it('is in the generated reference', () => {
+			let heading = `## \`${mod.meta.name}\` {#${mod.meta.name}}`;
+			assert.match(true, index(REFERENCE, heading) >= 0, `run make docs-gen: docs/reference/collectors.md has no ${mod.meta.name}`);
 		});
 
 		it('has a unit test', () => {

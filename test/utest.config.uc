@@ -2,7 +2,7 @@
 // proxies (see context.uc), so a module's whole import subgraph sees the fakes.
 return {
 	pattern: '*_test.uc',
-	lib_paths: [ '.', '../src' ],
+	lib_paths: [ '.', '../src', '../devenv/scripts' ],
 	mocks: {
 		fs:      null,
 		uci:     null,

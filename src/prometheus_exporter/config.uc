@@ -72,8 +72,9 @@ export function core(meta, seconds) {
 	return out;
 };
 
-const TRUE = [ '1', 'yes', 'on', 'true', 'enabled' ];
-const FALSE = [ '0', 'no', 'off', 'false', 'disabled' ];
+// The spellings of a boolean uci value, as uci's own tools take them.
+export const TRUE = [ '1', 'yes', 'on', 'true', 'enabled' ];
+export const FALSE = [ '0', 'no', 'off', 'false', 'disabled' ];
 
 function absolute_path(v) {
 	return substr(v, 0, 1) == '/' && !match(v, /[[:cntrl:]]/);
@@ -85,7 +86,7 @@ function absolute_path(v) {
 // LuCI's, regex, and username and crypt, basic auth's user and hash. A
 // datatype's `why`, when it has one, says what it expected of a value it does
 // not take, instead of `expected`: crypt's, of a hash of too many rounds.
-const DATATYPES = {
+export const DATATYPES = {
 	username: { types: [ 'string' ], expected: 'a user of 1 to 64 characters, without ":", spaces or control characters', check: is_user },
 	crypt: {
 		types: [ 'string' ],
