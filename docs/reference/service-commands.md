@@ -109,7 +109,7 @@ The scrape `check` runs is outside the jail, as root, with the committed configu
 
 | Instance | Command | When |
 | :--- | :--- | :--- |
-| `instance1` | `/usr/sbin/uhttpd -f -c <auth file or /dev/null> -h /dev/null -S -D -o /metrics -O /usr/libexec/prometheus-exporter/handler.uc [-r prometheus-exporter] [-k <keepalive>] [-C <cert> -K <key>] -p\|-s <address>:<port> ...` | While the service is enabled. `-s` (HTTPS) with `cert` and `key` both set and both there, `-p` (HTTP) otherwise. One `-p` or `-s` per address of the listen interface, IPv4 and IPv6, or the port alone for `*`. `-k` only when `http_keepalive` is more than 0. `-r` only with basic auth. |
+| `instance1` | `/usr/sbin/uhttpd -f -c <auth file or /dev/null> -h /dev/null -S -D -o /metrics -O /usr/libexec/prometheus-exporter/handler.uc [-r prometheus-exporter] -k <keepalive> [-C <cert> -K <key>] -p\|-s <address>:<port> ...` | While the service is enabled. `-s` (HTTPS) with `cert` and `key` both set and both there, `-p` (HTTP) otherwise. One `-p` or `-s` per address of the listen interface, IPv4 and IPv6, or the port alone for `*`. `-r` only with basic auth. |
 | `watch` | `/usr/libexec/prometheus-exporter/watch.uc <path>...` | While a path an enabled collector reads is not there. See [The jail](jail.md#missing-paths). |
 
 Both are respawned by procd. The uhttpd instance runs in a jail: see [The jail](jail.md).

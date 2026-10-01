@@ -116,6 +116,10 @@ eventually "the base package starts the service" "$INIT" running
 check "it takes over the old exporter's settings" test "$(uci -q get $NAME.main.http_keepalive) $(uci -q get $NAME.wifi.stations)" = "30 0"
 check "but not its default port" test "$(uci -q get $NAME.main.listen_port)" = 9100
 check "and serves with them" says ' -k 30 ' command_line
+uci set $NAME.main.http_keepalive=0 && uci commit $NAME && "$INIT" reload
+eventually "keep-alive 0 has uhttpd close each connection" says ' -k 0 ' command_line
+uci set $NAME.main.http_keepalive=30 && uci commit $NAME && "$INIT" reload
+eventually "and back at 30, keeps it 30 seconds" says ' -k 30 ' command_line
 check "it leaves the old config as it was" test "$(md5sum <"$OLD")" = "$old_sum"
 check "it logs what it took, at info" says "daemon.info $NAME: imported from $OLD: http_keepalive=30, collector wifi" logread
 check "its uci-defaults script runs once" test ! -e /etc/uci-defaults/$NAME-import
