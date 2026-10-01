@@ -7,13 +7,13 @@ import * as watch from 'prometheus_exporter.watch';
 // what it slept, sent and logged.
 function system(appear, reloads) {
 	let round = 0;
-	let out = { slept: [], sent: 0, logs: [] };
+	let out = { slept: [], sent: 0, logs: [], levels: [] };
 
 	out.sys = {
 		exists: (p) => p in keys(appear) && round >= appear[p],
 		sleep: function(ms) { push(out.slept, ms); round++; },
 		reload: function() { out.sent++; return reloads ?? true; },
-		log: (m) => push(out.logs, m),
+		log: (level, m) => push(out.logs, m) && push(out.levels, level),
 	};
 
 	return out;
@@ -56,5 +56,6 @@ describe('watch.run', () => {
 		watch.run(s.sys, [ '/a' ], 2);
 		assert.match([ 2, [ watch.QUIET_MS, watch.QUIET_MS ] ], [ s.sent, s.slept ]);
 		assert.match(`cannot send procd ${watch.EVENT}; trying again in 60s`, s.logs[1]);
+		assert.match([ 'info', 'warning' ], slice(s.levels, 0, 2));
 	});
 });

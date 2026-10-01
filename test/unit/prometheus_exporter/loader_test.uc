@@ -190,12 +190,12 @@ describe('loader.discover and load', () => {
 		mock.inject('fs', { strict: true, data: FILES }, (fs) => {
 			let logs = [];
 			let mods = { a: module_named('a'), b: module_named('b'), odd: { meta: 1 } };
-			let loaded = loader.load(fs, DIR, (id) => mods[id] ?? die(`Unable to compile module\nmore`), (m) => push(logs, m));
+			let loaded = loader.load(fs, DIR, (id) => mods[id] ?? die(`Unable to compile module\nmore`), (level, m) => push(logs, [ level, m ]));
 
 			assert.match([ 'a', 'b' ], map(loaded, (c) => c.meta.name));
 			assert.match([
-				"cannot load collector 'broken': Unable to compile module",
-				'skipping collector: COLLECTOR_INVALID (odd: exports no meta)',
+				[ 'err', "cannot load collector 'broken': Unable to compile module" ],
+				[ 'err', 'skipping collector: COLLECTOR_INVALID (odd: exports no meta)' ],
 			], logs);
 		});
 	});

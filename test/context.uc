@@ -5,8 +5,9 @@
 // the real ones.
 //
 // with_collector(mod, cfg, cb): run one collector module the way a scrape does,
-// with only its needs, and call cb with { result, text, lines, logs, families };
-// `logs` has what the scrape and the collector itself logged.
+// with only its needs, and call cb with { result, text, lines, logs, levels,
+// families }; `logs` has what the scrape and the collector itself logged, and
+// `levels` the level of each.
 // Its output must parse as exposition text, or the test fails.
 //
 // jail_of(mod, cfg): what prometheus_exporter.jail gives the collector module in the
@@ -81,8 +82,10 @@ export function with_collector(mod, cfg, cb) {
 
 	with_mods(cfg, function(mods) {
 		let logs = [];
-		let session = deps.session({ ...mods, log: (msg) => push(logs, msg) });
-		let env = { session: () => session, clock: () => [ 0, 0 ], log: (msg) => push(logs, msg) };
+		let levels = [];
+		let log = (level, msg) => { push(levels, level); push(logs, msg); };
+		let session = deps.session({ ...mods, log });
+		let env = { session: () => session, clock: () => [ 0, 0 ], log };
 		let run = scrape.run_one(env, session, valid.data);
 
 		session.close();
@@ -97,6 +100,7 @@ export function with_collector(mod, cfg, cb) {
 			text,
 			lines: text == '' ? [] : split(rtrim(text, '\n'), '\n'),
 			logs,
+			levels,
 			families: run.families,
 		});
 	}, id);

@@ -6,12 +6,14 @@
 //
 // modules(): the real fs, ubus, uci, rtnl, nl80211 and socket (these two when
 // installed), time and a monotonic clock.
+// system_log(ident): a log(level, msg) to syslog, at the level's priority.
 // session(mods): one scrape's capabilities over module-shaped objects, the real
 // ones or utest's proxies: `for(meta)` hands a collector exactly its `needs`.
 
 import { readfile, open, lsdir, glob, stat, realpath, popen } from 'fs';
 import { connect } from 'ubus';
 import { cursor } from 'uci';
+import { openlog, syslog, LOG_PID, LOG_DAEMON, LOG_ERR, LOG_WARNING, LOG_NOTICE, LOG_INFO } from 'log';
 import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
 import { EXEC_TIMEOUT } from 'prometheus_exporter.config';
@@ -336,8 +338,10 @@ export function uci_handles(cursor_fn, configs) {
 };
 
 // One scrape's capabilities: a ubus connection and a uci cursor shared by its
-// collectors, and closed once it is over. mods.log, the exporter's, takes what
-// collectors log, each line naming its collector.
+// collectors, and closed once it is over. mods.log, the exporter's log(level,
+// msg), takes what collectors log, each line naming its collector, at warning:
+// what a collector that succeeds still has to say is something it could not
+// read.
 export function session(mods) {
 	let ubus = ubus_channel(mods.ubus.connect);
 	let uci = null;
@@ -361,7 +365,7 @@ export function session(mods) {
 		case 'socket':  return mods.socket ? socket_channel(mods.socket) : null;
 		case 'exec':    return exec_channel(mods.fs.popen, meta.commands ?? [], settings?.timeout ?? meta.timeout, mods.clock);
 		case 'time':    return { now: mods.time };
-		case 'log':     return mods.log ? (msg) => mods.log(`collector '${meta.name}': ${msg}`) : null;
+		case 'log':     return mods.log ? (msg) => mods.log('warning', `collector '${meta.name}': ${msg}`) : null;
 		}
 	}
 
@@ -427,6 +431,32 @@ export function load_socket() {
 	} catch (e) {
 		return null;
 	}
+};
+
+// The levels the exporter logs at, as syslog's priorities. err: what stops it
+// doing its job (an invalid configuration, a collector that does not load);
+// warning: what it does without (a collector that fails, which the scrape
+// answers without); notice and info: what it says of itself (how many
+// collectors it serves, a directory it made).
+export const LEVELS = { err: 'LOG_ERR', warning: 'LOG_WARNING', notice: 'LOG_NOTICE', info: 'LOG_INFO' };
+
+// log(level, msg) over a syslog module (the `log` module's openlog, syslog and
+// LOG_*): each message to syslog as the daemon `ident`, with its pid, at its
+// level's priority. procd's log of a service's stderr has one priority for
+// everything, err, which is why the exporter does not write there.
+export function syslog_channel(mod, ident) {
+	mod.openlog(ident, mod.LOG_PID, mod.LOG_DAEMON);
+
+	return function(level, msg) {
+		if (!(level in keys(LEVELS)))
+			die(`unknown log level '${level}'`);
+
+		mod.syslog(mod[LEVELS[level]], '%s', msg);
+	};
+};
+
+export function system_log(ident) {
+	return syslog_channel({ openlog, syslog, LOG_PID, LOG_DAEMON, LOG_ERR, LOG_WARNING, LOG_NOTICE, LOG_INFO }, ident);
 };
 
 // A delta directory that never exists: cursors read committed configuration

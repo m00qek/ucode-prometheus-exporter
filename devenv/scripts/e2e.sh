@@ -106,11 +106,13 @@ check "it takes over the old exporter's settings" test "$(uci -q get $NAME.main.
 check "but not its default port" test "$(uci -q get $NAME.main.listen_port)" = 9100
 check "and serves with them" says ' -k 30 ' command_line
 check "it leaves the old config as it was" test "$(md5sum <"$OLD")" = "$old_sum"
-check "it logs what it took" says "imported from $OLD: http_keepalive=30, collector wifi" logread
+check "it logs what it took, at info" says "daemon.info $NAME: imported from $OLD: http_keepalive=30, collector wifi" logread
 check "its uci-defaults script runs once" test ! -e /etc/uci-defaults/$NAME-import
 check "it makes no directory without textfile" test ! -e /var/prometheus
 all_base_served() { for c in $BASE_COLLECTORS; do served "$c" || return 1; done; }
 eventually "it serves every base collector" all_base_served
+check "it logs how many it serves at info" says "daemon.info $NAME\[[0-9]*\]: serving [0-9]* collectors$" logread
+check "and none of that at err" fails says "daemon.err.*serving [0-9]* collectors" logread
 check "it runs in procd's jail" jailed
 check "its mounts are what jail.uc prints" mounts_match_jail
 check "the jail has its own config and no other" test "$(jail_configs)" = "$NAME"
@@ -155,7 +157,7 @@ check "the ubus object lists the new collectors too" rpc_lists_all
 check "its mounts are still what jail.uc prints" mounts_match_jail
 check "the jail has the configs its collectors read" test "$(jail_configs | tr '\n' ' ')" = "dhcp network $NAME ubnt-manager "
 check "the service makes textfile's directory" test -d /var/prometheus
-check "and says so" says "made /var/prometheus" logread
+check "and says so, at info" says "daemon.info $NAME: made /var/prometheus$" logread
 check "and mounts it" mounted /var/prometheus
 echo 'e2e_textfile_value 42' >/var/prometheus/e2e.prom
 eventually "textfile reads its directory in the jail" metric 'e2e_textfile_value 42$'
@@ -188,7 +190,8 @@ check "a scrape still answers" test -s /tmp/hung
 check "after ubnt-manager's 5 seconds, not uhttpd's 60 ($took s)" test "$took" -ge 5 -a "$took" -lt 15
 check "failing ubnt-manager" grep -qx 'node_scrape_collector_success{collector="ubnt-manager"} 0' /tmp/hung
 check "and serving every other collector as before" test "$(succeeded_but ubnt-manager </tmp/hung)" = "$others"
-check "it logs why" says "collector 'ubnt-manager': COMMAND_TIMEOUT (ubnt-manager: still running after 5 s, killed)" logread
+check "it logs why, at warning" \
+	says "daemon.warn $NAME\[[0-9]*\]: collector 'ubnt-manager': COMMAND_TIMEOUT (ubnt-manager: still running after 5 s, killed)" logread
 sleep 1
 check "and leaves neither the script nor its ssh behind" fails left_behind
 check "the instance keeps running" test "$(pid)" = "$before"
@@ -264,7 +267,7 @@ check "an invalid config keeps the running instance" test "$(pid)" = "$before"
 check "which still serves" served loadavg
 check "check fails on it" fails "$INIT" check
 check "check says why" says 'FAIL main: CONFIG_INVALID (listen_port: expected an integer, got "http")' "$INIT" check
-check "the reload logged why" says 'invalid configuration, keeping the running instance' logread
+check "the reload logged why, at err" says "daemon.err $NAME: invalid configuration, keeping the running instance" logread
 set_config "$NAME.main.listen_port=9100"
 
 # --- removing a package

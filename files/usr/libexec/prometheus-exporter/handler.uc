@@ -7,10 +7,14 @@
 // uhttpd's ucode handler for /metrics; see /etc/init.d/prometheus-exporter.
 
 import { create } from 'prometheus_exporter.app';
+import { system_log } from 'prometheus_exporter.deps';
+import { NAME } from 'prometheus_exporter.config';
 
-const app = create((msg) => warn(`prometheus-exporter: ${msg}\n`));
+// To syslog, at each message's level: procd would log the handler's stderr at err.
+const log = system_log(NAME);
+const app = create(log);
 
-warn(`prometheus-exporter: serving ${length(app.collectors())} collectors\n`);
+log('info', `serving ${length(app.collectors())} collectors`);
 
 global.handle_request = function(env) {
 	const res = app.scrape(env.QUERY_STRING);

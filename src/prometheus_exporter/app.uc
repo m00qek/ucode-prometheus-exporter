@@ -8,8 +8,9 @@ import * as loader from 'prometheus_exporter.loader';
 import * as scrape from 'prometheus_exporter.scrape';
 import { version } from 'prometheus_exporter.version';
 
-// { collectors(), scrape(query_string) }. `dir` replaces the installed
-// collectors' directory, for running from a source tree.
+// { collectors(), scrape(query_string) }. log(level, msg) takes what the
+// loader, the scrapes and the collectors log (deps.LEVELS). `dir` replaces the
+// installed collectors' directory, for running from a source tree.
 //
 // The collectors are loaded once: installing, removing or upgrading a
 // collector package reloads the service, which restarts uhttpd when the

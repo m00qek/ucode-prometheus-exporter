@@ -3,5 +3,5 @@
 # once, into an unchanged /etc/config/prometheus-exporter; the old config stays.
 # See /usr/libexec/prometheus-exporter/import.uc.
 
-/usr/libexec/prometheus-exporter/import.uc 2>&1 | logger -s -t prometheus-exporter -p daemon.notice
+/usr/libexec/prometheus-exporter/import.uc 2>&1 | logger -s -t prometheus-exporter -p daemon.info
 exit 0

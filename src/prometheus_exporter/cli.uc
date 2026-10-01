@@ -47,7 +47,8 @@ export function run(argv, create, out, err) {
 		return 0;
 	}
 
-	let app = create((msg) => err(msg + '\n'), args.dir);
+	// On the command line, what the exporter logs goes to standard error, whatever its level.
+	let app = create((level, msg) => err(msg + '\n'), args.dir);
 
 	if (args.list) {
 		for (let c in app.collectors())

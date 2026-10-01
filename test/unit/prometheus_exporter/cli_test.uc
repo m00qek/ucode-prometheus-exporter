@@ -7,7 +7,7 @@ import * as cli from 'prometheus_exporter.cli';
 function app_factory(reply, seen) {
 	return function(log, dir) {
 		seen.dir = dir;
-		log('loaded');
+		log('info', 'loaded');
 		return {
 			collectors: () => [ { meta: { name: 'cpu', help: 'CPU time.' } }, { meta: { name: 'ltq-dsl', help: 'DSL line.' } } ],
 			scrape: function(q) { seen.query = q; return reply; },

@@ -39,7 +39,7 @@ describe('app', () => {
 		patch(ROUTER.files, { data: { 'system:board': ROUTER.board } });
 
 		let logs = [];
-		let res = create((m) => push(logs, m), SOURCES).scrape('collect[]=loadavg&collect[]=openwrt');
+		let res = create((level, m) => push(logs, m), SOURCES).scrape('collect[]=loadavg&collect[]=openwrt');
 		let parsed = exposition.parse(res.body);
 
 		assert.match([ '200 OK', true, [] ], [ res.status, parsed.ok, logs ]);
@@ -62,7 +62,7 @@ describe('app', () => {
 		patch(ROUTER.files, { errors: { 'system:board': 'Not found' } });
 
 		let logs = [];
-		let res = create((m) => push(logs, m), SOURCES).scrape('collect[]=loadavg&collect[]=openwrt');
+		let res = create((level, m) => push(logs, m), SOURCES).scrape('collect[]=loadavg&collect[]=openwrt');
 
 		assert.match('200 OK', res.status);
 		assert.match(contains([ 'node_scrape_collector_success{collector="openwrt"} 0' ]), split(res.body, '\n'));
@@ -80,7 +80,7 @@ describe('app', () => {
 
 		let logs = [];
 		let t = clock(true);
-		let res = create((m) => push(logs, m), SOURCES).scrape('collect[]=loadavg&collect[]=nft-counters&collect[]=openwrt');
+		let res = create((level, m) => push(logs, m), SOURCES).scrape('collect[]=loadavg&collect[]=nft-counters&collect[]=openwrt');
 		let took = clock(true)[0] - t[0];
 
 		assert.match('200 OK', res.status);

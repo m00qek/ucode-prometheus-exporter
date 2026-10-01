@@ -5,7 +5,9 @@
 // node_scrape_collector_duration_seconds and node_scrape_collector_success, and
 // the exporter's own ucode_prometheus_exporter_build_info.
 //
-// env: { session() -> a deps session, clock() -> [ s, ns ] monotonic, log(msg),
+// env: { session() -> a deps session, clock() -> [ s, ns ] monotonic,
+//        log(level, msg): a collector that fails at warning, as the scrape
+//        answers without it; a main section the exporter cannot read at err,
 //        version: the exporter's version (prometheus_exporter.version) }
 
 import * as Result from 'prometheus_exporter.result';
@@ -80,9 +82,9 @@ export function run_one(env, session, c) {
 	let duration = seconds(t1, env.clock());
 
 	if (!res.ok)
-		env.log(`collector '${c.meta.name}': ${Result.describe(res)}`);
+		env.log('warning', `collector '${c.meta.name}': ${Result.describe(res)}`);
 	for (let name in rec.conflicts())
-		env.log(`collector '${c.meta.name}': '${name}' declared with two types; later samples dropped`);
+		env.log('warning', `collector '${c.meta.name}': '${name}' declared with two types; later samples dropped`);
 
 	return { name: c.meta.name, result: res, families: rec.families(), duration };
 };
@@ -106,7 +108,7 @@ export function scrape(env, collectors, query_string) {
 	let main = config.main(uci);
 
 	if (!main.ok) {
-		env.log(`main: ${Result.describe(main)}`);
+		env.log('err', `main: ${Result.describe(main)}`);
 		main = Result.ok(config.defaults(config.MAIN_OPTIONS));
 	}
 
@@ -130,7 +132,7 @@ export function scrape(env, collectors, query_string) {
 
 	let merged = exposition.merge([ ...map(runs, (r) => r.families), scrape_meta.families() ]);
 	for (let name in merged.conflicts)
-		env.log(`'${name}' declared with two types by different collectors; later samples dropped`);
+		env.log('warning', `'${name}' declared with two types by different collectors; later samples dropped`);
 
 	return reply('200 OK', exposition.render(merged.families, { omit_zero_counters: main.data.omit_zero_values }));
 };

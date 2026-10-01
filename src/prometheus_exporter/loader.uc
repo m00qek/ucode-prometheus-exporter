@@ -184,7 +184,8 @@ export function discover(fs, dir) {
 	return sort(map(files, (f) => substr(f, 0, -3)));
 };
 
-// The valid collectors in `dir`, sorted by name.
+// The valid collectors in `dir`, sorted by name; log(level, msg) takes, at err,
+// each that is left out and why.
 export function load(fs, dir, import_fn, log) {
 	let collectors = [];
 
@@ -194,13 +195,13 @@ export function load(fs, dir, import_fn, log) {
 		try {
 			mod = import_fn(id);
 		} catch (e) {
-			log(`cannot load collector '${id}': ${split(e.message, '\n')[0]}`);
+			log('err', `cannot load collector '${id}': ${split(e.message, '\n')[0]}`);
 			continue;
 		}
 
 		let res = validate(id, mod);
 		if (!res.ok) {
-			log(`skipping collector: ${Result.describe(res)}`);
+			log('err', `skipping collector: ${Result.describe(res)}`);
 			continue;
 		}
 

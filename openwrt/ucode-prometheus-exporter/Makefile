@@ -31,7 +31,7 @@ define Package/$(PKG_NAME)
   $(call Package/$(PKG_NAME)/Default)
   # rpcd-mod-ucode serves the service's ubus object; ucode-mod-uloop lets it
   # wait for a status scrape without blocking rpcd.
-  DEPENDS:=+uhttpd +uhttpd-mod-ucode +ucode +ucode-mod-fs +ucode-mod-ubus +ucode-mod-uci +ucode-mod-rtnl +rpcd-mod-ucode +ucode-mod-uloop
+  DEPENDS:=+uhttpd +uhttpd-mod-ucode +ucode +ucode-mod-fs +ucode-mod-ubus +ucode-mod-uci +ucode-mod-rtnl +ucode-mod-log +rpcd-mod-ucode +ucode-mod-uloop
   # The feed's exporters it replaces, which want the same port. CONFLICTS
   # keeps an image from building both in, but apk packages do not carry it:
   # a dependency on !<name> is apk's conflict, refused either way round.

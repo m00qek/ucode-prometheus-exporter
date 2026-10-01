@@ -11,7 +11,7 @@
 // cannot (an invalid config, which the log says), it asks again then.
 //
 // sys: { exists(path), sleep(ms), reload() -> whether procd took the event,
-//        log(msg) }
+//        log(level, msg) }
 
 import * as config from 'prometheus_exporter.config';
 
@@ -33,12 +33,12 @@ export function run(sys, paths, rounds) {
 			continue;
 		}
 
-		sys.log(`${join(', ', found)} ${length(found) == 1 ? 'is' : 'are'} there now: reloading to mount ${length(found) == 1 ? 'it' : 'them'}`);
+		sys.log('info', `${join(', ', found)} ${length(found) == 1 ? 'is' : 'are'} there now: reloading to mount ${length(found) == 1 ? 'it' : 'them'}`);
 
 		let reloaded = sys.reload();
 
 		if (!reloaded)
-			sys.log(`cannot send procd ${EVENT}; trying again in ${QUIET_MS / 1000}s`);
+			sys.log('warning', `cannot send procd ${EVENT}; trying again in ${QUIET_MS / 1000}s`);
 
 		push(done, { found, reloaded });
 		sys.sleep(QUIET_MS);

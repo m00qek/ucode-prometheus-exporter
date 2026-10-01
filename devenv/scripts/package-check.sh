@@ -130,6 +130,7 @@ check "$RPC_MODULE 0644" has_mode 644 "$RPC_MODULE"
 check "$STATUS_HELPER 0755" has_mode 755 "$STATUS_HELPER"
 check "the base package depends on rpcd-mod-ucode" depends_on "$PKG" rpcd-mod-ucode
 check "and on ucode-mod-uloop, for status" depends_on "$PKG" ucode-mod-uloop
+check "and on ucode-mod-log, to log at each message's priority" depends_on "$PKG" ucode-mod-log
 check "no LuCI app is installed" fails apk info -e "luci-app-$NAME"
 
 rpcd &

@@ -11,6 +11,8 @@
 import { stat } from 'fs';
 import { connect } from 'ubus';
 import * as watch from 'prometheus_exporter.watch';
+import { system_log } from 'prometheus_exporter.deps';
+import { NAME } from 'prometheus_exporter.config';
 
 if (!length(ARGV)) {
 	warn('usage: watch.uc PATH...\n');
@@ -33,5 +35,5 @@ watch.run({
 		ubus.disconnect();
 		return ok;
 	},
-	log: (msg) => warn(`${msg}\n`),
+	log: system_log(NAME),
 }, ARGV);

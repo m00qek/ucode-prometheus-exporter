@@ -25,13 +25,14 @@ function names(res) {
 	return map(res.data, (c) => c.meta.name);
 }
 
-// The scrape env over the mocks, with a clock that advances by 250ms a reading.
-function env_for(mods, logs) {
+// The scrape env over the mocks, with a clock that advances by 250ms a reading;
+// `levels`, when given, gets the level of each line `logs` gets.
+function env_for(mods, logs, levels) {
 	let t = 0;
 	return {
 		session: () => deps.session(mods),
 		clock: () => { t += 250000000; return [ int(t / 1000000000), t % 1000000000 ]; },
-		log: (m) => push(logs, m),
+		log: (level, m) => { push(logs, m); push(levels ?? [], level); },
 		version: '2026.01.02-r3',
 	};
 }
@@ -178,10 +179,18 @@ describe('scrape.scrape', () => {
 		let out;
 		with_mods(cfg ?? {}, (mods) => {
 			let logs = [];
-			out = { ...scrape.scrape(env_for(mods, logs), collectors, query_string), logs };
+			let levels = [];
+			out = { ...scrape.scrape(env_for(mods, logs, levels), collectors, query_string), logs, levels };
 		});
 		return out;
 	}
+
+	it('logs a collector that fails at warning, and a main section it cannot read at err', () => {
+		let r = scrape_with([ A, collector('failing', () => Result.err('SOURCE_INVALID')) ], '', { main: { omit_zero_values: 'maybe' } });
+
+		assert.match([ 'err', 'warning' ], r.levels);
+		assert.match([ 'main: CONFIG_INVALID (omit_zero_values: expected a boolean, got "maybe")', "collector 'failing': SOURCE_INVALID" ], r.logs);
+	});
 
 	it('writes each family once, then durations, then outcomes, then the build', () => {
 		let r = scrape_with([ A, collector('failing', () => Result.err('SOURCE_INVALID')) ], '');

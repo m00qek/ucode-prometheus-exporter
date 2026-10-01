@@ -148,6 +148,8 @@ uci rewrites the whole file when it commits a change (`uci commit`, and so LuCI'
 
 Start and reload refuse an invalid config. Installing or removing a collector package reloads the service.
 
+It logs to syslog as `prometheus-exporter` (`logread -e prometheus-exporter`), each line at its priority: `info` for what it does (how many collectors it serves when it starts, a directory it made, the settings it took over), `warning` for what it does without (a collector that fails, which the scrape answers without; a path the jail cannot mount), `err` for what stops it (an invalid config, a collector that does not load).
+
 The programs a collector runs (nft, ethtool, mmcli, ubnt-manager) get 5 seconds in all in each scrape, by default. One still running then is killed, with every process it started (ubnt-manager's ssh to a radio that does not answer), and its collector fails with COMMAND_TIMEOUT; the scrape answers with the rest. A collector stuck for its 5 seconds still leaves the scrape within Prometheus's default `scrape_timeout` of 10 seconds.
 
 The seconds, 1 to 30, are the collector section's `timeout` when it sets one, else the collector's own default (`meta.timeout`, which none of the shipped collectors has), else the main section's `exec_timeout` (5 by default). A value outside 1 to 30 fails `check`, and start and reload: `exec_timeout` as the main section's, a collector's `timeout` as that collector's, which fails with CONFIG_INVALID in a scrape. A collector that runs no programs ignores a `timeout`. `check` prints each one's seconds and where they come from:
