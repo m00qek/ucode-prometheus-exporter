@@ -6,8 +6,10 @@ const path = require('path');
 const PASSWORD = 'admin';
 const SCREENSHOTS = path.join(__dirname, '..', 'results', 'screenshots');
 
-// The exporter's config, the plugin's ubus object and the app's ACL group.
-const CONFIG = 'prometheus-node-exporter-ucode';
+// The exporter's config and the plugin's ubus object; the package of the exporter, and
+// PACKAGE-<collector> of each collector.
+const CONFIG = 'prometheus-exporter';
+const PACKAGE = 'ucode-prometheus-exporter';
 
 // A login granted luci-base and the app's ACL alone (devenv/services/luci/start.sh).
 const APP_USER = { username: 'metrics', password: 'metrics' };
@@ -136,6 +138,6 @@ async function screenshot(page, name) {
 }
 
 module.exports = {
-  CONFIG, APP_USER, HOSTILE, ubus, rawCall, denied, sessionOf, useService, useConfig, readConfig, sections, open, openSettings,
+  CONFIG, PACKAGE, APP_USER, HOSTILE, ubus, rawCall, denied, sessionOf, useService, useConfig, readConfig, sections, open, openSettings,
   openStatus, section, collectorRow, text, screenshot,
 };

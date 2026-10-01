@@ -1,5 +1,5 @@
 
-config prometheus-node-exporter-ucode 'main'
+config prometheus-exporter 'main'
 	option listen_interface '*'
 	option listen_port '9102'
 	option http_keepalive '0'

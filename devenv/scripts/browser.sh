@@ -8,7 +8,7 @@ cd "$(dirname "$0")/../.."
 
 : "${LUCI_IMAGE:?run through make browser}" "${BROWSER_IMAGE:?}" "${PKG_FULLVERSION:?}" "${BROWSER_COLLECTORS:?}"
 
-name=prometheus-node-exporter-ucode-browser-$$
+name=ucode-prometheus-exporter-browser-$$
 out=bin/browser
 
 cleanup() { docker rm -f "$name" >/dev/null 2>&1 || true; }
@@ -26,7 +26,7 @@ docker run -d --name "$name" --network none -e PKG_FULLVERSION -e BROWSER_COLLEC
 	"$LUCI_IMAGE" /opt/luci/start.sh >/dev/null
 
 tries=0
-until docker exec "$name" wget -q -O /dev/null http://127.0.0.1/luci-static/resources/prometheus-node-exporter-ucode.js 2>/dev/null &&
+until docker exec "$name" wget -q -O /dev/null http://127.0.0.1/luci-static/resources/prometheus-exporter.js 2>/dev/null &&
 	docker logs "$name" 2>/dev/null | grep -q '^luci ready$'; do
 	tries=$((tries + 1))
 	if [ "$tries" -gt 60 ] || [ "$(docker inspect -f '{{.State.Running}}' "$name")" != true ]; then

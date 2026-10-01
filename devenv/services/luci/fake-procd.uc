@@ -17,7 +17,7 @@ import * as uloop from 'uloop';
 import { readfile, writefile } from 'fs';
 
 const DIR = getenv('FIXTURES') ?? '/fixtures';
-const CONFIG = '/etc/config/prometheus-node-exporter-ucode';
+const CONFIG = '/etc/config/prometheus-exporter';
 const MB = 1024 * 1024;
 
 const BOARD = {

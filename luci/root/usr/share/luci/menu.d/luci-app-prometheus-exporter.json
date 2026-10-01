@@ -1,0 +1,27 @@
+{
+	"admin/status/prometheus-exporter": {
+		"title": "Prometheus exporter",
+		"order": 70,
+		"action": {
+			"type": "view",
+			"path": "prometheus-exporter/status"
+		},
+		"depends": {
+			"acl": [ "luci-app-prometheus-exporter" ],
+			"uci": { "prometheus-exporter": true }
+		}
+	},
+
+	"admin/services/prometheus-exporter": {
+		"title": "Prometheus exporter",
+		"order": 70,
+		"action": {
+			"type": "view",
+			"path": "prometheus-exporter/settings"
+		},
+		"depends": {
+			"acl": [ "luci-app-prometheus-exporter" ],
+			"uci": { "prometheus-exporter": true }
+		}
+	}
+}

@@ -8,13 +8,14 @@ set -eu
 
 : "${PKG_FULLVERSION:?run through make browser}" "${BROWSER_COLLECTORS:?}"
 
-NAME=prometheus-node-exporter-ucode
-COLLECTORS=/usr/share/ucode/node_exporter/collectors
+PKG=ucode-prometheus-exporter
+NAME=prometheus-exporter
+COLLECTORS=/usr/share/ucode/prometheus_exporter/collectors
 
 # The package scripts reload services through procd, which is not running.
-set -- "/artifacts/$NAME-$PKG_FULLVERSION.apk" "/artifacts/luci-app-$NAME-$PKG_FULLVERSION.apk"
+set -- "/artifacts/$PKG-$PKG_FULLVERSION.apk" "/artifacts/luci-app-$NAME-$PKG_FULLVERSION.apk"
 for c in $BROWSER_COLLECTORS; do
-	set -- "$@" "/artifacts/$NAME-$c-$PKG_FULLVERSION.apk"
+	set -- "$@" "/artifacts/$PKG-$c-$PKG_FULLVERSION.apk"
 done
 apk add --allow-untrusted --no-network "$@" >/tmp/install.log 2>&1 || { cat /tmp/install.log >&2; exit 1; }
 
@@ -39,9 +40,9 @@ uci batch <<-'EOF'
 	set rpcd.@login[-1].password='$p$metrics'
 	add_list rpcd.@login[-1].read='unauthenticated'
 	add_list rpcd.@login[-1].read='luci-base'
-	add_list rpcd.@login[-1].read='luci-app-prometheus-node-exporter-ucode'
+	add_list rpcd.@login[-1].read='luci-app-prometheus-exporter'
 	add_list rpcd.@login[-1].write='luci-base'
-	add_list rpcd.@login[-1].write='luci-app-prometheus-node-exporter-ucode'
+	add_list rpcd.@login[-1].write='luci-app-prometheus-exporter'
 	commit rpcd
 EOF
 

@@ -32,7 +32,7 @@ test.describe('The page\'s datatypes', () => {
     await h.openSettings(page);
     const out = await page.evaluate(async () => {
       const validation = await L.require('validation');
-      const exporter = await L.require('prometheus-node-exporter-ucode');
+      const exporter = await L.require('prometheus-exporter');
       const check = (type, value) => {
         const input = document.createElement('input');
         document.body.appendChild(input);

@@ -7,10 +7,12 @@ set -u
 
 : "${PKG_FULLVERSION:?run through make e2e}"
 : "${BASE_COLLECTORS:?run through make e2e}"
-NAME=prometheus-node-exporter-ucode
+# The package, and the service it installs (config, init script, command).
+PKG=ucode-prometheus-exporter
+NAME=prometheus-exporter
 INIT=/etc/init.d/$NAME
 LIBEXEC=/usr/libexec/$NAME
-URL=http://127.0.0.1:9101/metrics
+URL=http://127.0.0.1:9100/metrics
 failures=0
 
 pass() { echo "ok   $*"; }
@@ -29,7 +31,7 @@ eventually() {
 	done
 	fail "$desc"
 }
-apk_file() { echo "/artifacts/$NAME${1:+-$1}-$PKG_FULLVERSION.apk"; }
+apk_file() { echo "/artifacts/$PKG${1:+-$1}-$PKG_FULLVERSION.apk"; }
 install() { for p in "$@"; do apk_file "$p"; done | xargs apk add --allow-untrusted --no-network >/dev/null 2>&1; }
 
 fetch() { wget -q -O - "$URL${1:+?$1}"; }
@@ -43,7 +45,7 @@ pid() { instance | jsonfilter -e '@[*].instances.*.pid'; }
 mounts() { instance | jsonfilter -e '@[*].instances.*.mount' | ucode -e 'print(join("\n", sort(keys(json(require("fs").stdin.read("all"))))), "\n")'; }
 # What the init script mounts for the exporter's own code and libraries.
 own_mount() { case $1 in /lib/libubus.so* | /lib/libuci.so* | /usr/lib/libnl* | /usr/lib/uhttpd_ucode.so | /usr/lib/ucode | \
-	/usr/share/ucode/node_exporter | $LIBEXEC/handler.uc) return 0 ;; esac; return 1; }
+	/usr/share/ucode/prometheus_exporter | $LIBEXEC/handler.uc) return 0 ;; esac; return 1; }
 collector_mounts() { mounts | while read -r m; do own_mount "$m" || echo "$m"; done; }
 mounts_match_jail() { [ "$(collector_mounts)" = "$($LIBEXEC/jail.uc 2>/dev/null)" ]; }
 # What the jailed uhttpd sees of /etc/config: procd's pid is ujail's, which
@@ -90,10 +92,10 @@ check "no /etc/config/network in its mounts" not_mounted /etc/config/network
 
 # --- every collector package
 before=$(pid)
-COLLECTORS=$(ls /artifacts/$NAME-*-$PKG_FULLVERSION.apk | sed "s|^/artifacts/$NAME-||; s|-$PKG_FULLVERSION.apk$||")
+COLLECTORS=$(ls /artifacts/$PKG-*-$PKG_FULLVERSION.apk | sed "s|^/artifacts/$PKG-||; s|-$PKG_FULLVERSION.apk$||")
 install $COLLECTORS
 eventually "installing collectors restarts the instance" restarted_from "$before"
-installed() { ls /usr/share/ucode/node_exporter/collectors/*.uc | wc -l; }
+installed() { ls /usr/share/ucode/prometheus_exporter/collectors/*.uc | wc -l; }
 all_answer() { [ "$(fetch | grep -c '^node_scrape_collector_success{')" -eq "$(installed)" ]; }
 eventually "every installed collector is served" all_answer
 check "its mounts are still what jail.uc prints" mounts_match_jail
@@ -127,11 +129,11 @@ check "which still serves" served loadavg
 check "check fails on it" fails "$INIT" check
 check "check says why" says 'FAIL main: CONFIG_INVALID (listen_port: expected an integer, got "http")' "$INIT" check
 check "the reload logged why" says 'invalid configuration, keeping the running instance' logread
-set_config "$NAME.main.listen_port=9101"
+set_config "$NAME.main.listen_port=9100"
 
 # --- removing a package
 # ltq-dsl is in no group, which would keep it installed.
-apk del "$NAME-ltq-dsl" >/dev/null 2>&1
+apk del "$PKG-ltq-dsl" >/dev/null 2>&1
 eventually "a removed collector is not served" not_served ltq-dsl
 
 # --- the service commands
@@ -140,7 +142,7 @@ check "check lists the collectors" says "^  textfile (Text files): section 'text
 check "and the jail's mounts" says '^jail mounts:' "$INIT" check
 serving=$(($(installed) - 1))
 check "status says where it listens and what it serves" \
-	says "^listening on http://127.0.0.1:9101/metrics, serving $serving collectors$" "$INIT" status
+	says "^listening on http://127.0.0.1:9100/metrics, serving $serving collectors$" "$INIT" status
 check "info shows the jail" says '"jail"' "$INIT" info
 set_config "$NAME.main.enabled=0"
 eventually "disabling the service stops it" fails "$INIT" running

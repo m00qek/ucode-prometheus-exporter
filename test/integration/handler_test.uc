@@ -4,17 +4,17 @@
 // template, then handle_request(env) per request with `uhttpd` as a global.
 
 import { describe, it, afterEach, assert, contains, mock } from 'utest';
-import { DIR } from 'node_exporter.loader';
-import * as config from 'node_exporter.config';
+import { DIR } from 'prometheus_exporter.loader';
+import * as config from 'prometheus_exporter.config';
 
-const HANDLER = 'files/usr/libexec/prometheus-node-exporter-ucode/handler.uc';
+const HANDLER = 'files/usr/libexec/prometheus-exporter/handler.uc';
 
 // The collectors as installed: their files listed in DIR, their modules found on
 // the search path.
 function install(files) {
 	let fs = mock.global.patch('fs', { data: { [DIR + '/loadavg.uc']: '', ...files } });
 	mock.global.patch('ubus', { strict: true, data: {} });
-	mock.global.patch('uci', { strict: true, data: { [config.PACKAGE]: {} } });
+	mock.global.patch('uci', { strict: true, data: { [config.NAME]: {} } });
 	return fs;
 }
 

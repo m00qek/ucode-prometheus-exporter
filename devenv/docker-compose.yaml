@@ -1,8 +1,8 @@
-name: prometheus-node-exporter-ucode
+name: ucode-prometheus-exporter
 
 services:
   openwrt:
-    image: prometheus-node-exporter-ucode-openwrt:${IMAGE_TAG}
+    image: ucode-prometheus-exporter-openwrt:${IMAGE_TAG}
     build:
       context: ./services/openwrt
       args:

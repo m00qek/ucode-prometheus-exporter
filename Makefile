@@ -32,17 +32,17 @@ $(IMAGE_STAMP): devenv/services/openwrt/Dockerfile
 fixtures:
 	@devenv/scripts/fixtures.sh '$(HOST)' '$(NAME)'
 
-PKG_FIELD       = $(shell sed -n 's/^PKG_$(1):=//p' openwrt/prometheus-node-exporter-ucode/Makefile)
+PKG_FIELD       = $(shell sed -n 's/^PKG_$(1):=//p' openwrt/ucode-prometheus-exporter/Makefile)
 PKG_FULLVERSION := $(call PKG_FIELD,VERSION)-r$(call PKG_FIELD,RELEASE)
 SDK_IMAGE       := ghcr.io/openwrt/sdk:$(OPENWRT_ARCH)-$(OPENWRT_VERSION)
-PKG_DIR         := /builder/package/prometheus-node-exporter-ucode
+PKG_DIR         := /builder/package/ucode-prometheus-exporter
 
 # fakeroot's faked closes every descriptor up to the open-file limit when it starts;
 # where the daemon's limit is unbounded (about a billion) each start takes minutes.
 package:
 	@mkdir -p bin && chmod a+rwx bin
 	docker run --rm --ulimit nofile=1024:524288 \
-		-v $(CURDIR)/openwrt/prometheus-node-exporter-ucode/Makefile:$(PKG_DIR)/Makefile:ro \
+		-v $(CURDIR)/openwrt/ucode-prometheus-exporter/Makefile:$(PKG_DIR)/Makefile:ro \
 		-v $(CURDIR)/src:$(PKG_DIR)/src:ro \
 		-v $(CURDIR)/files:$(PKG_DIR)/files:ro \
 		-v $(CURDIR)/luci:$(PKG_DIR)/luci:ro \
@@ -50,11 +50,11 @@ package:
 		-v $(CURDIR)/NOTICE:$(PKG_DIR)/NOTICE:ro \
 		-v $(CURDIR)/bin:/artifacts \
 		$(SDK_IMAGE) sh -c 'make defconfig >/dev/null && \
-			make package/prometheus-node-exporter-ucode/compile $(if $(VERBOSE),V=s) && \
-			find bin \( -name "prometheus-node-exporter-ucode*-$(PKG_FULLVERSION).apk" \
-				-o -name "luci-app-prometheus-node-exporter-ucode-$(PKG_FULLVERSION).apk" \) -exec cp {} /artifacts/ \;'
+			make package/ucode-prometheus-exporter/compile $(if $(VERBOSE),V=s) && \
+			find bin \( -name "ucode-prometheus-exporter*-$(PKG_FULLVERSION).apk" \
+				-o -name "luci-app-prometheus-exporter-$(PKG_FULLVERSION).apk" \) -exec cp {} /artifacts/ \;'
 
-PKGCHECK_IMAGE := prometheus-node-exporter-ucode-pkgcheck:$(OPENWRT_ARCH)-$(OPENWRT_VERSION)
+PKGCHECK_IMAGE := ucode-prometheus-exporter-pkgcheck:$(OPENWRT_ARCH)-$(OPENWRT_VERSION)
 
 pkgcheck-image:
 	docker build -q -t $(PKGCHECK_IMAGE) --build-arg OPENWRT_ARCH --build-arg OPENWRT_VERSION \
@@ -69,7 +69,9 @@ package-check: package pkgcheck-image
 		-v $(CURDIR):/exporter:ro \
 		$(PKGCHECK_IMAGE) /exporter/devenv/scripts/package-check.sh
 
-E2E_CONTAINER := prometheus-node-exporter-ucode-e2e-$(OPENWRT_ARCH)-$(OPENWRT_VERSION)
+# Containers are named per checkout, so worktrees run them side by side.
+CHECKOUT      := $(shell echo '$(CURDIR)' | sha256sum | cut -c1-8)
+E2E_CONTAINER := ucode-prometheus-exporter-e2e-$(OPENWRT_ARCH)-$(OPENWRT_VERSION)-$(CHECKOUT)
 
 # The packages on a booted OpenWrt: procd as PID 1, with ubusd and netifd,
 # and ujail, which needs the container privileged. No network either.
@@ -82,9 +84,9 @@ e2e: package pkgcheck-image
 		$(E2E_CONTAINER) /exporter/devenv/scripts/e2e.sh; \
 		status=$$?; docker rm -f $(E2E_CONTAINER) >/dev/null; exit $$status
 
-# ---- luci-app-prometheus-node-exporter-ucode ----------------------------------
-LUCI_IMAGE    := prometheus-node-exporter-ucode-luci:$(OPENWRT_ARCH)-$(OPENWRT_VERSION)
-BROWSER_IMAGE := prometheus-node-exporter-ucode-browser:$(shell sed -n 's/.*"@playwright\/test": "\(.*\)".*/\1/p' devenv/services/browser/package.json)
+# ---- luci-app-prometheus-exporter --------------------------------------------
+LUCI_IMAGE    := ucode-prometheus-exporter-luci:$(OPENWRT_ARCH)-$(OPENWRT_VERSION)
+BROWSER_IMAGE := ucode-prometheus-exporter-browser:$(shell sed -n 's/.*"@playwright\/test": "\(.*\)".*/\1/p' devenv/services/browser/package.json)
 # The collector packages the browser tests install besides the base package: options of
 # each type, configs read, a name with '-'.
 BROWSER_COLLECTORS := dhcp_leases ltq-dsl textfile unbound wifi wireguard
@@ -99,5 +101,5 @@ browser: package
 		BROWSER_COLLECTORS='$(BROWSER_COLLECTORS)' FILTER='$(FILTER)' devenv/scripts/browser.sh
 
 # The translation template, from the LuCI sources; make lint checks it is up to date.
-I18N_IMAGE := prometheus-node-exporter-ucode-i18n:$(shell sha256sum devenv/services/i18n/Dockerfile | cut -c1-12)
+I18N_IMAGE := ucode-prometheus-exporter-i18n:$(shell sha256sum devenv/services/i18n/Dockerfile | cut -c1-12)
 pot: ; @I18N_IMAGE=$(I18N_IMAGE) devenv/scripts/pot.sh

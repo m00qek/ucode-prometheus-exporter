@@ -1,9 +1,0 @@
-#!/usr/bin/ucode
-'use strict';
-
-// Prints a scrape; -h for usage.
-
-import { create } from 'node_exporter.app';
-import { run } from 'node_exporter.cli';
-
-exit(run(ARGV, create, print, warn));

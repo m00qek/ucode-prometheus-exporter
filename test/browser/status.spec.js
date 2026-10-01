@@ -25,7 +25,7 @@ test.describe('Status → Prometheus exporter', () => {
     await expect(serviceRow(page, 'State').locator('td').last()).toHaveText('Running');
     await expect(serviceRow(page, 'Enabled in the settings').locator('td').last()).toHaveText('Yes');
     await expect(serviceRow(page, 'Starts at boot').locator('td').last()).toHaveText('Yes');
-    await expect(serviceRow(page, 'Metrics').locator('a')).toHaveText([ 'http://127.0.0.1:9101/metrics', 'http://[::1]:9101/metrics' ]);
+    await expect(serviceRow(page, 'Metrics').locator('a')).toHaveText([ 'http://127.0.0.1:9100/metrics', 'http://[::1]:9100/metrics' ]);
     await expect(serviceRow(page, 'Metrics').locator('td').last()).toContainText('(reachable from the router only)');
 
     await expect(cell(page, 'loadavg', 1)).toHaveText('Yes');
@@ -53,8 +53,8 @@ test.describe('Status → Prometheus exporter', () => {
   test('opens /metrics on every address at the address this page came from', async ({ page, request }) => {
     await h.useService(request, 'running-any');
     await h.openStatus(page);
-    await expect(serviceRow(page, 'Metrics').locator('a')).toHaveText([ 'https://127.0.0.1:9101/metrics' ]);
-    await expect(serviceRow(page, 'Metrics').locator('a')).toHaveAttribute('href', 'https://127.0.0.1:9101/metrics');
+    await expect(serviceRow(page, 'Metrics').locator('a')).toHaveText([ 'https://127.0.0.1:9100/metrics' ]);
+    await expect(serviceRow(page, 'Metrics').locator('a')).toHaveAttribute('href', 'https://127.0.0.1:9100/metrics');
   });
 
   test('says the exporter is not running', async ({ page, request }) => {

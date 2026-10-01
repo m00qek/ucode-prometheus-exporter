@@ -11,8 +11,8 @@ cd "$(dirname "$0")/../.."
 
 : "${I18N_IMAGE:?run through make}"
 
-APP=luci-app-prometheus-node-exporter-ucode
-POT=luci/po/templates/prometheus-node-exporter-ucode.pot
+APP=luci-app-prometheus-exporter
+POT=luci/po/templates/prometheus-exporter.pot
 out=$(mktemp)
 err=$(mktemp)
 trap 'rm -f "$out" "$err"' EXIT

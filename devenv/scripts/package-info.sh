@@ -7,14 +7,14 @@
 #   app-depends      the feed packages the LuCI app depends on
 set -e
 cd "$(dirname "$0")/../.."
-mk=openwrt/prometheus-node-exporter-ucode/Makefile
+mk=openwrt/ucode-prometheus-exporter/Makefile
 
 case $1 in
 feed-depends)
 	{
 		awk '/^define Package\/\$\(PKG_NAME\)$/ { p = 1 } p && /DEPENDS:=/ { sub(/.*DEPENDS:=/, ""); print; p = 0 }' "$mk"
 		sed -n 's/^\$(eval \$(call Collector,[^,]*,[^,]*,[^,]*,\(.*\)))$/\1/p' "$mk"
-	} | tr ' ' '\n' | sed 's/^+//' | grep -v -e '^$' -e '^prometheus-node-exporter-ucode$' | sort -u | tr '\n' ' '
+	} | tr ' ' '\n' | sed 's/^+//' | grep -v -e '^$' -e '^ucode-prometheus-exporter$' | sort -u | tr '\n' ' '
 	;;
 base-collectors)
 	sed -n 's/^BASE_COLLECTORS:=//p' "$mk"
@@ -39,7 +39,7 @@ groups)
 			print f[1] " " expand(f[n])
 		}' "$mk"
 	;;
-# ---- luci-app-prometheus-node-exporter-ucode ----
+# ---- luci-app-prometheus-exporter ----
 app-depends)
 	awk '/^define Package\/\$\(LUCI_APP\)$/ { p = 1 } p && /DEPENDS:=/ { sub(/.*DEPENDS:=/, ""); print; p = 0 }' "$mk" |
 		tr ' ' '\n' | sed 's/^+//' | grep -v -e '^$' -e '^\$(PKG_NAME)$' | sort -u | tr '\n' ' '

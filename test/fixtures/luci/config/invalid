@@ -1,7 +1,7 @@
 
-config prometheus-node-exporter-ucode 'main'
+config prometheus-exporter 'main'
 	option listen_interface 'loopback'
-	option listen_port '9101'
+	option listen_port '9100'
 
 config collector 'sampler'
 	option retries 'many'

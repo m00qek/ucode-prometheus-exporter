@@ -3,7 +3,7 @@
 // A collector of the browser tests, installed by no package, whose help, option
 // default and error are markup: the pages must show them as text.
 
-import * as Result from 'node_exporter.result';
+import * as Result from 'prometheus_exporter.result';
 
 const HOSTILE = '<img src=x onerror=window.__xss=1>';
 

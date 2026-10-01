@@ -1,4 +1,4 @@
-prometheus-node-exporter-ucode
+ucode-prometheus-exporter
 
 A rewrite in ucode of two packages of OpenWrt's packages feed
 (https://github.com/openwrt/packages), both licensed under the Apache License,
@@ -25,7 +25,7 @@ utils/prometheus-node-exporter-ucode/files/{base,extra}/<name>.uc (ucode) or
 utils/prometheus-node-exporter-lua/files/usr/lib/lua/prometheus-collectors/<name>.lua
 (Lua), credited to the author of its first commit in openwrt/packages; every
 file also has later contributors. The header of each collector in
-src/node_exporter/collectors/ names the files it is based on.
+src/prometheus_exporter/collectors/ names the files it is based on.
 
   <name>                 ucode                 Lua
   bmx7                   -                     Paul Spooren
@@ -68,7 +68,7 @@ src/node_exporter/collectors/ names the files it is based on.
   (*) Split out in 2017, by Etienne Champetier, of the exporter script
       Christian Simon added (wifi_stations out of wifi.lua).
 
-The exposition writer and scrape loop (src/node_exporter/exposition.uc and
+The exposition writer and scrape loop (src/prometheus_exporter/exposition.uc and
 scrape.uc) are modeled on the ucode package's files/metrics.uc; the uhttpd
 handler, init script, config and package Makefile derive from its
 files/metrics.uc, files/init, files/config and Makefile.

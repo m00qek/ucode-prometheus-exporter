@@ -6,10 +6,10 @@
 
 import { describe, it, assert } from 'utest';
 import { readfile, lsdir, popen } from 'fs';
-import * as loader from 'node_exporter.loader';
+import * as loader from 'prometheus_exporter.loader';
 
-const SOURCES = 'src/node_exporter/collectors';
-const MAKEFILE = readfile('openwrt/prometheus-node-exporter-ucode/Makefile');
+const SOURCES = 'src/prometheus_exporter/collectors';
+const MAKEFILE = readfile('openwrt/ucode-prometheus-exporter/Makefile');
 const README = readfile('README.md');
 
 // The package each need or command calls for; `null` for what the base package has.
@@ -48,8 +48,8 @@ function checks(id) {
 		});
 
 		it('has a unit test', () => {
-			assert.match(true, readfile(`test/unit/node_exporter/collectors/${id}_test.uc`) != null,
-				`add test/unit/node_exporter/collectors/${id}_test.uc`);
+			assert.match(true, readfile(`test/unit/prometheus_exporter/collectors/${id}_test.uc`) != null,
+				`add test/unit/prometheus_exporter/collectors/${id}_test.uc`);
 		});
 
 		it('is packaged once: in the base package or as its own, named after it', () => {

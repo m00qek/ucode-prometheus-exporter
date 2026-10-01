@@ -1,6 +1,6 @@
 # Metric names
 
-This exporter replaces OpenWrt's `prometheus-node-exporter-ucode` and `prometheus-node-exporter-lua` (same package name, port and config), but not their metric names. Where the Prometheus [node_exporter](https://github.com/prometheus/node_exporter) has an equivalent metric, this exporter uses node_exporter's name, type, labels and help text, so dashboards made for it (such as Grafana's "Node Exporter Full") work. Elsewhere, the names follow the [Prometheus naming conventions](https://prometheus.io/docs/practices/naming/):
+This exporter replaces OpenWrt's `prometheus-node-exporter-ucode` and `prometheus-node-exporter-lua` (under names of its own), but not their metric names. Where the Prometheus [node_exporter](https://github.com/prometheus/node_exporter) has an equivalent metric, this exporter uses node_exporter's name, type, labels and help text, so dashboards made for it (such as Grafana's "Node Exporter Full") work. Elsewhere, the names follow the [Prometheus naming conventions](https://prometheus.io/docs/practices/naming/):
 
 - base units in the name (`_seconds`, `_bytes`, `_hertz`, `_bits_per_second`, `_celsius`, `_ratio`, and `_dbm` or `_db` for radio levels);
 - `_total` on counters only, and every counter ends in `_total`;

@@ -1,5 +1,5 @@
 {
-	"prometheus-node-exporter-ucode": {
+	"prometheus-exporter": {
 		"instances": {}
 	}
 }

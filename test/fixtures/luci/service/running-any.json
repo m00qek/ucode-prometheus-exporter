@@ -1,13 +1,13 @@
 {
-	"prometheus-node-exporter-ucode": {
+	"prometheus-exporter": {
 		"instances": {
 			"instance1": {
 				"running": true,
 				"pid": 4242,
 				"command": [
 					"/usr/sbin/uhttpd", "-f", "-c", "/dev/null", "-h", "/dev/null", "-S", "-D", "-o", "/metrics",
-					"-O", "/usr/libexec/prometheus-node-exporter-ucode/handler.uc", "-C", "/etc/uhttpd.crt", "-K", "/etc/uhttpd.key",
-					"-s", "9101"
+					"-O", "/usr/libexec/prometheus-exporter/handler.uc", "-C", "/etc/uhttpd.crt", "-K", "/etc/uhttpd.key",
+					"-s", "9100"
 				],
 				"term_timeout": 5,
 				"respawn": { "threshold": 3600, "timeout": 5, "retry": 5 }

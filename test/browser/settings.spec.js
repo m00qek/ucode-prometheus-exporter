@@ -78,7 +78,7 @@ test.describe('Services → Prometheus exporter', () => {
 
     await expect(h.collectorRow(page, 'loadavg').locator('td').first()).toContainText('In the base package');
     await expect(h.collectorRow(page, 'wifi').locator('td').first())
-      .toContainText(`Package ${h.CONFIG}-wifi, which can be removed`);
+      .toContainText(`Package ${h.PACKAGE}-wifi, which can be removed`);
     await expect(h.collectorRow(page, 'sampler').locator('td').first()).toContainText('Not installed by a package');
     await expect(h.collectorRow(page, 'wireguard').locator('td').first()).toContainText('Reads /etc/config/network');
     await expect(h.collectorRow(page, 'dhcp_leases').locator('td').first()).toContainText('Reads /etc/config/dhcp');

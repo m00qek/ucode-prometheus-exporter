@@ -8,15 +8,15 @@ fail() { echo "  in $1" >&2; status=1; }
 
 # Modules are loaded, not only compiled: `ucode -c` accepts a named import the
 # module does not export, loading does not. So every native function
-# node_exporter.deps takes by name is checked against this ucode.
+# prometheus_exporter.deps takes by name is checked against this ucode.
 for f in $(find src -name '*.uc'); do
 	ucode -L "$src" -e "import * as _ from '$PWD/$f';" || fail "$f"
 done
 
 # rtnl, nl80211 and socket are imported at run time, by name too; the image has them.
 for m in rtnl nl80211 socket; do
-	ucode -L "$src" -e "import { load_$m } from 'node_exporter.deps'; exit(load_$m() ? 0 : 1);" ||
-		{ echo "node_exporter.deps: $m does not load" >&2; status=1; }
+	ucode -L "$src" -e "import { load_$m } from 'prometheus_exporter.deps'; exit(load_$m() ? 0 : 1);" ||
+		{ echo "prometheus_exporter.deps: $m does not load" >&2; status=1; }
 done
 
 # Tests import utest's mocks, which exist only while utest runs: compile them.
@@ -31,20 +31,20 @@ rm -f "$importer"
 for f in test/utest.config.uc test/proxies/*.uc devenv/scripts/*.uc; do
 	ucode -c -o /dev/null "$f" || fail "$f"
 done
-ucode -L "$src" -T -c -o /dev/null files/usr/libexec/prometheus-node-exporter-ucode/handler.uc ||
-	fail files/usr/libexec/prometheus-node-exporter-ucode/handler.uc
-for f in files/usr/libexec/prometheus-node-exporter-ucode/*.uc; do
-	[ "$f" = files/usr/libexec/prometheus-node-exporter-ucode/handler.uc ] ||
+ucode -L "$src" -T -c -o /dev/null files/usr/libexec/prometheus-exporter/handler.uc ||
+	fail files/usr/libexec/prometheus-exporter/handler.uc
+for f in files/usr/libexec/prometheus-exporter/*.uc; do
+	[ "$f" = files/usr/libexec/prometheus-exporter/handler.uc ] ||
 		ucode -L "$src" -c -o /dev/null "$f" || fail "$f"
 done
-ucode -L "$src" files/usr/bin/prometheus-node-exporter-ucode -h >/dev/null ||
-	fail files/usr/bin/prometheus-node-exporter-ucode
+ucode -L "$src" files/usr/bin/prometheus-exporter -h >/dev/null ||
+	fail files/usr/bin/prometheus-exporter
 
 for f in files/etc/init.d/* devenv/scripts/*.sh; do
 	sh -n "$f" || fail "$f"
 done
 
-# ---- luci-app-prometheus-node-exporter-ucode ----
+# ---- luci-app-prometheus-exporter ----
 # The rpcd plugin and the browser tests' fake procd are programs that return or run
 # at top level.
 for f in files/usr/share/rpcd/ucode/*.uc devenv/services/luci/*.uc; do

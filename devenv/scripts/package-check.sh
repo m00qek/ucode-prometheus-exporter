@@ -6,10 +6,12 @@ set -u
 
 : "${PKG_FULLVERSION:?run through make package-check}"
 : "${BASE_COLLECTORS:?run through make package-check}"
-NAME=prometheus-node-exporter-ucode
-COLLECTORS=/usr/share/ucode/node_exporter/collectors
-BASE=/artifacts/$NAME-$PKG_FULLVERSION.apk
-URL=http://127.0.0.1:9101/metrics
+# The package, and the service it installs (config, init script, command).
+PKG=ucode-prometheus-exporter
+NAME=prometheus-exporter
+COLLECTORS=/usr/share/ucode/prometheus_exporter/collectors
+BASE=/artifacts/$PKG-$PKG_FULLVERSION.apk
+URL=http://127.0.0.1:9100/metrics
 failures=0
 
 pass() { echo "ok   $*"; }
@@ -21,8 +23,8 @@ check() {
 
 [ -f "$BASE" ] || { echo "no $BASE (run make package)" >&2; exit 1; }
 GROUPS=$(/exporter/devenv/scripts/package-info.sh groups | cut -d' ' -f1)
-SUBS=$(ls /artifacts/$NAME-*-$PKG_FULLVERSION.apk 2>/dev/null)
-is_group() { for g in $GROUPS; do [ "$1" = "/artifacts/$NAME-$g-$PKG_FULLVERSION.apk" ] && return 0; done; return 1; }
+SUBS=$(ls /artifacts/$PKG-*-$PKG_FULLVERSION.apk 2>/dev/null)
+is_group() { for g in $GROUPS; do [ "$1" = "/artifacts/$PKG-$g-$PKG_FULLVERSION.apk" ] && return 0; done; return 1; }
 COLLECTOR_PKGS=$(for s in $SUBS; do is_group "$s" || echo "$s"; done)
 echo "checking $BASE" $SUBS
 
@@ -36,9 +38,9 @@ check "installs one collector per subpackage" test "$(installed)" -eq $(($(echo 
 # libc every package does), and installs no files but apk's own list of them.
 group_is() {
 	g=$1; shift
-	want=$(for c in "$@"; do echo "$NAME-$c"; done; echo "$NAME"; echo libc)
-	have=$(apk info -R "$NAME-$g" 2>/dev/null | tail -n +2 | sed 's/[<>=~].*//' | grep -v '^$')
-	files=$(apk info -L "$NAME-$g" 2>/dev/null | tail -n +2 | grep -v -e '^$' -e '^lib/apk/packages/')
+	want=$(for c in "$@"; do echo "$PKG-$c"; done; echo "$PKG"; echo libc)
+	have=$(apk info -R "$PKG-$g" 2>/dev/null | tail -n +2 | sed 's/[<>=~].*//' | grep -v '^$')
+	files=$(apk info -L "$PKG-$g" 2>/dev/null | tail -n +2 | grep -v -e '^$' -e '^lib/apk/packages/')
 	[ "$(echo "$want" | sort -u)" = "$(echo "$have" | sort -u)" ] && [ -z "$files" ]
 }
 # Not in a pipeline: check() counts failures, which a subshell would lose.
@@ -59,13 +61,13 @@ ubusd & sleep 1
 ucode /exporter/devenv/scripts/ubus-stand-ins.uc /exporter/test/fixtures/caju-router &
 sleep 1
 /usr/sbin/uhttpd -f -c /dev/null -h /dev/null -S -D -o /metrics -O /usr/libexec/$NAME/handler.uc \
-	-p 127.0.0.1:9101 2>/tmp/uhttpd.log &
+	-p 127.0.0.1:9100 2>/tmp/uhttpd.log &
 sleep 1
 
 fetch() { wget -q -O - "$1"; }
 valid() {
 	fetch "$URL" >/tmp/metrics &&
-	ucode -e "import { parse } from 'node_exporter.exposition';
+	ucode -e "import { parse } from 'prometheus_exporter.exposition';
 		let r = parse(require('fs').readfile('/tmp/metrics'));
 		if (!r.ok) { warn(r.details, '\n'); exit(1); }"
 }
@@ -80,7 +82,7 @@ check "the openwrt collector reads the board over ubus" grep -q '^node_openwrt_i
 check "a query selects collectors" sh -c "fetch() { wget -q -O - \"\$1\"; }; fetch '$URL?collect[]=loadavg' | grep -q 'collector=\"loadavg\"' && ! fetch '$URL?collect[]=loadavg' | grep -q 'collector=\"openwrt\"'"
 check "an unknown collector is refused" sh -c "! wget -q -O /dev/null '$URL?collect[]=nope'"
 
-# ---- luci-app-prometheus-node-exporter-ucode ----
+# ---- luci-app-prometheus-exporter ----
 # The LuCI app on top of the exporter: its files, its package scripts, and its plugin
 # in a real rpcd on the ubusd above.
 APP=/artifacts/luci-app-$NAME-$PKG_FULLVERSION.apk
@@ -88,11 +90,11 @@ APP_LIST=/lib/apk/packages/luci-app-$NAME.list
 VIEWS=/www/luci-static/resources/view/$NAME
 APP_FILES="/usr/share/luci/menu.d/luci-app-$NAME.json /usr/share/rpcd/acl.d/luci-app-$NAME.json
 	/www/luci-static/resources/$NAME.js $VIEWS/settings.js $VIEWS/status.js
-	/usr/share/ucode/node_exporter/luci/rpc.uc /usr/share/rpcd/ucode/$NAME.uc"
+	/usr/share/ucode/prometheus_exporter/luci/rpc.uc /usr/share/rpcd/ucode/$NAME.uc"
 STATUS_HELPER=/usr/libexec/$NAME/luci-status.uc
 
 has_mode() { [ -n "$(find "$2" -prune -perm "$1")" ]; }
-pins_exporter() { apk adbdump "$APP" | grep -qx "    - $NAME=$PKG_FULLVERSION"; }
+pins_exporter() { apk adbdump "$APP" | grep -qx "    - $PKG=$PKG_FULLVERSION"; }
 seed_luci_caches() { mkdir -p /tmp/luci-modulecache && touch /tmp/luci-indexcache.test.json /tmp/luci-modulecache/test; }
 luci_caches_cleared() { [ ! -e /tmp/luci-indexcache.test.json ] && [ ! -e /tmp/luci-modulecache ]; }
 parses() {
@@ -137,11 +139,11 @@ seed_luci_caches
 app_removed() {
 	apk del "luci-app-$NAME" >/dev/null 2>&1 || return 1
 	for f in $APP_FILES "$STATUS_HELPER"; do [ ! -e "$f" ] || return 1; done
-	apk info -e "$NAME" >/dev/null
+	apk info -e "$PKG" >/dev/null
 }
 check "app removes cleanly and keeps the exporter" app_removed
 check "app removal clears the LuCI caches" luci_caches_cleared
-# ---- end luci-app-prometheus-node-exporter-ucode ----
+# ---- end luci-app-prometheus-exporter ----
 
 if [ "$failures" -gt 0 ]; then
 	echo "--- uhttpd"; cat /tmp/uhttpd.log; echo "--- metrics"; cat /tmp/metrics 2>/dev/null

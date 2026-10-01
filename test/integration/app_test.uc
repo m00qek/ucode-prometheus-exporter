@@ -1,15 +1,15 @@
 'use strict';
 
 // The exporter on deps.modules(), the wiring it runs on: fs, ubus and uci are
-// patched globally, so the named imports of node_exporter.deps reach the mocks.
+// patched globally, so the named imports of prometheus_exporter.deps reach the mocks.
 
 import { describe, it, afterEach, assert, contains, mock } from 'utest';
-import { create } from 'node_exporter.app';
-import * as exposition from 'node_exporter.exposition';
-import * as config from 'node_exporter.config';
+import { create } from 'prometheus_exporter.app';
+import * as exposition from 'prometheus_exporter.exposition';
+import * as config from 'prometheus_exporter.config';
 import * as fixtures from 'lib.fixtures';
 
-const SOURCES = 'src/node_exporter/collectors';
+const SOURCES = 'src/prometheus_exporter/collectors';
 const ROUTER = {
 	files: fixtures.files('caju-router', [ '/proc/loadavg' ]),
 	board: fixtures.ubus('caju-router', 'system', 'board'),
@@ -19,7 +19,7 @@ const ROUTER = {
 function patch(files, ubus) {
 	mock.global.patch('fs', { data: files });
 	mock.global.patch('ubus', { strict: true, ...ubus });
-	mock.global.patch('uci', { strict: true, data: { [config.PACKAGE]: {} } });
+	mock.global.patch('uci', { strict: true, data: { [config.NAME]: {} } });
 }
 
 describe('app', () => {

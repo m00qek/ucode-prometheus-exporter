@@ -9,7 +9,7 @@
 // `logs` has what the scrape and the collector itself logged.
 // Its output must parse as exposition text, or the test fails.
 //
-// jail_of(mod, cfg): what node_exporter.jail gives the collector module in the
+// jail_of(mod, cfg): what prometheus_exporter.jail gives the collector module in the
 // exporter's jail, its config as with_collector's; cfg.files are the regular
 // files commands are found among.
 //
@@ -19,26 +19,26 @@
 //      time: what deps.time.now() returns.
 
 import { mock } from 'utest';
-import * as deps from 'node_exporter.deps';
-import * as loader from 'node_exporter.loader';
-import * as scrape from 'node_exporter.scrape';
-import * as exposition from 'node_exporter.exposition';
-import * as config from 'node_exporter.config';
-import * as jail from 'node_exporter.jail';
-import * as Result from 'node_exporter.result';
+import * as deps from 'prometheus_exporter.deps';
+import * as loader from 'prometheus_exporter.loader';
+import * as scrape from 'prometheus_exporter.scrape';
+import * as exposition from 'prometheus_exporter.exposition';
+import * as config from 'prometheus_exporter.config';
+import * as jail from 'prometheus_exporter.jail';
+import * as Result from 'prometheus_exporter.result';
 
 const MOCKED = [ 'fs', 'ubus', 'uci', 'rtnl', 'nl80211', 'socket' ];
 
 function uci_config(cfg, id) {
 	let data = { ...(cfg.uci?.data ?? {}) };
-	let pkg = { ...(data[config.PACKAGE] ?? {}) };
+	let pkg = { ...(data[config.NAME] ?? {}) };
 
 	if (cfg.main)
-		pkg.main = { '.type': config.PACKAGE, ...cfg.main };
+		pkg.main = { '.type': config.NAME, ...cfg.main };
 	if (cfg.options && id)
 		pkg[id] = { '.type': 'collector', ...cfg.options };
 
-	data[config.PACKAGE] = pkg;
+	data[config.NAME] = pkg;
 	return { ...(cfg.uci ?? {}), data };
 }
 
