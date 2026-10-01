@@ -21,6 +21,14 @@
 import * as Result from 'prometheus_exporter.result';
 import { first_line } from 'prometheus_exporter.proc';
 
+// Regexes are constants: ucode compiles a regex literal each time it is evaluated.
+const NUMBER = /[0-9]+/;
+const CHIP = /^hwmon[0-9]+$/;
+const LABEL_FILE = /^(.+)_label$/;
+const TEMP_FILE = /^(temp[0-9]+)_input$/;
+const INTEGER = /^-?[0-9]+$/;
+const PWM_FILE = /^pwm[0-9]+$/;
+
 export const meta = {
 	name: 'hwmon',
 	title: 'Hardware sensors',
@@ -104,7 +112,7 @@ export function chips(fs, dirs) {
 
 // The number a sensor file names: temp10_input sorts after temp2_input.
 function sensor_order(a, b) {
-	let na = +(match(a, /[0-9]+/)?.[0] ?? 0), nb = +(match(b, /[0-9]+/)?.[0] ?? 0);
+	let na = +(match(a, NUMBER)?.[0] ?? 0), nb = +(match(b, NUMBER)?.[0] ?? 0);
 
 	return na != nb ? na - nb : (a < b ? -1 : a > b ? 1 : 0);
 }
@@ -118,7 +126,7 @@ export function collect(deps, out) {
 	let pwm = out.gauge('node_hwmon_pwm', 'Hardware monitor pwm element ');
 
 	// No hwmon class at all is a kernel without hwmon drivers, not a failure.
-	let dirs = filter(fs.lsdir(ROOT) ?? [], (e) => match(e, /^hwmon[0-9]+$/));
+	let dirs = filter(fs.lsdir(ROOT) ?? [], (e) => match(e, CHIP));
 
 	for (let c in chips(fs, sort(dirs, sensor_order))) {
 		let dir = c.dir;
@@ -129,7 +137,7 @@ export function collect(deps, out) {
 			chip_names({ chip, chip_name: clean(c.name_file) }, 1);
 
 		for (let e in entries) {
-			let m = match(e, /^(.+)_label$/);
+			let m = match(e, LABEL_FILE);
 			let label = m ? read_value(fs, `${dir}/${e}`) : null;
 
 			if (label != null)
@@ -137,15 +145,15 @@ export function collect(deps, out) {
 		}
 
 		for (let e in entries) {
-			let m = match(e, /^(temp[0-9]+)_input$/);
+			let m = match(e, TEMP_FILE);
 			let v = m ? read_value(fs, `${dir}/${e}`) : null;
 
-			if (v != null && match(v, /^-?[0-9]+$/))
+			if (v != null && match(v, INTEGER))
 				temp_celsius({ chip, sensor: m[1] }, int(v) / 1000.0);
 		}
 
 		for (let e in entries) {
-			let v = match(e, /^pwm[0-9]+$/) ? read_value(fs, `${dir}/${e}`) : null;
+			let v = match(e, PWM_FILE) ? read_value(fs, `${dir}/${e}`) : null;
 
 			if (v != null)
 				pwm({ chip, sensor: e }, v);

@@ -272,6 +272,28 @@ describe('collectors.dhcp_leases', () => {
 			assert.match(false, dhcp_leases.in_prefix(slice(addr, 0, 4), addr, 0));
 		});
 
+	// interface_of() keeps the subnets sorted, and IPv4 ones as numbers, for
+	// speed: it must pick what a look at every subnet in the dump's order
+	// picks, the first of the most specific that hold the address.
+	prop('finds the interface of the most specific subnet that holds an address',
+		gen.tuple(
+			gen.array(gen.tuple(gen.elements('a', 'b', 'c'), gen.elements('10.1.0.0', '10.1.2.0', '10.0.0.0', 'fd00::', 'fd00:0:0:1::'),
+				gen.int(-2, 130)), { max_len: 8 }),
+			gen.elements('10.1.2.3', '10.1.3.4', '10.9.9.9', '192.168.1.1', 'fd00::1', 'fd00:0:0:1::5', '2001:db8::1')), (t) => {
+			let list = map(t[0], (s) => ({
+				interface: s[0],
+				[index(s[1], ':') >= 0 ? 'ipv6-address' : 'ipv4-address']: [ { address: s[1], mask: s[2] } ],
+			}));
+			let bytes = iptoarr(t[1]);
+			let best = null;
+
+			for (let s in t[0])
+				if (s[2] > (best?.[2] ?? -1) && dhcp_leases.in_prefix(bytes, iptoarr(s[1]), s[2]))
+					best = s;
+
+			assert.match(best?.[0], dhcp_leases.interface_of(dhcp_leases.networks(list), bytes), sprintf('%J', t));
+		});
+
 	prop('counts the unexpired leases of a lease file on each interface',
 		gen.array(gen.tuple(gen.elements([ 'main', 13 ], [ 'iot', 17 ], [ 'mgmt', 11 ]), gen.int(2, 254), gen.elements('expired', 'active', 'infinite')),
 			{ max_len: 40 }), (rows) => {

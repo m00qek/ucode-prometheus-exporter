@@ -17,6 +17,9 @@ import { lines, fields } from 'prometheus_exporter.proc';
 
 export const DEFAULT_FIELDS = '^(oom_kill|pgpg|pswp|pg.*fault).*';
 
+// Regexes are constants: ucode compiles a regex literal each time it is evaluated.
+const INTEGER = /^-?[0-9]+$/;
+
 export const meta = {
 	name: 'vmstat',
 	title: 'Virtual memory statistics',
@@ -50,7 +53,7 @@ export function collect(deps, out, options) {
 
 		if (!length(f))
 			continue;
-		if (length(f) != 2 || !match(f[1], /^-?[0-9]+$/))
+		if (length(f) != 2 || !match(f[1], INTEGER))
 			return Result.err(errors.SOURCE_INVALID, `${PATH}: line ${i + 1}: ${sprintf('%J', line)}`);
 
 		if (match(f[0], pattern))

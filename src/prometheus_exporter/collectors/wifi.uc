@@ -74,6 +74,7 @@ function metrics(out) {
 		network_signal: out.gauge('node_wifi_network_signal_dbm', 'Average signal of the network\'s stations, in dBm.'),
 		stations: out.gauge('node_wifi_stations', 'Stations associated with the interface.'),
 		...station_metrics(out),
+		labels: out.labels,
 	};
 }
 
@@ -120,7 +121,7 @@ function seconds(ms) {
 // A field the driver does not report is left out, and so are the bitrates and
 // the expected throughput when it reports 0.
 function station(m, radio, device, sta) {
-	let labels = { radio, device, mac_address: sta?.mac };
+	let labels = m.labels({ radio, device, mac_address: sta?.mac });
 	let info = sta?.sta_info ?? {};
 
 	m.connected(labels, info.connected_time);

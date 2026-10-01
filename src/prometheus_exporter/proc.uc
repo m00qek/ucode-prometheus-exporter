@@ -39,9 +39,23 @@ export function each_line(fs, path, cb) {
 	return true;
 };
 
+const SPACE_RUN = /\s+/;
+const RARE_SPACE = /[\n\v\f\r]/;
+
 // The whitespace-separated fields of a line; [] for none or for null.
+//
+// What split(line, /\s+/) gives. A line whose fields are separated by single
+// spaces (most of /proc: stat, netstat, the conntrack table) is split on ' ',
+// several times cheaper than musl's regexec on a long line; any other takes
+// the regex, which is then cheaper than dropping the empty strings a split on
+// ' ' would leave between padding spaces (meminfo, dev_snmp6).
 export function fields(line) {
 	line = trim(line ?? '');
 
-	return line == '' ? [] : split(line, /\s+/);
+	if (line == '')
+		return [];
+	if (index(line, '  ') < 0 && index(line, '\t') < 0 && !match(line, RARE_SPACE))
+		return split(line, ' ');
+
+	return split(line, SPACE_RUN);
 };

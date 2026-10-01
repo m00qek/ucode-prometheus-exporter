@@ -85,6 +85,62 @@ describe('collectors.nat_traffic', () => {
 		});
 	});
 
+	// Addresses as a table could hold them, if not as the kernel writes them:
+	// the labels are still escaped, and a third bytes= still counts.
+	it('escapes what an address would need escaped, and sums every bytes=', () => {
+		with_table('ipv4 2 tcp 6 1 src=a"b dst=c\\d bytes=1 bytes=2 bytes=3\n', (r) => {
+			assert.match([ 'node_nat_traffic_bytes{src="a\\"b",dst="c\\\\d"} 6' ], samples(r.lines));
+		});
+	});
+
+	// The collector reads a line with index() and split() for speed; on any
+	// line whose fields are separated by spaces, as the kernel writes them, it
+	// must read what splitting it into fields and matching each would.
+	const FIELD = /^(src|dst|bytes)=(.*)$/;
+
+	function reference(text) {
+		let totals = {}, out = [];
+
+		for (let line in split(text, '\n')) {
+			let t = trim(line);
+			let e = { src: null, dst: null, bytes: 0 };
+
+			for (let f in (t == '' ? [] : split(t, / +/))) {
+				let m = match(f, FIELD);
+				if (!m)
+					continue;
+				if (m[1] == 'bytes')
+					e.bytes += +m[2] || 0;
+				else if (m[1] == 'src')
+					e.src ??= m[2];
+				else
+					e.dst ??= m[2];
+			}
+
+			if (e.src == null || e.dst == null)
+				continue;
+			totals[e.src] ??= {};
+			totals[e.src][e.dst] = (totals[e.src][e.dst] ?? 0) + e.bytes;
+		}
+
+		for (let src, dsts in totals)
+			for (let dst, b in dsts)
+				push(out, `node_nat_traffic_bytes{src="${src}",dst="${dst}"} ${b}`);
+
+		return out;
+	}
+
+	prop('reads any line of space-separated fields as matching each field would',
+		gen.array(gen.array(gen.tuple(
+			gen.elements('src=', 'dst=', 'bytes=', 'sport=', 'xsrc=', 'ipv4', '[ASSURED]'),
+			gen.elements('', '1', '22', '10.0.0.1', 'fd00::1', '7x', 'bytes=3', 'src=b')),
+			{ min_len: 0, max_len: 8 }), { min_len: 0, max_len: 6 }),
+		(lines) => {
+			let text = join('', map(lines, (fields) => join(' ', map(fields, (f) => f[0] + f[1])) + '\n'));
+
+			with_table(text, (r) => assert.match(reference(text), samples(r.lines), text));
+		});
+
 	it('exports nothing for an empty table', () => {
 		with_table('', (r) => {
 			assert.match(true, r.result.ok);

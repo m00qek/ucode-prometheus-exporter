@@ -43,41 +43,105 @@ const ENTRIES = {
 	tx_packets: [ 'node_ethtool_transmitted_packets_total', 'Network interface packets sent' ],
 };
 
+// A driver has a few hundred statistics (a DesignWare MAC about 250), each
+// named with regexes: the regexes are constants (ucode compiles a literal
+// each time it is evaluated), and each statistic is named once (NAMES), for
+// all the devices of its driver.
+const NOT_NAME = /_*[^0-9A-Za-z_]+_*/g;
+const NAME = /^[0-9A-Za-z_]*$/;
+const RX = /(^|_)rx(_|$)/g;
+const TX = /(^|_)tx(_|$)/g;
+
 // node_exporter's SanitizeMetricName: every run of other characters, with the
-// underscores around it, one underscore.
+// underscores around it, one underscore. Most drivers' names have none, which
+// one match tells.
 export function sanitize(stat) {
-	return replace(stat, /_*[^0-9A-Za-z_]+_*/g, '_');
+	return match(stat, NAME) ? stat : replace(stat, NOT_NAME, '_');
 };
 
-// node_exporter's buildEthtoolFQName: the sanitized name lowercased, without
-// leading underscores, and rx and tx between underscores (or an end) spelled out.
-export function fqname(stat) {
-	let name = ltrim(lc(sanitize(stat)), '_');
+// node_exporter's buildEthtoolFQName of a sanitized name: lowercased, without
+// leading underscores, and rx and tx between underscores (or an end) spelled
+// out. Uhttpd's process for a scrape starts with no name kept, so a scrape
+// names each of a driver's statistics: a replacement is a string, not a call
+// of a function per match, and a name without rx or tx takes no regex.
+function fqname_of(key) {
+	let name = ltrim(lc(key), '_');
 
-	name = replace(name, /(^|_)rx(_|$)/g, (m, a, b) => a + 'received' + b);
-	name = replace(name, /(^|_)tx(_|$)/g, (m, a, b) => a + 'transmitted' + b);
+	if (index(name, 'rx') >= 0)
+		name = replace(name, RX, '$1received$2');
+	if (index(name, 'tx') >= 0)
+		name = replace(name, TX, '$1transmitted$2');
 
 	return 'node_ethtool_' + name;
+}
+
+export function fqname(stat) {
+	return fqname_of(sanitize(stat));
 };
+
+// [ fqname, [ family name, help ] ] of each statistic named so far, up to
+// NAMES_MAX of them: a driver's names are fixed, so in a process that scrapes
+// many times this stops growing at what the device's drivers have.
+const NAMES = {};
+const NAMES_MAX = 4096;
+let named = 0;
+
+function names(stat) {
+	let n = NAMES[stat];
+
+	if (!n) {
+		let key = sanitize(stat), fq = fqname_of(key);
+
+		n = [ fq, ENTRIES[key] ?? [ fq, `Network interface ${key}` ] ];
+		if (named++ < NAMES_MAX)
+			NAMES[stat] = n;
+	}
+
+	return n;
+}
 
 // [ name, help ] of the family of a statistic.
 export function family(stat) {
-	let key = sanitize(stat);
-
-	return ENTRIES[key] ?? [ fqname(stat), `Network interface ${key}` ];
+	return names(stat)[1];
 };
 
 // The [ statistic, value ] of a device to export, sorted by fqname, without
 // those whose fqname another one has too.
 export function exported(stats) {
-	let count = {};
+	// By fqname: the statistic, or false for an fqname two of them have.
+	let by_fq = {};
 
-	for (let s in stats)
-		count[fqname(s[0])] = (count[fqname(s[0])] ?? 0) + 1;
+	for (let s in stats) {
+		let fq = names(s[0])[0];
+		by_fq[fq] = (fq in by_fq) ? false : s;
+	}
 
-	return sort(filter(stats, (s) => count[fqname(s[0])] == 1),
-		(a, b) => fqname(a[0]) < fqname(b[0]) ? -1 : fqname(a[0]) > fqname(b[0]) ? 1 : 0);
+	// sort() without a comparator compares in C, not in a ucode call per pair.
+	let out = [];
+	for (let fq in sort(keys(by_fq)))
+		if (by_fq[fq])
+			push(out, by_fq[fq]);
+
+	return out;
 };
+
+// The statistic of a line of ethtool -S, trimmed: [ name, value ] for
+// "name: value", where the name may hold ': ' itself and the value is the
+// last word; null for any other line (the title). What
+// match(line, /^(.+):[ \t]+([^ \t]+)$/) gives, without the regex.
+function statistic(line) {
+	let p = max(rindex(line, ' '), rindex(line, '\t'));
+
+	if (p < 1)
+		return null;
+
+	// Back over the run of blanks before the value, to the ':' it needs.
+	let q = p;
+	while (q > 0 && index(' \t', substr(line, q - 1, 1)) >= 0)
+		q--;
+
+	return (q >= 2 && substr(line, q - 1, 1) == ':') ? [ substr(line, 0, q - 1), substr(line, p + 1) ] : null;
+}
 
 // [ [ statistic, value ], ... ] from the output of ethtool -S: a title line,
 // then "  name: value" lines. A name may hold ': ' itself.
@@ -85,10 +149,10 @@ export function statistics(text) {
 	let stats = [];
 
 	for (let line in split(text ?? '', '\n')) {
-		let m = match(trim(line), /^(.+):[ \t]+([^ \t]+)$/);
+		let s = statistic(trim(line));
 
-		if (m)
-			push(stats, [ m[1], m[2] ]);
+		if (s)
+			push(stats, s);
 	}
 
 	return stats;
@@ -129,11 +193,13 @@ export function collect(deps, out) {
 			continue;
 		}
 
+		let labels = out.labels({ device });
+
 		for (let s in exported(statistics(res.data))) {
 			let f = family(s[0]);
 
 			families[f[0]] ??= out.untyped(f[0], f[1]);
-			families[f[0]]({ device }, s[1]);
+			families[f[0]](labels, s[1]);
 		}
 	}
 

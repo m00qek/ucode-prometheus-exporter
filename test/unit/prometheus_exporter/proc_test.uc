@@ -64,4 +64,16 @@ describe('proc.fields', () => {
 			gen.elements(' ', '\t', '  ', ' \t ')), (t) => {
 			assert.match(t[0], proc.fields(t[1] + join(t[1], t[0]) + t[1]));
 		});
+
+	// fields() splits on strings where it can, for speed; it must split as
+	// the regex does, on any line: every whitespace character, in any run.
+	const SPACE_RUN = /\s+/;
+
+	prop('splits as split(trim(line), /\\s+/) does, on any line',
+		gen.array(gen.elements('a', 'b7', ' ', '  ', '\t', '\n', '\v', '\f', '\r', ' \t'), { min_len: 0, max_len: 12 }), (parts) => {
+			let line = join('', parts);
+			let t = trim(line);
+
+			assert.match(t == '' ? [] : split(t, SPACE_RUN), proc.fields(line), sprintf('%J', line));
+		});
 });

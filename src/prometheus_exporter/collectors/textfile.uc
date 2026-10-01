@@ -96,15 +96,13 @@ export function collect(deps, out, options) {
 		let parsed = text == null ? null : exposition.parse(text);
 		let why = problem(text, st, parsed, types, series);
 
-		if (why == null && !out.parse(text).ok)
-			why = 'not valid exposition text';
-
 		if (why != null) {
 			deps.log(`skipped ${path}: ${why}`);
 			failed = true;
 			continue;
 		}
 
+		out.add(parsed.data);
 		push(mtimes, [ path, st.mtime ]);
 	}
 

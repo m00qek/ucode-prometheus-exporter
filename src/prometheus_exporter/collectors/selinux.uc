@@ -7,6 +7,9 @@ import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
 import { first_line } from 'prometheus_exporter.proc';
 
+// Regexes are constants: ucode compiles a regex literal each time it is evaluated.
+const COUNT = /^[0-9]+$/;
+
 export const meta = {
 	name: 'selinux',
 	title: 'SELinux',
@@ -29,7 +32,7 @@ export function collect(deps, out) {
 	enabled(null, 1);
 
 	mode = trim(mode);
-	if (!match(mode, /^[0-9]+$/))
+	if (!match(mode, COUNT))
 		return Result.err(errors.SOURCE_INVALID, `${ENFORCE}: ${sprintf('%J', mode)}`);
 
 	out.gauge('node_selinux_current_mode', 'Current SELinux enforcement mode')(null, mode);

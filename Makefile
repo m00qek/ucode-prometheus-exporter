@@ -10,7 +10,7 @@ RUN          = $(COMPOSE) --progress quiet run --rm $(if $(CI),-T) openwrt
 IMAGE_STAMP := devenv/.built-$(IMAGE_TAG)
 TEST_ARGS    = $(if $(FILTER),-f '$(FILTER)') $(if $(VERBOSE),-v) $(MODULES)
 
-.PHONY: test unit integration watch lint shell image fixtures package pkgcheck-image package-check e2e lab lab-down browser pot
+.PHONY: test unit integration watch lint shell image fixtures package pkgcheck-image package-check e2e lab lab-down browser pot bench bench-src bench-worlds bench-device bench-qemu
 
 test:        $(IMAGE_STAMP) ; @$(RUN) devenv/scripts/test.sh all $(TEST_ARGS)
 unit:        $(IMAGE_STAMP) ; @$(RUN) devenv/scripts/test.sh unit $(TEST_ARGS)
@@ -104,6 +104,64 @@ lab: package
 
 lab-down:
 	@LAB_NAME=$(LAB_NAME) devenv/scripts/lab.sh down
+
+# ---- benchmark -----------------------------------------------------------------
+# test/bench/ on OpenWrt in the pkgcheck image: each collector and whole scrapes
+# on generated worlds, results in bin/bench/$(BENCH_LABEL).json. It checks the
+# scaling budgets, and unconstrained the time budgets too (test/bench/budgets.uc).
+# BENCH_CPUS, BENCH_CPUSET and BENCH_MEMORY are docker's --cpus, --cpuset-cpus
+# and --memory: a slower router. BENCH_ARGS go to bench.uc (-r 1: one run each).
+# BENCH_REV benches the exporter of another revision (src/ only) with this
+# bench: BENCH_REV=main for a before and after.
+# --cpus is a CFS quota per 100 ms period: a run shorter than the quota runs
+# at full speed when it starts a period, and waits out the rest of one when
+# it does not, which makes short cases bimodal. The same share of a 20 ms
+# period (--cpu-period, --cpu-quota) is as fast on average, and steadier;
+# docker takes no quota under 1 ms, so BENCH_CPUS goes down to 0.05.
+BENCH_LIMITS = $(strip $(if $(BENCH_CPUS),--cpu-period 20000 --cpu-quota $(shell awk 'BEGIN { print int($(BENCH_CPUS) * 20000) }')) \
+	$(if $(BENCH_CPUSET),--cpuset-cpus $(BENCH_CPUSET)) \
+	$(if $(BENCH_MEMORY),--memory $(BENCH_MEMORY) --memory-swap $(BENCH_MEMORY)))
+BENCH_LABEL ?= devenv$(if $(BENCH_REV),-$(BENCH_REV))$(if $(BENCH_CPUS),-cpus$(BENCH_CPUS))$(if $(BENCH_CPUSET),-cpuset$(BENCH_CPUSET))$(if $(BENCH_MEMORY),-mem$(BENCH_MEMORY))
+BENCH_SRC    = $(if $(BENCH_REV),bin/bench/rev-$(BENCH_REV),.)
+export BENCH_SRC
+
+bench-src:
+	@$(if $(BENCH_REV),rm -rf $(BENCH_SRC) && mkdir -p $(BENCH_SRC) && git archive '$(BENCH_REV)' src | tar -x -C $(BENCH_SRC))
+
+bench: pkgcheck-image bench-src
+	@mkdir -p bin/bench && chmod a+rwx bin bin/bench
+	@docker run --rm --network none $(BENCH_LIMITS) -v $(CURDIR):/exporter:ro -v $(CURDIR)/bin:/artifacts \
+		$(if $(BENCH_REV),-v $(CURDIR)/$(BENCH_SRC)/src:/exporter/src:ro) \
+		$(PKGCHECK_IMAGE) /exporter/devenv/scripts/bench.sh run /tmp/bench-worlds /artifacts/bench/$(BENCH_LABEL).json \
+		$(BENCH_LABEL) -c $(if $(BENCH_LIMITS)$(BENCH_REV),,-a) $(if $(FILTER),-f '$(FILTER)') $(BENCH_ARGS)
+
+# The worlds in bin/bench/worlds, for bench-device and bench-qemu.
+bench-worlds: pkgcheck-image
+	@mkdir -p bin/bench && chmod a+rwx bin bin/bench && rm -rf bin/bench/worlds
+	@docker run --rm --network none -u $$(id -u):$$(id -g) -v $(CURDIR):/exporter:ro -v $(CURDIR)/bin:/artifacts \
+		$(PKGCHECK_IMAGE) /exporter/devenv/scripts/bench.sh gen /artifacts/bench/worlds
+
+# The benchmark on a device over ssh, from /tmp, removed afterwards; nothing
+# is installed: make bench-device HOST=router [BENCH_DEVICE_LABEL=router] [BENCH_REV=]
+BENCH_DEVICE_LABEL ?= $(HOST)$(if $(BENCH_REV),-$(BENCH_REV))
+
+# The benchmark on OpenWrt's malta target (mipsel_24kc) in qemu-system-mipsel,
+# from the qemu image: the built packages installed with their dependencies
+# from the release's feed, one 24Kc CPU at 1000/2^QEMU_SHIFT MIPS of guest
+# time, QEMU_MEMORY MB; see devenv/scripts/bench-qemu.sh.
+QEMU_IMAGE  := ucode-prometheus-exporter-qemu:$(shell sha256sum devenv/services/qemu/Dockerfile | cut -c1-12)
+QEMU_SHIFT  ?= 1
+QEMU_MEMORY ?= 128
+
+bench-qemu: package bench-worlds
+	docker build -q -t $(QEMU_IMAGE) devenv/services/qemu >/dev/null
+	@docker run --rm -v $(CURDIR):/exporter:ro -v $(CURDIR)/bin:/artifacts \
+		-e OPENWRT_VERSION -e PKG_FULLVERSION=$(PKG_FULLVERSION) -e QEMU_SHIFT=$(QEMU_SHIFT) -e QEMU_MEMORY=$(QEMU_MEMORY) \
+		-e BENCH_LABEL='$(or $(BENCH_QEMU_LABEL),qemu-malta-shift$(QEMU_SHIFT))' -e BENCH_ARGS='$(if $(FILTER),-f $(FILTER)) $(BENCH_ARGS)' \
+		$(QEMU_IMAGE) /exporter/devenv/scripts/bench-qemu.sh
+
+bench-device: bench-worlds bench-src
+	@devenv/scripts/bench-device.sh '$(HOST)' '$(BENCH_DEVICE_LABEL)' -c $(if $(FILTER),-f '$(FILTER)') $(BENCH_ARGS)
 
 # ---- luci-app-prometheus-exporter --------------------------------------------
 LUCI_IMAGE    := ucode-prometheus-exporter-luci:$(OPENWRT_ARCH)-$(OPENWRT_VERSION)-$(call INPUTS_OF,devenv/services/luci/Dockerfile)

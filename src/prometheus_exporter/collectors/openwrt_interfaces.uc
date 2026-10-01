@@ -83,7 +83,7 @@ export function collect(deps, out) {
 	let errs = out.gauge('node_openwrt_interface_errors', 'The errors netifd holds for the interface until it is up again.');
 
 	for (let i in list) {
-		let name = { interface: i.interface };
+		let name = out.labels({ interface: i.interface });
 
 		up(name, bool(i.up));
 		pending(name, bool(i.pending));

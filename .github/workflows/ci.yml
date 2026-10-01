@@ -21,6 +21,21 @@ jobs:
       - run: make test
       - run: make package-check
 
+  # Each collector and whole scrapes on generated worlds, held to the budgets
+  # of test/bench/budgets.uc: scaling, memory, and generous times.
+  bench:
+    runs-on: ubuntu-latest
+    env:
+      CI: 1
+    steps:
+      - uses: actions/checkout@v4
+      - run: make bench
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bench
+          path: bin/bench/*.json
+
   # The packages under procd in a privileged container; GitHub's runners allow it.
   e2e:
     runs-on: ubuntu-latest

@@ -66,11 +66,13 @@ export function collect(deps, out) {
 	if (!length(links))
 		return Result.err(errors.SOURCE_INVALID, 'RTM_GETLINK: no link with statistics');
 
+	let labels = map(links, (l) => out.labels({ device: l.dev }));
+
 	for (let s in STATS) {
 		let m = out.counter(`node_network_${s[0]}_total`, `Network device statistic ${s[0]}.`);
 
-		for (let l in links)
-			m({ device: l.dev }, sum(l.stats64, s[1]));
+		for (let i, l in links)
+			m(labels[i], sum(l.stats64, s[1]));
 	}
 
 	return Result.ok();

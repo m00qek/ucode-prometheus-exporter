@@ -15,6 +15,9 @@ import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
 import { first_line } from 'prometheus_exporter.proc';
 
+// Regexes are constants: ucode compiles a regex literal each time it is evaluated.
+const FLAGS = /^0[xX][0-9a-fA-F]+$|^[0-9]+$/;
+
 export const meta = {
 	name: 'netclass',
 	title: 'Network device properties',
@@ -58,7 +61,7 @@ function property(out, suffix, mtype) {
 
 // 'up' or 'down' by IFF_UP of the sysfs flags, or 'unknown' without them.
 function adminstate(flags) {
-	if (flags == null || !match(trim(flags), /^0[xX][0-9a-fA-F]+$|^[0-9]+$/))
+	if (flags == null || !match(trim(flags), FLAGS))
 		return 'unknown';
 
 	return (+trim(flags) & IFF_UP) ? 'up' : 'down';
@@ -95,8 +98,9 @@ export function collect(deps, out) {
 		let dir = `${ROOT}/${device}`;
 		let sysfs = (attr) => first_line(deps.fs, `${dir}/${attr}`);
 
+		let labels = out.labels({ device });
 		let operstate = OPERSTATES[link.operstate];
-		up({ device }, operstate == 'up');
+		up(labels, operstate == 'up');
 
 		// sysfs has an empty line where the device has no hardware address. The
 		// adminstate is node_exporter's: IFF_UP of the sysfs flags.
@@ -114,10 +118,10 @@ export function collect(deps, out) {
 		// leaves out with --collector.netclass.ignore-invalid-speed (its 2.x default).
 		let mbps = int(sysfs('speed') ?? '');
 		if (mbps >= 0)
-			speed({ device }, mbps * 125000);
+			speed(labels, mbps * 125000);
 
 		for (let i, p in PROPERTIES)
-			families[i]({ device }, type(p[2]) == 'function' ? p[2](link) : sysfs(p[2]));
+			families[i](labels, type(p[2]) == 'function' ? p[2](link) : sysfs(p[2]));
 	}
 
 	return Result.ok();

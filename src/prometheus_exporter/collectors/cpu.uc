@@ -7,6 +7,10 @@ import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
 import { lines, fields } from 'prometheus_exporter.proc';
 
+// Regexes are constants: ucode compiles a regex literal each time it is evaluated.
+const COUNT = /^[0-9]+$/;
+const CPU_LINE = /^cpu[0-9]+$/;
+
 export const meta = {
 	name: 'cpu',
 	title: 'CPU',
@@ -37,7 +41,7 @@ const SCALARS = {
 const USER_HZ = 100.0;
 
 function is_count(s) {
-	return match(s, /^[0-9]+$/) != null;
+	return match(s, COUNT) != null;
 }
 
 export function collect(deps, out) {
@@ -53,7 +57,7 @@ export function collect(deps, out) {
 	for (let line in l) {
 		let x = fields(line);
 
-		if (match(x[0], /^cpu[0-9]+$/)) {
+		if (match(x[0], CPU_LINE)) {
 			let times = slice(x, 1, 1 + length(MODES));
 
 			if (!length(times) || length(filter(times, is_count)) != length(times))

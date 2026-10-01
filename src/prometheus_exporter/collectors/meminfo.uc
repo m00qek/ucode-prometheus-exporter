@@ -7,6 +7,9 @@ import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
 import { lines } from 'prometheus_exporter.proc';
 
+// Regexes are constants: ucode compiles a regex literal each time it is evaluated.
+const LINE = /^([^:[:space:]]+):[[:space:]]+([0-9]+)([[:space:]]+kB)?[[:space:]]*$/;
+
 export const meta = {
 	name: 'meminfo',
 	title: 'Memory',
@@ -22,7 +25,7 @@ const PREFIX = 'node_memory_';
 // (Active(anon) is node_memory_Active_anon_bytes), and a field in kB is in
 // bytes, with _bytes; a unitless one (the HugePages_* page counts) has no unit.
 function parse(line) {
-	let m = match(line, /^([^:[:space:]]+):[[:space:]]+([0-9]+)([[:space:]]+kB)?[[:space:]]*$/);
+	let m = match(line, LINE);
 
 	if (!m)
 		return null;

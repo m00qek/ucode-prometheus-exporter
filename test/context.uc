@@ -101,7 +101,8 @@ export function with_collector(mod, cfg, cb) {
 			lines: text == '' ? [] : split(rtrim(text, '\n'), '\n'),
 			logs,
 			levels,
-			families: run.families,
+			// As parse() reads them back: { name, type, help, samples }.
+			families: parsed.data,
 		});
 	}, id);
 };
