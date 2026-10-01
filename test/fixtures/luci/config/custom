@@ -4,6 +4,7 @@ config prometheus-exporter 'main'
 	option listen_port '9102'
 	option http_keepalive '0'
 	option omit_zero_values '1'
+	option exec_timeout '8'
 
 config collector 'wifi'
 	option stations '0'

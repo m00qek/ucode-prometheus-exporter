@@ -86,6 +86,7 @@ test.describe('Services → Prometheus exporter', () => {
     await expect(field(page, 'cert')).toHaveValue('');
     await expect(field(page, 'cert')).toHaveAttribute('placeholder', '/etc/uhttpd.crt');
     await expect(flag(page, 'omit_zero_values')).toBeChecked();
+    await expect(field(page, 'exec_timeout')).toHaveValue('8');
     await expect(page.locator('#view .cbi-map-descr a')).toHaveAttribute('href', `/cgi-bin/luci/admin/status/${h.CONFIG}`);
     await h.screenshot(page, 'settings-custom');
   });
@@ -97,6 +98,8 @@ test.describe('Services → Prometheus exporter', () => {
     await expect(field(page, 'listen_port')).toHaveValue('9100');
     await expect(field(page, 'http_keepalive')).toHaveValue('70');
     await expect(flag(page, 'omit_zero_values')).not.toBeChecked();
+    await expect(field(page, 'exec_timeout')).toHaveValue('5');
+    await expect(field(page, 'exec_timeout')).toHaveAttribute('placeholder', '5');
     await expect(field(page, 'cert')).toHaveValue('');
   });
 
@@ -107,7 +110,7 @@ test.describe('Services → Prometheus exporter', () => {
     await saveAndApply(page);
     await applied(page);
     expect((await savedSections(request)).main).toEqual({
-      '.type': h.CONFIG, enabled: '1', listen_interface: 'vpn', listen_port: '9100', http_keepalive: '70', omit_zero_values: '0',
+      '.type': h.CONFIG, enabled: '1', listen_interface: 'vpn', listen_port: '9100', http_keepalive: '70', omit_zero_values: '0', exec_timeout: '5',
     });
   });
 
@@ -146,7 +149,7 @@ test.describe('Services → Prometheus exporter', () => {
 
     const rows = await page.locator('#view tr[data-collector]').evaluateAll((trs) => trs.map((tr) => tr.getAttribute('data-collector')));
     expect(rows).toEqual(plugin.collectors.map((c) => c.id));
-    expect(rows).toEqual(expect.arrayContaining([ 'loadavg', 'wifi', 'textfile', 'dhcp_leases', 'wireguard', 'ltq_dsl', 'sampler' ]));
+    expect(rows).toEqual(expect.arrayContaining([ 'loadavg', 'wifi', 'textfile', 'dhcp_leases', 'wireguard', 'ltq_dsl', 'sampler', 'runner' ]));
 
     const headers = await page.locator('#view table.cbi-section-table th').allTextContents();
     expect(headers).toEqual([ 'Collector', 'Package', 'Enabled', '' ]);
@@ -164,7 +167,8 @@ test.describe('Services → Prometheus exporter', () => {
     const editable = await page.locator('#view tr[data-collector]').evaluateAll((trs) =>
       trs.filter((tr) => tr.querySelector('button.cbi-button-edit')).map((tr) => tr.getAttribute('data-collector')));
     expect(editable).toEqual(plugin.collectors.filter((c) => c.options.length > 0).map((c) => c.id));
-    expect(editable).toEqual(expect.arrayContaining([ 'wifi', 'textfile', 'dhcp_leases', 'sampler' ]));
+    // runner declares no option, but runs a program: it has the core's timeout.
+    expect(editable).toEqual(expect.arrayContaining([ 'wifi', 'textfile', 'dhcp_leases', 'sampler', 'runner' ]));
     await expect(editButton(page, 'loadavg')).toHaveCount(0);
     await expect(editButton(page, 'wireguard')).toHaveCount(0);
     await h.screenshot(page, 'settings-collectors');
@@ -309,6 +313,75 @@ test.describe('Services → Prometheus exporter', () => {
     expect((await savedSections(request)).textfile).toEqual({ '.type': 'collector', enabled: '0', directory: '/srv/metrics' });
   });
 
+  test('a collector that runs programs has the core\'s timeout, written only when it is set', async ({ page, request }) => {
+    await h.openSettings(page);
+    const dialog = await h.editCollector(page, 'runner');
+    const fields = await dialog.locator('.cbi-value[data-option]').evaluateAll((els) => els.map((el) => el.getAttribute('data-option')));
+    expect(fields).toEqual([ 'timeout' ]);
+    await expect(option(page, 'runner', 'timeout')).toHaveValue('');
+    await expect(option(page, 'runner', 'timeout')).toHaveAttribute('placeholder', '5');
+    await expect(dialog.locator('.cbi-value[data-option="timeout"] .cbi-value-description')).toContainText('Seconds the programs of this collector get');
+    await expect(dialog.locator('.exporter-reads')).toContainText('Runs true.');
+    await h.screenshot(page, 'settings-dialog-timeout');
+    await option(page, 'runner', 'timeout').fill('2');
+    await saveDialog(page);
+    await saveAndApply(page);
+    await applied(page);
+    expect((await savedSections(request)).runner).toEqual({ '.type': 'collector', enabled: '1', timeout: '2' });
+
+    // Switched off with no timeout, the section states the switch, and no timeout.
+    await h.openSettings(page);
+    await h.editCollector(page, 'runner');
+    await expect(option(page, 'runner', 'timeout')).toHaveValue('2');
+    await option(page, 'runner', 'timeout').fill('');
+    await saveDialog(page);
+    await toggle(page, 'runner').uncheck();
+    await saveAndApply(page);
+    await applied(page);
+    expect((await savedSections(request)).runner).toEqual({ '.type': 'collector', enabled: '0' });
+
+    await h.openSettings(page);
+    await h.showTab(page, 'collectors');
+    await toggle(page, 'runner').check();
+    await saveAndApply(page);
+    await applied(page);
+    expect((await savedSections(request)).runner).toBeUndefined();
+  });
+
+  test('the timeout\'s placeholder follows exec_timeout, as the Exporter tab has it', async ({ page, request }) => {
+    await h.useConfig(request, 'custom');
+    await h.openSettings(page);
+    await h.editCollector(page, 'runner');
+    await expect(option(page, 'runner', 'timeout')).toHaveAttribute('placeholder', '8');
+    await dismissDialog(page);
+
+    await h.showTab(page, 'exporter');
+    await field(page, 'exec_timeout').fill('12');
+    await h.editCollector(page, 'runner');
+    await expect(option(page, 'runner', 'timeout')).toHaveAttribute('placeholder', '12');
+    await dismissDialog(page);
+  });
+
+  test('refuses a timeout or an exec_timeout that is not 1 to 30 seconds, as the exporter would', async ({ page, request }) => {
+    const before = await h.readConfig(request);
+    await h.openSettings(page);
+    await field(page, 'exec_timeout').fill('31');
+    await expect(field(page, 'exec_timeout')).toHaveClass(/cbi-input-invalid/);
+    await saveAndApply(page);
+    await expect(page.locator('#view .alert-message.error li')).toHaveText([ 'Time for programs: expected an integer from 1 to 30, got 31' ]);
+    expect(await h.readConfig(request)).toBe(before);
+    await field(page, 'exec_timeout').fill('5');
+
+    await h.editCollector(page, 'runner');
+    await option(page, 'runner', 'timeout').fill('0');
+    await expect(option(page, 'runner', 'timeout')).toHaveClass(/cbi-input-invalid/);
+    await h.modal(page).getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(h.modal(page).locator('.alert-message.error li')).toHaveText([ 'timeout: expected an integer from 1 to 30, got 0' ]);
+    await dismissDialog(page);
+    expect(await h.staged(page)).toEqual({});
+    expect(await h.readConfig(request)).toBe(before);
+  });
+
   test('changes only the collectors whose rows changed', async ({ page, request }) => {
     await h.useConfig(request, 'custom');
     await h.openSettings(page);
@@ -323,7 +396,7 @@ test.describe('Services → Prometheus exporter', () => {
     expect(saved.textfile).toEqual({ '.type': 'collector', enabled: '0', directory: '/var/prometheus' });
     expect(saved.wifi).toEqual({ '.type': 'collector', stations: '0' });
     expect(saved.main).toEqual({
-      '.type': h.CONFIG, enabled: '1', listen_interface: '*', listen_port: '9102', http_keepalive: '0', omit_zero_values: '1',
+      '.type': h.CONFIG, enabled: '1', listen_interface: '*', listen_port: '9102', http_keepalive: '0', omit_zero_values: '1', exec_timeout: '8',
     });
   });
 

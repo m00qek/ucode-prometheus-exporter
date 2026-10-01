@@ -284,7 +284,7 @@ const CollectorTable = form.Value.extend({
 			widget = new ui.Textfield((typeof(raw) === 'string') ? raw : '', {
 				id: id,
 				optional: true,
-				placeholder: String(o.default ?? ''),
+				placeholder: this.placeholderOf(o),
 				datatype: exporter.datatypeOf(o),
 				disabled: this.map.readonly,
 				// A failed check marks the field until its value changes.
@@ -308,6 +308,18 @@ const CollectorTable = form.Value.extend({
 			E('div', { 'class': 'cbi-value-field' }, [ node ].concat(o.help
 				? [ E('div', { 'class': 'cbi-value-description' }, [ String(o.help) ]) ] : []))
 		]);
+	},
+
+	// What an empty field stands for: the option's default. The timeout of a collector
+	// without a default of its own follows exec_timeout, as the Exporter tab has it now.
+	placeholderOf(o) {
+		if (o.core && o.default_from === 'exec_timeout' && typeof(this.execTimeout) === 'function') {
+			const own = this.execTimeout();
+			if (/^[0-9]+$/.test(own ?? ''))
+				return own;
+		}
+
+		return String(o.default ?? '');
 	},
 
 	// What a dialog's fields hold: '1' or '0' for a switch, the text of a text field.
@@ -577,6 +589,7 @@ return view.extend({
 
 		this.table = s.taboption('collectors', CollectorTable, '_collectors', '');
 		this.table.collectors = Array.isArray(data?.collectors) ? data.collectors : [];
+		this.table.execTimeout = () => this.mainOptions.exec_timeout?.formvalue('main');
 
 		this.panel = E('div', {}, []);
 
@@ -670,6 +683,13 @@ return view.extend({
 			_('Leaves out counters that are 0, most of which never move on a router.'));
 		o.default = '0';
 		o.rmempty = false;
+
+		o = this.option(s, form.Value, 'exec_timeout', _('Time for programs'),
+			_('Seconds the programs a collector runs get in all in each scrape, 1 to 30; one still running then is killed, and its collector fails. A collector may have a default of its own, and its Edit dialog sets its own time.'));
+		o.datatype = 'range(1,30)';
+		o.default = '5';
+		o.placeholder = '5';
+		o.rmempty = false;
 	},
 
 	// The form's values as the object's validate takes them: empty fields left out, as unset.
@@ -735,7 +755,8 @@ return view.extend({
 	showRefused(errors) {
 		const items = [];
 		const titles = { enabled: _('Enable'), listen_interface: _('Listen on'), listen_port: _('Port'),
-			http_keepalive: _('Keep-alive'), cert: _('TLS certificate'), key: _('TLS key'), omit_zero_values: _('Leave out zero values') };
+			http_keepalive: _('Keep-alive'), cert: _('TLS certificate'), key: _('TLS key'), omit_zero_values: _('Leave out zero values'),
+			exec_timeout: _('Time for programs') };
 
 		for (const name in (errors.main ?? {}))
 			items.push(E('li', {}, [ lookup(titles, name) ?? name, ': ', String(errors.main[name]) ]));
