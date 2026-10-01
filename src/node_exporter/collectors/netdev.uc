@@ -13,8 +13,9 @@ export const meta = {
 };
 
 // Each counter as the sum of the link's stats64 fields that /proc/net/dev adds
-// up for its column (dev_seq_printf_stats in net/core/net-procfs.c), so the
-// values are the ones the upstream exporters read from that file.
+// up for its column (dev_seq_printf_stats in net/core/net-procfs.c), as
+// node_exporter's netdev collector reads them from netlink (its legacy names,
+// the default), and receive_nohandler, which it adds.
 const STATS = [
 	[ 'receive_bytes', [ 'rx_bytes' ] ],
 	[ 'receive_packets', [ 'rx_packets' ] ],
@@ -32,6 +33,7 @@ const STATS = [
 	[ 'transmit_colls', [ 'collisions' ] ],
 	[ 'transmit_carrier', [ 'tx_carrier_errors', 'tx_aborted_errors', 'tx_window_errors', 'tx_heartbeat_errors' ] ],
 	[ 'transmit_compressed', [ 'tx_compressed' ] ],
+	[ 'receive_nohandler', [ 'rx_nohandler' ] ],
 ];
 
 // The sum of the fields, or null when one is not a number: the sample is then left out.

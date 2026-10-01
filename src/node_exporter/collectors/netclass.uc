@@ -55,6 +55,14 @@ function property(out, suffix, mtype) {
 	return out[mtype](`node_network_${suffix}`, `Network device property: ${suffix}`);
 }
 
+// 'up' or 'down' by IFF_UP of the sysfs flags, or 'unknown' without them.
+function adminstate(flags) {
+	if (flags == null || !match(trim(flags), /^0[xX][0-9a-fA-F]+$|^[0-9]+$/))
+		return 'unknown';
+
+	return (+trim(flags) & IFF_UP) ? 'up' : 'down';
+}
+
 // The links, sorted by name, or a failed Result.
 function links(rtnl) {
 	let res = rtnl.request(rtnl.const.RTM_GETLINK, rtnl.const.NLM_F_DUMP, {});
@@ -76,6 +84,7 @@ export function collect(deps, out) {
 	if (!res.ok)
 		return res;
 
+	let up = out.gauge('node_network_up', 'Value is 1 if operstate is \'up\', 0 otherwise.');
 	let info = out.gauge('node_network_info', 'Non-numeric data from /sys/class/net/<iface>, value is always 1.');
 	let speed = property(out, 'speed_bytes', 'gauge');
 	let families = map(PROPERTIES, (p) => property(out, p[0], p[1]));
@@ -85,19 +94,25 @@ export function collect(deps, out) {
 		let dir = `${ROOT}/${device}`;
 		let sysfs = (attr) => first_line(deps.fs, `${dir}/${attr}`);
 
-		// sysfs has an empty line where the device has no hardware address.
+		let operstate = OPERSTATES[link.operstate];
+		up({ device }, operstate == 'up');
+
+		// sysfs has an empty line where the device has no hardware address. The
+		// adminstate is node_exporter's: IFF_UP of the sysfs flags.
 		info({
 			device,
 			address: link.address ?? '',
 			broadcast: link.broadcast ?? '',
 			duplex: sysfs('duplex'),
-			operstate: OPERSTATES[link.operstate],
+			operstate,
+			adminstate: adminstate(sysfs('flags')),
 			ifalias: sysfs('ifalias'),
 		}, 1);
 
-		// Mb/s; -1 or unreadable when the link is down.
+		// Mb/s; -1 or unreadable when the link is down, which node_exporter
+		// leaves out with --collector.netclass.ignore-invalid-speed (its 2.x default).
 		let mbps = int(sysfs('speed') ?? '');
-		if (mbps > 0)
+		if (mbps >= 0)
 			speed({ device }, mbps * 125000);
 
 		for (let i, p in PROPERTIES)

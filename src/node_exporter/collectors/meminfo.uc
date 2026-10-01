@@ -16,10 +16,10 @@ export const meta = {
 const PATH = '/proc/meminfo';
 const PREFIX = 'node_memory_';
 
-// { name, value } for a `Name:   value [kB]` line, or null. A name's '(' becomes
-// '_' and its ')' goes, as upstream: Active(anon) is node_memory_Active_anon_bytes.
-// Every field is _bytes, the unitless HugePages_* counts too, as both upstream
-// exporters name them.
+// { name, value } for a `Name:   value [kB]` line, or null, named as node_exporter's
+// meminfo collector names it: a name's '(' becomes '_' and its ')' goes
+// (Active(anon) is node_memory_Active_anon_bytes), and a field in kB is in
+// bytes, with _bytes; a unitless one (the HugePages_* page counts) has no unit.
 function parse(line) {
 	let m = match(line, /^([^:[:space:]]+):[[:space:]]+([0-9]+)([[:space:]]+kB)?[[:space:]]*$/);
 
@@ -27,7 +27,9 @@ function parse(line) {
 		return null;
 
 	let name = replace(replace(m[1], ')', ''), '(', '_');
-	return { name: `${PREFIX}${name}_bytes`, value: m[3] ? +m[2] * 1024 : +m[2] };
+	return m[3]
+		? { name: `${PREFIX}${name}_bytes`, value: +m[2] * 1024 }
+		: { name: `${PREFIX}${name}`, value: +m[2] };
 }
 
 export function collect(deps, out) {
