@@ -1,0 +1,35 @@
+{
+	"cfg01769c": {
+		".type": "server",
+		"hostname": "time.cloudflare.com",
+		"iburst": "1",
+		"nts": "1"
+	},
+	"cfg02769c": {
+		".type": "server",
+		"hostname": "nts.netnod.se",
+		"iburst": "1",
+		"nts": "1"
+	},
+	"cfg03a39f": {
+		".type": "makestep",
+		"threshold": "1.0",
+		"limit": "3"
+	},
+	"cfg045c24": {
+		".type": "allow",
+		"interface": "guest"
+	},
+	"cfg055c24": {
+		".type": "allow",
+		"interface": "iot"
+	},
+	"cfg065c24": {
+		".type": "allow",
+		"interface": "main"
+	},
+	"cfg075c24": {
+		".type": "allow",
+		"interface": "mgmt"
+	}
+}

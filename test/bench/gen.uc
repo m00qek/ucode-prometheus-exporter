@@ -28,13 +28,13 @@ const PROFILES = {
 		cpus: 4, links: 12, conntrack: 300, conntrack_scaling: [],
 		radios: 2, ifaces_per_radio: 2, stations: 20,
 		leases: 40, odhcpd_leases: 10, hosts: 10, interfaces: 6,
-		peers: 3, counters: 20, textfile_samples: 20, hwmon: 2, thermal: 2,
+		peers: 3, counters: 20, textfile_samples: 20, hwmon: 2, thermal: 2, ntp_sources: 4,
 	},
 	large: {
 		cpus: 4, links: 50, conntrack: 20000, conntrack_scaling: [ 1000, 10000, 20000 ],
 		radios: 3, ifaces_per_radio: 3, stations: 200,
 		leases: 1000, odhcpd_leases: 200, hosts: 200, interfaces: 20,
-		peers: 30, counters: 100, textfile_samples: 500, hwmon: 4, thermal: 4,
+		peers: 30, counters: 100, textfile_samples: 500, hwmon: 4, thermal: 4, ntp_sources: 12,
 	},
 };
 
@@ -496,6 +496,29 @@ function qdiscs(links, rand) {
 	return sprintf('%J\n', out);
 }
 
+// What chronyc prints, as the chrony collector runs it (as root, as CSV): the
+// seriguela router's tracking and server statistics, and `n` sources made
+// after its first.
+function chrony(dir, world, n, rand) {
+	let source = split(trim(fixture('seriguela-router/commands/chronyc_c_sources.txt')), '\n')[0];
+	let sources = '';
+
+	for (let i = 0; i < n; i++) {
+		let f = split(source, ',');
+
+		f[1] = i ? '+' : '*';
+		f[2] = sprintf('2001:db8::%x', 0x100 + i);
+		f[6] = '' + rand(1024);
+		sources += join(',', f) + '\n';
+	}
+
+	for (let r in [ [ 'tracking', fixture('seriguela-router/commands/chronyc_c_tracking.txt') ], [ 'sources', sources ],
+	                [ 'serverstats', fixture('seriguela-router/commands/chronyc_c_serverstats.txt') ] ]) {
+		writefile(`${dir}/commands/chronyc-${r[0]}.txt`, r[1]);
+		world.commands[join(' ', map([ 'chronyc', '-u', 'root', '-c', r[0] ], (a) => `'${a}'`))] = `commands/chronyc-${r[0]}.txt`;
+	}
+}
+
 // ---- the world -------------------------------------------------------------------
 
 function generate(dir, profile) {
@@ -550,6 +573,11 @@ function generate(dir, profile) {
 	world.commands["'nft' '--json' 'list' 'counters'"] = 'commands/nft.txt';
 	// A generator of its own, so the rest of the world is what it was without it.
 	writefile(`${dir}/commands/tc.json`, qdiscs(all, rng(43)));
+	// chronyd serving time to the lan, its command socket there (as outside
+	// the jail): so the collector asks for serverstats too.
+	chrony(dir, world, p.ntp_sources, rng(44));
+	put(root, '/etc/config/chrony', "config server\n\toption hostname 'time.example'\n\nconfig allow\n\toption interface 'lan'\n");
+	put(root, '/var/run/chrony/chronyd.sock', 'a file where the socket is: the collector only sees it is there\n');
 	world.commands["'tc' '-s' '-j' 'qdisc' 'show'"] = 'commands/tc.json';
 
 	// /sys: hwmon, thermal

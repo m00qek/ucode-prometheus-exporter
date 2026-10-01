@@ -187,7 +187,7 @@ all_answer() { [ "$(fetch | grep -c '^node_scrape_collector_success{')" -eq "$(i
 eventually "every installed collector is served" all_answer
 check "the ubus object lists the new collectors too" rpc_lists_all
 check "its mounts are still what jail.uc prints" mounts_match_jail
-check "the jail has the configs its collectors read" test "$(jail_configs | tr '\n' ' ')" = "dhcp network $NAME ubnt-manager "
+check "the jail has the configs its collectors read" test "$(jail_configs | tr '\n' ' ')" = "chrony dhcp network $NAME ubnt-manager "
 check "the service makes textfile's directory" test -d /var/prometheus
 check "and says so, at info" says "daemon.info $NAME: made /var/prometheus$" logread
 check "and mounts it" mounted /var/prometheus
@@ -275,6 +275,32 @@ check "and the ubus object's status gives no reason" is_reason dnsmasq ''
 /etc/init.d/dnsmasq start
 eventually "started again, dnsmasq is read again" metric 'dnsmasq_'
 check "and succeeds" served dnsmasq
+
+# --- chrony, and timesync's chronyd: a real chronyd, unsynchronized without a
+# network. The image leaves it disabled (see the pkgcheck Dockerfile).
+check "chronyd disabled, chrony has nothing to observe" observing chrony 0
+check "check says why" says '^ok   scrape: chrony has nothing to observe: chronyd is disabled$' "$INIT" check
+/etc/init.d/chronyd enable
+/etc/init.d/chronyd start
+eventually "chronyd starts" chronyc -c tracking
+eventually "chrony reads chronyd in the jail" metric 'chrony_tracking_stratum 0$'
+check "observing it" observing chrony 1
+check "its tracking, unsynchronized" metric 'chrony_tracking_info{tracking_address="",tracking_name="",tracking_refid="00000000"} 1$'
+check "but no serverstats in the jail, which gives chronyc no command socket" fails metric 'chrony_serverstats_'
+check "which it reads outside the jail, where chronyd serves time" says '^chrony_serverstats_command_packets_received_total ' "$NAME" chrony
+check "timesync says chronyd is not synchronized, running chronyc in the jail" metric 'node_timesync_synchronized{daemon="chronyd"} 0$'
+check "beside busybox ntpd" metric 'node_timesync_synchronized{daemon="ntpd"} '
+/etc/init.d/chronyd stop
+failing() { metric "node_scrape_collector_success{collector=\"$1\"} 0$"; }
+eventually "enabled and stopped, chronyd fails chrony" failing chrony
+check "observing it" observing chrony 1
+check "logged at warning" says "daemon.warn $NAME\[[0-9]*\]: collector 'chrony': COMMAND_FAILED (chronyc: exit status 1)" logread
+check "and timesync" failing timesync
+check "which still says what busybox ntpd does" metric 'node_timesync_synchronized{daemon="ntpd"} '
+/etc/init.d/chronyd disable
+eventually "disabled again, chrony has nothing to observe" observing chrony 0
+check "and timesync observes busybox ntpd alone" served timesync
+check "without chronyd" fails metric 'node_timesync_synchronized{daemon="chronyd"}'
 
 # --- a program that hangs, in the jail
 # A radio that takes ssh's connection and never says a word holds ssh as an

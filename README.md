@@ -27,13 +27,14 @@ The base package has the collectors every device can use (cpu, meminfo, netdev, 
 | `-hardware` | hwmon, thermal, filesystem |
 | `-full` | the three above, and dhcp_leases, dnsmasq, openwrt, textfile, uci_dhcp_host, wireguard |
 
-The collectors of particular hardware or services (ltq-dsl, realtek-poe, bmx7, mwan3, modemmanager, ubnt-manager, dawn, unbound) and wifi_stations, which repeats wifi's station metrics, are in no group.
+The collectors of particular hardware or services (ltq-dsl, realtek-poe, bmx7, mwan3, modemmanager, ubnt-manager, dawn, unbound, chrony) and wifi_stations, which repeats wifi's station metrics, are in no group.
 
 Every collector, with its title and package (`ucode-prometheus-exporter-…`):
 
 | | | |
 |---|---|---|
 | `bmx7` | bmx7 mesh | `-bmx7` |
+| `chrony` | chrony NTP daemon | `-chrony` |
 | `conntrack` | Connection tracking | base |
 | `cpu` | CPU | base |
 | `dawn` | DAWN band steering | `-dawn` |
@@ -76,7 +77,7 @@ Every collector, with its title and package (`ucode-prometheus-exporter-…`):
 | `wifi` | Wi-Fi | `-wifi`; in `-wireless`, `-full` |
 | `wireguard` | WireGuard | `-wireguard`; in `-full` |
 
-Neither upstream exporter had these: softnet and vmstat (node_exporter's), conntrack's statistics and openwrt_interfaces (netifd's logical interfaces: up, uptime, devices, address counts) in the base package, dhcp_leases (dnsmasq's and odhcpd's active leases), and qdisc (each device's root queueing discipline, as node_exporter's qdisc collector, and SQM's CAKE per tin).
+Neither upstream exporter had these: softnet and vmstat (node_exporter's), conntrack's statistics, openwrt_interfaces (netifd's logical interfaces: up, uptime, devices, address counts) and timesync (whether busybox ntpd or chronyd keeps the clock synchronized) in the base package, and dhcp_leases (dnsmasq's and odhcpd's active leases), qdisc (each device's root queueing discipline, as node_exporter's qdisc collector, and SQM's CAKE per tin) and chrony (chronyd's tracking, sources and server statistics, as chrony_exporter names them).
 
 ### Nothing to observe
 
@@ -103,6 +104,7 @@ Whether a service is enabled is what rpcd's `rc` object says (`ubus call rc list
 | `snmp6` | no `/proc/net/dev_snmp6` (IPv6 disabled) | the directory there and unreadable |
 | `dnsmasq` | dnsmasq disabled, or not installed | enabled, and its `dnsmasq` object missing or failing |
 | `unbound` | unbound disabled, or not installed | enabled, and its control socket not answering |
+| `chrony` | chronyd disabled, or not installed | enabled, and chronyc failing (chronyd stopped) |
 | `mwan3` | mwan3 disabled, or not installed | its `mwan3` object failing (enabled and stopped is a reading: `mwan3_interface_running 0`) |
 | `dawn` | DAWN disabled, or not installed | enabled, and its `dawn` object missing or failing |
 | `bmx7` | bmx7 disabled, or not installed | enabled, and its status files unreadable |
@@ -162,7 +164,7 @@ config collector 'ubnt_manager'
 	option timeout '10'                # its programs' seconds, over exec_timeout
 ```
 
-A collector without a section is enabled, with its defaults. Every collector has `enabled`, and every one that runs programs (ethtool, nft-counters, qdisc, timesync, modemmanager, ubnt-manager) has `timeout` too: the core's options, which no collector declares itself (see [the service](#the-service)). These take options of their own (`check` prints each with its help):
+A collector without a section is enabled, with its defaults. Every collector has `enabled`, and every one that runs programs (chrony, ethtool, nft-counters, qdisc, timesync, modemmanager, ubnt-manager) has `timeout` too: the core's options, which no collector declares itself (see [the service](#the-service)). These take options of their own (`check` prints each with its help):
 
 | | | |
 |---|---|---|
@@ -251,6 +253,7 @@ uhttpd runs in procd's jail, and a collector gets what it declares: procfs, sysf
   ```
 
   The jail then mounts `/var/lib/unbound` read-only, and with it unbound's generated config and `root.key`, and its TLS keys if `unbound_control` makes them.
+- chronyd answers its server statistics (`chronyc serverstats`) on its Unix command socket only, and chronyc reaches the socket only by making one of its own beside it, in `/var/run/chrony`. Writing there is commanding chronyd, which sets the clock, so the jail does not give it: under procd, the chrony collector reads tracking and sources over chronyd's UDP command port, as chronyc falls back to, and leaves the server statistics out. `check`, the ubus object's `status` and the command line, outside the jail, read them where chronyd serves time (an `allow` section in `/etc/config/chrony`).
 
 ## The ubus object
 
@@ -406,4 +409,4 @@ The app's ACL grants the ubus object's four reading methods, `hash_password` to 
 
 ## Credits
 
-A rewrite of two packages of OpenWrt's feed, both Apache-2.0: [`prometheus-node-exporter-ucode`](https://github.com/openwrt/packages/tree/master/utils/prometheus-node-exporter-ucode), by Andre Heider (its maintainer) and contributors, and [`prometheus-node-exporter-lua`](https://github.com/openwrt/packages/tree/master/utils/prometheus-node-exporter-lua), by Jeff Schornick, Kevin Lyda, Christian Simon, Etienne Champetier (its maintainer) and contributors. Metric names and help texts follow the Prometheus [node_exporter](https://github.com/prometheus/node_exporter) and, for unbound and WireGuard, [unbound_exporter](https://github.com/letsencrypt/unbound_exporter) and [prometheus_wireguard_exporter](https://github.com/MindFlavor/prometheus_wireguard_exporter); see [docs/metrics.md](docs/metrics.md). Tests run on [utest](https://github.com/m00qek/utest). [NOTICE](NOTICE) credits each collector's upstream authors.
+A rewrite of two packages of OpenWrt's feed, both Apache-2.0: [`prometheus-node-exporter-ucode`](https://github.com/openwrt/packages/tree/master/utils/prometheus-node-exporter-ucode), by Andre Heider (its maintainer) and contributors, and [`prometheus-node-exporter-lua`](https://github.com/openwrt/packages/tree/master/utils/prometheus-node-exporter-lua), by Jeff Schornick, Kevin Lyda, Christian Simon, Etienne Champetier (its maintainer) and contributors. Metric names and help texts follow the Prometheus [node_exporter](https://github.com/prometheus/node_exporter) and, for unbound, WireGuard and chrony, [unbound_exporter](https://github.com/letsencrypt/unbound_exporter), [prometheus_wireguard_exporter](https://github.com/MindFlavor/prometheus_wireguard_exporter) and [chrony_exporter](https://github.com/SuperQ/chrony_exporter); see [docs/metrics.md](docs/metrics.md). Tests run on [utest](https://github.com/m00qek/utest). [NOTICE](NOTICE) credits each collector's upstream authors.

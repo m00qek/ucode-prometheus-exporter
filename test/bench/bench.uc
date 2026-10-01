@@ -11,10 +11,11 @@
 //         [-t MIN_SECONDS] [-r MIN_REPS] [-c [-a]]
 //
 // WORLDS is gen.uc's output directory, with sets.json: the collector sets
-// { base: [ names ], full: [ names ] }. The cases:
+// { base: [ names ], full: [ names ], extra: [ names ] }, extra those in no
+// group that are benched alone too. The cases:
 //
 //   load:base, load:full          compiling the collectors, as uhttpd does when it starts
-//   collector:<name>              each collector of `full` on the large world
+//   collector:<name>              each collector of `full` and `extra` on the large world
 //   collector:nat_traffic@<n>     the n-entry conntrack tables (1k, 10k, 20k)
 //   scrape:base, scrape:full      whole scrapes, on the typical and the large world
 
@@ -57,7 +58,7 @@ let search = (src ? `-L '${src}' ` : '') + `-L '${test}'`;
 // [ world, case ]
 let cases = [ [ 'large', 'calibrate:vm' ], [ 'large', 'load:base' ], [ 'large', 'load:full' ] ];
 
-for (let n in sets.full)
+for (let n in [ ...sets.full, ...(sets.extra ?? []) ])
 	if (n != 'nat_traffic')
 		push(cases, [ 'large', `collector:${n}` ]);
 for (let n in json(fs.readfile(`${args.worlds}/large/world.json`)).sizes.conntrack_scaling)

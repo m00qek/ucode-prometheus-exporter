@@ -50,6 +50,12 @@
 #   Not written by hand: `chronyc -c tracking` of a real chronyd 4.8 (OpenWrt
 #   25.12's chrony package) under procd in the pkgcheck container, without a
 #   network, so with no source: what chronyd answers before it first syncs.
+# commands/chronyc_c_sources.txt
+#   `chronyc -c sources` (chrony 4.8) with what the devices' two servers are
+#   not: a selected GPS reference clock, a peer, a server never reached (its
+#   last sample (uint32_t)-1 seconds ago, a polling interval under a second), a
+#   falseticker and a jittery one. Fields and characters: process_cmd_sources()
+#   and print_report() in chrony's client.c (reachability in octal).
 # var/run/prometheus-exporter/timesync/ntpd
 #   What /etc/hotplug.d/ntp/90-prometheus-exporter keeps of busybox ntpd's
 #   event: a periodic one of a synchronized ntpd at stratum 3. The environment

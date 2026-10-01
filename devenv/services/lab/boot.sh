@@ -8,7 +8,9 @@
 # not told about; fw4 would reject what arrives on eth0, in no zone; and mwan3
 # would rewrite the routing. So lan is eth0 itself, no bridge, with the address
 # and gateway docker gave it, and the firewall and mwan3 (a collector's
-# dependency) do not start.
+# dependency) do not start. Nor does chronyd (the chrony collector's): with
+# sysntpd's ntpd, two daemons would steer the clock, which a privileged
+# container shares with its host.
 set -eu
 
 address=$(ip -4 -o addr show dev eth0 | awk '{ print $4; exit }')
@@ -28,7 +30,7 @@ config interface 'lan'
 	option gateway '$gateway'
 EOF
 
-for service in firewall mwan3; do
+for service in firewall mwan3 chronyd; do
 	[ ! -x "/etc/init.d/$service" ] || /etc/init.d/"$service" disable
 done
 

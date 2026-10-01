@@ -10,11 +10,13 @@ cd "$(dirname "$0")/../.."
 gen() {
 	mkdir -p "$1"
 	ucode -L "$PWD/src" -L "$PWD/test" test/bench/gen.uc "$1"
-	# The sets: the base package's collectors, and those with the -full group's.
+	# The sets: the base package's collectors, and those with the -full group's;
+	# and, alone, collectors in no group that the worlds have a service for.
 	base=$(devenv/scripts/package-info.sh base-collectors)
 	full=$(devenv/scripts/package-info.sh groups | sed -n 's/^full //p')
-	ucode -e 'let b = split(trim(ARGV[0]), " "); printf("%J\n", { base: b, full: [ ...b, ...split(trim(ARGV[1]), " ") ] });' \
-		"$base" "$full" >"$1/sets.json"
+	extra=chrony
+	ucode -e 'let b = split(trim(ARGV[0]), " "); printf("%J\n", { base: b, full: [ ...b, ...split(trim(ARGV[1]), " ") ], extra: split(trim(ARGV[2]), " ") });' \
+		"$base" "$full" "$extra" >"$1/sets.json"
 }
 
 case $1 in

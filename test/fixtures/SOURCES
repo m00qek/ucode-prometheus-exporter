@@ -77,6 +77,7 @@ file /proc/net/dev
 #                                chronyd: the servers' public addresses made 2001:db8::/32's)
 #   ubus/service.list.*.json     ubus call service list '{"name":"sysntpd"}' (caju-ap) and
 #                                '{"name":"chronyd"}' (seriguela-router), and the other, not running
+#   uci/chrony.json              as `uci` captures are made (seriguela-router)
 ubus network.wireless status
 ubus hostapd.phy0-ap0 get_status
 ubus hostapd.phy0-ap0 get_clients
