@@ -6,6 +6,7 @@
 import * as deps from 'prometheus_exporter.deps';
 import * as loader from 'prometheus_exporter.loader';
 import * as scrape from 'prometheus_exporter.scrape';
+import { version } from 'prometheus_exporter.version';
 
 // { collectors(), scrape(query_string) }. `dir` replaces the installed
 // collectors' directory, for running from a source tree.
@@ -19,6 +20,7 @@ export function create(log, dir) {
 		session: () => deps.session({ ...mods, log }),
 		clock: () => clock(true),
 		log,
+		version: version(),
 	};
 	let loaded = loader.load(mods.fs, dir ?? loader.DIR, loader.import_module, log);
 

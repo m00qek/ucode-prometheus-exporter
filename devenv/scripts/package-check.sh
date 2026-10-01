@@ -78,6 +78,7 @@ base_succeed() { for c in $BASE_COLLECTORS; do grep -q "^node_scrape_collector_s
 # have to answer. The base ones have what they need here.
 check "every installed collector answers" test "$(grep -c '^node_scrape_collector_success{' /tmp/metrics)" -eq "$(installed)"
 check "every base collector succeeds" base_succeed
+check "it reports the package's version" grep -qx "ucode_prometheus_exporter_build_info{version=\"$PKG_FULLVERSION\"} 1" /tmp/metrics
 check "the openwrt collector reads the board over ubus" grep -q '^node_openwrt_info{board_name="friendlyarm,nanopi-r5c",' /tmp/metrics
 check "a query selects collectors" sh -c "fetch() { wget -q -O - \"\$1\"; }; fetch '$URL?collect[]=loadavg' | grep -q 'collector=\"loadavg\"' && ! fetch '$URL?collect[]=loadavg' | grep -q 'collector=\"openwrt\"'"
 check "an unknown collector is refused" sh -c "! wget -q -O /dev/null '$URL?collect[]=nope'"

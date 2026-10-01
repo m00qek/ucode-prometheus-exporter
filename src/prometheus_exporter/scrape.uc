@@ -2,9 +2,11 @@
 
 // One scrape: pick the collectors the query asks for, run each with its deps and
 // options, time it, and write every family once, followed by node_exporter's
-// node_scrape_collector_duration_seconds and node_scrape_collector_success.
+// node_scrape_collector_duration_seconds and node_scrape_collector_success, and
+// the exporter's own ucode_prometheus_exporter_build_info.
 //
-// env: { session() -> a deps session, clock() -> [ s, ns ] monotonic, log(msg) }
+// env: { session() -> a deps session, clock() -> [ s, ns ] monotonic, log(msg),
+//        version: the exporter's version (prometheus_exporter.version) }
 
 import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
@@ -13,6 +15,8 @@ import * as config from 'prometheus_exporter.config';
 import * as query from 'prometheus_exporter.query';
 
 export const CONTENT_TYPE = 'text/plain; version=0.0.4; charset=utf-8';
+
+export const BUILD_INFO = 'ucode_prometheus_exporter_build_info';
 
 function seconds(t1, t2) {
 	return (t2[0] - t1[0]) + (t2[1] - t1[1]) / 1000000000.0;
@@ -119,6 +123,10 @@ export function scrape(env, collectors, query_string) {
 		duration({ collector: r.name }, r.duration);
 	for (let r in runs)
 		success({ collector: r.name }, r.result.ok);
+
+	// Whatever the query selects, as node_exporter's node_exporter_build_info.
+	scrape_meta.gauge(BUILD_INFO,
+		'A metric with a constant \'1\' value labeled by the version of ucode-prometheus-exporter.')({ version: env.version }, 1);
 
 	let merged = exposition.merge([ ...map(runs, (r) => r.families), scrape_meta.families() ]);
 	for (let name in merged.conflicts)

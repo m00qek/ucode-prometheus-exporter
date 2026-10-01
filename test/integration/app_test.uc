@@ -50,6 +50,13 @@ describe('app', () => {
 		assert.match(true, index(res.body, 'node_openwrt_info{board_name="friendlyarm,nanopi-r5c",') >= 0);
 	});
 
+	// A source tree's version: the package Makefile writes the package's in.
+	it('labels the build with its version', () => {
+		patch(ROUTER.files, {});
+		assert.match(contains([ 'ucode_prometheus_exporter_build_info{version="dev"} 1' ]),
+			split(create(() => null, SOURCES).scrape('collect[]=loadavg').body, '\n'));
+	});
+
 	it('reports a collector whose source is down as failed, and still answers', () => {
 		patch(ROUTER.files, { errors: { 'system:board': 'Not found' } });
 

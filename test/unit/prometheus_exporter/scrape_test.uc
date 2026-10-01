@@ -31,6 +31,7 @@ function env_for(mods, logs) {
 		session: () => deps.session(mods),
 		clock: () => { t += 250000000; return [ int(t / 1000000000), t % 1000000000 ]; },
 		log: (m) => push(logs, m),
+		version: '2026.01.02-r3',
 	};
 }
 
@@ -148,7 +149,7 @@ describe('scrape.scrape', () => {
 		return out;
 	}
 
-	it('writes each family once, then durations, then outcomes', () => {
+	it('writes each family once, then durations, then outcomes, then the build', () => {
 		let r = scrape_with([ A, collector('failing', () => Result.err('SOURCE_INVALID')) ], '');
 
 		assert.match([ '200 OK', scrape.CONTENT_TYPE ], [ r.status, r.content_type ]);
@@ -163,7 +164,16 @@ describe('scrape.scrape', () => {
 			'# TYPE node_scrape_collector_success gauge',
 			'node_scrape_collector_success{collector="a"} 1',
 			'node_scrape_collector_success{collector="failing"} 0',
+			"# HELP ucode_prometheus_exporter_build_info A metric with a constant '1' value labeled by the version of ucode-prometheus-exporter.",
+			'# TYPE ucode_prometheus_exporter_build_info gauge',
+			'ucode_prometheus_exporter_build_info{version="2026.01.02-r3"} 1',
 		], lines(r.body));
+	});
+
+	it('writes the build whatever the query selects', () => {
+		for (let q in [ '', 'collect[]=a', 'exclude[]=a' ])
+			assert.match(contains([ 'ucode_prometheus_exporter_build_info{version="2026.01.02-r3"} 1' ]),
+				lines(scrape_with([ A ], q).body), q);
 	});
 
 	it('merges a family two collectors share', () => {

@@ -55,6 +55,9 @@ endef
 define Package/$(PKG_NAME)/install
 	$(INSTALL_DIR) $(1)$(MODULES_DIR) $(1)$(COLLECTORS_DIR)
 	$(INSTALL_DATA) ./src/prometheus_exporter/*.uc $(1)$(MODULES_DIR)/
+	# The version ucode_prometheus_exporter_build_info reports: the package's.
+	$(SED) "/^const VERSION = /s/'dev'/'$(PKG_VERSION)-r$(PKG_RELEASE)'/" $(1)$(MODULES_DIR)/version.uc
+	grep -q "^const VERSION = '$(PKG_VERSION)-r$(PKG_RELEASE)';" $(1)$(MODULES_DIR)/version.uc
 	$(foreach c,$(BASE_COLLECTORS),$(INSTALL_DATA) ./src/prometheus_exporter/collectors/$(c).uc $(1)$(COLLECTORS_DIR)/;)
 	$(INSTALL_DIR) $(1)/usr/libexec/$(SERVICE)
 	$(INSTALL_DATA) ./files/usr/libexec/$(SERVICE)/handler.uc $(1)/usr/libexec/$(SERVICE)/
