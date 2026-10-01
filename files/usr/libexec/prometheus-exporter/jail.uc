@@ -6,13 +6,16 @@
 // mounted goes to standard error. With --missing, the paths those collectors
 // read that are not there yet instead. With --make, it makes the directories
 // those collectors own (textfile's) that are not there, and says which, and
-// what it could not make on standard error. The init script logs each at its
-// own priority. See prometheus_exporter.jail.
+// the exporter's state directory (mode 0700, which the jail mounts read-write;
+// see prometheus_exporter.state), and what it could not make on standard
+// error. The init script logs each at its own priority. See
+// prometheus_exporter.jail.
 
-import { mkdir, error } from 'fs';
+import { mkdir, chmod, error } from 'fs';
 import * as deps from 'prometheus_exporter.deps';
 import * as loader from 'prometheus_exporter.loader';
 import * as jail from 'prometheus_exporter.jail';
+import * as state from 'prometheus_exporter.state';
 
 const mode = ARGV[0];
 
@@ -36,9 +39,12 @@ if (mode == '--missing') {
 
 if (mode == '--make') {
 	let made = jail.make({ ...mods.fs, mkdir, error }, res.owned);
+	let st = state.make({ ...mods.fs, mkdir, chmod, error });
 
 	for (let p in made.made)
 		print(`made ${p}\n`);
+	if (!st.ok)
+		push(made.problems, st.problem);
 	for (let p in made.problems)
 		log(p);
 	exit(length(made.problems) ? 1 : 0);

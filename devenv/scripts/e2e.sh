@@ -13,6 +13,8 @@ NAME=prometheus-exporter
 INIT=/etc/init.d/$NAME
 LIBEXEC=/usr/libexec/$NAME
 URL=http://127.0.0.1:9100/metrics
+# The exporter's state, which the jail mounts read-write (prometheus_exporter.state).
+STATE=/var/run/$NAME/state
 failures=0
 
 pass() { echo "ok   $*"; }
@@ -48,7 +50,7 @@ pid() { instance | jsonfilter -e '@[*].instances.instance1.pid'; }
 mounts() { instance | jsonfilter -e '@[*].instances.instance1.mount' | ucode -e 'print(join("\n", sort(keys(json(require("fs").stdin.read("all"))))), "\n")'; }
 # What the init script mounts for the exporter's own code and libraries.
 own_mount() { case $1 in /lib/libubus.so* | /lib/libuci.so* | /usr/lib/libnl* | /usr/lib/libz.so* | /usr/lib/uhttpd_ucode.so | /usr/lib/ucode | \
-	/usr/share/ucode/prometheus_exporter | $LIBEXEC/handler.uc) return 0 ;; esac; return 1; }
+	/usr/share/ucode/prometheus_exporter | $LIBEXEC/handler.uc | $STATE) return 0 ;; esac; return 1; }
 collector_mounts() { mounts | while read -r m; do own_mount "$m" || echo "$m"; done; }
 mounts_match_jail() { [ "$(collector_mounts)" = "$($LIBEXEC/jail.uc 2>/dev/null)" ]; }
 # What the jailed uhttpd sees of /etc/config: procd's pid is ujail's, which
@@ -422,13 +424,71 @@ check "check says basic auth is on, and for whom" says 'ok   main: HTTPS on inte
 check "status says it" says '^listening on https://127.0.0.1:9100/metrics, basic auth, gzip when asked, serving' "$INIT" status
 check "so does the ubus object's status" auth_true
 check "the hash is in no reply of the ubus object, nor in check, status or the log" no_hash_in secret_free
+
+# --- basic auth's cache, in the instance's state
+# The file of the header let in last: <instance>.auth, which a request the
+# cache lets in leaves as it was, and a full check replaces (a new inode).
+cache_file() { ls "$STATE"/*.auth 2>/dev/null; }
+inode() { ls -i "$(cache_file)" | awk '{ print $1 }'; }
+no_cache() { [ -z "$(cache_file)" ]; }
+state_private() { ls -ld "$STATE" | grep -q '^drwx------ ' && ls -l "$(cache_file)" | grep -q '^-rw------- '; }
+digest_only() { grep -qx '[0-9a-f]\{64\}' "$(cache_file)" && ! grep -qF -e "$HASH" -e e2e-secret "$(cache_file)"; }
+# The jail's mounts, read-write ones apart: procd shows each with its flag.
+mounted_rw() { instance | jsonfilter -e "@[*].instances.instance1.mount['$1']" | grep -qx 1; }
+check "the jail mounts the state directory read-write" mounted_rw "$STATE"
+check "and the exporter's other mounts read-only" fails mounted_rw "$AUTH_FILE"
+check "a scrape let in leaves the digest of its header there" test -n "$(cache_file)"
+check "mode 0600, in a directory of mode 0700" state_private
+check "a digest, neither the hash nor the password" digest_only
+first=$(inode)
+check "the same credentials scrape again" logs_in
+check "by the cache: it keeps the entry as it was" test "$(inode)" = "$first"
+check "a wrong password is still a 401" unauthorized --user=prom --password=wrong
+check "and leaves the entry as it was" test "$(inode)" = "$first"
+https --header="Authorization: basic $(ucode -e 'print(b64enc("prom:e2e-secret"))')" >/dev/null
+check "the same credentials in another header pass the full check, which replaces the entry" fails test "$(inode)" = "$first"
+before_cache=$(cache_file)
+"$INIT" restart
+eventually "after a restart it serves again" logs_in
+check "a restarted instance starts without the state of the one before" test "$(cache_file)" != "$before_cache"
+check "which it removed" test ! -e "$before_cache"
+# What the cache saves a scrape: the mean milliseconds of one of loadavg alone,
+# by the cache, and with its entry removed before each, by the full check, at
+# the most rounds basic auth takes (SHA-512-crypt of 2000). Both run rm, the
+# first on nothing. Shown, not checked: the difference, the hash's 8 ms here,
+# is within what a busy machine varies by; the inode above is what shows the
+# cache is used.
+CAP=$(ucode -e "import { ROUNDS_MAX } from 'prometheus_exporter.auth'; print(ROUNDS_MAX);")
+CAP_HASH=$(ucode -e "import { hash } from 'prometheus_exporter.crypt'; print(hash('e2e-secret', 'e2e-salt-e2e', $CAP));")
+before=$(pid)
+set_config "$NAME.main.auth_password=$CAP_HASH"
+eventually "a new hash restarts the instance" restarted_from "$before"
+eventually "a hash of $CAP rounds takes its password" logs_in
+CREDENTIALS=$(ucode -e 'print(b64enc("prom:e2e-secret"))')
+FETCH="uclient-fetch -q -O - --no-check-certificate --header='Authorization: Basic $CREDENTIALS' $HTTPS?collect[]=loadavg"
+set -- $(scrape_ms "rm -f $STATE/none; $FETCH") $(scrape_ms "rm -f $STATE/*.auth; $FETCH")
+echo "info a scrape of loadavg over HTTPS with basic auth ($CAP rounds), mean of $RUNS: $2 ms by the cache, $4 ms by the full check"
+check "both were answered" test "$1" -gt 0 -a "$3" -gt 0
+check "and the full check left the header's entry again" test -n "$(cache_file)"
+cap_inode=$(inode)
+check "validate refuses a hash of a round more, saying why" says "expected a hash of at most $CAP rounds" \
+	rpc validate "{\"main\":{\"auth_user\":\"prom\",\"auth_password\":\"$(ucode -e "import { hash } from 'prometheus_exporter.crypt'; print(hash('x', 'e2e-salt-e2e', $CAP + 1));")\",\"cert\":\"$CERT\",\"key\":\"$KEY\"}}"
+# A changed password invalidates the cache: the new hash restarts the instance,
+# and the old password's entry lets nothing in, even were it kept.
+NEW_HASH=$(rpc hash_password '{"password":"e2e-changed"}' | jsonfilter -e '@.hash')
+set_config "$NAME.main.auth_password=$NEW_HASH"
+changed_logs_in() { https --user=prom --password=e2e-changed | grep -q '^node_load1 '; }
+eventually "a changed password takes the new one" changed_logs_in
+check "and no longer the old one" unauthorized --user=prom --password=e2e-secret
+check "the old password's entry is gone" fails test "$(inode)" = "$cap_inode"
 # What uhttpd -m prints, an unsalted MD5-crypt hash, works too.
 set_config "$NAME.main.auth_password=$(uhttpd -m e2e-md5)"
 md5_logs_in() { https --user=prom --password=e2e-md5 | grep -q '^node_load1 '; }
 eventually "a hash of uhttpd -m takes its password" md5_logs_in
 check "and no other" unauthorized --user=prom --password=e2e-secret
 # What basic auth costs a scrape: the mean milliseconds of one of loadavg alone,
-# with the hash hash_password makes ($6$, 1000 rounds), then without basic auth.
+# with the hash hash_password makes ($6$, 1000 rounds; each scrape after the
+# first let in by the cache), then without basic auth.
 # The credentials go with the request, as Prometheus sends them: --user waits
 # for a 401 first.
 set_config "$NAME.main.auth_password=$HASH"

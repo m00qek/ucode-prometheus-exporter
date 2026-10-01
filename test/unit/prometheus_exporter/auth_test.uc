@@ -213,3 +213,145 @@ describe('auth.hash_password', () => {
 		assert.match(true, res.ok || res.details == 'expected a password without control characters', p);
 	});
 });
+
+function sha_hash(id, rounds) {
+	return crypt.sha_crypt(id, 'secret', 'saltsalt', rounds);
+}
+
+describe('auth.is_hash', () => {
+	it('takes hashes of up to ROUNDS_MAX rounds: MD5-crypt, hash_password\'s, and SHA-crypt at the cap', () => {
+		assert.match([ true, true, true, true, true ], map([
+			HASH, SHA, sha_hash('5', auth.ROUNDS_MAX), sha_hash('6', auth.ROUNDS_MAX), sha_hash('6', crypt.ROUNDS_MIN),
+		], auth.is_hash));
+	});
+
+	it('refuses SHA-crypt of a round more than the cap, and of musl\'s most', () => {
+		assert.match([ false, false, false ], map([
+			sha_hash('5', auth.ROUNDS_MAX + 1),
+			'$6$rounds=' + (auth.ROUNDS_MAX + 1) + '$saltsalt$' + substr(SHA, -86),
+			'$6$rounds=' + crypt.ROUNDS_MAX + '$saltsalt$' + substr(SHA, -86),
+		], auth.is_hash));
+	});
+
+	it('counts a hash that names no rounds at crypt\'s default', () => {
+		assert.match(crypt.ROUNDS_DEFAULT <= auth.ROUNDS_MAX, auth.is_hash('$6$saltsalt$' + substr(SHA, -86)));
+	});
+
+	it('takes nothing crypt does not', () => {
+		assert.match([ false, false ], [ auth.is_hash('hunter2'), auth.is_hash(null) ]);
+	});
+
+	it('takes the rounds hash_password makes', () => {
+		assert.match(true, auth.HASH_ROUNDS <= auth.ROUNDS_MAX);
+	});
+
+	prop('takes a $5$ or $6$ hash exactly when its rounds are within the cap', gen.tuple(gen.elements('5', '6'),
+		gen.oneof(gen.int(crypt.ROUNDS_MIN, crypt.ROUNDS_MAX), gen.int(auth.ROUNDS_MAX - 3, auth.ROUNDS_MAX + 3))), (t) => {
+		let digest = (t[0] == '5') ? substr(sha_hash('5', 1000), -43) : substr(SHA, -86);
+		let h = `$${t[0]}$rounds=${t[1]}$saltsalt$${digest}`;
+
+		assert.match(t[1] <= auth.ROUNDS_MAX, auth.is_hash(h), h);
+	});
+});
+
+describe('auth.parse_conf, over the cap', () => {
+	it('reads no hash of more rounds than the cap, so the handler denies every request', () => {
+		assert.match([ null, { user: 'prom', hash: sha_hash('6', auth.ROUNDS_MAX) } ], [
+			auth.parse_conf(auth.conf('prom', sha_hash('6', auth.ROUNDS_MAX + 1))),
+			auth.parse_conf(auth.conf('prom', sha_hash('6', auth.ROUNDS_MAX))),
+		]);
+	});
+});
+
+// The instance's state, in memory, counting its writes.
+function memory_state(entries) {
+	let st = { entries: entries ?? {}, writes: 0 };
+
+	st.read = (name) => st.entries[name];
+	st.write = function(name, data) { st.entries[name] = data; st.writes++; return true; };
+
+	return st;
+}
+
+describe('auth.digest', () => {
+	it('is SHA-256 of the header, the user and the hash, each ended by a NUL', () => {
+		assert.match(true, match(auth.digest(A, basic('prom:secret')), /^[0-9a-f]{64}$/) != null);
+	});
+
+	prop('differs when the header, the user or the hash does', gen.tuple(PASSWORD, PASSWORD, gen.elements(HASH, SHA), gen.elements(HASH, SHA),
+		gen.elements('prom', 'other')), (t) => {
+		let a = { user: 'prom', hash: t[2] }, b = { user: t[4], hash: t[3] };
+
+		assert.match(t[0] == t[1] && t[2] == t[3] && t[4] == 'prom',
+			auth.digest(a, basic('prom:' + t[0])) == auth.digest(b, basic('prom:' + t[1])));
+	});
+});
+
+describe('auth.allowed, with the cache', () => {
+	const RIGHT = basic('prom:secret');
+
+	it('lets in the right header by the full check, and keeps its digest', () => {
+		let st = memory_state();
+
+		assert.match([ true, auth.digest(A, RIGHT), 1 ], [ auth.allowed(A, RIGHT, st), st.read(auth.CACHE), st.writes ]);
+	});
+
+	// The digest of a header the full check refuses: let in only when the hash
+	// is not computed.
+	it('lets in the header the cache holds without computing the hash, and writes nothing', () => {
+		let wrong = basic('prom:not-the-password');
+		let st = memory_state({ [auth.CACHE]: auth.digest(A, wrong) });
+
+		assert.match([ false, true, 0 ], [ auth.allowed(A, wrong), auth.allowed(A, wrong, st), st.writes ]);
+	});
+
+	it('checks any other header in full: a wrong one stays out, and the cache keeps its entry', () => {
+		let st = memory_state();
+
+		auth.allowed(A, RIGHT, st);
+		assert.match([ false, false, false, auth.digest(A, RIGHT), 1 ], [
+			auth.allowed(A, basic('prom:wrong'), st),
+			auth.allowed(A, basic('other:secret'), st),
+			auth.allowed(A, null, st),
+			st.read(auth.CACHE), st.writes,
+		]);
+	});
+
+	it('checks the same credentials in another header in full, and keeps that one instead', () => {
+		let st = memory_state();
+		let other = 'basic ' + b64enc('prom:secret');
+
+		auth.allowed(A, RIGHT, st);
+		assert.match([ true, auth.digest(A, other), 2 ], [ auth.allowed(A, other, st), st.read(auth.CACHE), st.writes ]);
+	});
+
+	it('lets nothing in by an entry of another hash or user: a changed config invalidates it', () => {
+		let st = memory_state();
+		let changed = { user: 'prom', hash: crypt.md5_crypt('new-secret', 'salt') };
+
+		auth.allowed(A, RIGHT, st);
+		assert.match([ false, false ], [ auth.allowed(changed, RIGHT, st), auth.allowed({ user: 'other', hash: HASH }, RIGHT, st) ]);
+		assert.match([ true, auth.digest(changed, basic('prom:new-secret')) ],
+			[ auth.allowed(changed, basic('prom:new-secret'), st), st.read(auth.CACHE) ]);
+	});
+
+	it('takes no entry that is not the digest: cut short, longer or empty', () => {
+		let wrong = basic('prom:wrong');
+		let d = auth.digest(A, wrong);
+
+		assert.match([ false, false, false ], map([ substr(d, 0, 63), d + '\n', '' ],
+			(e) => auth.allowed(A, wrong, memory_state({ [auth.CACHE]: e }))));
+	});
+
+	prop('answers as the full check does, whatever came before', gen.array(gen.tuple(gen.elements('prom', 'other'), PASSWORD), { min_len: 1, max_len: 5 }),
+		(tries) => {
+			let a = { user: 'prom', hash: crypt.md5_crypt(tries[0][1], 'salt') };
+			let st = memory_state();
+
+			for (let t in tries) {
+				let h = basic(t[0] + ':' + t[1]);
+
+				assert.match(auth.allowed(a, h), auth.allowed(a, h, st), h);
+			}
+		}, { runs: 30 });
+});

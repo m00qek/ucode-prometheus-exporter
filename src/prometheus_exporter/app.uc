@@ -9,6 +9,7 @@ import * as scrape from 'prometheus_exporter.scrape';
 import * as config from 'prometheus_exporter.config';
 import * as auth from 'prometheus_exporter.auth';
 import * as http from 'prometheus_exporter.http';
+import * as state from 'prometheus_exporter.state';
 import { version } from 'prometheus_exporter.version';
 
 // Basic auth as the handler finds it when it starts: null when uhttpd's
@@ -26,8 +27,9 @@ export function load_auth(fs) {
 
 // What the handler sends instead of a scrape, or null for a request it serves.
 // Basic auth answers 403 to a request over HTTP, which the init script never
-// listens on with it, and 401 to one without the user and password.
-export function refusal(a, env) {
+// listens on with it, and 401 to one without the user and password. `st`, the
+// instance's state, holds basic auth's cache (auth.allowed).
+export function refusal(a, env, st) {
 	if (a == null)
 		return null;
 
@@ -37,7 +39,7 @@ export function refusal(a, env) {
 	if (env?.HTTPS != 'on')
 		return http.text_reply('403 Forbidden', 'Basic auth takes HTTPS only.\n');
 
-	if (!auth.allowed(a, http.header(env, 'authorization')))
+	if (!auth.allowed(a, http.header(env, 'authorization'), st))
 		return http.text_reply('401 Unauthorized', 'Unauthorized.\n',
 			[ [ 'WWW-Authenticate', `Basic realm="${auth.REALM}"` ] ]);
 
@@ -72,12 +74,16 @@ export function create(log, dir) {
 // handle(env) }, where handle answers one request (uhttpd-mod-ucode's env)
 // with a reply (prometheus_exporter.http). Like the collectors, compress and
 // basic auth are read once, when the handler starts: a change of the config
-// restarts uhttpd (see the init script). `auth` is load_auth's.
-export function handler(log, dir) {
+// restarts uhttpd (see the init script). `auth` is load_auth's. The state is
+// opened here too, in the process uhttpd forks each request from, which names
+// the instance (see prometheus_exporter.state); `state_dir` replaces its
+// directory, for tests.
+export function handler(log, dir, state_dir) {
 	let app = create(log, dir);
 	let main = config.main(app.mods.uci.cursor());
 	let compress = main.ok ? main.data.compress : config.MAIN_OPTIONS.compress.default;
 	let a = load_auth(app.mods.fs);
+	let st = state.open(app.mods.fs, state_dir ?? state.DIR, state.instance_id(app.mods.fs));
 
 	if (a?.broken)
 		log('err', `${auth.FILE} is not one line of a user and a hash for ${auth.PATH}: every request is denied`);
@@ -87,7 +93,7 @@ export function handler(log, dir) {
 		auth: a,
 		compress,
 		handle: function(req) {
-			let refused = refusal(a, req);
+			let refused = refusal(a, req, st);
 
 			if (refused)
 				return refused;

@@ -5,12 +5,15 @@
 // than a scrape.
 //
 // modules(): the real fs, ubus, uci, rtnl, nl80211 and socket (these two when
-// installed), time and a monotonic clock.
+// installed), time and a monotonic clock. Of fs, writefile, rename, unlink and
+// chmod are
+// the handler's, for its state (prometheus_exporter.state): no collector gets
+// them (FS_API).
 // system_log(ident): a log(level, msg) to syslog, at the level's priority.
 // session(mods): one scrape's capabilities over module-shaped objects, the real
 // ones or utest's proxies: `for(meta)` hands a collector exactly its `needs`.
 
-import { readfile, open, lsdir, glob, stat, realpath, popen } from 'fs';
+import { readfile, open, lsdir, glob, stat, realpath, popen, writefile, rename, unlink, chmod } from 'fs';
 import { connect } from 'ubus';
 import { cursor } from 'uci';
 import { openlog, syslog, LOG_PID, LOG_DAEMON, LOG_ERR, LOG_WARNING, LOG_NOTICE, LOG_INFO } from 'log';
@@ -474,7 +477,7 @@ const UCI_NO_DELTAS = '/var/run/prometheus-exporter/no-uci-deltas';
 
 export function modules() {
 	return {
-		fs: { readfile, open, lsdir, glob, stat, realpath, popen },
+		fs: { readfile, open, lsdir, glob, stat, realpath, popen, writefile, rename, unlink, chmod },
 		ubus: { connect },
 		uci: { cursor: () => cursor(null, UCI_NO_DELTAS) },
 		rtnl: load_rtnl(),

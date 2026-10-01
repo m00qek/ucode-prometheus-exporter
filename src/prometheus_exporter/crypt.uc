@@ -160,6 +160,21 @@ export function is_hash(s) {
 	return false;
 };
 
+// The rounds computing `hash` takes, or null when it is not of one of the
+// formats: MD5-crypt's are 1000, always; SHA-crypt's those it names, or
+// ROUNDS_DEFAULT.
+export function rounds(hash) {
+	if (!is_hash(hash))
+		return null;
+
+	let parts = split(hash, '$');
+
+	if (parts[1] == '1')
+		return 1000;
+
+	return (substr(parts[2], 0, 7) == 'rounds=') ? int(substr(parts[2], 7)) : ROUNDS_DEFAULT;
+};
+
 // crypt(key, hash): the hash of `key` with the salt and rounds of `hash`, or
 // null when `hash` is not of one of the formats, or musl would not hash the key
 // (one with a NUL, which a C string ends at, or too long).
