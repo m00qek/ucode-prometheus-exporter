@@ -136,6 +136,8 @@ A collector without a section is enabled, with its defaults. Every collector has
 
 A config change applies on `reload_config` (LuCI does it), or `service prometheus-exporter reload`.
 
+uci rewrites the whole file when it commits a change (`uci commit`, and so LuCI's Save & Apply): the comments of the config as the package ships it do not survive a save, and options come out in uci's order.
+
 ## The service
 
 | | |
@@ -269,7 +271,12 @@ Each collector needs a test in `test/unit/prometheus_exporter/collectors/`, and 
 - **Exporter**: the main section: enabled, the interface to listen on (or every address), port, keepalive, TLS files, `omit_zero_values`. The interfaces are the ubus object's `interfaces`, netifd's logical interfaces, so a login granted this app's ACL alone, which may not read `/etc/config/network`, is offered every one; a saved interface netifd does not list is kept.
 - **Collectors**: a row per installed collector: its title, with its help below; its package (base, or the removable package's name); its switch; and, when it has options, an Edit button. Edit opens LuCI's dialog, as Network → Interfaces does: a field per option by its type, with its help and its datatype, and, read-only, the configs the collector reads and what its jail mounts.
 
-The dialog's Save stages its values in uci, as LuCI's own dialogs do (they show among the unsaved changes), and Dismiss drops them; the page's Save & Apply applies them with the rest. A collector's `config collector` section holds only what differs from the defaults, its switch included: it is added when a value first differs and removed once all are back. Values are checked as they are typed, by their datatype and by the object's `validate`, as the exporter reads them, and again before the dialog stages them and before Save; nothing the exporter would refuse is saved.
+The dialog's Save stages its values in uci, as LuCI's own dialogs do (they show among the unsaved changes), and Dismiss drops them; the page's Save & Apply applies them with the rest. Values are checked as they are typed, by their datatype and by the object's `validate`, as the exporter reads them, and again before the dialog stages them and before Save; nothing the exporter would refuse is saved.
+
+What the page saves states every setting, so the file says what the exporter does without knowing its defaults:
+
+- The Exporter tab writes every field, at its default too (`option enabled '1'`, `option omit_zero_values '0'`); only the TLS files are left out while empty, as uci holds no empty value. A field emptied is refused.
+- A collector has a `config collector` section only while something differs from its defaults, its switch included: it is added when a value first differs, and removed once all are back. While it is there, it holds the switch and every option the collector declares, each written out; a collector whose row did not change keeps its section as it was.
 
 **Status → Prometheus exporter**: whether the service is enabled and runs, where it serves `/metrics`, and each collector's result, duration and error in a scrape run on the router (outside the jail) when the page opens or on Refresh, with what the jail mounts for it.
 

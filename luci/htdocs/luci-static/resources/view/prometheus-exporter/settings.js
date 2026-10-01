@@ -9,13 +9,18 @@
 // Services → Prometheus exporter: /etc/config/prometheus-exporter as a form, in two tabs.
 // Exporter has the main section's options. Collectors has a row per installed collector, as
 // the ubus object's `collectors` lists them: its title and help, its package, its switch,
-// and, when it declares options, an Edit button. Edit opens a dialog with a field per
-// option, whose Save stages them in uci, as LuCI's own dialogs do; the page's Save & Apply
-// applies them with the rest, and Dismiss drops them.
+// and, when it has options, an Edit button. Edit opens a dialog with a field per option
+// (the collector's own, and the core's timeout when it runs programs), whose Save stages
+// them in uci, as LuCI's own dialogs do; the page's Save & Apply applies them with the
+// rest, and Dismiss drops them.
 //
-// A collector's `config collector '<module>'` section holds only what differs from the
-// defaults, its switch included: it is added when a value first differs, and removed once
-// all are back.
+// What is saved states every setting: the main section's fields write their values even
+// at the defaults (but for the TLS files, which are unset without TLS). A collector's
+// `config collector '<module>'` section is there only while something differs from the
+// defaults, its switch included, or a timeout is set; while it is, it holds the switch
+// and every option the collector declares, each written out. timeout is written only
+// when it is set: unset, it follows the collector's own default or the main section's
+// exec_timeout, which writing it would pin.
 //
 // The object's `validate` checks values as the exporter reads them: the main section's
 // while they are typed and again before Save, a dialog's while they are typed and again
@@ -50,6 +55,21 @@ function joined(items, separator) {
 
 function codes(items) {
 	return joined(items.map((item) => E('code', {}, [ String(item) ])), ', ');
+}
+
+// The core's switch, as an option of a collector's section.
+const ENABLED = { name: 'enabled', core: true, type: 'bool', default: true };
+
+// Whether a value is unset: uci holds no empty values.
+function blank(value) {
+	return value == null || value === '';
+}
+
+// Whether an option overrides a default kept elsewhere: the core's timeout, which follows
+// the collector's meta.timeout or the main section's exec_timeout while it is unset. It is
+// written only when it is set.
+function isOverride(o) {
+	return o.core === true && o.name !== 'enabled';
 }
 
 // What a collector's switch holds: on when unset or true, as the exporter takes it, off
@@ -385,13 +405,10 @@ const CollectorTable = form.Value.extend({
 				return null;
 			}
 
-			const values = this.editorValues(editor);
-			const want = {};
+			// The switch as it is on the page: the section is written whole.
+			const values = { ...this.editorValues(editor), enabled: editor.row.enabled.getValue() === '1' ? '1' : '0' };
 
-			for (const f of editor.fields)
-				want[f.option.name] = this.minimal(f.option, values[f.option.name]);
-
-			if (!this.stage(c, want)) {
+			if (!this.stage(c, values)) {
 				this.showEditorProblem(editor, fill(_('The configuration has a section %s of another type, which the exporter ignores: nothing was staged.'),
 					E('code', {}, [ c.id ])));
 				return null;
@@ -417,48 +434,73 @@ const CollectorTable = form.Value.extend({
 		}).catch(() => null);
 	},
 
-	// What a value comes to in the section: null when it is the default, and so unset.
-	minimal(o, value) {
+	// The options a collector's section holds: the switch, its own, and the core's timeout
+	// when it runs programs.
+	declared(c) {
+		return [ ENABLED, ...(c.options ?? []) ];
+	},
+
+	// An option's default as uci holds it.
+	defaultOf(o) {
+		return (o.type === 'bool') ? (o.default === true ? '1' : '0') : String(o.default ?? '');
+	},
+
+	// Whether a value, as uci holds it, is the option's default; an unset one is. A value the
+	// exporter would not read is not.
+	isDefault(o, value) {
+		if (blank(value))
+			return true;
+
 		switch (o.type) {
 		case 'bool':
-			return ((value === '1') === (o.default === true)) ? null : value;
+			return (o.default === true) ? exporter.isTrue(value) : exporter.isFalse(value);
 		case 'int':
-			return (value === '' || (/^-?[0-9]+$/.test(value) && +value === o.default)) ? null : value;
+			return /^-?[0-9]+$/.test(value) && +value === o.default;
 		default:
-			return (value === '' || value === o.default) ? null : value;
+			return value === o.default;
 		}
 	},
 
-	// Writes `want` ({ option: value, or null to unset }) into the collector's section in
-	// LuCI's uci, adding the section when a value is set and removing it once nothing is
-	// left. Options nobody declared keep it. False when the name is another type's section,
-	// which is not ours to change.
-	stage(c, want) {
+	// Stages `changes` ({ option: value as uci holds it, '' or null to unset }) of the
+	// collector's switch and options in LuCI's uci. The section is there while a value
+	// differs from its default, a timeout is set, or it holds options nobody declared (which
+	// are kept); it then holds the switch and every option the collector declares, each
+	// written out, and a timeout only when one is set. It goes once nothing is left. False
+	// when the name is another type's section, which is not ours to change.
+	stage(c, changes) {
 		const id = c.id;
 		const named = uci.get(CONFIG, id);
 
 		if (L.isObject(named) && named['.type'] !== 'collector')
 			return false;
 
-		if (!named) {
-			if (Object.values(want).every((v) => v == null))
-				return true;
+		const values = { ...this.rawValues(id), ...changes };
+		const declared = this.declared(c);
+		const names = declared.map((o) => o.name);
+		const undeclared = Object.keys(values).filter((k) => !names.includes(k) && !blank(values[k]));
+		const needed = undeclared.length > 0 || declared.some((o) =>
+			isOverride(o) ? !blank(values[o.name]) : !this.isDefault(o, values[o.name]));
+
+		if (!needed) {
+			if (named)
+				uci.remove(CONFIG, id);
+			return true;
+		}
+
+		if (!named)
 			uci.add(CONFIG, 'collector', id);
-		}
 
-		for (const name in want) {
-			if (want[name] == null) {
-				if (uci.get(CONFIG, id, name) != null)
-					uci.unset(CONFIG, id, name);
+		for (const o of declared) {
+			const value = blank(values[o.name]) ? (isOverride(o) ? null : this.defaultOf(o)) : String(values[o.name]);
+
+			if (value == null) {
+				if (uci.get(CONFIG, id, o.name) != null)
+					uci.unset(CONFIG, id, o.name);
 			}
-			else if (uci.get(CONFIG, id, name) !== want[name]) {
-				uci.set(CONFIG, id, name, want[name]);
+			else if (uci.get(CONFIG, id, o.name) !== value) {
+				uci.set(CONFIG, id, o.name, value);
 			}
 		}
-
-		const left = Object.keys(uci.get(CONFIG, id) ?? {}).filter((k) => k.charAt(0) !== '.');
-		if (!left.length)
-			uci.remove(CONFIG, id);
 
 		return true;
 	},
@@ -496,7 +538,7 @@ const CollectorTable = form.Value.extend({
 			const on = row.enabled.getValue() === '1';
 
 			if (switchState(this.sectionOf(row.c.id)?.enabled) !== (on ? 'on' : 'off'))
-				this.stage(row.c, { enabled: on ? null : '0' });
+				this.stage(row.c, { enabled: on ? '1' : '0' });
 		}
 
 		return Promise.resolve();
@@ -529,7 +571,7 @@ return view.extend({
 
 		s.tab('exporter', _('Exporter'));
 		s.tab('collectors', _('Collectors'),
-			_('A collector that is switched off is not served. Edit opens its options: Save there stages them, and Save & Apply applies them. Its section in the configuration holds only what differs from the defaults.'));
+			_('A collector that is switched off is not served. Edit opens its options: Save there stages them, and Save & Apply applies them. A collector has a section in the configuration only while something differs from its defaults; the section then states every option.'));
 
 		this.renderMain(s, (L.isObject(ifaces) && Array.isArray(ifaces.interfaces)) ? ifaces.interfaces : []);
 
@@ -590,10 +632,12 @@ return view.extend({
 		return o;
 	},
 
+	// Every field writes its value, even at the default, so the saved section states every
+	// setting; but for the TLS files, unset without TLS. A field left empty is refused.
 	renderMain(s, interfaces) {
 		let o = this.option(s, form.Flag, 'enabled', _('Enable'), _('Off, the service does not start.'));
-		// The init script takes an unset option as enabled: switched on, it is removed.
 		o.default = '1';
+		o.rmempty = false;
 
 		o = this.option(s, ListenSelect, 'listen_interface', _('Listen on'),
 			_('The interface whose addresses serve the metrics, or every address. On loopback only programs on the router reach them.'));
@@ -602,12 +646,16 @@ return view.extend({
 
 		o = this.option(s, form.Value, 'listen_port', _('Port'));
 		o.datatype = 'port';
+		o.default = '9100';
 		o.placeholder = '9100';
+		o.rmempty = false;
 
 		o = this.option(s, form.Value, 'http_keepalive', _('Keep-alive'),
 			_('Seconds an idle connection stays open; 0 closes it after each reply.'));
 		o.datatype = 'uinteger';
+		o.default = '70';
 		o.placeholder = '70';
+		o.rmempty = false;
 
 		o = this.option(s, form.Value, 'cert', _('TLS certificate'),
 			_('With a key, serves HTTPS. Both files must exist, and uhttpd needs a TLS library.'));
@@ -621,6 +669,7 @@ return view.extend({
 		o = this.option(s, form.Flag, 'omit_zero_values', _('Leave out zero values'),
 			_('Leaves out counters that are 0, most of which never move on a router.'));
 		o.default = '0';
+		o.rmempty = false;
 	},
 
 	// The form's values as the object's validate takes them: empty fields left out, as unset.

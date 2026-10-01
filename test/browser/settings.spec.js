@@ -90,6 +90,39 @@ test.describe('Services → Prometheus exporter', () => {
     await h.screenshot(page, 'settings-custom');
   });
 
+  test('shows every field at its value, the defaults included', async ({ page, request }) => {
+    await h.useConfig(request, 'gone');
+    await h.openSettings(page);
+    await expect(flag(page, 'enabled')).toBeChecked();
+    await expect(field(page, 'listen_port')).toHaveValue('9100');
+    await expect(field(page, 'http_keepalive')).toHaveValue('70');
+    await expect(flag(page, 'omit_zero_values')).not.toBeChecked();
+    await expect(field(page, 'cert')).toHaveValue('');
+  });
+
+  test('writes every setting of the main section on Save & Apply, the defaults included, but no empty TLS file', async ({ page, request }) => {
+    await h.useConfig(request, 'gone');
+    expect((await savedSections(request)).main).toEqual({ '.type': h.CONFIG, listen_interface: 'vpn', listen_port: '9100' });
+    await h.openSettings(page);
+    await saveAndApply(page);
+    await applied(page);
+    expect((await savedSections(request)).main).toEqual({
+      '.type': h.CONFIG, enabled: '1', listen_interface: 'vpn', listen_port: '9100', http_keepalive: '70', omit_zero_values: '0',
+    });
+  });
+
+  test('refuses to save an emptied field rather than leave the setting out', async ({ page, request }) => {
+    const before = await h.readConfig(request);
+    await h.openSettings(page);
+    await field(page, 'http_keepalive').fill('');
+    await expect(field(page, 'http_keepalive')).toHaveClass(/cbi-input-invalid/);
+    await saveAndApply(page);
+    await expect(h.modal(page)).toContainText('An error occurred while saving the form');
+    await expect(h.modal(page)).toContainText('Keep-alive');
+    await dismissDialog(page);
+    expect(await h.readConfig(request)).toBe(before);
+  });
+
   test('offers every address and netifd\'s interfaces to listen on, as the ubus object lists them', async ({ page, request }) => {
     const reply = await h.ubus(request, h.CONFIG, 'interfaces', {});
     await h.openSettings(page);
@@ -145,21 +178,27 @@ test.describe('Services → Prometheus exporter', () => {
     await expect(toggle(page, 'wifi')).toBeChecked();
   });
 
-  test('switching a collector off saves only that, and switching it on again removes its section', async ({ page, request }) => {
+  test('switching a collector off writes its section, every option stated, and switching it on again removes it', async ({ page, request }) => {
     await h.openSettings(page);
     await h.showTab(page, 'collectors');
     await toggle(page, 'loadavg').uncheck();
+    await toggle(page, 'wifi').uncheck();
     await saveAndApply(page);
     await applied(page);
-    expect((await savedSections(request)).loadavg).toEqual({ '.type': 'collector', enabled: '0' });
+    let saved = await savedSections(request);
+    expect(saved.loadavg).toEqual({ '.type': 'collector', enabled: '0' });
+    expect(saved.wifi).toEqual({ '.type': 'collector', enabled: '0', stations: '1' });
 
     await h.openSettings(page);
     await h.showTab(page, 'collectors');
     await expect(toggle(page, 'loadavg')).not.toBeChecked();
     await toggle(page, 'loadavg').check();
+    await toggle(page, 'wifi').check();
     await saveAndApply(page);
     await applied(page);
-    expect((await savedSections(request)).loadavg).toBeUndefined();
+    saved = await savedSections(request);
+    expect(saved.loadavg).toBeUndefined();
+    expect(saved.wifi).toBeUndefined();
   });
 
   test('Edit opens a dialog with a field per option, by its type, with its help, and what the collector reads', async ({ page }) => {
@@ -203,9 +242,13 @@ test.describe('Services → Prometheus exporter', () => {
     await checkbox(page, 'sampler', 'verbose').check();
     await saveDialog(page);
 
-    // Staged in uci for this login, as LuCI's own dialogs do; nothing written yet.
+    // Staged in uci for this login, as LuCI's own dialogs do, every option written out;
+    // nothing written yet.
     const changes = await h.staged(page);
-    expect(changes[h.CONFIG]).toEqual([ [ 'set', 'sampler', 'collector' ], [ 'set', 'sampler', 'retries', '5' ], [ 'set', 'sampler', 'verbose', '1' ] ]);
+    expect(changes[h.CONFIG]).toEqual([
+      [ 'set', 'sampler', 'collector' ], [ 'set', 'sampler', 'enabled', '1' ], [ 'set', 'sampler', 'retries', '5' ],
+      [ 'set', 'sampler', 'verbose', '1' ], [ 'set', 'sampler', 'label', 'node' ],
+    ]);
     expect(await h.readConfig(request)).toBe(before);
     await expect(page.locator('#indicators [data-indicator="uci-changes"]')).toContainText('Unsaved Changes');
 
@@ -217,15 +260,17 @@ test.describe('Services → Prometheus exporter', () => {
 
     await saveAndApply(page);
     await applied(page);
-    expect((await savedSections(request)).sampler).toEqual({ '.type': 'collector', retries: '5', verbose: '1' });
+    const written = { '.type': 'collector', enabled: '1', retries: '5', verbose: '1', label: 'node' };
+    expect((await savedSections(request)).sampler).toEqual(written);
 
     await h.openSettings(page);
     await h.editCollector(page, 'sampler');
     await expect(option(page, 'sampler', 'retries')).toHaveValue('5');
+    await expect(option(page, 'sampler', 'label')).toHaveValue('node');
     await option(page, 'sampler', 'retries').fill('3');
     await checkbox(page, 'sampler', 'verbose').uncheck();
     await saveDialog(page);
-    expect((await savedSections(request)).sampler).toEqual({ '.type': 'collector', retries: '5', verbose: '1' });
+    expect((await savedSections(request)).sampler).toEqual(written);
     await saveAndApply(page);
     await applied(page);
     expect((await savedSections(request)).sampler).toBeUndefined();
@@ -243,8 +288,11 @@ test.describe('Services → Prometheus exporter', () => {
     await page.keyboard.press('Escape');
     await expect(h.modal(page)).toBeHidden();
 
+    // The config as the package ships it states every setting already: nothing to apply.
+    const before = await h.readConfig(request);
     await saveAndApply(page);
-    await applied(page);
+    await expect(page.getByText('There are no changes to apply')).toBeVisible();
+    expect(await h.readConfig(request)).toBe(before);
     expect((await savedSections(request)).sampler).toBeUndefined();
   });
 
@@ -271,9 +319,12 @@ test.describe('Services → Prometheus exporter', () => {
     await saveAndApply(page);
     await applied(page);
     const saved = await savedSections(request);
-    expect(saved.textfile).toEqual({ '.type': 'collector', enabled: '0' });
+    // The changed row's section states every option; the other, as it was saved, is left.
+    expect(saved.textfile).toEqual({ '.type': 'collector', enabled: '0', directory: '/var/prometheus' });
     expect(saved.wifi).toEqual({ '.type': 'collector', stations: '0' });
-    expect(saved.main).toEqual({ '.type': h.CONFIG, listen_interface: '*', listen_port: '9102', http_keepalive: '0', omit_zero_values: '1' });
+    expect(saved.main).toEqual({
+      '.type': h.CONFIG, enabled: '1', listen_interface: '*', listen_port: '9102', http_keepalive: '0', omit_zero_values: '1',
+    });
   });
 
   test('the dialog checks values as they are typed, by the option\'s datatype and as the exporter reads them, and stages nothing it refuses', async ({ page, request }) => {
@@ -365,7 +416,7 @@ test.describe('Services → Prometheus exporter, for a login with the app\'s ACL
     await applied(page);
     const saved = await savedSections(request);
     expect(saved.main.listen_port).toBe('9103');
-    expect(saved.wifi).toEqual({ '.type': 'collector', stations: '0' });
+    expect(saved.wifi).toEqual({ '.type': 'collector', enabled: '1', stations: '0' });
 
     const sid = await h.sessionOf(request, h.APP_USER);
     expect(h.denied(await h.rawCall(request, sid, 'uci', 'get', { config: 'network' }))).toBe(true);
