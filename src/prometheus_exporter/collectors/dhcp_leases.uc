@@ -207,7 +207,7 @@ function ledger() {
 
 	return {
 		count: function(server, iface, family, n) {
-			let key = join('\x1f', [ server, iface ?? '', family ]);
+			let key = `${server}\x1f${iface ?? ''}\x1f${family}`;
 
 			if (!counts[key]) {
 				counts[key] = { labels: { server, interface: iface, family }, n: 0 };
@@ -358,8 +358,12 @@ export function collect(deps, out, options) {
 			continue;
 		seen[key] = true;
 
-		let id = { server: l.server, interface: l.interface, family: l.family, address: l.address };
-		info({ ...id, mac: l.mac, duid: l.duid, iaid: l.iaid, hostname: l.hostname }, 1);
+		// The info's labels are the id's and then the client's: the id's are
+		// written once, for both families.
+		let id = out.labels({ server: l.server, interface: l.interface, family: l.family, address: l.address });
+		let client = out.labels({ mac: l.mac, duid: l.duid, iaid: l.iaid, hostname: l.hostname });
+
+		info(id == '' ? client : (client == '' ? id : substr(id, 0, -1) + ',' + substr(client, 1)), 1);
 		if (l.expiry != null)
 			expiry(id, l.expiry);
 	}
