@@ -10,7 +10,7 @@ RUN          = $(COMPOSE) --progress quiet run --rm $(if $(CI),-T) openwrt
 IMAGE_STAMP := devenv/.built-$(IMAGE_TAG)
 TEST_ARGS    = $(if $(FILTER),-f '$(FILTER)') $(if $(VERBOSE),-v) $(MODULES)
 
-.PHONY: test unit integration watch lint shell image fixtures package pkgcheck-image package-check e2e lab lab-down browser pot bench bench-worlds bench-device
+.PHONY: test unit integration watch lint shell image fixtures package pkgcheck-image package-check e2e lab lab-down browser pot bench bench-src bench-worlds bench-device
 
 test:        $(IMAGE_STAMP) ; @$(RUN) devenv/scripts/test.sh all $(TEST_ARGS)
 unit:        $(IMAGE_STAMP) ; @$(RUN) devenv/scripts/test.sh unit $(TEST_ARGS)
@@ -109,27 +109,36 @@ lab-down:
 # scaling budgets, and unconstrained the time budgets too (test/bench/budgets.uc).
 # BENCH_CPUS, BENCH_CPUSET and BENCH_MEMORY are docker's --cpus, --cpuset-cpus
 # and --memory: a slower router. BENCH_ARGS go to bench.uc (-r 1: one run each).
+# BENCH_REV benches the exporter of another revision (src/ only) with this
+# bench: BENCH_REV=main for a before and after.
 BENCH_LIMITS = $(strip $(if $(BENCH_CPUS),--cpus $(BENCH_CPUS)) $(if $(BENCH_CPUSET),--cpuset-cpus $(BENCH_CPUSET)) \
 	$(if $(BENCH_MEMORY),--memory $(BENCH_MEMORY) --memory-swap $(BENCH_MEMORY)))
-BENCH_LABEL ?= devenv$(if $(BENCH_CPUS),-cpus$(BENCH_CPUS))$(if $(BENCH_CPUSET),-cpuset$(BENCH_CPUSET))$(if $(BENCH_MEMORY),-mem$(BENCH_MEMORY))
+BENCH_LABEL ?= devenv$(if $(BENCH_REV),-$(BENCH_REV))$(if $(BENCH_CPUS),-cpus$(BENCH_CPUS))$(if $(BENCH_CPUSET),-cpuset$(BENCH_CPUSET))$(if $(BENCH_MEMORY),-mem$(BENCH_MEMORY))
+BENCH_SRC    = $(if $(BENCH_REV),bin/bench/rev-$(BENCH_REV),.)
+export BENCH_SRC
 
-bench: pkgcheck-image
+bench-src:
+	@$(if $(BENCH_REV),rm -rf $(BENCH_SRC) && mkdir -p $(BENCH_SRC) && git archive '$(BENCH_REV)' src | tar -x -C $(BENCH_SRC))
+
+bench: pkgcheck-image bench-src
 	@mkdir -p bin/bench && chmod a+rwx bin bin/bench
 	@docker run --rm --network none $(BENCH_LIMITS) -v $(CURDIR):/exporter:ro -v $(CURDIR)/bin:/artifacts \
+		$(if $(BENCH_REV),-v $(CURDIR)/$(BENCH_SRC)/src:/exporter/src:ro) \
 		$(PKGCHECK_IMAGE) /exporter/devenv/scripts/bench.sh run /tmp/bench-worlds /artifacts/bench/$(BENCH_LABEL).json \
-		$(BENCH_LABEL) -c $(if $(BENCH_LIMITS),,-a) $(if $(FILTER),-f '$(FILTER)') $(BENCH_ARGS)
+		$(BENCH_LABEL) -c $(if $(BENCH_LIMITS)$(BENCH_REV),,-a) $(if $(FILTER),-f '$(FILTER)') $(BENCH_ARGS)
 
-# The worlds in bin/bench/worlds, for bench-device and bench-qemu.
+# The worlds in bin/bench/worlds, for bench-device.
 bench-worlds: pkgcheck-image
 	@mkdir -p bin/bench && chmod a+rwx bin bin/bench && rm -rf bin/bench/worlds
 	@docker run --rm --network none -u $$(id -u):$$(id -g) -v $(CURDIR):/exporter:ro -v $(CURDIR)/bin:/artifacts \
 		$(PKGCHECK_IMAGE) /exporter/devenv/scripts/bench.sh gen /artifacts/bench/worlds
 
 # The benchmark on a device over ssh, from /tmp, removed afterwards; nothing
-# is installed: make bench-device HOST=router [BENCH_LABEL=router]
-bench-device: bench-worlds
-	@devenv/scripts/bench-device.sh '$(HOST)' '$(or $(filter-out devenv,$(BENCH_LABEL)),$(HOST))' \
-		-c $(if $(FILTER),-f '$(FILTER)') $(BENCH_ARGS)
+# is installed: make bench-device HOST=router [BENCH_DEVICE_LABEL=router] [BENCH_REV=]
+BENCH_DEVICE_LABEL ?= $(HOST)$(if $(BENCH_REV),-$(BENCH_REV))
+
+bench-device: bench-worlds bench-src
+	@devenv/scripts/bench-device.sh '$(HOST)' '$(BENCH_DEVICE_LABEL)' -c $(if $(FILTER),-f '$(FILTER)') $(BENCH_ARGS)
 
 # ---- luci-app-prometheus-exporter --------------------------------------------
 LUCI_IMAGE    := ucode-prometheus-exporter-luci:$(OPENWRT_ARCH)-$(OPENWRT_VERSION)

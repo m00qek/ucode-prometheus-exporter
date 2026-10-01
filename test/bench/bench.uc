@@ -1,9 +1,11 @@
 'use strict';
 
-// The benchmark: runs each case of run.uc in a process of its own, prints a
-// table and writes the results as JSON; with -c, checks them against the
-// scaling budgets (budgets.uc), with -a the time budgets of the devenv too,
-// and exits 1 when one is over.
+// The benchmark: runs each case of run.uc, a process for each run (as uhttpd
+// forks one per request), at least MIN_REPS times (3) and until MIN_SECONDS
+// (1) are spent, at most 10 times; prints a table of the fastest and the
+// median run and the largest peak, and writes the results as JSON. With -c it
+// checks them against the scaling and memory budgets (budgets.uc), with -a
+// the time budgets of the devenv too, and exits 1 when one is over.
 //
 //   ucode -L src -L test test/bench/bench.uc -w WORLDS -o OUT.json [-l LABEL] [-f REGEX]
 //         [-t MIN_SECONDS] [-r MIN_REPS] [-c [-a]]
@@ -46,8 +48,11 @@ if (!args.worlds || !args.out)
 	usage();
 
 let sets = json(fs.readfile(`${args.worlds}/sets.json`) ?? die(`no ${args.worlds}/sets.json`));
+// The exporter is the source tree's beside the bench, or else the installed
+// one (/usr/share/ucode), as in QEMU, where the packages are installed.
 let here = fs.dirname(sourcepath());
 let src = fs.realpath(`${here}/../../src`), test = fs.realpath(`${here}/..`);
+let search = (src ? `-L '${src}' ` : '') + `-L '${test}'`;
 
 // [ world, case ]
 let cases = [ [ 'large', 'load:base' ], [ 'large', 'load:full' ] ];
@@ -81,9 +86,8 @@ function host() {
 	return { model, cpu, cpus, kernel: trim(fs.readfile('/proc/sys/kernel/osrelease') ?? '') };
 }
 
-function run(world, name) {
-	let cmd = sprintf("ucode -L '%s' -L '%s' '%s/run.uc' '%s/%s' '%s' %s %d 2>&1",
-		src, test, here, args.worlds, world, name, '' + args.min_seconds, args.min_reps);
+function run_once(world, name) {
+	let cmd = sprintf("ucode %s '%s/run.uc' '%s/%s' '%s' 2>&1", search, here, args.worlds, world, name);
 	let p = fs.popen(cmd, 'r');
 	let out = p.read('all');
 	let status = p.close();
@@ -100,6 +104,50 @@ function run(world, name) {
 		return { case: name, ok: false, error: `exit ${status}: ${join(' | ', slice(lines, -3))}` };
 
 	return res;
+}
+
+function now() {
+	let t = clock(true);
+	return t[0] + t[1] / 1000000000.0;
+}
+
+function median(list) {
+	let s = sort([ ...list ], (a, b) => a - b);
+	let n = length(s);
+
+	return n % 2 ? s[n / 2] : (s[n / 2 - 1] + s[n / 2]) / 2.0;
+}
+
+function stats(list) {
+	list = filter(list, (v) => v != null);
+	return length(list) ? { min: min(...list), median: median(list) } : null;
+}
+
+// A case's runs as one result: the last run's, with the times of all of them,
+// and the largest peak. A run that fails ends the case.
+function run(world, name) {
+	let runs = [];
+	let started = now();
+
+	while (length(runs) < args.min_reps || (now() - started < args.min_seconds && length(runs) < 10)) {
+		let r = run_once(world, name);
+
+		push(runs, r);
+		if (r.ok === false && r.time == null)
+			return r;
+	}
+
+	return {
+		...runs[-1],
+		reps: length(runs),
+		time: stats(map(runs, (r) => r.time)),
+		render: stats(map(runs, (r) => r.render)),
+		// A scrape's medians: its collectors' durations, and the rest.
+		collecting: stats(map(runs, (r) => r.collecting))?.median,
+		outside: stats(map(runs, (r) => r.outside))?.median,
+		hwm_kb: max(...map(runs, (r) => r.hwm_kb ?? 0)),
+		growth_kb: max(...map(runs, (r) => r.growth_kb ?? 0)),
+	};
 }
 
 function ms(s) {
@@ -123,7 +171,7 @@ for (let c in cases) {
 		ms(r.render?.min), r.samples ?? '-', r.growth_kb ?? '-', note));
 }
 
-let report = { label: args.label, date: time(), host: host(), min_seconds: args.min_seconds, min_reps: args.min_reps, results };
+let report = { label: args.label, date: time(), host: host(), exporter: src ?? 'installed', min_seconds: args.min_seconds, min_reps: args.min_reps, results };
 let status = 0;
 
 if (args.check) {

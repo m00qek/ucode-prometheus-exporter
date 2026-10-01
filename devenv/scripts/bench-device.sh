@@ -21,7 +21,8 @@ cleanup() { ssh "$host" "rm -rf '$dir'" || true; }
 trap cleanup EXIT INT TERM
 
 ssh "$host" "rm -rf '$dir' && mkdir -p '$dir'"
-tar -czf - src test/bench test/lib/commands.uc devenv/scripts/bench.sh -C bin/bench worlds |
+# BENCH_SRC: the directory whose src/ is benched (make's BENCH_REV), else this one's.
+tar -czf - -C "${BENCH_SRC:-.}" src -C "$PWD" test/bench test/lib/commands.uc devenv/scripts/bench.sh -C "$PWD/bin/bench" worlds |
 	ssh "$host" "tar -xzf - -C '$dir'"
 mkdir -p bin/bench
 ssh "$host" "cd '$dir' && sh devenv/scripts/bench.sh run '$dir/worlds' '$dir/out.json' '$label' $*"
