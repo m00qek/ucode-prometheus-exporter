@@ -6,8 +6,12 @@
 // The peers' traffic and handshakes as prometheus_wireguard_exporter
 // (github.com/MindFlavor/prometheus_wireguard_exporter) names and labels them,
 // so its dashboards work: {interface, public_key, allowed_ips, friendly_name},
-// the friendly name being the peer's description in /etc/config/network, and
-// its help texts. The interfaces and the rest of each peer are info metrics.
+// and its help texts. The interfaces and the rest of each peer are info metrics.
+//
+// The friendly name is the peer's description in /etc/config/network, only
+// with peer_names. That file holds the interfaces' private keys, so it is not
+// read, nor in the jail: rpcd's uci object hands over the interface's peer
+// sections alone, and all but each one's public key and description is let go.
 
 import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
@@ -15,9 +19,14 @@ import * as errors from 'prometheus_exporter.errors';
 export const meta = {
 	name: 'wireguard',
 	title: 'WireGuard',
-	help: 'WireGuard interfaces and peers, from ubus wireguard status and the network config.',
-	needs: [ 'ubus', 'uci' ],
-	configs: [ 'network' ],
+	help: 'WireGuard interfaces and peers, from ubus wireguard status.',
+	needs: [ 'ubus' ],
+	options: {
+		peer_names: {
+			default: false,
+			help: 'Label each peer with its description in the network config (friendly_name), asked of rpcd: the peer sections alone, never the private keys.',
+		},
+	},
 };
 
 // ubus hands 16- and 32-bit integers on as signed ones: a listen port of 51820
@@ -26,15 +35,18 @@ function unsigned(v, bits) {
 	return type(v) == 'int' && v < 0 ? v + (1 << bits) : v;
 }
 
-// { public key: description } of an interface's peers in /etc/config/network.
-function descriptions(network, loaded, iface) {
+// { public key: description } of an interface's peers in /etc/config/network,
+// as rpcd's uci object gives its `wireguard_<iface>` sections. Without them
+// (no such section, rpcd failing) the peers have no friendly name.
+function descriptions(ubus, iface) {
 	let by_key = {};
+	let kind = `wireguard_${iface}`;
+	let res = ubus.call('uci', 'get', { config: 'network', type: kind });
 
-	if (loaded)
-		network.foreach(`wireguard_${iface}`, (s) => {
-			if (s.public_key != null && s.description != null)
+	if (res.ok && type(res.data?.values) == 'object')
+		for (let name, s in res.data.values)
+			if (type(s) == 'object' && s['.type'] == kind && type(s.public_key) == 'string' && type(s.description) == 'string')
 				by_key[s.public_key] = s.description;
-		});
 
 	return by_key;
 }
@@ -46,15 +58,13 @@ export function allowed_ips(list) {
 	return length(list) ? join(',', list) : null;
 };
 
-export function collect(deps, out) {
+export function collect(deps, out, options) {
 	let res = deps.ubus.call('wireguard', 'status');
 
 	if (!res.ok)
 		return res;
 	if (type(res.data) != 'object')
 		return Result.err(errors.SOURCE_INVALID, 'wireguard status: not an object');
-
-	let loaded = deps.uci.network.loaded();
 
 	let iface_info = out.gauge('wireguard_interface_info', 'A WireGuard interface.');
 	let peer_info = out.gauge('wireguard_peer_info', 'A WireGuard peer.');
@@ -74,7 +84,7 @@ export function collect(deps, out) {
 			fwmark: unsigned(wc.fwmark, 32) || null,
 		}, 1);
 
-		let desc = descriptions(deps.uci.network, loaded, iface);
+		let desc = options.peer_names ? descriptions(deps.ubus, iface) : {};
 
 		for (let key, pc in wc.peers) {
 			if (type(pc) != 'object')

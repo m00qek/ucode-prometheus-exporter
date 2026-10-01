@@ -38,7 +38,8 @@ test.describe('Status → Prometheus exporter', () => {
     // dnsmasq is enabled here, and does not run: the collector runs, and says why it failed.
     await expect(cell(page, 'dhcp_leases', 2)).toHaveText('Failed');
     await expect(cell(page, 'dhcp_leases', 4)).toContainText('SOURCE_UNREADABLE (dnsmasq is enabled, without its lease file');
-    await expect(cell(page, 'wireguard', 5)).toHaveText('/etc/config/network');
+    // wireguard names peers through rpcd, with peer_names: no config of its own.
+    await expect(cell(page, 'wireguard', 5)).toHaveText('');
     await expect(cell(page, 'dhcp_leases', 5)).toContainText('/etc/config/dhcp');
     await expect(h.section(page, 'Collectors').locator('p').first())
       .toHaveText(/^\d+ of \d+ collectors that ran succeeded\. \d+ had nothing to observe: their hardware, kernel feature or service is not there\.$/);

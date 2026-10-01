@@ -122,7 +122,7 @@ The other `dsl_*` families are unchanged.
 | `wireguard_received_bytes_total{interface,public_key}` | `wireguard_received_bytes_total{interface,public_key,allowed_ips,friendly_name}` | counter | prometheus_wireguard_exporter's labels and help. |
 | `wireguard_latest_handshake_seconds{interface,public_key}` | `wireguard_latest_handshake_seconds{interface,public_key,allowed_ips,friendly_name}` | gauge | prometheus_wireguard_exporter's labels and help. |
 | `wireguard_interface_info{name,public_key,listen_port,fwmark}` | `wireguard_interface_info{interface,public_key,listen_port,fwmark}` | gauge | `interface`, as in the other families; an unset fwmark is left out, not `NaN`. |
-| `wireguard_peer_info{interface,public_key,description,endpoint,persistent_keepalive_interval}` | `wireguard_peer_info{interface,public_key,friendly_name,endpoint,persistent_keepalive_interval}` | gauge | `friendly_name`, as in the other families; an unset keepalive is left out, not `NaN`. |
+| `wireguard_peer_info{interface,public_key,description,endpoint,persistent_keepalive_interval}` | `wireguard_peer_info{interface,public_key,friendly_name,endpoint,persistent_keepalive_interval}` | gauge | `friendly_name`, as in the other families, and only with the collector's `peer_names` (the old one always had `description`); an unset keepalive is left out, not `NaN`. |
 
 ### mwan3
 

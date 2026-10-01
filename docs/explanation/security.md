@@ -14,7 +14,7 @@ Some declarations are refused outright: a path that is not absolute or not plain
 
 The jail is a boundary for the exporter's own mistakes as much as for an attacker's: a collector that parses something wrong cannot write anywhere, and one whose program hangs is killed with everything it started.
 
-Read-only is not the same as harmless. The wireguard collector reads `/etc/config/network`, for the peers' descriptions, and that file holds WireGuard's private keys: with wireguard installed and enabled, the jail can read them. The collector writes none of them, and no other collector can reach that file unless it declares it, but it is there. The ubus object's `interfaces`, by contrast, asks netifd, so that a LuCI user allowed the exporter's object alone gets interface names without the file.
+Read-only is not the same as harmless, so some files stay out of the jail whoever reads around them. `/etc/config/network` holds WireGuard's private keys: the wireguard collector does not declare it, and names peers by their descriptions only with `peer_names`, asking rpcd's `uci` object for the interface's peer sections alone and letting go of all but each one's public key and description. That keeps the keys out of the jail's files, where a mistake in reading a path could reach them; it is not a wall against an exporter that runs code it should not, which, as root with ubus, could ask rpcd for the whole config. The ubus object's `interfaces`, by contrast, asks netifd, so that a LuCI user allowed the exporter's object alone gets interface names without the file.
 
 ## What collectors get
 

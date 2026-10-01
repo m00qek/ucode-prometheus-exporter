@@ -797,17 +797,17 @@ Wi-Fi stations of each interface, from ubus network.wireless and nl80211.
 
 ## `wireguard` {#wireguard}
 
-WireGuard interfaces and peers, from ubus wireguard status and the network config.
+WireGuard interfaces and peers, from ubus wireguard status.
 
 - **Title:** WireGuard
 - **Package:** `ucode-prometheus-exporter-wireguard`
 - **In the groups:** `ucode-prometheus-exporter-full`
 - **Depends on:** `rpcd-mod-wireguard`
 - **Section:** `config collector 'wireguard'`
-- **Needs:** `ubus`, `uci`
-- **Reads the configs:** `/etc/config/network`
+- **Needs:** `ubus`
 - **Metrics:** [wireguard](metrics.md#wireguard)
 
 | Option | Type | Default | Datatype | Description |
 | :--- | :--- | :--- | :--- | :--- |
+| `peer_names` | boolean | `0` | — | Label each peer with its description in the network config (friendly\_name), asked of rpcd: the peer sections alone, never the private keys. |
 | `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |

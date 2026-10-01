@@ -68,7 +68,7 @@ The password is checked against the hash: `$1$` (MD5-crypt), `$5$` (SHA-256-cryp
 
 ## Keep-alive
 
-uhttpd keeps an idle connection open `http_keepalive` seconds (70), with `-k`. At `0` the init script leaves `-k` out, and uhttpd keeps its own default, 20 seconds: `Keep-Alive: timeout=20`.
+uhttpd keeps an idle connection open `http_keepalive` seconds (70), with `-k`: `Keep-Alive: timeout=70`. At `0` it answers `Connection: close` and closes each connection once it has answered.
 
 ## See also
 

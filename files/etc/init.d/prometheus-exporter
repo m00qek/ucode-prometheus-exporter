@@ -97,7 +97,9 @@ start_service() {
 
 	procd_set_param command /usr/sbin/uhttpd -f -c "${auth:-/dev/null}" -h /dev/null -S -D -o /metrics -O "$HANDLER"
 	[ -z "$auth" ] || procd_append_param command -r "$REALM"
-	[ "$keepalive" -gt 0 ] && procd_append_param command -k "$keepalive"
+	# Always: without -k uhttpd keeps its own 20 seconds, and -k 0 closes each
+	# connection once it has answered.
+	procd_append_param command -k "$keepalive"
 
 	if [ -f "$cert" ] && [ -f "$key" ]; then
 		listen=-s

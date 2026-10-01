@@ -116,6 +116,10 @@ eventually "the base package starts the service" "$INIT" running
 check "it takes over the old exporter's settings" test "$(uci -q get $NAME.main.http_keepalive) $(uci -q get $NAME.wifi.stations)" = "30 0"
 check "but not its default port" test "$(uci -q get $NAME.main.listen_port)" = 9100
 check "and serves with them" says ' -k 30 ' command_line
+uci set $NAME.main.http_keepalive=0 && uci commit $NAME && "$INIT" reload
+eventually "keep-alive 0 has uhttpd close each connection" says ' -k 0 ' command_line
+uci set $NAME.main.http_keepalive=30 && uci commit $NAME && "$INIT" reload
+eventually "and back at 30, keeps it 30 seconds" says ' -k 30 ' command_line
 check "it leaves the old config as it was" test "$(md5sum <"$OLD")" = "$old_sum"
 check "it logs what it took, at info" says "daemon.info $NAME: imported from $OLD: http_keepalive=30, collector wifi" logread
 check "its uci-defaults script runs once" test ! -e /etc/uci-defaults/$NAME-import
@@ -147,7 +151,8 @@ check "and mounts it" mounted "${NTPD_STATE%/*}"
 check "timesync is served with busybox ntpd running" served timesync
 eventually "busybox ntpd's event, through hotplug.ntp, says it is synchronized, in the jail" synced
 check "the hotplug script keeps it, written whole" grep -qx 'action=stratum' "$NTPD_STATE"
-check "and leaves no temporary file" test "$(ls "${NTPD_STATE%/*}")" = ntpd
+# A real ntpd event may be writing its own at that moment.
+eventually "and leaves no temporary file" test "$(ls "${NTPD_STATE%/*}")" = ntpd
 ubus call hotplug.ntp call '{"env":["ACTION=stratum"]}'; sleep 1
 check "chrony's own event, without busybox's environment, is not kept" grep -qx 'stratum=2' "$NTPD_STATE"
 eventually "losing sync, it is not" unsynced
@@ -189,7 +194,7 @@ all_answer() { [ "$(fetch | grep -c '^node_scrape_collector_success{')" -eq "$(i
 eventually "every installed collector is served" all_answer
 check "the ubus object lists the new collectors too" rpc_lists_all
 check "its mounts are still what jail.uc prints" mounts_match_jail
-check "the jail has the configs its collectors read" test "$(jail_configs | tr '\n' ' ')" = "chrony dhcp network $NAME ubnt-manager "
+check "the jail has the configs its collectors read" test "$(jail_configs | tr '\n' ' ')" = "chrony dhcp $NAME ubnt-manager "
 check "the service makes textfile's directory" test -d /var/prometheus
 check "and says so, at info" says "daemon.info $NAME: made /var/prometheus$" logread
 check "and mounts it" mounted /var/prometheus

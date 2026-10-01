@@ -368,8 +368,7 @@ function uci_dhcp(p) {
 
 function wireguard(p, rand) {
 	let peers = {};
-	let uci = "config interface 'loopback'\n\toption device 'lo'\n\toption proto 'static'\n\n" +
-		"config interface 'wg0'\n\toption proto 'wireguard'\n\n";
+	let sections = {};
 
 	for (let i = 0; i < p.peers; i++) {
 		let key = sprintf('%040d=', i);
@@ -378,10 +377,12 @@ function wireguard(p, rand) {
 			last_handshake: 1790800000 + rand(1000), rx_bytes: rand(100000000), tx_bytes: rand(100000000),
 			persistent_keepalive_interval: 25,
 		};
-		uci += sprintf("config wireguard_wg0\n\toption public_key '%s'\n\toption description 'peer %d'\n\n", key, i);
+		sections[sprintf('cfg%06x', i)] = { '.anonymous': true, '.type': 'wireguard_wg0', '.name': sprintf('cfg%06x', i),
+			'.index': i + 2, public_key: key, description: sprintf('peer %d', i) };
 	}
 
-	return { status: { wg0: { ifindex: 30, public_key: sprintf('%040d=', 999), listen_port: 51820, peers } }, uci };
+	// uci_get: rpcd's `uci get { config: network, type: wireguard_wg0 }`, peer_names on.
+	return { status: { wg0: { ifindex: 30, public_key: sprintf('%040d=', 999), listen_port: 51820, peers } }, uci_get: { values: sections } };
 }
 
 // ---- programs ------------------------------------------------------------------
@@ -671,10 +672,10 @@ function generate(dir, profile) {
 	put(root, '/tmp/dhcp.leases', leasefile(p, rand));
 	put(root, '/etc/config/dhcp', uci_dhcp(p));
 	let wg = wireguard(p, rand);
-	put(root, '/etc/config/network', wg.uci);
 	put(root, '/etc/config/prometheus-exporter',
 		"config prometheus-exporter 'main'\n\toption enabled '1'\n\n" +
-		"config collector 'dhcp_leases'\n\toption leases '1'\n\n");
+		"config collector 'dhcp_leases'\n\toption leases '1'\n\n" +
+		"config collector 'wireguard'\n\toption peer_names '1'\n\n");
 
 	// ubus
 	world.ubus['system:board'] = fixture_json('caju-router/ubus/system.board.json');
@@ -684,6 +685,7 @@ function generate(dir, profile) {
 	world.ubus['dhcp:ipv4leases'] = { device: {} };
 	world.ubus['dhcp:ipv6leases'] = odhcpd(p, rand);
 	world.ubus['wireguard:status'] = wg.status;
+	world.ubus['uci:get'] = wg.uci_get;
 
 	// timesync: busybox ntpd runs, synchronized, as its last event says; no
 	// chronyd (rc knows no init script of that name).
