@@ -3,15 +3,15 @@
 'require rpc';
 'require validation';
 
-// Shared by the Prometheus exporter's views: the calls of its rpcd plugin, the
-// `regex` datatype its collectors' options may name, and helpers for text.
+// Shared by the Prometheus exporter's views: the calls of its ubus object, which
+// the exporter's own package serves through rpcd, the `regex` datatype its
+// collectors' options may name, and helpers for text.
 //
 // Every string from the router (collector names, help, packages, paths, errors)
 // ends up in a text node: E() gets children as arrays only, and fill() puts data
 // between the pieces of a translated template instead of formatting it into markup.
 
-// The exporter's uci config, and the object of its rpcd plugin: both take the name
-// of its package.
+// The exporter's uci config, and its ubus object: both take the name of its service.
 const CONFIG = 'prometheus-exporter';
 
 const callCollectors = rpc.declare({
@@ -23,6 +23,13 @@ const callValidate = rpc.declare({
 	object: CONFIG,
 	method: 'validate',
 	params: [ 'main', 'collectors' ]
+});
+
+// netifd's logical interfaces, by name and protocol: what the listen interface
+// takes. The object reads them for a login that may not read the network config.
+const callInterfaces = rpc.declare({
+	object: CONFIG,
+	method: 'interfaces'
 });
 
 // Runs a scrape of the enabled collectors on the router, so it is only called on
@@ -113,6 +120,10 @@ return baseclass.extend({
 
 	status() {
 		return callStatus();
+	},
+
+	interfaces() {
+		return callInterfaces();
 	},
 
 	// A collector's title, with its name when that differs.
