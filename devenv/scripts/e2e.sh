@@ -13,6 +13,8 @@ NAME=prometheus-exporter
 INIT=/etc/init.d/$NAME
 LIBEXEC=/usr/libexec/$NAME
 URL=http://127.0.0.1:9100/metrics
+# The exporter's state, which the jail mounts read-write (prometheus_exporter.state).
+STATE=/var/run/$NAME/state
 failures=0
 
 pass() { echo "ok   $*"; }
@@ -48,7 +50,7 @@ pid() { instance | jsonfilter -e '@[*].instances.instance1.pid'; }
 mounts() { instance | jsonfilter -e '@[*].instances.instance1.mount' | ucode -e 'print(join("\n", sort(keys(json(require("fs").stdin.read("all"))))), "\n")'; }
 # What the init script mounts for the exporter's own code and libraries.
 own_mount() { case $1 in /lib/libubus.so* | /lib/libuci.so* | /usr/lib/libnl* | /usr/lib/libz.so* | /usr/lib/uhttpd_ucode.so | /usr/lib/ucode | \
-	/usr/share/ucode/prometheus_exporter | $LIBEXEC/handler.uc) return 0 ;; esac; return 1; }
+	/usr/share/ucode/prometheus_exporter | $LIBEXEC/handler.uc | $STATE) return 0 ;; esac; return 1; }
 collector_mounts() { mounts | while read -r m; do own_mount "$m" || echo "$m"; done; }
 mounts_match_jail() { [ "$(collector_mounts)" = "$($LIBEXEC/jail.uc 2>/dev/null)" ]; }
 # What the jailed uhttpd sees of /etc/config: procd's pid is ujail's, which
