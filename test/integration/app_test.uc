@@ -126,8 +126,12 @@ describe('app.handler', () => {
 		gc();
 	});
 
+	// utest's fs mock opens files without lock(): the state's lock is one
+	// that is always taken.
 	function patch_main(main, files) {
-		mock.global.patch('fs', { data: { ...ROUTER.files, ...(files ?? {}) } });
+		mock.global.patch('fs', { data: { ...ROUTER.files, ...(files ?? {}) }, behavior: {
+			open: (path) => (substr(path, -5) == '.lock') ? { lock: () => true, close: () => true } : null,
+		} });
 		mock.global.patch('ubus', { strict: true, data: {} });
 		mock.global.patch('uci', { strict: true, data: { [config.NAME]: main ? { main: { '.type': config.NAME, ...main } } : {} } });
 	}

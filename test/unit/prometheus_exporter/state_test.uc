@@ -7,11 +7,32 @@ import * as auth from 'prometheus_exporter.auth';
 const DIR = '/state';
 
 // A filesystem of `files` ({ path: { data, mode } }) and `dirs` ({ path: mode }),
-// with /proc/self/stat as `stat`; `broken` names the calls that fail.
+// with /proc/self/stat as `stat`; `broken` names the calls that fail (`lock`
+// a lock not taken). `locks` has what happened to locks, in order: [ 'x', path ]
+// when one is taken, [ 'close', path ] when its file is closed; `held`, the
+// path of the lock held, or null.
 function filesystem(files, dirs, broken, stat) {
 	let fails = (name) => (name in (broken ?? []));
-	let fs = {
+	let fs = null;
+
+	fs = {
 		files, dirs,
+		locks: [],
+		held: null,
+		open: function(p, mode) {
+			if (fails('open') || mode != 'a')
+				return null;
+			files[p] ??= { data: '', mode: 0o644 };
+			return {
+				lock: function(op) {
+					if (fails('lock')) return false;
+					push(fs.locks, [ op, p ]);
+					fs.held = p;
+					return true;
+				},
+				close: function() { push(fs.locks, [ 'close', p ]); if (fs.held == p) fs.held = null; return true; },
+			};
+		},
 		error: () => 'Permission denied',
 		stat: (p) => (p in keys(files) || p in keys(dirs)) ? { type: (p in keys(dirs)) ? 'directory' : 'file' } : null,
 		mkdir: function(p, mode) { if (fails('mkdir')) return null; dirs[p] = mode; return true; },
@@ -37,6 +58,7 @@ function filesystem(files, dirs, broken, stat) {
 		},
 		writefile: function(p, d) {
 			if (fails('writefile')) return null;
+			if (fs.held == null) die(`${p} written without the lock`);
 			files[p] = { data: d, mode: 0o644 };
 			return fails('short') ? length(d) - 1 : length(d);
 		},
@@ -100,7 +122,55 @@ describe('state.open', () => {
 		let st = state.open(fs, DIR, '1-2');
 
 		assert.match([ null, true, 'abc' ], [ st.read('auth'), st.write('auth', 'abc'), st.read('auth') ]);
-		assert.match({ [`${DIR}/1-2.auth`]: { data: 'abc', mode: 0o600 } }, fs.files);
+		assert.match({ data: 'abc', mode: 0o600 }, fs.files[`${DIR}/1-2.auth`]);
+		assert.match([ `${DIR}/1-2.auth`, `${DIR}/1-2.lock` ], sort(keys(fs.files)));
+	});
+
+	it('writes holding the instance\'s lock, and lets go of it', () => {
+		let fs = filesystem({}, { [DIR]: 0o700 });
+
+		state.open(fs, DIR, '1-2').write('auth', 'abc');
+		assert.match([ [ 'x', `${DIR}/1-2.lock` ], [ 'close', `${DIR}/1-2.lock` ] ], fs.locks);
+		assert.match(null, fs.held);
+	});
+
+	it('writes nothing when it cannot take the lock', () => {
+		for (let broken in [ 'open', 'lock' ]) {
+			let fs = filesystem({}, { [DIR]: 0o700 }, [ broken ]);
+			let st = state.open(fs, DIR, '1-2');
+
+			assert.match([ false, false, null ], [ st.write('auth', 'abc'), st.update('auth', () => 'abc'), st.read('auth') ], broken);
+			assert.match(null, fs.held, broken);
+		}
+	});
+
+	it('updates under the lock: what is there, changed by fn, written whole', () => {
+		let fs = filesystem({}, { [DIR]: 0o700 });
+		let st = state.open(fs, DIR, '1-2');
+		let seen = [];
+		let count = function(old) {
+			push(seen, [ old, fs.held ]);
+			return '' + (+(old ?? 0) + 1);
+		};
+
+		assert.match([ true, true, '2' ], [ st.update('scrape', count), st.update('scrape', count), st.read('scrape') ]);
+		assert.match([ [ null, `${DIR}/1-2.lock` ], [ '1', `${DIR}/1-2.lock` ] ], seen);
+		assert.match(0o600, fs.files[`${DIR}/1-2.scrape`].mode);
+	});
+
+	it('writes nothing for an update whose fn gives no string, or too long a one', () => {
+		let fs = filesystem({ [`${DIR}/1-2.scrape`]: { data: 'kept', mode: 0o600 } }, { [DIR]: 0o700 });
+		let st = state.open(fs, DIR, '1-2');
+
+		assert.match([ false, false, false, 'kept', null ],
+			[ st.update('scrape', () => null), st.update('scrape', () => 3), st.update('scrape', () => sprintf(`%0${state.SIZE_MAX + 1}d`, 0)),
+				st.read('scrape'), fs.held ]);
+	});
+
+	it('keeps the lock\'s name for the lock', () => {
+		let st = state.open(filesystem({}, { [DIR]: 0o700 }), DIR, '1-2');
+
+		assert.match([ false, false, null ], [ st.write('lock', 'x'), st.update('lock', () => 'x'), st.read('lock') ]);
 	});
 
 	it('replaces what it wrote before, whole', () => {
@@ -116,6 +186,7 @@ describe('state.open', () => {
 		let fs = filesystem({
 			[`${DIR}/1-2.auth`]: { data: 'old' },
 			[`${DIR}/1-2.auth.new`]: { data: 'half' },
+			[`${DIR}/1-2.lock`]: { data: '' },
 			[`${DIR}/1-3.breaker`]: { data: 'mine' },
 			[`${DIR}/notes.txt`]: { data: 'not ours' },
 		}, { [DIR]: 0o700 });
@@ -129,7 +200,7 @@ describe('state.open', () => {
 		let fs = filesystem({ [`${DIR}/1-2.auth`]: { data: 'old' } }, { [DIR]: 0o700 });
 		let st = state.open(fs, DIR, null);
 
-		assert.match([ false, null, [ `${DIR}/1-2.auth` ] ], [ st.write('auth', 'x'), st.read('auth'), keys(fs.files) ]);
+		assert.match([ false, false, null, [ `${DIR}/1-2.auth` ] ], [ st.write('auth', 'x'), st.update('auth', () => 'x'), st.read('auth'), keys(fs.files) ]);
 	});
 
 	it('takes names of lowercase letters, digits and _, and data of at most SIZE_MAX bytes', () => {
@@ -149,7 +220,9 @@ describe('state.open', () => {
 			return [ state.open(fs, DIR, '1-2').write('auth', 'x'), keys(fs.files) ];
 		};
 
-		assert.match([ [ false, [] ], [ false, [] ], [ false, [] ], [ false, [] ] ], [ write([ 'writefile' ]), write([ 'short' ]), write([ 'chmod' ]), write([ 'rename' ]) ]);
+		let none = [ false, [ `${DIR}/1-2.lock` ] ];
+
+		assert.match([ none, none, none, none ], [ write([ 'writefile' ]), write([ 'short' ]), write([ 'chmod' ]), write([ 'rename' ]) ]);
 	});
 
 	it('reads nothing when the directory is not there', () => {
@@ -174,5 +247,46 @@ describe('state.open', () => {
 		let next = state.open(fs, DIR, '11-25');
 
 		assert.match([ null, null, [] ], [ next.read('auth'), next.read('breaker'), keys(fs.files) ]);
+	});
+
+	prop('counts every update, in any order of instances and names', gen.array(gen.elements('a', 'b'), { min_len: 1, max_len: 20 }), (names) => {
+		let fs = filesystem({}, { [DIR]: 0o700 });
+		let st = state.open(fs, DIR, '3-4');
+		let want = { a: 0, b: 0 };
+
+		for (let n in names) {
+			st.update(n, (old) => '' + (+(old ?? 0) + 1));
+			want[n]++;
+		}
+
+		assert.match([ want.a || null, want.b || null ], map([ 'a', 'b' ], (n) => st.read(n) == null ? null : +st.read(n)));
+		assert.match(null, fs.held);
+	});
+});
+
+describe('state.pid_of', () => {
+	it('is the pid of an instance id', () => {
+		assert.match([ 1234, null, null ], [ state.pid_of('1234-5678'), state.pid_of('x-1'), state.pid_of(null) ]);
+	});
+});
+
+describe('state.latest', () => {
+	it('reads the instance that started last, removing nothing', () => {
+		let files = {
+			[`${DIR}/9-100.scrape`]: { data: 'older' },
+			[`${DIR}/2-300.scrape`]: { data: 'newer' },
+			[`${DIR}/2-300.lock`]: { data: '' },
+			[`${DIR}/notes.txt`]: { data: 'not ours' },
+		};
+		let fs = filesystem(files, { [DIR]: 0o700 });
+		let st = state.latest(fs, DIR);
+
+		assert.match([ '2-300', 'newer', null ], [ st.id, st.read('scrape'), st.read('auth') ]);
+		assert.match(4, length(fs.files));
+		assert.match(null, st.write);
+	});
+
+	it('is null when no instance has state, or there is no directory', () => {
+		assert.match([ null, null ], [ state.latest(filesystem({}, { [DIR]: 0o700 }), DIR), state.latest(filesystem({}, {}), DIR) ]);
 	});
 });
