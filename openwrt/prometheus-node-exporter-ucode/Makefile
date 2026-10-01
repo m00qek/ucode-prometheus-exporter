@@ -164,3 +164,52 @@ $(eval $(call Group,network,network statistics,$(NETWORK_GROUP)))
 $(eval $(call Group,wireless,Wi-Fi,$(WIRELESS_GROUP)))
 $(eval $(call Group,hardware,hardware and filesystems,$(HARDWARE_GROUP)))
 $(eval $(call Group,full,a router or access point,$(FULL_GROUP)))
+
+# ---- luci-app-prometheus-node-exporter-ucode ---------------------------------
+# The LuCI pages, and the rpcd plugin they call (node_exporter.luci.rpc). The
+# plugin runs the exporter's own modules, so the app pins the exporter's release.
+# ucode-mod-uloop: the plugin waits for a status scrape without blocking rpcd.
+LUCI_APP:=luci-app-$(PKG_NAME)
+
+define Package/$(LUCI_APP)
+  SECTION:=luci
+  CATEGORY:=LuCI
+  SUBMENU:=3. Applications
+  TITLE:=LuCI support for the Prometheus node exporter
+  DEPENDS:=+luci-base +rpcd-mod-ucode +ucode-mod-uloop +$(PKG_NAME)
+  EXTRA_DEPENDS:=$(PKG_NAME) (=$(PKG_VERSION)-r$(PKG_RELEASE))
+  PKGARCH:=all
+endef
+
+define Package/$(LUCI_APP)/description
+  LuCI pages for the Prometheus node exporter: its settings and its collectors'
+  options, and whether it runs and how each collector does.
+endef
+
+# luci.mk's default postinst, also run on removal: drop LuCI's menu and module
+# caches, and reload rpcd for the plugin and the ACL.
+define Package/$(LUCI_APP)/postinst
+#!/bin/sh
+[ -n "$${IPKG_INSTROOT}" ] || {
+	rm -f /tmp/luci-indexcache.*
+	rm -rf /tmp/luci-modulecache/
+	/etc/init.d/rpcd reload 2>/dev/null
+	exit 0
+}
+endef
+
+Package/$(LUCI_APP)/postrm = $(Package/$(LUCI_APP)/postinst)
+
+define Package/$(LUCI_APP)/install
+	$(INSTALL_DIR) $(1)/www
+	$(CP) ./luci/htdocs/* $(1)/www/
+	$(CP) ./luci/root/* $(1)/
+	$(INSTALL_DIR) $(1)/usr/share/ucode/node_exporter/luci
+	$(INSTALL_DATA) ./src/node_exporter/luci/*.uc $(1)/usr/share/ucode/node_exporter/luci/
+	$(INSTALL_DIR) $(1)/usr/share/rpcd/ucode
+	$(INSTALL_DATA) ./files/usr/share/rpcd/ucode/$(PKG_NAME).uc $(1)/usr/share/rpcd/ucode/
+	$(INSTALL_DIR) $(1)/usr/libexec/$(PKG_NAME)
+	$(INSTALL_BIN) ./files/usr/libexec/$(PKG_NAME)/luci-status.uc $(1)/usr/libexec/$(PKG_NAME)/
+endef
+
+$(eval $(call BuildPackage,$(LUCI_APP)))

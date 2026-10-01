@@ -1,0 +1,14 @@
+{
+	"luci-app-prometheus-node-exporter-ucode": {
+		"description": "Grant access to the Prometheus exporter's settings and status",
+		"read": {
+			"ubus": {
+				"prometheus-node-exporter-ucode": [ "collectors", "status", "validate" ]
+			},
+			"uci": [ "prometheus-node-exporter-ucode" ]
+		},
+		"write": {
+			"uci": [ "prometheus-node-exporter-ucode" ]
+		}
+	}
+}

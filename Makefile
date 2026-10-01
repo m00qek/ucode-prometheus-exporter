@@ -45,12 +45,14 @@ package:
 		-v $(CURDIR)/openwrt/prometheus-node-exporter-ucode/Makefile:$(PKG_DIR)/Makefile:ro \
 		-v $(CURDIR)/src:$(PKG_DIR)/src:ro \
 		-v $(CURDIR)/files:$(PKG_DIR)/files:ro \
+		-v $(CURDIR)/luci:$(PKG_DIR)/luci:ro \
 		-v $(CURDIR)/LICENSE:$(PKG_DIR)/LICENSE:ro \
 		-v $(CURDIR)/NOTICE:$(PKG_DIR)/NOTICE:ro \
 		-v $(CURDIR)/bin:/artifacts \
 		$(SDK_IMAGE) sh -c 'make defconfig >/dev/null && \
 			make package/prometheus-node-exporter-ucode/compile $(if $(VERBOSE),V=s) && \
-			find bin -name "prometheus-node-exporter-ucode*-$(PKG_FULLVERSION).apk" -exec cp {} /artifacts/ \;'
+			find bin \( -name "prometheus-node-exporter-ucode*-$(PKG_FULLVERSION).apk" \
+				-o -name "luci-app-prometheus-node-exporter-ucode-$(PKG_FULLVERSION).apk" \) -exec cp {} /artifacts/ \;'
 
 PKGCHECK_IMAGE := prometheus-node-exporter-ucode-pkgcheck:$(OPENWRT_ARCH)-$(OPENWRT_VERSION)
 
