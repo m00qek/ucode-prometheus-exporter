@@ -78,6 +78,7 @@ endef
 
 $(eval $(call Collector,bmx7,bmx7,bmx7 mesh node and links,))
 $(eval $(call Collector,dawn,dawn,DAWN access points and clients,))
+$(eval $(call Collector,dhcp_leases,dhcp_leases,active DHCP leases of dnsmasq and odhcpd,))
 $(eval $(call Collector,dnsmasq,dnsmasq,dnsmasq DNS and DHCP metrics,))
 $(eval $(call Collector,ethtool,ethtool,network driver statistics,+ethtool))
 $(eval $(call Collector,filesystem,filesystem,filesystem sizes,+luci-base))
@@ -130,7 +131,7 @@ NETWORK_GROUP:=ethtool nat_traffic netstat nft-counters snmp6
 WIRELESS_GROUP:=hostapd_stations hostapd_ubus_stations wifi
 HARDWARE_GROUP:=filesystem hwmon thermal
 # Not the collectors of particular hardware or services: DSL, PoE, bmx7, mwan3, ModemManager, airOS.
-FULL_GROUP:=$(NETWORK_GROUP) $(WIRELESS_GROUP) $(HARDWARE_GROUP) dnsmasq openwrt textfile uci_dhcp_host wireguard
+FULL_GROUP:=$(NETWORK_GROUP) $(WIRELESS_GROUP) $(HARDWARE_GROUP) dhcp_leases dnsmasq openwrt textfile uci_dhcp_host wireguard
 
 $(eval $(call Group,network,network statistics,$(NETWORK_GROUP)))
 $(eval $(call Group,wireless,Wi-Fi,$(WIRELESS_GROUP)))

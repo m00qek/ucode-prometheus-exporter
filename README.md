@@ -23,9 +23,11 @@ The base package has the collectors every device can use (cpu, meminfo, netdev, 
 | `-network` | ethtool, nat_traffic, netstat, nft-counters, snmp6 |
 | `-wireless` | wifi, hostapd_stations, hostapd_ubus_stations |
 | `-hardware` | hwmon, thermal, filesystem |
-| `-full` | the three above, and dnsmasq, openwrt, textfile, uci_dhcp_host, wireguard |
+| `-full` | the three above, and dhcp_leases, dnsmasq, openwrt, textfile, uci_dhcp_host, wireguard |
 
 The collectors of particular hardware or services (ltq-dsl, realtek-poe, bmx7, mwan3, modemmanager, ubnt-manager, dawn, unbound) and wifi_stations, which repeats wifi's station metrics, are in no group.
+
+Neither upstream exporter had these: softnet and vmstat (node_exporter's), conntrack's statistics and openwrt_interfaces (netifd's logical interfaces: up, uptime, devices, address counts) in the base package, and dhcp_leases (dnsmasq's and odhcpd's active leases).
 
 The listen interface, port, keepalive, TLS and `omit_zero_values` are set in `/etc/config/prometheus-node-exporter-ucode`; a collector's own options go in a `config collector '<module>'` section there.
 
