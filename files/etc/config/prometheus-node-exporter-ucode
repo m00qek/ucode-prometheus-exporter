@@ -2,6 +2,8 @@
 # packages feed (Apache-2.0); see NOTICE.
 
 config prometheus-node-exporter-ucode 'main'
+	# '0': the service does not run.
+	option enabled '1'
 	option listen_interface 'loopback'
 	option listen_port '9101'
 	option http_keepalive '70'

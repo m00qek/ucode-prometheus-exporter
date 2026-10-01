@@ -31,7 +31,51 @@ The collectors of particular hardware or services (ltq-dsl, realtek-poe, bmx7, m
 
 Neither upstream exporter had these: softnet and vmstat (node_exporter's), conntrack's statistics and openwrt_interfaces (netifd's logical interfaces: up, uptime, devices, address counts) in the base package, and dhcp_leases (dnsmasq's and odhcpd's active leases).
 
-The listen interface, port, keepalive, TLS and `omit_zero_values` are set in `/etc/config/prometheus-node-exporter-ucode`; a collector's options go in an optional `config collector '<module>'` section there (`ltq_dsl` for ltq-dsl), where `option enabled '0'` stops serving it.
+## Configuration
+
+`/etc/config/prometheus-node-exporter-ucode` is optional: every option has a default.
+
+```
+config prometheus-node-exporter-ucode 'main'
+	option enabled '1'                 # 0: the service does not run
+	option listen_interface 'loopback' # a logical interface, or * for every address
+	option listen_port '9101'
+	option http_keepalive '70'         # seconds; 0 for none
+	option omit_zero_values '0'        # 1: leave out counters that are 0
+	#option cert '/etc/uhttpd.crt'     # both, for HTTPS
+	#option key '/etc/uhttpd.key'
+
+config collector 'textfile'          # named after the module: ltq_dsl for ltq-dsl
+	option enabled '1'                 # 0: not served; naming it in a query is a 400
+	option directory '/var/prometheus'
+```
+
+A collector without a section is enabled, with its defaults. These take options:
+
+| | | |
+|---|---|---|
+| `dhcp_leases` | `leases` | `0`; 1 adds a series per lease (address, MAC, hostname, expiry) |
+| `textfile` | `directory` | `/var/prometheus`; where the `*.prom` files are |
+| `unbound` | `socket` | `/run/unbound.ctl`; unbound's control socket, in a directory of its own (see the jail) |
+| `vmstat` | `fields` | `^(oom_kill\|pgpg\|pswp\|pg.*fault).*`; a regex of the /proc/vmstat fields |
+| `wifi` | `stations` | `1`; 0 leaves out the per-station metrics |
+
+A config change applies on `reload_config` (LuCI does it), or `service prometheus-node-exporter-ucode reload`.
+
+## The service
+
+| | |
+|---|---|
+| `service prometheus-node-exporter-ucode check` | checks the config, lists each collector (section, options, needs, what the jail gives it) and runs a scrape, saying what fails and why |
+| `… status` | running, and where it listens and how many collectors it serves; or disabled |
+| `… reload` | starts again with the new config; an invalid one keeps the running exporter, and the log says why |
+
+Start and reload refuse an invalid config. Installing or removing a collector package reloads the service.
+
+uhttpd runs in procd's jail, and a collector gets what it declares: procfs, sysfs, ubus and the log for all, then the configs it reads (`/etc/config/dhcp` for uci_dhcp_host), the files and directories it reads (textfile's directory, dhcp_leases' lease files, bmx7's status), and the programs it runs with their libraries (`/bin/sh` and `nft` for nft-counters). Nothing else of `/etc/config` is there. What the jail cannot give is a warning in `check`:
+
+- A path that is not there when the service starts (textfile's directory, say) is mounted at the next start after it is.
+- ujail cannot mount a socket, so a collector gets the socket's directory. That is never one every service shares, such as `/run`: unbound's control socket needs a directory of its own, there when the exporter starts (`control-interface:` in unbound's config, and the `socket` option here).
 
 ## Developing
 
