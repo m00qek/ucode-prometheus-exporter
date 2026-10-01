@@ -48,24 +48,35 @@ const ENTRIES = {
 // each time it is evaluated), and each statistic is named once (NAMES), for
 // all the devices of its driver.
 const NOT_NAME = /_*[^0-9A-Za-z_]+_*/g;
+const NAME = /^[0-9A-Za-z_]*$/;
 const RX = /(^|_)rx(_|$)/g;
 const TX = /(^|_)tx(_|$)/g;
 
 // node_exporter's SanitizeMetricName: every run of other characters, with the
-// underscores around it, one underscore.
+// underscores around it, one underscore. Most drivers' names have none, which
+// one match tells.
 export function sanitize(stat) {
-	return replace(stat, NOT_NAME, '_');
+	return match(stat, NAME) ? stat : replace(stat, NOT_NAME, '_');
 };
 
-// node_exporter's buildEthtoolFQName: the sanitized name lowercased, without
-// leading underscores, and rx and tx between underscores (or an end) spelled out.
-export function fqname(stat) {
-	let name = ltrim(lc(sanitize(stat)), '_');
+// node_exporter's buildEthtoolFQName of a sanitized name: lowercased, without
+// leading underscores, and rx and tx between underscores (or an end) spelled
+// out. Uhttpd's process for a scrape starts with no name kept, so a scrape
+// names each of a driver's statistics: a replacement is a string, not a call
+// of a function per match, and a name without rx or tx takes no regex.
+function fqname_of(key) {
+	let name = ltrim(lc(key), '_');
 
-	name = replace(name, RX, (m, a, b) => a + 'received' + b);
-	name = replace(name, TX, (m, a, b) => a + 'transmitted' + b);
+	if (index(name, 'rx') >= 0)
+		name = replace(name, RX, '$1received$2');
+	if (index(name, 'tx') >= 0)
+		name = replace(name, TX, '$1transmitted$2');
 
 	return 'node_ethtool_' + name;
+}
+
+export function fqname(stat) {
+	return fqname_of(sanitize(stat));
 };
 
 // [ fqname, [ family name, help ] ] of each statistic named so far, up to
@@ -79,7 +90,7 @@ function names(stat) {
 	let n = NAMES[stat];
 
 	if (!n) {
-		let key = sanitize(stat), fq = fqname(stat);
+		let key = sanitize(stat), fq = fqname_of(key);
 
 		n = [ fq, ENTRIES[key] ?? [ fq, `Network interface ${key}` ] ];
 		if (named++ < NAMES_MAX)
