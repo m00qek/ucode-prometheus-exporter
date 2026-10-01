@@ -55,6 +55,25 @@ describe('scrape.select', () => {
 		let res = scrape.select([ A ], 'collect[]=nope');
 		assert.match({ ok: false, details: "unknown collector 'nope'" }, { ok: res.ok, details: res.details });
 	});
+
+	it('leaves the disabled out of every collector', () => {
+		assert.match([ 'a', 'c' ], names(scrape.select([ A, B, C ], '', [ 'b_two' ])));
+		assert.match([ 'c' ], names(scrape.select([ A, B, C ], 'exclude[]=a&exclude[]=b-two', [ 'b_two' ])));
+	});
+
+	it('refuses to collect a disabled one, by name or module name', () => {
+		assert.match([
+			"COLLECTOR_INVALID (collector 'b-two' is disabled)",
+			"COLLECTOR_INVALID (collector 'b_two' is disabled)",
+		], map([ 'collect[]=a&collect[]=b-two', 'collect[]=b_two' ], (q) => Result.describe(scrape.select([ A, B, C ], q, [ 'b_two' ]))));
+	});
+
+	prop('never selects a disabled collector',
+		gen.array(gen.elements('a', 'b_two', 'c'), { min_len: 0, max_len: 3 }), (disabled) => {
+			let res = scrape.select([ A, B, C ], '', disabled);
+			assert.match([], filter(res.data, (c) => c.id in disabled));
+			assert.match(3 - length(uniq(disabled)), length(res.data));
+		});
 });
 
 describe('scrape.run_one', () => {
@@ -159,6 +178,23 @@ describe('scrape.scrape', () => {
 	it('answers 400 for an unknown collector', () => {
 		let r = scrape_with([ A ], 'collect[]=nope');
 		assert.match([ '400 Bad Request', "COLLECTOR_INVALID (unknown collector 'nope')\n" ], [ r.status, r.body ]);
+	});
+
+	it('leaves out a collector its section disables, and answers 400 when the query names it', () => {
+		let cfg = { uci: { data: { 'prometheus-node-exporter-ucode': { b_two: { '.type': 'collector', enabled: '0' } } } } };
+		let all = scrape_with([ A, B, C ], '', cfg);
+		let named = scrape_with([ A, B, C ], 'collect[]=b-two', cfg);
+
+		assert.match([ 'a', 'c' ], map(filter(split(all.body, '\n'), (l) => index(l, 'node_scrape_collector_success{') == 0),
+			(l) => match(l, /collector="([^"]+)"/)[1]));
+		assert.match([ '400 Bad Request', "COLLECTOR_INVALID (collector 'b-two' is disabled)\n" ], [ named.status, named.body ]);
+	});
+
+	it('runs a collector whose enabled is not a boolean, which fails saying why', () => {
+		let r = scrape_with([ A ], '', { uci: { data: { 'prometheus-node-exporter-ucode': { a: { '.type': 'collector', enabled: 'maybe' } } } } });
+
+		assert.match(contains([ 'node_scrape_collector_success{collector="a"} 0' ]), split(r.body, '\n'));
+		assert.match([ "collector 'a': CONFIG_INVALID (enabled: expected a boolean, got \"maybe\")" ], r.logs);
 	});
 
 	it('omits zero counters when the main section says so', () => {

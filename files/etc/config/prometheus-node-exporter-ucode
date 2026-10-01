@@ -11,6 +11,10 @@ config prometheus-node-exporter-ucode 'main'
 	#option cert '/etc/uhttpd.crt'
 	#option key '/etc/uhttpd.key'
 
-# Options of a collector go in a section named after its module:
+# A collector's section is named after its module ('ltq_dsl' for ltq-dsl) and
+# is optional: without one, the collector runs with its default options.
+# Every collector has enabled; '0' stops serving it.
 #config collector 'wifi'
 #	option stations '1'
+#config collector 'ltq_dsl'
+#	option enabled '0'

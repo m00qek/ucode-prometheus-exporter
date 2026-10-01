@@ -70,6 +70,9 @@ export function validate(id, mod) {
 	if (meta.options != null && type(meta.options) != 'object')
 		return invalid(id, 'meta.options must be an object of defaults');
 
+	if ('enabled' in keys(meta.options ?? {}))
+		return invalid(id, "option 'enabled' is the core's, every collector has it");
+
 	for (let key, fallback in meta.options)
 		if (!(type(fallback) in OPTION_TYPES) || !match(key, /^[a-z][a-z0-9_]*$/))
 			return invalid(id, `option '${key}' needs a boolean, integer or string default`);

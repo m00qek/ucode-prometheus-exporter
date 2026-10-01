@@ -47,6 +47,7 @@ describe('loader.validate', () => {
 			'x: meta.configs without uci in meta.needs',
 			'x: meta.commands must list the programs exec runs',
 			'x: meta.commands without exec in meta.needs',
+			"x: option 'enabled' is the core's, every collector has it",
 			"x: option 'stations' needs a boolean, integer or string default",
 			'x: exports no collect function',
 		], [
@@ -61,6 +62,7 @@ describe('loader.validate', () => {
 			problem('x', module_named('x', { configs: [ 'dhcp' ] })),
 			problem('x', module_named('x', { needs: [ 'exec' ] })),
 			problem('x', module_named('x', { commands: [ 'nft' ] })),
+			problem('x', module_named('x', { options: { enabled: true } })),
 			problem('x', module_named('x', { options: { stations: null } })),
 			problem('x', { meta: module_named('x').meta }),
 		]);

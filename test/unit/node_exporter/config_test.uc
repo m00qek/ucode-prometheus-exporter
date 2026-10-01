@@ -71,6 +71,38 @@ describe('config.collector', () => {
 				err_details(config.collector(uci, 'wifi', { stations: true })));
 		});
 	});
+
+	it('checks enabled, and leaves it out of the options', () => {
+		with_uci({
+			wifi: { '.type': 'collector', enabled: '0', stations: '0' },
+			cpu: { '.type': 'collector', enabled: 'maybe' },
+		}, (uci) => {
+			assert.match({ stations: false }, config.collector(uci, 'wifi', { stations: true }).data);
+			assert.match({}, config.collector(uci, 'time', {}).data);
+			assert.match('CONFIG_INVALID: enabled: expected a boolean, got "maybe"', err_details(config.collector(uci, 'cpu', {})));
+		});
+	});
+});
+
+describe('config.enabled', () => {
+	it('is true without a section, or in one of another type', () => {
+		with_uci({ wifi: { '.type': 'interface', enabled: '0' } }, (uci) => {
+			assert.match([ true, true ], [ config.enabled(uci, 'wifi'), config.enabled(uci, 'cpu') ]);
+		});
+	});
+
+	it('counts a value that is not a boolean as enabled, so the collector fails saying why', () => {
+		with_uci({ cpu: { '.type': 'collector', enabled: 'maybe' } }, (uci) => {
+			assert.match(true, config.enabled(uci, 'cpu'));
+		});
+	});
+
+	prop('follows any of uci\'s boolean spellings',
+		gen.elements('1', 'yes', 'on', 'true', 'enabled', '0', 'no', 'off', 'false', 'disabled'), (v) => {
+			with_uci({ cpu: { '.type': 'collector', enabled: v } }, (uci) => {
+				assert.match(v in [ '1', 'yes', 'on', 'true', 'enabled' ], config.enabled(uci, 'cpu'));
+			});
+		});
 });
 
 describe('config.main', () => {

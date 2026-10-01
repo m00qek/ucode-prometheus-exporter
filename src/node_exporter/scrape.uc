@@ -18,9 +18,11 @@ function seconds(t1, t2) {
 	return (t2[0] - t1[0]) + (t2[1] - t1[1]) / 1000000000.0;
 }
 
-// The collectors a query string selects, in the order it names them (all of
-// them when it names none), less the excluded; an unknown name is an error.
-export function select(collectors, query_string) {
+// The collectors a query string selects, in the order it names them (all the
+// enabled ones when it names none), less the excluded. Naming an unknown or a
+// disabled collector is an error; `disabled` holds the module names of those
+// switched off in the config.
+export function select(collectors, query_string, disabled) {
 	let q = query.parse(query_string);
 	let by_name = {};
 
@@ -29,12 +31,18 @@ export function select(collectors, query_string) {
 		by_name[c.id] = c;
 	}
 
+	disabled ??= [];
+
 	for (let name in [ ...q.collect, ...q.exclude ])
 		if (!by_name[name])
 			return Result.err(errors.COLLECTOR_INVALID, `unknown collector '${name}'`);
 
+	for (let name in q.collect)
+		if (by_name[name].id in disabled)
+			return Result.err(errors.COLLECTOR_INVALID, `collector '${name}' is disabled`);
+
 	let excluded = map(q.exclude, (n) => by_name[n].id);
-	let chosen = length(q.collect) ? map(q.collect, (n) => by_name[n]) : collectors;
+	let chosen = length(q.collect) ? map(q.collect, (n) => by_name[n]) : filter(collectors, (c) => !(c.id in disabled));
 	let seen = {};
 
 	return Result.ok(filter(chosen, function(c) {
@@ -81,13 +89,17 @@ function reply(status, body) {
 
 // { status, content_type, body } for a scrape with this query string.
 export function scrape(env, collectors, query_string) {
-	let sel = select(collectors, query_string);
-
-	if (!sel.ok)
-		return reply('400 Bad Request', Result.describe(sel) + '\n');
-
 	let session = env.session();
-	let main = config.main(session.uci());
+	let uci = session.uci();
+	let disabled = map(filter(collectors, (c) => !config.enabled(uci, c.id)), (c) => c.id);
+	let sel = select(collectors, query_string, disabled);
+
+	if (!sel.ok) {
+		session.close();
+		return reply('400 Bad Request', Result.describe(sel) + '\n');
+	}
+
+	let main = config.main(uci);
 
 	if (!main.ok) {
 		env.log(`main: ${Result.describe(main)}`);

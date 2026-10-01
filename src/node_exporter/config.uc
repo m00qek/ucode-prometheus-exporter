@@ -74,6 +74,23 @@ export function main(uci) {
 
 // `config collector '<id>'`: the collector's module name, as a uci section name
 // cannot hold the '-' of ltq-dsl.
+//
+// Every collector also has `enabled`, the core's: it is checked here like the
+// collector's own options, and left out of what the collector gets.
 export function collector(uci, id, defaults) {
-	return section(uci, id, 'collector', defaults);
+	let res = section(uci, id, 'collector', { enabled: true, ...defaults });
+
+	if (res.ok)
+		delete res.data.enabled;
+
+	return res;
+};
+
+// Whether a collector is enabled: true unless its section says otherwise. A
+// value that is not a boolean counts as enabled, so the collector runs and
+// fails with CONFIG_INVALID, saying what is wrong.
+export function enabled(uci, id) {
+	let res = section(uci, id, 'collector', { enabled: true });
+
+	return !res.ok || res.data.enabled;
 };

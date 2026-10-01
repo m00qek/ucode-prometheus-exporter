@@ -31,7 +31,7 @@ The collectors of particular hardware or services (ltq-dsl, realtek-poe, bmx7, m
 
 Neither upstream exporter had these: softnet and vmstat (node_exporter's), conntrack's statistics and openwrt_interfaces (netifd's logical interfaces: up, uptime, devices, address counts) in the base package, and dhcp_leases (dnsmasq's and odhcpd's active leases).
 
-The listen interface, port, keepalive, TLS and `omit_zero_values` are set in `/etc/config/prometheus-node-exporter-ucode`; a collector's own options go in a `config collector '<module>'` section there.
+The listen interface, port, keepalive, TLS and `omit_zero_values` are set in `/etc/config/prometheus-node-exporter-ucode`; a collector's options go in an optional `config collector '<module>'` section there (`ltq_dsl` for ltq-dsl), where `option enabled '0'` stops serving it.
 
 ## Developing
 
@@ -64,7 +64,7 @@ export const meta = {
 	needs: [ 'fs' ],                          // all it gets in `deps`
 	// configs: [ 'dhcp' ],                   // with 'uci': the configs it may read
 	// commands: [ 'nft' ],                   // with 'exec': the programs it may run
-	// options: { stations: true },           // typed by their defaults
+	// options: { stations: true },           // typed by their defaults; not enabled, the core's
 };
 
 export function collect(deps, out, options) {
