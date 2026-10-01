@@ -118,6 +118,21 @@ describe('crypt.is_hash', () => {
 	});
 });
 
+describe('crypt.rounds', () => {
+	it('is 1000 for MD5-crypt, those a SHA-crypt hash names, else 5000', () => {
+		assert.match([ 1000, 1000, 5000, 1000, 5000, 10000, null, null ], map([
+			KNOWN[0][1], KNOWN[1][1], KNOWN[2][1], KNOWN[3][1], KNOWN[4][1], KNOWN[6][1], 'secret', '$6$rounds=10000000$salt$' + substr(KNOWN[4][1], 15),
+		], crypt.rounds));
+	});
+
+	prop('is the rounds of any hash of the formats, and what hash() was given', gen.tuple(HASH, gen.int(crypt.ROUNDS_MIN, crypt.ROUNDS_MAX)), (t) => {
+		let named = match(t[0], /^\$[56]\$rounds=([0-9]+)\$/);
+
+		assert.match(named ? +named[1] : (substr(t[0], 0, 3) == '$1$' ? 1000 : crypt.ROUNDS_DEFAULT), crypt.rounds(t[0]), t[0]);
+		assert.match(t[1], crypt.rounds('$6$rounds=' + t[1] + '$salt$' + substr(KNOWN[4][1], 14)));
+	});
+});
+
 describe('crypt.hash', () => {
 	it('makes a $6$ hash, salted with 16 characters of the 12 bytes it is given', () => {
 		let h = crypt.hash('pw', 'abcdefghijkl', null);

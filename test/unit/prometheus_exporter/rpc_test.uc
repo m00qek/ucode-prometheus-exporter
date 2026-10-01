@@ -8,6 +8,7 @@ import * as config from 'prometheus_exporter.config';
 import * as jail from 'prometheus_exporter.jail';
 import * as Result from 'prometheus_exporter.result';
 import * as crypt from 'prometheus_exporter.crypt';
+import * as auth from 'prometheus_exporter.auth';
 import * as fixtures from 'lib.fixtures';
 import { with_mods } from 'context';
 
@@ -401,6 +402,15 @@ describe('rpc.validate, basic auth', () => {
 
 		assert.match({ auth_password: 'expected a crypt hash: $1$ (uhttpd -m), $5$ or $6$' }, res.errors.main);
 		assert.match(-1, index(sprintf('%J', res), 'hunter2'));
+	});
+
+	it('refuses a hash of more rounds than basic auth takes, and never says it', () => {
+		let over = crypt.sha_crypt('6', 'secret', 'saltsalt', auth.ROUNDS_MAX + 1);
+		let res = validate({ auth_user: 'prom', auth_password: over, ...TLS });
+
+		assert.match([ true, false ], [ validate({ auth_user: 'prom', auth_password: crypt.sha_crypt('6', 'secret', 'saltsalt', auth.ROUNDS_MAX), ...TLS }).ok, res.ok ]);
+		assert.match(true, index(res.errors.main.auth_password, `expected a hash of at most ${auth.ROUNDS_MAX} rounds`) == 0);
+		assert.match(-1, index(sprintf('%J', res), substr(over, -86)));
 	});
 
 	it('takes an empty user and password as none', () => {

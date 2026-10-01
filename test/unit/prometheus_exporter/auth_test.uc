@@ -213,3 +213,52 @@ describe('auth.hash_password', () => {
 		assert.match(true, res.ok || res.details == 'expected a password without control characters', p);
 	});
 });
+
+function sha_hash(id, rounds) {
+	return crypt.sha_crypt(id, 'secret', 'saltsalt', rounds);
+}
+
+describe('auth.is_hash', () => {
+	it('takes hashes of up to ROUNDS_MAX rounds: MD5-crypt, hash_password\'s, and SHA-crypt at the cap', () => {
+		assert.match([ true, true, true, true, true ], map([
+			HASH, SHA, sha_hash('5', auth.ROUNDS_MAX), sha_hash('6', auth.ROUNDS_MAX), sha_hash('6', crypt.ROUNDS_MIN),
+		], auth.is_hash));
+	});
+
+	it('refuses SHA-crypt of a round more than the cap, and of musl\'s most', () => {
+		assert.match([ false, false, false ], map([
+			sha_hash('5', auth.ROUNDS_MAX + 1),
+			'$6$rounds=' + (auth.ROUNDS_MAX + 1) + '$saltsalt$' + substr(SHA, -86),
+			'$6$rounds=' + crypt.ROUNDS_MAX + '$saltsalt$' + substr(SHA, -86),
+		], auth.is_hash));
+	});
+
+	it('counts a hash that names no rounds at crypt\'s default', () => {
+		assert.match(crypt.ROUNDS_DEFAULT <= auth.ROUNDS_MAX, auth.is_hash('$6$saltsalt$' + substr(SHA, -86)));
+	});
+
+	it('takes nothing crypt does not', () => {
+		assert.match([ false, false ], [ auth.is_hash('hunter2'), auth.is_hash(null) ]);
+	});
+
+	it('takes the rounds hash_password makes', () => {
+		assert.match(true, auth.HASH_ROUNDS <= auth.ROUNDS_MAX);
+	});
+
+	prop('takes a $5$ or $6$ hash exactly when its rounds are within the cap', gen.tuple(gen.elements('5', '6'),
+		gen.oneof(gen.int(crypt.ROUNDS_MIN, crypt.ROUNDS_MAX), gen.int(auth.ROUNDS_MAX - 3, auth.ROUNDS_MAX + 3))), (t) => {
+		let digest = (t[0] == '5') ? substr(sha_hash('5', 1000), -43) : substr(SHA, -86);
+		let h = `$${t[0]}$rounds=${t[1]}$saltsalt$${digest}`;
+
+		assert.match(t[1] <= auth.ROUNDS_MAX, auth.is_hash(h), h);
+	});
+});
+
+describe('auth.parse_conf, over the cap', () => {
+	it('reads no hash of more rounds than the cap, so the handler denies every request', () => {
+		assert.match([ null, { user: 'prom', hash: sha_hash('6', auth.ROUNDS_MAX) } ], [
+			auth.parse_conf(auth.conf('prom', sha_hash('6', auth.ROUNDS_MAX + 1))),
+			auth.parse_conf(auth.conf('prom', sha_hash('6', auth.ROUNDS_MAX))),
+		]);
+	});
+});

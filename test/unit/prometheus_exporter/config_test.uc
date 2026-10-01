@@ -3,6 +3,7 @@
 import { describe, it, prop, gen, assert, mock } from 'utest';
 import * as config from 'prometheus_exporter.config';
 import * as crypt from 'prometheus_exporter.crypt';
+import * as auth_mod from 'prometheus_exporter.auth';
 
 function with_uci(sections, cb) {
 	mock.inject('uci', { strict: true, data: { [config.NAME]: sections } }, (uci) => cb(uci.cursor()));
@@ -347,13 +348,18 @@ const MD5 = '$1$$ysVNzQc4CTMkp5daOdZ.3/';
 const SHA512 = crypt.sha_crypt('6', 'secret', 'saltsalt', 1000);
 const TLS = { cert: '/etc/uhttpd.crt', key: '/etc/uhttpd.key' };
 
-// Any hash of the formats, by its form.
+// A $5$ or $6$ hash, by its form, of these rounds.
+function sha_form(rounds) {
+	return gen.map(gen.tuple(gen.elements('5', '6'), rounds,
+		gen.string({ min_len: 0, max_len: 16, charset: crypt.ITOA64 }), gen.string({ len: 86, charset: crypt.ITOA64 })),
+		(t) => '$' + t[0] + '$' + (t[1] != null ? 'rounds=' + t[1] + '$' : '') + t[2] + '$' + substr(t[3], 0, t[0] == '5' ? 43 : 86));
+}
+
+// Any hash of the formats basic auth takes, by its form: of at most its rounds.
 const HASH = gen.oneof(
 	gen.map(gen.tuple(gen.string({ min_len: 0, max_len: 8, charset: crypt.ITOA64 }), gen.string({ len: 22, charset: crypt.ITOA64 })),
 		(t) => `$1$${t[0]}$${t[1]}`),
-	gen.map(gen.tuple(gen.elements('5', '6'), gen.optional(gen.int(crypt.ROUNDS_MIN, crypt.ROUNDS_MAX)),
-		gen.string({ min_len: 0, max_len: 16, charset: crypt.ITOA64 }), gen.string({ len: 86, charset: crypt.ITOA64 })),
-		(t) => '$' + t[0] + '$' + (t[1] != null ? 'rounds=' + t[1] + '$' : '') + t[2] + '$' + substr(t[3], 0, t[0] == '5' ? 43 : 86))
+	sha_form(gen.int(crypt.ROUNDS_MIN, auth_mod.ROUNDS_MAX))
 );
 
 const USER = gen.string({ min_len: 1, max_len: 20, charset: 'abcXYZ019._-@' });
@@ -408,6 +414,33 @@ describe('config.service, basic auth', () => {
 			assert.match(-1, index(why, v));
 		}
 	});
+
+	it('takes a hash of the most rounds basic auth takes, and refuses one of a round more, saying why but not the hash', () => {
+		let at = crypt.sha_crypt('6', 'secret', 'saltsalt', auth_mod.ROUNDS_MAX);
+		let over = crypt.sha_crypt('6', 'secret', 'saltsalt', auth_mod.ROUNDS_MAX + 1);
+		let why = service({ auth_user: 'prom', auth_password: over, ...TLS });
+
+		assert.match({ user: 'prom', hash: at }, auth({ auth_user: 'prom', auth_password: at, ...TLS }));
+		assert.match(`CONFIG_INVALID: auth_password: expected a hash of at most ${auth_mod.ROUNDS_MAX} rounds, ` +
+			'which a scrape computes to check the password (hash_password makes one of 1000; one without rounds= has 5000)', why);
+		assert.match([ -1, -1 ], [ index(why, over), index(why, substr(over, -86)) ]);
+	});
+
+	it('refuses a $5$ or $6$ hash that names no rounds, which has 5000', () => {
+		let why = service({ auth_user: 'prom', auth_password: crypt.sha_crypt('5', 'secret', 'saltsalt', null), ...TLS });
+
+		assert.match(true, index(why, `expected a hash of at most ${auth_mod.ROUNDS_MAX} rounds`) > 0);
+	});
+
+	prop('takes a $5$ or $6$ hash exactly when its rounds are within the cap, and never says it',
+		sha_form(gen.oneof(gen.int(crypt.ROUNDS_MIN, crypt.ROUNDS_MAX), gen.int(auth_mod.ROUNDS_MAX - 2, auth_mod.ROUNDS_MAX + 2), gen.constant(null))),
+		(h) => {
+			let why = service({ auth_user: 'prom', auth_password: h, ...TLS });
+
+			assert.match(crypt.rounds(h) <= auth_mod.ROUNDS_MAX, type(why) == 'object', h);
+			if (type(why) == 'string')
+				assert.match(-1, index(why, h));
+		});
 
 	it('never says a password given as a list either', () => {
 		assert.match('CONFIG_INVALID: auth_password: expected a single value',

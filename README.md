@@ -151,7 +151,7 @@ A whole scrape of the lab (every collector, about 1250 series, on x86_64) is 143
 
 `auth_user` and `auth_password` make a scrape log in (HTTP basic auth). Basic auth sends the password in the clear, so it is taken over HTTPS only: `cert` and `key` must be set, and their files there. Otherwise the configuration is invalid, and refused wherever it is checked: start does not start, reload keeps the running exporter (the log says why), `check` fails saying why, and the ubus object's `validate` and LuCI refuse to save it. So is half of it: a user without a hash, or a hash without a user.
 
-`auth_password` holds the password's crypt hash, never the password: `$1$` (MD5-crypt, what `uhttpd -m <password>` prints), `$5$` or `$6$` (SHA-256-crypt and SHA-512-crypt, with their `rounds=`). Anything else is refused: DES's 13 characters (a plain password could look like one), bcrypt, and `$p$` lookups of system accounts. The ubus object makes one, freshly salted, without the password on a command line:
+`auth_password` holds the password's crypt hash, never the password: `$1$` (MD5-crypt, what `uhttpd -m <password>` prints), `$5$` or `$6$` (SHA-256-crypt and SHA-512-crypt, with their `rounds=`, at most 2000). Anything else is refused: DES's 13 characters (a plain password could look like one), bcrypt, `$p$` lookups of system accounts, and a `$5$` or `$6$` hash of more than 2000 rounds, including one that names none, which has 5000 (`openssl passwd -6` makes those; `mkpasswd -m sha-512 -R 1000` does not). The ubus object makes one, freshly salted, without the password on a command line:
 
 ```sh
 ubus call prometheus-exporter hash_password '{"password":"…"}'   # { "hash": "$6$rounds=1000$…" }
@@ -163,7 +163,15 @@ uci commit prometheus-exporter && reload_config
 
 The init script writes uhttpd's config file, `/var/run/prometheus-exporter/uhttpd.conf` (mode 0600, in a directory of mode 0700): one line, `/metrics:<user>:<hash>`. uhttpd reads it (`-c`), with the realm `prometheus-exporter` (`-r`), and the jail mounts it read-only. OpenWrt 25.12's uhttpd checks such a realm for files and CGI, not for a handler's prefix (its fix, uhttpd 3aa7e1c of August 2026, is newer than every 25.12 release so far): so the handler checks it itself, against the same file, before any scrape. A request without the user and password is a 401 (`WWW-Authenticate: Basic realm="prometheus-exporter"`); the hash itself is no password. Neither the password nor the hash is logged, and no reply of the ubus object holds the hash (its `status` says only whether basic auth is on); `check` names the user.
 
-The handler computes the hash in ucode, at each scrape, so its rounds are what a scrape pays: on x86_64, 5 ms for `$1$`, 7 ms for `$6$` of 1000 rounds (what `hash_password` makes, musl's least), 22 ms for `$6$` of the default 5000. A router's CPU takes ten to forty times as long.
+The handler computes the hash in ucode to check the password, so its rounds are what a check costs (the median of a check in a process of its own):
+
+| | `$1$` | `$6$`, 1000 rounds (`hash_password`'s) | `$5$`, 2000 | `$6$`, 2000 |
+|---|---|---|---|---|
+| devenv (Ryzen 7 7840U) | 2.5 ms | 4.1 ms | 6.5 ms | 7.8 ms |
+| NanoPi R3S (4×A55) | 14 ms | 19 ms | 33 ms | 37 ms |
+| QEMU malta, 24Kc at 500 MIPS | 63 ms | 135 ms | 206 ms | 259 ms |
+
+A round of SHA-512-crypt takes a 500-MIPS 24Kc (an MT7621-class router) 125 µs: the 9,999,999 rounds a hash may name would take 20 minutes, the default 5000 0.63 s. So a hash takes at most 2000 rounds (`auth.ROUNDS_MAX`), a quarter of a second there, and more is refused wherever the config is checked, as any invalid value is; the message says how many rounds it takes, never the hash.
 
 In Prometheus (vmagent takes the same `scrape_configs`):
 

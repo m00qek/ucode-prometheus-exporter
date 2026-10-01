@@ -31,6 +31,25 @@ export function is_user(s) {
 	return type(s) == 'string' && match(s, /^[^:[:space:][:cntrl:]]{1,64}$/) != null;
 };
 
+// The most rounds a hash of auth_password may take (see crypt.rounds). The
+// handler computes the hash in ucode to check a password, and a $5$ or $6$
+// hash may name up to 9,999,999 rounds: at the 125 us a round of SHA-512-crypt
+// takes a MIPS 24Kc of 500 MIPS (an MT7621-class router; make bench-qemu),
+// that is 20 minutes a scrape. At 2000 rounds the check takes it 0.26 s (0.21 s
+// for SHA-256-crypt), the R3S 37 ms, x86_64 8 ms: a few hundred milliseconds
+// at most on a slow router, twice hash_password's. MD5-crypt is always 1000
+// (63 ms there). A hash that names no rounds is of 5000 (0.63 s there), and so
+// is refused: name rounds=1000, as hash_password does.
+export const ROUNDS_MAX = 2000;
+
+// Whether `s` is a hash basic auth takes: of crypt's formats, and of at most
+// ROUNDS_MAX rounds.
+export function is_hash(s) {
+	let n = crypt.rounds(s);
+
+	return n != null && n <= ROUNDS_MAX;
+};
+
 // uhttpd's config file for user and hash.
 export function conf(user, hash) {
 	return `${PATH}:${user}:${hash}\n`;
@@ -74,7 +93,7 @@ export function write_conf(fs, a) {
 export function parse_conf(text) {
 	let m = (type(text) == 'string') ? match(text, /^([^:\n]*):([^:\n]*):([^:\n]*)\n?$/) : null;
 
-	if (!m || m[1] != PATH || !is_user(m[2]) || !crypt.is_hash(m[3]))
+	if (!m || m[1] != PATH || !is_user(m[2]) || !is_hash(m[3]))
 		return null;
 
 	return { user: m[2], hash: m[3] };
