@@ -191,6 +191,26 @@ check "it logs why" says "collector 'ubnt-manager': COMMAND_TIMEOUT (ubnt-manage
 sleep 1
 check "and leaves neither the script nor its ssh behind" fails left_behind
 check "the instance keeps running" test "$(pid)" = "$before"
+# The seconds, set through uci as LuCI sets them: the main section's
+# exec_timeout, then the collector's own timeout over it.
+hung_for() { started=$(date +%s); fetch >/tmp/hung; echo $(($(date +%s) - started)); }
+set_config "$NAME.main.exec_timeout=3"
+eventually "setting exec_timeout restarts the instance" restarted_from "$before"
+took=$(hung_for)
+check "ubnt-manager then gets exec_timeout's 3 seconds ($took s)" test "$took" -ge 3 -a "$took" -lt 5
+check "and says so" says "COMMAND_TIMEOUT (ubnt-manager: still running after 3 s, killed)" logread
+before=$(pid)
+set_config "$NAME.ubnt_manager=collector" "$NAME.ubnt_manager.timeout=1"
+eventually "setting its timeout restarts the instance" restarted_from "$before"
+took=$(hung_for)
+check "ubnt-manager then gets its own 1 second over exec_timeout's 3 ($took s)" test "$took" -ge 1 -a "$took" -lt 3
+check "and says so" says "COMMAND_TIMEOUT (ubnt-manager: still running after 1 s, killed)" logread
+check "check says where its seconds come from" says "timeout  1s # its section's option timeout" "$INIT" check
+check "a timeout out of range fails check" says \
+	"FAIL collector ubnt-manager, section 'ubnt_manager': CONFIG_INVALID (timeout: expected an integer from 1 to 30, got 31)" \
+	sh -c "uci set $NAME.ubnt_manager.timeout=31 && uci commit $NAME && $INIT check; uci set $NAME.ubnt_manager.timeout=1 && uci commit $NAME"
+uci delete "$NAME.ubnt_manager"
+set_config "$NAME.main.exec_timeout=5"
 kill $silent
 set_config "ubnt-manager.sample_ap.target=127.0.0.1"
 eventually "the radio that answers again is read again" metric 'ubnt_uptime_seconds{device="sample_ap"} 4242$'
