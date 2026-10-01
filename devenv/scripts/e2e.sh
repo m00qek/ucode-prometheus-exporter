@@ -151,7 +151,8 @@ check "and mounts it" mounted "${NTPD_STATE%/*}"
 check "timesync is served with busybox ntpd running" served timesync
 eventually "busybox ntpd's event, through hotplug.ntp, says it is synchronized, in the jail" synced
 check "the hotplug script keeps it, written whole" grep -qx 'action=stratum' "$NTPD_STATE"
-check "and leaves no temporary file" test "$(ls "${NTPD_STATE%/*}")" = ntpd
+# A real ntpd event may be writing its own at that moment.
+eventually "and leaves no temporary file" test "$(ls "${NTPD_STATE%/*}")" = ntpd
 ubus call hotplug.ntp call '{"env":["ACTION=stratum"]}'; sleep 1
 check "chrony's own event, without busybox's environment, is not kept" grep -qx 'stratum=2' "$NTPD_STATE"
 eventually "losing sync, it is not" unsynced
