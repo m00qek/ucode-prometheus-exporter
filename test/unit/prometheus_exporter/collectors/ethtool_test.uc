@@ -304,4 +304,22 @@ describe('collectors.ethtool', () => {
 
 			assert.match(stats, ethtool.statistics(text));
 		});
+
+	// statistics() takes lines apart without a regex, for speed; it must
+	// read any line as the regex would.
+	const LINE = /^(.+):[ \t]+([^ \t]+)$/;
+
+	prop('reads any line as /^(.+):[ \\t]+([^ \\t]+)$/ does',
+		gen.string({ charset: 'ab: \t\r5', min_len: 0, max_len: 14 }), (line) => {
+			let m = match(trim(line), LINE);
+
+			assert.match(m ? [ [ m[1], m[2] ] ] : [], ethtool.statistics(line), sprintf('%J', line));
+		});
+
+	it('names a statistic as it did the first time, from what it keeps', () => {
+		let first = map([ 'rx_bytes', 'mmc_tx_64_octets_gb', 'q0_rx_pkt_n' ], ethtool.family);
+
+		assert.match(first, map([ 'rx_bytes', 'mmc_tx_64_octets_gb', 'q0_rx_pkt_n' ], ethtool.family));
+		assert.match([ 'node_ethtool_mmc_transmitted_64_octets_gb', 'Network interface mmc_tx_64_octets_gb' ], first[1]);
+	});
 });
