@@ -284,12 +284,56 @@ describe('deps.session', () => {
 		});
 	});
 
-	it('shares one uci cursor across the scrape', () => {
-		with_mods({}, (mods) => {
-			let s = deps.session(mods);
-			assert.match(true, s.uci() === s.for({ needs: [ 'uci' ] }).data.uci);
+	it('shares one uci cursor across the scrape, the core\'s and the collectors\'', () => {
+		with_mods({ uci: { data: { dhcp: { a: { '.type': 'host', name: 'x' } } } } }, (mods) => {
+			let cursors = 0;
+			let s = deps.session({ ...mods, uci: { cursor: () => { cursors++; return mods.uci.cursor(); } } });
+			let meta = { name: 'c', needs: [ 'uci' ], configs: [ 'dhcp' ] };
+
+			s.uci();
+			s.for(meta).data.uci.dhcp.loaded();
+			s.for(meta).data.uci.dhcp.sections('host');
+			assert.match(1, cursors);
 		});
 	});
+
+	it('gives a collector read-only handles for the configs it declares, and no others', () => {
+		let data = {
+			dhcp: { lan: { '.type': 'dhcp', 'interface': 'lan' }, h1: { '.type': 'host', name: 'nas', mac: [ 'a', 'b' ] } },
+			network: { wg: { '.type': 'interface', private_key: 'secret' } },
+		};
+
+		with_mods({ uci: { data } }, (mods) => {
+			let uci = deps.session(mods).for({ name: 'c', needs: [ 'uci' ], configs: [ 'dhcp' ] }).data.uci;
+			let dhcp = uci.dhcp;
+
+			assert.match([ 'dhcp' ], keys(uci));
+			assert.match([ 'foreach', 'get', 'get_all', 'loaded', 'sections' ], sort(keys(dhcp)));
+			assert.match([ true, 'nas', 'host' ], [ dhcp.loaded(), dhcp.get('h1', 'name'), dhcp.get('h1') ]);
+			assert.match([ 'h1' ], map(dhcp.sections('host'), (s) => s['.name']));
+			assert.match([ 'a', 'b' ], dhcp.get_all('h1').mac);
+
+			let seen = [];
+			dhcp.foreach('host', (s) => push(seen, s.name));
+			assert.match([ 'nas' ], seen);
+		});
+	});
+
+	it('gives a handle for a missing config that says so and reads nothing', () => {
+		with_mods({ uci: { data: {} } }, (mods) => {
+			let dhcp = deps.session(mods).for({ name: 'c', needs: [ 'uci' ], configs: [ 'dhcp' ] }).data.uci.dhcp;
+
+			assert.match([ false, null, null, [] ], [ dhcp.loaded(), dhcp.get('h1', 'name'), dhcp.get_all('h1'), dhcp.sections('host') ]);
+		});
+	});
+
+	prop('hands each collector exactly the configs it declares',
+		gen.array(gen.elements('dhcp', 'network', 'wireless', 'system'), { min_len: 1, max_len: 4 }), (configs) => {
+			with_mods({ uci: { data: {} } }, (mods) => {
+				let uci = deps.session(mods).for({ name: 'c', needs: [ 'uci' ], configs: uniq(configs) }).data.uci;
+				assert.match(sort(uniq(configs)), sort(keys(uci)));
+			});
+		});
 
 	it('fails with NEED_MISSING where rtnl does not load', () => {
 		with_mods({ no_rtnl: true }, (mods) => {

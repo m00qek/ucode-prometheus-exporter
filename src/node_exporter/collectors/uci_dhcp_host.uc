@@ -17,6 +17,7 @@ export const meta = {
 	name: 'uci_dhcp_host',
 	help: 'Static DHCP leases from /etc/config/dhcp.',
 	needs: [ 'uci' ],
+	configs: [ 'dhcp' ],
 };
 
 // The MACs of a host's `mac` option: none, one, a list, or several in one value.
@@ -35,15 +36,15 @@ function scalar(v) {
 }
 
 export function collect(deps, out) {
-	let uci = deps.uci;
+	let dhcp = deps.uci.dhcp;
 
-	if (!uci.load('dhcp'))
+	if (!dhcp.loaded())
 		return Result.err(errors.SOURCE_UNREADABLE, '/etc/config/dhcp');
 
 	let info = out.gauge('node_openwrt_dhcp_host_info', 'A static DHCP lease from /etc/config/dhcp.');
 	let seen = {};
 
-	uci.foreach('dhcp', 'host', (s) => {
+	dhcp.foreach('host', (s) => {
 		for (let mac in macs(s.mac)) {
 			let labels = { name: scalar(s.name), mac, ip: scalar(s.ip) };
 			let id = sprintf('%J', labels);

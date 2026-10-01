@@ -16,6 +16,7 @@ export const meta = {
 	name: 'wireguard',
 	help: 'WireGuard interfaces and peers, from ubus wireguard status and the network config.',
 	needs: [ 'ubus', 'uci' ],
+	configs: [ 'network' ],
 };
 
 // ubus hands 16- and 32-bit integers on as signed ones: a listen port of 51820
@@ -25,11 +26,11 @@ function unsigned(v, bits) {
 }
 
 // { public key: description } of an interface's peers in /etc/config/network.
-function descriptions(uci, loaded, iface) {
+function descriptions(network, loaded, iface) {
 	let by_key = {};
 
 	if (loaded)
-		uci.foreach('network', `wireguard_${iface}`, (s) => {
+		network.foreach(`wireguard_${iface}`, (s) => {
 			if (s.public_key != null && s.description != null)
 				by_key[s.public_key] = s.description;
 		});
@@ -52,7 +53,7 @@ export function collect(deps, out) {
 	if (type(res.data) != 'object')
 		return Result.err(errors.SOURCE_INVALID, 'wireguard status: not an object');
 
-	let loaded = deps.uci.load('network');
+	let loaded = deps.uci.network.loaded();
 
 	let iface_info = out.gauge('wireguard_interface_info', 'A WireGuard interface.');
 	let peer_info = out.gauge('wireguard_peer_info', 'A WireGuard peer.');
@@ -72,7 +73,7 @@ export function collect(deps, out) {
 			fwmark: unsigned(wc.fwmark, 32) || null,
 		}, 1);
 
-		let desc = descriptions(deps.uci, loaded, iface);
+		let desc = descriptions(deps.uci.network, loaded, iface);
 
 		for (let key, pc in wc.peers) {
 			if (type(pc) != 'object')

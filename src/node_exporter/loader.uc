@@ -50,6 +50,16 @@ export function validate(id, mod) {
 		if (!(need in NEEDS))
 			return invalid(id, `unknown need '${need}'`);
 
+	if ('uci' in meta.needs) {
+		if (!is_strings(meta.configs) || !length(meta.configs))
+			return invalid(id, 'meta.configs must list the uci configs it reads');
+		for (let c in meta.configs)
+			if (!match(c, /^[a-z0-9_-]+$/) || c == 'prometheus-node-exporter-ucode')
+				return invalid(id, `meta.configs cannot name '${c}'; its own options come as options`);
+	} else if (meta.configs != null) {
+		return invalid(id, 'meta.configs without uci in meta.needs');
+	}
+
 	if ('exec' in meta.needs) {
 		if (!is_strings(meta.commands) || !length(meta.commands))
 			return invalid(id, 'meta.commands must list the programs exec runs');

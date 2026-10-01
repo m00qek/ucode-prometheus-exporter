@@ -39,6 +39,7 @@ export const meta = {
 	name: 'dhcp_leases',
 	help: 'Active DHCP leases of dnsmasq and odhcpd, by interface and family.',
 	needs: [ 'fs', 'ubus', 'uci', 'time' ],
+	configs: [ 'dhcp' ],
 	options: { leases: false },
 };
 
@@ -175,8 +176,7 @@ function ledger() {
 function dnsmasq(deps, nets, now, book) {
 	let paths = [];
 
-	if (deps.uci.load('dhcp'))
-		deps.uci.foreach('dhcp', 'dnsmasq', (s) => push(paths, nonempty(s.leasefile) ?? DEFAULT_LEASEFILE));
+	deps.uci.dhcp.foreach('dnsmasq', (s) => push(paths, nonempty(s.leasefile) ?? DEFAULT_LEASEFILE));
 
 	let found = false;
 	for (let path in uniq(paths)) {

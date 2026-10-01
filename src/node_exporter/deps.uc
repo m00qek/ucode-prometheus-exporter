@@ -192,6 +192,63 @@ export function exec_channel(popen_fn, allowed) {
 	};
 };
 
+function uci_handle(cursor_fn, name) {
+	let loaded = null;
+
+	function cursor() {
+		let c = cursor_fn();
+
+		if (loaded == null)
+			loaded = !!c.load(name);
+
+		return c;
+	}
+
+	function sections(stype) {
+		let c = cursor();
+		let found = [];
+
+		if (loaded)
+			c.foreach(name, stype, (s) => { push(found, s); });
+
+		return found;
+	}
+
+	return {
+		loaded: function() {
+			cursor();
+			return loaded;
+		},
+		get: function(section, option) {
+			let c = cursor();
+			return loaded ? c.get(name, section, option) : null;
+		},
+		get_all: function(section) {
+			let c = cursor();
+			return loaded ? c.get_all(name, section) : null;
+		},
+		sections,
+		foreach: function(stype, cb) {
+			for (let s in sections(stype))
+				cb(s);
+		},
+	};
+}
+
+// Read-only handles over uci configs: { <config>: handle } for each name in
+// `configs`, and nothing else. A handle loads its config on first use and
+// has loaded(), get(section, option), get_all(section), sections(type) and
+// foreach(type, cb); no method writes. `cursor_fn` gives the scrape's shared
+// cursor.
+export function uci_handles(cursor_fn, configs) {
+	let handles = {};
+
+	for (let name in configs)
+		handles[name] = uci_handle(cursor_fn, name);
+
+	return handles;
+};
+
 // One scrape's capabilities: a ubus connection and a uci cursor shared by its
 // collectors, and closed once it is over. mods.log, the exporter's, takes what
 // collectors log, each line naming its collector.
@@ -212,7 +269,7 @@ export function session(mods) {
 		switch (need) {
 		case 'fs':      return fs;
 		case 'ubus':    return ubus;
-		case 'uci':     return uci_cursor();
+		case 'uci':     return uci_handles(uci_cursor, meta.configs ?? []);
 		case 'rtnl':    return mods.rtnl ? rtnl_channel(mods.rtnl) : null;
 		case 'nl80211': return mods.nl80211 ? nl80211_channel(mods.nl80211) : null;
 		case 'socket':  return mods.socket ? socket_channel(mods.socket) : null;
@@ -285,11 +342,15 @@ export function load_socket() {
 	}
 };
 
+// A delta directory that never exists: cursors read committed configuration
+// only, not changes staged in uci and not yet committed.
+const UCI_NO_DELTAS = '/var/run/prometheus-node-exporter-ucode/no-uci-deltas';
+
 export function modules() {
 	return {
 		fs: { readfile, open, lsdir, glob, stat, realpath, popen },
 		ubus: { connect },
-		uci: { cursor },
+		uci: { cursor: () => cursor(null, UCI_NO_DELTAS) },
 		rtnl: load_rtnl(),
 		nl80211: load_nl80211(),
 		socket: load_socket(),
