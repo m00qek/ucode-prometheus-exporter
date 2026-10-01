@@ -219,7 +219,7 @@ describe('config.enabled', () => {
 describe('config.main', () => {
 	it('reads omit_zero_values from the main section', () => {
 		with_uci({ main: { '.type': config.NAME, omit_zero_values: '1', listen_port: '9100' } }, (uci) => {
-			assert.match({ omit_zero_values: true, compress: true, exec_timeout: config.EXEC_TIMEOUT }, config.main(uci).data);
+			assert.match({ omit_zero_values: true, compress: true, exec_timeout: config.EXEC_TIMEOUT, scrape_timeout: config.SCRAPE_TIMEOUT }, config.main(uci).data);
 		});
 	});
 

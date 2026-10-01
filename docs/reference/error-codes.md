@@ -35,6 +35,12 @@ A failure carries an uppercase code, from `src/prometheus_exporter/errors.uc`, a
 | `COMMAND_FAILED` | A program could not start or exited with a status other than 0. The detail is `<program>: exit status <n>` or `<program>: cannot start`. | `deps.uc` |
 | `COMMAND_TIMEOUT` | A program was still running when the collector's seconds for programs were spent, and was killed with every process it started; or the collector asked to run one after they were spent. | `deps.uc` |
 
+## The scrape
+
+| Code | Meaning | Raised by |
+| :--- | :--- | :--- |
+| `SCRAPE_DEADLINE` | The scrape's time was nearly spent: the collector was not run, or a program it ran was killed at the deadline, so that the scrape answers before the scraper gives up. The scrape logs every such collector in one line. See [About deadlines and circuit breakers](../explanation/deadlines-and-breakers.md). | `deps.uc`, `scrape.uc` |
+
 ## Exposition text
 
 | Code | Meaning | Raised by |

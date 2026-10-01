@@ -147,6 +147,25 @@ describe('app.handler', () => {
 		assert.match(contains([ 'node_load1 0.75' ]), split(r.body, '\n'));
 	});
 
+	// The budget of a 2 s timeout is 1.5 s: a program gets its whole second.
+	it('gives a program no more than the scraper\'s timeout leaves, and scrape_timeout without one', () => {
+		let seen = [];
+
+		mock.global.patch('fs', { data: ROUTER.files, behavior: {
+			popen: function(cmd) { push(seen, commands.parse(cmd).seconds); return { read: () => '{}', close: () => 0 }; },
+		} });
+		mock.global.patch('ubus', { strict: true, data: {} });
+		mock.global.patch('uci', { strict: true, data: { [config.NAME]: { main: { '.type': config.NAME, scrape_timeout: '3' } } } });
+
+		let app = handler(() => null, SOURCES);
+
+		app.handle(request('collect[]=nft-counters', { 'x-prometheus-scrape-timeout-seconds': '2' }, true));
+		app.handle(request('collect[]=nft-counters', { 'x-prometheus-scrape-timeout-seconds': '30' }, true));
+		app.handle(request('collect[]=nft-counters', {}, true));
+
+		assert.match([ 3, [ 1, 5, 2 ] ], [ app.scrape_timeout, seen ]);
+	});
+
 	it('gzips a scrape the scraper asks gzip for', () => {
 		patch_main(null);
 

@@ -24,5 +24,8 @@ export const COMMAND_NOT_ALLOWED  = 'COMMAND_NOT_ALLOWED';
 export const COMMAND_FAILED       = 'COMMAND_FAILED';
 export const COMMAND_TIMEOUT      = 'COMMAND_TIMEOUT';
 
+// The scrape
+export const SCRAPE_DEADLINE      = 'SCRAPE_DEADLINE';
+
 // Exposition text
 export const EXPOSITION_INVALID   = 'EXPOSITION_INVALID';

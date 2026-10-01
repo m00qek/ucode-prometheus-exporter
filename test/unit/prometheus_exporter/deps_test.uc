@@ -316,6 +316,45 @@ describe('deps.exec_channel', () => {
 		assert.match([ 12 ], map(seen, (s) => commands.parse(s).seconds));
 	});
 
+	it('gives a program no more than the whole seconds left before the scrape\'s cutoff', () => {
+		let seen = [];
+		let ch = deps.exec_channel(popen_answering({ "'nft'": { out: '', status: 0 } }, seen), [ 'nft' ], 5, clock_at([ 0, 2500 ]), 1003.7);
+
+		ch.run([ 'nft' ]);
+		ch.run([ 'nft' ]);
+		assert.match([ 3, 1 ], map(seen, (s) => commands.parse(s).seconds));
+	});
+
+	it('runs no program with less than a second left before the cutoff: SCRAPE_DEADLINE', () => {
+		let seen = [];
+		let res = deps.exec_channel(popen_answering({}, seen), [ 'nft' ], 5, clock_at([ 0 ]), 1000.9).run([ 'nft' ]);
+
+		assert.match({ ok: false, error: 'SCRAPE_DEADLINE', details: "nft: not run, less than a second is left before the scrape's deadline" }, brief(res));
+		assert.match({ status: null, timed_out: true, deadline: true }, res.data);
+		assert.match([], seen);
+	});
+
+	it('tells a program killed at the cutoff from one killed at its own seconds', () => {
+		let killed = popen_answering({ "'ubnt-manager'": { out: '', status: deps.EXEC_KILLED } }, []);
+
+		assert.match({ ok: false, error: 'SCRAPE_DEADLINE', details: "ubnt-manager: still running at the scrape's deadline, after 2 s, killed" },
+			brief(deps.exec_channel(killed, [ 'ubnt-manager' ], 5, clock_at([ 0 ]), 1002.5).run([ 'ubnt-manager' ])));
+		assert.match({ ok: false, error: 'COMMAND_TIMEOUT', details: 'ubnt-manager: still running after 5 s, killed' },
+			brief(deps.exec_channel(killed, [ 'ubnt-manager' ], 5, clock_at([ 0 ]), 1009).run([ 'ubnt-manager' ])));
+	});
+
+	prop('never gives a program more than its own seconds, nor a second past the cutoff',
+		gen.tuple(gen.int(1, 30), gen.int(0, 40000), gen.int(0, 40000)), (t) => {
+			let seen = [];
+			let res = deps.exec_channel(popen_answering({ "'nft'": { out: '', status: 0 } }, seen), [ 'nft' ], t[0], clock_at([ t[1] ]),
+				1000 + t[2] / 1000.0).run([ 'nft' ]);
+			let given = length(seen) ? commands.parse(seen[0]).seconds : 0;
+
+			assert.match(true, given <= t[0]);
+			assert.match(true, t[1] + given * 1000 <= max(t[2], t[1]));
+			assert.match(given == 0, res.error == 'SCRAPE_DEADLINE');
+		});
+
 	prop('quotes any argument so a real shell passes it on unchanged', gen.ascii({ min_len: 0, max_len: 24 }), (arg) => {
 		let p = popen("printf '%s' " + deps.shell_quote(arg), 'r');
 		let out = p.read('all');

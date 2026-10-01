@@ -12,6 +12,12 @@
 // node_scrape_collector_observing is 0, so a dashboard tells it from one that
 // observes and finds nothing to count; every other collector's is 1.
 //
+// A scrape may have a deadline (prometheus_exporter.deadline): it then starts
+// no collector once its budget is spent, and none of their programs runs past
+// it. A collector left out so fails with SCRAPE_DEADLINE, as one whose program
+// was killed at the deadline does, and the scrape logs them once, all
+// together, not a line each.
+//
 // env: { session() -> a deps session, clock() -> [ s, ns ] monotonic,
 //        log(level, msg): a collector that fails at warning, as the scrape
 //        answers without it; a main section the exporter cannot read at err,
@@ -22,6 +28,7 @@ import * as errors from 'prometheus_exporter.errors';
 import * as exposition from 'prometheus_exporter.exposition';
 import * as config from 'prometheus_exporter.config';
 import * as query from 'prometheus_exporter.query';
+import { seconds as now_of } from 'prometheus_exporter.deadline';
 
 export const CONTENT_TYPE = 'text/plain; version=0.0.4; charset=utf-8';
 
@@ -65,10 +72,11 @@ export function select(collectors, query_string, disabled) {
 	}));
 };
 
-// Runs one collector: { name, result, families, duration }. What it recorded is
-// kept even when it fails, as upstream exporters do; nothing is when it has
-// nothing to observe.
-export function run_one(env, session, c) {
+// Runs one collector: { name, id, result, families, duration }. What it
+// recorded is kept even when it fails, as upstream exporters do; nothing is
+// when it has nothing to observe. Its programs never run past `cutoff`
+// (monotonic seconds), when given.
+export function run_one(env, session, c, cutoff) {
 	let rec = exposition.recorder();
 	let t1 = env.clock();
 	let res = config.settings(session.uci(), c.id, c.meta);
@@ -76,7 +84,7 @@ export function run_one(env, session, c) {
 	if (res.ok) {
 		let settings = res.data;
 
-		res = session.for(c.meta, settings);
+		res = session.for(c.meta, settings, cutoff);
 		if (res.ok) {
 			try {
 				let r = c.collect(res.data, rec, settings.options);
@@ -89,20 +97,41 @@ export function run_one(env, session, c) {
 
 	let duration = seconds(t1, env.clock());
 
-	if (!res.ok)
+	// One cut at the deadline is in the scrape's line of them.
+	if (!res.ok && res.error != errors.SCRAPE_DEADLINE)
 		env.log('warning', `collector '${c.meta.name}': ${Result.describe(res)}`);
 	for (let name in rec.conflicts())
 		env.log('warning', `collector '${c.meta.name}': '${name}' declared with two types; later samples dropped`);
 
-	return { name: c.meta.name, result: res, families: Result.is_none(res) ? [] : rec.families(), duration };
+	return { name: c.meta.name, id: c.id, result: res, families: Result.is_none(res) ? [] : rec.families(), duration };
+};
+
+// A collector left out, without running: { name, id, result, families: [],
+// duration: 0, skipped }.
+export function not_run(c, res, why) {
+	return { name: c.meta.name, id: c.id, result: res, families: [], duration: 0, skipped: why };
+};
+
+// The line the scrape logs of the collectors the deadline left out or cut, or
+// null for none.
+export function deadline_line(runs, budget) {
+	let names = map(filter(runs, (r) => r.result.error == errors.SCRAPE_DEADLINE), (r) => r.name);
+
+	if (!length(names))
+		return null;
+
+	return sprintf('scrape deadline: %d collector%s not served in its %.1f s: %s', length(names),
+		length(names) == 1 ? '' : 's', budget, join(', ', names));
 };
 
 function reply(status, body) {
 	return { status, content_type: CONTENT_TYPE, body };
 }
 
-// { status, content_type, body } for a scrape with this query string.
-export function scrape(env, collectors, query_string) {
+// { status, content_type, body } for a scrape with this query string. opts:
+// { deadline: when the collectors must be done by (monotonic seconds),
+//   budget: the seconds that left them, for the log }.
+export function scrape(env, collectors, query_string, opts) {
 	let session = env.session();
 	let uci = session.uci();
 	let disabled = map(filter(collectors, (c) => !config.enabled(uci, c.id)), (c) => c.id);
@@ -120,8 +149,21 @@ export function scrape(env, collectors, query_string) {
 		main = Result.ok(config.defaults(config.MAIN_OPTIONS));
 	}
 
-	let runs = map(sel.data, (c) => run_one(env, session, c));
+	let deadline = opts?.deadline;
+	let runs = [];
+
+	for (let c in sel.data) {
+		if (deadline != null && now_of(env.clock()) >= deadline)
+			push(runs, not_run(c, Result.err(errors.SCRAPE_DEADLINE, 'not run: the scrape\'s time was spent'), 'deadline'));
+		else
+			push(runs, run_one(env, session, c, deadline));
+	}
+
 	session.close();
+
+	let late = deadline_line(runs, opts?.budget ?? 0);
+	if (late)
+		env.log('warning', late);
 
 	let scrape_meta = exposition.recorder();
 	let duration = scrape_meta.gauge('node_scrape_collector_duration_seconds',

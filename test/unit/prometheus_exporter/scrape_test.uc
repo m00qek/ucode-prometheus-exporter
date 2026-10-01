@@ -186,15 +186,53 @@ describe('scrape.run_one', () => {
 });
 
 describe('scrape.scrape', () => {
-	function scrape_with(collectors, query_string, cfg) {
+	function scrape_with(collectors, query_string, cfg, opts) {
 		let out;
 		with_mods(cfg ?? {}, (mods) => {
 			let logs = [];
 			let levels = [];
-			out = { ...scrape.scrape(env_for(mods, logs, levels), collectors, query_string), logs, levels };
+			out = { ...scrape.scrape(env_for(mods, logs, levels), collectors, query_string, opts), logs, levels };
 		});
 		return out;
 	}
+
+	// The clock reads 0.25 s, then 0.5 s, and so on: A starts at 0.25 and is
+	// done at 0.75; at 1.0 the deadline of 0.9 is past.
+	it('starts no collector once the deadline is past: each fails with SCRAPE_DEADLINE, logged once, all together', () => {
+		let r = scrape_with([ A, B, C ], '', {}, { deadline: 0.9, budget: 0.9 });
+
+		assert.match(contains([
+			'a_value 1',
+			'node_scrape_collector_duration_seconds{collector="c"} 0',
+			'node_scrape_collector_success{collector="a"} 1',
+			'node_scrape_collector_success{collector="b-two"} 0',
+			'node_scrape_collector_success{collector="c"} 0',
+		]), lines(r.body));
+		assert.match([ -1, -1 ], [ index(r.body, 'b_value'), index(r.body, 'c_value') ]);
+		assert.match([ 'scrape deadline: 2 collectors not served in its 0.9 s: b-two, c' ], r.logs);
+		assert.match([ 'warning' ], r.levels);
+	});
+
+	it('serves every collector without a deadline, or before it', () => {
+		for (let opts in [ null, { deadline: 100, budget: 100 } ]) {
+			let r = scrape_with([ A, B, C ], '', {}, opts);
+
+			assert.match([ [], 3 ], [ r.logs, length(filter(lines(r.body), (l) => match(l, /^node_scrape_collector_success\{.*\} 1$/))) ], opts);
+		}
+	});
+
+	// The programs' clock is the real one.
+	it('runs a program for no more than the whole seconds left before the deadline, and logs it with the others', () => {
+		let seen = [];
+		let fs = { behavior: { popen: function(cmd) { push(seen, commands.parse(cmd).seconds); return { read: () => '', close: () => deps.EXEC_KILLED }; } } };
+		let runner = collector('runner', (d) => d.exec.run([ 'nft' ]), { needs: [ 'exec' ], commands: [ 'nft' ] });
+		let t = clock(true);
+		let r = scrape_with([ runner ], '', { fs }, { deadline: t[0] + t[1] / 1000000000.0 + 3.7, budget: 3.7 });
+
+		assert.match([ 3 ], seen);
+		assert.match(contains([ 'node_scrape_collector_success{collector="runner"} 0' ]), lines(r.body));
+		assert.match([ 'scrape deadline: 1 collector not served in its 3.7 s: runner' ], r.logs);
+	});
 
 	it('logs a collector that fails at warning, and a main section it cannot read at err', () => {
 		let r = scrape_with([ A, collector('failing', () => Result.err('SOURCE_INVALID')) ], '', { main: { omit_zero_values: 'maybe' } });

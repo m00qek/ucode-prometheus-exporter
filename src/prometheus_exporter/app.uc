@@ -10,6 +10,7 @@ import * as config from 'prometheus_exporter.config';
 import * as auth from 'prometheus_exporter.auth';
 import * as http from 'prometheus_exporter.http';
 import * as state from 'prometheus_exporter.state';
+import * as deadline from 'prometheus_exporter.deadline';
 import { version } from 'prometheus_exporter.version';
 
 // Basic auth as the handler finds it when it starts: null when uhttpd's
@@ -65,15 +66,17 @@ export function create(log, dir) {
 
 	return {
 		collectors: () => loaded,
-		scrape: (query_string) => scrape.scrape(env, loaded, query_string),
+		scrape: (query_string, opts) => scrape.scrape(env, loaded, query_string, opts),
 		mods,
 	};
 };
 
 // The exporter as uhttpd's handler: { collectors(), auth, compress,
-// handle(env) }, where handle answers one request (uhttpd-mod-ucode's env)
-// with a reply (prometheus_exporter.http). Like the collectors, compress and
-// basic auth are read once, when the handler starts: a change of the config
+// scrape_timeout, handle(env) }, where handle answers one request
+// (uhttpd-mod-ucode's env) with a reply (prometheus_exporter.http), in the time
+// the scraper gives it (prometheus_exporter.deadline), counted from when the
+// request reached the handler. Like the collectors, compress, scrape_timeout
+// and basic auth are read once, when the handler starts: a change of the config
 // restarts uhttpd (see the init script). `auth` is load_auth's. The state is
 // opened here too, in the process uhttpd forks each request from, which names
 // the instance (see prometheus_exporter.state); `state_dir` replaces its
@@ -82,6 +85,7 @@ export function handler(log, dir, state_dir) {
 	let app = create(log, dir);
 	let main = config.main(app.mods.uci.cursor());
 	let compress = main.ok ? main.data.compress : config.MAIN_OPTIONS.compress.default;
+	let scrape_timeout = main.ok ? main.data.scrape_timeout : config.SCRAPE_TIMEOUT;
 	let a = load_auth(app.mods.fs);
 	let st = state.open(app.mods.fs, state_dir ?? state.DIR, state.instance_id(app.mods.fs));
 
@@ -92,13 +96,18 @@ export function handler(log, dir, state_dir) {
 		collectors: app.collectors,
 		auth: a,
 		compress,
+		scrape_timeout,
 		handle: function(req) {
+			let start = deadline.seconds(clock(true));
 			let refused = refusal(a, req, st);
 
 			if (refused)
 				return refused;
 
-			return http.scrape_reply(app.scrape(req?.QUERY_STRING), http.header(req, 'accept-encoding'), compress);
+			let budget = deadline.budget(deadline.timeout(http.header(req, deadline.HEADER), scrape_timeout));
+			let res = app.scrape(req?.QUERY_STRING, { deadline: start + budget, budget });
+
+			return http.scrape_reply(res, http.header(req, 'accept-encoding'), compress);
 		},
 	};
 };

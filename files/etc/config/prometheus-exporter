@@ -12,6 +12,9 @@ config prometheus-exporter 'main'
 	# Seconds the programs a collector runs get in all in each scrape (1-30),
 	# unless the collector says otherwise.
 	option exec_timeout '5'
+	# Seconds a scrape has to answer (1-60) when the scraper does not say;
+	# Prometheus and vmagent say, in X-Prometheus-Scrape-Timeout-Seconds.
+	#option scrape_timeout '10'
 	# '0': never gzip a scrape; otherwise it is, when the scraper asks for it.
 	option compress '1'
 	# Serve HTTPS: both files must exist, and uhttpd needs a TLS library.

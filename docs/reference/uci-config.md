@@ -21,6 +21,7 @@ The exporter's configuration is `/etc/config/prometheus-exporter`. The file is o
 | `omit_zero_values` | boolean | `0` | — | Leave out counters that are 0, most of which never move on a router. | exporter |
 | `compress` | boolean | `1` | — | Send a scrape gzip-compressed when the scraper asks for it (Accept-Encoding: gzip); 0 never does. | exporter |
 | `exec_timeout` | integer | `5` | `range(1,30)` | Seconds the programs a collector runs get in all in each scrape, unless the collector says otherwise; one still running then is killed. | exporter |
+| `scrape_timeout` | integer | `10` | `range(1,60)` | Seconds a scrape has to answer when the scraper does not say (X-Prometheus-Scrape-Timeout-Seconds); collectors left when they are nearly spent are skipped. | exporter |
 
 Options that go together, checked wherever the configuration is checked (start, reload, `check`, the ubus object's `validate` and LuCI):
 
@@ -49,6 +50,7 @@ A boolean takes `1`, `yes`, `on`, `true`, `enabled` for true and `0`, `no`, `off
 | `directory` | an absolute path |
 | `file` | an absolute path |
 | `range(1,30)` | an integer from 1 to 30 |
+| `range(1,60)` | an integer from 1 to 60 |
 | `range(1,65535)` | an integer from 1 to 65535 |
 | `regex` | a regular expression |
 | `uinteger` | an integer of 0 or more |
@@ -67,6 +69,7 @@ config prometheus-exporter 'main'
 	option omit_zero_values '0'
 	option compress '1'
 	option exec_timeout '5'
+	option scrape_timeout '10'
 
 config collector 'textfile'
 	option enabled '1'

@@ -252,7 +252,13 @@ function milliseconds(t) {
 // Their data is { status: null, timed_out: true }. The shell counts whole
 // seconds: a program gets what is left rounded up, so the commands of a channel
 // take at most a second more than `seconds`. clock_fn: [ s, ns ], monotonic.
-export function exec_channel(popen_fn, allowed, seconds, clock_fn) {
+//
+// `cutoff`, when given, is the time (monotonic seconds) the collector must be
+// done by, for its scrape to answer in time: a program never runs past it. It
+// gets the whole seconds left before it when they are fewer than its own, and
+// does not run when not one is left; killed at the cutoff, or not run, it fails
+// with SCRAPE_DEADLINE, its data { status: null, timed_out: true, deadline: true }.
+export function exec_channel(popen_fn, allowed, seconds, clock_fn, cutoff) {
 	seconds ??= EXEC_SECONDS;
 	clock_fn ??= () => clock(true);
 
@@ -260,6 +266,10 @@ export function exec_channel(popen_fn, allowed, seconds, clock_fn) {
 
 	function timed_out(details) {
 		return Result.err(errors.COMMAND_TIMEOUT, details, { status: null, timed_out: true });
+	}
+
+	function cut(details) {
+		return Result.err(errors.SCRAPE_DEADLINE, details, { status: null, timed_out: true, deadline: true });
 	}
 
 	return {
@@ -274,6 +284,19 @@ export function exec_channel(popen_fn, allowed, seconds, clock_fn) {
 				return timed_out(`${argv[0]}: not run, the collector's ${seconds} s for commands are spent`);
 
 			let limit = (deadline - now + 999) / 1000;
+			let at_cutoff = false;
+
+			if (cutoff != null) {
+				let left = int((cutoff * 1000 - now) / 1000);
+
+				if (left < 1)
+					return cut(`${argv[0]}: not run, less than a second is left before the scrape's deadline`);
+				if (left < limit) {
+					limit = left;
+					at_cutoff = true;
+				}
+			}
+
 			let p = popen_fn(exec_script(argv, limit), 'r');
 
 			if (!p)
@@ -283,7 +306,9 @@ export function exec_channel(popen_fn, allowed, seconds, clock_fn) {
 			let status = p.close();
 
 			if (status == EXEC_KILLED)
-				return timed_out(`${argv[0]}: still running after ${limit} s, killed`);
+				return at_cutoff
+					? cut(`${argv[0]}: still running at the scrape's deadline, after ${limit} s, killed`)
+					: timed_out(`${argv[0]}: still running after ${limit} s, killed`);
 
 			return status == 0
 				? Result.ok(out)
@@ -367,7 +392,7 @@ export function session(mods) {
 		return uci;
 	}
 
-	function capability(need, meta, settings) {
+	function capability(need, meta, settings, cutoff) {
 		switch (need) {
 		case 'fs':      return fs;
 		case 'ubus':    return ubus;
@@ -375,7 +400,7 @@ export function session(mods) {
 		case 'rtnl':    return mods.rtnl ? rtnl_channel(mods.rtnl) : null;
 		case 'nl80211': return mods.nl80211 ? nl80211_channel(mods.nl80211) : null;
 		case 'socket':  return mods.socket ? socket_channel(mods.socket) : null;
-		case 'exec':    return exec_channel(mods.fs.popen, meta.commands ?? [], settings?.timeout ?? meta.timeout, mods.clock);
+		case 'exec':    return exec_channel(mods.fs.popen, meta.commands ?? [], settings?.timeout ?? meta.timeout, mods.clock, cutoff);
 		case 'time':    return { now: mods.time };
 		case 'log':     return mods.log ? (msg) => mods.log('warning', `collector '${meta.name}': ${msg}`) : null;
 		}
@@ -387,12 +412,13 @@ export function session(mods) {
 		// The deps object for a collector with this meta, or NEED_MISSING when
 		// the system lacks one of its needs (nl80211 and socket are separate
 		// packages). settings: what its config says (config.settings): exec's
-		// programs get settings.timeout seconds, else meta.timeout's.
-		for: function(meta, settings) {
+		// programs get settings.timeout seconds, else meta.timeout's, and
+		// never run past `cutoff` (exec_channel).
+		for: function(meta, settings, cutoff) {
 			let deps = {};
 
 			for (let need in meta.needs) {
-				let cap = capability(need, meta, settings);
+				let cap = capability(need, meta, settings, cutoff);
 
 				if (cap == null)
 					return Result.err(errors.NEED_MISSING, `${need} is not installed`);

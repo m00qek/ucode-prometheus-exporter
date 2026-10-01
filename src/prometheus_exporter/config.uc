@@ -29,11 +29,19 @@ export const PACKAGE = 'ucode-prometheus-exporter';
 // D-Bus) or in a second or so (an ssh login to a radio).
 export const EXEC_TIMEOUT = 5;
 
-// The most seconds they may get: half of the 60 s uhttpd gives a scrape before
-// it kills it, answering nothing.
-export const EXEC_TIMEOUT_MAX = 30;
+// The seconds uhttpd gives the handler to answer a request (its -t, which
+// the init script sets), after which it kills the request, answering nothing.
+export const SCRIPT_TIMEOUT = 60;
+
+// The most seconds they may get: half of what uhttpd gives a scrape.
+export const EXEC_TIMEOUT_MAX = SCRIPT_TIMEOUT / 2;
 
 const EXEC_TIMEOUT_RANGE = `range(1,${EXEC_TIMEOUT_MAX})`;
+
+// The seconds a scrape has when the scraper does not say
+// (X-Prometheus-Scrape-Timeout-Seconds, which Prometheus and vmagent send):
+// Prometheus's own default scrape_timeout, and vmagent's.
+export const SCRAPE_TIMEOUT = 10;
 
 // The main section's options the exporter itself reads; the others are the
 // init script's (SERVICE_OPTIONS).
@@ -43,6 +51,10 @@ export const MAIN_OPTIONS = {
 	exec_timeout: {
 		default: EXEC_TIMEOUT, datatype: EXEC_TIMEOUT_RANGE,
 		help: 'Seconds the programs a collector runs get in all in each scrape, unless the collector says otherwise; one still running then is killed.',
+	},
+	scrape_timeout: {
+		default: SCRAPE_TIMEOUT, datatype: `range(1,${SCRIPT_TIMEOUT})`,
+		help: 'Seconds a scrape has to answer when the scraper does not say (X-Prometheus-Scrape-Timeout-Seconds); collectors left when they are nearly spent are skipped.',
 	},
 };
 
