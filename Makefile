@@ -10,7 +10,7 @@ RUN          = $(COMPOSE) --progress quiet run --rm $(if $(CI),-T) openwrt
 IMAGE_STAMP := devenv/.built-$(IMAGE_TAG)
 TEST_ARGS    = $(if $(FILTER),-f '$(FILTER)') $(if $(VERBOSE),-v) $(MODULES)
 
-.PHONY: test unit integration watch lint shell image fixtures package pkgcheck-image package-check e2e lab lab-down browser pot
+.PHONY: test unit integration watch lint shell image fixtures package pkgcheck-image package-check e2e lab lab-down browser pot bench
 
 test:        $(IMAGE_STAMP) ; @$(RUN) devenv/scripts/test.sh all $(TEST_ARGS)
 unit:        $(IMAGE_STAMP) ; @$(RUN) devenv/scripts/test.sh unit $(TEST_ARGS)
@@ -102,6 +102,22 @@ lab: package
 
 lab-down:
 	@LAB_NAME=$(LAB_NAME) devenv/scripts/lab.sh down
+
+# ---- benchmark -----------------------------------------------------------------
+# test/bench/ on OpenWrt in the pkgcheck image: each collector and whole scrapes
+# on generated worlds, results in bin/bench/$(BENCH_LABEL).json. It checks the
+# scaling budgets, and unconstrained the time budgets too (test/bench/budgets.uc).
+# BENCH_CPUS, BENCH_CPUSET and BENCH_MEMORY are docker's --cpus, --cpuset-cpus
+# and --memory: a slower router. BENCH_ARGS go to bench.uc (-r 1: one run each).
+BENCH_LIMITS = $(strip $(if $(BENCH_CPUS),--cpus $(BENCH_CPUS)) $(if $(BENCH_CPUSET),--cpuset-cpus $(BENCH_CPUSET)) \
+	$(if $(BENCH_MEMORY),--memory $(BENCH_MEMORY) --memory-swap $(BENCH_MEMORY)))
+BENCH_LABEL ?= devenv$(if $(BENCH_CPUS),-cpus$(BENCH_CPUS))$(if $(BENCH_CPUSET),-cpuset$(BENCH_CPUSET))$(if $(BENCH_MEMORY),-mem$(BENCH_MEMORY))
+
+bench: pkgcheck-image
+	@mkdir -p bin/bench && chmod a+rwx bin bin/bench
+	@docker run --rm --network none $(BENCH_LIMITS) -v $(CURDIR):/exporter:ro -v $(CURDIR)/bin:/artifacts \
+		$(PKGCHECK_IMAGE) /exporter/devenv/scripts/bench.sh /artifacts/bench/$(BENCH_LABEL).json $(BENCH_LABEL) \
+		-c $(if $(BENCH_LIMITS),,-a) $(if $(FILTER),-f '$(FILTER)') $(BENCH_ARGS)
 
 # ---- luci-app-prometheus-exporter --------------------------------------------
 LUCI_IMAGE    := ucode-prometheus-exporter-luci:$(OPENWRT_ARCH)-$(OPENWRT_VERSION)
