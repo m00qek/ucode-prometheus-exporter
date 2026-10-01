@@ -10,7 +10,7 @@ RUN          = $(COMPOSE) --progress quiet run --rm $(if $(CI),-T) openwrt
 IMAGE_STAMP := devenv/.built-$(IMAGE_TAG)
 TEST_ARGS    = $(if $(FILTER),-f '$(FILTER)') $(if $(VERBOSE),-v) $(MODULES)
 
-.PHONY: test unit integration watch lint shell image fixtures package pkgcheck-image package-check e2e browser pot
+.PHONY: test unit integration watch lint shell image fixtures package pkgcheck-image package-check e2e lab lab-down browser pot
 
 test:        $(IMAGE_STAMP) ; @$(RUN) devenv/scripts/test.sh all $(TEST_ARGS)
 unit:        $(IMAGE_STAMP) ; @$(RUN) devenv/scripts/test.sh unit $(TEST_ARGS)
@@ -83,6 +83,25 @@ e2e: package pkgcheck-image
 		-e BASE_COLLECTORS="$$(devenv/scripts/package-info.sh base-collectors)" \
 		$(E2E_CONTAINER) /exporter/devenv/scripts/e2e.sh; \
 		status=$$?; docker rm -f $(E2E_CONTAINER) >/dev/null; exit $$status
+
+# The built packages, every collector and LuCI on OpenWrt under procd, left
+# running in a privileged container, with LuCI and /metrics published on the
+# host; make lab-down removes it. See devenv/scripts/lab.sh.
+LAB_NAME         ?= ucode-prometheus-exporter-lab
+LAB_ADDRESS      ?= 127.0.0.1
+LAB_LUCI_PORT    ?= 8080
+LAB_METRICS_PORT ?= 9100
+LAB_IMAGE        := ucode-prometheus-exporter-lab:$(OPENWRT_ARCH)-$(OPENWRT_VERSION)
+
+lab: package
+	docker build -q -t $(LAB_IMAGE) --build-arg OPENWRT_ARCH --build-arg OPENWRT_VERSION \
+		--build-arg FEED_DEPENDS="$$(devenv/scripts/package-info.sh feed-depends) $$(devenv/scripts/package-info.sh app-depends) unbound-daemon" \
+		devenv/services/luci >/dev/null
+	@LAB_NAME=$(LAB_NAME) LAB_IMAGE=$(LAB_IMAGE) LAB_ADDRESS=$(LAB_ADDRESS) LAB_LUCI_PORT=$(LAB_LUCI_PORT) \
+		LAB_METRICS_PORT=$(LAB_METRICS_PORT) PKG_FULLVERSION=$(PKG_FULLVERSION) devenv/scripts/lab.sh up
+
+lab-down:
+	@LAB_NAME=$(LAB_NAME) devenv/scripts/lab.sh down
 
 # ---- luci-app-prometheus-exporter --------------------------------------------
 LUCI_IMAGE    := ucode-prometheus-exporter-luci:$(OPENWRT_ARCH)-$(OPENWRT_VERSION)

@@ -167,7 +167,11 @@ Everything runs in OpenWrt's own images (Docker), on the release in `OPENWRT_VER
 | `make package` | the apks, built with the OpenWrt SDK, into `bin/` |
 | `make package-check` | installs them offline and scrapes a real uhttpd on loopback |
 | `make e2e` | boots OpenWrt (procd, ubusd, netifd) in a privileged container and checks the service, in its jail, as packages come and go and its config changes |
+| `make lab` | the built packages, every collector and the LuCI app on OpenWrt under procd, in a privileged container left running: LuCI on <http://127.0.0.1:8080/> (root, no password), `/metrics` on <http://127.0.0.1:9100/metrics>; `LAB_ADDRESS=`, `LAB_LUCI_PORT=`, `LAB_METRICS_PORT=`, `LAB_NAME=` |
+| `make lab-down` | removes it |
 | `make fixtures HOST= NAME=` | reads `test/fixtures/SOURCES` from a device over ssh into `test/fixtures/NAME/` |
+
+The lab is a device to try things on: `docker exec -it ucode-prometheus-exporter-lab ash` for a shell, and `make lab` again for new packages, which starts it afresh. It has its own network namespace on docker's default bridge, where docker gave eth0 its address and route and forwards the published ports there. So OpenWrt's network config is written before it boots (`devenv/services/lab/boot.sh`): `lan` is eth0 itself, with the address and gateway docker gave it, and no bridge (the generated config's lan bridge over eth0 would take the address away, and netifd takes down a device it is not told about). The firewall and mwan3 do not start: fw4 would reject what docker forwards, and mwan3 would rewrite the routing. The exporter listens on every address (`listen_interface '*'`), unbound on port 5353 with its control socket where the unbound collector looks, textfile has a file to read, and ubnt-manager's sample radio is gone (with a route out, ssh to it would hold each scrape until it gave up).
 
 Layout: `src/prometheus_exporter/` is the ucode library (installed to `/usr/share/ucode/prometheus_exporter/`), `files/` the handler, command, init script and config, `openwrt/` the package Makefile, `test/unit/` mirrors `src/`.
 
