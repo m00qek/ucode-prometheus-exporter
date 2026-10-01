@@ -5,7 +5,7 @@ include $(TOPDIR)/rules.mk
 PKG_NAME:=ucode-prometheus-exporter
 # Date versions, as the feed's exporters have.
 PKG_VERSION:=2026.09.30
-PKG_RELEASE:=2
+PKG_RELEASE:=3
 PKG_LICENSE:=Apache-2.0
 PKG_LICENSE_FILES:=LICENSE NOTICE
 PKG_MAINTAINER:=António Mora <m00qek@gmail.com>
