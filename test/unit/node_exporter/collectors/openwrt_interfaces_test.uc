@@ -207,9 +207,9 @@ describe('collectors.openwrt_interfaces', () => {
 		});
 	});
 
-	it('succeeds with nothing to say without netifd on ubus', () => {
-		with_collector(openwrt_interfaces, { ubus: { data: { 'system:board': {} }, errors: { 'network.interface:dump': NOT_FOUND } } }, (r) => {
-			assert.match([ true, [], [] ], [ r.result.ok, r.lines, r.logs ]);
+	it('fails without netifd on ubus, which every OpenWrt system runs', () => {
+		with_collector(openwrt_interfaces, { ubus: { errors: { 'network.interface:dump': NOT_FOUND } } }, (r) => {
+			assert.match([ false, 'UBUS_CALL_FAILED', [] ], [ r.result.ok, r.result.error, r.lines ]);
 		});
 	});
 

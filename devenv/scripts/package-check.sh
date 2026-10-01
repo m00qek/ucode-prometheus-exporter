@@ -53,10 +53,10 @@ check "the init script parses" sh -n /etc/init.d/$NAME
 check "every installed collector loads" test "$($NAME -l 2>/dev/null | wc -l)" -eq "$(installed)"
 check "the command line scrapes" sh -c "$NAME loadavg | grep -q '^node_load1 '"
 
-# What the init script starts, less procd's jail; procd's `system` object is a
-# stand-in answering the caju router's board.
+# What the init script starts, less procd's jail; procd's and netifd's objects are
+# stand-ins answering with the caju router's replies.
 ubusd & sleep 1
-ucode /exporter/devenv/scripts/system-board.uc /exporter/test/fixtures/caju-router/ubus/system.board.json &
+ucode /exporter/devenv/scripts/ubus-stand-ins.uc /exporter/test/fixtures/caju-router &
 sleep 1
 /usr/sbin/uhttpd -f -c /dev/null -h /dev/null -S -D -o /metrics -O /usr/libexec/$NAME/handler.uc \
 	-p 127.0.0.1:9101 2>/tmp/uhttpd.log &

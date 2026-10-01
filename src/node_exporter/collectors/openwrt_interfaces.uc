@@ -32,10 +32,8 @@
 // - node_openwrt_interface_errors: the errors netifd holds for it (NO_DEVICE,
 //   a protocol's failure), until it comes up again.
 //
-// Without netifd's object on ubus there are no logical interfaces, as in a
-// container rather than on OpenWrt: that is success with nothing to say, as a
-// kernel without nf_conntrack is for conntrack. netifd being there and failing
-// the call is an error.
+// netifd runs on every OpenWrt system, so its object missing from ubus, or the
+// call failing, is an error, unlike an absent kernel feature such as nf_conntrack.
 
 import * as Result from 'node_exporter.result';
 import * as errors from 'node_exporter.errors';
@@ -63,11 +61,8 @@ function is_v6(entry) {
 export function collect(deps, out) {
 	let res = deps.ubus.call(OBJECT, 'dump');
 
-	if (!res.ok) {
-		let objects = deps.ubus.list();
-
-		return (objects.ok && type(objects.data) == 'array' && !(OBJECT in objects.data)) ? Result.ok() : res;
-	}
+	if (!res.ok)
+		return res;
 
 	let list = res.data?.interface;
 	if (type(list) != 'array')

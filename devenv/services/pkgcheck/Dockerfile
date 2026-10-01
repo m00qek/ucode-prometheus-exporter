@@ -4,8 +4,8 @@ FROM ghcr.io/openwrt/rootfs:${OPENWRT_ARCH}-${OPENWRT_VERSION}
 
 # Every package the built packages depend on (devenv/scripts/package-info.sh
 # feed-depends), so the check installs them all with no network; one missing
-# from the feed fails here. uloop is for the stand-in of procd's `system`
-# object (devenv/scripts/system-board.uc).
+# from the feed fails here. uloop is for the stand-ins of procd's and netifd's
+# ubus objects (devenv/scripts/ubus-stand-ins.uc).
 ARG FEED_DEPENDS
 RUN mkdir -p /var/lock /var/run && \
     apk update && \
