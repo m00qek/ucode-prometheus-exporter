@@ -40,16 +40,30 @@ export const meta = {
 	// option unbound_control writes `control-interface: 127.0.0.1` and `::1`
 	// (levels 1 and 2) or all addresses (3 and 4), and nothing at all by default
 	// (0); net/unbound/files/unbound.sh, unbound_control(). So the path is set
-	// by hand in /etc/unbound/unbound_ext.conf, and the default is the Lua
-	// collector's /run/unbound.ctl: a device set up for it keeps working. On
-	// OpenWrt /run links to /var/run (base-files' boot), beside unbound's
-	// pidfile, and unbound makes the socket before it enters its chroot.
+	// by hand, in /etc/unbound/unbound_ext.conf:
+	//
+	//   remote-control:
+	//     control-enable: yes
+	//     control-interface: /var/lib/unbound/unbound.ctl
+	//
+	// /var/lib/unbound is the one directory the package makes, and unbound's
+	// alone: its init script makes it and hands it to unbound at each start,
+	// and it is unbound's chroot. unbound makes the socket there, as root before
+	// it enters the chroot (srw-rw---- unbound:unbound, which root reads). The
+	// Lua collector's /run/unbound.ctl cannot be had in the jail: /run holds
+	// every service's.
 	options: {
-		socket: { default: '/run/unbound.ctl', datatype: 'file', help: 'Unbound\'s control socket, in a directory of its own.' },
+		socket: {
+			default: '/var/lib/unbound/unbound.ctl',
+			datatype: 'file',
+			help: 'Unbound\'s control socket (control-interface), in a directory the jail can mount: not one every service shares, such as /run.',
+		},
 	},
 	// The socket's directory: the jail cannot mount a socket itself, and
 	// unbound makes it anew each start. A directory that holds every
-	// service's (/run) is not mounted: the socket then needs one of its own.
+	// service's (/run) is not mounted. At boot unbound starts after the
+	// exporter, and makes the directory then: the service mounts it once it
+	// is there (see prometheus_exporter.watch).
 	paths: [ (options) => [ socket_dir(options.socket) ] ],
 };
 

@@ -142,18 +142,19 @@ describe('jail.collector', () => {
 		});
 	});
 
-	it('says which of its paths are not there', () => {
+	it('mounts its paths that are there, and says which are not', () => {
 		with_sys({}, {}, files([ '/var/prometheus' ]), (sys) => {
-			assert.match([], jail.collector(TEXTFILE, sys).missing);
+			let j = jail.collector(TEXTFILE, sys);
+			assert.match([ [], [ '/var/prometheus' ] ], [ j.missing, j.mounts ]);
 		});
 		with_sys({}, {}, null, (sys) => {
 			let j = jail.collector(TEXTFILE, sys);
-			assert.match([ [ '/var/prometheus' ], [ '/var/prometheus' ] ], [ j.missing, j.mounts ]);
+			assert.match([ [ '/var/prometheus' ], [ '/var/prometheus' ], [] ], [ j.paths, j.missing, j.mounts ]);
 		});
 	});
 
 	it('gives the configs a collector declares, and its paths for its options', () => {
-		with_sys({ textfile: { '.type': 'collector', directory: '/srv/prom' } }, {}, null, (sys) => {
+		with_sys({ textfile: { '.type': 'collector', directory: '/srv/prom' } }, {}, files([ '/srv/prom' ]), (sys) => {
 			assert.match([ '/etc/config/dhcp' ], jail.collector(DHCP, sys).mounts);
 			assert.match([ '/srv/prom' ], jail.collector(TEXTFILE, sys).mounts);
 			assert.match({ directory: '/srv/prom' }, jail.collector(TEXTFILE, sys).options.data);
@@ -167,7 +168,7 @@ describe('jail.collector', () => {
 		});
 		let dhcp = { dhcp: { a: { '.type': 'dnsmasq' }, b: { '.type': 'dnsmasq', leasefile: '/tmp/guest.leases' } } };
 
-		with_sys({}, dhcp, null, (sys) => {
+		with_sys({}, dhcp, files([ '/tmp/dhcp.leases', '/tmp/guest.leases' ]), (sys) => {
 			assert.match([ '/etc/config/dhcp', '/tmp/dhcp.leases', '/tmp/guest.leases' ], jail.collector(leases, sys).mounts);
 		});
 	});
@@ -185,20 +186,40 @@ describe('jail.collector', () => {
 describe('jail.mounts', () => {
 	it('mounts the exporter config alone for collectors that read procfs, sysfs or ubus', () => {
 		with_sys({}, {}, null, (sys) => {
-			assert.match({ mounts: [ jail.OWN_CONFIG ], problems: [] }, jail.mounts([ LOADAVG ], sys));
+			assert.match({ mounts: [ jail.OWN_CONFIG ], problems: [], missing: [] }, jail.mounts([ LOADAVG ], sys));
 		});
 	});
 
 	it('mounts what the enabled collectors get, sorted, once each, and names the collector of a problem', () => {
 		let own = { uci_dhcp_host: { '.type': 'collector', enabled: '0' } };
 
-		with_sys(own, {}, files([ '/usr/sbin/nft' ]), (sys) => {
+		with_sys(own, {}, files([ '/usr/sbin/nft', '/var/prometheus' ]), (sys) => {
 			let dhcp_too = collector('dhcp_leases', { needs: [ 'uci', 'exec' ], configs: [ 'dhcp' ], commands: [ 'nft', 'odhcpd' ] });
 
 			assert.match({
 				mounts: [ '/bin/sh', '/etc/config/dhcp', jail.OWN_CONFIG, '/usr/sbin/nft', '/var/prometheus' ],
 				problems: [ 'dhcp_leases: command odhcpd is not on /usr/sbin:/usr/bin:/sbin:/bin' ],
+				missing: [],
 			}, jail.mounts([ DHCP, LOADAVG, NFT, TEXTFILE, dhcp_too ], sys));
+		});
+	});
+
+	it('leaves out the paths that are not there, and lists them', () => {
+		let socket = collector('unbound', {
+			needs: [ 'socket' ],
+			options: { socket: { default: '/var/lib/unbound/unbound.ctl', datatype: 'file', help: 'Where.' } },
+			paths: [ (options) => [ '/var/lib/unbound' ] ],
+		});
+
+		with_sys({}, {}, files([ '/var/prometheus' ]), (sys) => {
+			assert.match({ mounts: [ jail.OWN_CONFIG, '/var/prometheus' ], problems: [], missing: [ '/var/lib/unbound' ] },
+				jail.mounts([ socket, TEXTFILE ], sys));
+		});
+	});
+
+	it('does not wait for the paths of a disabled collector', () => {
+		with_sys({ textfile: { '.type': 'collector', enabled: '0' } }, {}, null, (sys) => {
+			assert.match([], jail.mounts([ TEXTFILE ], sys).missing);
 		});
 	});
 

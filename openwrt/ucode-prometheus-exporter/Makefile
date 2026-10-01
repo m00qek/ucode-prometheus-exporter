@@ -66,7 +66,7 @@ define Package/$(PKG_NAME)/install
 	$(foreach c,$(BASE_COLLECTORS),$(INSTALL_DATA) ./src/prometheus_exporter/collectors/$(c).uc $(1)$(COLLECTORS_DIR)/;)
 	$(INSTALL_DIR) $(1)/usr/libexec/$(SERVICE)
 	$(INSTALL_DATA) ./files/usr/libexec/$(SERVICE)/handler.uc $(1)/usr/libexec/$(SERVICE)/
-	$(INSTALL_BIN) $(foreach f,jail check status import,./files/usr/libexec/$(SERVICE)/$(f).uc) $(1)/usr/libexec/$(SERVICE)/
+	$(INSTALL_BIN) $(foreach f,jail check status import watch,./files/usr/libexec/$(SERVICE)/$(f).uc) $(1)/usr/libexec/$(SERVICE)/
 	$(INSTALL_DIR) $(1)/usr/bin
 	$(INSTALL_BIN) ./files/usr/bin/$(SERVICE) $(1)/usr/bin/
 	$(INSTALL_DIR) $(1)/etc/config

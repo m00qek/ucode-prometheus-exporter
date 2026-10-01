@@ -7,9 +7,15 @@
 //
 // A collector gets /etc/config/<c> for each of its meta.configs, the paths of
 // meta.paths, and with exec, /bin/sh (popen's shell) and each of its commands
-// as found on PATH. ujail mounts a binary's shared libraries along with it, and
-// leaves out a path that does not exist. It cannot mount a socket itself (it
-// opens what it mounts), so a collector declares a socket's directory.
+// as found on PATH. ujail mounts a binary's shared libraries along with it. It
+// cannot mount a socket itself (it opens what it mounts), so a collector
+// declares a socket's directory.
+//
+// A path of meta.paths that is not there is left out of the mounts (ujail
+// would leave it out too), and is `missing`: once it is there, the mounts
+// differ, and a reload restarts the exporter with it. The init script runs a
+// watcher while a path is missing (unbound's socket directory, which unbound
+// makes when it starts, after the exporter at boot), which asks for that reload.
 //
 // sys: { uci: a uci cursor, fs: { stat }, path: the PATH commands are found on }
 
@@ -139,8 +145,7 @@ export function resolve_paths(meta, options, handles) {
 
 // What one collector gets in the jail: { enabled, options (a Result), configs,
 // paths, commands ({ name: path or null }), mounts, problems, missing }.
-// `missing` are the paths not there now: the jail leaves them out, so they
-// reach the exporter only when it restarts after they are made.
+// `missing` are the paths not there now, which the mounts leave out.
 export function collector(c, sys) {
 	let meta = c.meta;
 	let options = config.collector(sys.uci, c.id, meta.options);
@@ -157,7 +162,8 @@ export function collector(c, sys) {
 		push(problems, `its paths are not known: ${Result.describe(options)}`);
 	}
 
-	let mounts = [ ...configs, ...paths ];
+	let missing = filter(paths, (p) => sys.fs.stat(p) == null);
+	let mounts = [ ...configs, ...filter(paths, (p) => !(p in missing)) ];
 
 	if ('exec' in meta.needs) {
 		push(mounts, SHELL);
@@ -178,16 +184,18 @@ export function collector(c, sys) {
 		options, configs, paths, commands,
 		mounts: sort(uniq(mounts)),
 		problems,
-		missing: filter(paths, (p) => sys.fs.stat(p) == null),
+		missing,
 	};
 };
 
-// { mounts, problems } of the jail for these installed collectors: the
-// exporter's config, and what each enabled one gets, sorted and once each.
-// A problem names its collector.
+// { mounts, problems, missing } of the jail for these installed collectors:
+// the exporter's config, and what each enabled one gets, sorted and once each;
+// the paths of the enabled ones that are not there. A problem names its
+// collector.
 export function mounts(collectors, sys) {
 	let all = [ OWN_CONFIG ];
 	let problems = [];
+	let missing = [];
 
 	for (let c in collectors) {
 		if (!config.enabled(sys.uci, c.id))
@@ -196,9 +204,10 @@ export function mounts(collectors, sys) {
 		let j = collector(c, sys);
 
 		push(all, ...j.mounts);
+		push(missing, ...j.missing);
 		for (let p in j.problems)
 			push(problems, `${c.meta.name}: ${p}`);
 	}
 
-	return { mounts: sort(uniq(all)), problems };
+	return { mounts: sort(uniq(all)), problems, missing: sort(uniq(missing)) };
 };

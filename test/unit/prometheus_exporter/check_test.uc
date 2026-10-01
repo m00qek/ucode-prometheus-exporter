@@ -158,7 +158,7 @@ describe('check.run', () => {
 	});
 
 	it('warns of a path that is not there, as the jail leaves it out', () => {
-		assert.match(contains([ 'warn jail: textfile: /var/prometheus is not there; it is mounted at the first start after it is' ]),
+		assert.match(contains([ 'warn jail: textfile: /var/prometheus is not there; the service mounts it once it is' ]),
 			run({}, [ TEXTFILE ], {}).lines);
 		assert.match([], filter(run({ textfile: { '.type': 'collector', enabled: '0' } }, [ TEXTFILE ], {}).lines, (l) => index(l, 'not there') >= 0));
 	});
@@ -178,6 +178,13 @@ describe('check.status', () => {
 			assert.match('listening on http://127.0.0.1:9100/metrics, http://[::1]:9100/metrics, serving 2 collectors',
 				check.status(cmd, [ OK, NFT, FAILING ], mods.uci.cursor()));
 		});
+	});
+
+	it('tells uhttpd from the watch instance beside it', () => {
+		let uhttpd = { running: true, command: [ '/usr/sbin/uhttpd', '-p', '9100' ] };
+		let watch = { running: true, command: [ '/usr/libexec/prometheus-exporter/watch.uc', '/var/lib/unbound' ] };
+
+		assert.match([ [ uhttpd ], [], [] ], [ check.exporters([ watch, uhttpd ]), check.exporters([ watch ]), check.exporters(null) ]);
 	});
 
 	it('reads HTTPS and a bare port', () => {

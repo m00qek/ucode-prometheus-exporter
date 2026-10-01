@@ -126,7 +126,7 @@ A collector without a section is enabled, with its defaults. These take options 
 |---|---|---|
 | `dhcp_leases` | `leases` | `0`; 1 adds a series per lease (address, MAC, hostname, expiry) |
 | `textfile` | `directory` | `/var/prometheus`; an absolute path, where the `*.prom` files are |
-| `unbound` | `socket` | `/run/unbound.ctl`; an absolute path, unbound's control socket, in a directory of its own (see the jail) |
+| `unbound` | `socket` | `/var/lib/unbound/unbound.ctl`; an absolute path, unbound's control socket (`control-interface`), in a directory the jail can mount (see the jail) |
 | `vmstat` | `fields` | `^(oom_kill\|pgpg\|pswp\|pg.*fault).*`; a regex of the /proc/vmstat fields |
 | `wifi` | `stations` | `1`; 0 leaves out the per-station metrics |
 
@@ -144,8 +144,16 @@ Start and reload refuse an invalid config. Installing or removing a collector pa
 
 uhttpd runs in procd's jail, and a collector gets what it declares: procfs, sysfs, ubus and the log for all, then the configs it reads (`/etc/config/dhcp` for uci_dhcp_host), the files and directories it reads (textfile's directory, dhcp_leases' lease files, bmx7's status), and the programs it runs with their libraries (`/bin/sh` and `nft` for nft-counters). Nothing else of `/etc/config` is there. What the jail cannot give is a warning in `check`:
 
-- A path that is not there when the service starts (textfile's directory, say) is mounted at the next start after it is.
-- ujail cannot mount a socket, so a collector gets the socket's directory. That is never one every service shares, such as `/run`: unbound's control socket needs a directory of its own, there when the exporter starts (`control-interface:` in unbound's config, and the `socket` option here).
+- A path that is not there when the service starts is left out, and a `watch` instance beside uhttpd looks for it every 5 seconds: once it is there, procd reloads the service, which mounts it. So unbound's socket directory, which unbound makes when it starts (after the exporter, at boot), is mounted a few seconds later.
+- ujail cannot mount a socket, so a collector gets the socket's directory. That is never one every service shares, such as `/run`. OpenWrt's unbound package makes no Unix control socket; the `socket` option's default is where to have it, in `/var/lib/unbound`, the directory the package makes for unbound alone (and its chroot). In `/etc/unbound/unbound_ext.conf`:
+
+  ```
+  remote-control:
+  	control-enable: yes
+  	control-interface: /var/lib/unbound/unbound.ctl
+  ```
+
+  The jail then mounts `/var/lib/unbound` read-only, and with it unbound's generated config and `root.key`, and its TLS keys if `unbound_control` makes them.
 
 ## Developing
 

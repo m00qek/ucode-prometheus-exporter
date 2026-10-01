@@ -266,7 +266,7 @@ export function validate(sys, args) {
 export function service(sys) {
 	let res = sys.ubus.call('service', 'list', { name: NAME });
 	let main = config.service(sys.uci);
-	let instances = res.ok ? values(res.data?.[NAME]?.instances ?? {}) : [];
+	let instances = res.ok ? check.exporters(values(res.data?.[NAME]?.instances ?? {})) : [];
 	let running = filter(instances, (i) => i?.running == true);
 	let listen = [];
 

@@ -350,6 +350,17 @@ describe('rpc.service', () => {
 		assert.match([ false, [] ], [ res.service.running, res.listen ]);
 	});
 
+	it('counts uhttpd alone, not the watch instance beside it', () => {
+		let watching = { [NAME]: { instances: {
+			instance1: { running: false, command: [ '/usr/sbin/uhttpd', '-p', '9100' ] },
+			watch: { running: true, command: [ `/usr/libexec/${NAME}/watch.uc`, '/var/lib/unbound' ] },
+		} } };
+
+		let res = service({}, { data: { 'service:list': watching } });
+
+		assert.match([ false, [] ], [ res.service.running, res.listen ]);
+	});
+
 	it('says when procd cannot be asked, and when the main section is invalid', () => {
 		assert.match({
 			service: { enabled: null, boot: false, running: null, error: 'UBUS_CALL_FAILED (service list: Not found)' },

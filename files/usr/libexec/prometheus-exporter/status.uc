@@ -21,7 +21,7 @@ if (!res.ok) {
 	exit(1);
 }
 
-const instances = values(res.data?.[config.NAME]?.instances ?? {});
+const instances = check.exporters(values(res.data?.[config.NAME]?.instances ?? {}));
 const collectors = loader.load(mods.fs, loader.DIR, loader.import_module, () => null);
 
 print(check.status(instances[0]?.command ?? [], collectors, mods.uci.cursor()), '\n');

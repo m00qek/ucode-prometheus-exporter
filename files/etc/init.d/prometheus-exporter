@@ -44,7 +44,7 @@ start_service() {
 
 	. /lib/functions/network.sh
 
-	local interface port keepalive cert key listen bind4 bind6 mounts
+	local interface port keepalive cert key listen bind4 bind6 mounts missing
 
 	config_get interface main listen_interface loopback
 	config_get port main listen_port 9100
@@ -62,6 +62,7 @@ start_service() {
 	}
 
 	mounts=$(jail_mounts)
+	missing=$("$LIBEXEC/jail.uc" --missing 2>/dev/null)
 
 	procd_open_instance
 
@@ -100,6 +101,19 @@ start_service() {
 	procd_set_param respawn
 
 	procd_close_instance
+
+	# The jail leaves out a path a collector reads that is not there yet, such
+	# as unbound's socket directory, which unbound makes when it starts (after
+	# this service, at boot). The watch instance waits for it, and sends the
+	# event that reloads the service, which then mounts it.
+	[ -n "$missing" ] || return 0
+
+	procd_open_instance watch
+	procd_set_param command "$LIBEXEC/watch.uc" $missing
+	procd_set_param stdout 1
+	procd_set_param stderr 1
+	procd_set_param respawn
+	procd_close_instance
 }
 
 # An invalid configuration keeps the running instance. Otherwise start again:
@@ -118,6 +132,8 @@ service_triggers() {
 
 	configs=$("$LIBEXEC/jail.uc" 2>/dev/null | sed -n "s|^/etc/config/||p" | grep -vx "$NAME")
 	procd_add_reload_trigger "$NAME" $configs
+	# From the watch instance, when a missing path is there.
+	procd_add_raw_trigger "$NAME.path" 1000 "/etc/init.d/$NAME" reload
 
 	config_load "$NAME"
 	config_get interface main listen_interface loopback

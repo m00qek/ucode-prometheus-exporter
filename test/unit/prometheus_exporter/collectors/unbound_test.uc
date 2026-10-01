@@ -8,7 +8,7 @@ import * as unbound from 'prometheus_exporter.collectors.unbound';
 // What unbound 1.26.1 (OpenWrt 25.12's) answers stats_noreset with num-threads 2
 // and no extended statistics; see test/fixtures/synthetic/SOURCES.
 const STATS = fixtures.file('synthetic', '/sockets/unbound.stats_noreset.txt');
-const CTL = '/run/unbound.ctl';
+const CTL = '/var/lib/unbound/unbound.ctl';
 
 // The families: [ key (without threadN. for a thread's), name, type ].
 const FAMILIES = [
@@ -265,8 +265,18 @@ describe('unbound in the jail', () => {
 		assert.match([ [ '/var/run/unbound' ], [] ], [ j.mounts, j.problems ]);
 	});
 
-	it('gets nothing for a socket in a directory every service shares, and says so', () => {
+	it('gets the directory OpenWrt\'s unbound package makes, by default', () => {
 		let j = jail_of(unbound, {});
+		assert.match([ [ '/var/lib/unbound' ], [], [] ], [ j.mounts, j.missing, j.problems ]);
+	});
+
+	it('waits for the directory until unbound makes it', () => {
+		let j = jail_of(unbound, { absent: [ '/var/lib/unbound' ] });
+		assert.match([ [], [ '/var/lib/unbound' ], [] ], [ j.mounts, j.missing, j.problems ]);
+	});
+
+	it('gets nothing for a socket in a directory every service shares, and says so', () => {
+		let j = jail_of(unbound, { options: { socket: '/run/unbound.ctl' } });
 		assert.match([ [], [ '/run is too broad to mount for one collector' ] ], [ j.mounts, j.problems ]);
 	});
 

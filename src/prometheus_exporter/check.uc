@@ -122,7 +122,7 @@ function describe_collectors(sys, add_line, add) {
 		for (let p in j.problems)
 			add('warn', `jail: ${c.meta.name}: ${p}`);
 		for (let p in (j.enabled ? j.missing : []))
-			add('warn', `jail: ${c.meta.name}: ${p} is not there; it is mounted at the first start after it is`);
+			add('warn', `jail: ${c.meta.name}: ${p} is not there; the service mounts it once it is`);
 		for (let l in describe_collector(c, j))
 			add_line(l);
 	}
@@ -170,6 +170,14 @@ export function run(sys, opts) {
 	}
 
 	return { ok, report: join('\n', lines) };
+};
+
+export const UHTTPD = '/usr/sbin/uhttpd';
+
+// The service's instances that serve /metrics, of all procd lists for it: not
+// the watch instance, which runs beside uhttpd while a path is missing.
+export function exporters(instances) {
+	return filter(instances ?? [], (i) => i?.command?.[0] == UHTTPD);
 };
 
 // The addresses of uhttpd's command line, as URLs: what follows each -p (HTTP)

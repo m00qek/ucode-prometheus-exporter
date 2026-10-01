@@ -42,9 +42,10 @@ refused() { wget -O /dev/null "$URL?$1" 2>&1 | grep -q "HTTP error 400"; }
 
 instance() { ubus call service list "{\"name\":\"$NAME\"}"; }
 # uhttpd's command line, on one line.
-command_line() { instance | jsonfilter -e '@[*].instances.*.command[*]' | tr '\n' ' '; }
-pid() { instance | jsonfilter -e '@[*].instances.*.pid'; }
-mounts() { instance | jsonfilter -e '@[*].instances.*.mount' | ucode -e 'print(join("\n", sort(keys(json(require("fs").stdin.read("all"))))), "\n")'; }
+command_line() { instance | jsonfilter -e '@[*].instances.instance1.command[*]' | tr '\n' ' '; }
+# The exporter's own instance; `watch` runs beside it while a path is missing.
+pid() { instance | jsonfilter -e '@[*].instances.instance1.pid'; }
+mounts() { instance | jsonfilter -e '@[*].instances.instance1.mount' | ucode -e 'print(join("\n", sort(keys(json(require("fs").stdin.read("all"))))), "\n")'; }
 # What the init script mounts for the exporter's own code and libraries.
 own_mount() { case $1 in /lib/libubus.so* | /lib/libuci.so* | /usr/lib/libnl* | /usr/lib/uhttpd_ucode.so | /usr/lib/ucode | \
 	/usr/share/ucode/prometheus_exporter | $LIBEXEC/handler.uc) return 0 ;; esac; return 1; }
@@ -56,8 +57,11 @@ jail_configs() { p=$(pid); ls "/proc/$(echo $(cat /proc/$p/task/$p/children))/ro
 restarted_from() { p=$(pid); [ -n "$p" ] && [ "$p" != "$1" ]; }
 # uci set each of "$@", then commit and tell procd, as LuCI does.
 set_config() { for a in "$@"; do uci set "$a"; done; uci commit && reload_config; }
-jailed() { instance | jsonfilter -e '@[*].instances.*.jail.name' | grep -qx "$NAME"; }
+jailed() { instance | jsonfilter -e '@[*].instances.instance1.jail.name' | grep -qx "$NAME"; }
 not_mounted() { ! mounts | grep -qx "$1"; }
+mounted() { mounts | grep -qx "$1"; }
+# Whether the watch instance waits for path $1.
+watching() { instance | jsonfilter -e '@[*].instances.watch.command[*]' | grep -qx "$1"; }
 mount_moved() { mounts | grep -qx "$1" && not_mounted "$2"; }
 fails() { ! "$@"; }
 says() { pattern=$1; shift; "$@" 2>&1 | grep -q -- "$pattern"; }
@@ -130,6 +134,29 @@ check "and reads a veth's statistics" metric 'node_ethtool_.*device="e2e0"'
 check "uci_dhcp_host reads /etc/config/dhcp in the jail" metric 'node_openwrt_dhcp_host_info{name="e2e-host"'
 check "modemmanager reaches ModemManager over D-Bus in the jail" served modemmanager
 check "ubnt-manager's script runs in the jail, over ssh" metric 'ubnt_uptime_seconds{device="sample_ap"} 4242$'
+
+# --- unbound, jailed, against a real unbound
+# As at boot: the exporter starts before unbound has made /var/lib/unbound.
+check "unbound has not made its directory yet" test ! -e /var/lib/unbound
+check "so the jail leaves its socket directory out" not_mounted /var/lib/unbound
+check "and the watch instance waits for it" watching /var/lib/unbound
+check "check says the jail waits for it" says 'warn jail: unbound: /var/lib/unbound is not there; the service mounts it once it is' "$INIT" check
+# Its control socket where the collector looks by default, on a port of its own
+# (dnsmasq has 53).
+uci set unbound.ub_main.listen_port=5353 && uci commit unbound
+printf 'remote-control:\n\tcontrol-enable: yes\n\tcontrol-interface: /var/lib/unbound/unbound.ctl\n' >/etc/unbound/unbound_ext.conf
+before=$(pid)
+/etc/init.d/unbound start >/dev/null 2>&1
+eventually "unbound makes its control socket" test -S /var/lib/unbound/unbound.ctl
+eventually "the service mounts the directory once it is there" mounted /var/lib/unbound
+check "restarting the exporter" restarted_from "$before"
+eventually "unbound's collector reads its stats in the jail" served unbound
+check "and writes them" metric 'unbound_queries_total{thread="0"} '
+check "the watch instance no longer waits for it" fails watching /var/lib/unbound
+before=$(pid)
+/etc/init.d/unbound restart >/dev/null 2>&1
+eventually "a restarted unbound's new socket is read in the same jail" served unbound
+check "without restarting the exporter" test "$(pid)" = "$before"
 
 # --- the config
 before=$(pid)

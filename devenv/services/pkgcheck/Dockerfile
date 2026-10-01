@@ -8,9 +8,12 @@ FROM ghcr.io/openwrt/rootfs:${OPENWRT_ARCH}-${OPENWRT_VERSION}
 # ubus objects (devenv/scripts/ubus-stand-ins.uc).
 #
 # The feed's ucode exporter is fetched, not installed, into /opt/feed: the
-# checks install it to see apk refuse the two side by side.
+# checks install it to see apk refuse the two side by side. unbound (in
+# FEED_DEPENDS, for e2e) does not start at boot: e2e starts it when it has
+# set it up, after the exporter, as at a device's boot.
 ARG FEED_DEPENDS
 RUN mkdir -p /var/lock /var/run /opt/feed && \
     apk update && \
     apk add $FEED_DEPENDS ucode-mod-uloop && \
-    apk fetch -o /opt/feed prometheus-node-exporter-ucode
+    apk fetch -o /opt/feed prometheus-node-exporter-ucode && \
+    { [ ! -x /etc/init.d/unbound ] || /etc/init.d/unbound disable; }

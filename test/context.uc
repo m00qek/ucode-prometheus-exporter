@@ -11,7 +11,8 @@
 //
 // jail_of(mod, cfg): what prometheus_exporter.jail gives the collector module in the
 // exporter's jail, its config as with_collector's; cfg.files are the regular
-// files commands are found among.
+// files commands are found among, cfg.absent the paths that are not there (any
+// other path is, as a directory).
 //
 // cfg: { fs, ubus, uci, rtnl, nl80211, socket }: each mock's config ({ data, commands, errors, ... });
 //      options: the collector's `config collector` section;
@@ -110,7 +111,9 @@ export function jail_of(mod, cfg) {
 		die(Result.describe(valid));
 
 	with_mods(cfg, function(mods) {
-		let fs = { stat: (p) => p in (cfg.files ?? []) ? { type: 'file' } : null };
+		let fs = {
+			stat: (p) => (p in (cfg.files ?? [])) ? { type: 'file' } : ((p in (cfg.absent ?? [])) ? null : { type: 'directory' }),
+		};
 		out = jail.collector(valid.data, { uci: mods.uci.cursor(), fs, path: jail.PATH });
 	}, id);
 
