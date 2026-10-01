@@ -72,6 +72,35 @@ export function main(uci) {
 	return section(uci, 'main', PACKAGE, MAIN_OPTIONS);
 };
 
+// The main section's options the init script reads, with its defaults: whether
+// the service runs, where uhttpd listens, and its TLS files ('' for none).
+export const SERVICE_OPTIONS = {
+	enabled: true,
+	listen_interface: 'loopback',
+	listen_port: 9101,
+	http_keepalive: 70,
+	cert: '',
+	key: '',
+};
+
+// The init script's options, checked so that start refuses what it would
+// misread.
+export function service(uci) {
+	let res = section(uci, 'main', PACKAGE, SERVICE_OPTIONS);
+	let o = res.data;
+
+	if (!res.ok)
+		return res;
+	if (o.listen_interface == '')
+		return invalid('listen_interface', 'an interface name or *', o.listen_interface);
+	if (o.listen_port < 1 || o.listen_port > 65535)
+		return invalid('listen_port', 'a port from 1 to 65535', o.listen_port);
+	if (o.http_keepalive < 0)
+		return invalid('http_keepalive', 'seconds, 0 for none', o.http_keepalive);
+
+	return res;
+};
+
 // `config collector '<id>'`: the collector's module name, as a uci section name
 // cannot hold the '-' of ltq-dsl.
 //

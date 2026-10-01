@@ -41,15 +41,17 @@ describe('jail.path_problem', () => {
 		assert.match([
 			'"var/x" is not an absolute path',
 			'null is not an absolute path',
-			'"/var/my files" holds a space or a control character',
-			'"/var/x\\n" holds a space or a control character',
+			'"/var/my files" holds a space, a control or a glob character',
+			'"/var/x\\n" holds a space, a control or a glob character',
+			'"/var/*.prom" holds a space, a control or a glob character',
+			'"/var/[ab]" holds a space, a control or a glob character',
 			'/var//x is not a plain path (no //, . or .., nor a trailing /)',
 			'/var/../etc is not a plain path (no //, . or .., nor a trailing /)',
 			'/var/./x is not a plain path (no //, . or .., nor a trailing /)',
 			'/var/x/ is not a plain path (no //, . or .., nor a trailing /)',
 			'/run is too broad to mount for one collector',
 			'/ is too broad to mount for one collector',
-		], map([ 'var/x', null, '/var/my files', '/var/x\n', '/var//x', '/var/../etc', '/var/./x', '/var/x/', '/run', '/' ],
+		], map([ 'var/x', null, '/var/my files', '/var/x\n', '/var/*.prom', '/var/[ab]', '/var//x', '/var/../etc', '/var/./x', '/var/x/', '/run', '/' ],
 			jail.path_problem));
 	});
 
@@ -137,6 +139,16 @@ describe('jail.collector', () => {
 		with_sys({}, {}, null, (sys) => {
 			let j = jail.collector(NFT, sys);
 			assert.match([ { nft: null }, [ '/bin/sh' ], [ 'command nft is not on /usr/sbin:/usr/bin:/sbin:/bin' ] ], [ j.commands, j.mounts, j.problems ]);
+		});
+	});
+
+	it('says which of its paths are not there', () => {
+		with_sys({}, {}, files([ '/var/prometheus' ]), (sys) => {
+			assert.match([], jail.collector(TEXTFILE, sys).missing);
+		});
+		with_sys({}, {}, null, (sys) => {
+			let j = jail.collector(TEXTFILE, sys);
+			assert.match([ [ '/var/prometheus' ], [ '/var/prometheus' ] ], [ j.missing, j.mounts ]);
 		});
 	});
 

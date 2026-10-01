@@ -112,3 +112,41 @@ describe('config.main', () => {
 		});
 	});
 });
+
+describe('config.service', () => {
+	function service(main) {
+		let out;
+		with_uci(main ? { main: { '.type': config.PACKAGE, ...main } } : {}, (uci) => { out = config.service(uci); });
+		return out.ok ? out.data : err_details(out);
+	}
+
+	it('gives the init script\'s defaults for a missing section', () => {
+		assert.match(config.SERVICE_OPTIONS, service(null));
+		assert.match({ enabled: true, listen_interface: 'loopback', listen_port: 9101, http_keepalive: 70, cert: '', key: '' }, service(null));
+	});
+
+	it('reads the options, typed', () => {
+		assert.match({ enabled: false, listen_interface: '*', listen_port: 9100, http_keepalive: 0, cert: '/etc/x.crt', key: '' },
+			service({ enabled: '0', listen_interface: '*', listen_port: '9100', http_keepalive: '0', cert: '/etc/x.crt' }));
+	});
+
+	it('refuses what the init script would misread', () => {
+		assert.match([
+			'CONFIG_INVALID: listen_port: expected an integer, got "http"',
+			'CONFIG_INVALID: listen_port: expected a port from 1 to 65535, got 0',
+			'CONFIG_INVALID: http_keepalive: expected seconds, 0 for none, got -1',
+			'CONFIG_INVALID: listen_interface: expected an interface name or *, got ""',
+			'CONFIG_INVALID: enabled: expected a boolean, got "maybe"',
+		], [
+			service({ listen_port: 'http' }),
+			service({ listen_port: '0' }),
+			service({ http_keepalive: '-1' }),
+			service({ listen_interface: '' }),
+			service({ enabled: 'maybe' }),
+		]);
+	});
+
+	prop('takes any port from 1 to 65535', gen.int(1, 65535), (n) => {
+		assert.match(n, service({ listen_port: '' + n }).listen_port);
+	});
+});

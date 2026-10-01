@@ -34,12 +34,13 @@ export const BROAD = [
 // `{option}` in a path of meta.paths: the value of a string option.
 const PLACEHOLDER = /\{([a-z][a-z0-9_]*)\}/g;
 
-// Why `p` cannot be a mount, or null. procd's jail mounts are split on spaces.
+// Why `p` cannot be a mount, or null. The init script hands procd the mounts
+// unquoted, so a space or a glob character would be read as the shell does.
 export function path_problem(p) {
 	if (type(p) != 'string' || substr(p, 0, 1) != '/')
 		return `${sprintf('%J', p)} is not an absolute path`;
-	if (match(p, /[[:space:][:cntrl:]]/))
-		return `${sprintf('%J', p)} holds a space or a control character`;
+	if (match(p, /[[:space:][:cntrl:]*?[]/))
+		return `${sprintf('%J', p)} holds a space, a control or a glob character`;
 	if (p != '/' && (match(p, /\/\/|\/\.\.?(\/|$)/) || substr(p, -1) == '/'))
 		return `${p} is not a plain path (no //, . or .., nor a trailing /)`;
 	if (p in BROAD)
@@ -137,7 +138,9 @@ export function resolve_paths(meta, options, handles) {
 };
 
 // What one collector gets in the jail: { enabled, options (a Result), configs,
-// paths, commands ({ name: path or null }), mounts, problems }.
+// paths, commands ({ name: path or null }), mounts, problems, missing }.
+// `missing` are the paths not there now: the jail leaves them out, so they
+// reach the exporter only when it restarts after they are made.
 export function collector(c, sys) {
 	let meta = c.meta;
 	let options = config.collector(sys.uci, c.id, meta.options);
@@ -175,6 +178,7 @@ export function collector(c, sys) {
 		options, configs, paths, commands,
 		mounts: sort(uniq(mounts)),
 		problems,
+		missing: filter(paths, (p) => sys.fs.stat(p) == null),
 	};
 };
 
