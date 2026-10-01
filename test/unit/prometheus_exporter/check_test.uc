@@ -22,6 +22,7 @@ const OK = collector('loadavg', () => Result.ok(), { needs: [ 'fs' ] });
 const FAILING = collector('openwrt', () => Result.err('UBUS_CALL_FAILED', 'system board: Not found'), { needs: [ 'ubus' ] });
 const TEXTFILE = collector('textfile', () => Result.ok(), { needs: [ 'fs' ], options: { directory: { default: '/var/prometheus', datatype: 'directory', help: 'Where.' } }, paths: [ '{directory}' ] });
 const NFT = collector('nft-counters', () => Result.ok(), { needs: [ 'exec' ], commands: [ 'nft' ] });
+const IDLE = collector('dnsmasq', () => Result.none('dnsmasq is disabled'), { needs: [ 'ubus' ] });
 
 // `uhttpd -m secret`.
 const HASH = '$1$$ysVNzQc4CTMkp5daOdZ.3/';
@@ -181,6 +182,19 @@ describe('check.run', () => {
 			'  /srv/prom',
 			'  /usr/sbin/nft',
 		], r.lines);
+	});
+
+	it('says which collectors have nothing to observe, and why, as successes', () => {
+		let r = run({}, [ OK, IDLE, FAILING ], {});
+
+		assert.match(true, r.ok);
+		assert.match([
+			'warn scrape, outside the jail: 2 of 3 collectors succeeded, 1 with nothing to observe',
+			'warn scrape: openwrt: UBUS_CALL_FAILED (system board: Not found)',
+			'ok   scrape: dnsmasq has nothing to observe: dnsmasq is disabled',
+		], filter(r.lines, (l) => index(l, ' scrape') == 4));
+		assert.match(contains([ 'ok   scrape, outside the jail: 2 of 2 collectors succeeded, 1 with nothing to observe' ]),
+			run({}, [ OK, IDLE ], {}).lines);
 	});
 
 	it('leaves a disabled collector out of the scrape and the jail, and says what the jail cannot give', () => {

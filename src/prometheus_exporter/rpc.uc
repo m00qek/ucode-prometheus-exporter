@@ -11,7 +11,8 @@
 //   validate { main?, collectors? }
 //                 -> { ok, errors: { main: { option: message }, collectors: { id: { option: message } } } }
 //   status {}     -> { service: { enabled, boot, running, error, auth, compress }, listen: [ url ],
-//                      collectors: [ { name, id, title, enabled, success, duration, error, mounts } ] }
+//                      collectors: [ { name, id, title, enabled, success, observing, reason,
+//                                      duration, error, mounts } ] }
 //   interfaces {} -> { interfaces: [ { name, proto } ] }
 //   hash_password { password } -> { hash }
 //
@@ -37,6 +38,9 @@
 // `service prometheus-exporter check` does: rpcd runs it in a process
 // of its own (rpc-status.uc), so that collectors can call the ubus objects rpcd
 // itself serves (wireguard, luci) and other requests are answered meanwhile.
+// A collector with nothing to observe (its hardware, kernel feature or
+// service is not there) succeeds, with `observing` false and `reason` saying
+// why; any other that ran has `observing` true.
 //
 // interfaces lists the logical interfaces netifd has (`network.interface
 // dump`), which the main section's listen_interface names: their names and
@@ -374,7 +378,8 @@ export function interfaces(sys) {
 	return { interfaces: out };
 };
 
-// One scrape of the enabled collectors: how each did, and what the jail gives it.
+// One scrape of the enabled collectors: how each did, whether it had
+// something to observe (and why not), and what the jail gives it.
 export function scrape_report(sys) {
 	let session = sys.env.session();
 	let runs = {};
@@ -395,6 +400,8 @@ export function scrape_report(sys) {
 			title: title_of(c.meta),
 			enabled: r != null,
 			success: r ? r.result.ok : null,
+			observing: r ? !Result.is_none(r.result) : null,
+			reason: (r && Result.is_none(r.result)) ? r.result.none : null,
 			duration: r ? r.duration : null,
 			error: (r && !r.result.ok) ? Result.describe(r.result) : null,
 			mounts: j.enabled ? j.mounts : [],
