@@ -12,6 +12,7 @@
 //                 -> { ok, errors: { main: { option: message }, collectors: { id: { option: message } } } }
 //   status {}     -> { service: { enabled, boot, running, error }, listen: [ url ],
 //                      collectors: [ { name, id, title, enabled, success, duration, error, mounts } ] }
+//   interfaces {} -> { interfaces: [ { name, proto } ] }
 //
 //   collector: { name, id, title, help, enabled, package, base, options: [ option ],
 //                needs, configs, commands, jail: { paths, owned, commands, mounts, problems, missing }, error }
@@ -26,6 +27,12 @@
 // `service prometheus-exporter check` does: rpcd runs it in a process
 // of its own (rpc-status.uc), so that collectors can call the ubus objects rpcd
 // itself serves (wireguard, luci) and other requests are answered meanwhile.
+//
+// interfaces lists the logical interfaces netifd has (`network.interface
+// dump`), which the main section's listen_interface names: their names and
+// protocols, and nothing else. It never reads /etc/config/network, which holds
+// secrets, so a caller allowed this object alone still gets them. A failed call
+// is answered { error, message }.
 //
 // sys: { uci: a cursor, fs: { stat, glob, readfile }, path: the PATH commands are
 //        found on, dir: the collectors' directory, apk: apk's per-package file
@@ -285,6 +292,22 @@ export function service(sys) {
 	};
 };
 
+// The logical interfaces, in netifd's order.
+export function interfaces(sys) {
+	let res = sys.ubus.call('network.interface', 'dump', {});
+
+	if (!res.ok)
+		return { error: res.error, message: Result.describe(res) };
+
+	let out = [];
+
+	for (let i in res.data?.interface ?? [])
+		if (type(i?.interface) == 'string' && i.interface != '')
+			push(out, { name: i.interface, proto: text(i.proto) });
+
+	return { interfaces: out };
+};
+
 // One scrape of the enabled collectors: how each did, and what the jail gives it.
 export function scrape_report(sys) {
 	let session = sys.env.session();
@@ -350,8 +373,9 @@ export function deferred_json(req, io, command) {
 	return req.defer();
 };
 
-// The methods rpcd serves. make_sys() gives a fresh sys per call: rpcd outlives
-// any number of commits and package changes. io as deferred_json's.
+// The methods rpcd serves. make_sys(opts) gives a fresh sys per call: rpcd
+// outlives any number of commits and package changes; opts.collectors false
+// leaves the collectors unloaded. io as deferred_json's.
 export function methods(make_sys, io) {
 	return {
 		collectors: {
@@ -366,15 +390,26 @@ export function methods(make_sys, io) {
 			args: {},
 			call: (req) => deferred_json(req, io, `${STATUS_HELPER} 2>/dev/null`),
 		},
+		interfaces: {
+			args: {},
+			call: function() {
+				let sys = make_sys({ collectors: false });
+				let out = interfaces(sys);
+
+				sys.ubus.close();
+				return out;
+			},
+		},
 	};
 };
 
 // sys on the real system. Its committed configuration only, as the exporter
-// reads it.
-export function system() {
+// reads it. opts.collectors false leaves the collectors unloaded.
+export function system(opts) {
 	let mods = deps.modules();
 	let skipped = [];
 	let quiet = () => null;
+	let load = opts?.collectors !== false;
 
 	return {
 		uci: mods.uci.cursor(),
@@ -382,7 +417,7 @@ export function system() {
 		path: jail.PATH,
 		dir: loader.DIR,
 		apk: APK_LISTS,
-		collectors: loader.load(mods.fs, loader.DIR, loader.import_module, (msg) => push(skipped, msg)),
+		collectors: load ? loader.load(mods.fs, loader.DIR, loader.import_module, (msg) => push(skipped, msg)) : [],
 		skipped,
 		env: {
 			session: () => deps.session({ ...mods, log: quiet }),

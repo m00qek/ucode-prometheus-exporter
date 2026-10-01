@@ -143,6 +143,17 @@ reply=$(ubus -t 30 call "$NAME" status 2>/dev/null)
 check "status scrapes every enabled collector" test "$(collectors_in "$reply")" -eq "$(installed)"
 status_unknown() { echo "$reply" | grep -q '"running": null'; }
 check "status says when procd cannot be asked" status_unknown
+# netifd's stand-in answers the caju router's interfaces: their names and
+# protocols, and nothing else.
+interfaces_are_netifds() {
+	ubus -t 30 call "$NAME" interfaces >/tmp/interfaces.json 2>/dev/null &&
+	ucode -e "let fs = require('fs');
+		let got = json(fs.readfile('/tmp/interfaces.json')).interfaces;
+		let want = map(json(fs.readfile(ARGV[0])).interface, (i) => ({ name: i.interface, proto: i.proto }));
+		exit(length(want) > 0 && sprintf('%J', got) == sprintf('%J', want) ? 0 : 1);" \
+		/exporter/test/fixtures/caju-router/ubus/network.interface.dump.json
+}
+check "interfaces lists netifd's interfaces, by name and protocol" interfaces_are_netifds
 
 # ---- luci-app-prometheus-exporter ----
 # The LuCI app on top of the exporter: its views, menu, resource and ACL, and its
@@ -153,7 +164,7 @@ VIEWS=/www/luci-static/resources/view/$NAME
 ACL=/usr/share/rpcd/acl.d/luci-app-$NAME.json
 APP_FILES="/usr/share/luci/menu.d/luci-app-$NAME.json $ACL
 	/www/luci-static/resources/$NAME.js $VIEWS/settings.js $VIEWS/status.js"
-APP_METHODS="'collectors', 'status', 'validate'"
+APP_METHODS="'collectors', 'interfaces', 'status', 'validate'"
 
 pins_exporter() { apk adbdump "$APP" | grep -qx "    - $PKG=$PKG_FULLVERSION"; }
 seed_luci_caches() { mkdir -p /tmp/luci-modulecache && touch /tmp/luci-indexcache.test.json /tmp/luci-modulecache/test; }

@@ -3,7 +3,7 @@
 		"description": "Grant access to the Prometheus exporter's settings and status",
 		"read": {
 			"ubus": {
-				"prometheus-exporter": [ "collectors", "status", "validate" ]
+				"prometheus-exporter": [ "collectors", "interfaces", "status", "validate" ]
 			},
 			"uci": [ "prometheus-exporter" ]
 		},
