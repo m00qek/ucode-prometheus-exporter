@@ -10,6 +10,7 @@ export const DIR = '/var/run/bmx7/json';
 
 export const meta = {
 	name: 'bmx7',
+	title: 'bmx7 mesh',
 	help: 'The bmx7 mesh node, its links and tunnels, from its JSON status files.',
 	needs: [ 'fs' ],
 	paths: [ DIR ],

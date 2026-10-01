@@ -9,6 +9,7 @@ import { lines, fields } from 'node_exporter.proc';
 
 export const meta = {
 	name: 'cpu',
+	title: 'CPU',
 	help: 'CPU times, interrupts, context switches and processes from /proc/stat.',
 	needs: [ 'fs' ],
 };

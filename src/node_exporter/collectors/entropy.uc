@@ -9,6 +9,7 @@ import { first_line } from 'node_exporter.proc';
 
 export const meta = {
 	name: 'entropy',
+	title: 'Kernel entropy',
 	help: 'The entropy available to the kernel random number generator, from /proc/sys/kernel/random.',
 	needs: [ 'fs' ],
 };

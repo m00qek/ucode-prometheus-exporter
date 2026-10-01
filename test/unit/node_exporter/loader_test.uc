@@ -7,7 +7,7 @@ import * as Result from 'node_exporter.result';
 const OK = () => Result.ok();
 
 function module_named(name, extra) {
-	return { meta: { name, help: 'Something.', needs: [], ...(extra ?? {}) }, collect: OK };
+	return { meta: { name, title: 'Some thing', help: 'Something.', needs: [], ...(extra ?? {}) }, collect: OK };
 }
 
 function problem(id, mod) {
@@ -30,7 +30,7 @@ describe('loader.validate', () => {
 		let res = loader.validate('ltq_dsl', module_named('ltq-dsl', { needs: [ 'ubus' ] }));
 
 		assert.match(true, res.ok);
-		assert.match({ name: 'ltq-dsl', help: 'Something.', needs: [ 'ubus' ], options: {} }, res.data.meta);
+		assert.match({ name: 'ltq-dsl', title: 'Some thing', help: 'Something.', needs: [ 'ubus' ], options: {} }, res.data.meta);
 		assert.match('ltq_dsl', res.data.id);
 	});
 
@@ -39,6 +39,9 @@ describe('loader.validate', () => {
 			'x: exports no meta',
 			"x: meta.name must be 'x', or it with '-' for '_'",
 			"x: meta.name must be 'x', or it with '-' for '_'",
+			'x: meta.title must be a label of 1 to 40 characters',
+			'x: meta.title must be a label of 1 to 40 characters',
+			'x: meta.title must be a label of 1 to 40 characters',
 			'x: meta.help must be a sentence',
 			'x: meta.needs must list capabilities once each',
 			"x: unknown need 'network'",
@@ -48,7 +51,15 @@ describe('loader.validate', () => {
 			'x: meta.commands must list the programs exec runs',
 			'x: meta.commands without exec in meta.needs',
 			"x: option 'enabled' is the core's, every collector has it",
+			"x: option 'stations' must be { default, help, datatype }",
 			"x: option 'stations' needs a boolean, integer or string default",
+			"x: option 'stations' needs a help sentence",
+			"x: option 'stations' has 'deafult', not one of default, help, datatype",
+			"x: option 'Stations' needs a name of a-z, 0-9 and _",
+			'x: option \'dir\': unknown datatype "dir"',
+			"x: option 'dir': datatype directory does not take a int",
+			"x: option 'dir': its default is not an absolute path",
+			"x: option 'n': its default is not an integer from 1 to 9",
 			'x: meta.paths must list paths, or functions that give them',
 			'x: meta.paths must list paths, or functions that give them',
 			'x: meta.paths must list paths, or functions that give them',
@@ -63,6 +74,9 @@ describe('loader.validate', () => {
 			problem('x', {}),
 			problem('x', module_named('y')),
 			problem('x', module_named('X')),
+			problem('x', module_named('x', { title: null })),
+			problem('x', module_named('x', { title: '' })),
+			problem('x', module_named('x', { title: 'A title much longer than forty characters' })),
 			problem('x', module_named('x', { help: '' })),
 			problem('x', module_named('x', { needs: [ 'fs', 'fs' ] })),
 			problem('x', module_named('x', { needs: [ 'network' ] })),
@@ -71,17 +85,25 @@ describe('loader.validate', () => {
 			problem('x', module_named('x', { configs: [ 'dhcp' ] })),
 			problem('x', module_named('x', { needs: [ 'exec' ] })),
 			problem('x', module_named('x', { commands: [ 'nft' ] })),
-			problem('x', module_named('x', { options: { enabled: true } })),
-			problem('x', module_named('x', { options: { stations: null } })),
+			problem('x', module_named('x', { options: { enabled: { default: true, help: 'H.' } } })),
+			problem('x', module_named('x', { options: { stations: true } })),
+			problem('x', module_named('x', { options: { stations: { default: null, help: 'H.' } } })),
+			problem('x', module_named('x', { options: { stations: { default: true } } })),
+			problem('x', module_named('x', { options: { stations: { deafult: true, help: 'H.' } } })),
+			problem('x', module_named('x', { options: { Stations: { default: true, help: 'H.' } } })),
+			problem('x', module_named('x', { options: { dir: { default: '/x', help: 'H.', datatype: 'dir' } } })),
+			problem('x', module_named('x', { options: { dir: { default: 1, help: 'H.', datatype: 'directory' } } })),
+			problem('x', module_named('x', { options: { dir: { default: 'x', help: 'H.', datatype: 'directory' } } })),
+			problem('x', module_named('x', { options: { n: { default: 0, help: 'H.', datatype: 'range(1,9)' } } })),
 			problem('x', module_named('x', { needs: [ 'fs' ], paths: '/var/x' })),
 			problem('x', module_named('x', { needs: [ 'fs' ], paths: [] })),
 			problem('x', module_named('x', { needs: [ 'fs' ], paths: [ 7 ] })),
 			problem('x', module_named('x', { needs: [ 'ubus' ], paths: [ '/var/x' ] })),
 			problem('x', module_named('x', { needs: [ 'fs' ], paths: [ '{dir}' ] })),
-			problem('x', module_named('x', { needs: [ 'fs' ], options: { n: 1 }, paths: [ '/var/{n}' ] })),
+			problem('x', module_named('x', { needs: [ 'fs' ], options: { n: { default: 1, help: 'H.' } }, paths: [ '/var/{n}' ] })),
 			problem('x', module_named('x', { needs: [ 'fs' ], paths: [ 'relative' ] })),
 			problem('x', module_named('x', { needs: [ 'socket' ], paths: [ '/var/run' ] })),
-			problem('x', module_named('x', { needs: [ 'fs' ], options: { dir: '/tmp' }, paths: [ '{dir}' ] })),
+			problem('x', module_named('x', { needs: [ 'fs' ], options: { dir: { default: '/tmp', help: 'H.' } }, paths: [ '{dir}' ] })),
 			problem('x', { meta: module_named('x').meta }),
 		]);
 	});
@@ -89,11 +111,26 @@ describe('loader.validate', () => {
 	it('takes paths, {option}s of string options filled with their defaults, and functions', () => {
 		let res = loader.validate('x', module_named('x', {
 			needs: [ 'fs', 'exec' ], commands: [ 'mmcli' ],
-			options: { directory: '/var/prometheus' },
+			options: { directory: { default: '/var/prometheus', help: 'Where.', datatype: 'directory' } },
 			paths: [ '/var/run/dbus', '{directory}', (options) => [ options.directory ] ],
 		}));
 
 		assert.match([ true, 3 ], [ res.ok, length(res.data.meta.paths) ]);
+	});
+
+	it('takes options declared as { default, help, datatype }', () => {
+		let options = {
+			stations: { default: true, help: 'Per-station metrics.' },
+			fields: { default: '^pg', help: 'A regex.', datatype: 'regex' },
+			port: { default: 9100, help: 'A port.', datatype: 'range(1,65535)' },
+		};
+		let res = loader.validate('x', module_named('x', { options }));
+
+		assert.match([ true, options ], [ res.ok, res.data.meta.options ]);
+	});
+
+	prop('takes any title of 1 to 40 characters', gen.string({ charset: 'abc XYZ-', min_len: 1, max_len: 40 }), (title) => {
+		assert.match(true, loader.validate('x', module_named('x', { title })).ok);
 	});
 });
 

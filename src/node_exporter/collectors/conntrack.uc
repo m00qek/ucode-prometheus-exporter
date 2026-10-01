@@ -10,6 +10,7 @@ import { first_line, fields } from 'node_exporter.proc';
 
 export const meta = {
 	name: 'conntrack',
+	title: 'Connection tracking',
 	help: 'The size and statistics of the connection tracking table, from /proc/sys/net/netfilter and /proc/net/stat/nf_conntrack.',
 	needs: [ 'fs' ],
 };

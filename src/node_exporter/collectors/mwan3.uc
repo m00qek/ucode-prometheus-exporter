@@ -8,6 +8,7 @@ import * as errors from 'node_exporter.errors';
 
 export const meta = {
 	name: 'mwan3',
+	title: 'mwan3 multi-WAN',
 	help: 'mwan3 interface tracking, from ubus mwan3 status.',
 	needs: [ 'ubus' ],
 };

@@ -19,9 +19,12 @@ export const DEFAULT_FIELDS = '^(oom_kill|pgpg|pswp|pg.*fault).*';
 
 export const meta = {
 	name: 'vmstat',
+	title: 'Virtual memory statistics',
 	help: 'Virtual memory statistics, from /proc/vmstat.',
 	needs: [ 'fs' ],
-	options: { fields: DEFAULT_FIELDS },
+	options: {
+		fields: { default: DEFAULT_FIELDS, datatype: 'regex', help: 'A regular expression of the /proc/vmstat fields to export.' },
+	},
 };
 
 export const PATH = '/proc/vmstat';

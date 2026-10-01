@@ -17,6 +17,7 @@ import * as Result from 'node_exporter.result';
 
 export const meta = {
 	name: 'hostapd_ubus_stations',
+	title: 'hostapd station capabilities',
 	help: 'Radio measurement capabilities of hostapd\'s stations, from hostapd\'s ubus objects.',
 	needs: [ 'ubus' ],
 };

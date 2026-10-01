@@ -23,6 +23,7 @@ import * as errors from 'node_exporter.errors';
 
 export const meta = {
 	name: 'wifi_stations',
+	title: 'Wi-Fi stations',
 	help: 'Wi-Fi stations of each interface, from ubus network.wireless and nl80211.',
 	needs: [ 'ubus', 'nl80211' ],
 };

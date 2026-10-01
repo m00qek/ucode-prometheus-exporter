@@ -40,6 +40,7 @@ import * as errors from 'node_exporter.errors';
 
 export const meta = {
 	name: 'openwrt_interfaces',
+	title: 'OpenWrt interfaces',
 	help: 'OpenWrt logical interfaces (wan, lan, ...): state, uptime, devices and address counts, from netifd over ubus.',
 	needs: [ 'ubus' ],
 };

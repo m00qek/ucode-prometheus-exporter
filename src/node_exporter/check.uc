@@ -96,11 +96,11 @@ function value_of(v) {
 
 // The lines that describe one collector.
 function describe_collector(c, j) {
-	let lines = [ `${c.meta.name}: section '${c.id}', ${j.enabled ? 'enabled' : 'disabled'}` ];
+	let lines = [ `${c.meta.name} (${c.meta.title}): section '${c.id}', ${j.enabled ? 'enabled' : 'disabled'}` ];
 	let row = (label, items) => length(items) && push(lines, sprintf('    %-9s%s', label, join(' ', items)));
 
-	if (j.options.ok)
-		row('options', map(sort(keys(j.options.data)), (k) => `${k}=${value_of(j.options.data[k])}`));
+	for (let k in (j.options.ok ? sort(keys(j.options.data)) : []))
+		row('option', [ `${k}=${value_of(j.options.data[k])}`, '#', c.meta.options[k].help ]);
 	row('needs', c.meta.needs);
 	row('configs', c.meta.configs ?? []);
 	row('paths', j.paths);

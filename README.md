@@ -29,6 +29,51 @@ The base package has the collectors every device can use (cpu, meminfo, netdev, 
 
 The collectors of particular hardware or services (ltq-dsl, realtek-poe, bmx7, mwan3, modemmanager, ubnt-manager, dawn, unbound) and wifi_stations, which repeats wifi's station metrics, are in no group.
 
+Every collector, with its title and package (`prometheus-node-exporter-ucode-…`):
+
+| | | |
+|---|---|---|
+| `bmx7` | bmx7 mesh | `-bmx7` |
+| `conntrack` | Connection tracking | base |
+| `cpu` | CPU | base |
+| `dawn` | DAWN band steering | `-dawn` |
+| `dhcp_leases` | DHCP leases | `-dhcp_leases`; in `-full` |
+| `dnsmasq` | dnsmasq DNS and DHCP | `-dnsmasq`; in `-full` |
+| `entropy` | Kernel entropy | base |
+| `ethtool` | Network driver statistics | `-ethtool`; in `-network`, `-full` |
+| `filefd` | File descriptors | base |
+| `filesystem` | Filesystems | `-filesystem`; in `-hardware`, `-full` |
+| `hostapd_stations` | hostapd stations | `-hostapd_stations`; in `-wireless`, `-full` |
+| `hostapd_ubus_stations` | hostapd station capabilities | `-hostapd_ubus_stations`; in `-wireless`, `-full` |
+| `hwmon` | Hardware sensors | `-hwmon`; in `-hardware`, `-full` |
+| `loadavg` | Load average | base |
+| `ltq-dsl` | Lantiq DSL line | `-ltq-dsl` |
+| `meminfo` | Memory | base |
+| `modemmanager` | Cellular modems | `-modemmanager` |
+| `mwan3` | mwan3 multi-WAN | `-mwan3` |
+| `nat_traffic` | Traffic per address pair | `-nat_traffic`; in `-network`, `-full` |
+| `netclass` | Network device properties | base |
+| `netdev` | Network device statistics | base |
+| `netstat` | Protocol statistics | `-netstat`; in `-network`, `-full` |
+| `nft-counters` | nftables counters | `-nft-counters`; in `-network`, `-full` |
+| `openwrt_interfaces` | OpenWrt interfaces | base |
+| `openwrt` | OpenWrt release and board | `-openwrt`; in `-full` |
+| `realtek-poe` | Realtek PoE | `-realtek-poe` |
+| `selinux` | SELinux | base |
+| `snmp6` | IPv6 statistics per device | `-snmp6`; in `-network`, `-full` |
+| `softnet` | Network softirq statistics | base |
+| `textfile` | Text files | `-textfile`; in `-full` |
+| `thermal` | Thermal zones | `-thermal`; in `-hardware`, `-full` |
+| `time` | System time | base |
+| `ubnt-manager` | Ubiquiti airOS radios | `-ubnt-manager` |
+| `uci_dhcp_host` | Static DHCP hosts | `-uci_dhcp_host`; in `-full` |
+| `uname` | Kernel and host names | base |
+| `unbound` | Unbound DNS resolver | `-unbound` |
+| `vmstat` | Virtual memory statistics | base |
+| `wifi_stations` | Wi-Fi stations | `-wifi_stations` |
+| `wifi` | Wi-Fi | `-wifi`; in `-wireless`, `-full` |
+| `wireguard` | WireGuard | `-wireguard`; in `-full` |
+
 Neither upstream exporter had these: softnet and vmstat (node_exporter's), conntrack's statistics and openwrt_interfaces (netifd's logical interfaces: up, uptime, devices, address counts) in the base package, and dhcp_leases (dnsmasq's and odhcpd's active leases).
 
 ## Configuration
@@ -50,13 +95,13 @@ config collector 'textfile'          # named after the module: ltq_dsl for ltq-d
 	option directory '/var/prometheus'
 ```
 
-A collector without a section is enabled, with its defaults. These take options:
+A collector without a section is enabled, with its defaults. These take options (`check` prints each with its help):
 
 | | | |
 |---|---|---|
 | `dhcp_leases` | `leases` | `0`; 1 adds a series per lease (address, MAC, hostname, expiry) |
-| `textfile` | `directory` | `/var/prometheus`; where the `*.prom` files are |
-| `unbound` | `socket` | `/run/unbound.ctl`; unbound's control socket, in a directory of its own (see the jail) |
+| `textfile` | `directory` | `/var/prometheus`; an absolute path, where the `*.prom` files are |
+| `unbound` | `socket` | `/run/unbound.ctl`; an absolute path, unbound's control socket, in a directory of its own (see the jail) |
 | `vmstat` | `fields` | `^(oom_kill\|pgpg\|pswp\|pg.*fault).*`; a regex of the /proc/vmstat fields |
 | `wifi` | `stations` | `1`; 0 leaves out the per-station metrics |
 
@@ -66,7 +111,7 @@ A config change applies on `reload_config` (LuCI does it), or `service prometheu
 
 | | |
 |---|---|
-| `service prometheus-node-exporter-ucode check` | checks the config, lists each collector (section, options, needs, what the jail gives it) and runs a scrape, saying what fails and why |
+| `service prometheus-node-exporter-ucode check` | checks the config, lists each collector (title, section, options with their help, needs, what the jail gives it) and runs a scrape, saying what fails and why |
 | `… status` | running, and where it listens and how many collectors it serves; or disabled |
 | `… reload` | starts again with the new config; an invalid one keeps the running exporter, and the log says why |
 
@@ -105,12 +150,15 @@ import { first_line, fields } from 'node_exporter.proc';
 
 export const meta = {
 	name: 'loadavg',                          // ?collect[]=, the subpackage suffix; may hold '-'
+	title: 'Load average',                    // a label of up to 40 characters, for lists and forms
 	help: 'Load averages from /proc/loadavg.',
 	needs: [ 'fs' ],                          // all it gets in `deps`
 	// configs: [ 'dhcp' ],                   // with 'uci': the configs it may read
 	// commands: [ 'nft' ],                   // with 'exec': the programs it may run
-	// options: { stations: true },           // typed by their defaults; not enabled, the core's
-	// paths: [ '/var/run/bmx7/json' ],       // what it reads outside /proc and /sys; see below
+	// options: {                             // not enabled, the core's
+	//	directory: { default: '/var/prometheus', datatype: 'directory', help: 'The directory of the *.prom files.' },
+	// },
+	// paths: [ '{directory}' ],              // what it reads outside /proc and /sys; see below
 };
 
 export function collect(deps, out, options) {
@@ -125,6 +173,7 @@ export function collect(deps, out, options) {
 
 - `needs` are `fs` (`readfile open lsdir glob stat realpath`), `ubus` (`call`, `list`, as Results), `uci` (`deps.uci.<config>` for each of `configs`, read-only: `loaded get get_all sections foreach`, committed configuration only), `rtnl` and `nl80211` (`request` as Results, `const`), `socket` (`unix_request(path, message, timeout_ms)`, a Unix socket's whole reply as a Result), `exec` (`run(argv)` as a Result, for `commands` only; a failure's `data.status` is the exit status), `time` (`now()`) and `log` (`log(msg)`, for what a collector that succeeds still has to say). Only `node_exporter.deps` touches the system.
 - The exporter runs in procd's jail, which mounts what the installed and enabled collectors declare and nothing else: `/etc/config/<c>` for each of `configs`, `/bin/sh` and each of `commands` (with its libraries), and `paths`. A path may name a string option as `{option}` (textfile's `'{directory}'`), or be a function `(options, uci) => [ paths ]` for what a config decides (dhcp_leases' lease files). A socket is declared by its directory, as ujail cannot mount a socket; a shell script needs what it sources and runs (ubnt-manager).
+- An option's `default` sets its type (boolean, integer or string), `help` says what it does, and `datatype`, optional, narrows its values with one of LuCI's names that the core checks: `uinteger`, `range(min,max)`, `directory` and `file` (an absolute path; it need not exist), and `regex` (one ucode compiles), which LuCI lacks. `collect` gets the options typed; a value that does not fit fails the collector with CONFIG_INVALID.
 - `out.gauge|counter|untyped(name, help)` returns `(labels, value)`, which chains; `out.parse(text)` adds exposition text. What a collector records is kept even when it then fails.
 - `collect` returns a Result: `ok` is `node_scrape_collector_success 1`; `err` is 0 and one log line.
 - An absent kernel feature is nothing to report, for any collector: where nf_conntrack is not loaded (an AP without a firewall), conntrack and nat_traffic return `ok` with no samples. A missing service or program (no unbound control socket, no `ethtool`) is an `err`.

@@ -52,10 +52,13 @@ export function leasefiles(dhcp) {
 
 export const meta = {
 	name: 'dhcp_leases',
+	title: 'DHCP leases',
 	help: 'Active DHCP leases of dnsmasq and odhcpd, by interface and family.',
 	needs: [ 'fs', 'ubus', 'uci', 'time' ],
 	configs: [ 'dhcp' ],
-	options: { leases: false },
+	options: {
+		leases: { default: false, help: 'A series per lease, with its address, MAC, hostname and expiry.' },
+	},
 	paths: [ (options, uci) => leasefiles(uci.dhcp) ],
 };
 

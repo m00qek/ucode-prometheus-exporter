@@ -14,6 +14,7 @@ import * as errors from 'node_exporter.errors';
 
 export const meta = {
 	name: 'wireguard',
+	title: 'WireGuard',
 	help: 'WireGuard interfaces and peers, from ubus wireguard status and the network config.',
 	needs: [ 'ubus', 'uci' ],
 	configs: [ 'network' ],

@@ -23,6 +23,7 @@ import { first_line } from 'node_exporter.proc';
 
 export const meta = {
 	name: 'hwmon',
+	title: 'Hardware sensors',
 	help: 'Hardware monitor chips, sensor labels, temperatures and PWM from /sys/class/hwmon.',
 	needs: [ 'fs' ],
 };

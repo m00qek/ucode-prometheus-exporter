@@ -16,6 +16,7 @@ import { each_line, fields } from 'node_exporter.proc';
 
 export const meta = {
 	name: 'nat_traffic',
+	title: 'Traffic per address pair',
 	help: 'Bytes per source and destination address, from /proc/net/nf_conntrack.',
 	needs: [ 'fs' ],
 };

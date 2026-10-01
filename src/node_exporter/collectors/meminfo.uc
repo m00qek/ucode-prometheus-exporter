@@ -9,6 +9,7 @@ import { lines } from 'node_exporter.proc';
 
 export const meta = {
 	name: 'meminfo',
+	title: 'Memory',
 	help: 'Memory statistics from /proc/meminfo.',
 	needs: [ 'fs' ],
 };

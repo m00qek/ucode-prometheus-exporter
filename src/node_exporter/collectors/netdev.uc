@@ -8,6 +8,7 @@ import * as errors from 'node_exporter.errors';
 
 export const meta = {
 	name: 'netdev',
+	title: 'Network device statistics',
 	help: 'Network device statistics, as /proc/net/dev shows them, from rtnetlink.',
 	needs: [ 'rtnl' ],
 };

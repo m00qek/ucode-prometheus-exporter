@@ -21,6 +21,7 @@ import * as Result from 'node_exporter.result';
 
 export const meta = {
 	name: 'ethtool',
+	title: 'Network driver statistics',
 	help: 'Network driver statistics from ethtool -S.',
 	needs: [ 'rtnl', 'exec' ],
 	commands: [ 'ethtool' ],

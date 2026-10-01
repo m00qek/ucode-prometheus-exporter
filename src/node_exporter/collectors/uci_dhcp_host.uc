@@ -15,6 +15,7 @@ import * as errors from 'node_exporter.errors';
 
 export const meta = {
 	name: 'uci_dhcp_host',
+	title: 'Static DHCP hosts',
 	help: 'Static DHCP leases from /etc/config/dhcp.',
 	needs: [ 'uci' ],
 	configs: [ 'dhcp' ],

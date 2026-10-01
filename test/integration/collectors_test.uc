@@ -1,7 +1,8 @@
 'use strict';
 
-// What every collector in src/ owes the repository: a valid meta, a unit test,
-// and a package whose dependencies cover its needs and commands.
+// What every collector in src/ owes the repository: a valid meta, a line in the
+// README, a unit test, and a package whose dependencies cover its needs and
+// commands.
 
 import { describe, it, assert } from 'utest';
 import { readfile, lsdir, popen } from 'fs';
@@ -9,6 +10,7 @@ import * as loader from 'node_exporter.loader';
 
 const SOURCES = 'src/node_exporter/collectors';
 const MAKEFILE = readfile('openwrt/prometheus-node-exporter-ucode/Makefile');
+const README = readfile('README.md');
 
 // The package each need or command calls for; `null` for what the base package has.
 const NEED_PACKAGES = { fs: null, ubus: null, uci: null, rtnl: null, time: null, exec: null, log: null, nl80211: '+ucode-mod-nl80211', socket: '+ucode-mod-socket' };
@@ -38,6 +40,11 @@ function checks(id) {
 		it('exports a valid meta and collect', () => {
 			let res = loader.validate(id, mod);
 			assert.match(true, res.ok, res.details);
+		});
+
+		it('is in the README\'s list, with its title', () => {
+			let row = `| \`${mod.meta.name}\` | ${mod.meta.title} |`;
+			assert.match(true, index(README, row) >= 0, `add ${row} to the README's list of collectors`);
 		});
 
 		it('has a unit test', () => {

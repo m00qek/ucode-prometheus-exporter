@@ -8,6 +8,7 @@ import * as errors from 'node_exporter.errors';
 
 export const meta = {
 	name: 'realtek-poe',
+	title: 'Realtek PoE',
 	help: 'PoE budget, consumption and port states of realtek-poe switches, from ubus poe info.',
 	needs: [ 'ubus' ],
 };

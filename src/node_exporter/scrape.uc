@@ -103,7 +103,7 @@ export function scrape(env, collectors, query_string) {
 
 	if (!main.ok) {
 		env.log(`main: ${Result.describe(main)}`);
-		main = Result.ok(config.MAIN_OPTIONS);
+		main = Result.ok(config.defaults(config.MAIN_OPTIONS));
 	}
 
 	let runs = map(sel.data, (c) => run_one(env, session, c));

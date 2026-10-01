@@ -10,7 +10,7 @@ import * as Result from 'node_exporter.result';
 import { with_mods } from 'context';
 
 function collector(name, collect, meta) {
-	let res = loader.validate(loader.id_of(name), { meta: { name, help: 'Test.', needs: [], ...meta }, collect });
+	let res = loader.validate(loader.id_of(name), { meta: { name, title: 'Test', help: 'Test.', needs: [], ...meta }, collect });
 
 	if (!res.ok)
 		die(Result.describe(res));
@@ -20,7 +20,7 @@ function collector(name, collect, meta) {
 
 const OK = collector('loadavg', () => Result.ok(), { needs: [ 'fs' ] });
 const FAILING = collector('openwrt', () => Result.err('UBUS_CALL_FAILED', 'system board: Not found'), { needs: [ 'ubus' ] });
-const TEXTFILE = collector('textfile', () => Result.ok(), { needs: [ 'fs' ], options: { directory: '/var/prometheus' }, paths: [ '{directory}' ] });
+const TEXTFILE = collector('textfile', () => Result.ok(), { needs: [ 'fs' ], options: { directory: { default: '/var/prometheus', datatype: 'directory', help: 'Where.' } }, paths: [ '{directory}' ] });
 const NFT = collector('nft-counters', () => Result.ok(), { needs: [ 'exec' ], commands: [ 'nft' ] });
 
 // check.run over the mocks: `own` is the exporter's config, `files` the regular
@@ -57,7 +57,7 @@ describe('check.run --config', () => {
 
 		assert.match(false, r.ok);
 		assert.match(contains([
-			'FAIL main: CONFIG_INVALID (listen_port: expected a port from 1 to 65535, got 70000)',
+			'FAIL main: CONFIG_INVALID (listen_port: expected an integer from 1 to 65535, got 70000)',
 			'FAIL main: CONFIG_INVALID (omit_zero_values: expected a boolean, got "maybe")',
 		]), r.lines);
 	});
@@ -122,16 +122,16 @@ describe('check.run', () => {
 			'warn scrape: openwrt: UBUS_CALL_FAILED (system board: Not found)',
 			'',
 			'collectors: 4 installed, 4 enabled',
-			'  loadavg: section \'loadavg\', enabled',
+			'  loadavg (Test): section \'loadavg\', enabled',
 			'      needs    fs',
-			'  nft-counters: section \'nft_counters\', enabled',
+			'  nft-counters (Test): section \'nft_counters\', enabled',
 			'      needs    exec',
 			'      commands nft=/usr/sbin/nft',
 			'      mounts   /bin/sh /usr/sbin/nft',
-			'  openwrt: section \'openwrt\', enabled',
+			'  openwrt (Test): section \'openwrt\', enabled',
 			'      needs    ubus',
-			'  textfile: section \'textfile\', enabled',
-			'      options  directory="/srv/prom"',
+			'  textfile (Test): section \'textfile\', enabled',
+			'      option   directory="/srv/prom" # Where.',
 			'      needs    fs',
 			'      paths    /srv/prom',
 			'      mounts   /srv/prom',
@@ -152,7 +152,7 @@ describe('check.run', () => {
 			'ok   scrape, outside the jail: 2 of 2 collectors succeeded',
 			'collectors: 3 installed, 2 enabled',
 			'      commands nft=(not found)',
-			'  openwrt: section \'openwrt\', disabled',
+			'  openwrt (Test): section \'openwrt\', disabled',
 		]), r.lines);
 		assert.match([ '  /bin/sh', '  /etc/config/prometheus-node-exporter-ucode' ], slice(r.lines, -2));
 	});

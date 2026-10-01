@@ -33,6 +33,7 @@ export function socket_dir(path) {
 
 export const meta = {
 	name: 'unbound',
+	title: 'Unbound DNS resolver',
 	help: 'Unbound DNS resolver statistics, from its remote control socket.',
 	needs: [ 'socket' ],
 	// OpenWrt's unbound package never makes a Unix control socket: its UCI
@@ -43,7 +44,9 @@ export const meta = {
 	// collector's /run/unbound.ctl: a device set up for it keeps working. On
 	// OpenWrt /run links to /var/run (base-files' boot), beside unbound's
 	// pidfile, and unbound makes the socket before it enters its chroot.
-	options: { socket: '/run/unbound.ctl' },
+	options: {
+		socket: { default: '/run/unbound.ctl', datatype: 'file', help: 'Unbound\'s control socket, in a directory of its own.' },
+	},
 	// The socket's directory: the jail cannot mount a socket itself, and
 	// unbound makes it anew each start. A directory that holds every
 	// service's (/run) is not mounted: the socket then needs one of its own.

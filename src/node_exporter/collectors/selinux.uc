@@ -9,6 +9,7 @@ import { first_line } from 'node_exporter.proc';
 
 export const meta = {
 	name: 'selinux',
+	title: 'SELinux',
 	help: 'Whether SELinux is enabled and enforcing, from /sys/fs/selinux/enforce.',
 	needs: [ 'fs' ],
 };

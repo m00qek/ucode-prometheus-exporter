@@ -17,6 +17,7 @@ import { first_line } from 'node_exporter.proc';
 
 export const meta = {
 	name: 'netclass',
+	title: 'Network device properties',
 	help: 'Network device properties, from rtnetlink and /sys/class/net.',
 	needs: [ 'fs', 'rtnl' ],
 };

@@ -9,7 +9,7 @@ import * as Result from 'node_exporter.result';
 import { with_mods } from 'context';
 
 function collector(name, collect, meta) {
-	return loader.validate(loader.id_of(name), { meta: { name, help: 'Test.', needs: [], ...(meta ?? {}) }, collect }).data;
+	return loader.validate(loader.id_of(name), { meta: { name, title: 'Test', help: 'Test.', needs: [], ...(meta ?? {}) }, collect }).data;
 }
 
 function gauge_of(name, value) {
@@ -116,7 +116,7 @@ describe('scrape.run_one', () => {
 
 	it('passes the typed options, and does not call a collector whose options are invalid', () => {
 		let seen = [];
-		let c = collector('opt', (d, out, config) => { push(seen, config); return Result.ok(); }, { options: { stations: true } });
+		let c = collector('opt', (d, out, config) => { push(seen, config); return Result.ok(); }, { options: { stations: { default: true, help: 'Stations.' } } });
 
 		run(c, { options: { stations: 'off' } });
 		let bad = run(c, { options: { stations: 'maybe' } });

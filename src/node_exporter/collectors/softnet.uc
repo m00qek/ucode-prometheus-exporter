@@ -12,6 +12,7 @@ import { lines, fields } from 'node_exporter.proc';
 
 export const meta = {
 	name: 'softnet',
+	title: 'Network softirq statistics',
 	help: 'Per-CPU network softirq statistics, from /proc/net/softnet_stat.',
 	needs: [ 'fs' ],
 };

@@ -8,6 +8,7 @@ import * as errors from 'node_exporter.errors';
 
 export const meta = {
 	name: 'ltq-dsl',
+	title: 'Lantiq DSL line',
 	help: 'Lantiq DSL line state, rates and errors, from ubus dsl metrics.',
 	needs: [ 'ubus' ],
 };

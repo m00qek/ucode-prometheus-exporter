@@ -23,9 +23,12 @@ import * as exposition from 'node_exporter.exposition';
 
 export const meta = {
 	name: 'textfile',
+	title: 'Text files',
 	help: 'Metrics from *.prom files in a directory, as node_exporter\'s textfile collector.',
 	needs: [ 'fs', 'log' ],
-	options: { directory: '/var/prometheus' },
+	options: {
+		directory: { default: '/var/prometheus', datatype: 'directory', help: 'The directory of the *.prom files.' },
+	},
 	paths: [ '{directory}' ],
 };
 

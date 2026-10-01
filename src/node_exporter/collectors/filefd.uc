@@ -9,6 +9,7 @@ import { first_line, fields } from 'node_exporter.proc';
 
 export const meta = {
 	name: 'filefd',
+	title: 'File descriptors',
 	help: 'File descriptors allocated and the most there may be, from /proc/sys/fs/file-nr.',
 	needs: [ 'fs' ],
 };

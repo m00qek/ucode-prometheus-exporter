@@ -25,9 +25,12 @@ import * as errors from 'node_exporter.errors';
 
 export const meta = {
 	name: 'wifi',
+	title: 'Wi-Fi',
 	help: 'Wi-Fi radios, networks and stations, from ubus network.wireless and nl80211.',
 	needs: [ 'ubus', 'nl80211' ],
-	options: { stations: true },
+	options: {
+		stations: { default: true, help: 'Per-station metrics: signal, rates and traffic of each client.' },
+	},
 };
 
 // The mode of an interface by its NL80211_IFTYPE_* value.

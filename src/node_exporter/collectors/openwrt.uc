@@ -9,6 +9,7 @@ import * as errors from 'node_exporter.errors';
 
 export const meta = {
 	name: 'openwrt',
+	title: 'OpenWrt release and board',
 	help: 'The OpenWrt release and board, from ubus system board.',
 	needs: [ 'ubus' ],
 };

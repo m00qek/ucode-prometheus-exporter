@@ -18,6 +18,7 @@ import { lines, fields } from 'node_exporter.proc';
 
 export const meta = {
 	name: 'snmp6',
+	title: 'IPv6 statistics per device',
 	help: 'Per-device IPv6 statistics from /proc/net/dev_snmp6.',
 	needs: [ 'fs' ],
 };

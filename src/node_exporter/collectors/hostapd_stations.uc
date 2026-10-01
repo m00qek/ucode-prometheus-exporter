@@ -23,6 +23,7 @@ import * as errors from 'node_exporter.errors';
 
 export const meta = {
 	name: 'hostapd_stations',
+	title: 'hostapd stations',
 	help: 'Stations of each hostapd access point, from hostapd\'s ubus objects.',
 	needs: [ 'ubus' ],
 };

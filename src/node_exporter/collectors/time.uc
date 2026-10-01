@@ -8,6 +8,7 @@ import * as errors from 'node_exporter.errors';
 
 export const meta = {
 	name: 'time',
+	title: 'System time',
 	help: 'The system clock, in seconds since the epoch.',
 	needs: [ 'time' ],
 };

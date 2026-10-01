@@ -14,6 +14,7 @@ export const DBUS_DIR = '/var/run/dbus';
 
 export const meta = {
 	name: 'modemmanager',
+	title: 'Cellular modems',
 	help: 'Signal quality and strength of cellular modems, from mmcli.',
 	needs: [ 'exec' ],
 	commands: [ 'mmcli' ],

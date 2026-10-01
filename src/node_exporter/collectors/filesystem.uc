@@ -21,6 +21,7 @@ import { lines, fields } from 'node_exporter.proc';
 
 export const meta = {
 	name: 'filesystem',
+	title: 'Filesystems',
 	help: 'Filesystem sizes and read-only flags, from luci getMountPoints and /proc/self/mounts.',
 	needs: [ 'fs', 'ubus' ],
 };

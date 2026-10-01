@@ -8,11 +8,16 @@ import * as Result from 'node_exporter.result';
 import * as errors from 'node_exporter.errors';
 import { NEEDS } from 'node_exporter.deps';
 import * as jail from 'node_exporter.jail';
+import * as config from 'node_exporter.config';
 
 export const DIR = '/usr/share/ucode/node_exporter/collectors';
 
 const NAME = /^[a-z0-9][a-z0-9_-]*$/;
 const OPTION_TYPES = [ 'bool', 'int', 'string' ];
+const OPTION_KEYS = [ 'default', 'help', 'datatype' ];
+
+// A collector's title, as a list or a form shows it.
+export const TITLE_MAX = 40;
 
 // The module a collector's name lives in: a module name cannot hold '-'.
 export function id_of(name) {
@@ -34,6 +39,37 @@ function is_strings(v) {
 	return type(v) == 'array' && length(filter(v, (s) => type(s) != 'string' || s == '')) == 0;
 }
 
+// One of meta.options: { default, help, datatype }, the datatype one the core
+// knows, that takes the default's type and the default itself.
+function validate_option(id, key, spec) {
+	if (!match(key, /^[a-z][a-z0-9_]*$/))
+		return invalid(id, `option '${key}' needs a name of a-z, 0-9 and _`);
+	if (type(spec) != 'object')
+		return invalid(id, `option '${key}' must be { default, help, datatype }`);
+
+	for (let k in keys(spec))
+		if (!(k in OPTION_KEYS))
+			return invalid(id, `option '${key}' has '${k}', not one of default, help, datatype`);
+
+	if (!(type(spec.default) in OPTION_TYPES))
+		return invalid(id, `option '${key}' needs a boolean, integer or string default`);
+	if (type(spec.help) != 'string' || spec.help == '')
+		return invalid(id, `option '${key}' needs a help sentence`);
+	if (spec.datatype == null)
+		return Result.ok();
+
+	let dt = config.datatype(spec.datatype);
+
+	if (!dt)
+		return invalid(id, `option '${key}': unknown datatype ${sprintf('%J', spec.datatype)}`);
+	if (!(type(spec.default) in dt.types))
+		return invalid(id, `option '${key}': datatype ${spec.datatype} does not take a ${type(spec.default)}`);
+	if (!dt.check(spec.default))
+		return invalid(id, `option '${key}': its default is not ${dt.expected}`);
+
+	return Result.ok();
+}
+
 // meta.paths: strings, whose {option}s name string options, that are mounts
 // once filled with the defaults; or functions, whose paths the jail checks.
 function validate_paths(id, meta) {
@@ -49,10 +85,10 @@ function validate_paths(id, meta) {
 			return invalid(id, 'meta.paths must list paths, or functions that give them');
 
 		for (let name in jail.placeholders(p))
-			if (type(meta.options?.[name]) != 'string')
+			if (type(meta.options?.[name]?.default) != 'string')
 				return invalid(id, `meta.paths: {${name}} is not a string option`);
 
-		let why = jail.path_problem(jail.fill(p, meta.options));
+		let why = jail.path_problem(jail.fill(p, config.defaults(meta.options)));
 		if (why)
 			return invalid(id, `meta.paths: ${why}`);
 	}
@@ -68,6 +104,8 @@ export function validate(id, mod) {
 		return invalid(id, 'exports no meta');
 	if (type(meta.name) != 'string' || !match(meta.name, NAME) || id_of(meta.name) != id)
 		return invalid(id, `meta.name must be '${id}', or it with '-' for '_'`);
+	if (type(meta.title) != 'string' || meta.title == '' || length(meta.title) > TITLE_MAX || match(meta.title, /[[:cntrl:]]/))
+		return invalid(id, `meta.title must be a label of 1 to ${TITLE_MAX} characters`);
 	if (type(meta.help) != 'string' || meta.help == '')
 		return invalid(id, 'meta.help must be a sentence');
 	if (!is_strings(meta.needs) || length(uniq(meta.needs)) != length(meta.needs))
@@ -95,14 +133,16 @@ export function validate(id, mod) {
 	}
 
 	if (meta.options != null && type(meta.options) != 'object')
-		return invalid(id, 'meta.options must be an object of defaults');
+		return invalid(id, 'meta.options must be an object of { default, help, datatype }');
 
 	if ('enabled' in keys(meta.options ?? {}))
 		return invalid(id, "option 'enabled' is the core's, every collector has it");
 
-	for (let key, fallback in meta.options)
-		if (!(type(fallback) in OPTION_TYPES) || !match(key, /^[a-z][a-z0-9_]*$/))
-			return invalid(id, `option '${key}' needs a boolean, integer or string default`);
+	for (let key, spec in meta.options) {
+		let res = validate_option(id, key, spec);
+		if (!res.ok)
+			return res;
+	}
 
 	if (meta.paths != null) {
 		let res = validate_paths(id, meta);

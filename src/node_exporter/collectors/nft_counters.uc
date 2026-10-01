@@ -11,6 +11,7 @@ import * as errors from 'node_exporter.errors';
 
 export const meta = {
 	name: 'nft-counters',
+	title: 'nftables counters',
 	help: 'Packets and bytes of the named nftables counters.',
 	needs: [ 'exec' ],
 	commands: [ 'nft' ],

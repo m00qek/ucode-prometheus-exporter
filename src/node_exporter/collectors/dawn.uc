@@ -14,6 +14,7 @@ import * as errors from 'node_exporter.errors';
 
 export const meta = {
 	name: 'dawn',
+	title: 'DAWN band steering',
 	help: 'Access points and client signal from the DAWN Wi-Fi controller.',
 	needs: [ 'ubus' ],
 };

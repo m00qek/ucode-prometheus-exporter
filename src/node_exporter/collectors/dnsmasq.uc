@@ -8,6 +8,7 @@ import * as errors from 'node_exporter.errors';
 
 export const meta = {
 	name: 'dnsmasq',
+	title: 'dnsmasq DNS and DHCP',
 	help: 'DNS and DHCP counters of dnsmasq, from ubus dnsmasq metrics.',
 	needs: [ 'ubus' ],
 };

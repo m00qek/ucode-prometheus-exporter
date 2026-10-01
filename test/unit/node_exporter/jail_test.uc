@@ -7,7 +7,7 @@ import * as config from 'node_exporter.config';
 import * as Result from 'node_exporter.result';
 
 function collector(name, meta) {
-	let res = loader.validate(loader.id_of(name), { meta: { name, help: 'Test.', needs: [], ...meta }, collect: () => Result.ok() });
+	let res = loader.validate(loader.id_of(name), { meta: { name, title: 'Test', help: 'Test.', needs: [], ...meta }, collect: () => Result.ok() });
 
 	if (!res.ok)
 		die(Result.describe(res));
@@ -28,7 +28,7 @@ function with_sys(own, configs, fs, cb) {
 }
 
 const NFT = collector('nft-counters', { needs: [ 'exec' ], commands: [ 'nft' ] });
-const TEXTFILE = collector('textfile', { needs: [ 'fs' ], options: { directory: '/var/prometheus' }, paths: [ '{directory}' ] });
+const TEXTFILE = collector('textfile', { needs: [ 'fs' ], options: { directory: { default: '/var/prometheus', datatype: 'directory', help: 'Where.' } }, paths: [ '{directory}' ] });
 const DHCP = collector('uci_dhcp_host', { needs: [ 'uci' ], configs: [ 'dhcp' ] });
 const LOADAVG = collector('loadavg', { needs: [ 'fs' ] });
 

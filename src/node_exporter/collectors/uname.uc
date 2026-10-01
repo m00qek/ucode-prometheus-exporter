@@ -9,6 +9,7 @@ import { first_line } from 'node_exporter.proc';
 
 export const meta = {
 	name: 'uname',
+	title: 'Kernel and host names',
 	help: 'The kernel and host names uname reports, from /proc/sys/kernel.',
 	needs: [ 'fs' ],
 };

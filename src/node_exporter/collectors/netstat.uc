@@ -18,6 +18,7 @@ import { lines, fields } from 'node_exporter.proc';
 
 export const meta = {
 	name: 'netstat',
+	title: 'Protocol statistics',
 	help: 'Protocol statistics from /proc/net/netstat, /proc/net/snmp and /proc/net/snmp6.',
 	needs: [ 'fs' ],
 };

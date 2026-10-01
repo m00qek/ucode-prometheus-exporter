@@ -9,6 +9,7 @@ import { first_line, fields } from 'node_exporter.proc';
 
 export const meta = {
 	name: 'loadavg',
+	title: 'Load average',
 	help: 'Load averages from /proc/loadavg.',
 	needs: [ 'fs' ],
 };

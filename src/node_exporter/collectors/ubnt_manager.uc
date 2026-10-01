@@ -18,6 +18,7 @@ export const SCRIPT_NEEDS = [
 
 export const meta = {
 	name: 'ubnt-manager',
+	title: 'Ubiquiti airOS radios',
 	help: 'Ubiquiti airOS radios, from their status as ubnt-manager reads it over ssh.',
 	needs: [ 'exec' ],
 	commands: [ 'ubnt-manager' ],

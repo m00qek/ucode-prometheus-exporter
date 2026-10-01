@@ -136,7 +136,7 @@ eventually "a removed collector is not served" not_served ltq-dsl
 
 # --- the service commands
 check "check passes" "$INIT" check
-check "check lists the collectors" says "^  textfile: section 'textfile', enabled" "$INIT" check
+check "check lists the collectors" says "^  textfile (Text files): section 'textfile', enabled" "$INIT" check
 check "and the jail's mounts" says '^jail mounts:' "$INIT" check
 serving=$(($(installed) - 1))
 check "status says where it listens and what it serves" \

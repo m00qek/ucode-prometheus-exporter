@@ -21,6 +21,7 @@ import { first_line } from 'node_exporter.proc';
 
 export const meta = {
 	name: 'thermal',
+	title: 'Thermal zones',
 	help: 'Thermal zone temperatures from /sys/class/thermal.',
 	needs: [ 'fs' ],
 };
