@@ -1,0 +1,36 @@
+{
+	"device": {
+		"br-lan": {
+			"leases": [
+				{
+					"mac": "020000000021",
+					"hostname": "printer",
+					"accept-reconf": false,
+					"flags": [
+						"bound"
+					],
+					"address": "192.168.1.50",
+					"valid": 41000
+				},
+				{
+					"mac": "020000000022",
+					"duid": "00040102030405060708090a0b0c0d0e0f10",
+					"iaid": 1,
+					"hostname": "",
+					"accept-reconf": false,
+					"flags": [
+						"bound",
+						"static"
+					],
+					"address": "192.168.1.10",
+					"valid": 4294967295
+				}
+			]
+		},
+		"br-iot": {
+			"leases": [
+
+			]
+		}
+	}
+}

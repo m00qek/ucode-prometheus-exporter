@@ -22,3 +22,21 @@
 #   server_stats_add() makes them (sums, the maximum for the .max counters,
 #   the mean of the thread medians); the counters' meaning:
 #   doc/unbound-control.rst, "Statistic Counters".
+# ubus/network.interface.dump.json
+#   netifd's `ubus call network.interface dump` with what neither device has:
+#   an interface taken down (guest), one without its device and with an error
+#   (lte), a DHCP client still pending (wwan), PPPoE (wan) and DHCPv6 with a
+#   delegated prefix (wan6) assigned to lan, with a ULA and an assignment
+#   without a local address. Fields and when each is there: netifd_dump_status(),
+#   interface_ip_dump_prefix_list() and interface_ip_dump_prefix_assignment_list()
+#   in netifd's ubus.c (cbb83a18, OpenWrt 25.12's netifd).
+# ubus/dhcp.ipv4leases.json, ubus/dhcp.ipv6leases.json
+#   odhcpd serving DHCPv4 (odhcpd, not the default odhcpd-ipv6only) and DHCPv6
+#   on the dump's lan: an IA_NA with an address in each prefix and an IA_PD.
+#   Layout: handle_dhcpv4_leases() and handle_dhcpv6_leases() in odhcpd's
+#   src/ubus.c (5d7be43f, OpenWrt 25.12's odhcpd); (uint32_t)-1 is "infinite".
+# tmp/dhcp.leases
+#   A dnsmasq lease file for that lan with DHCPv6 leases too: an infinite (0)
+#   and an expired lease, one outside every subnet, a temporary (T) IPv6
+#   address, and the agent-info line dnsmasq appends for relayed clients.
+#   Layout: lease_update_file() in dnsmasq's src/lease.c (2.93).
