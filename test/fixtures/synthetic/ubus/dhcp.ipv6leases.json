@@ -1,0 +1,50 @@
+{
+	"device": {
+		"br-lan": {
+			"leases": [
+				{
+					"duid": "000100012f3c4d5e020000000023",
+					"iaid": 287454020,
+					"hostname": "laptop-2",
+					"accept-reconf": false,
+					"assigned": 4660,
+					"flags": [
+						"bound"
+					],
+					"ipv6-addr": [
+						{
+							"address": "2001:db8:1:10::1234",
+							"preferred-lifetime": 3590,
+							"valid-lifetime": 7190
+						},
+						{
+							"address": "fd00:5:6:10::1234",
+							"preferred-lifetime": 4294967295,
+							"valid-lifetime": 4294967295
+						}
+					],
+					"valid": 7190
+				},
+				{
+					"duid": "00030001020000000024",
+					"iaid": 1,
+					"hostname": "",
+					"accept-reconf": false,
+					"assigned": 7,
+					"flags": [
+						"bound"
+					],
+					"ipv6-prefix": [
+						{
+							"address": "2001:db8:1:1c::",
+							"preferred-lifetime": 3590,
+							"valid-lifetime": 7190,
+							"prefix-length": 62
+						}
+					],
+					"valid": 7190
+				}
+			]
+		}
+	}
+}

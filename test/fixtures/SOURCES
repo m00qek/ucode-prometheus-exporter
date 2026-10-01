@@ -86,3 +86,17 @@ ubus hostapd.phy1-ap1 get_clients
 ubus dnsmasq metrics
 ubus wireguard status
 ubus mwan3 status {"section":"interfaces"}
+# conntrack's statistics, softnet, vmstat.
+file /proc/net/stat/nf_conntrack
+file /proc/net/softnet_stat
+file /proc/vmstat
+# openwrt_interfaces and dhcp_leases. Redacted by hand: public addresses to
+# 192.0.2.0/24, 198.51.100.0/24 and 2001:db8::/32 (in the DHCPv6 passthru hex
+# too), the ISP's link-local gateway to fe80::1, the LAN subnets as in
+# uci/dhcp.json (10.193.N to 192.168.N, the guest's to 172.16.1) and the
+# domain to home.example, client MACs to 02:00:00:00:00:NN (the one static
+# host keeps its uci/dhcp.json MAC), client names and IDs to made-up ones.
+ubus network.interface dump
+file /tmp/dhcp.leases
+ubus dhcp ipv4leases
+ubus dhcp ipv6leases
