@@ -584,6 +584,9 @@ describe('deps.modules', () => {
 		let m = deps.modules();
 
 		assert.match([ ...deps.FS_API, 'popen' ], filter([ ...deps.FS_API, 'popen' ], (f) => type(m.fs[f]) == 'function'));
+		// The handler's, for its state; never a collector's.
+		assert.match([ 'function', 'function', 'function', 'function' ], map([ 'writefile', 'rename', 'unlink', 'chmod' ], (f) => type(m.fs[f])));
+		assert.match([ false, false, false, false ], map([ 'writefile', 'rename', 'unlink', 'chmod' ], (f) => f in deps.FS_API));
 		assert.match([ 'function', 'function', 'function' ], [ type(m.ubus.connect), type(m.uci.cursor), type(m.time) ]);
 	});
 

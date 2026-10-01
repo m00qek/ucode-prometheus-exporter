@@ -210,7 +210,7 @@ Neither upstream exporter had these. Where node_exporter has the metric, the nam
 
 | Collector | Families | Type | Source |
 |---|---|---|---|
-| — (the exporter's own) | `ucode_prometheus_exporter_build_info{version}` | gauge | 1, labeled with the package's version (`2026.09.30-r1`, `dev` from a source tree), in every scrape whatever `collect[]` selects; as node_exporter's `node_exporter_build_info`. |
+| — (the exporter's own) | `ucode_prometheus_exporter_build_info{version}` | gauge | 1, labeled with the package's version (`0.1.0-r1`, `dev` from a source tree), in every scrape whatever `collect[]` selects; as node_exporter's `node_exporter_build_info`. |
 | — (the exporter's own) | `node_scrape_collector_observing{collector}` | gauge | Beside node_exporter's `node_scrape_collector_success`: 0 for a collector with nothing to observe (its hardware, kernel feature or service is not there; it succeeds without samples), 1 for every other; see the README's "Nothing to observe". |
 | conntrack (base) | `node_nf_conntrack_stat_{found,invalid,ignore,insert,insert_failed,drop,early_drop,search_restart}` | gauge | node_exporter's, from `/proc/net/stat/nf_conntrack` summed over the CPUs. |
 | softnet (base) | `node_softnet_{processed,dropped,times_squeezed,cpu_collision,received_rps,flow_limit_count}_total{cpu}` | counter | node_exporter's, from `/proc/net/softnet_stat`. |

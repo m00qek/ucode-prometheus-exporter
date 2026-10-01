@@ -7,6 +7,8 @@ import { describe, it, afterEach, assert, contains, mock } from 'utest';
 import { create, handler } from 'prometheus_exporter.app';
 import { inflate } from 'zlib';
 import * as auth from 'prometheus_exporter.auth';
+import * as state from 'prometheus_exporter.state';
+import * as deps from 'prometheus_exporter.deps';
 import * as exposition from 'prometheus_exporter.exposition';
 import * as config from 'prometheus_exporter.config';
 import * as fixtures from 'lib.fixtures';
@@ -173,6 +175,44 @@ describe('app.handler', () => {
 		assert.match(contains([ [ 'WWW-Authenticate', 'Basic realm="prometheus-exporter"' ] ]), none.headers);
 		assert.match('Unauthorized.\n', none.body);
 		assert.match(contains([ 'node_load1 0.75' ]), split(inflate(right.body), '\n'));
+	});
+
+	// The state in a directory of the mock's, its files those of this process's instance.
+	const STATE = '/test-state';
+
+	function cached_file() {
+		return `${STATE}/${state.instance_id(deps.modules().fs)}.${auth.CACHE}`;
+	}
+
+	it('keeps the header it let in, in the instance\'s state, and lets it in again by it', () => {
+		patch_main(null, { [auth.FILE]: auth.conf('prom', HASH) });
+
+		let fs = deps.modules().fs;
+		let app = handler(() => null, SOURCES, STATE);
+		let right = request('collect[]=loadavg', { authorization: basic('prom:secret') });
+
+		assert.match([ '200 OK', auth.digest({ user: 'prom', hash: HASH }, basic('prom:secret')) ], [ app.handle(right).status, fs.readfile(cached_file()) ]);
+		assert.match([ '200 OK', '401 Unauthorized' ], [ app.handle(right).status, app.handle(request('', { authorization: basic('prom:wrong') })).status ]);
+	});
+
+	// The digest of a wrong password's header, as if a request had left it:
+	// let in only because the hash is not computed.
+	it('lets in the header the cache holds without the full check', () => {
+		let wrong = basic('prom:not-the-password');
+
+		patch_main(null, { [auth.FILE]: auth.conf('prom', HASH), [cached_file()]: auth.digest({ user: 'prom', hash: HASH }, wrong) });
+
+		assert.match('200 OK', handler(() => null, SOURCES, STATE).handle(request('collect[]=loadavg', { authorization: wrong })).status);
+	});
+
+	it('starts without the state of another instance, which it removes', () => {
+		let other = `${STATE}/1-1.${auth.CACHE}`;
+
+		patch_main(null, { [auth.FILE]: auth.conf('prom', HASH), [other]: auth.digest({ user: 'prom', hash: HASH }, basic('prom:wrong')) });
+
+		let app = handler(() => null, SOURCES, STATE);
+
+		assert.match([ null, '401 Unauthorized' ], [ deps.modules().fs.readfile(other), app.handle(request('', { authorization: basic('prom:wrong') })).status ]);
 	});
 
 	it('answers 403 to basic auth over HTTP, before reading credentials', () => {

@@ -120,7 +120,7 @@ The package conflicts with the feed's `prometheus-node-exporter-ucode` and `prom
 ```
 ERROR: unable to select packages:
   prometheus-node-exporter-ucode-2024.02.07-r2:
-    breaks: ucode-prometheus-exporter-2026.09.30-r1[!prometheus-node-exporter-ucode>=0]
+    breaks: ucode-prometheus-exporter-0.1.0-r1[!prometheus-node-exporter-ucode>=0]
 ```
 
 So the old one goes first:
@@ -188,7 +188,7 @@ A whole scrape of the lab (every collector, about 1250 series, on x86_64) is 143
 
 `auth_user` and `auth_password` make a scrape log in (HTTP basic auth). Basic auth sends the password in the clear, so it is taken over HTTPS only: `cert` and `key` must be set, and their files there. Otherwise the configuration is invalid, and refused wherever it is checked: start does not start, reload keeps the running exporter (the log says why), `check` fails saying why, and the ubus object's `validate` and LuCI refuse to save it. So is half of it: a user without a hash, or a hash without a user.
 
-`auth_password` holds the password's crypt hash, never the password: `$1$` (MD5-crypt, what `uhttpd -m <password>` prints), `$5$` or `$6$` (SHA-256-crypt and SHA-512-crypt, with their `rounds=`). Anything else is refused: DES's 13 characters (a plain password could look like one), bcrypt, and `$p$` lookups of system accounts. The ubus object makes one, freshly salted, without the password on a command line:
+`auth_password` holds the password's crypt hash, never the password: `$1$` (MD5-crypt, what `uhttpd -m <password>` prints), `$5$` or `$6$` (SHA-256-crypt and SHA-512-crypt, with their `rounds=`, at most 2000). Anything else is refused: DES's 13 characters (a plain password could look like one), bcrypt, `$p$` lookups of system accounts, and a `$5$` or `$6$` hash of more than 2000 rounds, including one that names none, which has 5000 (`openssl passwd -6` makes those; `mkpasswd -m sha-512 -R 1000` does not). The ubus object makes one, freshly salted, without the password on a command line:
 
 ```sh
 ubus call prometheus-exporter hash_password '{"password":"…"}'   # { "hash": "$6$rounds=1000$…" }
@@ -200,7 +200,21 @@ uci commit prometheus-exporter && reload_config
 
 The init script writes uhttpd's config file, `/var/run/prometheus-exporter/uhttpd.conf` (mode 0600, in a directory of mode 0700): one line, `/metrics:<user>:<hash>`. uhttpd reads it (`-c`), with the realm `prometheus-exporter` (`-r`), and the jail mounts it read-only. OpenWrt 25.12's uhttpd checks such a realm for files and CGI, not for a handler's prefix (its fix, uhttpd 3aa7e1c of August 2026, is newer than every 25.12 release so far): so the handler checks it itself, against the same file, before any scrape. A request without the user and password is a 401 (`WWW-Authenticate: Basic realm="prometheus-exporter"`); the hash itself is no password. Neither the password nor the hash is logged, and no reply of the ubus object holds the hash (its `status` says only whether basic auth is on); `check` names the user.
 
-The handler computes the hash in ucode, at each scrape, so its rounds are what a scrape pays: on x86_64, 5 ms for `$1$`, 7 ms for `$6$` of 1000 rounds (what `hash_password` makes, musl's least), 22 ms for `$6$` of the default 5000. A router's CPU takes ten to forty times as long.
+The handler computes the hash in ucode to check the password, so its rounds are what a check costs (`make bench`'s `auth:` cases, the median of a check in a process of its own):
+
+| | `$1$` | `$6$`, 1000 rounds (`hash_password`'s) | `$5$`, 2000 | `$6$`, 2000 | by the cache |
+|---|---|---|---|---|---|
+| devenv (Ryzen 7 7840U) | 2.5 ms | 4.1 ms | 6.5 ms | 7.8 ms | 0.09 ms |
+| NanoPi R3S (4×A55) | 14 ms | 19 ms | 33 ms | 37 ms | 0.5 ms |
+| QEMU malta, 24Kc at 500 MIPS | 63 ms | 135 ms | 206 ms | 259 ms | 2.4 ms |
+
+A round of SHA-512-crypt takes a 500-MIPS 24Kc (an MT7621-class router) 125 µs: the 9,999,999 rounds a hash may name would take 20 minutes, the default 5000 0.63 s. So a hash takes at most 2000 rounds (`auth.ROUNDS_MAX`), a quarter of a second there, and more is refused wherever the config is checked, as any invalid value is; the message says how many rounds it takes, never the hash.
+
+Even 1000 rounds are 135 ms of each scrape on such a router, and uhttpd forks a process per request, which keeps nothing in memory. So the handler keeps a cache in the instance's state: after a request is let in, the SHA-256 of its exact `Authorization` header, the user and the hash (`auth.digest`), in `/var/run/prometheus-exporter/state/<instance>.auth`, one entry, mode 0600. A later request whose header gives the same digest, compared in constant time, is let in without computing the hash; any other header pays the full check, and a wrong one stays out as before, leaving the entry as it was. The entry is bound to the user and hash, so a changed password (or user) lets nothing in by it; and it is the instance's own, gone when the service restarts.
+
+The entry reveals no more than what is already on the device: the hash sits beside it, as closed (root's alone, a directory of mode 0700 on tmpfs, never on flash nor in a backup, as `/etc/config` is), and finding a header that gives the digest is guessing the password, as with the hash. A guess costs less against the digest (one SHA-256) than against the hash (1000 rounds and more): which matters only to whoever can read the file, that is root on the router, who can read the password itself from the next scrape (uhttpd ends the TLS); a long random password, as a scraper's should be, is out of reach either way.
+
+The exporter's state is a directory of its own, `/var/run/prometheus-exporter/state` (mode 0700, made by the init script's `jail.uc --make`), the one path the jail mounts read-write. It belongs to a uhttpd instance: the handler names the instance when uhttpd loads it, before any request (the pid and start time of that process, as the jail's pid namespace gives it the same pid each time), each file is `<instance>.<name>`, and the handler removes every other instance's files when it loads. A restart (`service prometheus-exporter restart`, a changed config or collector) starts without state; a reload that keeps the instance keeps it.
 
 In Prometheus (vmagent takes the same `scrape_configs`):
 
@@ -316,9 +330,9 @@ Layout: `src/prometheus_exporter/` is the ucode library (installed to `/usr/shar
 | `make bench-qemu` | the same on OpenWrt's malta target in qemu-system-mipsel: a MIPS 24Kc (mipsel_24kc, the packages of MT7621-class routers) with the built packages installed from the release's feed; `QEMU_SHIFT=` (1), `QEMU_MEMORY=` (128) |
 | `make bench-worlds` | the worlds, in `bin/bench/worlds/` |
 
-The worlds are what a router's `/proc`, `/sys`, ubus, netlink and programs would give the collectors: `test/bench/gen.uc` writes them from a seeded generator, with the devices' fixtures as templates for the kernel's layouts, so nothing generated is committed and every machine reads the same. `typical` is a home router with Wi-Fi (12 links, 300 conntrack entries, 20 stations, 50 leases); `large` a busy one (50 links, conntrack tables of 1k, 10k and 20k entries, 200 stations, 1200 leases, ethtool's statistics of a DesignWare MAC, about 230 per port). The cases: `calibrate:vm` (ucode's speed on the machine: a loop's turn, a builtin's call, a program run under exec's watchdog), `load:base` and `load:full` (compiling the collectors, as uhttpd does when it starts), each collector of the base package and the `-full` group, nat_traffic on each conntrack table, and whole scrapes of `base` and of `full` (base and the `-full` group) on both worlds.
+The worlds are what a router's `/proc`, `/sys`, ubus, netlink and programs would give the collectors: `test/bench/gen.uc` writes them from a seeded generator, with the devices' fixtures as templates for the kernel's layouts, so nothing generated is committed and every machine reads the same. `typical` is a home router with Wi-Fi (12 links, 300 conntrack entries, 20 stations, 50 leases); `large` a busy one (50 links, conntrack tables of 1k, 10k and 20k entries, 200 stations, 1200 leases, ethtool's statistics of a DesignWare MAC, about 230 per port). The cases: `calibrate:vm` (ucode's speed on the machine: a loop's turn, a builtin's call, a program run under exec's watchdog), `load:base` and `load:full` (compiling the collectors, as uhttpd does when it starts), each collector of the base package and the `-full` group, nat_traffic on each conntrack table, whole scrapes of `base` and of `full` (base and the `-full` group) on both worlds, and basic auth's check of a password (`auth:`, by each format and by the cache).
 
-uhttpd answers each request in a process forked from the one that loaded the exporter, so a scrape starts with nothing a scrape before left. A run of the benchmark does the same: each is a process of its own, timed after loading, and its memory is how far its peak (VmHWM) rose above what it held before the run. The budgets: nat_traffic's time per entry may grow at most twice from 1k to 20k entries (linear is 1), a scrape's memory and nat_traffic's at most about three times what they were measured at, and, in the devenv unconstrained, times a few to several times what they take there; each fails the exporter as it was before the benchmark (2026.09.30-r2).
+uhttpd answers each request in a process forked from the one that loaded the exporter, so a scrape starts with nothing a scrape before left. A run of the benchmark does the same: each is a process of its own, timed after loading, and its memory is how far its peak (VmHWM) rose above what it held before the run. The budgets: nat_traffic's time per entry may grow at most twice from 1k to 20k entries (linear is 1), a scrape's memory and nat_traffic's at most about three times what they were measured at, a request the cache lets in a tenth of the full check of `hash_password`'s hash (about 2% everywhere), and, in the devenv unconstrained, times a few to several times what they take there; each fails the exporter as it was before the benchmark (2026.09.30-r2).
 
 The same scrape (the typical world, base and `-full`) on each machine, with the speed of ucode's VM (`calibrate:vm`'s loop turn):
 
@@ -406,6 +420,16 @@ The app's ACL grants the ubus object's four reading methods, `hash_password` to 
 | `make pot` | `luci/po/templates/prometheus-exporter.pot`, with openwrt/luci's scanner; `make lint` fails while it is out of date |
 
 `make lint` also parses the views (as the function bodies LuCI compiles them into) and the JSON, and fails on LuCI code that could turn data into markup (`devenv/scripts/luci-dom-lint.sh`); `make package-check` installs the app, and checks its files, its dependencies and its ACL.
+
+## Versions
+
+Releases are semantic versions, tagged `vX.Y.Z` (`PKG_VERSION`); `PKG_RELEASE` (`-rN`) counts changes to the packaging alone, and starts again at 1 with each version. What someone may build on is what a version promises:
+
+- **Major**: a metric, label or metric type renamed or removed; a uci option renamed, removed or meaning something else; a ubus method's arguments or replies changed incompatibly; `collect(deps, out, options)` or `meta` changed incompatibly; a package or group renamed or split.
+- **Minor**: new collectors, metrics, labels on new families, options, ubus methods, and new cases of nothing to observe.
+- **Patch**: fixes, speed, and documentation.
+
+Before 1.0.0 a minor version may break any of these, and says so; 1.0.0 is the first release to the feed, with metric names and config settled.
 
 ## Credits
 

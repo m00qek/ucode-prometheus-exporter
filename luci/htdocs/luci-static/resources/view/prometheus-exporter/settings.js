@@ -41,8 +41,9 @@ const fill = exporter.fill;
 const CHECK_DELAY = 300;
 
 // What the object's validate is given for a password typed and not yet hashed: a hash of
-// the form auth_password takes, so that the options that go with it are checked.
-const PENDING_HASH = '$6$$' + '.'.repeat(86);
+// the form hash_password makes (1000 rounds, which auth_password takes; one that names
+// none has 5000, which it refuses), so that the options that go with it are checked.
+const PENDING_HASH = '$6$rounds=1000$$' + '.'.repeat(86);
 
 // The longest password the object hashes, in bytes.
 const PASSWORD_MAX = 256;

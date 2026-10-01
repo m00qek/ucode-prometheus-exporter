@@ -151,6 +151,26 @@ test.describe('Services → Prometheus exporter: basic auth and compress', () =>
     expect(await h.readConfig(request)).toBe(before);
   });
 
+  // A saved hash of a round more than the exporter computes (2000), as test/fixtures/luci/config/auth-rounds has it.
+  test('refuses a saved hash of more rounds than basic auth takes, saying why but not the hash', async ({ page, request }) => {
+    await h.useConfig(request, 'auth-rounds');
+    const before = await h.readConfig(request);
+    await h.openSettings(page);
+    await field(page, 'listen_port').fill('9101');
+    await saveAndApply(page);
+    await expect(page.locator('#view .alert-message.error li')).toContainText([
+      /^Basic auth password: expected a hash of at most 2000 rounds, which a scrape computes to check the password/,
+    ]);
+    expect(await h.readConfig(request)).toBe(before);
+    expect(await page.content()).not.toContain('nNEbd373Z0DGjjhqlxU');
+
+    // A new password replaces it with hash_password's, which it takes.
+    await field(page, 'auth_password').fill(PASSWORD);
+    await saveAndApply(page);
+    await applied(page);
+    expect((await savedMain(request)).auth_password).toMatch(/^\$6\$rounds=1000\$/);
+  });
+
   test('refuses a user basic auth cannot send, with a ":"', async ({ page, request }) => {
     await h.useConfig(request, 'auth');
     await h.openSettings(page);

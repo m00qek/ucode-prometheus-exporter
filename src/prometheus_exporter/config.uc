@@ -12,7 +12,7 @@
 import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
 import * as crypt from 'prometheus_exporter.crypt';
-import { is_user } from 'prometheus_exporter.auth';
+import { is_user, is_hash, ROUNDS_MAX } from 'prometheus_exporter.auth';
 
 // The service's name: its uci config (and the main section's type), its init
 // script, its command, its libexec directory and its ubus object.
@@ -82,10 +82,19 @@ function absolute_path(v) {
 // The datatypes the core enforces, by LuCI's names: what value type each
 // takes, what it calls a valid value, and whether a value is one. Syntactic
 // only: a directory or file is an absolute path, not one that exists. Besides
-// LuCI's, regex, and username and crypt, basic auth's user and hash.
+// LuCI's, regex, and username and crypt, basic auth's user and hash. A
+// datatype's `why`, when it has one, says what it expected of a value it does
+// not take, instead of `expected`: crypt's, of a hash of too many rounds.
 const DATATYPES = {
 	username: { types: [ 'string' ], expected: 'a user of 1 to 64 characters, without ":", spaces or control characters', check: is_user },
-	crypt: { types: [ 'string' ], expected: 'a crypt hash: $1$ (uhttpd -m), $5$ or $6$', check: crypt.is_hash },
+	crypt: {
+		types: [ 'string' ],
+		expected: 'a crypt hash: $1$ (uhttpd -m), $5$ or $6$',
+		check: is_hash,
+		why: (v) => crypt.is_hash(v)
+			? `a hash of at most ${ROUNDS_MAX} rounds, which a scrape computes to check the password (hash_password makes one of 1000; one without rounds= has 5000)`
+			: null,
+	},
 	uinteger: { types: [ 'int' ], expected: 'an integer of 0 or more', check: (v) => v >= 0 },
 	directory: { types: [ 'string' ], expected: 'an absolute path', check: absolute_path },
 	file: { types: [ 'string' ], expected: 'an absolute path', check: absolute_path },
@@ -154,7 +163,7 @@ export function convert(name, value, spec) {
 	let dt = (res.ok && spec.datatype != null) ? datatype(spec.datatype) : null;
 
 	if (dt && !dt.check(res.data))
-		return invalid(name, dt.expected, res.data, spec);
+		return invalid(name, (dt.why ? dt.why(res.data) : null) ?? dt.expected, res.data, spec);
 
 	return res;
 };

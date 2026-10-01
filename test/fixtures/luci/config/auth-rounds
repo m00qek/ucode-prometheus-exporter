@@ -1,0 +1,7 @@
+config prometheus-exporter 'main'
+	option listen_interface 'loopback'
+	option listen_port '9100'
+	option cert '/etc/uhttpd.crt'
+	option key '/etc/uhttpd.key'
+	option auth_user 'prom'
+	option auth_password '$6$rounds=2001$saltsalt$nNEbd373Z0DGjjhqlxU/BOlyhmWWPgHM9nBiH1vwR3AgeZ7isOol0w//Pj2bJRNKe0WtAnrAOoT9n5sJhXpfb.'

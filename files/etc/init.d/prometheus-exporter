@@ -10,6 +10,9 @@ HANDLER=$LIBEXEC/handler.uc
 COLLECTORS=/usr/share/ucode/prometheus_exporter/collectors
 # The realm of basic auth, as prometheus_exporter.auth names it.
 REALM=$NAME
+# The exporter's state, as prometheus_exporter.state names it: the one path
+# the jail mounts read-write. jail.uc --make makes it, mode 0700.
+STATE=/var/run/$NAME/state
 
 extra_command "check" "Check the configuration, list the collectors and run a scrape"
 
@@ -42,8 +45,9 @@ jail_mounts() {
 	{ "$LIBEXEC/jail.uc" 2>&1 >&3 | logger -t "$NAME" -p daemon.warn; } 3>&1
 }
 
-# Makes the directories the collectors own (textfile's), so the jail has them:
-# what it made is logged at info, what it could not at err.
+# Makes the directories the collectors own (textfile's) and the state
+# directory, so the jail has them: what it made is logged at info, what it
+# could not at err.
 jail_make() {
 	{ "$LIBEXEC/jail.uc" --make 2>&1 >&3 | logger -t "$NAME" -p daemon.err; } 3>&1 |
 		logger -t "$NAME" -p daemon.info
@@ -117,6 +121,9 @@ start_service() {
 	procd_add_jail_mount $mounts
 	[ -n "$cert" ] && procd_add_jail_mount "$cert" "$key" /lib/libustream-*.so* /usr/lib/libustream-*.so*
 	[ -n "$auth" ] && procd_add_jail_mount "$auth"
+	# What the handler keeps between requests (basic auth's cache), on tmpfs;
+	# each instance its own, so a restart starts without it.
+	procd_add_jail_mount_rw "$STATE"
 	procd_set_param no_new_privs 1
 
 	# The jail binds files, which keep their old contents when a new file
