@@ -10,7 +10,7 @@ RUN          = $(COMPOSE) --progress quiet run --rm $(if $(CI),-T) openwrt
 IMAGE_STAMP := devenv/.built-$(IMAGE_TAG)
 TEST_ARGS    = $(if $(FILTER),-f '$(FILTER)') $(if $(VERBOSE),-v) $(MODULES)
 
-.PHONY: test unit integration watch lint shell image fixtures package pkgcheck-image package-check e2e lab lab-down browser pot bench bench-src bench-worlds bench-device
+.PHONY: test unit integration watch lint shell image fixtures package pkgcheck-image package-check e2e lab lab-down browser pot bench bench-src bench-worlds bench-device bench-qemu
 
 test:        $(IMAGE_STAMP) ; @$(RUN) devenv/scripts/test.sh all $(TEST_ARGS)
 unit:        $(IMAGE_STAMP) ; @$(RUN) devenv/scripts/test.sh unit $(TEST_ARGS)
@@ -133,7 +133,7 @@ bench: pkgcheck-image bench-src
 		$(PKGCHECK_IMAGE) /exporter/devenv/scripts/bench.sh run /tmp/bench-worlds /artifacts/bench/$(BENCH_LABEL).json \
 		$(BENCH_LABEL) -c $(if $(BENCH_LIMITS)$(BENCH_REV),,-a) $(if $(FILTER),-f '$(FILTER)') $(BENCH_ARGS)
 
-# The worlds in bin/bench/worlds, for bench-device.
+# The worlds in bin/bench/worlds, for bench-device and bench-qemu.
 bench-worlds: pkgcheck-image
 	@mkdir -p bin/bench && chmod a+rwx bin bin/bench && rm -rf bin/bench/worlds
 	@docker run --rm --network none -u $$(id -u):$$(id -g) -v $(CURDIR):/exporter:ro -v $(CURDIR)/bin:/artifacts \
@@ -142,6 +142,21 @@ bench-worlds: pkgcheck-image
 # The benchmark on a device over ssh, from /tmp, removed afterwards; nothing
 # is installed: make bench-device HOST=router [BENCH_DEVICE_LABEL=router] [BENCH_REV=]
 BENCH_DEVICE_LABEL ?= $(HOST)$(if $(BENCH_REV),-$(BENCH_REV))
+
+# The benchmark on OpenWrt's malta target (mipsel_24kc) in qemu-system-mipsel,
+# from the qemu image: the built packages installed with their dependencies
+# from the release's feed, one 24Kc CPU at 1000/2^QEMU_SHIFT MIPS of guest
+# time, QEMU_MEMORY MB; see devenv/scripts/bench-qemu.sh.
+QEMU_IMAGE  := ucode-prometheus-exporter-qemu:$(shell sha256sum devenv/services/qemu/Dockerfile | cut -c1-12)
+QEMU_SHIFT  ?= 1
+QEMU_MEMORY ?= 128
+
+bench-qemu: package bench-worlds
+	docker build -q -t $(QEMU_IMAGE) devenv/services/qemu >/dev/null
+	@docker run --rm -v $(CURDIR):/exporter:ro -v $(CURDIR)/bin:/artifacts \
+		-e OPENWRT_VERSION -e PKG_FULLVERSION=$(PKG_FULLVERSION) -e QEMU_SHIFT=$(QEMU_SHIFT) -e QEMU_MEMORY=$(QEMU_MEMORY) \
+		-e BENCH_LABEL='$(or $(BENCH_QEMU_LABEL),qemu-malta-shift$(QEMU_SHIFT))' -e BENCH_ARGS='$(if $(FILTER),-f $(FILTER)) $(BENCH_ARGS)' \
+		$(QEMU_IMAGE) /exporter/devenv/scripts/bench-qemu.sh
 
 bench-device: bench-worlds bench-src
 	@devenv/scripts/bench-device.sh '$(HOST)' '$(BENCH_DEVICE_LABEL)' -c $(if $(FILTER),-f '$(FILTER)') $(BENCH_ARGS)
