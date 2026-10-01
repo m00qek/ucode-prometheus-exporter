@@ -1,7 +1,9 @@
 'use strict';
 
 import { describe, it, prop, gen, assert } from 'utest';
-import { with_collector, jail_of } from 'context';
+import { with_collector, jail_of, outcome } from 'context';
+import { rc } from 'lib.rc';
+import * as Result from 'prometheus_exporter.result';
 import * as fixtures from 'lib.fixtures';
 import * as dhcp_leases from 'prometheus_exporter.collectors.dhcp_leases';
 
@@ -59,10 +61,11 @@ function synthetic(options) {
 	};
 }
 
-// dnsmasq alone, with this lease file, on the caju router's interfaces.
+// dnsmasq alone, with this lease file, on the caju router's interfaces: odhcpd
+// is disabled.
 function dnsmasq(text, dhcp) {
 	return {
-		ubus: { data: { 'network.interface:dump': ROUTER_DUMP } },
+		ubus: { data: { 'network.interface:dump': ROUTER_DUMP, ...rc({ dnsmasq: true, odhcpd: false }) } },
 		uci: { data: { dhcp: dhcp ?? DNSMASQ_ONLY } },
 		fs: { data: { [LEASEFILE]: text } },
 		time: NOW,
@@ -180,36 +183,97 @@ describe('collectors.dhcp_leases', () => {
 		with_collector(dhcp_leases, dnsmasq(''), (r) => assert.match([ true, [] ], [ r.result.ok, r.lines ]));
 	});
 
-	it('counts odhcpd alone where dnsmasq is not running', () => {
+	it('counts odhcpd alone where dnsmasq is disabled', () => {
 		let cfg = synthetic();
 		cfg.fs.data[LEASEFILE] = null;
+		cfg.ubus.data = { ...cfg.ubus.data, ...rc({ dnsmasq: false, odhcpd: true }) };
 
 		with_collector(dhcp_leases, cfg, (r) => {
-			assert.match(true, r.result.ok);
+			assert.match([ true, null ], [ r.result.ok, r.result.none ]);
 			assert.match([ 'odhcpd' ], uniq(map(samples(r.lines), (l) => match(l, /server="([a-z]+)"/)[1])));
 		});
 	});
 
-	// The caju AP has /etc/config/dhcp's dnsmasq section, but neither dnsmasq nor odhcpd.
-	it('fails with SOURCE_UNREADABLE without a DHCP server, as on the caju AP', () => {
-		let cfg = {
-			ubus: { data: { 'network.interface:dump': AP_DUMP } },
+	it('counts odhcpd and fails where dnsmasq is enabled and has no lease file, as when it does not run', () => {
+		let cfg = synthetic();
+		cfg.fs.data[LEASEFILE] = null;
+		cfg.ubus.data = { ...cfg.ubus.data, ...rc({ dnsmasq: true, odhcpd: true }) };
+
+		with_collector(dhcp_leases, cfg, (r) => {
+			assert.match({ ok: false, error: 'SOURCE_UNREADABLE', details: `dnsmasq is enabled, without its lease file (${LEASEFILE})` },
+				{ ok: r.result.ok, error: r.result.error, details: r.result.details });
+			assert.match([ 'odhcpd' ], uniq(map(samples(r.lines), (l) => match(l, /server="([a-z]+)"/)[1])));
+		});
+	});
+
+	it('counts dnsmasq and fails where odhcpd is enabled and not on ubus', () => {
+		let cfg = dnsmasq(ROUTER_LEASES);
+		cfg.ubus.data = { ...cfg.ubus.data, ...rc({ dnsmasq: true, odhcpd: true }) };
+
+		with_collector(dhcp_leases, cfg, (r) => {
+			assert.match({ ok: false, error: 'SOURCE_UNREADABLE', details: 'odhcpd is enabled, and not on ubus (dhcp)' },
+				{ ok: r.result.ok, error: r.result.error, details: r.result.details });
+			assert.match([ 'dnsmasq' ], uniq(map(samples(r.lines), (l) => match(l, /server="([a-z]+)"/)[1])));
+		});
+	});
+
+	// The caju AP has /etc/config/dhcp's dnsmasq section, but runs neither
+	// dnsmasq nor odhcpd, as an AP that serves no DHCP has them disabled.
+	function ap(scripts) {
+		return {
+			ubus: { data: { 'network.interface:dump': AP_DUMP, ...rc(scripts) } },
 			uci: { data: { dhcp: { cfg01411c: { '.type': 'dnsmasq', leasefile: LEASEFILE } } } },
 			fs: { data: { [LEASEFILE]: null } },
 		};
+	}
 
-		with_collector(dhcp_leases, cfg, (r) => {
-			assert.match({ ok: false, error: 'SOURCE_UNREADABLE', details: 'no dnsmasq lease file and no odhcpd on ubus' },
-				{ ok: r.result.ok, error: r.result.error, details: r.result.details });
-			assert.match([], r.lines);
+	it('has nothing to observe where dnsmasq and odhcpd are both disabled, or not installed, as on the caju AP', () => {
+		with_collector(dhcp_leases, ap({ dnsmasq: false, odhcpd: false }), (r) => {
+			assert.match({ ok: true, none: 'dnsmasq is disabled, odhcpd is disabled', error: null, lines: [], logs: [] }, outcome(r));
+		});
+		with_collector(dhcp_leases, ap({ dnsmasq: false }), (r) => {
+			assert.match({ ok: true, none: 'dnsmasq is disabled, odhcpd is not installed', error: null, lines: [], logs: [] }, outcome(r));
 		});
 	});
 
-	it('fails with SOURCE_UNREADABLE without /etc/config/dhcp or odhcpd', () => {
-		with_collector(dhcp_leases, { ubus: { data: { 'network.interface:dump': AP_DUMP } } }, (r) => {
+	it('fails where either is enabled and neither is there', () => {
+		for (let scripts in [ { dnsmasq: true, odhcpd: false }, { dnsmasq: false, odhcpd: true }, { dnsmasq: true, odhcpd: true } ])
+			with_collector(dhcp_leases, ap(scripts), (r) => {
+				assert.match({ ok: false, error: 'SOURCE_UNREADABLE', lines: [] }, { ok: r.result.ok, error: r.result.error, lines: r.lines }, scripts);
+			});
+	});
+
+	it('has nothing to observe without a dnsmasq instance in /etc/config/dhcp, and odhcpd disabled', () => {
+		with_collector(dhcp_leases, { ubus: { data: { 'network.interface:dump': AP_DUMP, ...rc({ dnsmasq: true, odhcpd: false }) } } }, (r) => {
+			assert.match({ ok: true, none: 'dnsmasq has no instance, odhcpd is disabled', error: null, lines: [], logs: [] }, outcome(r));
+		});
+	});
+
+	it('fails without a dnsmasq instance and odhcpd enabled and not on ubus', () => {
+		with_collector(dhcp_leases, { ubus: { data: { 'network.interface:dump': AP_DUMP, ...rc({ odhcpd: true }) } } }, (r) => {
 			assert.match('SOURCE_UNREADABLE', r.result.error);
 		});
 	});
+
+	prop('observes each server that is there, and fails for one enabled that is not',
+		gen.tuple(gen.elements('running', 'enabled', 'disabled'), gen.elements('running', 'enabled', 'disabled')), (p) => {
+			let cfg = synthetic();
+			if (p[0] != 'running')
+				cfg.fs.data[LEASEFILE] = null;
+			if (p[1] != 'running') {
+				delete cfg.ubus.data['dhcp:ipv4leases'];
+				delete cfg.ubus.data['dhcp:ipv6leases'];
+			}
+			cfg.ubus.data = { ...cfg.ubus.data, ...rc({ dnsmasq: p[0] != 'disabled', odhcpd: p[1] != 'disabled' }) };
+
+			with_collector(dhcp_leases, cfg, (r) => {
+				let servers = uniq(map(samples(r.lines), (l) => match(l, /server="([a-z]+)"/)[1]));
+
+				assert.match(!('enabled' in p), r.result.ok, p);
+				assert.match(p[0] == 'disabled' && p[1] == 'disabled', Result.is_none(r.result), p);
+				assert.match(filter([ p[0] == 'running' ? 'dnsmasq' : null, p[1] == 'running' ? 'odhcpd' : null ], (s) => s), sort(servers), p);
+			});
+		});
 
 	it('passes on a failed dump of the interfaces', () => {
 		let cfg = dnsmasq(ROUTER_LEASES);

@@ -19,9 +19,14 @@
 // "error ..." to a command it refuses) ends the reading and fails the
 // collector, as does a counter that is not a number; the counters read before
 // are kept.
+//
+// Unbound disabled (its init script), or not installed, is nothing to
+// observe: the socket is asked first, and rpcd's rc only when it fails.
+// Enabled, a socket that does not answer is a failure.
 
 import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
+import * as services from 'prometheus_exporter.services';
 import { format_value } from 'prometheus_exporter.exposition';
 
 // The directory of a socket's path: '/' for one at the root.
@@ -35,7 +40,7 @@ export const meta = {
 	name: 'unbound',
 	title: 'Unbound DNS resolver',
 	help: 'Unbound DNS resolver statistics, from its remote control socket.',
-	needs: [ 'socket' ],
+	needs: [ 'socket', 'ubus' ],
 	// OpenWrt's unbound package never makes a Unix control socket: its UCI
 	// option unbound_control writes `control-interface: 127.0.0.1` and `::1`
 	// (levels 1 and 2) or all addresses (3 and 4), and nothing at all by default
@@ -135,7 +140,7 @@ export function collect(deps, out, options) {
 	let res = deps.socket.unix_request(path, 'UBCT1 stats_noreset\n', TIMEOUT_MS);
 
 	if (!res.ok)
-		return res;
+		return services.unless_disabled(deps.ubus, 'unbound', res);
 
 	let p = parse(res.data);
 	let bad = null;

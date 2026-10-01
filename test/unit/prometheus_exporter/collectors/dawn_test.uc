@@ -1,7 +1,8 @@
 'use strict';
 
 import { describe, it, prop, gen, assert } from 'utest';
-import { with_collector } from 'context';
+import { with_collector, outcome } from 'context';
+import { rc } from 'lib.rc';
 import * as fixtures from 'lib.fixtures';
 import * as dawn from 'prometheus_exporter.collectors.dawn';
 
@@ -49,11 +50,20 @@ describe('collectors.dawn', () => {
 		});
 	});
 
-	it('passes a failed call on, as when DAWN is not running', () => {
-		with_collector(dawn, { ubus: { errors: { 'dawn:get_network': 'Not found' } } }, (r) => {
+	it('passes a failed call on when DAWN is enabled and not running', () => {
+		with_collector(dawn, { ubus: { data: rc({ dawn: true }), errors: { 'dawn:get_network': 'Not found' } } }, (r) => {
 			assert.match({ ok: false, error: 'UBUS_CALL_FAILED', details: 'dawn get_network: Not found' },
 				{ ok: r.result.ok, error: r.result.error, details: r.result.details });
 			assert.match([], r.lines);
+		});
+	});
+
+	it('has nothing to observe where DAWN is disabled, or not installed', () => {
+		with_collector(dawn, { ubus: { data: rc({ dawn: false }), errors: { 'dawn:get_network': 'Not found' } } }, (r) => {
+			assert.match({ ok: true, none: 'dawn is disabled', error: null, lines: [], logs: [] }, outcome(r));
+		});
+		with_collector(dawn, { ubus: { data: rc({}), errors: { 'dawn:get_network': 'Not found' } } }, (r) => {
+			assert.match({ ok: true, none: 'dawn is not installed', error: null, lines: [], logs: [] }, outcome(r));
 		});
 	});
 

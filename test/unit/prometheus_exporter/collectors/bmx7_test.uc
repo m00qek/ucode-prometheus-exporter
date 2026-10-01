@@ -1,7 +1,8 @@
 'use strict';
 
 import { describe, it, prop, gen, assert, contains } from 'utest';
-import { with_collector, jail_of } from 'context';
+import { with_collector, jail_of, outcome } from 'context';
+import { rc } from 'lib.rc';
 import * as fixtures from 'lib.fixtures';
 import * as bmx7 from 'prometheus_exporter.collectors.bmx7';
 
@@ -14,8 +15,9 @@ import * as bmx7 from 'prometheus_exporter.collectors.bmx7';
 const DIR = bmx7.DIR;
 const NODE = fixtures.files('synthetic', [ `${DIR}/status`, `${DIR}/links`, `${DIR}/parameters` ]);
 
-function run(files, cb) {
-	with_collector(bmx7, { fs: { data: files } }, cb);
+// bmx7 enabled, unless `scripts` says otherwise.
+function run(files, cb, scripts) {
+	with_collector(bmx7, { fs: { data: files }, ubus: { data: rc(scripts ?? { bmx7: true }) } }, cb);
 }
 
 describe('collectors.bmx7', () => {
@@ -64,7 +66,16 @@ describe('collectors.bmx7', () => {
 		});
 	});
 
-	it('fails with SOURCE_UNREADABLE when bmx7 is not running', () => {
+	it('has nothing to observe where bmx7 is disabled, or not installed', () => {
+		run({ [`${DIR}/status`]: null }, (r) => {
+			assert.match({ ok: true, none: 'bmx7 is disabled', error: null, lines: [], logs: [] }, outcome(r));
+		}, { bmx7: false });
+		run({ [`${DIR}/status`]: null }, (r) => {
+			assert.match({ ok: true, none: 'bmx7 is not installed', error: null, lines: [], logs: [] }, outcome(r));
+		}, {});
+	});
+
+	it('fails with SOURCE_UNREADABLE when bmx7 is enabled and not running', () => {
 		run({ [`${DIR}/status`]: null }, (r) => {
 			assert.match({ ok: false, error: 'SOURCE_UNREADABLE', details: '/var/run/bmx7/json/status' },
 				{ ok: r.result.ok, error: r.result.error, details: r.result.details });

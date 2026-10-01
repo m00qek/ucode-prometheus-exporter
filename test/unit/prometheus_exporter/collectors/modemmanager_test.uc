@@ -1,7 +1,8 @@
 'use strict';
 
 import { describe, it, prop, gen, assert, contains } from 'utest';
-import { with_collector, jail_of } from 'context';
+import { with_collector, jail_of, outcome } from 'context';
+import { rc } from 'lib.rc';
 import * as fixtures from 'lib.fixtures';
 import * as commands from 'lib.commands';
 import * as modemmanager from 'prometheus_exporter.collectors.modemmanager';
@@ -24,8 +25,9 @@ function outputs(list, modem, signal) {
 	return o;
 }
 
-function run(o, cb) {
-	with_collector(modemmanager, { fs: commands.fs(o) }, cb);
+// ModemManager enabled, unless `scripts` says otherwise.
+function run(o, cb, scripts) {
+	with_collector(modemmanager, { fs: commands.fs(o), ubus: { data: rc(scripts ?? { modemmanager: true }) } }, cb);
 }
 
 describe('collectors.modemmanager', () => {
@@ -58,14 +60,19 @@ describe('collectors.modemmanager', () => {
 		});
 	});
 
-	it('exports nothing when there is no modem', () => {
+	it('has nothing to observe when ModemManager lists no modem', () => {
 		run(outputs({ out: '{"modem-list":[]}' }), (r) => {
-			assert.match(true, r.result.ok);
-			assert.match([], r.lines);
+			assert.match({ ok: true, none: 'ModemManager lists no modems', error: null, lines: [], logs: [] }, outcome(r));
 		});
 	});
 
-	it('fails with COMMAND_FAILED when mmcli fails, as without ModemManager running', () => {
+	it('has nothing to observe when mmcli fails where ModemManager is disabled', () => {
+		run(outputs({ out: '', status: 1 }), (r) => {
+			assert.match({ ok: true, none: 'modemmanager is disabled', error: null, lines: [], logs: [] }, outcome(r));
+		}, { modemmanager: false });
+	});
+
+	it('fails with COMMAND_FAILED when mmcli fails, as with ModemManager enabled and not running', () => {
 		run(outputs({ out: '', status: 1 }), (r) => {
 			assert.match({ ok: false, error: 'COMMAND_FAILED', details: 'mmcli: exit status 1' },
 				{ ok: r.result.ok, error: r.result.error, details: r.result.details });

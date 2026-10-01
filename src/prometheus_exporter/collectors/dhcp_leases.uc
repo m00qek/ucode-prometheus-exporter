@@ -28,11 +28,17 @@
 // dnsmasq's lease file is /etc/config/dhcp's leasefile, /tmp/dhcp.leases by
 // default (as OpenWrt's dnsmasq init script has it), for each dnsmasq
 // instance; the script creates it on start, so where it is missing dnsmasq is
-// not running. A device with neither a lease file nor odhcpd on ubus (an AP)
-// has no DHCP server to report on: an error, as for any missing service.
+// not running.
+//
+// Each server is read while its init script is enabled. One disabled, or not
+// installed, is left out (and dnsmasq without an instance in /etc/config/dhcp);
+// both left out, as on an access point that serves no DHCP, is nothing to
+// observe. One enabled that is not there (no lease file, odhcpd not on ubus)
+// fails the collector, once the other's leases are written.
 
 import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
+import * as services from 'prometheus_exporter.services';
 import { fields } from 'prometheus_exporter.proc';
 
 export const DEFAULT_LEASEFILE = '/tmp/dhcp.leases';
@@ -317,9 +323,22 @@ export function collect(deps, out, options) {
 	let now = deps.time.now();
 	let book = ledger();
 
+	let idle = [];
+	let failure = null;
+
 	let found = dnsmasq(deps, nets, now, book);
 	if (Result.is(found))
 		return found;
+
+	if (!found) {
+		let files = leasefiles(deps.uci.dhcp);
+		let why = length(files) ? services.idle(deps.ubus, 'dnsmasq') : 'dnsmasq has no instance';
+
+		if (why)
+			push(idle, why);
+		else
+			failure = Result.err(errors.SOURCE_UNREADABLE, `dnsmasq is enabled, without its lease file (${join(', ', files)})`);
+	}
 
 	let objects = deps.ubus.list();
 	if (!objects.ok)
@@ -332,19 +351,24 @@ export function collect(deps, out, options) {
 			if (Result.is(res))
 				return res;
 		}
+	} else {
+		let why = services.idle(deps.ubus, 'odhcpd');
 
-		found = true;
+		if (why)
+			push(idle, why);
+		else
+			failure ??= Result.err(errors.SOURCE_UNREADABLE, 'odhcpd is enabled, and not on ubus (dhcp)');
 	}
 
-	if (!found)
-		return Result.err(errors.SOURCE_UNREADABLE, 'no dnsmasq lease file and no odhcpd on ubus');
+	if (length(idle) == 2)
+		return Result.none(join(', ', idle));
 
 	let count = out.gauge('node_openwrt_dhcp_leases', 'Active DHCP leases, by server, interface and family.');
 	for (let c in book.counts())
 		count(c.labels, c.n);
 
 	if (!options.leases)
-		return Result.ok();
+		return failure ?? Result.ok();
 
 	let info = out.gauge('node_openwrt_dhcp_lease_info', 'An active DHCP lease: its address, client and hostname.');
 	let expiry = out.gauge('node_openwrt_dhcp_lease_expiry_timestamp_seconds', 'When an active DHCP lease expires, unless it never does.');
@@ -368,5 +392,5 @@ export function collect(deps, out, options) {
 			expiry(id, l.expiry);
 	}
 
-	return Result.ok();
+	return failure ?? Result.ok();
 };

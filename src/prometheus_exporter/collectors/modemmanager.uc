@@ -5,6 +5,7 @@
 
 import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
+import * as services from 'prometheus_exporter.services';
 import { sanitize } from 'prometheus_exporter.exposition';
 
 // mmcli asks ModemManager over D-Bus, on the system bus's socket in this
@@ -16,7 +17,7 @@ export const meta = {
 	name: 'modemmanager',
 	title: 'Cellular modems',
 	help: 'Signal quality and strength of cellular modems, from mmcli.',
-	needs: [ 'exec' ],
+	needs: [ 'exec', 'ubus' ],
 	commands: [ 'mmcli' ],
 	paths: [ DBUS_DIR ],
 };
@@ -74,14 +75,19 @@ function signals(out, modem, signal) {
 	}
 }
 
+// ModemManager disabled (its init script) is nothing to observe, and so is
+// a ModemManager that lists no modems; enabled and not answering mmcli, a
+// failure.
 export function collect(deps, out) {
 	let res = mmcli(deps.exec, [ '-L' ]);
 	if (!res.ok)
-		return res;
+		return services.unless_disabled(deps.ubus, 'modemmanager', res);
 
 	let modems = res.data?.['modem-list'];
 	if (type(modems) != 'array')
 		return Result.err(errors.SOURCE_INVALID, 'mmcli -L: no modem-list');
+	if (!length(modems))
+		return Result.none('ModemManager lists no modems');
 
 	let failed = null;
 

@@ -5,6 +5,7 @@
 
 import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
+import * as services from 'prometheus_exporter.services';
 
 export const DIR = '/var/run/bmx7/json';
 
@@ -12,7 +13,7 @@ export const meta = {
 	name: 'bmx7',
 	title: 'bmx7 mesh',
 	help: 'The bmx7 mesh node, its links and tunnels, from its JSON status files.',
-	needs: [ 'fs' ],
+	needs: [ 'fs', 'ubus' ],
 	paths: [ DIR ],
 };
 
@@ -61,10 +62,12 @@ function list(v) {
 	return type(v) == 'array' ? v : type(v) == 'object' ? values(v) : [];
 }
 
+// bmx7 disabled (its init script), or not installed, is nothing to observe;
+// enabled without its status file, a failure.
 export function collect(deps, out) {
 	let res = read(deps.fs, 'status', 'status');
 	if (!res.ok)
-		return res;
+		return services.unless_disabled(deps.ubus, 'bmx7', res);
 
 	let status = res.data;
 

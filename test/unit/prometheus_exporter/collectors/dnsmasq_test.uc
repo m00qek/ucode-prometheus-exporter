@@ -1,7 +1,8 @@
 'use strict';
 
 import { describe, it, prop, gen, assert, contains } from 'utest';
-import { with_collector } from 'context';
+import { with_collector, outcome } from 'context';
+import { rc } from 'lib.rc';
 import * as fixtures from 'lib.fixtures';
 import * as dnsmasq from 'prometheus_exporter.collectors.dnsmasq';
 
@@ -41,11 +42,29 @@ describe('collectors.dnsmasq', () => {
 		});
 	});
 
-	it('passes on the ubus error when dnsmasq is not running', () => {
-		with_collector(dnsmasq, { ubus: { errors: { 'dnsmasq:metrics': 'Not found' } } }, (r) => {
+	it('passes on the ubus error when dnsmasq is enabled and not running', () => {
+		with_collector(dnsmasq, { ubus: { data: rc({ dnsmasq: true }), errors: { 'dnsmasq:metrics': 'Not found' } } }, (r) => {
 			assert.match({ ok: false, error: 'UBUS_CALL_FAILED', details: 'dnsmasq metrics: Not found' },
 				{ ok: r.result.ok, error: r.result.error, details: r.result.details });
 			assert.match([], r.lines);
+		});
+	});
+
+	it('has nothing to observe where dnsmasq is disabled', () => {
+		with_collector(dnsmasq, { ubus: { data: rc({ dnsmasq: false }), errors: { 'dnsmasq:metrics': 'Not found' } } }, (r) => {
+			assert.match({ ok: true, none: 'dnsmasq is disabled', error: null, lines: [], logs: [] }, outcome(r));
+		});
+	});
+
+	it('passes on the ubus error when rc cannot say', () => {
+		with_collector(dnsmasq, { ubus: { errors: { 'dnsmasq:metrics': 'Not found', 'rc:list': 'Not found' } } }, (r) => {
+			assert.match({ ok: false, error: 'UBUS_CALL_FAILED' }, { ok: r.result.ok, error: r.result.error });
+		});
+	});
+
+	it('reads a running dnsmasq, and asks rc nothing', () => {
+		with_collector(dnsmasq, { ubus: { data: { 'dnsmasq:metrics': { bootp: 1 } } } }, (r) => {
+			assert.match([ true, null, [ 'dnsmasq_bootp_total 1' ] ], [ r.result.ok, r.result.none, filter(r.lines, (l) => substr(l, 0, 1) != '#') ]);
 		});
 	});
 
