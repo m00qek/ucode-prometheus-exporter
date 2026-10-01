@@ -104,6 +104,7 @@ function describe_collector(c, j) {
 	row('needs', c.meta.needs);
 	row('configs', c.meta.configs ?? []);
 	row('paths', j.paths);
+	row('makes', j.owned);
 	row('commands', map(sort(keys(j.commands)), (k) => `${k}=${j.commands[k] ?? '(not found)'}`));
 	if (j.enabled)
 		row('mounts', j.mounts);

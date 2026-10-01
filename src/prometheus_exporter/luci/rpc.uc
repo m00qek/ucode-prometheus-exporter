@@ -13,7 +13,7 @@
 //                      collectors: [ { name, id, title, enabled, success, duration, error, mounts } ] }
 //
 //   collector: { name, id, title, help, enabled, package, base, options: [ option ],
-//                needs, configs, commands, jail: { paths, commands, mounts, problems, missing }, error }
+//                needs, configs, commands, jail: { paths, owned, commands, mounts, problems, missing }, error }
 //   option:    { name, type, default, help, datatype, value, set, error }
 //
 // validate takes values as uci holds them (strings) and checks each alone, as
@@ -194,7 +194,7 @@ function collector_entry(sys, c, owner_of) {
 		needs: meta.needs,
 		configs: meta.configs ?? [],
 		commands: meta.commands ?? [],
-		jail: { paths: j.paths, commands: j.commands, mounts: j.mounts, problems: j.problems, missing: j.missing },
+		jail: { paths: j.paths, owned: j.owned, commands: j.commands, mounts: j.mounts, problems: j.problems, missing: j.missing },
 		// The section's first invalid option (or enabled), as the exporter reports it.
 		error: j.options.ok ? null : Result.describe(j.options),
 	};

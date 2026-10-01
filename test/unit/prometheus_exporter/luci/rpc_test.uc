@@ -156,7 +156,7 @@ describe('rpc.collectors', () => {
 				package: `${PACKAGE}-wifi`, base: false,
 				options: [ { name: 'stations', type: 'bool', default: true, help: 'The stations option.', datatype: null, value: false, set: true, error: null } ],
 				needs: [ 'ubus' ], configs: [], commands: [],
-				jail: { paths: [], commands: {}, mounts: [], problems: [], missing: [] },
+				jail: { paths: [], owned: [], commands: {}, mounts: [], problems: [], missing: [] },
 				error: null,
 			}, entry(sys, 'wifi'));
 		});
@@ -214,7 +214,7 @@ describe('rpc.collectors', () => {
 	it('gives the configs, commands and what the jail mounts', () => {
 		with_sys({ textfile: { '.type': 'collector', directory: '/srv/prom' } }, { files: [ '/usr/sbin/nft' ] }, (sys) => {
 			assert.match([ [ 'network' ], [ '/etc/config/network' ] ], [ entry(sys, 'wireguard').configs, entry(sys, 'wireguard').jail.mounts ]);
-			assert.match({ paths: [], commands: { nft: '/usr/sbin/nft' }, mounts: [ '/bin/sh', '/usr/sbin/nft' ], problems: [], missing: [] },
+			assert.match({ paths: [], owned: [], commands: { nft: '/usr/sbin/nft' }, mounts: [ '/bin/sh', '/usr/sbin/nft' ], problems: [], missing: [] },
 				entry(sys, 'nft-counters').jail);
 			assert.match([ 'nft' ], entry(sys, 'nft-counters').commands);
 			assert.match({ paths: [ '/srv/prom' ], missing: [ '/srv/prom' ] },

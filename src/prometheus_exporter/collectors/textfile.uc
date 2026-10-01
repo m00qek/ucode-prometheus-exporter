@@ -29,7 +29,9 @@ export const meta = {
 	options: {
 		directory: { default: '/var/prometheus', datatype: 'directory', help: 'The directory of the *.prom files.' },
 	},
-	paths: [ '{directory}' ],
+	// No other service makes it: the exporter does, when it starts, so the
+	// jail always has it to mount.
+	paths: [ { path: '{directory}', owned: true } ],
 };
 
 const OWN = [ 'node_textfile_mtime_seconds', 'node_textfile_scrape_error' ];

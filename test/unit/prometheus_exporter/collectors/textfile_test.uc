@@ -205,4 +205,9 @@ describe('textfile in the jail', () => {
 		assert.match([ '/var/prometheus' ], jail_of(textfile, {}).mounts);
 		assert.match([ '/srv/metrics' ], jail_of(textfile, { options: { directory: '/srv/metrics' } }).mounts);
 	});
+
+	it('owns it: the service makes it when it is not there, so it is mounted and not waited for', () => {
+		let j = jail_of(textfile, { absent: [ '/var/prometheus' ] });
+		assert.match([ [ '/var/prometheus' ], [ '/var/prometheus' ], [] ], [ j.owned, j.mounts, j.missing ]);
+	});
 });

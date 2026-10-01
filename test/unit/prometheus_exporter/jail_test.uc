@@ -29,6 +29,8 @@ function with_sys(own, configs, fs, cb) {
 
 const NFT = collector('nft-counters', { needs: [ 'exec' ], commands: [ 'nft' ] });
 const TEXTFILE = collector('textfile', { needs: [ 'fs' ], options: { directory: { default: '/var/prometheus', datatype: 'directory', help: 'Where.' } }, paths: [ '{directory}' ] });
+const OWNER = collector('owner', { needs: [ 'fs' ], options: { directory: { default: '/var/own', datatype: 'directory', help: 'Where.' } },
+	paths: [ { path: '{directory}', owned: true }, '/var/other' ] });
 const DHCP = collector('uci_dhcp_host', { needs: [ 'uci' ], configs: [ 'dhcp' ] });
 const LOADAVG = collector('loadavg', { needs: [ 'fs' ] });
 
@@ -103,8 +105,17 @@ describe('jail.resolve_paths', () => {
 		let meta = { paths: [ '{directory}', '/var/run/x', (options, uci) => { push(seen, [ options, uci ]); return [ '/tmp/a', '/var/run/x' ]; } ] };
 		let res = jail.resolve_paths(meta, { directory: '/srv/prom' }, { dhcp: 'handle' });
 
-		assert.match({ paths: [ '/srv/prom', '/tmp/a', '/var/run/x' ], problems: [] }, res);
+		assert.match({ paths: [ '/srv/prom', '/tmp/a', '/var/run/x' ], owned: [], problems: [] }, res);
 		assert.match([ [ { directory: '/srv/prom' }, { dhcp: 'handle' } ] ], seen);
+	});
+
+	it('says which paths are owned, and owns none that is not a mount', () => {
+		let meta = { paths: [ { path: '{directory}', owned: true }, '/var/run/x' ] };
+
+		assert.match({ paths: [ '/srv/prom', '/var/run/x' ], owned: [ '/srv/prom' ], problems: [] },
+			jail.resolve_paths(meta, { directory: '/srv/prom' }, {}));
+		assert.match({ paths: [ '/var/run/x' ], owned: [], problems: [ '/tmp is too broad to mount for one collector' ] },
+			jail.resolve_paths(meta, { directory: '/tmp' }, {}));
 	});
 
 	it('leaves out what is not a mount, and says why', () => {
@@ -115,7 +126,7 @@ describe('jail.resolve_paths', () => {
 			() => [ '/tmp/ok', 'relative', '/tmp' ],
 		] };
 
-		assert.match({ paths: [ '/tmp/ok' ], problems: [
+		assert.match({ paths: [ '/tmp/ok' ], owned: [], problems: [
 			'"" is not an absolute path',
 			'a paths function failed: no dhcp',
 			'a paths function returned string, not an array',
@@ -161,6 +172,19 @@ describe('jail.collector', () => {
 		});
 	});
 
+	it('mounts an owned path, there or not, and does not wait for it', () => {
+		with_sys({}, {}, null, (sys) => {
+			let j = jail.collector(OWNER, sys);
+			assert.match([ [ '/var/other', '/var/own' ], [ '/var/own' ], [ '/var/own' ], [ '/var/other' ] ], [ j.paths, j.owned, j.mounts, j.missing ]);
+		});
+	});
+
+	it('owns an owned path where its option puts it', () => {
+		with_sys({ owner: { '.type': 'collector', directory: '/srv/own' } }, {}, files([ '/var/other' ]), (sys) => {
+			assert.match([ '/srv/own' ], jail.collector(OWNER, sys).owned);
+		});
+	});
+
 	it('hands a paths function read-only handles for the configs declared', () => {
 		let leases = collector('leases', {
 			needs: [ 'fs', 'uci' ], configs: [ 'dhcp' ],
@@ -186,7 +210,7 @@ describe('jail.collector', () => {
 describe('jail.mounts', () => {
 	it('mounts the exporter config alone for collectors that read procfs, sysfs or ubus', () => {
 		with_sys({}, {}, null, (sys) => {
-			assert.match({ mounts: [ jail.OWN_CONFIG ], problems: [], missing: [] }, jail.mounts([ LOADAVG ], sys));
+			assert.match({ mounts: [ jail.OWN_CONFIG ], problems: [], missing: [], owned: [] }, jail.mounts([ LOADAVG ], sys));
 		});
 	});
 
@@ -200,6 +224,7 @@ describe('jail.mounts', () => {
 				mounts: [ '/bin/sh', '/etc/config/dhcp', jail.OWN_CONFIG, '/usr/sbin/nft', '/var/prometheus' ],
 				problems: [ 'dhcp_leases: command odhcpd is not on /usr/sbin:/usr/bin:/sbin:/bin' ],
 				missing: [],
+				owned: [],
 			}, jail.mounts([ DHCP, LOADAVG, NFT, TEXTFILE, dhcp_too ], sys));
 		});
 	});
@@ -212,14 +237,21 @@ describe('jail.mounts', () => {
 		});
 
 		with_sys({}, {}, files([ '/var/prometheus' ]), (sys) => {
-			assert.match({ mounts: [ jail.OWN_CONFIG, '/var/prometheus' ], problems: [], missing: [ '/var/lib/unbound' ] },
+			assert.match({ mounts: [ jail.OWN_CONFIG, '/var/prometheus' ], problems: [], missing: [ '/var/lib/unbound' ], owned: [] },
 				jail.mounts([ socket, TEXTFILE ], sys));
 		});
 	});
 
-	it('does not wait for the paths of a disabled collector', () => {
-		with_sys({ textfile: { '.type': 'collector', enabled: '0' } }, {}, null, (sys) => {
-			assert.match([], jail.mounts([ TEXTFILE ], sys).missing);
+	it('does not wait for the paths of a disabled collector, nor make those it owns', () => {
+		with_sys({ textfile: { '.type': 'collector', enabled: '0' }, owner: { '.type': 'collector', enabled: '0' } }, {}, null, (sys) => {
+			assert.match([ [], [] ], [ jail.mounts([ TEXTFILE, OWNER ], sys).missing, jail.mounts([ TEXTFILE, OWNER ], sys).owned ]);
+		});
+	});
+
+	it('lists what the enabled collectors own', () => {
+		with_sys({}, {}, files([ '/var/other' ]), (sys) => {
+			assert.match({ mounts: [ jail.OWN_CONFIG, '/var/other', '/var/own' ], problems: [], missing: [], owned: [ '/var/own' ] },
+				jail.mounts([ OWNER ], sys));
 		});
 	});
 
@@ -240,4 +272,45 @@ describe('jail.mounts', () => {
 				assert.match(true, jail.OWN_CONFIG in m);
 			});
 		});
+});
+
+describe('jail.make', () => {
+	// A filesystem with these directories, that records what it makes, and
+	// cannot make those of `refuse`.
+	function dirs(present, refuse) {
+		let made = [];
+		let fs = {
+			stat: (p) => (p in present || p in made) ? { type: 'directory' } : null,
+			mkdir: function(p, mode) {
+				if (p in (refuse ?? []))
+					return null;
+				push(made, [ p, mode ]);
+				push(made, p);
+				return true;
+			},
+			error: () => 'Permission denied',
+		};
+
+		return { fs, made: () => filter(made, (m) => type(m) == 'array') };
+	}
+
+	it('makes a directory that is not there, and its parents', () => {
+		let d = dirs([ '/var' ]);
+
+		assert.match({ made: [ '/var/prometheus', '/srv/a/b' ], problems: [] }, jail.make(d.fs, [ '/var/prometheus', '/srv/a/b' ]));
+		assert.match([ [ '/var/prometheus', 0755 ], [ '/srv', 0755 ], [ '/srv/a', 0755 ], [ '/srv/a/b', 0755 ] ], d.made());
+	});
+
+	it('leaves one that is there as it is', () => {
+		let d = dirs([ '/var', '/var/prometheus' ]);
+
+		assert.match({ made: [], problems: [] }, jail.make(d.fs, [ '/var/prometheus' ]));
+		assert.match([], d.made());
+	});
+
+	it('says what it cannot make, and goes on', () => {
+		let d = dirs([], [ '/ro' ]);
+
+		assert.match({ made: [ '/w' ], problems: [ 'cannot make /ro: Permission denied' ] }, jail.make(d.fs, [ '/ro/x', '/w' ]));
+	});
 });

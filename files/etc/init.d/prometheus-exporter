@@ -61,6 +61,8 @@ start_service() {
 		}
 	}
 
+	# The directories the collectors own (textfile's), so the jail has them.
+	"$LIBEXEC/jail.uc" --make 2>&1 | logger -t "$NAME" -p daemon.notice
 	mounts=$(jail_mounts)
 	missing=$("$LIBEXEC/jail.uc" --missing 2>/dev/null)
 

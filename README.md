@@ -125,7 +125,7 @@ A collector without a section is enabled, with its defaults. These take options 
 | | | |
 |---|---|---|
 | `dhcp_leases` | `leases` | `0`; 1 adds a series per lease (address, MAC, hostname, expiry) |
-| `textfile` | `directory` | `/var/prometheus`; an absolute path, where the `*.prom` files are |
+| `textfile` | `directory` | `/var/prometheus`; an absolute path, where the `*.prom` files are; the service makes it when it starts and it is not there |
 | `unbound` | `socket` | `/var/lib/unbound/unbound.ctl`; an absolute path, unbound's control socket (`control-interface`), in a directory the jail can mount (see the jail) |
 | `vmstat` | `fields` | `^(oom_kill\|pgpg\|pswp\|pg.*fault).*`; a regex of the /proc/vmstat fields |
 | `wifi` | `stations` | `1`; 0 leaves out the per-station metrics |
@@ -144,7 +144,8 @@ Start and reload refuse an invalid config. Installing or removing a collector pa
 
 uhttpd runs in procd's jail, and a collector gets what it declares: procfs, sysfs, ubus and the log for all, then the configs it reads (`/etc/config/dhcp` for uci_dhcp_host), the files and directories it reads (textfile's directory, dhcp_leases' lease files, bmx7's status), and the programs it runs with their libraries (`/bin/sh` and `nft` for nft-counters). Nothing else of `/etc/config` is there. What the jail cannot give is a warning in `check`:
 
-- A path that is not there when the service starts is left out, and a `watch` instance beside uhttpd looks for it every 5 seconds: once it is there, procd reloads the service, which mounts it. So unbound's socket directory, which unbound makes when it starts (after the exporter, at boot), is mounted a few seconds later.
+- textfile's directory (`/var/prometheus` by default) is the exporter's own: the service makes it, with its parents, when it starts and it is not there, so the jail always mounts it. No other service's directory is ever made.
+- Any other path that is not there when the service starts is left out, and a `watch` instance beside uhttpd looks for it every 5 seconds: once it is there, procd reloads the service, which mounts it. So unbound's socket directory, which unbound makes when it starts (after the exporter, at boot), is mounted a few seconds later.
 - ujail cannot mount a socket, so a collector gets the socket's directory. That is never one every service shares, such as `/run`. OpenWrt's unbound package makes no Unix control socket; the `socket` option's default is where to have it, in `/var/lib/unbound`, the directory the package makes for unbound alone (and its chroot). In `/etc/unbound/unbound_ext.conf`:
 
   ```
@@ -191,7 +192,7 @@ export const meta = {
 	// options: {                             // not enabled, the core's
 	//	directory: { default: '/var/prometheus', datatype: 'directory', help: 'The directory of the *.prom files.' },
 	// },
-	// paths: [ '{directory}' ],              // what it reads outside /proc and /sys; see below
+	// paths: [ { path: '{directory}', owned: true } ], // what it reads outside /proc and /sys; see below
 };
 
 export function collect(deps, out, options) {
@@ -205,7 +206,7 @@ export function collect(deps, out, options) {
 ```
 
 - `needs` are `fs` (`readfile open lsdir glob stat realpath`), `ubus` (`call`, `list`, as Results), `uci` (`deps.uci.<config>` for each of `configs`, read-only: `loaded get get_all sections foreach`, committed configuration only), `rtnl` and `nl80211` (`request` as Results, `const`), `socket` (`unix_request(path, message, timeout_ms)`, a Unix socket's whole reply as a Result), `exec` (`run(argv)` as a Result, for `commands` only; a failure's `data.status` is the exit status), `time` (`now()`) and `log` (`log(msg)`, for what a collector that succeeds still has to say). Only `prometheus_exporter.deps` touches the system.
-- The exporter runs in procd's jail, which mounts what the installed and enabled collectors declare and nothing else: `/etc/config/<c>` for each of `configs`, `/bin/sh` and each of `commands` (with its libraries), and `paths`. A path may name a string option as `{option}` (textfile's `'{directory}'`), or be a function `(options, uci) => [ paths ]` for what a config decides (dhcp_leases' lease files). A socket is declared by its directory, as ujail cannot mount a socket; a shell script needs what it sources and runs (ubnt-manager).
+- The exporter runs in procd's jail, which mounts what the installed and enabled collectors declare and nothing else: `/etc/config/<c>` for each of `configs`, `/bin/sh` and each of `commands` (with its libraries), and `paths`. A path may name a string option as `{option}` (`'{directory}'`), be `{ path, owned: true }` for a directory that is the exporter's alone, which the service makes when it is not there (textfile's), or be a function `(options, uci) => [ paths ]` for what a config decides (dhcp_leases' lease files). A path that is not there is mounted once it is. A socket is declared by its directory, as ujail cannot mount a socket; a shell script needs what it sources and runs (ubnt-manager).
 - An option's `default` sets its type (boolean, integer or string), `help` says what it does, and `datatype`, optional, narrows its values with one of LuCI's names that the core checks: `uinteger`, `range(min,max)`, `directory` and `file` (an absolute path; it need not exist), and `regex` (one ucode compiles), which LuCI lacks. `collect` gets the options typed; a value that does not fit fails the collector with CONFIG_INVALID.
 - `out.gauge|counter|untyped(name, help)` returns `(labels, value)`, which chains; `out.parse(text)` adds exposition text. What a collector records is kept even when it then fails.
 - `collect` returns a Result: `ok` is `node_scrape_collector_success 1`; `err` is 0 and one log line.

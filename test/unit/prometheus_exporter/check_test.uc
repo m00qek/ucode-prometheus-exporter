@@ -163,6 +163,17 @@ describe('check.run', () => {
 		assert.match([], filter(run({ textfile: { '.type': 'collector', enabled: '0' } }, [ TEXTFILE ], {}).lines, (l) => index(l, 'not there') >= 0));
 	});
 
+	it('says which directories the service makes, and does not warn of them', () => {
+		let owner = collector('owner', () => Result.ok(), {
+			needs: [ 'fs' ], options: { directory: { default: '/var/own', datatype: 'directory', help: 'Where.' } },
+			paths: [ { path: '{directory}', owned: true } ],
+		});
+		let r = run({}, [ owner ], {});
+
+		assert.match(contains([ '      paths    /var/own', '      makes    /var/own', '      mounts   /var/own' ]), r.lines);
+		assert.match([], filter(r.lines, (l) => index(l, 'not there') >= 0));
+	});
+
 	prop('fails exactly when a collector\'s enabled is not a boolean',
 		gen.elements('1', '0', 'yes', 'off', 'maybe', '2', ''), (v) => {
 			let r = run({ loadavg: { '.type': 'collector', enabled: v } }, [ OK ], { config_only: true });

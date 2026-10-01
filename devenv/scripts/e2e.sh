@@ -71,7 +71,6 @@ eventually "procd, ubusd and netifd are up" ubus call network.interface.loopback
 reload_config # remembers the configs, so later changes fire config triggers
 
 # What the collectors read, set up as a device would have it.
-mkdir -p /var/prometheus && echo 'e2e_textfile_value 42' >/var/prometheus/e2e.prom
 nft add table inet e2e && nft add counter inet e2e e2e_hits
 ip link add e2e0 type veth peer name e2e1 && ip link set e2e0 up && ip link set e2e1 up
 uci add dhcp host >/dev/null && uci set dhcp.@host[-1].name=e2e-host && uci set dhcp.@host[-1].mac=02:00:00:00:00:01 &&
@@ -109,6 +108,7 @@ check "and serves with them" says ' -k 30 ' command_line
 check "it leaves the old config as it was" test "$(md5sum <"$OLD")" = "$old_sum"
 check "it logs what it took" says "imported from $OLD: http_keepalive=30, collector wifi" logread
 check "its uci-defaults script runs once" test ! -e /etc/uci-defaults/$NAME-import
+check "it makes no directory without textfile" test ! -e /var/prometheus
 all_base_served() { for c in $BASE_COLLECTORS; do served "$c" || return 1; done; }
 eventually "it serves every base collector" all_base_served
 check "it runs in procd's jail" jailed
@@ -126,7 +126,11 @@ all_answer() { [ "$(fetch | grep -c '^node_scrape_collector_success{')" -eq "$(i
 eventually "every installed collector is served" all_answer
 check "its mounts are still what jail.uc prints" mounts_match_jail
 check "the jail has the configs its collectors read" test "$(jail_configs | tr '\n' ' ')" = "dhcp network $NAME ubnt-manager "
-check "textfile reads its directory in the jail" metric 'e2e_textfile_value 42$'
+check "the service makes textfile's directory" test -d /var/prometheus
+check "and says so" says "made /var/prometheus" logread
+check "and mounts it" mounted /var/prometheus
+echo 'e2e_textfile_value 42' >/var/prometheus/e2e.prom
+eventually "textfile reads its directory in the jail" metric 'e2e_textfile_value 42$'
 check "nft-counters runs nft in the jail" served nft-counters
 check "and reads the counters" metric 'nft_counter_packets_total{.*name="e2e_hits"'
 check "ethtool runs ethtool in the jail" served ethtool
@@ -165,10 +169,16 @@ eventually "disabling a collector reloads the service" restarted_from "$before"
 eventually "a disabled collector is not served" not_served uname
 check "naming a disabled collector is a 400" refused 'collect[]=uname'
 
-mkdir -p /srv/e2e-prom && echo 'e2e_moved_value 7' >/srv/e2e-prom/e2e.prom
 set_config "$NAME.textfile=collector" "$NAME.textfile.directory=/srv/e2e-prom"
 eventually "textfile's directory moves its mount" mount_moved /srv/e2e-prom /var/prometheus
+check "the service makes the new one, and its parent" test -d /srv/e2e-prom
+echo 'e2e_moved_value 7' >/srv/e2e-prom/e2e.prom
 eventually "textfile reads its new directory" metric 'e2e_moved_value 7$'
+set_config "$NAME.textfile.enabled=0" "$NAME.textfile.directory=/srv/e2e-off"
+eventually "a disabled textfile is not served" not_served textfile
+check "nor its directory made" test ! -e /srv/e2e-off
+set_config "$NAME.textfile.enabled=1" "$NAME.textfile.directory=/srv/e2e-prom"
+eventually "enabled again, it is served" served textfile
 
 before=$(pid)
 set_config "$NAME.main.listen_port=http"

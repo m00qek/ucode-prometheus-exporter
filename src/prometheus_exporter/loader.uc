@@ -71,7 +71,9 @@ function validate_option(id, key, spec) {
 }
 
 // meta.paths: strings, whose {option}s name string options, that are mounts
-// once filled with the defaults; or functions, whose paths the jail checks.
+// once filled with the defaults; { path: such a string, owned: true }, a
+// directory the exporter makes when it is not there; or functions, whose
+// paths the jail checks.
 function validate_paths(id, meta) {
 	if (type(meta.paths) != 'array' || !length(meta.paths))
 		return invalid(id, 'meta.paths must list paths, or functions that give them');
@@ -81,6 +83,13 @@ function validate_paths(id, meta) {
 	for (let p in meta.paths) {
 		if (type(p) == 'function')
 			continue;
+
+		if (type(p) == 'object') {
+			if (length(p) != 2 || type(p.path) != 'string' || p.owned !== true)
+				return invalid(id, 'meta.paths: an owned path is { path, owned: true }');
+			p = p.path;
+		}
+
 		if (type(p) != 'string')
 			return invalid(id, 'meta.paths must list paths, or functions that give them');
 
