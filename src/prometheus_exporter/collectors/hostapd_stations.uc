@@ -44,6 +44,7 @@ function metrics(out) {
 		flag_wmm: out.gauge('hostapd_station_flag_wmm', 'Whether the station uses WMM.'),
 		vht_su_beamformee: out.gauge('hostapd_station_vht_capb_su_beamformee', 'Whether the station is a VHT single-user beamformee.'),
 		vht_mu_beamformee: out.gauge('hostapd_station_vht_capb_mu_beamformee', 'Whether the station is a VHT multi-user beamformee.'),
+		labels: out.labels,
 	};
 }
 
@@ -80,7 +81,7 @@ function access_point(ubus, m, iface) {
 		return res;
 
 	for (let mac, c in res.data?.clients ?? {}) {
-		station(m, {
+		station(m, m.labels({
 			vif: iface.ifname,
 			ssid: status.ssid,
 			bssid: status.bssid,
@@ -88,7 +89,7 @@ function access_point(ubus, m, iface) {
 			frequency: status.freq,
 			channel: status.channel,
 			station: mac,
-		}, c ?? {});
+		}), c ?? {});
 	}
 
 	return null;

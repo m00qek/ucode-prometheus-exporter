@@ -40,13 +40,23 @@ export function family_of(stat) {
 	return [ 'counter', `node_snmp6_${name}_total`, `IPv6 statistic ${stat} of the device.` ];
 };
 
-function parse(fs, out, device) {
+// `families` holds each statistic's family once made: every device has the
+// same statistics, and a family's name is a regex match.
+function parse(fs, out, families, device) {
+	let labels = out.labels({ device });
+
 	for (let line in lines(fs, `${DEVICES}/${device}`) ?? []) {
 		let x = fields(line);
 
 		if (length(x) >= 2) {
-			let f = family_of(x[0]);
-			out[f[0]](f[1], f[2])({ device }, x[1]);
+			let record = families[x[0]];
+
+			if (!record) {
+				let f = family_of(x[0]);
+				record = families[x[0]] = out[f[0]](f[1], f[2]);
+			}
+
+			record(labels, x[1]);
 		}
 	}
 }
@@ -59,8 +69,9 @@ export function collect(deps, out) {
 		return Result.err(errors.SOURCE_UNREADABLE, DEVICES);
 
 	// A device that goes away before it is read is left out.
+	let families = {};
 	for (let device in sort(devices))
-		parse(deps.fs, out, device);
+		parse(deps.fs, out, families, device);
 
 	return Result.ok();
 };

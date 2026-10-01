@@ -42,17 +42,17 @@ function station(families, labels, rrm) {
 }
 
 // One object's samples; null, or the Result of a failed call.
-function access_point(ubus, families, object) {
+function access_point(ubus, out, families, object) {
 	let res = ubus.call(object, 'get_clients');
 
 	if (!res.ok)
-		return match(res.details ?? '', /: Method not found/) ? null : res;
+		return index(res.details ?? '', ': Method not found') >= 0 ? null : res;
 
 	let ifname = substr(object, length('hostapd.'));
 
 	for (let mac, c in res.data?.clients ?? {}) {
 		if (type(c?.rrm) == 'array')
-			station(families, { ifname, freq: res.data.freq, station: mac }, c.rrm);
+			station(families, out.labels({ ifname, freq: res.data.freq, station: mac }), c.rrm);
 	}
 
 	return null;
@@ -68,8 +68,8 @@ export function collect(deps, out) {
 		`Whether the station supports ${cap[1]}.`));
 	let failure = null;
 
-	for (let object in sort(filter(res.data ?? [], (name) => match(name, /^hostapd\./)))) {
-		let fail = access_point(deps.ubus, families, object);
+	for (let object in sort(filter(res.data ?? [], (name) => substr(name, 0, 8) == 'hostapd.'))) {
+		let fail = access_point(deps.ubus, out, families, object);
 		failure ??= fail;
 	}
 

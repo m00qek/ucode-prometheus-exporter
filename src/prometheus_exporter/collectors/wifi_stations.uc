@@ -49,6 +49,7 @@ function metrics(out) {
 		tx_packets: out.counter('node_wifi_station_transmitted_packets_total', 'The total number of packets transmitted by a station.'),
 		rx_packets: out.counter('node_wifi_station_received_packets_total', 'The total number of packets received by a station.'),
 		expected_throughput: out.gauge('node_wifi_station_expected_throughput_bits_per_second', 'Expected throughput to the station, in bits per second.'),
+		labels: out.labels,
 	};
 }
 
@@ -58,7 +59,7 @@ function seconds(ms) {
 }
 
 function station(m, device, sta) {
-	let labels = { device, mac_address: sta?.mac };
+	let labels = m.labels({ device, mac_address: sta?.mac });
 	let info = sta?.sta_info ?? {};
 
 	m.connected(labels, info.connected_time);
