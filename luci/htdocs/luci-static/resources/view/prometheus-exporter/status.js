@@ -41,6 +41,19 @@ function row(title, children) {
 	]);
 }
 
+// How a collector did in the scrape: OK, Failed, or Nothing to observe (a success
+// whose hardware, kernel feature or service is not there), with why.
+function outcome(c) {
+	if (c.success === true && c.observing === false)
+		return [ label('', _('Nothing to observe')), E('div', {}, [ E('small', {}, [ String(c.reason ?? '') ]) ]) ];
+
+	return [
+		(c.success === true) ? label('success', _('OK'))
+			: (c.success === false) ? label('danger', _('Failed'), FAIL_STYLE)
+			: E('em', {}, [ _('Not run') ])
+	];
+}
+
 function duration(secs) {
 	if (typeof(secs) !== 'number')
 		return '';
@@ -134,11 +147,7 @@ return view.extend({
 		const rows = collectors.map((c, i) => E('tr', { 'class': 'tr cbi-rowstyle-' + (1 + i % 2), 'data-collector': String(c.id) }, [
 			E('td', { 'class': 'td', 'data-title': headers[0] }, exporter.nameOf(c)),
 			E('td', { 'class': 'td', 'data-title': headers[1] }, [ c.enabled ? _('Yes') : _('No') ]),
-			E('td', { 'class': 'td', 'data-title': headers[2] }, [
-				(c.success === true) ? label('success', _('OK'))
-					: (c.success === false) ? label('danger', _('Failed'), FAIL_STYLE)
-					: E('em', {}, [ _('Not run') ])
-			]),
+			E('td', { 'class': 'td', 'data-title': headers[2] }, outcome(c)),
 			E('td', { 'class': 'td', 'data-title': headers[3] }, [ duration(c.duration) ]),
 			E('td', { 'class': 'td', 'data-title': headers[4] }, [ c.error ? E('small', {}, [ String(c.error) ]) : '' ]),
 			E('td', { 'class': 'td', 'data-title': headers[5] }, (Array.isArray(c.mounts) && c.mounts.length)
@@ -148,9 +157,12 @@ return view.extend({
 
 		const failed = collectors.filter((c) => c.success === false).length;
 		const ran = collectors.filter((c) => c.success != null).length;
+		const idle = collectors.filter((c) => c.success === true && c.observing === false).length;
 
 		return section(_('Collectors'), [
-			E('p', {}, fill(_('%s of %s collectors that ran succeeded.'), String(ran - failed), String(ran))),
+			E('p', {}, fill(_('%s of %s collectors that ran succeeded.'), String(ran - failed), String(ran)).concat(idle
+				? [ ' ' ].concat(fill(_('%s had nothing to observe: their hardware, kernel feature or service is not there.'), String(idle)))
+				: [])),
 			E('table', { 'class': 'table' }, [
 				E('tr', { 'class': 'tr table-titles' }, headers.map((h) => E('th', { 'class': 'th' }, [ h ])))
 			].concat(rows.length ? rows : [

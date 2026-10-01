@@ -1,7 +1,8 @@
 'use strict';
 
 import { describe, it, prop, gen, assert } from 'utest';
-import { with_collector, jail_of } from 'context';
+import { with_collector, jail_of, outcome } from 'context';
+import { rc } from 'lib.rc';
 import * as fixtures from 'lib.fixtures';
 import * as unbound from 'prometheus_exporter.collectors.unbound';
 
@@ -194,8 +195,23 @@ describe('collectors.unbound', () => {
 		});
 	});
 
+	it('has nothing to observe where unbound is disabled, or not installed, and its socket does not answer', () => {
+		with_collector(unbound, { socket: { strict: false }, ubus: { data: rc({ unbound: false }) } }, (r) => {
+			assert.match({ ok: true, none: 'unbound is disabled', error: null, lines: [], logs: [] }, outcome(r));
+		});
+		with_collector(unbound, { socket: { strict: false }, ubus: { data: rc({}) } }, (r) => {
+			assert.match({ ok: true, none: 'unbound is not installed', error: null, lines: [], logs: [] }, outcome(r));
+		});
+	});
+
+	it('reads a disabled unbound that runs, and asks rc nothing', () => {
+		with_reply('thread0.num.queries=7\n', (r) => {
+			assert.match([ true, null, [ 'unbound_queries_total{thread="0"} 7' ] ], [ r.result.ok, r.result.none, samples(r.lines) ]);
+		});
+	});
+
 	it('fails with SOCKET_FAILED where there is no control socket', () => {
-		with_collector(unbound, { socket: { strict: false } }, (r) => {
+		with_collector(unbound, { socket: { strict: false }, ubus: { data: rc({ unbound: true }) } }, (r) => {
 			assert.match({ ok: false, error: 'SOCKET_FAILED', details: `${CTL}: connect(): No such file or directory` }, brief(r.result));
 			assert.match([], r.lines);
 			assert.match([ `collector 'unbound': SOCKET_FAILED (${CTL}: connect(): No such file or directory)` ], r.logs);
@@ -203,13 +219,13 @@ describe('collectors.unbound', () => {
 	});
 
 	it('fails with SOCKET_FAILED where unbound refuses the connection', () => {
-		with_collector(unbound, { socket: { errors: { [CTL]: 'connect(): Connection refused' } } }, (r) => {
+		with_collector(unbound, { socket: { errors: { [CTL]: 'connect(): Connection refused' } }, ubus: { data: rc({ unbound: true }) } }, (r) => {
 			assert.match({ ok: false, error: 'SOCKET_FAILED', details: `${CTL}: connect(): Connection refused` }, brief(r.result));
 		});
 	});
 
 	it('fails with SOCKET_FAILED when unbound stops answering for a second, keeping nothing', () => {
-		with_collector(unbound, { socket: { data: { [CTL]: 'thread0.num.queries=5\n' }, hangs: { [CTL]: true } } }, (r) => {
+		with_collector(unbound, { socket: { data: { [CTL]: 'thread0.num.queries=5\n' }, hangs: { [CTL]: true } }, ubus: { data: rc({ unbound: true }) } }, (r) => {
 			assert.match({ ok: false, error: 'SOCKET_FAILED', details: `${CTL}: no reply for 1000 ms` }, brief(r.result));
 			assert.match([], r.lines);
 		});

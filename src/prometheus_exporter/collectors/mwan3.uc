@@ -5,6 +5,7 @@
 
 import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
+import * as services from 'prometheus_exporter.services';
 
 export const meta = {
 	name: 'mwan3',
@@ -20,7 +21,17 @@ export const STATUSES = [ 'offline', 'online', 'disconnecting', 'connecting', 'd
 // Every value is a reading of now, so every family is a gauge (the Lua exporter
 // declared the times and the probe counts counters, but they go back to 0),
 // and the times are named in seconds.
+//
+// mwan3's ubus object is rpcd's plugin, which answers whether mwan3 runs or
+// not: so whether its init script is enabled is asked first. Disabled, mwan3
+// is nothing to observe; enabled and stopped, its interfaces say so
+// (mwan3_interface_running 0).
 export function collect(deps, out) {
+	let idle = services.idle(deps.ubus, 'mwan3');
+
+	if (idle)
+		return Result.none(idle);
+
 	let res = deps.ubus.call('mwan3', 'status', { section: 'interfaces' });
 
 	if (!res.ok)

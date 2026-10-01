@@ -35,14 +35,27 @@ test.describe('Status → Prometheus exporter', () => {
     await expect(cell(page, 'loadavg', 3)).toHaveText(/^\d+ ms$/);
     await expect(cell(page, 'loadavg', 4)).toHaveText('');
     await expect(cell(page, 'sampler', 2)).toHaveText('OK');
-    // No ubus object `dsl` here: the collector runs, and says why it failed.
-    await expect(cell(page, 'ltq_dsl', 2)).toHaveText('Failed');
-    await expect(cell(page, 'ltq_dsl', 4)).toContainText('UBUS_CALL_FAILED');
+    // dnsmasq is enabled here, and does not run: the collector runs, and says why it failed.
+    await expect(cell(page, 'dhcp_leases', 2)).toHaveText('Failed');
+    await expect(cell(page, 'dhcp_leases', 4)).toContainText('SOURCE_UNREADABLE (dnsmasq is enabled, without its lease file');
     await expect(cell(page, 'wireguard', 5)).toHaveText('/etc/config/network');
     await expect(cell(page, 'dhcp_leases', 5)).toContainText('/etc/config/dhcp');
-    await expect(h.section(page, 'Collectors').locator('p').first()).toHaveText(/^\d+ of \d+ collectors that ran succeeded\.$/);
+    await expect(h.section(page, 'Collectors').locator('p').first())
+      .toHaveText(/^\d+ of \d+ collectors that ran succeeded\. \d+ had nothing to observe: their hardware, kernel feature or service is not there\.$/);
     await expect(page.locator('#view .cbi-map-descr a')).toHaveAttribute('href', `/cgi-bin/luci/admin/services/${h.CONFIG}`);
     await h.screenshot(page, 'status-running');
+  });
+
+  test('says a collector whose hardware is not there has nothing to observe, and why, as a success', async ({ page }) => {
+    await h.openStatus(page);
+    // No ubus object `dsl` here, and no radio.
+    await expect(cell(page, 'ltq_dsl', 2).locator('.label')).toHaveText('Nothing to observe');
+    await expect(cell(page, 'ltq_dsl', 2).locator('small')).toHaveText('no DSL modem (no dsl on ubus)');
+    await expect(cell(page, 'ltq_dsl', 4)).toHaveText('');
+    await expect(cell(page, 'wifi', 2)).toContainText('no wireless radios');
+    // Nor unbound's package.
+    await expect(cell(page, 'unbound', 2).locator('small')).toHaveText('unbound is not installed');
+    await h.screenshot(page, 'status-nothing-to-observe');
   });
 
   test('lists every installed collector, as the settings do', async ({ page, request }) => {

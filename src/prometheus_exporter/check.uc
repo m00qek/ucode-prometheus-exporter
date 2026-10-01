@@ -3,7 +3,8 @@
 // `service prometheus-exporter check`: the configuration, checked as
 // the exporter and the init script read it; every installed collector, with its
 // section, options, needs and what the jail gives it; and one scrape, run here,
-// outside the jail, with each collector that fails and why. With config_only
+// outside the jail, with each collector that fails and why, and each that has
+// nothing to observe and why (a success: 'dnsmasq is disabled'). With config_only
 // (check.uc --config, which start and reload run) it stops after the
 // configuration. Only an invalid configuration makes it fail.
 //
@@ -149,7 +150,8 @@ function describe_collectors(sys, add_line, add) {
 	return enabled;
 }
 
-// One scrape of the enabled collectors: each that fails, and why.
+// One scrape of the enabled collectors: each that fails, and why, and each
+// that has nothing to observe, and why.
 function check_scrape(sys, add) {
 	let chosen = filter(sys.collectors, (c) => config.enabled(sys.uci, c.id));
 	let session = sys.env.session();
@@ -158,11 +160,15 @@ function check_scrape(sys, add) {
 	session.close();
 
 	let failing = filter(runs, (r) => !r.result.ok);
+	let idle = filter(runs, (r) => Result.is_none(r.result));
 
 	add(length(failing) ? 'warn' : 'ok',
-		`scrape, outside the jail: ${length(runs) - length(failing)} of ${count(length(runs), 'collector')} succeeded`);
+		`scrape, outside the jail: ${length(runs) - length(failing)} of ${count(length(runs), 'collector')} succeeded` +
+		(length(idle) ? `, ${length(idle)} with nothing to observe` : ''));
 	for (let r in failing)
 		add('warn', `scrape: ${r.name}: ${Result.describe(r.result)}`);
+	for (let r in idle)
+		add('ok', `scrape: ${r.name} has nothing to observe: ${r.result.none}`);
 }
 
 // { ok, report }: ok unless the configuration is invalid.

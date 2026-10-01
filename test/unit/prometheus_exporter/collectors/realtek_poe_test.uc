@@ -1,7 +1,7 @@
 'use strict';
 
 import { describe, it, prop, gen, assert } from 'utest';
-import { with_collector } from 'context';
+import { with_collector, outcome } from 'context';
 import * as fixtures from 'lib.fixtures';
 import * as realtek_poe from 'prometheus_exporter.collectors.realtek_poe';
 
@@ -100,9 +100,15 @@ describe('collectors.realtek_poe', () => {
 		});
 	});
 
-	it('passes on the ubus error when realtek-poe is not running', () => {
-		with_collector(realtek_poe, { ubus: { errors: { 'poe:info': 'Not found' } } }, (r) => {
-			assert.match({ ok: false, error: 'UBUS_CALL_FAILED', details: 'poe info: Not found' },
+	it('has nothing to observe on a device without a PoE switch: no poe object', () => {
+		with_collector(realtek_poe, { ubus: { errors: { 'poe:info': "Not found: Failed to resolve object name 'poe'" } } }, (r) => {
+			assert.match({ ok: true, none: 'no PoE switch (no poe on ubus)', error: null, lines: [], logs: [] }, outcome(r));
+		});
+	});
+
+	it('passes on any other ubus error, as a poe object that does not answer', () => {
+		with_collector(realtek_poe, { ubus: { errors: { 'poe:info': 'Request timed out' } } }, (r) => {
+			assert.match({ ok: false, error: 'UBUS_CALL_FAILED', details: 'poe info: Request timed out' },
 				{ ok: r.result.ok, error: r.result.error, details: r.result.details });
 			assert.match([], r.lines);
 		});

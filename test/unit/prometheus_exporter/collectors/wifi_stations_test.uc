@@ -1,7 +1,7 @@
 'use strict';
 
 import { describe, it, prop, gen, assert, contains } from 'utest';
-import { with_collector } from 'context';
+import { with_collector, outcome } from 'context';
 import * as fixtures from 'lib.fixtures';
 import * as wifi_stations from 'prometheus_exporter.collectors.wifi_stations';
 
@@ -123,8 +123,25 @@ describe('collectors.wifi_stations', () => {
 		});
 	});
 
-	it('passes a failed network.wireless status on', () => {
-		with_collector(wifi_stations, { ubus: { errors: { 'network.wireless:status': 'Not found' } } }, (r) => {
+	it('has nothing to observe without network.wireless, or radios', () => {
+		with_collector(wifi_stations, { ubus: { errors: { 'network.wireless:status': "Not found: Failed to resolve object name 'network.wireless'" } } }, (r) => {
+			assert.match({ ok: true, none: 'no wireless radios', error: null, lines: [], logs: [] }, outcome(r));
+		});
+		with_collector(wifi_stations, { ubus: { data: { 'network.wireless:status': {} } } }, (r) => {
+			assert.match({ ok: true, none: 'no wireless radios', error: null, lines: [], logs: [] }, outcome(r));
+		});
+	});
+
+	it('has nothing to observe where no radio has an interface up', () => {
+		let status = { radio0: { up: false, interfaces: [] }, radio1: { up: true, interfaces: [ { section: 'down', config: {} } ] } };
+
+		with_collector(wifi_stations, { ubus: { data: { 'network.wireless:status': status } } }, (r) => {
+			assert.match({ ok: true, none: 'no wireless interfaces', error: null, lines: [], logs: [] }, outcome(r));
+		});
+	});
+
+	it('passes any other failed network.wireless status on', () => {
+		with_collector(wifi_stations, { ubus: { errors: { 'network.wireless:status': 'Request timed out' } } }, (r) => {
 			assert.match({ ok: false, error: 'UBUS_CALL_FAILED' }, { ok: r.result.ok, error: r.result.error });
 			assert.match([], r.lines);
 		});

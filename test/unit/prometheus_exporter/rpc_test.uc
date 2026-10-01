@@ -44,6 +44,7 @@ const WIREGUARD = collector('wireguard', { needs: [ 'ubus', 'uci' ], configs: [ 
 const NFT = collector('nft-counters', { needs: [ 'exec' ], commands: [ 'nft' ] });
 const SAMPLER = collector('sampler', { needs: [], options: { retries: 3, verbose: false, label: 'x' } });
 const FAILING = collector('openwrt', { needs: [] }, () => Result.err('UBUS_CALL_FAILED', 'system board: Not found'));
+const IDLE = collector('dnsmasq', { needs: [] }, () => Result.none('dnsmasq is disabled'));
 const ALL = [ LOADAVG, WIFI, TEXTFILE, WIREGUARD, NFT, SAMPLER ];
 
 // apk's file lists: loadavg in the base package, wifi and textfile in their own.
@@ -529,11 +530,22 @@ describe('rpc.scrape_report and rpc.status', () => {
 	it('runs each enabled collector once, and says how it did', () => {
 		with_sys({ textfile: { '.type': 'collector', enabled: '0' } }, { collectors: [ LOADAVG, FAILING, TEXTFILE ] }, (sys) => {
 			assert.match([
-				{ name: 'loadavg', id: 'loadavg', title: 'loadavg', enabled: true, success: true, duration: 0.005, error: null, mounts: [] },
-				{ name: 'openwrt', id: 'openwrt', title: 'openwrt', enabled: true, success: false, duration: 0.005,
-					error: 'UBUS_CALL_FAILED (system board: Not found)', mounts: [] },
-				{ name: 'textfile', id: 'textfile', title: 'textfile', enabled: false, success: null, duration: null, error: null, mounts: [] },
+				{ name: 'loadavg', id: 'loadavg', title: 'loadavg', enabled: true, success: true, observing: true, reason: null,
+					duration: 0.005, error: null, mounts: [] },
+				{ name: 'openwrt', id: 'openwrt', title: 'openwrt', enabled: true, success: false, observing: true, reason: null,
+					duration: 0.005, error: 'UBUS_CALL_FAILED (system board: Not found)', mounts: [] },
+				{ name: 'textfile', id: 'textfile', title: 'textfile', enabled: false, success: null, observing: null, reason: null,
+					duration: null, error: null, mounts: [] },
 			], rpc.scrape_report(sys));
+		});
+	});
+
+	it('says a collector with nothing to observe succeeded, and why it observes nothing', () => {
+		with_sys({}, { collectors: [ IDLE ] }, (sys) => {
+			let c = rpc.scrape_report(sys)[0];
+
+			assert.match({ success: true, observing: false, reason: 'dnsmasq is disabled', error: null },
+				{ success: c.success, observing: c.observing, reason: c.reason, error: c.error });
 		});
 	});
 

@@ -10,6 +10,9 @@
 // `levels` the level of each.
 // Its output must parse as exposition text, or the test fails.
 //
+// outcome(r): what a test checks of with_collector's run that has nothing to
+// observe, or fails: { ok, none, error, lines, logs }.
+//
 // jail_of(mod, cfg): what prometheus_exporter.jail gives the collector module in the
 // exporter's jail, its config as with_collector's; cfg.files are the regular
 // files commands are found among, cfg.absent the paths that are not there (any
@@ -105,6 +108,10 @@ export function with_collector(mod, cfg, cb) {
 			families: parsed.data,
 		});
 	}, id);
+};
+
+export function outcome(r) {
+	return { ok: r.result.ok, none: r.result.none, error: r.result.error, lines: r.lines, logs: r.logs };
 };
 
 export function jail_of(mod, cfg) {

@@ -20,6 +20,7 @@
 
 import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
+import * as services from 'prometheus_exporter.services';
 
 export const meta = {
 	name: 'hostapd_stations',
@@ -95,6 +96,9 @@ function access_point(ubus, m, iface) {
 	return null;
 }
 
+// A device without radios (no network.wireless object, or one without radios)
+// or without a hostapd object for any of their interfaces has nothing to
+// observe.
 export function collect(deps, out) {
 	let res = deps.ubus.list();
 
@@ -103,24 +107,33 @@ export function collect(deps, out) {
 
 	let objects = res.data;
 	res = deps.ubus.call('network.wireless', 'status');
+	if (services.object_missing(res))
+		return Result.none('no wireless radios');
 	if (!res.ok)
 		return res;
 
 	let status = res.data;
 	if (type(status) != 'object')
 		return Result.err(errors.SOURCE_INVALID, 'network.wireless status: not an object');
+	if (!length(status))
+		return Result.none('no wireless radios');
+
+	let served = [];
+
+	for (let radio, r in status)
+		for (let iface in r?.interfaces ?? [])
+			if (type(iface?.ifname) == 'string' && `hostapd.${iface.ifname}` in objects)
+				push(served, iface);
+
+	if (!length(served))
+		return Result.none('no hostapd access points');
 
 	let m = metrics(out);
 	let failure = null;
 
-	for (let radio, r in status) {
-		for (let iface in r?.interfaces ?? []) {
-			if (type(iface?.ifname) != 'string' || !(`hostapd.${iface.ifname}` in objects))
-				continue;
-
-			let fail = access_point(deps.ubus, m, iface);
-			failure ??= fail;
-		}
+	for (let iface in served) {
+		let fail = access_point(deps.ubus, m, iface);
+		failure ??= fail;
 	}
 
 	return failure ?? Result.ok();

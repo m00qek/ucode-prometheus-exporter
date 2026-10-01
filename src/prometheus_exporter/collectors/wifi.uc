@@ -22,6 +22,7 @@
 
 import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
+import * as services from 'prometheus_exporter.services';
 
 export const meta = {
 	name: 'wifi',
@@ -194,15 +195,22 @@ function network(nl, m, radio, iface, with_stations) {
 	return null;
 }
 
+// A device without radios, where netifd has no network.wireless object or one
+// without radios, has nothing to observe. A radio without interfaces is
+// still a radio, with its node_wifi_radio_info.
 export function collect(deps, out, options) {
 	let res = deps.ubus.call('network.wireless', 'status');
 
+	if (services.object_missing(res))
+		return Result.none('no wireless radios');
 	if (!res.ok)
 		return res;
 
 	let status = res.data;
 	if (type(status) != 'object')
 		return Result.err(errors.SOURCE_INVALID, 'network.wireless status: not an object');
+	if (!length(status))
+		return Result.none('no wireless radios');
 
 	let m = metrics(out);
 	let failure = null;

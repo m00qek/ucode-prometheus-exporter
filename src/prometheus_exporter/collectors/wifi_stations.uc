@@ -20,6 +20,7 @@
 
 import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
+import * as services from 'prometheus_exporter.services';
 
 export const meta = {
 	name: 'wifi_stations',
@@ -98,27 +99,38 @@ function interface_stations(nl, m, ifname) {
 	return null;
 }
 
+// A device without radios (no network.wireless object, or one without radios)
+// or whose radios have no interface up has nothing to observe.
 export function collect(deps, out) {
 	let res = deps.ubus.call('network.wireless', 'status');
 
+	if (services.object_missing(res))
+		return Result.none('no wireless radios');
 	if (!res.ok)
 		return res;
 
 	let status = res.data;
 	if (type(status) != 'object')
 		return Result.err(errors.SOURCE_INVALID, 'network.wireless status: not an object');
+	if (!length(status))
+		return Result.none('no wireless radios');
+
+	let ifnames = [];
+
+	for (let radio, r in status)
+		for (let iface in r?.interfaces ?? [])
+			if (type(iface?.ifname) == 'string')
+				push(ifnames, iface.ifname);
+
+	if (!length(ifnames))
+		return Result.none('no wireless interfaces');
 
 	let m = metrics(out);
 	let failure = null;
 
-	for (let radio, r in status) {
-		for (let iface in r?.interfaces ?? []) {
-			if (type(iface?.ifname) != 'string')
-				continue;
-
-			let fail = interface_stations(deps.nl80211, m, iface.ifname);
-			failure ??= fail;
-		}
+	for (let ifname in ifnames) {
+		let fail = interface_stations(deps.nl80211, m, ifname);
+		failure ??= fail;
 	}
 
 	return failure ?? Result.ok();

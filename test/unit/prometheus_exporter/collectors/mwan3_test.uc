@@ -1,7 +1,8 @@
 'use strict';
 
 import { describe, it, prop, gen, assert, contains } from 'utest';
-import { with_collector } from 'context';
+import { with_collector, outcome } from 'context';
+import { rc } from 'lib.rc';
 import * as fixtures from 'lib.fixtures';
 import * as mwan3 from 'prometheus_exporter.collectors.mwan3';
 
@@ -20,7 +21,7 @@ function status_of(reply) {
 }
 
 function run(reply, cb) {
-	with_collector(mwan3, { ubus: { data: { 'mwan3:status': status_of(reply) } } }, cb);
+	with_collector(mwan3, { ubus: { data: { ...rc({ mwan3: true }), 'mwan3:status': status_of(reply) } } }, cb);
 }
 
 function samples(lines, name) {
@@ -117,10 +118,33 @@ describe('collectors.mwan3', () => {
 		});
 	});
 
-	it('passes on the ubus error when mwan3 is not running', () => {
-		with_collector(mwan3, { ubus: { errors: { 'mwan3:status': 'Not found' } } }, (r) => {
+	it('passes on the ubus error of an enabled mwan3', () => {
+		with_collector(mwan3, { ubus: { data: rc({ mwan3: true }), errors: { 'mwan3:status': 'Not found' } } }, (r) => {
 			assert.match({ ok: false, error: 'UBUS_CALL_FAILED', details: 'mwan3 status: Not found' },
 				{ ok: r.result.ok, error: r.result.error, details: r.result.details });
+		});
+	});
+
+	// rpcd's plugin answers status whether mwan3 runs or not: rc is asked first.
+	it('has nothing to observe, and asks mwan3 nothing, where mwan3 is disabled or not installed', () => {
+		with_collector(mwan3, { ubus: { data: rc({ mwan3: false }) } }, (r) => {
+			assert.match({ ok: true, none: 'mwan3 is disabled', error: null, lines: [], logs: [] }, outcome(r));
+		});
+		with_collector(mwan3, { ubus: { data: rc({}) } }, (r) => {
+			assert.match({ ok: true, none: 'mwan3 is not installed', error: null, lines: [], logs: [] }, outcome(r));
+		});
+	});
+
+	it('reads an enabled mwan3 that is stopped, which its interfaces say', () => {
+		run({ interfaces: { wan: { status: 'unknown', enabled: true, running: false, up: false } } }, (r) => {
+			assert.match([ true, null ], [ r.result.ok, r.result.none ]);
+			assert.match(contains([ 'mwan3_interface_running{interface="wan"} 0' ]), r.lines);
+		});
+	});
+
+	it('passes on a failure of rc when it cannot say', () => {
+		with_collector(mwan3, { ubus: { data: { 'mwan3:status': status_of({ interfaces: {} }) }, errors: { 'rc:list': 'Permission denied' } } }, (r) => {
+			assert.match([ true, null ], [ r.result.ok, r.result.none ]);
 		});
 	});
 

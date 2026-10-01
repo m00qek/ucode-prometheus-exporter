@@ -1,7 +1,7 @@
 'use strict';
 
 import { describe, it, prop, gen, assert, contains } from 'utest';
-import { with_collector } from 'context';
+import { with_collector, outcome } from 'context';
 import * as fixtures from 'lib.fixtures';
 import * as snmp6 from 'prometheus_exporter.collectors.snmp6';
 
@@ -98,8 +98,14 @@ describe('collectors.snmp6', () => {
 		});
 	});
 
-	it('fails with SOURCE_UNREADABLE without /proc/net/dev_snmp6 (IPv6 disabled)', () => {
-		with_collector(snmp6, { fs: { data: {}, behavior: { lsdir: () => null } } }, (r) => {
+	it('has nothing to observe without /proc/net/dev_snmp6 (IPv6 disabled)', () => {
+		with_collector(snmp6, { fs: { data: {}, behavior: { lsdir: () => null, stat: () => null } } }, (r) => {
+			assert.match({ ok: true, none: 'no IPv6 (no /proc/net/dev_snmp6)', error: null, lines: [], logs: [] }, outcome(r));
+		});
+	});
+
+	it('fails with SOURCE_UNREADABLE when /proc/net/dev_snmp6 is there and cannot be read', () => {
+		with_collector(snmp6, { fs: { data: {}, behavior: { lsdir: () => null, stat: () => ({ type: 'directory' }) } } }, (r) => {
 			assert.match({ ok: false, error: 'SOURCE_UNREADABLE', details: '/proc/net/dev_snmp6' },
 				{ ok: r.result.ok, error: r.result.error, details: r.result.details });
 			assert.match([], r.lines);

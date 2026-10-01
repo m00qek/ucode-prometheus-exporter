@@ -5,6 +5,7 @@
 
 import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
+import * as services from 'prometheus_exporter.services';
 
 export const meta = {
 	name: 'dnsmasq',
@@ -40,11 +41,13 @@ export function family_of(key) {
 	return [ key in GAUGES ? 'gauge' : 'untyped', `dnsmasq_${key}` ];
 };
 
+// dnsmasq disabled (its init script), or not installed, is nothing to
+// observe; enabled and not answering, a failure.
 export function collect(deps, out) {
 	let res = deps.ubus.call('dnsmasq', 'metrics');
 
 	if (!res.ok)
-		return res;
+		return services.unless_disabled(deps.ubus, 'dnsmasq', res);
 	if (type(res.data) != 'object')
 		return Result.err(errors.SOURCE_INVALID, 'dnsmasq metrics: not an object');
 

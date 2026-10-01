@@ -64,9 +64,12 @@ function parse(fs, out, families, device) {
 export function collect(deps, out) {
 	let devices = deps.fs.lsdir(DEVICES);
 
-	// Where IPv6 is disabled there is no /proc/net/dev_snmp6: nothing to collect.
+	// Where IPv6 is disabled there is no /proc/net/dev_snmp6: nothing to
+	// observe. One that is there and cannot be read is a failure.
 	if (devices == null)
-		return Result.err(errors.SOURCE_UNREADABLE, DEVICES);
+		return deps.fs.stat(DEVICES) == null
+			? Result.none('no IPv6 (no /proc/net/dev_snmp6)')
+			: Result.err(errors.SOURCE_UNREADABLE, DEVICES);
 
 	// A device that goes away before it is read is left out.
 	let families = {};

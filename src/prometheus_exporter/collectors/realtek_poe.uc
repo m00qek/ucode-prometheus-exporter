@@ -5,6 +5,7 @@
 
 import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
+import * as services from 'prometheus_exporter.services';
 
 export const meta = {
 	name: 'realtek-poe',
@@ -18,9 +19,13 @@ export const meta = {
 export const MODES = [ 'PoE', 'Legacy', 'pre-PoE+', 'PoE+' ];
 export const STATES = [ 'Disabled', 'Searching', 'Delivering power', 'Fault', 'Other fault', 'Requesting power' ];
 
+// A device without a realtek-poe switch, where nothing publishes the `poe`
+// ubus object, has nothing to observe.
 export function collect(deps, out) {
 	let res = deps.ubus.call('poe', 'info');
 
+	if (services.object_missing(res))
+		return Result.none('no PoE switch (no poe on ubus)');
 	if (!res.ok)
 		return res;
 

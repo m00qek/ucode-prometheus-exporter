@@ -91,13 +91,15 @@ function pair_labels(out, src, dst) {
 // The labels are src and dst, as the ucode exporter's nat_traffic has them
 // (the Lua one's are src and dest). /proc/net/nf_conntrack is there only
 // while nf_conntrack is loaded: an access point without a firewall has none,
-// which is nothing to report, not a failure. A table that is there but
+// which is nothing to observe, not a failure. A table that is there but
 // cannot be read is one.
 export function collect(deps, out) {
 	let totals = read(deps.fs);
 
 	if (totals == null)
-		return deps.fs.stat(CONNTRACK) == null ? Result.ok() : Result.err(errors.SOURCE_UNREADABLE, CONNTRACK);
+		return deps.fs.stat(CONNTRACK) == null
+			? Result.none('no connection tracking (nf_conntrack is not loaded)')
+			: Result.err(errors.SOURCE_UNREADABLE, CONNTRACK);
 
 	let traffic = out.gauge('node_nat_traffic_bytes', 'Bytes of the connections from src to dst, both directions.');
 	for (let src, dsts in totals)

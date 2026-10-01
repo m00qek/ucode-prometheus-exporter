@@ -23,9 +23,18 @@ export const NEEDS = [ 'fs', 'ubus', 'uci', 'rtnl', 'nl80211', 'socket', 'exec',
 // The functions of fs a collector may use. popen is exec's.
 export const FS_API = [ 'readfile', 'open', 'lsdir', 'glob', 'stat', 'realpath' ];
 
+// The status of a failed ubus call: what ucode's error() puts first, libubus's
+// text for it ('Not found', 'Method not found'), before any ': ' and message.
+// error() clears the error as it reads it, so the status is taken from its text.
+export function ubus_status(message) {
+	let i = index(message, ': ');
+
+	return i < 0 ? message : substr(message, 0, i);
+};
+
 // A ubus connection opened on first use, so a scrape that needs no ubus makes
 // none. A null reply is not a failure by itself: only error() tells a method
-// without data from a failed call.
+// without data from a failed call, whose data is { status } (ubus_status).
 export function ubus_channel(connect_fn) {
 	let conn = null;
 	let tried = false;
@@ -50,7 +59,7 @@ export function ubus_channel(connect_fn) {
 			if (reply === null) {
 				let e = c.error();
 				if (e)
-					return Result.err(errors.UBUS_CALL_FAILED, `${object} ${method}: ${e}`);
+					return Result.err(errors.UBUS_CALL_FAILED, `${object} ${method}: ${e}`, { status: ubus_status(e) });
 			}
 
 			return Result.ok(reply);

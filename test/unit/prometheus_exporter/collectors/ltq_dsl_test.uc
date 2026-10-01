@@ -1,7 +1,7 @@
 'use strict';
 
 import { describe, it, assert, contains } from 'utest';
-import { with_collector } from 'context';
+import { with_collector, outcome } from 'context';
 import * as fixtures from 'lib.fixtures';
 import * as ltq_dsl from 'prometheus_exporter.collectors.ltq_dsl';
 
@@ -116,9 +116,15 @@ describe('collectors.ltq_dsl', () => {
 		});
 	});
 
-	it('passes on the ubus error on a device without a DSL modem', () => {
-		with_collector(ltq_dsl, { ubus: { errors: { 'dsl:metrics': 'Not found' } } }, (r) => {
-			assert.match({ ok: false, error: 'UBUS_CALL_FAILED', details: 'dsl metrics: Not found' },
+	it('has nothing to observe on a device without a DSL modem: no dsl object', () => {
+		with_collector(ltq_dsl, { ubus: { errors: { 'dsl:metrics': "Not found: Failed to resolve object name 'dsl'" } } }, (r) => {
+			assert.match({ ok: true, none: 'no DSL modem (no dsl on ubus)', error: null, lines: [], logs: [] }, outcome(r));
+		});
+	});
+
+	it('passes on any other ubus error, as a dsl object that does not answer', () => {
+		with_collector(ltq_dsl, { ubus: { errors: { 'dsl:metrics': 'Request timed out' } } }, (r) => {
+			assert.match({ ok: false, error: 'UBUS_CALL_FAILED', details: 'dsl metrics: Request timed out' },
 				{ ok: r.result.ok, error: r.result.error, details: r.result.details });
 			assert.match([], r.lines);
 		});

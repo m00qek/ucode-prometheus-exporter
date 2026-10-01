@@ -79,14 +79,14 @@ export function sum_columns(text) {
 
 // Neither sysctl is there until nf_conntrack is loaded, as on an AP without a
 // firewall. A base collector runs on every device, so a device without
-// connection tracking succeeds with nothing to say, as the earlier ucode
-// exporter did; one file without the other is an error. The statistics file
+// connection tracking has nothing to observe, a success, as the earlier ucode
+// exporter had it; one file without the other is an error. The statistics file
 // is there with them unless the kernel lacks CONFIG_NF_CONNTRACK_PROCFS, so
 // without it the statistics are left out; a column the kernel does not write
 // leaves out its statistic.
 export function collect(deps, out) {
 	if (!length(filter(GAUGES, (g) => deps.fs.readfile(g[0]) != null)))
-		return Result.ok();
+		return Result.none('no connection tracking (nf_conntrack is not loaded)');
 
 	for (let g in GAUGES) {
 		let line = first_line(deps.fs, g[0]);

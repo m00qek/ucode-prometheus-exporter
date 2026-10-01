@@ -77,6 +77,38 @@ Every collector, with its title and package (`ucode-prometheus-exporter-…`):
 
 Neither upstream exporter had these: softnet and vmstat (node_exporter's), conntrack's statistics and openwrt_interfaces (netifd's logical interfaces: up, uptime, devices, address counts) in the base package, dhcp_leases (dnsmasq's and odhcpd's active leases), and qdisc (each device's root queueing discipline, as node_exporter's qdisc collector, and SQM's CAKE per tin).
 
+### Nothing to observe
+
+A collector whose subject is not there has nothing to observe, which is a success; one whose subject is there and cannot be read fails:
+
+- **Nothing to observe**: hardware the device lacks, a kernel feature its kernel lacks, or a service someone disabled (its init script not enabled, `/etc/init.d/<service> disable`) or never installed. The collector writes `node_scrape_collector_success 1` and no sample, and the scrape logs nothing of it: it is what the device is, every scrape.
+- **Failure**: a service that is enabled and does not answer (its ubus object missing, a call that fails), a program that fails or runs out of time, a call or a file that cannot be read or parsed. `node_scrape_collector_success 0`, and a warning in the log.
+
+`node_scrape_collector_observing{collector}` is 0 for a collector with nothing to observe and 1 for every other, so a dashboard or an alert tells a device without radios, or with dnsmasq disabled, from one that observes them and has nothing to count (no clients, no leases): both write no sample, and both succeed. Why there is nothing to observe ("dnsmasq is disabled") is in `check`, in the ubus object's `status` (`observing`, `reason`) and on LuCI's status page.
+
+Whether a service is enabled is what rpcd's `rc` object says (`ubus call rc list '{"name":"dnsmasq","skip_running_check":true}'`): rpcd reads `/etc/init.d` and `/etc/rc.d` itself, so the jail needs only the ubus socket it has. A collector asks it only once its own source fails, so a running service costs a scrape nothing more (mwan3 asks first: its ubus object is rpcd's plugin, which answers whether mwan3 runs or not). When rc cannot say, the failure stands.
+
+| | nothing to observe | still a failure |
+|---|---|---|
+| `wifi` | no `network.wireless` object, or one without radios | another failed call; an interface nl80211 cannot answer for |
+| `wifi_stations` | the same, or no radio with an interface | the same |
+| `hostapd_stations` | the same, or no `hostapd.<ifname>` object for any interface | a hostapd object that does not answer |
+| `hostapd_ubus_stations` | no `hostapd.*` object | a hostapd object that does not answer |
+| `ltq-dsl` | no `dsl` object | a `dsl` object that does not answer |
+| `realtek-poe` | no `poe` object | a `poe` object that does not answer |
+| `modemmanager` | ModemManager disabled; or it lists no modem | mmcli failing or timing out with ModemManager enabled |
+| `ubnt-manager` | it lists no radio | a radio that fails or does not answer |
+| `conntrack`, `nat_traffic` | nf_conntrack not loaded | its files there and unreadable |
+| `snmp6` | no `/proc/net/dev_snmp6` (IPv6 disabled) | the directory there and unreadable |
+| `dnsmasq` | dnsmasq disabled, or not installed | enabled, and its `dnsmasq` object missing or failing |
+| `unbound` | unbound disabled, or not installed | enabled, and its control socket not answering |
+| `mwan3` | mwan3 disabled, or not installed | its `mwan3` object failing (enabled and stopped is a reading: `mwan3_interface_running 0`) |
+| `dawn` | DAWN disabled, or not installed | enabled, and its `dawn` object missing or failing |
+| `bmx7` | bmx7 disabled, or not installed | enabled, and its status files unreadable |
+| `dhcp_leases` | dnsmasq (or no dnsmasq instance in `/etc/config/dhcp`) and odhcpd both disabled or not installed; with one enabled, it observes that one | an enabled server not there: no dnsmasq lease file, odhcpd not on ubus |
+
+Every other collector reads what every device has, and fails as before when it cannot; `openwrt_interfaces` fails without netifd.
+
 ## Coming from the feed's exporters
 
 The package conflicts with the feed's `prometheus-node-exporter-ucode` and `prometheus-node-exporter-lua` (both serve `/metrics` from uhttpd, the Lua one on this port): apk installs neither beside it, nor it beside either, and says why:
@@ -187,13 +219,13 @@ scrape_configs:
 
 | | |
 |---|---|
-| `service prometheus-exporter check` | checks the config (with HTTPS, basic auth's user, and whether a scrape is gzipped when asked), lists each collector (title, section, options with their help, needs, what the jail gives it) and runs a scrape, saying what fails and why |
+| `service prometheus-exporter check` | checks the config (with HTTPS, basic auth's user, and whether a scrape is gzipped when asked), lists each collector (title, section, options with their help, needs, what the jail gives it) and runs a scrape, saying what fails and why, and what has [nothing to observe](#nothing-to-observe) and why |
 | `… status` | running, and where it listens, whether a scrape logs in (basic auth) and is gzipped when asked, and how many collectors it serves; or disabled |
 | `… reload` | starts again with the new config; an invalid one keeps the running exporter, and the log says why |
 
 Start and reload refuse an invalid config. Installing or removing a collector package reloads the service.
 
-It logs to syslog as `prometheus-exporter` (`logread -e prometheus-exporter`), each line at its priority: `info` for what it does (how many collectors it serves when it starts, a directory it made, the settings it took over), `warning` for what it does without (a collector that fails, which the scrape answers without; a path the jail cannot mount), `err` for what stops it (an invalid config, a collector that does not load).
+It logs to syslog as `prometheus-exporter` (`logread -e prometheus-exporter`), each line at its priority: `info` for what it does (how many collectors it serves when it starts, a directory it made, the settings it took over), `warning` for what it does without (a collector that fails, which the scrape answers without; a path the jail cannot mount; never a collector with [nothing to observe](#nothing-to-observe)), `err` for what stops it (an invalid config, a collector that does not load).
 
 The programs a collector runs (nft, ethtool, tc, mmcli, ubnt-manager) get 5 seconds in all in each scrape, by default. One still running then is killed, with every process it started (ubnt-manager's ssh to a radio that does not answer), and its collector fails with COMMAND_TIMEOUT; the scrape answers with the rest. A collector stuck for its 5 seconds still leaves the scrape within Prometheus's default `scrape_timeout` of 10 seconds.
 
@@ -236,13 +268,14 @@ It reads with the exporter's own modules, so it sees what the exporter sees, and
 |---|---|
 | `collectors {}` | `{ collectors: [ { name, id, title, help, enabled, package, base, options: [ { name, core, type, default, help, datatype, value, set, error } ], needs, configs, commands, jail: { paths, owned, commands, mounts, problems, missing }, error } ], skipped }` |
 | `validate { main?, collectors? }` | `{ ok, errors: { main: { <option>: message }, collectors: { <module>: { <option>: message } } } }` for values as uci holds them |
-| `status {}` | `{ service: { enabled, boot, running, error, auth, compress }, listen: [ url ], collectors: [ { name, id, title, enabled, success, duration, error, mounts } ] }` |
+| `status {}` | `{ service: { enabled, boot, running, error, auth, compress }, listen: [ url ], collectors: [ { name, id, title, enabled, success, observing, reason, duration, error, mounts } ] }` |
 | `interfaces {}` | `{ interfaces: [ { name, proto } ] }` |
 | `hash_password { password }` | `{ hash }`: a SHA-512-crypt hash of 1000 rounds, freshly salted, for `auth_password` |
 
 - `collectors` and `validate` read the committed configuration, as the exporter does. `validate` checks each value alone, as the exporter would read it: an empty one is unset, and options nobody declared and collectors that are not installed are ignored. The main section's options that go together, basic auth's user and hash and the `cert` and `key` they need, are checked as if the values given were the whole section. No message holds `auth_password`'s value.
 - `hash_password` takes a password of 1 to 256 bytes without control characters; rpcd runs it, unjailed, and logs neither the password nor the hash.
 - A collector's `options` are its own (`core: false`), then, when it runs programs, the core's `timeout` (`core: true`, `datatype` `range(1,30)`): its `default` is the seconds it gets while unset, and `default_from` says whose they are, `meta.timeout` or `exec_timeout`. `validate` takes `timeout` for those collectors, and `exec_timeout` in `main`.
+- `status` gives a collector with [nothing to observe](#nothing-to-observe) `success: true`, `observing: false` and its `reason`; any other that ran has `observing: true` and `reason: null`, and one that did not run `null` for both.
 - `status` scrapes the enabled collectors once, outside the jail, as `check` does, in a process of its own (`/usr/libexec/prometheus-exporter/rpc-status.uc`), and replies when it is done: rpcd answers other calls meanwhile, the collectors' calls to objects rpcd itself serves (`wireguard`, `luci`) among them.
 - `interfaces` is what netifd says (`network.interface dump`), names and protocols only. It never reads `/etc/config/network`, which holds secrets, so a caller allowed this object alone gets every interface.
 - Malformed arguments, and a call that fails, are answered `{ error, message }`.
@@ -337,8 +370,8 @@ export function collect(deps, out, options) {
 - An option's `default` sets its type (boolean, integer or string), `help` says what it does, and `datatype`, optional, narrows its values with one of LuCI's names that the core checks: `uinteger`, `range(min,max)`, `directory` and `file` (an absolute path; it need not exist), and `regex` (one ucode compiles), which LuCI lacks. `collect` gets the options typed; a value that does not fit fails the collector with CONFIG_INVALID.
 - `out.gauge|counter|untyped(name, help)` returns `(labels, value)`, which chains; `out.labels(labels)` makes labels several samples share (a device's, a station's) once, to pass instead of the object; `out.parse(text)` adds exposition text. What a collector records is kept even when it then fails.
 - A scrape writes thousands of samples, and each operation of ucode's VM costs about a microsecond on a router (a regex match several, and a regex literal is compiled each time it is evaluated): keep regexes in module constants, and out of what runs per sample or per line where `index()`, `split()` on a string or `substr()` do. `make bench` shows what a collector costs (see [Benchmarks](#benchmarks)).
-- `collect` returns a Result: `ok` is `node_scrape_collector_success 1`; `err` is 0 and one log line.
-- An absent kernel feature is nothing to report, for any collector: where nf_conntrack is not loaded (an AP without a firewall), conntrack and nat_traffic return `ok` with no samples. A missing service or program (no unbound control socket, no `ethtool`) is an `err`.
+- `collect` returns a Result: `ok` is `node_scrape_collector_success 1`; `err` is 0 and one log line; `none(reason)` is [nothing to observe](#nothing-to-observe): 1, `node_scrape_collector_observing` 0, none of its samples and no log line, for hardware or a kernel feature that is not there (`Result.none('no wireless radios')`), or a service not enabled.
+- `prometheus_exporter.services` tells the two apart over `deps.ubus`: `unless_disabled(deps.ubus, 'dnsmasq', res)` is `none('dnsmasq is disabled')` when rc says the init script is not enabled (or not there), and `res` otherwise; `idle(ubus, name)` is that reason or null; `object_missing(res)` is whether a ubus call failed for its object not being there. A missing program (no `ethtool`) is an `err`.
 
 Each collector needs a test in `test/unit/prometheus_exporter/collectors/`, and a line in the package Makefile that depends on what its `needs` and `commands` call for; `test/integration/collectors_test.uc` holds every collector to both.
 
@@ -358,7 +391,7 @@ What the page saves states every setting, so the file says what the exporter doe
 - The Exporter tab writes every field, at its default too (`option enabled '1'`, `option omit_zero_values '0'`); only the TLS files are left out while empty, as uci holds no empty value. A field emptied is refused.
 - A collector has a `config collector` section only while something differs from its defaults, its switch included: it is added when a value first differs, and removed once all are back. While it is there, it holds the switch and every option the collector declares, each written out; a collector whose row did not change keeps its section as it was.
 
-**Status → Prometheus exporter**: whether the service is enabled and runs, where it serves `/metrics`, whether a scrape logs in and is gzipped, and each collector's result, duration and error in a scrape run on the router (outside the jail) when the page opens or on Refresh, with what the jail mounts for it.
+**Status → Prometheus exporter**: whether the service is enabled and runs, where it serves `/metrics`, whether a scrape logs in and is gzipped, and each collector's result (OK, Failed, or Nothing to observe with why), duration and error in a scrape run on the router (outside the jail) when the page opens or on Refresh, with what the jail mounts for it.
 
 The app's ACL grants the ubus object's four reading methods, `hash_password` to a login that may write, and `/etc/config/prometheus-exporter` to read and write; nothing else.
 

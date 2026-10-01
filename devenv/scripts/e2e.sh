@@ -218,6 +218,42 @@ check "but not the noqueue of the loopback" fails metric 'node_qdisc_[a-z_]*{dev
 check "modemmanager reaches ModemManager over D-Bus in the jail" served modemmanager
 check "ubnt-manager's script runs in the jail, over ssh" metric 'ubnt_uptime_seconds{device="sample_ap"} 4242$'
 
+# --- nothing to observe: hardware that is not there, a service disabled
+# A success without samples, observing 0, that the scrape does not log, and
+# that check and the ubus object's status say, with why.
+observing() { metric "node_scrape_collector_observing{collector=\"$1\"} $2$"; }
+reason() { rpc status | jsonfilter -e "@.collectors[@.name='$1'].reason"; }
+is_reason() { [ "$(reason "$1")" = "$2" ]; }
+logged() { logread | grep -c "collector '$1'"; }
+check "wifi, without a radio here, succeeds" served wifi
+check "with nothing to observe" observing wifi 0
+check "and writes no sample" fails metric 'node_wifi_'
+check "check says why" says '^ok   scrape: wifi has nothing to observe: no wireless radios$' "$INIT" check
+check "and so does the ubus object's status" is_reason wifi 'no wireless radios'
+check "modemmanager asks ModemManager, which lists no modem" says '^ok   scrape: modemmanager has nothing to observe: ModemManager lists no modems$' "$INIT" check
+check "dnsmasq runs, and is observed" observing dnsmasq 1
+check "its metrics are written" metric 'dnsmasq_'
+/etc/init.d/dnsmasq disable
+/etc/init.d/dnsmasq stop
+eventually "dnsmasq stopped and disabled succeeds" served dnsmasq
+check "with nothing to observe, rpcd's rc reached from the jail" observing dnsmasq 0
+check "and writes no sample" fails metric 'dnsmasq_'
+before_logs=$(logged dnsmasq)
+fetch >/dev/null; fetch >/dev/null
+check "a scrape logs nothing of it" test "$(logged dnsmasq)" = "$before_logs"
+check "check says why" says '^ok   scrape: dnsmasq has nothing to observe: dnsmasq is disabled$' "$INIT" check
+check "and so does the ubus object's status" is_reason dnsmasq 'dnsmasq is disabled'
+/etc/init.d/dnsmasq enable
+failing_dnsmasq() { metric 'node_scrape_collector_success{collector="dnsmasq"} 0$'; }
+eventually "enabled and still stopped, dnsmasq fails" failing_dnsmasq
+check "observing it, and failing" observing dnsmasq 1
+check "logged at warning" says "daemon.warn $NAME\[[0-9]*\]: collector 'dnsmasq': UBUS_CALL_FAILED (dnsmasq metrics: Not found" logread
+check "check says why" says '^warn scrape: dnsmasq: UBUS_CALL_FAILED (dnsmasq metrics: Not found' "$INIT" check
+check "and the ubus object's status gives no reason" is_reason dnsmasq ''
+/etc/init.d/dnsmasq start
+eventually "started again, dnsmasq is read again" metric 'dnsmasq_'
+check "and succeeds" served dnsmasq
+
 # --- a program that hangs, in the jail
 # A radio that takes ssh's connection and never says a word holds ssh as an
 # unreachable one does: a socket listening, which accepts nothing. dbclient

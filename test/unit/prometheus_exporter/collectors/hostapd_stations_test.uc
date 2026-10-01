@@ -1,7 +1,7 @@
 'use strict';
 
 import { describe, it, prop, gen, assert, contains } from 'utest';
-import { with_collector } from 'context';
+import { with_collector, outcome } from 'context';
 import * as fixtures from 'lib.fixtures';
 import * as hostapd_stations from 'prometheus_exporter.collectors.hostapd_stations';
 
@@ -113,8 +113,23 @@ describe('collectors.hostapd_stations', () => {
 		});
 	});
 
-	it('passes a failed network.wireless status on', () => {
-		with_collector(hostapd_stations, ap({}, { 'network.wireless:status': 'Not found' }), (r) => {
+	it('has nothing to observe without network.wireless, or radios', () => {
+		with_collector(hostapd_stations, { ubus: { data: {}, errors: { 'network.wireless:status': "Not found: Failed to resolve object name 'network.wireless'" } } }, (r) => {
+			assert.match({ ok: true, none: 'no wireless radios', error: null, lines: [], logs: [] }, outcome(r));
+		});
+		with_collector(hostapd_stations, { ubus: { data: { 'network.wireless:status': {} } } }, (r) => {
+			assert.match({ ok: true, none: 'no wireless radios', error: null, lines: [], logs: [] }, outcome(r));
+		});
+	});
+
+	it('has nothing to observe where hostapd serves none of the interfaces', () => {
+		with_collector(hostapd_stations, { ubus: { data: { 'network.wireless:status': UBUS['network.wireless:status'], 'hostapd:config_add': null } } }, (r) => {
+			assert.match({ ok: true, none: 'no hostapd access points', error: null, lines: [], logs: [] }, outcome(r));
+		});
+	});
+
+	it('passes any other failed network.wireless status on', () => {
+		with_collector(hostapd_stations, ap({}, { 'network.wireless:status': 'Request timed out' }), (r) => {
 			assert.match({ ok: false, error: 'UBUS_CALL_FAILED' }, { ok: r.result.ok, error: r.result.error });
 			assert.match([], r.lines);
 		});

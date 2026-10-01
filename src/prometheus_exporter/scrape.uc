@@ -2,8 +2,15 @@
 
 // One scrape: pick the collectors the query asks for, run each with its deps and
 // options, time it, and write every family once, followed by node_exporter's
-// node_scrape_collector_duration_seconds and node_scrape_collector_success, and
-// the exporter's own ucode_prometheus_exporter_build_info.
+// node_scrape_collector_duration_seconds and node_scrape_collector_success,
+// node_scrape_collector_observing, and the exporter's own
+// ucode_prometheus_exporter_build_info.
+//
+// A collector with nothing to observe (Result.none: its hardware, kernel
+// feature or service is not there) succeeds, writes no samples and is not
+// logged: it is what the device is, every scrape. Its
+// node_scrape_collector_observing is 0, so a dashboard tells it from one that
+// observes and finds nothing to count; every other collector's is 1.
 //
 // env: { session() -> a deps session, clock() -> [ s, ns ] monotonic,
 //        log(level, msg): a collector that fails at warning, as the scrape
@@ -59,7 +66,8 @@ export function select(collectors, query_string, disabled) {
 };
 
 // Runs one collector: { name, result, families, duration }. What it recorded is
-// kept even when it fails, as upstream exporters do.
+// kept even when it fails, as upstream exporters do; nothing is when it has
+// nothing to observe.
 export function run_one(env, session, c) {
 	let rec = exposition.recorder();
 	let t1 = env.clock();
@@ -86,7 +94,7 @@ export function run_one(env, session, c) {
 	for (let name in rec.conflicts())
 		env.log('warning', `collector '${c.meta.name}': '${name}' declared with two types; later samples dropped`);
 
-	return { name: c.meta.name, result: res, families: rec.families(), duration };
+	return { name: c.meta.name, result: res, families: Result.is_none(res) ? [] : rec.families(), duration };
 };
 
 function reply(status, body) {
@@ -125,6 +133,11 @@ export function scrape(env, collectors, query_string) {
 		duration({ collector: r.name }, r.duration);
 	for (let r in runs)
 		success({ collector: r.name }, r.result.ok);
+
+	let observing = scrape_meta.gauge('node_scrape_collector_observing',
+		'Whether a collector had something to observe: 0 when its hardware, kernel feature or service is not there.');
+	for (let r in runs)
+		observing({ collector: r.name }, !Result.is_none(r.result));
 
 	// Whatever the query selects, as node_exporter's node_exporter_build_info.
 	scrape_meta.gauge(BUILD_INFO,
