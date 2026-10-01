@@ -87,4 +87,7 @@ for line in "el.innerHTML = x;" "_('Collector %s').format(name);" "'%s'.format(n
 done
 rm -f "$bad"
 
+# The docs' pinned links, to the package's minor.
+devenv/scripts/docs-links.sh || status=1
+
 exit $status
