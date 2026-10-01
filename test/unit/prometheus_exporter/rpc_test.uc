@@ -7,6 +7,7 @@ import * as deps from 'prometheus_exporter.deps';
 import * as config from 'prometheus_exporter.config';
 import * as jail from 'prometheus_exporter.jail';
 import * as Result from 'prometheus_exporter.result';
+import * as crypt from 'prometheus_exporter.crypt';
 import * as fixtures from 'lib.fixtures';
 import { with_mods } from 'context';
 
@@ -360,6 +361,106 @@ describe('rpc.validate', () => {
 		});
 });
 
+describe('rpc.validate, basic auth', () => {
+	// `uhttpd -m secret`.
+	const HASH = '$1$$ysVNzQc4CTMkp5daOdZ.3/';
+	const TLS = { cert: '/etc/x.crt', key: '/etc/x.key' };
+
+	function validate(main) {
+		let out;
+
+		with_sys({}, { collectors: [] }, (sys) => {
+			out = rpc.validate(sys, { main });
+		});
+
+		return out;
+	}
+
+	it('passes a user and a hash with cert and key', () => {
+		assert.match({ ok: true, errors: { main: {}, collectors: {} } }, validate({ auth_user: 'prom', auth_password: HASH, ...TLS }));
+	});
+
+	it('refuses them without cert and key, on the user\'s field', () => {
+		assert.match({ ok: false, errors: { main: {
+			auth_user: 'basic auth needs HTTPS: set cert and key, or the password crosses the network in the clear',
+		}, collectors: {} } }, validate({ auth_user: 'prom', auth_password: HASH, cert: TLS.cert }));
+	});
+
+	it('refuses half of it, on the field that is missing', () => {
+		assert.match([
+			{ auth_password: 'basic auth needs the hash of a password along with auth_user' },
+			{ auth_user: 'basic auth needs a user along with auth_password' },
+		], [
+			validate({ auth_user: 'prom', ...TLS }).errors.main,
+			validate({ auth_password: HASH, ...TLS }).errors.main,
+		]);
+	});
+
+	it('refuses a password that is not a crypt hash, and never says it', () => {
+		let res = validate({ auth_user: 'prom', auth_password: 'hunter2', ...TLS });
+
+		assert.match({ auth_password: 'expected a crypt hash: $1$ (uhttpd -m), $5$ or $6$' }, res.errors.main);
+		assert.match(-1, index(sprintf('%J', res), 'hunter2'));
+	});
+
+	it('takes an empty user and password as none', () => {
+		assert.match(true, validate({ auth_user: '', auth_password: '' }).ok);
+	});
+
+	prop('refuses basic auth exactly when cert or key is missing',
+		gen.tuple(gen.elements('', TLS.cert), gen.elements('', TLS.key)), (t) => {
+			let main = { auth_user: 'prom', auth_password: HASH, cert: t[0], key: t[1] };
+
+			assert.match(t[0] != '' && t[1] != '', validate(main).ok);
+		});
+});
+
+describe('rpc.hash_password', () => {
+	function hash_password(args, random) {
+		return rpc.hash_password({ random: random ?? ((n) => substr('abcdefghijklmnopqrstuvwxyz', 0, n)) }, args);
+	}
+
+	it('gives a fresh SHA-512-crypt hash of the password, which the config takes', () => {
+		let res = hash_password({ password: 'secret' });
+
+		assert.match([ 'hash' ], keys(res));
+		assert.match(true, crypt.verify('secret', res.hash));
+		assert.match(true, config.datatype('crypt').check(res.hash));
+	});
+
+	it('salts each hash with the random bytes it gets', () => {
+		let a = hash_password({ password: 'secret' }, (n) => substr('aaaaaaaaaaaaaaaa', 0, n));
+		let b = hash_password({ password: 'secret' }, (n) => substr('bbbbbbbbbbbbbbbb', 0, n));
+
+		assert.match(false, a.hash == b.hash);
+	});
+
+	it('refuses a password it does not take, without saying it', () => {
+		assert.match([
+			{ error: rpc.ARGS_INVALID, message: 'password: expected a password' },
+			{ error: rpc.ARGS_INVALID, message: 'password: expected a password' },
+			{ error: rpc.ARGS_INVALID, message: 'password: expected a password without control characters' },
+		], [
+			hash_password({}),
+			hash_password({ password: 42 }),
+			hash_password({ password: 'a\tb' }),
+		]);
+	});
+
+	it('says when there is no randomness', () => {
+		assert.match({ error: 'CONFIG_INVALID', message: 'CONFIG_INVALID (no random bytes for a salt)' },
+			hash_password({ password: 'secret' }, () => null));
+	});
+
+	it('is served on a sys without collectors', () => {
+		let opts = [];
+		let m = rpc.methods(function(o) { push(opts, o); return { random: (n) => substr('abcdefghijklmnop', 0, n) }; }, null);
+		let res = m.hash_password.call({ args: { password: 'secret' } });
+
+		assert.match([ [ { collectors: false } ], true ], [ opts, crypt.verify('secret', res.hash) ]);
+	});
+});
+
 describe('rpc.service', () => {
 	const RUNNING = { [NAME]: { instances: { instance1: { running: true,
 		command: [ '/usr/sbin/uhttpd', '-f', '-p', '192.168.1.1:9100', '-p', '[fd00::1]:9100' ] } } } };
@@ -376,14 +477,14 @@ describe('rpc.service', () => {
 
 	it('says a running instance runs, and where it listens', () => {
 		assert.match({
-			service: { enabled: true, boot: true, running: true, error: null, compress: true },
+			service: { enabled: true, boot: true, running: true, error: null, auth: false, compress: true },
 			listen: [ 'http://192.168.1.1:9100/metrics', 'http://[fd00::1]:9100/metrics' ],
 		}, service({}, { data: { 'service:list': RUNNING } }, [ `${rpc.RC_DIR}/S60${NAME}` ]));
 	});
 
 	it('says a service without instances is not running, and listens nowhere', () => {
 		assert.match({
-			service: { enabled: false, boot: false, running: false, error: null, compress: true },
+			service: { enabled: false, boot: false, running: false, error: null, auth: false, compress: true },
 			listen: [],
 		}, service({ main: { '.type': NAME, enabled: '0' } }, { data: { 'service:list': {} } }, []));
 	});
@@ -407,15 +508,18 @@ describe('rpc.service', () => {
 		assert.match([ false, [] ], [ res.service.running, res.listen ]);
 	});
 
-	it('says whether a scrape is compressed when asked', () => {
-		let res = service({ main: { '.type': NAME, compress: '0' } }, { data: { 'service:list': {} } }, []);
+	it('says whether a scrape logs in and is compressed, and never the hash', () => {
+		let hash = '$1$$ysVNzQc4CTMkp5daOdZ.3/';
+		let res = service({ main: { '.type': NAME, auth_user: 'prom', auth_password: hash, cert: '/c', key: '/k', compress: '0' } },
+			{ data: { 'service:list': {} } }, []);
 
-		assert.match(false, res.service.compress);
+		assert.match([ true, false ], [ res.service.auth, res.service.compress ]);
+		assert.match(-1, index(sprintf('%J', res), hash));
 	});
 
 	it('says when procd cannot be asked, and when the main section is invalid', () => {
 		assert.match({
-			service: { enabled: null, boot: false, running: null, error: 'UBUS_CALL_FAILED (service list: Not found)', compress: true },
+			service: { enabled: null, boot: false, running: null, error: 'UBUS_CALL_FAILED (service list: Not found)', auth: null, compress: true },
 			listen: [],
 		}, service({ main: { '.type': NAME, enabled: 'maybe' } }, { errors: { 'service:list': 'Not found' } }));
 	});
@@ -579,7 +683,7 @@ describe('rpc.methods', () => {
 			watch: () => null,
 		});
 
-		assert.match([ 'collectors', 'interfaces', 'status', 'validate' ], sort(keys(m)));
+		assert.match([ 'collectors', 'hash_password', 'interfaces', 'status', 'validate' ], sort(keys(m)));
 		assert.match({ collectors: [], skipped: [] }, m.collectors.call({ args: {} }));
 		assert.match({ ok: true, errors: { main: {}, collectors: {} } }, m.validate.call({ args: { main: { listen_port: '80' } } }));
 		assert.match(2, made);
@@ -607,7 +711,8 @@ describe('rpc.methods', () => {
 	it('declares the arguments rpcd checks', () => {
 		let m = rpc.methods(() => null, null);
 
-		assert.match([ {}, { main: {}, collectors: {} }, {}, {} ], [ m.collectors.args, m.validate.args, m.status.args, m.interfaces.args ]);
+		assert.match([ {}, { main: {}, collectors: {} }, {}, {}, { password: '' } ],
+			[ m.collectors.args, m.validate.args, m.status.args, m.interfaces.args, m.hash_password.args ]);
 	});
 
 	it('names the object and the helper after the exporter\'s package', () => {

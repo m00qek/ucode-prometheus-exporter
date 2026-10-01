@@ -1,15 +1,18 @@
 'use strict';
 
 // Options from /etc/config/prometheus-exporter. Each is declared as
-// { default, help, datatype }: the default sets its type (a boolean takes uci's
-// boolean spellings, an integer an integer, a string any single value), help
-// is a sentence saying what it does, and the optional datatype, one of LuCI's
-// names (and `regex`), narrows the values it takes as LuCI would. Unset options
-// take the default; options nobody declared are ignored, so an older config
-// never breaks a scrape.
+// { default, help, datatype, secret }: the default sets its type (a boolean
+// takes uci's boolean spellings, an integer an integer, a string any single
+// value), help is a sentence saying what it does, and the optional datatype,
+// one of LuCI's names (and `regex`, `username` and `crypt`), narrows the values
+// it takes as LuCI would. A secret option's value is never part of a message.
+// Unset options take the default; options nobody declared are ignored, so an
+// older config never breaks a scrape.
 
 import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
+import * as crypt from 'prometheus_exporter.crypt';
+import { is_user } from 'prometheus_exporter.auth';
 
 // The service's name: its uci config (and the main section's type), its init
 // script, its command, its libexec directory and its ubus object.
@@ -78,8 +81,11 @@ function absolute_path(v) {
 
 // The datatypes the core enforces, by LuCI's names: what value type each
 // takes, what it calls a valid value, and whether a value is one. Syntactic
-// only: a directory or file is an absolute path, not one that exists.
+// only: a directory or file is an absolute path, not one that exists. Besides
+// LuCI's, regex, and username and crypt, basic auth's user and hash.
 const DATATYPES = {
+	username: { types: [ 'string' ], expected: 'a user of 1 to 64 characters, without ":", spaces or control characters', check: is_user },
+	crypt: { types: [ 'string' ], expected: 'a crypt hash: $1$ (uhttpd -m), $5$ or $6$', check: crypt.is_hash },
 	uinteger: { types: [ 'int' ], expected: 'an integer of 0 or more', check: (v) => v >= 0 },
 	directory: { types: [ 'string' ], expected: 'an absolute path', check: absolute_path },
 	file: { types: [ 'string' ], expected: 'an absolute path', check: absolute_path },
@@ -111,41 +117,44 @@ export function datatype(name) {
 	return (type(name) == 'string') ? DATATYPES[name] : null;
 };
 
-function invalid(name, expected, value) {
-	return Result.err(errors.CONFIG_INVALID, `${name}: expected ${expected}, got ${sprintf('%J', value)}`);
+// What option `spec` expected of a value it does not take: and what it got,
+// unless the option is a secret.
+function invalid(name, expected, value, spec) {
+	return Result.err(errors.CONFIG_INVALID,
+		`${name}: expected ${expected}` + (spec?.secret ? '' : `, got ${sprintf('%J', value)}`));
 }
 
 // A uci value as the type of the option's default.
-function typed(name, value, fallback) {
-	switch (type(fallback)) {
+function typed(name, value, spec) {
+	switch (type(spec.default)) {
 	case 'bool':
 		if (value in TRUE)
 			return Result.ok(true);
 		if (value in FALSE)
 			return Result.ok(false);
-		return invalid(name, 'a boolean', value);
+		return invalid(name, 'a boolean', value, spec);
 
 	case 'int':
 		if (type(value) == 'string' && match(value, /^-?[0-9]+$/))
 			return Result.ok(int(value));
-		return invalid(name, 'an integer', value);
+		return invalid(name, 'an integer', value, spec);
 
 	case 'string':
 		if (type(value) == 'string')
 			return Result.ok(value);
-		return invalid(name, 'a single value', value);
+		return invalid(name, 'a single value', value, spec);
 	}
 
-	die(`option ${name}: unsupported default ${sprintf('%J', fallback)}`);
+	die(`option ${name}: unsupported default ${sprintf('%J', spec.default)}`);
 }
 
-// A uci value as option `spec` ({ default, datatype }) takes it.
+// A uci value as option `spec` ({ default, datatype, secret }) takes it.
 export function convert(name, value, spec) {
-	let res = typed(name, value, spec.default);
+	let res = typed(name, value, spec);
 	let dt = (res.ok && spec.datatype != null) ? datatype(spec.datatype) : null;
 
 	if (dt && !dt.check(res.data))
-		return invalid(name, dt.expected, res.data);
+		return invalid(name, dt.expected, res.data, spec);
 
 	return res;
 };
@@ -188,7 +197,8 @@ export function main(uci) {
 };
 
 // The main section's options the init script reads, with its defaults: whether
-// the service runs, where uhttpd listens, and its TLS files ('' for none).
+// the service runs, where uhttpd listens, its TLS files ('' for none), and the
+// user and password hash of basic auth ('' for none).
 export const SERVICE_OPTIONS = {
 	enabled: { default: true, help: 'Run the service; 0 stops it.' },
 	listen_interface: { default: 'loopback', help: 'The logical interface uhttpd listens on, or * for every address.' },
@@ -196,17 +206,64 @@ export const SERVICE_OPTIONS = {
 	http_keepalive: { default: 70, datatype: 'uinteger', help: 'Seconds an idle connection is kept open; 0 for none.' },
 	cert: { default: '', help: 'The certificate to serve HTTPS with, along with key.' },
 	key: { default: '', help: 'The private key of cert.' },
+	auth_user: { default: '', datatype: 'username', help: 'The user a scrape logs in as (basic auth), with auth_password; HTTPS only.' },
+	auth_password: {
+		default: '', datatype: 'crypt', secret: true,
+		help: 'The crypt hash of the password of auth_user: $1$ (uhttpd -m), $5$ or $6$, as the ubus object\'s hash_password makes it.',
+	},
 };
 
-// The init script's options, checked so that start refuses what it would
-// misread.
-export function service(uci) {
+// The init script's options, each alone: what it would misread.
+export function service_values(uci) {
 	let res = section(uci, 'main', NAME, SERVICE_OPTIONS);
 
 	if (res.ok && res.data.listen_interface == '')
 		return invalid('listen_interface', 'an interface name or *', '');
 
 	return res;
+};
+
+// What is wrong of the init script's options that go together (`o`, typed),
+// by option: basic auth's user and hash need each other, and both need cert
+// and key, as Basic sends the password in the clear.
+export function together(o) {
+	let out = {};
+	let user = (o.auth_user ?? '') != '', hash = (o.auth_password ?? '') != '';
+
+	if (user && !hash)
+		out.auth_password = 'basic auth needs the hash of a password along with auth_user';
+	else if (hash && !user)
+		out.auth_user = 'basic auth needs a user along with auth_password';
+
+	if ((user || hash) && ((o.cert ?? '') == '' || (o.key ?? '') == ''))
+		out[user ? 'auth_user' : 'auth_password'] ??= 'basic auth needs HTTPS: set cert and key, or the password crosses the network in the clear';
+
+	return out;
+};
+
+// The init script's options, checked so that start refuses what it would
+// misread, or serve without what it is told to (basic auth over HTTP).
+export function service(uci) {
+	let res = service_values(uci);
+
+	if (!res.ok)
+		return res;
+
+	for (let name, msg in together(res.data))
+		return Result.err(errors.CONFIG_INVALID, `${name}: ${msg}`);
+
+	return res;
+};
+
+// Basic auth as the main section sets it: a Result of { user, hash }, or of
+// null when it sets none; an error when the init script's options are not valid.
+export function auth(uci) {
+	let res = service(uci);
+
+	if (!res.ok)
+		return res;
+
+	return Result.ok(res.data.auth_user != '' ? { user: res.data.auth_user, hash: res.data.auth_password } : null);
 };
 
 // The seconds a collector's programs get when its section sets no timeout:

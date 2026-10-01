@@ -31,8 +31,8 @@ define Package/$(PKG_NAME)
   $(call Package/$(PKG_NAME)/Default)
   # rpcd-mod-ucode serves the service's ubus object; ucode-mod-uloop lets it
   # wait for a status scrape without blocking rpcd. ucode-mod-zlib gzips a
-  # scrape.
-  DEPENDS:=+uhttpd +uhttpd-mod-ucode +ucode +ucode-mod-fs +ucode-mod-ubus +ucode-mod-uci +ucode-mod-rtnl +ucode-mod-log +rpcd-mod-ucode +ucode-mod-uloop +ucode-mod-zlib
+  # scrape, and ucode-mod-digest hashes basic auth's password.
+  DEPENDS:=+uhttpd +uhttpd-mod-ucode +ucode +ucode-mod-fs +ucode-mod-ubus +ucode-mod-uci +ucode-mod-rtnl +ucode-mod-log +rpcd-mod-ucode +ucode-mod-uloop +ucode-mod-zlib +ucode-mod-digest
   # The feed's exporters it replaces, which want the same port. CONFLICTS
   # keeps an image from building both in, but apk packages do not carry it:
   # a dependency on !<name> is apk's conflict, refused either way round.
@@ -80,7 +80,7 @@ define Package/$(PKG_NAME)/install
 	$(foreach c,$(BASE_COLLECTORS),$(INSTALL_DATA) ./src/prometheus_exporter/collectors/$(c).uc $(1)$(COLLECTORS_DIR)/;)
 	$(INSTALL_DIR) $(1)/usr/libexec/$(SERVICE)
 	$(INSTALL_DATA) ./files/usr/libexec/$(SERVICE)/handler.uc $(1)/usr/libexec/$(SERVICE)/
-	$(INSTALL_BIN) $(foreach f,jail check status import watch rpc-status,./files/usr/libexec/$(SERVICE)/$(f).uc) $(1)/usr/libexec/$(SERVICE)/
+	$(INSTALL_BIN) $(foreach f,jail check status import watch rpc-status auth,./files/usr/libexec/$(SERVICE)/$(f).uc) $(1)/usr/libexec/$(SERVICE)/
 	# The service's ubus object, which rpcd serves (prometheus_exporter.rpc).
 	$(INSTALL_DIR) $(1)/usr/share/rpcd/ucode
 	$(INSTALL_DATA) ./files/usr/share/rpcd/ucode/$(SERVICE).uc $(1)/usr/share/rpcd/ucode/

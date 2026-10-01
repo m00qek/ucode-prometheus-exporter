@@ -11,6 +11,7 @@ export const COLLECTOR_INVALID    = 'COLLECTOR_INVALID';
 
 // Configuration
 export const CONFIG_INVALID       = 'CONFIG_INVALID';
+export const FILE_UNWRITABLE      = 'FILE_UNWRITABLE';
 
 // Capabilities
 export const NEED_MISSING         = 'NEED_MISSING';

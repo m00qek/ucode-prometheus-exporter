@@ -23,6 +23,9 @@ const FAILING = collector('openwrt', () => Result.err('UBUS_CALL_FAILED', 'syste
 const TEXTFILE = collector('textfile', () => Result.ok(), { needs: [ 'fs' ], options: { directory: { default: '/var/prometheus', datatype: 'directory', help: 'Where.' } }, paths: [ '{directory}' ] });
 const NFT = collector('nft-counters', () => Result.ok(), { needs: [ 'exec' ], commands: [ 'nft' ] });
 
+// `uhttpd -m secret`.
+const HASH = '$1$$ysVNzQc4CTMkp5daOdZ.3/';
+
 // check.run over the mocks: `own` is the exporter's config, `files` the regular
 // files stat finds.
 function run(own, collectors, opts, files, skipped) {
@@ -101,6 +104,41 @@ describe('check.run --config', () => {
 			run(tls('/etc/x.crt', '/etc/x.key'), [], { config_only: true }, [ '/etc/x.crt' ]).lines);
 		assert.match(contains([ 'ok   main: HTTPS on interface loopback, port 9100, keepalive 70s, exec_timeout 5s, gzip when asked' ]),
 			run(tls('/etc/x.crt', '/etc/x.key'), [], { config_only: true }, [ '/etc/x.crt', '/etc/x.key' ]).lines);
+	});
+
+	it('says basic auth is on, with its user and never its hash, and compress off', () => {
+		let main = { '.type': config.NAME, cert: '/etc/x.crt', key: '/etc/x.key', auth_user: 'prom', auth_password: HASH, compress: '0' };
+		let r = run({ main }, [], { config_only: true }, [ '/etc/x.crt', '/etc/x.key' ]);
+
+		assert.match(true, r.ok);
+		assert.match(contains([ 'ok   main: HTTPS on interface loopback, port 9100, keepalive 70s, basic auth as user "prom", exec_timeout 5s, no compression (option compress)' ]),
+			r.lines);
+		assert.match(-1, index(join('\n', r.lines), HASH));
+	});
+
+	it('fails basic auth without cert and key, and with one that is missing: it would serve HTTP', () => {
+		let main = { '.type': config.NAME, auth_user: 'prom', auth_password: HASH };
+		let without = run({ main }, [], { config_only: true });
+		let missing = run({ main: { ...main, cert: '/etc/x.crt', key: '/etc/x.key' } }, [], { config_only: true }, [ '/etc/x.crt' ]);
+
+		assert.match([ false, false ], [ without.ok, missing.ok ]);
+		assert.match(contains([ 'FAIL main: CONFIG_INVALID (auth_user: basic auth needs HTTPS: set cert and key, or the password crosses the network in the clear)' ]),
+			without.lines);
+		assert.match(contains([ 'FAIL main: /etc/x.key is missing; basic auth takes HTTPS only, so the service does not start until it is there' ]),
+			missing.lines);
+	});
+
+	it('fails half of basic auth, and a password that is not a hash, without saying it', () => {
+		let tls = { '.type': config.NAME, cert: '/etc/x.crt', key: '/etc/x.key' };
+		let files = [ '/etc/x.crt', '/etc/x.key' ];
+
+		assert.match([
+			'FAIL main: CONFIG_INVALID (auth_password: basic auth needs the hash of a password along with auth_user)',
+			'FAIL main: CONFIG_INVALID (auth_password: expected a crypt hash: $1$ (uhttpd -m), $5$ or $6$)',
+		], [
+			run({ main: { ...tls, auth_user: 'prom' } }, [], { config_only: true }, files).lines[0],
+			run({ main: { ...tls, auth_user: 'prom', auth_password: 'hunter2' } }, [], { config_only: true }, files).lines[0],
+		]);
 	});
 
 	it('says when the service is disabled', () => {
@@ -220,16 +258,21 @@ describe('check.status', () => {
 		});
 	});
 
-	it('says when compress is off', () => {
+	it('says when a scrape logs in, by uhttpd\'s config file, and when compress is off', () => {
 		with_mods({ uci: { data: { [config.NAME]: { main: { '.type': config.NAME, compress: '0' } } } } }, (mods) => {
-			assert.match('listening on http://*:9100/metrics, serving 1 collector',
-				check.status([ '/usr/sbin/uhttpd', '-p', '9100' ], [ OK ], mods.uci.cursor()));
+			let cmd = [ '/usr/sbin/uhttpd', '-f', '-c', '/var/run/prometheus-exporter/uhttpd.conf', '-r', 'prometheus-exporter', '-s', '9100' ];
+
+			assert.match('listening on https://*:9100/metrics, basic auth, serving 1 collector',
+				check.status(cmd, [ OK ], mods.uci.cursor()));
 		});
 	});
 
-	it('says no compression in check, by its option', () => {
-		assert.match(contains([ 'ok   main: HTTP on interface loopback, port 9100, keepalive 70s, exec_timeout 5s, no compression (option compress)' ]),
-			run({ main: { '.type': config.NAME, compress: '0' } }, [], { config_only: true }).lines);
+	it('reads basic auth off uhttpd\'s command line: a config file other than /dev/null', () => {
+		assert.match([ true, false, false ], [
+			check.logs_in([ 'uhttpd', '-c', '/var/run/x.conf', '-p', '1' ]),
+			check.logs_in([ 'uhttpd', '-c', '/dev/null', '-p', '1' ]),
+			check.logs_in([ 'uhttpd', '-p', '1', '-c' ]),
+		]);
 	});
 
 	it('tells uhttpd from the watch instance beside it', () => {

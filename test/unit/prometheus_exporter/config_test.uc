@@ -2,6 +2,7 @@
 
 import { describe, it, prop, gen, assert, mock } from 'utest';
 import * as config from 'prometheus_exporter.config';
+import * as crypt from 'prometheus_exporter.crypt';
 
 function with_uci(sections, cb) {
 	mock.inject('uci', { strict: true, data: { [config.NAME]: sections } }, (uci) => cb(uci.cursor()));
@@ -254,11 +255,12 @@ describe('config.service', () => {
 
 	it('gives the init script\'s defaults for a missing section', () => {
 		assert.match(config.defaults(config.SERVICE_OPTIONS), service(null));
-		assert.match({ enabled: true, listen_interface: 'loopback', listen_port: 9100, http_keepalive: 70, cert: '', key: '' }, service(null));
+		assert.match({ enabled: true, listen_interface: 'loopback', listen_port: 9100, http_keepalive: 70, cert: '', key: '', auth_user: '', auth_password: '' },
+			service(null));
 	});
 
 	it('reads the options, typed', () => {
-		assert.match({ enabled: false, listen_interface: '*', listen_port: 9100, http_keepalive: 0, cert: '/etc/x.crt', key: '' },
+		assert.match({ enabled: false, listen_interface: '*', listen_port: 9100, http_keepalive: 0, cert: '/etc/x.crt', key: '', auth_user: '', auth_password: '' },
 			service({ enabled: '0', listen_interface: '*', listen_port: '9100', http_keepalive: '0', cert: '/etc/x.crt' }));
 	});
 
@@ -337,6 +339,132 @@ describe('config.datatype', () => {
 
 	it('checks a value only once it has the type of the default', () => {
 		assert.match('o: expected an integer, got "x"', config.convert('o', 'x', spec(5, 'uinteger')).details);
+	});
+});
+
+// `uhttpd -m secret`, and a $6$ hash.
+const MD5 = '$1$$ysVNzQc4CTMkp5daOdZ.3/';
+const SHA512 = crypt.sha_crypt('6', 'secret', 'saltsalt', 1000);
+const TLS = { cert: '/etc/uhttpd.crt', key: '/etc/uhttpd.key' };
+
+// Any hash of the formats, by its form.
+const HASH = gen.oneof(
+	gen.map(gen.tuple(gen.string({ min_len: 0, max_len: 8, charset: crypt.ITOA64 }), gen.string({ len: 22, charset: crypt.ITOA64 })),
+		(t) => `$1$${t[0]}$${t[1]}`),
+	gen.map(gen.tuple(gen.elements('5', '6'), gen.optional(gen.int(crypt.ROUNDS_MIN, crypt.ROUNDS_MAX)),
+		gen.string({ min_len: 0, max_len: 16, charset: crypt.ITOA64 }), gen.string({ len: 86, charset: crypt.ITOA64 })),
+		(t) => '$' + t[0] + '$' + (t[1] != null ? 'rounds=' + t[1] + '$' : '') + t[2] + '$' + substr(t[3], 0, t[0] == '5' ? 43 : 86))
+);
+
+const USER = gen.string({ min_len: 1, max_len: 20, charset: 'abcXYZ019._-@' });
+
+describe('config.service, basic auth', () => {
+	function service(main) {
+		let out;
+		with_uci({ main: { '.type': config.NAME, ...main } }, (uci) => { out = config.service(uci); });
+		return out.ok ? out.data : err_details(out);
+	}
+
+	function auth(main) {
+		let out;
+		with_uci({ main: { '.type': config.NAME, ...main } }, (uci) => { out = config.auth(uci); });
+		return out.ok ? out.data : err_details(out);
+	}
+
+	it('takes a user and a crypt hash, with cert and key', () => {
+		assert.match({ user: 'prom', hash: MD5 }, auth({ auth_user: 'prom', auth_password: MD5, ...TLS }));
+		assert.match({ user: 'prom', hash: SHA512 }, auth({ auth_user: 'prom', auth_password: SHA512, ...TLS }));
+	});
+
+	it('is off without them, as before', () => {
+		assert.match([ null, null ], [ auth({}), auth(TLS) ]);
+	});
+
+	it('refuses basic auth without cert or key', () => {
+		let why = 'CONFIG_INVALID: auth_user: basic auth needs HTTPS: set cert and key, or the password crosses the network in the clear';
+
+		assert.match([ why, why, why ], [
+			service({ auth_user: 'prom', auth_password: MD5 }),
+			service({ auth_user: 'prom', auth_password: MD5, cert: TLS.cert }),
+			service({ auth_user: 'prom', auth_password: MD5, key: TLS.key }),
+		]);
+	});
+
+	it('refuses half of it: a user without a hash, or a hash without a user', () => {
+		assert.match([
+			'CONFIG_INVALID: auth_password: basic auth needs the hash of a password along with auth_user',
+			'CONFIG_INVALID: auth_user: basic auth needs a user along with auth_password',
+		], [
+			service({ auth_user: 'prom', ...TLS }),
+			service({ auth_password: MD5, ...TLS }),
+		]);
+	});
+
+	it('refuses a password that is not a crypt hash, without saying it', () => {
+		for (let v in [ 'secret', '$p$root', 'ab01FAX.bQRSU', '$2b$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy' ]) {
+			let why = service({ auth_user: 'prom', auth_password: v, ...TLS });
+
+			assert.match('CONFIG_INVALID: auth_password: expected a crypt hash: $1$ (uhttpd -m), $5$ or $6$', why);
+			assert.match(-1, index(why, v));
+		}
+	});
+
+	it('never says a password given as a list either', () => {
+		assert.match('CONFIG_INVALID: auth_password: expected a single value',
+			service({ auth_user: 'prom', auth_password: [ 'secret', 'other' ], ...TLS }));
+	});
+
+	it('refuses a user with a ":", a space or nothing', () => {
+		let why = 'CONFIG_INVALID: auth_user: expected a user of 1 to 64 characters, without ":", spaces or control characters';
+
+		assert.match([ `${why}, got "a:b"`, `${why}, got "a b"`, `${why}, got ""` ],
+			map([ 'a:b', 'a b', '' ], (u) => service({ auth_user: u, auth_password: MD5, ...TLS })));
+	});
+
+	prop('refuses basic auth without both cert and key, whatever else is set',
+		gen.tuple(USER, HASH, gen.elements('', TLS.cert), gen.elements('', TLS.key), gen.elements('loopback', '*', 'lan'), gen.int(1, 65535)),
+		(t) => {
+			let main = { auth_user: t[0], auth_password: t[1], listen_interface: t[4], listen_port: '' + t[5] };
+
+			if (t[2] != '')
+				main.cert = t[2];
+			if (t[3] != '')
+				main.key = t[3];
+
+			let why = service(main);
+
+			assert.match(t[2] != '' && t[3] != '', type(why) == 'object', why);
+			if (type(why) == 'string')
+				assert.match(true, index(why, 'basic auth needs HTTPS') > 0);
+		});
+
+	prop('takes any crypt hash of the formats as auth_password', HASH, (h) => {
+		assert.match({ user: 'prom', hash: h }, auth({ auth_user: 'prom', auth_password: h, ...TLS }));
+	});
+
+	prop('refuses any other text as auth_password, and never says it', gen.ascii({ min_len: 1, max_len: 120 }), (v) => {
+		if (crypt.is_hash(v))
+			return;
+
+		assert.match('CONFIG_INVALID: auth_password: expected a crypt hash: $1$ (uhttpd -m), $5$ or $6$',
+			auth({ auth_user: 'prom', auth_password: v, ...TLS }), v);
+	});
+});
+
+describe('config.together', () => {
+	it('names the option each problem is with', () => {
+		assert.match([
+			{},
+			{},
+			{ auth_password: 'basic auth needs the hash of a password along with auth_user' },
+			{ auth_user: 'basic auth needs a user along with auth_password',
+			  auth_password: 'basic auth needs HTTPS: set cert and key, or the password crosses the network in the clear' },
+		], [
+			config.together({}),
+			config.together({ auth_user: 'u', auth_password: MD5, ...TLS }),
+			config.together({ auth_user: 'u', ...TLS }),
+			config.together({ auth_password: MD5 }),
+		]);
 	});
 });
 

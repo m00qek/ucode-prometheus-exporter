@@ -17,6 +17,11 @@ config prometheus-exporter 'main'
 	# Serve HTTPS: both files must exist, and uhttpd needs a TLS library.
 	#option cert '/etc/uhttpd.crt'
 	#option key '/etc/uhttpd.key'
+	# Basic auth, over HTTPS only: a user, and the crypt hash of its password
+	# ($1$, $5$ or $6$), as `ubus call prometheus-exporter hash_password` or
+	# `uhttpd -m` prints it; never the password itself.
+	#option auth_user 'prometheus'
+	#option auth_password '$6$rounds=1000$...'
 
 # A collector's section is named after its module ('ltq_dsl' for ltq-dsl) and
 # is optional: without one, the collector runs with its default options.

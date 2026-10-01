@@ -116,6 +116,8 @@ config prometheus-exporter 'main'
 	option compress '1'                # 0: never gzip a scrape
 	#option cert '/etc/uhttpd.crt'     # both, for HTTPS
 	#option key '/etc/uhttpd.key'
+	#option auth_user 'prometheus'     # basic auth, with cert and key only
+	#option auth_password '$6$rounds=1000$...' # a crypt hash, never the password
 
 config collector 'textfile'          # named after the module: ltq_dsl for ltq-dsl
 	option enabled '1'                 # 0: not served; naming it in a query is a 400
@@ -145,12 +147,47 @@ A scrape is sent gzip-compressed when the scraper asks for it (`Accept-Encoding:
 
 A whole scrape of the lab (every collector, about 1250 series, on x86_64) is 143,500 bytes plain and 21,640 gzipped, 6.6 times smaller; deflating it takes about 1 ms (3 ms at zlib's default level, for 19,160 bytes). Over loopback the scrape takes as long either way (118 ms plain, 123 ms gzipped); the gain is on the wire, 85% fewer bytes per scrape.
 
+### Basic auth
+
+`auth_user` and `auth_password` make a scrape log in (HTTP basic auth). Basic auth sends the password in the clear, so it is taken over HTTPS only: `cert` and `key` must be set, and their files there. Otherwise the configuration is invalid, and refused wherever it is checked: start does not start, reload keeps the running exporter (the log says why), `check` fails saying why, and the ubus object's `validate` refuses it. So is half of it: a user without a hash, or a hash without a user.
+
+`auth_password` holds the password's crypt hash, never the password: `$1$` (MD5-crypt, what `uhttpd -m <password>` prints), `$5$` or `$6$` (SHA-256-crypt and SHA-512-crypt, with their `rounds=`). Anything else is refused: DES's 13 characters (a plain password could look like one), bcrypt, and `$p$` lookups of system accounts. The ubus object makes one, freshly salted, without the password on a command line:
+
+```sh
+ubus call prometheus-exporter hash_password '{"password":"…"}'   # { "hash": "$6$rounds=1000$…" }
+uci set prometheus-exporter.main.auth_user='prometheus'
+uci set prometheus-exporter.main.auth_password='$6$rounds=1000$…'
+uci set prometheus-exporter.main.cert='/etc/uhttpd.crt' prometheus-exporter.main.key='/etc/uhttpd.key'
+uci commit prometheus-exporter && reload_config
+```
+
+The init script writes uhttpd's config file, `/var/run/prometheus-exporter/uhttpd.conf` (mode 0600, in a directory of mode 0700): one line, `/metrics:<user>:<hash>`. uhttpd reads it (`-c`), with the realm `prometheus-exporter` (`-r`), and the jail mounts it read-only. OpenWrt 25.12's uhttpd checks such a realm for files and CGI, not for a handler's prefix (its fix, uhttpd 3aa7e1c of August 2026, is newer than every 25.12 release so far): so the handler checks it itself, against the same file, before any scrape. A request without the user and password is a 401 (`WWW-Authenticate: Basic realm="prometheus-exporter"`); the hash itself is no password. Neither the password nor the hash is logged, and no reply of the ubus object holds the hash (its `status` says only whether basic auth is on); `check` names the user.
+
+The handler computes the hash in ucode, at each scrape, so its rounds are what a scrape pays: on x86_64, 5 ms for `$1$`, 7 ms for `$6$` of 1000 rounds (what `hash_password` makes, musl's least), 22 ms for `$6$` of the default 5000. A router's CPU takes ten to forty times as long.
+
+In Prometheus (vmagent takes the same `scrape_configs`):
+
+```yaml
+scrape_configs:
+  - job_name: openwrt
+    scheme: https
+    basic_auth:
+      username: prometheus
+      password_file: /etc/prometheus/openwrt.password
+    tls_config:
+      ca_file: /etc/prometheus/openwrt.crt   # the router's certificate, self-signed
+      server_name: router.lan                # a name the certificate holds
+      # insecure_skip_verify: true           # or: no check of the certificate at all
+    static_configs:
+      - targets: [ 'router.lan:9100' ]
+```
+
 ## The service
 
 | | |
 |---|---|
-| `service prometheus-exporter check` | checks the config (with whether a scrape is gzipped when asked), lists each collector (title, section, options with their help, needs, what the jail gives it) and runs a scrape, saying what fails and why |
-| `… status` | running, and where it listens, whether a scrape is gzipped when asked, and how many collectors it serves; or disabled |
+| `service prometheus-exporter check` | checks the config (with HTTPS, basic auth's user, and whether a scrape is gzipped when asked), lists each collector (title, section, options with their help, needs, what the jail gives it) and runs a scrape, saying what fails and why |
+| `… status` | running, and where it listens, whether a scrape logs in (basic auth) and is gzipped when asked, and how many collectors it serves; or disabled |
 | `… reload` | starts again with the new config; an invalid one keeps the running exporter, and the log says why |
 
 Start and reload refuse an invalid config. Installing or removing a collector package reloads the service.
@@ -189,6 +226,7 @@ ubus call prometheus-exporter collectors                              # the inst
 ubus call prometheus-exporter validate '{"main":{"listen_port":"0"}}' # what the exporter would refuse, and why
 ubus call prometheus-exporter status                                  # runs a scrape: how each collector does
 ubus call prometheus-exporter interfaces                              # the logical interfaces to listen on
+ubus call prometheus-exporter hash_password '{"password":"…"}'        # auth_password's hash of a password
 ```
 
 It reads with the exporter's own modules, so it sees what the exporter sees, and writes nothing: settings change through uci.
@@ -197,10 +235,12 @@ It reads with the exporter's own modules, so it sees what the exporter sees, and
 |---|---|
 | `collectors {}` | `{ collectors: [ { name, id, title, help, enabled, package, base, options: [ { name, core, type, default, help, datatype, value, set, error } ], needs, configs, commands, jail: { paths, owned, commands, mounts, problems, missing }, error } ], skipped }` |
 | `validate { main?, collectors? }` | `{ ok, errors: { main: { <option>: message }, collectors: { <module>: { <option>: message } } } }` for values as uci holds them |
-| `status {}` | `{ service: { enabled, boot, running, error, compress }, listen: [ url ], collectors: [ { name, id, title, enabled, success, duration, error, mounts } ] }` |
+| `status {}` | `{ service: { enabled, boot, running, error, auth, compress }, listen: [ url ], collectors: [ { name, id, title, enabled, success, duration, error, mounts } ] }` |
 | `interfaces {}` | `{ interfaces: [ { name, proto } ] }` |
+| `hash_password { password }` | `{ hash }`: a SHA-512-crypt hash of 1000 rounds, freshly salted, for `auth_password` |
 
-- `collectors` and `validate` read the committed configuration, as the exporter does. `validate` checks each value alone, as the exporter would read it: an empty one is unset, and options nobody declared and collectors that are not installed are ignored.
+- `collectors` and `validate` read the committed configuration, as the exporter does. `validate` checks each value alone, as the exporter would read it: an empty one is unset, and options nobody declared and collectors that are not installed are ignored. The main section's options that go together, basic auth's user and hash and the `cert` and `key` they need, are checked as if the values given were the whole section. No message holds `auth_password`'s value.
+- `hash_password` takes a password of 1 to 256 bytes without control characters; rpcd runs it, unjailed, and logs neither the password nor the hash.
 - A collector's `options` are its own (`core: false`), then, when it runs programs, the core's `timeout` (`core: true`, `datatype` `range(1,30)`): its `default` is the seconds it gets while unset, and `default_from` says whose they are, `meta.timeout` or `exec_timeout`. `validate` takes `timeout` for those collectors, and `exec_timeout` in `main`.
 - `status` scrapes the enabled collectors once, outside the jail, as `check` does, in a process of its own (`/usr/libexec/prometheus-exporter/rpc-status.uc`), and replies when it is done: rpcd answers other calls meanwhile, the collectors' calls to objects rpcd itself serves (`wireguard`, `luci`) among them.
 - `interfaces` is what netifd says (`network.interface dump`), names and protocols only. It never reads `/etc/config/network`, which holds secrets, so a caller allowed this object alone gets every interface.

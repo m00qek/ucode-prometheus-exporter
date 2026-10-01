@@ -10,9 +10,10 @@
 //   collectors {} -> { collectors: [ collector ], skipped: [ message ] }
 //   validate { main?, collectors? }
 //                 -> { ok, errors: { main: { option: message }, collectors: { id: { option: message } } } }
-//   status {}     -> { service: { enabled, boot, running, error, compress }, listen: [ url ],
+//   status {}     -> { service: { enabled, boot, running, error, auth, compress }, listen: [ url ],
 //                      collectors: [ { name, id, title, enabled, success, duration, error, mounts } ] }
 //   interfaces {} -> { interfaces: [ { name, proto } ] }
+//   hash_password { password } -> { hash }
 //
 //   collector: { name, id, title, help, enabled, package, base, options: [ option ],
 //                needs, configs, commands, jail: { paths, owned, commands, mounts, problems, missing }, error }
@@ -27,7 +28,10 @@
 // validate takes values as uci holds them (strings) and checks each alone, as
 // the exporter would read it: an empty or missing value is unset. Options nobody
 // declared, and collectors that are not installed, are ignored, as the exporter
-// ignores them. Malformed arguments are answered { error: ARGS_INVALID, message }.
+// ignores them. The main section's options that go together (basic auth's user
+// and hash, which need cert and key) are checked as if the values given were the
+// whole section. A message never holds auth_password's value. Malformed
+// arguments are answered { error: ARGS_INVALID, message }.
 //
 // status runs one scrape of the enabled collectors, outside the jail, as
 // `service prometheus-exporter check` does: rpcd runs it in a process
@@ -40,10 +44,16 @@
 // secrets, so a caller allowed this object alone still gets them. A failed call
 // is answered { error, message }.
 //
+// hash_password makes the SHA-512-crypt hash of a password, freshly salted,
+// that auth_password takes: rpcd runs it, unjailed, and logs neither. A
+// password it does not take is answered { error: ARGS_INVALID, message }. No
+// method's reply holds the hash of the config.
+//
 // sys: { uci: a cursor, fs: { stat, glob, readfile }, path: the PATH commands are
 //        found on, dir: the collectors' directory, apk: apk's per-package file
 //        lists, collectors: the loaded ones, skipped: what the loader logged,
-//        env: a scrape env (prometheus_exporter.scrape), ubus: a ubus channel }
+//        env: a scrape env (prometheus_exporter.scrape), ubus: a ubus channel,
+//        random(n): n random bytes }
 
 import * as Result from 'prometheus_exporter.result';
 import * as config from 'prometheus_exporter.config';
@@ -52,6 +62,7 @@ import * as loader from 'prometheus_exporter.loader';
 import * as jail from 'prometheus_exporter.jail';
 import * as scrape from 'prometheus_exporter.scrape';
 import * as check from 'prometheus_exporter.check';
+import * as auth from 'prometheus_exporter.auth';
 
 // The service's names follow from config.NAME, its packages' from config.PACKAGE.
 export const NAME = config.NAME;
@@ -137,7 +148,7 @@ function message(name, res) {
 // a Result of the typed value, the default when it is unset.
 export function main_value(name, value) {
 	let uci = lone_section('main', NAME, { [name]: value });
-	let svc = config.service(uci);
+	let svc = config.service_values(uci);
 	let own = config.main(uci);
 
 	if (!svc.ok)
@@ -274,14 +285,21 @@ export function validate(sys, args) {
 	if (type(main) != 'object' || type(given) != 'object')
 		return invalid_args('main and collectors must be objects');
 
+	let typed = config.defaults(config.SERVICE_OPTIONS);
+
 	for (let name, value in main) {
 		if (!(name in MAIN_OPTIONS) || is_unset(value))
 			continue;
 
 		let res = main_value(name, value);
-		if (!res.ok)
+		if (res.ok)
+			typed[name] = res.data;
+		else
 			errors.main[name] = message(name, res);
 	}
+
+	for (let name, msg in config.together(typed))
+		errors.main[name] ??= msg;
 
 	for (let c in sys.collectors)
 		by_id[c.id] = c;
@@ -332,7 +350,8 @@ export function service(sys) {
 			boot: length(sys.fs.glob(`${RC_DIR}/S*${NAME}`) ?? []) > 0,
 			running: res.ok ? length(running) > 0 : null,
 			error: res.ok ? null : Result.describe(res),
-			// Whether a scrape is compressed when asked, as configured.
+			// Whether a scrape logs in, and is compressed when asked, as configured.
+			auth: main.ok ? main.data.auth_user != '' : null,
 			compress: own.ok ? own.data.compress : null,
 		},
 		listen: uniq(listen),
@@ -385,6 +404,19 @@ export function scrape_report(sys) {
 
 export function status(sys) {
 	return { ...service(sys), collectors: scrape_report(sys) };
+};
+
+// { hash } of args.password, for auth_password.
+export function hash_password(sys, args) {
+	let password = args?.password;
+	let problem = auth.password_problem(password);
+
+	if (problem)
+		return invalid_args(`password: ${problem}`);
+
+	let res = auth.hash_password(password, sys.random);
+
+	return res.ok ? { hash: res.data } : { error: res.error, message: Result.describe(res) };
 };
 
 // Runs `command` without blocking rpcd, and replies with the JSON object it
@@ -447,6 +479,10 @@ export function methods(make_sys, io) {
 				return out;
 			},
 		},
+		hash_password: {
+			args: { password: '' },
+			call: (req) => hash_password(make_sys({ collectors: false }), req.args),
+		},
 	};
 };
 
@@ -472,5 +508,12 @@ export function system(opts) {
 			log: quiet,
 		},
 		ubus: deps.ubus_channel(mods.ubus.connect),
+		random: function(n) {
+			let f = mods.fs.open('/dev/urandom', 'r');
+			let bytes = f?.read(n);
+
+			f?.close();
+			return bytes;
+		},
 	};
 };

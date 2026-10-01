@@ -6,6 +6,7 @@
 import { describe, it, afterEach, assert, contains, mock } from 'utest';
 import { DIR } from 'prometheus_exporter.loader';
 import * as config from 'prometheus_exporter.config';
+import * as auth from 'prometheus_exporter.auth';
 import { inflate } from 'zlib';
 
 const HANDLER = 'files/usr/libexec/prometheus-exporter/handler.uc';
@@ -100,6 +101,18 @@ describe('handler', () => {
 		assert.match('Status: 200 OK\r\nContent-Type: text/plain; version=0.0.4; charset=utf-8\r\n' +
 			'Vary: Accept-Encoding\r\nContent-Encoding: gzip\r\n\r\n', sent[0]);
 		assert.match(contains([ 'node_load1 0.01' ]), split(inflate(sent[1]), '\n'));
+	});
+
+	it('answers 401 when basic auth\'s file is there and the request has no credentials', () => {
+		install({ '/proc/loadavg': '0.01 0.02 0.03 1/1 1\n', [auth.FILE]: auth.conf('prom', '$1$$ysVNzQc4CTMkp5daOdZ.3/') });
+
+		let sent = [];
+		global.uhttpd = { send: (...parts) => push(sent, join('', parts)) };
+		loadfile(HANDLER, { raw_mode: false })();
+		global.handle_request({ QUERY_STRING: '', HTTPS: 'on', headers: {} });
+
+		assert.match('Status: 401 Unauthorized\r\nContent-Type: text/plain; charset=utf-8\r\n' +
+			'WWW-Authenticate: Basic realm="prometheus-exporter"\r\n\r\nUnauthorized.\n', sent[0]);
 	});
 
 	it('answers 400 for an unknown collector', () => {

@@ -335,6 +335,96 @@ check "check says so" says 'no compression (option compress)' "$INIT" check
 set_config "$NAME.main.compress=1"
 eventually "compress 1 gzips again" gzip_reply
 
+# --- basic auth, over HTTPS only
+# A self-signed certificate, as uhttpd's own init script makes one.
+CERT=/etc/e2e.crt KEY=/etc/e2e.key HTTPS=https://127.0.0.1:9100/metrics AUTH_FILE=/var/run/$NAME/uhttpd.conf
+px5g selfsigned -days 30 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -keyout $KEY -out $CERT -subj /CN=127.0.0.1 >/dev/null 2>&1
+HASH=$(rpc hash_password '{"password":"e2e-secret"}' | jsonfilter -e '@.hash')
+sha512_crypt() { echo "$HASH" | grep -q '^\$6\$rounds=1000\$'; }
+check "the ubus object hashes a password, as SHA-512-crypt" sha512_crypt
+https() { uclient-fetch -q -O - --no-check-certificate "$@" "$HTTPS"; }
+status_of() { uclient-fetch -O /dev/null --no-check-certificate "$@" "$HTTPS" 2>&1 | grep -o 'HTTP error [0-9]*'; }
+unauthorized() { [ "$(status_of "$@")" = 'HTTP error 401' ]; }
+logs_in() { https --user=prom --password=e2e-secret | grep -q '^node_load1 '; }
+https_gzip() { https --user=prom --password=e2e-secret --header='Accept-Encoding: gzip' | gzip -dc | grep -q '^node_load1 '; }
+no_hash_in() { ! "$@" 2>&1 | grep -qF "$HASH"; }
+secret_free() { rpc status; rpc collectors; "$INIT" check; "$INIT" status; logread; }
+auth_true() { rpc status | jsonfilter -e '@.service.auth' | grep -qx true; }
+private() { ls -l "$AUTH_FILE" | grep -q '^-rw------- ' && ls -ld "/var/run/$NAME" | grep -q '^drwx------ '; }
+
+before=$(pid)
+set_config "$NAME.main.auth_user=prom" "$NAME.main.auth_password=$HASH"
+sleep 3
+check "basic auth without cert and key keeps the running instance" test "$(pid)" = "$before"
+check "which still serves HTTP, without basic auth" served loadavg
+check "check fails on it" fails "$INIT" check
+check "and says why" says 'FAIL main: CONFIG_INVALID (auth_user: basic auth needs HTTPS: set cert and key, or the password crosses the network in the clear)' "$INIT" check
+check "the reload logged why, at err" says "daemon.err $NAME: .*auth_user: basic auth needs HTTPS" logread
+"$INIT" stop
+"$INIT" start
+check "start refuses it" fails "$INIT" running
+check "and logs why" says "daemon.err $NAME: invalid configuration, not starting" logread
+check "neither wrote basic auth's file" test ! -e "$AUTH_FILE"
+check "validate refuses it" says 'basic auth needs HTTPS' rpc validate "{\"main\":{\"auth_user\":\"prom\",\"auth_password\":\"$HASH\"}}"
+
+set_config "$NAME.main.cert=$CERT" "$NAME.main.key=$KEY"
+eventually "with cert and key it starts, over HTTPS" logs_in
+check "uhttpd reads basic auth's file" says " -c $AUTH_FILE " command_line
+check "with its realm" says " -r $NAME " command_line
+check "and listens on HTTPS alone" fails says ' -p ' command_line
+check "the file is uhttpd's line for /metrics" test "$(cat "$AUTH_FILE")" = "/metrics:prom:$HASH"
+check "mode 0600, in a directory of mode 0700" private
+check "the jail mounts it" mounted "$AUTH_FILE"
+check "a scrape without credentials is a 401" unauthorized
+check "and with a wrong password" unauthorized --user=prom --password=wrong
+check "and with a wrong user" unauthorized --user=other --password=e2e-secret
+check "and with the hash as the password" unauthorized --user=prom "--password=$HASH"
+check "the right ones scrape" logs_in
+check "gzipped too, when asked" https_gzip
+check "plain HTTP is not served" fails wget -q -O /dev/null "$URL"
+check "check says basic auth is on, and for whom" says 'ok   main: HTTPS on interface loopback, port 9100, .*basic auth as user "prom"' "$INIT" check
+check "status says it" says '^listening on https://127.0.0.1:9100/metrics, basic auth, gzip when asked, serving' "$INIT" status
+check "so does the ubus object's status" auth_true
+check "the hash is in no reply of the ubus object, nor in check, status or the log" no_hash_in secret_free
+# What uhttpd -m prints, an unsalted MD5-crypt hash, works too.
+set_config "$NAME.main.auth_password=$(uhttpd -m e2e-md5)"
+md5_logs_in() { https --user=prom --password=e2e-md5 | grep -q '^node_load1 '; }
+eventually "a hash of uhttpd -m takes its password" md5_logs_in
+check "and no other" unauthorized --user=prom --password=e2e-secret
+# What basic auth costs a scrape: the mean milliseconds of one of loadavg alone,
+# with the hash hash_password makes ($6$, 1000 rounds), then without basic auth.
+# The credentials go with the request, as Prometheus sends them: --user waits
+# for a 401 first.
+set_config "$NAME.main.auth_password=$HASH"
+eventually "back to the hash hash_password made" logs_in
+CREDENTIALS=$(ucode -e 'print(b64enc("prom:e2e-secret"))')
+auth_ms=$(scrape_ms "uclient-fetch -q -O - --no-check-certificate --header='Authorization: Basic $CREDENTIALS' $HTTPS?collect[]=loadavg" | cut -d' ' -f2)
+uci delete "$NAME.main.auth_user" && uci delete "$NAME.main.auth_password"
+set_config
+https_open() { https | grep -q '^node_load1 '; }
+eventually "without basic auth it serves without credentials, still over HTTPS" https_open
+check "and removes basic auth's file" test ! -e "$AUTH_FILE"
+check "nor gives uhttpd one" says ' -c /dev/null ' command_line
+plain_ms=$(scrape_ms "uclient-fetch -q -O - --no-check-certificate $HTTPS?collect[]=loadavg" | cut -d' ' -f2)
+echo "info a scrape of loadavg over HTTPS, mean of $RUNS: $plain_ms ms, $auth_ms ms with basic auth"
+# The check alone, in ucode, by the hash: what each format costs a scrape.
+verify_ms() {
+	ucode -e "import { verify, sha_crypt, md5_crypt } from 'prometheus_exporter.crypt';
+		let mean = function(h) {
+			let t = clock(true);
+			for (let i = 0; i < $RUNS; i++) verify('e2e-secret', h);
+			let u = clock(true);
+			return ((u[0] - t[0]) * 1000 + (u[1] - t[1]) / 1000000.0) / $RUNS;
+		};
+		printf('%.1f %.1f %.1f\\n', mean(md5_crypt('e2e-secret', 'saltsalt')),
+			mean(sha_crypt('6', 'e2e-secret', 'saltsaltsaltsalt', 1000)), mean(sha_crypt('6', 'e2e-secret', 'saltsaltsaltsalt', null)));"
+}
+set -- $(verify_ms)
+echo "info checking a password, mean of $RUNS: $1 ms for \$1\$, $2 ms for \$6\$ of 1000 rounds, $3 ms for \$6\$ of 5000"
+uci delete "$NAME.main.cert" && uci delete "$NAME.main.key"
+set_config
+eventually "without cert and key it serves HTTP again" served loadavg
+
 # --- removing a package
 # ltq-dsl is in no group, which would keep it installed.
 apk del "$PKG-ltq-dsl" >/dev/null 2>&1

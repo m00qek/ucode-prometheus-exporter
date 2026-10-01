@@ -22,15 +22,20 @@ function count(n, noun) {
 	return `${n} ${noun}${n == 1 ? '' : 's'}`;
 }
 
+// The user is shown; the hash never is.
 function listen_summary(o) {
 	let where = o.listen_interface == '*' ? 'every address' : `interface ${o.listen_interface}`;
 	let tls = (o.cert != '' && o.key != '') ? 'HTTPS' : 'HTTP';
+	let login = (o.auth_user != '') ? `, basic auth as user ${sprintf('%J', o.auth_user)}` : '';
 
-	return `${tls} on ${where}, port ${o.listen_port}, keepalive ${o.http_keepalive}s`;
+	return `${tls} on ${where}, port ${o.listen_port}, keepalive ${o.http_keepalive}s${login}`;
 }
 
 // The cert and key the init script serves HTTPS with: both, and both there.
+// Without them it serves HTTP, which basic auth refuses: then it does not start.
 function check_tls(fs, o, add) {
+	let login = (o.auth_user != '');
+
 	if ((o.cert == '') != (o.key == '')) {
 		add('warn', `main: cert and key go together; with only ${o.cert != '' ? 'cert' : 'key'}, it serves HTTP`);
 		return;
@@ -38,7 +43,9 @@ function check_tls(fs, o, add) {
 
 	for (let f in (o.cert != '' ? [ o.cert, o.key ] : []))
 		if (fs.stat(f)?.type != 'file')
-			add('warn', `main: ${f} is missing; it serves HTTP until it is there`);
+			add(login ? 'fail' : 'warn', login
+				? `main: ${f} is missing; basic auth takes HTTPS only, so the service does not start until it is there`
+				: `main: ${f} is missing; it serves HTTP until it is there`);
 }
 
 function check_main(sys, add) {
@@ -208,14 +215,25 @@ export function listening(command) {
 	return urls;
 };
 
+// Whether uhttpd's command line has it check basic auth: a config file (-c)
+// other than /dev/null.
+export function logs_in(command) {
+	for (let i = 0; i < length(command) - 1; i++)
+		if (command[i] == '-c' && command[i + 1] != '/dev/null')
+			return true;
+
+	return false;
+};
+
 // What status prints of a running exporter: where it listens, whether a scrape
-// is compressed when asked (compress, as configured), and how many collectors
-// it serves (the installed and enabled).
+// logs in (basic auth), whether it is compressed when asked (compress, as
+// configured), and how many collectors it serves (the installed and enabled).
 export function status(command, collectors, uci) {
 	let serving = length(filter(collectors, (c) => config.enabled(uci, c.id)));
 	let main = config.main(uci);
 	let compress = main.ok ? main.data.compress : config.MAIN_OPTIONS.compress.default;
 
-	return `listening on ${join(', ', listening(command)) || 'nothing'}` + (compress ? ', gzip when asked' : '') +
+	return `listening on ${join(', ', listening(command)) || 'nothing'}` +
+		(logs_in(command) ? ', basic auth' : '') + (compress ? ', gzip when asked' : '') +
 		`, serving ${count(serving, 'collector')}`;
 };

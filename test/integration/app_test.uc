@@ -6,6 +6,7 @@
 import { describe, it, afterEach, assert, contains, mock } from 'utest';
 import { create, handler } from 'prometheus_exporter.app';
 import { inflate } from 'zlib';
+import * as auth from 'prometheus_exporter.auth';
 import * as exposition from 'prometheus_exporter.exposition';
 import * as config from 'prometheus_exporter.config';
 import * as fixtures from 'lib.fixtures';
@@ -100,10 +101,18 @@ describe('app', () => {
 	});
 });
 
-// A request as uhttpd-mod-ucode hands it, with these headers.
-function request(query_string, headers) {
-	return { QUERY_STRING: query_string, headers: { URL: '/metrics', ...(headers ?? {}) } };
+// A request as uhttpd-mod-ucode hands it: over HTTPS unless `plain`, with
+// these headers.
+function request(query_string, headers, plain) {
+	return { QUERY_STRING: query_string, HTTPS: plain ? null : 'on', headers: { URL: '/metrics', ...(headers ?? {}) } };
 }
+
+function basic(text) {
+	return 'Basic ' + b64enc(text);
+}
+
+// `uhttpd -m secret`.
+const HASH = '$1$$ysVNzQc4CTMkp5daOdZ.3/';
 
 describe('app.handler', () => {
 	// Each load of the collectors holds a descriptor per module it compiled
@@ -121,13 +130,13 @@ describe('app.handler', () => {
 		mock.global.patch('uci', { strict: true, data: { [config.NAME]: main ? { main: { '.type': config.NAME, ...main } } : {} } });
 	}
 
-	it('serves a scrape plain when not asked for gzip', () => {
+	it('serves a scrape plain, without basic auth\'s file', () => {
 		patch_main(null);
 
 		let app = handler(() => null, SOURCES);
-		let r = app.handle(request('collect[]=loadavg', {}));
+		let r = app.handle(request('collect[]=loadavg', {}, true));
 
-		assert.match([ true, '200 OK' ], [ app.compress, r.status ]);
+		assert.match([ null, true, '200 OK' ], [ app.auth, app.compress, r.status ]);
 		assert.match([ [ 'Content-Type', 'text/plain; version=0.0.4; charset=utf-8' ], [ 'Vary', 'Accept-Encoding' ] ], r.headers);
 		assert.match(contains([ 'node_load1 0.75' ]), split(r.body, '\n'));
 	});
@@ -150,4 +159,39 @@ describe('app.handler', () => {
 		assert.match([ false, [ [ 'Content-Type', 'text/plain; version=0.0.4; charset=utf-8' ] ] ], [ app.compress, r.headers ]);
 		assert.match(contains([ 'node_load1 0.75' ]), split(r.body, '\n'));
 	});
+
+	it('answers 401 without the user and password of basic auth\'s file, and scrapes with them', () => {
+		patch_main(null, { [auth.FILE]: auth.conf('prom', HASH) });
+
+		let app = handler(() => null, SOURCES);
+		let none = app.handle(request('collect[]=loadavg'));
+		let wrong = app.handle(request('collect[]=loadavg', { authorization: basic('prom:wrong') }));
+		let right = app.handle(request('collect[]=loadavg', { authorization: basic('prom:secret'), 'accept-encoding': 'gzip' }));
+
+		assert.match({ user: 'prom', hash: HASH }, app.auth);
+		assert.match([ '401 Unauthorized', '401 Unauthorized', '200 OK' ], [ none.status, wrong.status, right.status ]);
+		assert.match(contains([ [ 'WWW-Authenticate', 'Basic realm="prometheus-exporter"' ] ]), none.headers);
+		assert.match('Unauthorized.\n', none.body);
+		assert.match(contains([ 'node_load1 0.75' ]), split(inflate(right.body), '\n'));
+	});
+
+	it('answers 403 to basic auth over HTTP, before reading credentials', () => {
+		patch_main(null, { [auth.FILE]: auth.conf('prom', HASH) });
+
+		let r = handler(() => null, SOURCES).handle(request('', { authorization: basic('prom:secret') }, true));
+
+		assert.match([ '403 Forbidden', 'Basic auth takes HTTPS only.\n' ], [ r.status, r.body ]);
+	});
+
+	it('denies every request when the file is not what it should be, and logs why without the hash', () => {
+		patch_main(null, { [auth.FILE]: '/metrics:prom:secret\n' });
+
+		let logs = [];
+		let app = handler((level, m) => push(logs, [ level, m ]), SOURCES);
+		let r = app.handle(request('', { authorization: basic('prom:secret') }));
+
+		assert.match([ { broken: true }, '500 Internal Server Error' ], [ app.auth, r.status ]);
+		assert.match([ [ 'err', `${auth.FILE} is not one line of a user and a hash for /metrics: every request is denied` ] ], logs);
+	});
 });
+

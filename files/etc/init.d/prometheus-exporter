@@ -8,6 +8,8 @@ NAME=prometheus-exporter
 LIBEXEC=/usr/libexec/$NAME
 HANDLER=$LIBEXEC/handler.uc
 COLLECTORS=/usr/share/ucode/prometheus_exporter/collectors
+# The realm of basic auth, as prometheus_exporter.auth names it.
+REALM=$NAME
 
 extra_command "check" "Check the configuration, list the collectors and run a scrape"
 
@@ -54,7 +56,7 @@ start_service() {
 
 	. /lib/functions/network.sh
 
-	local interface port keepalive cert key listen bind4 bind6 mounts missing
+	local interface port keepalive cert key listen bind4 bind6 mounts missing auth
 
 	config_get interface main listen_interface loopback
 	config_get port main listen_port 9100
@@ -71,13 +73,26 @@ start_service() {
 		}
 	}
 
+	# Basic auth's file (uhttpd's -c), written afresh, or removed without it.
+	# It is checked over HTTPS only: never served over HTTP.
+	auth=$("$LIBEXEC/auth.uc" 2>&1) || {
+		echo "$auth" | logger -t "$NAME" -p daemon.err
+		logger -t "$NAME" -p daemon.err "cannot set up basic auth, not starting"
+		return 1
+	}
+	[ -z "$auth" ] || { [ -f "$cert" ] && [ -f "$key" ]; } || {
+		logger -t "$NAME" -p daemon.err "basic auth takes HTTPS only, and $cert or $key is missing: not starting"
+		return 1
+	}
+
 	jail_make
 	mounts=$(jail_mounts)
 	missing=$("$LIBEXEC/jail.uc" --missing 2>/dev/null)
 
 	procd_open_instance
 
-	procd_set_param command /usr/sbin/uhttpd -f -c /dev/null -h /dev/null -S -D -o /metrics -O "$HANDLER"
+	procd_set_param command /usr/sbin/uhttpd -f -c "${auth:-/dev/null}" -h /dev/null -S -D -o /metrics -O "$HANDLER"
+	[ -z "$auth" ] || procd_append_param command -r "$REALM"
 	[ "$keepalive" -gt 0 ] && procd_append_param command -k "$keepalive"
 
 	if [ -f "$cert" ] && [ -f "$key" ]; then
@@ -101,12 +116,13 @@ start_service() {
 	procd_add_jail_mount /usr/lib/ucode /usr/share/ucode/prometheus_exporter "$HANDLER"
 	procd_add_jail_mount $mounts
 	[ -n "$cert" ] && procd_add_jail_mount "$cert" "$key" /lib/libustream-*.so* /usr/lib/libustream-*.so*
+	[ -n "$auth" ] && procd_add_jail_mount "$auth"
 	procd_set_param no_new_privs 1
 
 	# The jail binds files, which keep their old contents when a new file
 	# replaces them, as uci commit does: so a reload restarts the instance
-	# when a config it reads or a collector changes.
-	procd_set_param file $(echo "$mounts" | grep '^/etc/config/') "$COLLECTORS"/*.uc
+	# when a config it reads, a collector or basic auth's file changes.
+	procd_set_param file $(echo "$mounts" | grep '^/etc/config/') "$COLLECTORS"/*.uc $auth
 
 	procd_set_param stdout 1
 	procd_set_param stderr 1

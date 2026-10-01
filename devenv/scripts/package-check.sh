@@ -98,6 +98,24 @@ check "an unknown collector is refused" sh -c "! wget -q -O /dev/null '$URL?coll
 gzipped() { wget -q -O - --header='Accept-Encoding: gzip' "$URL" | gzip -dc | grep -q '^node_load1 '; }
 check "a scrape asked for gzip is gzipped" gzipped
 
+# hash_password's hash ($6$, 1000 rounds) as musl's crypt takes it: uhttpd checks
+# basic auth itself for a file, here under a realm of its own.
+mkdir -p /tmp/www && echo hello >/tmp/www/hello
+hash_ok() {
+	hash=$(ucode -e "import { hash_password } from 'prometheus_exporter.auth';
+		import { readfile } from 'fs';
+		print(hash_password('pkg-secret', (n) => readfile('/dev/urandom', n)).data);") || return 1
+	printf '/:prom:%s\n' "$hash" >/tmp/realm.conf
+	/usr/sbin/uhttpd -f -c /tmp/realm.conf -r check -h /tmp/www -p 127.0.0.1:9180 2>/dev/null &
+	realm=$!
+	sleep 1
+	ok=$(wget -q -O - --user=prom --password=pkg-secret http://127.0.0.1:9180/hello)
+	wget -q -O /dev/null --user=prom --password=wrong http://127.0.0.1:9180/hello && ok=
+	kill "$realm" 2>/dev/null
+	[ "$ok" = hello ]
+}
+check "musl's crypt takes the hash hash_password makes" hash_ok
+
 # ---- the service's ubus object ----
 # rpcd serves it from the base package's plugin, with no LuCI app installed.
 PLUGIN=/usr/share/rpcd/ucode/$NAME.uc
@@ -134,6 +152,11 @@ check "the base package depends on rpcd-mod-ucode" depends_on "$PKG" rpcd-mod-uc
 check "and on ucode-mod-uloop, for status" depends_on "$PKG" ucode-mod-uloop
 check "and on ucode-mod-log, to log at each message's priority" depends_on "$PKG" ucode-mod-log
 check "and on ucode-mod-zlib, to gzip a scrape" depends_on "$PKG" ucode-mod-zlib
+check "and on ucode-mod-digest, for basic auth's crypt" depends_on "$PKG" ucode-mod-digest
+AUTH_HELPER=/usr/libexec/$NAME/auth.uc
+check "the base package ships $AUTH_HELPER" grep -qx "$AUTH_HELPER" "$BASE_LIST"
+check "$AUTH_HELPER 0755" has_mode 755 "$AUTH_HELPER"
+check "$AUTH_HELPER parses" parses "$AUTH_HELPER"
 check "no LuCI app is installed" fails apk info -e "luci-app-$NAME"
 
 rpcd &
@@ -142,6 +165,8 @@ reply=$(ubus -t 30 call "$NAME" collectors 2>/dev/null)
 check "collectors lists every installed collector" test "$(collectors_in "$reply")" -eq "$(installed)"
 check "validate refuses what the init script would" sh -c \
 	"ubus -t 30 call $NAME validate '{\"main\":{\"listen_port\":\"0\"}}' | grep -q 'expected an integer from 1 to 65535, got 0'"
+hashes() { ubus -t 30 call "$NAME" hash_password '{"password":"pkg-secret"}' | jsonfilter -e '@.hash' | grep -q '^\$6\$rounds=1000\$'; }
+check "hash_password hashes a password, as SHA-512-crypt" hashes
 # No procd here: status says so, and still scrapes, in a process of its own.
 reply=$(ubus -t 30 call "$NAME" status 2>/dev/null)
 check "status scrapes every enabled collector" test "$(collectors_in "$reply")" -eq "$(installed)"
