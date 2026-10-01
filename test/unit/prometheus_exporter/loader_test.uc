@@ -50,6 +50,10 @@ describe('loader.validate', () => {
 			'x: meta.configs without uci in meta.needs',
 			'x: meta.commands must list the programs exec runs',
 			'x: meta.commands without exec in meta.needs',
+			'x: meta.timeout without exec in meta.needs',
+			'x: meta.timeout must be the seconds its commands may take, 1 to 30',
+			'x: meta.timeout must be the seconds its commands may take, 1 to 30',
+			'x: meta.timeout must be the seconds its commands may take, 1 to 30',
 			"x: option 'enabled' is the core's, every collector has it",
 			"x: option 'stations' must be { default, help, datatype }",
 			"x: option 'stations' needs a boolean, integer or string default",
@@ -90,6 +94,10 @@ describe('loader.validate', () => {
 			problem('x', module_named('x', { configs: [ 'dhcp' ] })),
 			problem('x', module_named('x', { needs: [ 'exec' ] })),
 			problem('x', module_named('x', { commands: [ 'nft' ] })),
+			problem('x', module_named('x', { timeout: 10 })),
+			problem('x', module_named('x', { needs: [ 'exec' ], commands: [ 'nft' ], timeout: 0 })),
+			problem('x', module_named('x', { needs: [ 'exec' ], commands: [ 'nft' ], timeout: 31 })),
+			problem('x', module_named('x', { needs: [ 'exec' ], commands: [ 'nft' ], timeout: 2.5 })),
 			problem('x', module_named('x', { options: { enabled: { default: true, help: 'H.' } } })),
 			problem('x', module_named('x', { options: { stations: true } })),
 			problem('x', module_named('x', { options: { stations: { default: null, help: 'H.' } } })),
@@ -126,6 +134,12 @@ describe('loader.validate', () => {
 		}));
 
 		assert.match([ true, 3 ], [ res.ok, length(res.data.meta.paths) ]);
+	});
+
+	it('takes meta.timeout, the seconds an exec collector\'s commands get', () => {
+		let res = loader.validate('x', module_named('x', { needs: [ 'exec' ], commands: [ 'ssh' ], timeout: loader.TIMEOUT_MAX }));
+
+		assert.match([ true, 30 ], [ res.ok, res.data.meta.timeout ]);
 	});
 
 	it('takes options declared as { default, help, datatype }', () => {

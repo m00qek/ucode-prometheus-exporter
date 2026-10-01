@@ -460,6 +460,20 @@ describe('deps.session', () => {
 			assert.match('COMMAND_NOT_ALLOWED', exec.run([ 'ethtool', '-S', 'eth0' ]).error);
 		});
 	});
+
+	it('gives exec the collector\'s meta.timeout, or the default seconds, afresh for each collector', () => {
+		let seen = [];
+		let fs = { behavior: { popen: function(cmd) { push(seen, commands.parse(cmd).seconds); return null; } } };
+
+		with_mods({ fs }, (mods) => {
+			let s = deps.session(mods);
+
+			s.for({ needs: [ 'exec' ], commands: [ 'ubnt-manager' ], timeout: 12 }).data.exec.run([ 'ubnt-manager', '-l' ]);
+			s.for({ needs: [ 'exec' ], commands: [ 'nft' ] }).data.exec.run([ 'nft' ]);
+		});
+
+		assert.match([ 12, deps.EXEC_SECONDS ], seen);
+	});
 });
 
 describe('deps.modules', () => {

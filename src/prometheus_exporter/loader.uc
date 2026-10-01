@@ -19,6 +19,10 @@ const OPTION_KEYS = [ 'default', 'help', 'datatype' ];
 // A collector's title, as a list or a form shows it.
 export const TITLE_MAX = 40;
 
+// The most seconds meta.timeout may give a collector's commands: half of the
+// 60 s uhttpd gives a scrape before it kills it, answering nothing.
+export const TIMEOUT_MAX = 30;
+
 // The module a collector's name lives in: a module name cannot hold '-'.
 export function id_of(name) {
 	return replace(name, '-', '_');
@@ -139,6 +143,13 @@ export function validate(id, mod) {
 			return invalid(id, 'meta.commands must list the programs exec runs');
 	} else if (meta.commands != null) {
 		return invalid(id, 'meta.commands without exec in meta.needs');
+	}
+
+	if (meta.timeout != null) {
+		if (!('exec' in meta.needs))
+			return invalid(id, 'meta.timeout without exec in meta.needs');
+		if (type(meta.timeout) != 'int' || meta.timeout < 1 || meta.timeout > TIMEOUT_MAX)
+			return invalid(id, `meta.timeout must be the seconds its commands may take, 1 to ${TIMEOUT_MAX}`);
 	}
 
 	if (meta.options != null && type(meta.options) != 'object')

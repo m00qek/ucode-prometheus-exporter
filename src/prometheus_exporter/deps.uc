@@ -362,7 +362,7 @@ export function session(mods) {
 		case 'rtnl':    return mods.rtnl ? rtnl_channel(mods.rtnl) : null;
 		case 'nl80211': return mods.nl80211 ? nl80211_channel(mods.nl80211) : null;
 		case 'socket':  return mods.socket ? socket_channel(mods.socket) : null;
-		case 'exec':    return exec_channel(mods.fs.popen, meta.commands ?? [], null, mods.clock);
+		case 'exec':    return exec_channel(mods.fs.popen, meta.commands ?? [], meta.timeout, mods.clock);
 		case 'time':    return { now: mods.time };
 		case 'log':     return mods.log ? (msg) => mods.log(`collector '${meta.name}': ${msg}`) : null;
 		}
