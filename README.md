@@ -115,7 +115,7 @@ The package conflicts with the feed's `prometheus-node-exporter-ucode` and `prom
 ```
 ERROR: unable to select packages:
   prometheus-node-exporter-ucode-2024.02.07-r2:
-    breaks: ucode-prometheus-exporter-2026.09.30-r1[!prometheus-node-exporter-ucode>=0]
+    breaks: ucode-prometheus-exporter-0.1.0-r1[!prometheus-node-exporter-ucode>=0]
 ```
 
 So the old one goes first:
@@ -399,6 +399,16 @@ The app's ACL grants the ubus object's four reading methods, `hash_password` to 
 | `make pot` | `luci/po/templates/prometheus-exporter.pot`, with openwrt/luci's scanner; `make lint` fails while it is out of date |
 
 `make lint` also parses the views (as the function bodies LuCI compiles them into) and the JSON, and fails on LuCI code that could turn data into markup (`devenv/scripts/luci-dom-lint.sh`); `make package-check` installs the app, and checks its files, its dependencies and its ACL.
+
+## Versions
+
+Releases are semantic versions, tagged `vX.Y.Z` (`PKG_VERSION`); `PKG_RELEASE` (`-rN`) counts changes to the packaging alone, and starts again at 1 with each version. What someone may build on is what a version promises:
+
+- **Major**: a metric, label or metric type renamed or removed; a uci option renamed, removed or meaning something else; a ubus method's arguments or replies changed incompatibly; `collect(deps, out, options)` or `meta` changed incompatibly; a package or group renamed or split.
+- **Minor**: new collectors, metrics, labels on new families, options, ubus methods, and new cases of nothing to observe.
+- **Patch**: fixes, speed, and documentation.
+
+Before 1.0.0 a minor version may break any of these, and says so; 1.0.0 is the first release to the feed, with metric names and config settled.
 
 ## Credits
 

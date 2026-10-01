@@ -33,7 +33,7 @@ function env_for(mods, logs, levels) {
 		session: () => deps.session(mods),
 		clock: () => { t += 250000000; return [ int(t / 1000000000), t % 1000000000 ]; },
 		log: (level, m) => { push(logs, m); push(levels ?? [], level); },
-		version: '2026.01.02-r3',
+		version: '0.1.0-r1',
 	};
 }
 
@@ -224,7 +224,7 @@ describe('scrape.scrape', () => {
 			'node_scrape_collector_observing{collector="failing"} 1',
 			"# HELP ucode_prometheus_exporter_build_info A metric with a constant '1' value labeled by the version of ucode-prometheus-exporter.",
 			'# TYPE ucode_prometheus_exporter_build_info gauge',
-			'ucode_prometheus_exporter_build_info{version="2026.01.02-r3"} 1',
+			'ucode_prometheus_exporter_build_info{version="0.1.0-r1"} 1',
 		], lines(r.body));
 	});
 
@@ -246,7 +246,7 @@ describe('scrape.scrape', () => {
 
 	it('writes the build whatever the query selects', () => {
 		for (let q in [ '', 'collect[]=a', 'exclude[]=a' ])
-			assert.match(contains([ 'ucode_prometheus_exporter_build_info{version="2026.01.02-r3"} 1' ]),
+			assert.match(contains([ 'ucode_prometheus_exporter_build_info{version="0.1.0-r1"} 1' ]),
 				lines(scrape_with([ A ], q).body), q);
 	});
 
