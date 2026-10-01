@@ -38,8 +38,8 @@ define Package/$(PKG_NAME)/conffiles
 /etc/config/$(PKG_NAME)
 endef
 
-# The exporter picks up collector packages as they come and go, but its own
-# code stays loaded: after an upgrade, a running exporter is restarted.
+# The exporter's code stays loaded while it runs: after an upgrade, a running
+# exporter is restarted. Collector packages reload it themselves.
 define Package/$(PKG_NAME)/postinst
 #!/bin/sh
 [ -n "$$IPKG_INSTROOT" ] || [ "$$PKG_UPGRADE" != 1 ] || ! /etc/init.d/$(PKG_NAME) running ||
@@ -66,6 +66,16 @@ endef
 
 $(eval $(call BuildPackage,$(PKG_NAME)))
 
+# A collector package's scripts: on a running system (not in an image build),
+# reload an enabled exporter, which restarts it with the collector served or
+# gone, and its jail mounts what the collectors now declare. A failed reload
+# (an invalid config) is logged by the init script and fails no install.
+define Collector/reload
+#!/bin/sh
+[ -n "$${IPKG_INSTROOT}" ] || ! /etc/init.d/$(PKG_NAME) enabled ||
+	/etc/init.d/$(PKG_NAME) reload || true
+endef
+
 # $(1): the collector's module name, $(2): its name (the package suffix),
 # $(3): what it collects, $(4): the packages its needs and commands call for.
 # A collector runs on the exporter's API, so it pins the exporter's release.
@@ -80,6 +90,14 @@ define Collector
   define Package/$(PKG_NAME)-$(2)/install
 	$$(INSTALL_DIR) $$(1)$(COLLECTORS_DIR)
 	$$(INSTALL_DATA) ./src/node_exporter/collectors/$(1).uc $$(1)$(COLLECTORS_DIR)/
+  endef
+
+  define Package/$(PKG_NAME)-$(2)/postinst
+$$(Collector/reload)
+  endef
+
+  define Package/$(PKG_NAME)-$(2)/postrm
+$$(Collector/reload)
   endef
 
   $$(eval $$(call BuildPackage,$(PKG_NAME)-$(2)))

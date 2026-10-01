@@ -10,9 +10,9 @@ import * as scrape from 'node_exporter.scrape';
 // { collectors(), scrape(query_string) }. `dir` replaces the installed
 // collectors' directory, for running from a source tree.
 //
-// The collectors are loaded again when their files change, so installing,
-// removing or upgrading a collector package takes effect on the next scrape,
-// without restarting uhttpd.
+// The collectors are loaded once: installing, removing or upgrading a
+// collector package reloads the service, which restarts uhttpd when the
+// collectors changed (see the init script).
 export function create(log, dir) {
 	let mods = deps.modules();
 	let env = {
@@ -20,24 +20,10 @@ export function create(log, dir) {
 		clock: () => clock(true),
 		log,
 	};
-	let loaded = [];
-	let seen = null;
-
-	dir ??= loader.DIR;
-
-	function collectors() {
-		let now = loader.fingerprint(mods.fs, dir);
-
-		if (now !== seen) {
-			loaded = loader.load(mods.fs, dir, loader.import_module, log);
-			seen = now;
-		}
-
-		return loaded;
-	}
+	let loaded = loader.load(mods.fs, dir ?? loader.DIR, loader.import_module, log);
 
 	return {
-		collectors,
-		scrape: (query_string) => scrape.scrape(env, collectors(), query_string),
+		collectors: () => loaded,
+		scrape: (query_string) => scrape.scrape(env, loaded, query_string),
 	};
 };

@@ -24,9 +24,12 @@ function serve() {
 	global.uhttpd = { send: (...parts) => push(sent, join('', parts)) };
 	loadfile(HANDLER, { raw_mode: false })();
 
+	let handle = global.handle_request;
+
 	return function(query_string) {
 		sent = [];
-		global.handle_request({ QUERY_STRING: query_string, PATH_INFO: '/metrics' });
+		global.uhttpd = { send: (...parts) => push(sent, join('', parts)) };
+		handle({ QUERY_STRING: query_string, PATH_INFO: '/metrics' });
 		return join('', sent);
 	};
 }
@@ -65,17 +68,23 @@ describe('handler', () => {
 		assert.match(contains([ 'node_load1 0.01', 'node_scrape_collector_success{collector="loadavg"} 1' ]), split(head[1], '\n'));
 	});
 
-	it('serves a collector installed after it started, and stops serving a removed one', () => {
+	// Installing or removing a collector package reloads the service, which
+	// restarts uhttpd: a running handler keeps what it loaded.
+	it('serves the collectors it loaded when it started, until it starts again', () => {
 		let fs = install({ '/proc/loadavg': '0.01 0.02 0.03 1/1 1\n' });
 		let request = serve();
 
 		assert.match([ 'loadavg' ], answered(request('')));
 
 		fs.writefile(DIR + '/time.uc', '');
-		assert.match([ 'loadavg', 'time' ], answered(request('')));
+		assert.match([ 'loadavg' ], answered(request('')), 'installed while running');
+
+		let restarted = serve();
+		assert.match([ 'loadavg', 'time' ], answered(restarted('')), 'installed, then restarted');
 
 		fs.unlink(DIR + '/time.uc');
-		assert.match([ 'loadavg' ], answered(request('')));
+		assert.match([ 'loadavg', 'time' ], answered(restarted('')), 'removed while running');
+		assert.match([ 'loadavg' ], answered(serve()('')), 'removed, then restarted');
 	});
 
 	it('answers 400 for an unknown collector', () => {

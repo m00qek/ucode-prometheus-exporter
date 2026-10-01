@@ -123,15 +123,6 @@ export function discover(fs, dir) {
 	return sort(map(files, (f) => substr(f, 0, -3)));
 };
 
-// What identifies the collector files in `dir` as they are now: their names,
-// sizes and change times. Installing, removing or upgrading one changes it.
-export function fingerprint(fs, dir) {
-	return join('\n', map(discover(fs, dir), function(id) {
-		let st = fs.stat(`${dir}/${id}.uc`);
-		return `${id} ${st?.size} ${st?.mtime}`;
-	}));
-};
-
 // The valid collectors in `dir`, sorted by name.
 export function load(fs, dir, import_fn, log) {
 	let collectors = [];
