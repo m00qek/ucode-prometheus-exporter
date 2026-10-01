@@ -10,7 +10,7 @@ RUN          = $(COMPOSE) --progress quiet run --rm $(if $(CI),-T) openwrt
 IMAGE_STAMP := devenv/.built-$(IMAGE_TAG)
 TEST_ARGS    = $(if $(FILTER),-f '$(FILTER)') $(if $(VERBOSE),-v) $(MODULES)
 
-.PHONY: test unit integration watch lint shell image fixtures package package-check
+.PHONY: test unit integration watch lint shell image fixtures package pkgcheck-image package-check e2e
 
 test:        $(IMAGE_STAMP) ; @$(RUN) devenv/scripts/test.sh all $(TEST_ARGS)
 unit:        $(IMAGE_STAMP) ; @$(RUN) devenv/scripts/test.sh unit $(TEST_ARGS)
@@ -54,13 +54,28 @@ package:
 
 PKGCHECK_IMAGE := prometheus-node-exporter-ucode-pkgcheck:$(OPENWRT_ARCH)-$(OPENWRT_VERSION)
 
-# No network: the image carries the dependencies.
-package-check: package
+pkgcheck-image:
 	docker build -q -t $(PKGCHECK_IMAGE) --build-arg OPENWRT_ARCH --build-arg OPENWRT_VERSION \
 		--build-arg FEED_DEPENDS="$$(devenv/scripts/package-info.sh feed-depends)" \
 		devenv/services/pkgcheck >/dev/null
+
+# No network: the image carries the dependencies.
+package-check: package pkgcheck-image
 	docker run --rm $(if $(CI),,-t) --network none -e PKG_FULLVERSION=$(PKG_FULLVERSION) \
 		-e BASE_COLLECTORS="$$(devenv/scripts/package-info.sh base-collectors)" \
 		-v $(CURDIR)/bin:/artifacts:ro \
 		-v $(CURDIR):/exporter:ro \
 		$(PKGCHECK_IMAGE) /exporter/devenv/scripts/package-check.sh
+
+E2E_CONTAINER := prometheus-node-exporter-ucode-e2e-$(OPENWRT_ARCH)-$(OPENWRT_VERSION)
+
+# The packages on a booted OpenWrt: procd as PID 1, with ubusd and netifd,
+# and ujail, which needs the container privileged. No network either.
+e2e: package pkgcheck-image
+	@docker rm -f $(E2E_CONTAINER) >/dev/null 2>&1 || true
+	@docker run -d --privileged --network none --name $(E2E_CONTAINER) \
+		-v $(CURDIR)/bin:/artifacts:ro -v $(CURDIR):/exporter:ro $(PKGCHECK_IMAGE) /sbin/init >/dev/null
+	@docker exec $(if $(CI),,-t) -e PKG_FULLVERSION=$(PKG_FULLVERSION) \
+		-e BASE_COLLECTORS="$$(devenv/scripts/package-info.sh base-collectors)" \
+		$(E2E_CONTAINER) /exporter/devenv/scripts/e2e.sh; \
+		status=$$?; docker rm -f $(E2E_CONTAINER) >/dev/null; exit $$status

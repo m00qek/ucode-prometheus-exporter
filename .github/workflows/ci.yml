@@ -20,3 +20,17 @@ jobs:
       - run: make lint
       - run: make test
       - run: make package-check
+
+  # The packages under procd in a privileged container; GitHub's runners allow it.
+  e2e:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        openwrt: [ '25.12.0', '25.12.5' ]
+    env:
+      CI: 1
+      OPENWRT_VERSION: ${{ matrix.openwrt }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: make e2e

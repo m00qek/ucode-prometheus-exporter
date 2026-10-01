@@ -43,6 +43,7 @@ Everything runs in OpenWrt's own images (Docker), on the release in `OPENWRT_VER
 | `make lint` | loads every module on 25.12's ucode, so a function it lacks fails here |
 | `make package` | the apks, built with the OpenWrt SDK, into `bin/` |
 | `make package-check` | installs them offline and scrapes a real uhttpd on loopback |
+| `make e2e` | boots OpenWrt (procd, ubusd, netifd) in a privileged container and checks the service, in its jail, as packages come and go and its config changes |
 | `make fixtures HOST= NAME=` | reads `test/fixtures/SOURCES` from a device over ssh into `test/fixtures/NAME/` |
 
 Layout: `src/node_exporter/` is the ucode library (installed to `/usr/share/ucode/node_exporter/`), `files/` the handler, command, init script and config, `openwrt/` the package Makefile, `test/unit/` mirrors `src/`.
