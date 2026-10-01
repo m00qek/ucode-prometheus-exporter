@@ -121,6 +121,37 @@ describe('exposition.merge', () => {
 		assert.match([], merged.conflicts);
 	});
 
+	// merge() takes a family only one recorder has as it is, and copies one
+	// that two have: the text must be one recorder's, and no input changed.
+	prop('writes what one recorder of every sample would, and leaves its input as it was',
+		gen.array(gen.tuple(gen.int(0, 2), gen.elements('a', 'b', 'c'), gen.int(0, 9)), { max_len: 12 }), (rows) => {
+			let recs = [ exposition.recorder(), exposition.recorder(), exposition.recorder() ];
+			let one = exposition.recorder();
+
+			for (let i, r in rows) {
+				recs[r[0]].counter(r[1], 'h')({ i }, r[2]);
+				one.counter(r[1], 'h')({ i }, r[2]);
+			}
+
+			let lists = map(recs, (r) => r.families());
+			let before = map(lists, (l) => exposition.render(l));
+			let merged = exposition.merge(lists);
+
+			// one recorder writes each family's samples in the order recorded;
+			// merge() writes them by recorder, so compare them sorted.
+			let sorted = (text) => sort(split(text, '\n'));
+			assert.match(sorted(exposition.render(one.families())), sorted(exposition.render(merged.families)));
+			// The families in the order they first appear, recorder by recorder.
+			let order = [];
+			for (let k = 0; k < 3; k++)
+				for (let r in rows)
+					if (r[0] == k && !(r[1] in order))
+						push(order, r[1]);
+
+			assert.match(order, map(merged.families, (f) => f.name));
+			assert.match(before, map(lists, (l) => exposition.render(l)));
+		});
+
 	it('reports a name two collectors give different types', () => {
 		let a = exposition.recorder(), b = exposition.recorder();
 		a.gauge('x')(null, 1);
@@ -229,6 +260,26 @@ describe('exposition: properties', () => {
 		assert.match(true, res.ok, res.details);
 		assert.match(text, exposition.render(res.data));
 	});
+
+	// Label sets are written whole and escaped only when a value needs it:
+	// values with quotes, backslashes and newlines, alone or not, by
+	// labels() or not, must still read back as they were.
+	prop('renders label sets that parse back unchanged, made once or per sample',
+		gen.array(gen.string({ charset: 'a"\\\n{}=, ', min_len: 0, max_len: 6 }), { min_len: 1, max_len: 3 }), (vals) => {
+			let out = exposition.recorder();
+			let labels = {};
+
+			for (let i, v in vals)
+				labels[`l${i}`] = v;
+
+			out.gauge('g')(labels, 1);
+			out.gauge('h')(out.labels(labels), 2);
+
+			let res = exposition.parse(exposition.render(out.families()));
+			assert.match(true, res.ok, res.details);
+			for (let fam in res.data)
+				assert.match(vals, map(fam.samples[0].labels, (p) => p[1]));
+		});
 
 	prop('renders a label value that parses back unchanged', gen.ascii({ min_len: 0, max_len: 24 }), (v) => {
 		let res = exposition.parse(text_of((out) => out.gauge('g')({ v }, 1)));
