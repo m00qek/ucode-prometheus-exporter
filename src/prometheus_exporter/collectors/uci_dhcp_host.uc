@@ -13,6 +13,9 @@
 import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
 
+// Regexes are constants: ucode compiles a regex literal each time it is evaluated.
+const SPACES = /\s+/;
+
 export const meta = {
 	name: 'uci_dhcp_host',
 	title: 'Static DHCP hosts',
@@ -27,7 +30,7 @@ export function macs(value) {
 
 	for (let v in (type(value) == 'array' ? value : [ value ]))
 		if (type(v) == 'string')
-			push(all, ...filter(split(trim(v), /\s+/), length));
+			push(all, ...filter(split(trim(v), SPACES), length));
 
 	return length(all) ? all : [ null ];
 };

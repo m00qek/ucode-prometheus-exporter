@@ -7,6 +7,9 @@ import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
 import { first_line } from 'prometheus_exporter.proc';
 
+// Regexes are constants: ucode compiles a regex literal each time it is evaluated.
+const COUNT = /^[0-9]+$/;
+
 export const meta = {
 	name: 'entropy',
 	title: 'Kernel entropy',
@@ -27,7 +30,7 @@ export function collect(deps, out) {
 			return Result.err(errors.SOURCE_UNREADABLE, g[0]);
 
 		let v = trim(line);
-		if (!match(v, /^[0-9]+$/))
+		if (!match(v, COUNT))
 			return Result.err(errors.SOURCE_INVALID, `${g[0]}: ${sprintf('%J', line)}`);
 
 		out.gauge(g[1], g[2])(null, v);

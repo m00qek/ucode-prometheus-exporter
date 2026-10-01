@@ -19,6 +19,9 @@
 import * as Result from 'prometheus_exporter.result';
 import { first_line } from 'prometheus_exporter.proc';
 
+// Regexes are constants: ucode compiles a regex literal each time it is evaluated.
+const ZONE = /^thermal_zone([0-9]+)$/;
+
 export const meta = {
 	name: 'thermal',
 	title: 'Thermal zones',
@@ -43,7 +46,7 @@ export function collect(deps, out) {
 	let zones = [];
 
 	for (let e in fs.lsdir(ROOT) ?? []) {
-		let m = match(e, /^thermal_zone([0-9]+)$/);
+		let m = match(e, ZONE);
 		if (m)
 			push(zones, int(m[1]));
 	}
