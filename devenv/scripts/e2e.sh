@@ -163,6 +163,35 @@ echo 'e2e_textfile_value 42' >/var/prometheus/e2e.prom
 eventually "textfile reads its directory in the jail" metric 'e2e_textfile_value 42$'
 check "nft-counters runs nft in the jail" served nft-counters
 check "and reads the counters" metric 'nft_counter_packets_total{.*name="e2e_hits"'
+
+# What exec's watchdog costs a program: the mean milliseconds of a program's
+# run by a plain popen (itself a shell running it) and through the watchdog
+# (deps.exec_script); for nft, and for ethtool failing on a link with no
+# statistics, as on a router's virtual links. Then of nft-counters (one run of
+# nft, its JSON parsed) in a scrape, outside the jail (the command line) and in
+# it (uhttpd). Printed, and checked loosely.
+RUNS=20
+popen_ms() {
+	ucode -e "import { popen } from 'fs';
+		import { exec_script, shell_quote } from 'prometheus_exporter.deps';
+		let run = (cmd) => { let p = popen(cmd, 'r'); p.read('all'); p.close(); };
+		let mean = function(f) {
+			let t = clock(true);
+			for (let i = 0; i < $RUNS; i++) f();
+			let u = clock(true);
+			return ((u[0] - t[0]) * 1000 + (u[1] - t[1]) / 1000000.0) / $RUNS;
+		};
+		let plain = join(' ', map(ARGV, shell_quote)) + ' 2>/dev/null';
+		printf('%.1f %.1f\\n', mean(() => run(plain)), mean(() => run(exec_script(ARGV, 5))));" "$@"
+}
+duration_ms() { grep '^node_scrape_collector_duration_seconds{collector="nft-counters"}' | awk '{ s += $2 * 1000 } END { printf "%.1f\n", s / NR }'; }
+set -- $(popen_ms nft --json list counters) $(popen_ms ethtool -S e2e0)
+outside=$(i=0; while [ $i -lt $RUNS ]; do $NAME nft-counters; i=$((i + 1)); done | duration_ms)
+inside=$(i=0; while [ $i -lt $RUNS ]; do fetch 'collect[]=nft-counters'; i=$((i + 1)); done | duration_ms)
+echo "info mean of $RUNS runs: nft $1 ms by popen, $2 ms through the watchdog;" \
+	"ethtool -S on a veth $3 ms by popen, $4 ms through the watchdog;" \
+	"nft-counters in a scrape $outside ms outside the jail, $inside ms in it"
+check "the watchdog adds less than 20 ms to a program (nft: $1 -> $2 ms)" awk "BEGIN { exit !($2 - $1 < 20) }"
 # No device backs a link here (no /sys/class/net/<link>/device): ethtool asks none.
 check "ethtool is served" served ethtool
 check "and asks no link a device does not back, as a veth" fails metric 'node_ethtool_.*device="e2e0"'
