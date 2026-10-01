@@ -77,12 +77,12 @@ Metric names and help texts follow the Prometheus node_exporter
 (https://github.com/prometheus/node_exporter), Copyright 2013-2015 The
 Prometheus Authors, licensed under the Apache License, Version 2.0; the
 textfile collector also follows node_exporter's textfile collector. The
-diskstats collector ports node_exporter's diskstats collector
-(collector/diskstats_linux.go) and how the Prometheus procfs library
-(https://github.com/prometheus/procfs, Copyright The Prometheus Authors,
-Apache License, Version 2.0) parses /proc/diskstats; its default
-device_exclude extends node_exporter's default
---collector.diskstats.device-exclude.
+diskstats and sockstat collectors port node_exporter's diskstats and sockstat
+collectors (collector/diskstats_linux.go, sockstat_linux.go) and how the
+Prometheus procfs library (https://github.com/prometheus/procfs, Copyright
+The Prometheus Authors, Apache License, Version 2.0) parses /proc/diskstats
+and /proc/net/sockstat; diskstats' default device_exclude extends
+node_exporter's default --collector.diskstats.device-exclude.
 
 The chrony collector's metric names, labels and help texts follow
 chrony_exporter (https://github.com/SuperQ/chrony_exporter), Copyright 2022

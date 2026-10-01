@@ -37,6 +37,7 @@ Every collector of `ucode-prometheus-exporter 0.1.0`. A collector's name is what
 | [`realtek-poe`](#realtek-poe) | Realtek PoE | `ucode-prometheus-exporter-realtek-poe` | — |
 | [`selinux`](#selinux) | SELinux | `ucode-prometheus-exporter` (base) | — |
 | [`snmp6`](#snmp6) | IPv6 statistics per device | `ucode-prometheus-exporter-snmp6` | `ucode-prometheus-exporter-network`, `ucode-prometheus-exporter-full` |
+| [`sockstat`](#sockstat) | Sockets | `ucode-prometheus-exporter-sockstat` | `ucode-prometheus-exporter-network`, `ucode-prometheus-exporter-full` |
 | [`softnet`](#softnet) | Network softirq statistics | `ucode-prometheus-exporter` (base) | — |
 | [`textfile`](#textfile) | Text files | `ucode-prometheus-exporter-textfile` | `ucode-prometheus-exporter-full` |
 | [`thermal`](#thermal) | Thermal zones | `ucode-prometheus-exporter-thermal` | `ucode-prometheus-exporter-hardware`, `ucode-prometheus-exporter-full` |
@@ -57,10 +58,10 @@ The base package, `ucode-prometheus-exporter`, installs `conntrack`, `cpu`, `ent
 
 | Group package | For | Collectors |
 | :--- | :--- | :--- |
-| `ucode-prometheus-exporter-network` | network statistics | `ethtool`, `nat_traffic`, `netstat`, `nft-counters`, `qdisc`, `snmp6` |
+| `ucode-prometheus-exporter-network` | network statistics | `ethtool`, `nat_traffic`, `netstat`, `nft-counters`, `qdisc`, `snmp6`, `sockstat` |
 | `ucode-prometheus-exporter-wireless` | Wi-Fi | `hostapd_stations`, `hostapd_ubus_stations`, `wifi` |
 | `ucode-prometheus-exporter-hardware` | hardware and filesystems | `diskstats`, `filesystem`, `hwmon`, `thermal` |
-| `ucode-prometheus-exporter-full` | a router or access point | `ethtool`, `nat_traffic`, `netstat`, `nft-counters`, `qdisc`, `snmp6`, `hostapd_stations`, `hostapd_ubus_stations`, `wifi`, `diskstats`, `filesystem`, `hwmon`, `thermal`, `dhcp_leases`, `dnsmasq`, `openwrt`, `textfile`, `uci_dhcp_host`, `wireguard` |
+| `ucode-prometheus-exporter-full` | a router or access point | `ethtool`, `nat_traffic`, `netstat`, `nft-counters`, `qdisc`, `snmp6`, `sockstat`, `hostapd_stations`, `hostapd_ubus_stations`, `wifi`, `diskstats`, `filesystem`, `hwmon`, `thermal`, `dhcp_leases`, `dnsmasq`, `openwrt`, `textfile`, `uci_dhcp_host`, `wireguard` |
 
 In no group: `bmx7`, `chrony`, `dawn`, `ltq-dsl`, `modemmanager`, `mwan3`, `realtek-poe`, `ubnt-manager`, `unbound`, `wifi_stations`.
 
@@ -578,6 +579,21 @@ Per-device IPv6 statistics from /proc/net/dev\_snmp6.
 - **Needs:** `fs`
 - **Nothing to observe:** No `/proc/net/dev_snmp6` (IPv6 disabled). See [Nothing to observe](#nothing-to-observe).
 - **Metrics:** [snmp6](metrics.md#snmp6)
+
+| Option | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+
+## `sockstat` {#sockstat}
+
+Sockets in use per protocol (TCP, UDP, raw, fragments) and the memory they hold, from /proc/net/sockstat and /proc/net/sockstat6, as node\_exporter has them.
+
+- **Title:** Sockets
+- **Package:** `ucode-prometheus-exporter-sockstat`
+- **In the groups:** `ucode-prometheus-exporter-network`, `ucode-prometheus-exporter-full`
+- **Section:** `config collector 'sockstat'`
+- **Needs:** `fs`
+- **Metrics:** [sockstat](metrics.md#sockstat)
 
 | Option | Type | Default | Datatype | Description |
 | :--- | :--- | :--- | :--- | :--- |

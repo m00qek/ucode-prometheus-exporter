@@ -158,6 +158,7 @@ $(eval $(call Collector,openwrt,openwrt,OpenWrt release and board,))
 $(eval $(call Collector,qdisc,qdisc,traffic control queues and CAKE,+tc))
 $(eval $(call Collector,realtek_poe,realtek-poe,Realtek PoE switch,))
 $(eval $(call Collector,snmp6,snmp6,IPv6 statistics,))
+$(eval $(call Collector,sockstat,sockstat,sockets in use and their memory,))
 $(eval $(call Collector,textfile,textfile,metrics from text files,))
 $(eval $(call Collector,thermal,thermal,thermal zone temperatures,))
 $(eval $(call Collector,ubnt_manager,ubnt-manager,Ubiquiti airOS radios,+ubnt-manager))
@@ -190,7 +191,7 @@ define Group
   $$(eval $$(call BuildPackage,$(PKG_NAME)-$(1)))
 endef
 
-NETWORK_GROUP:=ethtool nat_traffic netstat nft-counters qdisc snmp6
+NETWORK_GROUP:=ethtool nat_traffic netstat nft-counters qdisc snmp6 sockstat
 # Not wifi_stations, which repeats the station metrics of wifi, nor dawn, which needs DAWN.
 WIRELESS_GROUP:=hostapd_stations hostapd_ubus_stations wifi
 HARDWARE_GROUP:=diskstats filesystem hwmon thermal

@@ -181,7 +181,7 @@ It fails, as it should. Among its output:
         tasks: base false, subpackage null
 ```
 
-`test/integration/collectors_test.uc` holds every collector to what the repository owes it, and the documentation's generator finds a collector in no package. Ours has no package yet. Open `openwrt/ucode-prometheus-exporter/Makefile`, find the `Collector` lines, and add ours after `snmp6`'s:
+`test/integration/collectors_test.uc` holds every collector to what the repository owes it, and the documentation's generator finds a collector in no package. Ours has no package yet. Open `openwrt/ucode-prometheus-exporter/Makefile`, find the `Collector` lines, and add ours after `sockstat`'s:
 
 ```makefile
 $(eval $(call Collector,tasks,tasks,scheduler tasks,))

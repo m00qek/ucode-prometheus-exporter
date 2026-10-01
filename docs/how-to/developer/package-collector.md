@@ -36,7 +36,7 @@ Every collector is in the base package or in a package of its own, `ucode-promet
 If every router or access point should have it, add its name to a group's list:
 
 ```makefile
-NETWORK_GROUP:=ethtool nat_traffic netstat nft-counters qdisc snmp6 <name>
+NETWORK_GROUP:=ethtool nat_traffic netstat nft-counters qdisc snmp6 sockstat <name>
 ```
 
 `FULL_GROUP` holds the other three and more. Leave out a collector of particular hardware or of an optional service.

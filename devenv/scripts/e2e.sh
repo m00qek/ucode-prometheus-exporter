@@ -256,7 +256,7 @@ check "check says why" says '^ok   scrape: wifi has nothing to observe: no wirel
 check "and so does the ubus object's status" is_reason wifi 'no wireless radios'
 check "modemmanager asks ModemManager, which lists no modem" says '^ok   scrape: modemmanager has nothing to observe: ModemManager lists no modems$' "$INIT" check
 
-# --- diskstats and hwmon: the host's kernel, read in the jail
+# --- diskstats, sockstat and hwmon: the host's kernel, read in the jail
 # /proc/diskstats and /sys are the host's: whether there is a disk to observe
 # is what device_exclude leaves of the host's block devices.
 DISK_EXCLUDE=$(ucode -e "import { DEFAULT_EXCLUDE } from 'prometheus_exporter.collectors.diskstats'; print(DEFAULT_EXCLUDE);")
@@ -278,6 +278,9 @@ before=$(pid)
 uci delete "$NAME.diskstats"
 set_config
 eventually "its default again restarts the instance" restarted_from "$before"
+eventually "sockstat reads /proc/net/sockstat in the jail" metric 'node_sockstat_TCP_inuse '
+check "and the page size, from /proc/self/auxv" metric 'node_sockstat_TCP_mem_bytes '
+[ ! -e /proc/net/sockstat6 ] || check "and /proc/net/sockstat6" metric 'node_sockstat_TCP6_inuse '
 # A sensor the host's driver answers now: one asleep (a GPU's) answers nothing,
 # and hwmon leaves it out.
 host_reads() { for f in /sys/class/hwmon/*/$1; do cat "$f" >/dev/null 2>&1 && return 0; done; return 1; }

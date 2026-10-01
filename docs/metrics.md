@@ -242,6 +242,8 @@ Neither upstream exporter had these. Where node_exporter has the metric, the nam
 | hwmon | `node_hwmon_fan_rpm{chip,sensor}`, `node_hwmon_fan_min_rpm{chip,sensor}`, `node_hwmon_fan_alarm{chip,sensor}` | gauge | node_exporter's, from a chip's `fanN_input`, `_min` and `_alarm`. |
 | hwmon | `node_hwmon_in_volts{chip,sensor}`, `node_hwmon_in_min_volts{chip,sensor}`, `node_hwmon_in_max_volts{chip,sensor}`, `node_hwmon_in_alarm{chip,sensor}` | gauge | node_exporter's, from `inN_input`, `_min`, `_max` (mV, here volts) and `_alarm`. |
 | hwmon | `node_hwmon_curr_amps{chip,sensor}`, `node_hwmon_power_watt{chip,sensor}` | gauge | node_exporter's, from `currN_input` (mA, here amperes) and `powerN_input` (µW, here watts). |
+| sockstat | `node_sockstat_sockets_used`, `node_sockstat_<protocol>_{inuse,orphan,tw,alloc,mem,memory}` (`TCP`, `UDP`, `UDPLITE`, `RAW`, `FRAG`, and `TCP6`, `UDP6`, `UDPLITE6`, `RAW6`, `FRAG6` where the kernel has IPv6) | gauge | node_exporter's (collector/sockstat_linux.go), from `/proc/net/sockstat` and `/proc/net/sockstat6`, each key a protocol's line has. |
+| sockstat | `node_sockstat_<protocol>_mem_bytes` | gauge | node_exporter's: `mem`, in pages, times the page size (the process's `AT_PAGESZ`, from `/proc/self/auxv`). |
 
 ## Unchanged collectors
 

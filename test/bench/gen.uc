@@ -649,6 +649,9 @@ function generate(dir, profile) {
 	// Generators of their own, so the rest of the world is what it was without them.
 	hwmon_readings(root, p, rng(45));
 	diskstats(root, p, rng(46));
+	// sockstat: the seriguela router's sockets, and its cat's auxiliary vector for the page size.
+	for (let f in [ 'net/sockstat', 'net/sockstat6', 'self/auxv' ])
+		put(root, `/proc/${f}`, fixture(`seriguela-router/proc/${f}`));
 	for (let z = 0; z < p.thermal; z++) {
 		let d = `/sys/class/thermal/thermal_zone${z}`;
 		put(root, `${d}/type`, `zone${z}-thermal\n`);

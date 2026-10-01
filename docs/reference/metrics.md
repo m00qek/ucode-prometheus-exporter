@@ -43,6 +43,7 @@ The labels are those seen on the captures; a collector leaves out a label it has
 | [`realtek-poe`](#realtek-poe) | 7 | made-up captures | — |
 | [`selinux`](#selinux) | 2 | an access point, a router, a second router, made-up captures | — |
 | [`snmp6`](#snmp6) | 80 | an access point, a router | — |
+| [`sockstat`](#sockstat) | 20 | an access point, a second router | — |
 | [`softnet`](#softnet) | 7 | an access point, a router | — |
 | [`textfile`](#textfile) | 6 | an access point, a router, a second router, made-up captures | — |
 | [`thermal`](#thermal) | 2 | an access point, a router | `node_thermal_zone_passive_celsius` |
@@ -571,6 +572,33 @@ IPv6 statistics per device. [Collector](collectors.md#snmp6).
 | :--- | :--- | :--- | :--- | :--- |
 | `node_snmp6_ifindex` | gauge | `device` | Interface index of the device. | — |
 | `node_snmp6_<Protocol>_<Field>_total` | counter | `device` | IPv6 statistic &lt;Protocol&gt;&lt;Field&gt; of the device: each of `/proc/net/dev_snmp6/<device>`. | 79 on the captures |
+
+## `sockstat` {#sockstat}
+
+Sockets. [Collector](collectors.md#sockstat).
+
+| Family | Type | Labels | Help | Notes |
+| :--- | :--- | :--- | :--- | :--- |
+| `node_sockstat_sockets_used` | gauge | — | Number of IPv4 sockets in use. | — |
+| `node_sockstat_TCP_inuse` | gauge | — | Number of TCP sockets in state inuse. | — |
+| `node_sockstat_TCP_orphan` | gauge | — | Number of TCP sockets in state orphan. | — |
+| `node_sockstat_TCP_tw` | gauge | — | Number of TCP sockets in state tw. | — |
+| `node_sockstat_TCP_alloc` | gauge | — | Number of TCP sockets in state alloc. | — |
+| `node_sockstat_TCP_mem` | gauge | — | Number of TCP sockets in state mem. | — |
+| `node_sockstat_TCP_mem_bytes` | gauge | — | Number of TCP sockets in state mem\_bytes. | — |
+| `node_sockstat_UDP_inuse` | gauge | — | Number of UDP sockets in state inuse. | — |
+| `node_sockstat_UDP_mem` | gauge | — | Number of UDP sockets in state mem. | — |
+| `node_sockstat_UDP_mem_bytes` | gauge | — | Number of UDP sockets in state mem\_bytes. | — |
+| `node_sockstat_UDPLITE_inuse` | gauge | — | Number of UDPLITE sockets in state inuse. | — |
+| `node_sockstat_RAW_inuse` | gauge | — | Number of RAW sockets in state inuse. | — |
+| `node_sockstat_FRAG_inuse` | gauge | — | Number of FRAG sockets in state inuse. | — |
+| `node_sockstat_FRAG_memory` | gauge | — | Number of FRAG sockets in state memory. | — |
+| `node_sockstat_TCP6_inuse` | gauge | — | Number of TCP6 sockets in state inuse. | — |
+| `node_sockstat_UDP6_inuse` | gauge | — | Number of UDP6 sockets in state inuse. | — |
+| `node_sockstat_UDPLITE6_inuse` | gauge | — | Number of UDPLITE6 sockets in state inuse. | — |
+| `node_sockstat_RAW6_inuse` | gauge | — | Number of RAW6 sockets in state inuse. | — |
+| `node_sockstat_FRAG6_inuse` | gauge | — | Number of FRAG6 sockets in state inuse. | — |
+| `node_sockstat_FRAG6_memory` | gauge | — | Number of FRAG6 sockets in state memory. | — |
 
 ## `softnet` {#softnet}
 
