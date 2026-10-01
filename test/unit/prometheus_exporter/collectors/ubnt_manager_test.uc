@@ -165,6 +165,19 @@ describe('collectors.ubnt_manager', () => {
 		});
 	});
 
+	// An unreachable radio: ssh waits on it until exec's watchdog kills it.
+	it('keeps the other radios when one does not answer in time', () => {
+		run({
+			[LIST]: { out: 'gone nsloco\n' },
+			[status('gone')]: { hangs: true },
+			[status('nsloco')]: { out: AIROS6 },
+		}, (r) => {
+			assert.match({ ok: false, error: 'COMMAND_TIMEOUT', details: 'ubnt-manager: still running after 5 s, killed' },
+				{ ok: r.result.ok, error: r.result.error, details: r.result.details });
+			assert.match(contains([ 'ubnt_channel{device="nsloco"} 149' ]), samples(r.lines));
+		});
+	});
+
 	it('fails with COMMAND_FAILED when ubnt-manager cannot list the devices', () => {
 		run({ [LIST]: { out: '', status: 1 } }, (r) => {
 			assert.match({ ok: false, error: 'COMMAND_FAILED' }, { ok: r.result.ok, error: r.result.error });

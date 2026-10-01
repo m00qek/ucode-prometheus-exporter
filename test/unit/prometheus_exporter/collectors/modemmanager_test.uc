@@ -73,6 +73,13 @@ describe('collectors.modemmanager', () => {
 		});
 	});
 
+	it('fails with COMMAND_TIMEOUT when mmcli does not answer in time', () => {
+		run(outputs({ hangs: true }), (r) => {
+			assert.match({ ok: false, error: 'COMMAND_TIMEOUT', details: 'mmcli: still running after 5 s, killed' },
+				{ ok: r.result.ok, error: r.result.error, details: r.result.details });
+		});
+	});
+
 	it('fails with SOURCE_INVALID when mmcli prints no JSON', () => {
 		run(outputs({ out: 'error: couldn\'t find the ModemManager process in the bus\n' }), (r) => {
 			assert.match('SOURCE_INVALID', r.result.error);

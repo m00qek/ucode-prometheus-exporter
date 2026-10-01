@@ -21,6 +21,7 @@ export const RTNL_FAILED          = 'RTNL_FAILED';
 export const SOCKET_FAILED        = 'SOCKET_FAILED';
 export const COMMAND_NOT_ALLOWED  = 'COMMAND_NOT_ALLOWED';
 export const COMMAND_FAILED       = 'COMMAND_FAILED';
+export const COMMAND_TIMEOUT      = 'COMMAND_TIMEOUT';
 
 // Exposition text
 export const EXPOSITION_INVALID   = 'EXPOSITION_INVALID';

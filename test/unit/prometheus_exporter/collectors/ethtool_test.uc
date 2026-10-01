@@ -217,6 +217,17 @@ describe('collectors.ethtool', () => {
 		});
 	});
 
+	it('stops at an ethtool still running when its seconds are spent, keeping what it read', () => {
+		let links = [ { dev: 'eth0' }, { dev: 'eth1' }, { dev: 'eth2' } ];
+		let out = { [run('eth0')]: { out: stat('rx_packets', 7) }, [run('eth1')]: { hangs: true }, [run('eth2')]: { out: stat('rx_packets', 9) } };
+
+		with_ethtool(links, out, (r) => {
+			assert.match({ ok: false, error: 'COMMAND_TIMEOUT', details: 'ethtool: still running after 5 s, killed' },
+				{ ok: r.result.ok, error: r.result.error, details: r.result.details });
+			assert.match([ 'node_ethtool_received_packets_total{device="eth0"} 7' ], samples(r.lines));
+		});
+	});
+
 	it('fails with COMMAND_FAILED when ethtool cannot start', () => {
 		with_ethtool([ { dev: 'eth0' } ], {}, (r) => {
 			assert.match({ error: 'COMMAND_FAILED', details: 'ethtool: cannot start' }, { error: r.result.error, details: r.result.details });

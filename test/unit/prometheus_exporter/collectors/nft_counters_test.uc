@@ -75,6 +75,13 @@ describe('collectors.nft_counters', () => {
 		});
 	});
 
+	it('passes on an nft that does not answer in time as COMMAND_TIMEOUT', () => {
+		with_nft({ hangs: true }, (r) => {
+			assert.match({ ok: false, error: 'COMMAND_TIMEOUT', details: 'nft: still running after 5 s, killed' },
+				{ ok: r.result.ok, error: r.result.error, details: r.result.details });
+		});
+	});
+
 	it('fails with COMMAND_FAILED when nft cannot start', () => {
 		with_nft(null, (r) => {
 			assert.match({ error: 'COMMAND_FAILED', details: 'nft: cannot start' }, { error: r.result.error, details: r.result.details });

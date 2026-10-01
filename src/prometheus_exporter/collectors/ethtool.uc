@@ -90,7 +90,8 @@ export function statistics(text) {
 };
 
 // ethtool itself is missing or cannot run, as opposed to a driver without
-// statistics: the shell's 126 and 127, or no process at all.
+// statistics: the shell's 126 and 127, or no process at all; or it ran out of
+// time, which the links after it would find spent.
 function cannot_run(res) {
 	return res.data?.status == null || res.data.status in [ 126, 127 ];
 }
