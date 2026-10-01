@@ -12,7 +12,7 @@
 
 import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
-import { each_line, fields } from 'prometheus_exporter.proc';
+import { each_line } from 'prometheus_exporter.proc';
 
 export const meta = {
 	name: 'nat_traffic',
@@ -23,25 +23,30 @@ export const meta = {
 
 const CONNTRACK = '/proc/net/nf_conntrack';
 
-// { src, dst, bytes } of one conntrack entry.
+// [ src, dst, bytes ] of one conntrack entry, or null without both addresses.
+//
+// The table can hold tens of thousands of entries, so a line is taken apart
+// with index() and split() on fixed strings, with no regex and no array of
+// its fields: musl's regexec costs microseconds a call, and a line has about
+// twenty fields. The kernel separates the fields with one space
+// (ct_seq_show() in net/netfilter/nf_conntrack_standalone.c); padded with one
+// at each end, a field that starts with `src=` is the text after ' src='
+// up to the next space.
 function entry(line) {
-	let e = { src: null, dst: null, bytes: 0 };
+	let l = ' ' + trim(line) + ' ';
+	let i = index(l, ' src='), j = index(l, ' dst=');
 
-	for (let f in fields(line)) {
-		let m = match(f, /^(src|dst|bytes)=(.*)$/);
+	if (i < 0 || j < 0)
+		return null;
 
-		if (!m)
-			continue;
+	let src = substr(l, i + 5), dst = substr(l, j + 5);
+	let parts = split(l, ' bytes=');
+	let bytes = 0;
 
-		if (m[1] == 'bytes')
-			e.bytes += +m[2] || 0;
-		else if (m[1] == 'src')
-			e.src ??= m[2];
-		else
-			e.dst ??= m[2];
-	}
+	for (let k = 1; k < length(parts); k++)
+		bytes += +substr(parts[k], 0, index(parts[k], ' ')) || 0;
 
-	return e;
+	return [ substr(src, 0, index(src, ' ')), substr(dst, 0, index(dst, ' ')), bytes ];
 }
 
 // The labels are src and dst, as the ucode exporter's nat_traffic has them
@@ -56,11 +61,10 @@ export function collect(deps, out) {
 	let readable = each_line(deps.fs, CONNTRACK, function(line) {
 		let e = entry(line);
 
-		if (e.src == null || e.dst == null)
-			return;
-
-		totals[e.src] ??= {};
-		totals[e.src][e.dst] = (totals[e.src][e.dst] ?? 0) + e.bytes;
+		if (e) {
+			let dsts = totals[e[0]] ??= {};
+			dsts[e[1]] = (dsts[e[1]] ?? 0) + e[2];
+		}
 	});
 
 	if (!readable)
