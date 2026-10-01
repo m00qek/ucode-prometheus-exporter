@@ -1,6 +1,6 @@
 # ucode-prometheus-exporter
 
-Metrics of OpenWrt for Prometheus, written in ucode and served by uhttpd at `/metrics` on port 9100. A rewrite of the packages feed's `prometheus-node-exporter-ucode` and `prometheus-node-exporter-lua`, with the Lua exporter's collectors ported alongside the ucode one's. It replaces them, under names of its own: the package `ucode-prometheus-exporter`, the service, command and config `prometheus-exporter`.
+Metrics of OpenWrt for Prometheus, written in ucode and served by uhttpd at `/metrics` on port 9100. A rewrite of the packages feed's `prometheus-node-exporter-ucode` and `prometheus-node-exporter-lua`, with the Lua exporter's collectors ported alongside the ucode one's. It replaces them, under names of its own: the package `ucode-prometheus-exporter`, the service, command and config `prometheus-exporter`. It conflicts with both, and takes over their settings (see [Coming from the feed's exporters](#coming-from-the-feeds-exporters)).
 
 The metric names are not those packages'. They are the Prometheus [node_exporter](https://github.com/prometheus/node_exporter)'s where it has the metric, so its dashboards work, and elsewhere follow the [Prometheus naming conventions](https://prometheus.io/docs/practices/naming/) (base units, `_total` on counters only, `_info` for labels); a service keeps its own prefix, and the names of its standalone exporter where they follow the conventions. [docs/metrics.md](docs/metrics.md) lists every name that changed, and why.
 
@@ -75,6 +75,31 @@ Every collector, with its title and package (`ucode-prometheus-exporter-…`):
 | `wireguard` | WireGuard | `-wireguard`; in `-full` |
 
 Neither upstream exporter had these: softnet and vmstat (node_exporter's), conntrack's statistics and openwrt_interfaces (netifd's logical interfaces: up, uptime, devices, address counts) in the base package, and dhcp_leases (dnsmasq's and odhcpd's active leases).
+
+## Coming from the feed's exporters
+
+The package conflicts with the feed's `prometheus-node-exporter-ucode` and `prometheus-node-exporter-lua` (both serve `/metrics` from uhttpd, the Lua one on this port): apk installs neither beside it, nor it beside either, and says why:
+
+```
+ERROR: unable to select packages:
+  prometheus-node-exporter-ucode-2024.02.07-r2:
+    breaks: ucode-prometheus-exporter-2026.09.30-r1[!prometheus-node-exporter-ucode>=0]
+```
+
+So the old one goes first:
+
+```sh
+apk del prometheus-node-exporter-ucode && apk add ucode-prometheus-exporter
+```
+
+apk keeps the old exporter's config when someone changed it. When the package is installed, a uci-defaults script takes what it sets into `/etc/config/prometheus-exporter`: `listen_interface`, `listen_port`, `http_keepalive`, `cert`, `key`, `omit_zero_values`, and the ucode exporter's `config collector` sections (wifi's `stations`). It does so once, only while `/etc/config/prometheus-exporter` is as the package ships it, and from the ucode exporter's config when both are there:
+
+- A port left at the old exporter's default (the ucode one's 9101) becomes 9100; one someone chose is kept.
+- A value this exporter would refuse is left at the default.
+- The old config file stays as it was.
+- The log (`logread -e prometheus-exporter`) says what was taken and what was not.
+
+The metric names are not the old exporters' ([docs/metrics.md](docs/metrics.md)), and Prometheus may need the new port.
 
 ## Configuration
 

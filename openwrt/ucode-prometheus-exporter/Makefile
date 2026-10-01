@@ -30,6 +30,11 @@ endef
 define Package/$(PKG_NAME)
   $(call Package/$(PKG_NAME)/Default)
   DEPENDS:=+uhttpd +uhttpd-mod-ucode +ucode +ucode-mod-fs +ucode-mod-ubus +ucode-mod-uci +ucode-mod-rtnl
+  # The feed's exporters it replaces, which want the same port. CONFLICTS
+  # keeps an image from building both in, but apk packages do not carry it:
+  # a dependency on !<name> is apk's conflict, refused either way round.
+  CONFLICTS:=prometheus-node-exporter-ucode prometheus-node-exporter-lua
+  EXTRA_DEPENDS:=!prometheus-node-exporter-ucode (>=0), !prometheus-node-exporter-lua (>=0)
 endef
 
 define Package/$(PKG_NAME)/description
@@ -61,13 +66,16 @@ define Package/$(PKG_NAME)/install
 	$(foreach c,$(BASE_COLLECTORS),$(INSTALL_DATA) ./src/prometheus_exporter/collectors/$(c).uc $(1)$(COLLECTORS_DIR)/;)
 	$(INSTALL_DIR) $(1)/usr/libexec/$(SERVICE)
 	$(INSTALL_DATA) ./files/usr/libexec/$(SERVICE)/handler.uc $(1)/usr/libexec/$(SERVICE)/
-	$(INSTALL_BIN) $(foreach f,jail check status,./files/usr/libexec/$(SERVICE)/$(f).uc) $(1)/usr/libexec/$(SERVICE)/
+	$(INSTALL_BIN) $(foreach f,jail check status import,./files/usr/libexec/$(SERVICE)/$(f).uc) $(1)/usr/libexec/$(SERVICE)/
 	$(INSTALL_DIR) $(1)/usr/bin
 	$(INSTALL_BIN) ./files/usr/bin/$(SERVICE) $(1)/usr/bin/
 	$(INSTALL_DIR) $(1)/etc/config
 	$(INSTALL_CONF) ./files/etc/config/$(SERVICE) $(1)/etc/config/
 	$(INSTALL_DIR) $(1)/etc/init.d
 	$(INSTALL_BIN) ./files/etc/init.d/$(SERVICE) $(1)/etc/init.d/
+	# Run once, before the service first starts: takes over a feed exporter's settings.
+	$(INSTALL_DIR) $(1)/etc/uci-defaults
+	$(INSTALL_BIN) ./files/etc/uci-defaults/$(SERVICE)-import $(1)/etc/uci-defaults/
 endef
 
 $(eval $(call BuildPackage,$(PKG_NAME)))

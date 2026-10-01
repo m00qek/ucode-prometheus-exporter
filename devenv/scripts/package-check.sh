@@ -28,7 +28,19 @@ is_group() { for g in $GROUPS; do [ "$1" = "/artifacts/$PKG-$g-$PKG_FULLVERSION.
 COLLECTOR_PKGS=$(for s in $SUBS; do is_group "$s" || echo "$s"; done)
 echo "checking $BASE" $SUBS
 
+# The feed's exporters it replaces: apk refuses it beside one, and one beside it.
+# The image holds the feed's ucode exporter (the Lua one needs Lua).
+FEED_UCODE=prometheus-node-exporter-ucode
+conflicts_with() { apk adbdump "$BASE" | grep -qx "    - '!$1>=0'"; }
+refused() { ! apk add --allow-untrusted --no-network "$@" >/tmp/apk.log 2>&1 && grep -q "breaks: $PKG-$PKG_FULLVERSION\[!$FEED_UCODE>=0\]" /tmp/apk.log; }
+check "it conflicts with the feed's ucode exporter" conflicts_with "$FEED_UCODE"
+check "and with the feed's Lua exporter" conflicts_with prometheus-node-exporter-lua
+apk add --allow-untrusted --no-network /opt/feed/$FEED_UCODE-*.apk >/dev/null 2>&1
+check "apk refuses it beside the feed's ucode exporter" refused "$BASE"
+apk del "$FEED_UCODE" >/dev/null 2>&1
+
 check "installs offline" apk add --allow-untrusted --no-network "$BASE" $SUBS
+check "apk refuses the feed's ucode exporter beside it" refused /opt/feed/$FEED_UCODE-*.apk
 installed() { ls $COLLECTORS/*.uc | wc -l; }
 all_base_installed() { for c in $BASE_COLLECTORS; do [ -f "$COLLECTORS/$c.uc" ] || return 1; done; }
 check "installs the base collectors" all_base_installed
@@ -50,6 +62,7 @@ done <<EOF
 $(/exporter/devenv/scripts/package-info.sh groups)
 EOF
 check "keeps its config as a conffile" test -f /etc/config/$NAME
+check "runs its uci-defaults script once" test ! -e /etc/uci-defaults/$NAME-import
 check "the init script parses" sh -n /etc/init.d/$NAME
 
 check "every installed collector loads" test "$($NAME -l 2>/dev/null | wc -l)" -eq "$(installed)"

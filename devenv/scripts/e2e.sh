@@ -41,6 +41,8 @@ metric() { fetch | grep -q "^$1"; }
 refused() { wget -O /dev/null "$URL?$1" 2>&1 | grep -q "HTTP error 400"; }
 
 instance() { ubus call service list "{\"name\":\"$NAME\"}"; }
+# uhttpd's command line, on one line.
+command_line() { instance | jsonfilter -e '@[*].instances.*.command[*]' | tr '\n' ' '; }
 pid() { instance | jsonfilter -e '@[*].instances.*.pid'; }
 mounts() { instance | jsonfilter -e '@[*].instances.*.mount' | ucode -e 'print(join("\n", sort(keys(json(require("fs").stdin.read("all"))))), "\n")'; }
 # What the init script mounts for the exporter's own code and libraries.
@@ -79,10 +81,30 @@ uci set ubnt-manager.sample_ap.target=127.0.0.1 && uci set ubnt-manager.sample_a
 	uci set ubnt-manager.sample_ap.password=e2e && uci commit ubnt-manager
 reload_config
 
+# A config the feed's ucode exporter left behind: apk keeps one someone changed
+# when it removes the package.
+OLD=/etc/config/prometheus-node-exporter-ucode
+cat >"$OLD" <<'EOF'
+config prometheus-node-exporter-ucode 'main'
+	option listen_interface 'loopback'
+	option listen_port '9101'
+	option http_keepalive '30'
+
+config collector 'wifi'
+	option stations '0'
+EOF
+old_sum=$(md5sum <"$OLD")
+
 # --- the base package
 install ""
 reload_config # remembers the exporter's config, new with the package
 eventually "the base package starts the service" "$INIT" running
+check "it takes over the old exporter's settings" test "$(uci -q get $NAME.main.http_keepalive) $(uci -q get $NAME.wifi.stations)" = "30 0"
+check "but not its default port" test "$(uci -q get $NAME.main.listen_port)" = 9100
+check "and serves with them" says ' -k 30 ' command_line
+check "it leaves the old config as it was" test "$(md5sum <"$OLD")" = "$old_sum"
+check "it logs what it took" says "imported from $OLD: http_keepalive=30, collector wifi" logread
+check "its uci-defaults script runs once" test ! -e /etc/uci-defaults/$NAME-import
 all_base_served() { for c in $BASE_COLLECTORS; do served "$c" || return 1; done; }
 eventually "it serves every base collector" all_base_served
 check "it runs in procd's jail" jailed
