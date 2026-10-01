@@ -1,4 +1,4 @@
-# Metric names
+# Renamed Metrics
 
 This exporter replaces OpenWrt's `prometheus-node-exporter-ucode` and `prometheus-node-exporter-lua` (it conflicts with both, and takes over their settings), but not their metric names. Where the Prometheus [node_exporter](https://github.com/prometheus/node_exporter) has an equivalent metric, this exporter uses node_exporter's name, type, labels and help text, so dashboards made for it (such as Grafana's "Node Exporter Full") work. Elsewhere, the names follow the [Prometheus naming conventions](https://prometheus.io/docs/practices/naming/):
 
@@ -11,6 +11,8 @@ This exporter replaces OpenWrt's `prometheus-node-exporter-ucode` and `prometheu
 Each service keeps its own prefix (`dnsmasq_`, `dsl_`, `wireguard_`, `mwan3_`, `hostapd_`, `dawn_`, `bmx7_`, `realtek_poe_`, `ubnt_`, `modemmanager_`, `unbound_`, `nft_counter_`), and OpenWrt's own metrics are `node_openwrt_*`. Where a widely used standalone exporter exists for a service and its names follow the conventions, this exporter uses them too: see [Standalone exporters](#standalone-exporters).
 
 There is no option to get the old names back. The table below lists, per collector, every family whose name, type, labels or unit changed, from the names of the exporters this one replaces to this one's; a family not listed has kept its name. In the Type column, `a → b` is a type that changed.
+
+Every family as the collectors write it now is in [Metrics](reference/metrics.md); why the names are what they are, in [About metric names](explanation/metric-names.md).
 
 ## Base collectors
 
@@ -211,7 +213,7 @@ Neither upstream exporter had these. Where node_exporter has the metric, the nam
 | Collector | Families | Type | Source |
 |---|---|---|---|
 | — (the exporter's own) | `ucode_prometheus_exporter_build_info{version}` | gauge | 1, labeled with the package's version (`0.1.0-r1`, `dev` from a source tree), in every scrape whatever `collect[]` selects; as node_exporter's `node_exporter_build_info`. |
-| — (the exporter's own) | `node_scrape_collector_observing{collector}` | gauge | Beside node_exporter's `node_scrape_collector_success`: 0 for a collector with nothing to observe (its hardware, kernel feature or service is not there; it succeeds without samples), 1 for every other; see the README's "Nothing to observe". |
+| — (the exporter's own) | `node_scrape_collector_observing{collector}` | gauge | Beside node_exporter's `node_scrape_collector_success`: 0 for a collector with nothing to observe (its hardware, kernel feature or service is not there; it succeeds without samples), 1 for every other; see [About nothing to observe](explanation/nothing-to-observe.md). |
 | conntrack (base) | `node_nf_conntrack_stat_{found,invalid,ignore,insert,insert_failed,drop,early_drop,search_restart}` | gauge | node_exporter's, from `/proc/net/stat/nf_conntrack` summed over the CPUs. |
 | softnet (base) | `node_softnet_{processed,dropped,times_squeezed,cpu_collision,received_rps,flow_limit_count}_total{cpu}` | counter | node_exporter's, from `/proc/net/softnet_stat`. |
 | softnet (base) | `node_softnet_backlog_len{cpu}` | gauge | node_exporter's. |
@@ -227,7 +229,7 @@ Neither upstream exporter had these. Where node_exporter has the metric, the nam
 | timesync (base) | `node_timesync_stratum{daemon}`, `node_timesync_offset_seconds{daemon}`, `node_timesync_last_update_timestamp_seconds{daemon}` | gauge | While synchronized: the stratum, the offset at the last update (chronyd's last offset, ntpd's event's), and when that was (chronyd's reference time, ntpd's event) as a timestamp, as the conventions want a time since something. Not node_exporter's `node_timex_offset_seconds`, the offset the kernel still has to slew. |
 | chrony | `chrony_tracking_info{tracking_address,tracking_name,tracking_refid}`, `chrony_tracking_{last_offset_seconds,reference_timestamp_seconds,system_time_seconds,remote_reference,rms_offset_seconds,root_delay_seconds,root_dispersion_seconds,frequency_ppms,residual_frequency_ppms,skew_ppms,update_interval_seconds,stratum}` | gauge | chrony_exporter's, from `chronyc -c tracking`. |
 | chrony | `chrony_sources_{last_sample_age_seconds,reachability_ratio,reachability_success,last_sample_offset_seconds,last_sample_error_margin_seconds,polling_interval_seconds,stratum}{source_address,source_name}`, `chrony_sources_state_info{source_address,source_name,source_state,source_mode}` | gauge | chrony_exporter's, from `chronyc -c sources`. |
-| chrony | `chrony_serverstats_*_total` (NTP, NTS-KE and command packets received and dropped, client log records dropped, authenticated and interleaved packets, timestamps by where they were taken), `chrony_serverstats_ntp_timestamps_held`, `chrony_serverstats_ntp_timestamp_span_seconds` | counter, gauge | chrony_exporter's, from `chronyc -c serverstats`, where chronyd serves time and its command socket can be reached: outside the exporter's jail (see the README). |
+| chrony | `chrony_serverstats_*_total` (NTP, NTS-KE and command packets received and dropped, client log records dropped, authenticated and interleaved packets, timestamps by where they were taken), `chrony_serverstats_ntp_timestamps_held`, `chrony_serverstats_ntp_timestamp_span_seconds` | counter, gauge | chrony_exporter's, from `chronyc -c serverstats`, where chronyd serves time and its command socket can be reached: outside the exporter's jail (see [How to monitor chrony](how-to/chrony.md#server-statistics)). |
 | qdisc | `node_qdisc_{bytes,packets,drops,requeues,overlimits}_total{device,kind}` | counter | node_exporter's (collector/qdisc_linux.go), from `tc -s -j qdisc show`: the root qdisc of each device, as node_exporter reports them; noqueue is left out. |
 | qdisc | `node_qdisc_current_queue_length{device,kind}`, `node_qdisc_backlog{device,kind}` | gauge | node_exporter's: packets and bytes queued. |
 | qdisc | `node_qdisc_cake_capacity_estimate_bytes_per_second{device}`, `node_qdisc_cake_memory_used_bytes{device}`, `node_qdisc_cake_memory_limit_bytes{device}` | gauge | A root CAKE qdisc's shaper rate and memory. No CAKE exporter is widely used: tc's JSON keys (tc/q_cake.c), in base units. |

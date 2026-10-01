@@ -53,3 +53,68 @@ markdown_extensions:
 
 nav:
   - Welcome: index.md
+  - Tutorials:
+      - Overview: tutorials/index.md
+      - Monitor a Router with Prometheus: tutorials/monitor-a-router.md
+      - Write Your First Collector: tutorials/first-collector.md
+  - How-to Guides:
+      - Overview: how-to/index.md
+      - Operators:
+          - Installing the Exporter: how-to/install.md
+          - Upgrading the Exporter: how-to/upgrade.md
+          - Removing the Exporter: how-to/uninstall.md
+          - Moving from the Feed's Exporters: how-to/migrate-from-feed.md
+          - Choosing Collectors: how-to/choose-collectors.md
+          - Listening on the LAN: how-to/listen-on-lan.md
+          - Serving HTTPS with Basic Auth: how-to/https-basic-auth.md
+          - Compressing Scrapes: how-to/gzip.md
+          - Giving Programs More Time: how-to/exec-timeout.md
+          - Setting a Collector's Options: how-to/collector-options.md
+          - Publishing Metrics from Scripts: how-to/textfile.md
+          - Monitoring Unbound: how-to/unbound.md
+          - Monitoring chrony: how-to/chrony.md
+          - Monitoring SQM and CAKE: how-to/sqm-cake.md
+          - Using the LuCI App: how-to/luci.md
+          - Troubleshooting: how-to/troubleshoot.md
+      - Developer:
+          - Running the Tests: how-to/developer/testing.md
+          - Using the Lab: how-to/developer/lab.md
+          - Running the Benchmark: how-to/developer/benchmarks.md
+          - Capturing Fixtures from a Device: how-to/developer/fixtures.md
+          - Packaging a Collector: how-to/developer/package-collector.md
+          - Updating the Translation Template: how-to/developer/translations.md
+          - Writing Documentation: how-to/developer/documentation.md
+          - Publishing the Documentation:
+              - Setting Up Publishing: how-to/developer/setup-docs-publishing.md
+              - Publishing a New Minor Release: how-to/developer/publish-minor-docs.md
+              - Publishing a Patch Release: how-to/developer/publish-patch-docs.md
+              - Fixing the Released Docs: how-to/developer/fix-released-docs.md
+              - Republishing a Version: how-to/developer/republish-docs.md
+  - Reference:
+      - Overview: reference/index.md
+      - Collectors: reference/collectors.md
+      - Metrics: reference/metrics.md
+      - Renamed Metrics: metrics.md
+      - UCI Configuration: reference/uci-config.md
+      - Service Commands: reference/service-commands.md
+      - The prometheus-exporter Command: reference/command.md
+      - HTTP Endpoint: reference/http.md
+      - ubus Object: reference/ubus.md
+      - LuCI App: reference/luci.md
+      - The Jail: reference/jail.md
+      - Collector Interface: reference/collector-interface.md
+      - Log Messages: reference/log-messages.md
+      - Error Codes: reference/error-codes.md
+      - Files and Packages: reference/files.md
+      - Make Targets: reference/make-targets.md
+      - Documentation Publishing: reference/docs-publishing.md
+  - Explanation:
+      - Overview: explanation/index.md
+      - About the Exporter: explanation/about.md
+      - Architecture: explanation/architecture.md
+      - Security Model: explanation/security.md
+      - Nothing to Observe: explanation/nothing-to-observe.md
+      - Metric Names: explanation/metric-names.md
+      - Performance on Small Routers: explanation/performance.md
+      - About Versions: explanation/versions.md
+      - About Versioned Documentation: explanation/versioned-docs.md

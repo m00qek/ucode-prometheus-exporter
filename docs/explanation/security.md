@@ -1,0 +1,53 @@
+# About the Security Model
+
+The exporter runs as root, on a router, and answers requests from the network. It reads much of what the router knows: its interfaces and addresses, its clients and leases, its configuration. This page is about what keeps that from becoming more than a read, and the trade-offs taken along the way.
+
+---
+
+## A jail built from declarations
+
+uhttpd, and the exporter in it, runs in procd's jail. The jail holds the exporter's own code and libraries, procfs, sysfs, the ubus socket and the log, and then what the installed and enabled collectors declare: the configs they read, the programs they run, the files and directories they read. Nothing else of `/etc/config` is there, and nothing outside it is writable but the exporter's small state directory.
+
+The jail is computed, not written by hand. Each collector's `meta` says what it needs, the init script asks `jail.uc` what that adds up to, and procd mounts that. A collector the device does not install, or that its configuration disables, adds nothing. This is what makes the jail tight: it is exactly as wide as the collectors in use, and it stays right as packages come and go, without anyone keeping a list.
+
+Some declarations are refused outright: a path that is not absolute or not plain, and directories that hold what every service has, `/etc/config`, `/run`, `/tmp`, `/usr/lib` and the like. A collector cannot ask for a socket in `/run`, because the jail would then hold every service's sockets. ujail cannot mount a socket by itself, so a collector names the socket's directory, which must be its service's alone, as Unbound's `/var/lib/unbound` is.
+
+The jail is a boundary for the exporter's own mistakes as much as for an attacker's: a collector that parses something wrong cannot write anywhere, and one whose program hangs is killed with everything it started.
+
+Read-only is not the same as harmless. The wireguard collector reads `/etc/config/network`, for the peers' descriptions, and that file holds WireGuard's private keys: with wireguard installed and enabled, the jail can read them. The collector writes none of them, and no other collector can reach that file unless it declares it, but it is there. The ubus object's `interfaces`, by contrast, asks netifd, so that a LuCI user allowed the exporter's object alone gets interface names without the file.
+
+## What collectors get
+
+Inside the jail, a collector gets less than the jail holds. It receives capabilities, not modules: the fs functions that read and none that write; uci handles on the configs it named, read-only, of the committed configuration only, so a change staged in uci but not committed is never read; programs only from its own list, run without a shell's interpretation of their arguments, and killed with their children when its seconds are spent. See [About the architecture](architecture.md#only-one-module-touches-the-system).
+
+## Basic auth, over TLS only
+
+Basic auth sends the password with every request, encoded but not encrypted. Over HTTP anyone on the path reads it. So the exporter takes basic auth over HTTPS only: `auth_user` and `auth_password` without `cert` and `key` are an invalid configuration, refused wherever it is checked, start, reload, `check`, the ubus object's `validate` and LuCI alike. A configuration that asks for a login is never served without TLS, rather than served with a warning.
+
+`auth_password` holds a crypt hash, never the password: the configuration, its backups and LuCI's forms never hold the secret. The ubus object makes the hash, so the password is not on a command line, where `ps` would show it. Neither the password nor the hash is logged, and no reply of the ubus object holds the hash.
+
+### Why the handler checks the password itself
+
+uhttpd has basic auth of its own: a config file of `prefix:user:hash` lines, `-c`, with a realm, `-r`. The init script writes that file, and uhttpd reads it. But OpenWrt 25.12's uhttpd applies it to files and CGI only, not to a handler's prefix: a request to `/metrics` would reach the handler without a login. uhttpd fixed this in August 2026 (commit 3aa7e1c), after every 25.12 release so far.
+
+So the handler reads the same file when it starts, and checks every request against it before it scrapes, computing the hash in ucode as musl's crypt would. On a uhttpd that does check, the request is checked twice; on one that does not, it is checked once, which is what matters. A file that is there but wrong denies every request rather than letting them through.
+
+### The cache, and what it trades
+
+Computing a hash costs real time on a router's CPU: 135 ms for `hash_password`'s 1000 rounds of SHA-512-crypt on a 500-MIPS MIPS core, at every scrape. And uhttpd's process per request keeps nothing in memory. So, after a request is let in, the handler writes to its state directory the SHA-256 of that request's exact `Authorization` header, bound to the user and the hash; a later request with the same header is let in on that digest, compared in constant time. Any other header pays the full check, and a wrong one stays out, leaving the entry as it was. A changed user or password lets nothing in by the old entry, and a restart forgets it.
+
+The digest reveals no more than what is already on the device. It sits beside the hash, as closed: root's alone, in a directory of mode 0700 on tmpfs, never on flash nor in a backup. Finding a header that gives it is guessing the password, as with the hash, only cheaper per guess: one SHA-256 against a thousand rounds and more. That matters only to whoever can read the file, which is root on the router, who can also read the password itself from the next scrape, since uhttpd ends the TLS. A long random password, as a scraper's should be, is out of reach either way.
+
+### Why the rounds are capped
+
+A `$5$` or `$6$` hash may name up to 9,999,999 rounds. A hash of that many would take a 500-MIPS router twenty minutes per scrape, and anyone who can set the configuration could make the exporter burn its CPU. So a hash may have at most 2000 rounds, a quarter of a second there, and a hash that names none, which means 5000, is refused like any invalid value. See [Performance on small routers](performance.md#basic-auth).
+
+## Defaults that face inward
+
+The exporter listens on loopback until told otherwise: a fresh install exposes nothing. `listen_interface` takes a logical interface, so it follows that interface's addresses; `*`, every address, is a choice to make deliberately, since it includes the WAN's.
+
+## Trade-offs
+
+- **The jail is not a sandbox against a hostile collector.** It narrows what the installed collectors can reach; it does not vet them. A collector package is code you choose to run as root.
+- **Outside the jail, things are wider.** `check`, the ubus object's `status` and the `prometheus-exporter` command run outside it, as root, so that they can say what the jail lacks. chronyd's server statistics are read there and never in a scrape: reaching them means writing to chronyd's command directory, which the jail does not give.
+- **rpcd runs the ubus object unjailed.** It reads the committed configuration and writes nothing; `hash_password` alone handles a secret, and logs neither it nor the hash. The LuCI app's ACL grants the reading methods, and `hash_password` only to a login that may write.

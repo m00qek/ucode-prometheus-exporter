@@ -1,0 +1,88 @@
+# How to Write Documentation
+
+The documentation is built with MkDocs Material, inside Docker. You need Docker and `make`.
+
+---
+
+## Preview while you write
+
+```bash
+make docs-serve
+```
+
+Open `http://localhost:8000`. The page reloads when you save a file under `docs/` or change `mkdocs.yml`. If port 8000 is taken, choose another: `make docs-serve DOCS_PORT=8001`.
+
+## Build the site
+
+```bash
+make docs
+```
+
+The site goes to `bin/site/`, and `make -C docs clean` removes it. The build runs `mkdocs build --strict`, so a broken link or any other warning fails it. CI runs the same strict build on pushes and pull requests to `main` that touch the docs, and a second one with the versioned config, `mkdocs.mike.yml` (`make docs-mike` locally).
+
+Merging to `main` publishes nothing: the docs go online with the next release. To correct the docs already online, see [How to fix the docs of the released version](fix-released-docs.md); what publishes when is in [Documentation publishing](../../reference/docs-publishing.md).
+
+## Where a page goes
+
+Pick the folder by what the reader is doing, following [Diátaxis](https://diataxis.fr/):
+
+| Folder | The reader is... | Example |
+| :--- | :--- | :--- |
+| `tutorials/` | learning by doing, guided step by step | Monitor a router with Prometheus |
+| `how-to/` | working toward a goal they already have | Serve HTTPS with basic auth |
+| `reference/` | looking up a fact | Every option of the configuration |
+| `explanation/` | trying to understand why | Nothing to observe |
+
+Keep one type per page and link to the others instead of mixing them. Add every new page to `nav` in `mkdocs.yml` and to the `index.md` of its folder. Link between pages with relative paths, never with the site's URL, so each published version links to itself.
+
+The reasoning a reader needs lives in the explanation pages: when a change rests on a new reason, write it there, in the same change. Code and test comments follow the same rule: give the reason in a few words, or point to the explanation page that holds it.
+
+## Generated pages
+
+Four reference pages are written from the code by `make docs-gen`, and never by hand:
+
+| Page | From |
+| :--- | :--- |
+| `docs/reference/collectors.md` | Each collector's `meta`, the package Makefile, and the code's reasons for nothing to observe. |
+| `docs/reference/metrics.md` | What each collector writes when it runs on the fixture sets of `test/fixtures/`. |
+| `docs/reference/uci-config.md` | `config.uc`'s option specs and datatypes. |
+| `docs/reference/error-codes.md` | `errors.uc`, and where each code is raised. |
+
+What the code does not say is in `docs/gen/notes.uc`: when each collector has nothing to observe, what a computed jail path is, the patterns that fold a driver's statistics into one row, the families no fixture shows, the meaning of each error code, and a name for each fixture set. The generator checks the notes against the code and refuses, writing nothing, an entry the code contradicts.
+
+1. Change the code, or the notes.
+2. Regenerate:
+
+    ```bash
+    make docs-gen
+    ```
+
+3. If it refuses, its message says which note to change: a new collector that can have nothing to observe needs an entry in `nothing_to_observe`; a family the collector declares that no fixture makes it write needs a fixture, or an entry in `unharvested`; a new fixture set needs a name in `capture_sets`, which keeps the device's own name out of the docs.
+4. Commit the pages with the change. `make lint` fails while a page is not what `make docs-gen` would write.
+
+## Keep it true
+
+Reference pages describe the code as it is. When you change one of these, update its page in the same change:
+
+| Code | Reference page |
+| :--- | :--- |
+| A collector, `config.uc`, `errors.uc`, the package Makefile, `test/fixtures/` | The generated pages: `make docs-gen`. |
+| `files/etc/init.d/prometheus-exporter`, `check.uc`, `status.uc` | [Service commands](../../reference/service-commands.md) |
+| `cli.uc`, `files/usr/bin/prometheus-exporter` | [The `prometheus-exporter` command](../../reference/command.md) |
+| `http.uc`, `app.uc`, `auth.uc`, `query.uc`, `scrape.uc` | [HTTP endpoint](../../reference/http.md) |
+| `rpc.uc`, the rpcd plugin | [ubus object](../../reference/ubus.md) |
+| `luci/` | [LuCI app](../../reference/luci.md), [How to use the LuCI app](../luci.md) |
+| `jail.uc`, `state.uc`, the init script's mounts | [The jail](../../reference/jail.md) |
+| `loader.uc`, `deps.uc`, `result.uc`, `services.uc`, `exposition.uc`'s recorder | [Collector interface](../../reference/collector-interface.md) |
+| A log line | [Log messages](../../reference/log-messages.md) |
+| `files/`, the package Makefile | [Files and packages](../../reference/files.md) |
+| The root `Makefile`, `docs/Makefile` | [Make targets](../../reference/make-targets.md) |
+| `docs/Makefile`, `devenv/scripts/docs-*.sh`, `.github/workflows/docs.yml`, `mkdocs.mike.yml`, `docs/overrides/`, `devenv/gh-pages/`, `devenv/services/docs/` | [Documentation publishing](../../reference/docs-publishing.md) |
+| `migrate.uc` | [How to move from the feed's exporters](../migrate-from-feed.md) |
+| A renamed metric | [Renamed metrics](../../metrics.md) |
+
+## Examples
+
+- Use generic names (router, ap) and documentation addresses: `192.0.2.0/24`, `198.51.100.0/24` and `203.0.113.0/24` for IPv4, `2001:db8::/32` for IPv6. Never paste a real device's name, MAC address, SSID, key or public address.
+- Output captured from the lab is the exception: paste it as it is. Its addresses are docker's and disposable.
+- Use Mermaid in a fenced block with the `mermaid` language, only where a picture explains more than a paragraph.

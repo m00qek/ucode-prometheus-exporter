@@ -1,0 +1,212 @@
+# Monitor a Router with Prometheus
+
+In this tutorial we will install the exporter on an OpenWrt router, look at its metrics on the router itself, open it to the LAN, and have a Prometheus on our computer scrape it and graph the router's load and traffic. Along the way we will meet the service's `status` and `check`, which tell us what the exporter does.
+
+It takes about twenty minutes.
+
+## What you need
+
+- A router on OpenWrt 25.12, at `192.168.1.1` on its LAN, with internet access, and a shell on it: `ssh root@192.168.1.1`.
+- The exporter's base package, `ucode-prometheus-exporter-0.1.0-r1.apk`, copied to the router's `/tmp`:
+
+    ```bash
+    scp -O ucode-prometheus-exporter-0.1.0-r1.apk root@192.168.1.1:/tmp/
+    ```
+
+- A computer on the router's LAN, with Docker.
+
+If your router's address is not `192.168.1.1`, use yours wherever it appears.
+
+---
+
+## 1. Install the exporter
+
+On the router, install the package. apk fetches what it depends on from OpenWrt's feeds:
+
+```sh
+apk update
+apk add --allow-untrusted /tmp/ucode-prometheus-exporter-0.1.0-r1.apk
+```
+
+apk lists what it installs, and ends with `OK`. The service starts on its own. Let's ask it how it is:
+
+```sh
+service prometheus-exporter status
+```
+
+```
+running
+listening on http://127.0.0.1:9100/metrics, gzip when asked, serving 15 collectors
+```
+
+Notice where it listens: `127.0.0.1`, the router's loopback. For now only the router itself can reach it.
+
+## 2. Look at the metrics
+
+Still on the router, ask for a scrape, as Prometheus will:
+
+```sh
+wget -qO- http://127.0.0.1:9100/metrics | grep '^node_load'
+```
+
+```
+node_load1 0.08
+node_load5 0.03
+node_load15 0
+```
+
+These are the router's load averages. Now the last lines of the scrape:
+
+```sh
+wget -qO- http://127.0.0.1:9100/metrics | tail -n 4
+```
+
+```
+node_scrape_collector_observing{collector="vmstat"} 1
+# HELP ucode_prometheus_exporter_build_info A metric with a constant '1' value labeled by the version of ucode-prometheus-exporter.
+# TYPE ucode_prometheus_exporter_build_info gauge
+ucode_prometheus_exporter_build_info{version="0.1.0-r1"} 1
+```
+
+Every scrape ends with what it says of itself: how long each collector took, whether it succeeded, and the exporter's version.
+
+## 3. Open it to the LAN
+
+Our computer is on the LAN, so we have the exporter listen there:
+
+```sh
+uci set prometheus-exporter.main.listen_interface=lan
+uci commit prometheus-exporter
+service prometheus-exporter reload
+service prometheus-exporter status
+```
+
+```
+running
+listening on http://192.168.1.1:9100/metrics, gzip when asked, serving 15 collectors
+```
+
+The address is now the router's LAN address. From the computer, check that it answers:
+
+```bash
+curl -s http://192.168.1.1:9100/metrics | grep '^node_load1'
+```
+
+```
+node_load1 0.08
+```
+
+## 4. Scrape it with Prometheus
+
+On the computer, make a directory for Prometheus, and in it a file `prometheus.yml`:
+
+```yaml
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: openwrt
+    static_configs:
+      - targets: [ '192.168.1.1:9100' ]
+```
+
+Start Prometheus in Docker, with that file:
+
+```bash
+docker run --rm -d --name prometheus -p 9090:9090 \
+    -v "$PWD/prometheus.yml:/etc/prometheus/prometheus.yml:ro" prom/prometheus
+```
+
+Open `http://localhost:9090/targets`. After a few seconds the `openwrt` job's target, `http://192.168.1.1:9100/metrics`, is **UP**. If it says **DOWN** with `connection refused`, the exporter is still on loopback: go back to step 3.
+
+## 5. Graph the router
+
+Open `http://localhost:9090/query`, type this expression, and press **Execute**:
+
+```promql
+node_load1
+```
+
+One series, the router's one-minute load. Switch to the **Graph** tab to see it over time.
+
+Now the traffic the router receives, in bytes per second, for each network device:
+
+```promql
+rate(node_network_receive_bytes_total[1m])
+```
+
+There is a series per device, labeled `device`. Give it a few minutes: `rate` needs several scrapes.
+
+Last, ask which version runs there:
+
+```promql
+ucode_prometheus_exporter_build_info
+```
+
+```
+ucode_prometheus_exporter_build_info{instance="192.168.1.1:9100", job="openwrt", version="0.1.0-r1"}  1
+```
+
+## 6. Ask the exporter how it is doing
+
+Back on the router:
+
+```sh
+service prometheus-exporter check
+```
+
+The first lines are its findings, something like:
+
+```
+ok   main: HTTP on interface lan, port 9100, keepalive 70s, exec_timeout 5s, gzip when asked
+ok   collectors: 15 installed collectors, their options valid
+ok   scrape, outside the jail: 15 of 15 collectors succeeded
+```
+
+Then one block per collector, with what it reads and what the service's jail gives it, and last, everything the jail mounts. Each `ok` is a check that passed; a problem would be a `warn` or `FAIL` line saying what is wrong.
+
+Let's watch a collector go. Switch off `softnet`, the network softirq statistics:
+
+```sh
+uci set prometheus-exporter.softnet=collector
+uci set prometheus-exporter.softnet.enabled=0
+uci commit prometheus-exporter
+service prometheus-exporter reload
+service prometheus-exporter status
+```
+
+```
+running
+listening on http://192.168.1.1:9100/metrics, gzip when asked, serving 14 collectors
+```
+
+One collector fewer. In Prometheus, `node_softnet_processed_total` stops getting new samples. Switch it back on:
+
+```sh
+uci delete prometheus-exporter.softnet
+uci commit prometheus-exporter
+service prometheus-exporter reload
+```
+
+## 7. Clean up
+
+Stop Prometheus on the computer:
+
+```bash
+docker stop prometheus
+```
+
+The exporter keeps running on the router, on the LAN.
+
+---
+
+## What we did
+
+We installed the exporter, read a scrape on the router, opened it to the LAN, had Prometheus scrape it, and graphed the router's load and traffic. We asked the service for its `status` and its `check`, and saw it serve one collector fewer and then again.
+
+## Next
+
+- [How to install the exporter](../how-to/install.md), with more collectors: Wi-Fi, WireGuard, the network groups.
+- [How to serve HTTPS with basic auth](../how-to/https-basic-auth.md), before the router is scraped from anywhere you do not trust.
+- [Metrics](../reference/metrics.md), for every metric there is to graph.
+- [About the exporter](../explanation/about.md), for where it comes from.
