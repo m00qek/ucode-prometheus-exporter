@@ -107,6 +107,17 @@ describe('scrape.run_one', () => {
 		assert.match('# TYPE half_done gauge\nhalf_done 1\n', r.text);
 	});
 
+	it('keeps nothing of a collector with nothing to observe, logs nothing, and carries its reason', () => {
+		let r = run(collector('radio', (d, out) => {
+			out.gauge('radio_started')(null, 1);
+			return Result.none('no wireless radios');
+		}));
+
+		assert.match({ ok: true, none: 'no wireless radios', logs: [], text: '' },
+			{ ok: r.result.ok, none: r.result.none, logs: r.logs, text: r.text });
+		assert.match(true, Result.is_none(r.result));
+	});
+
 	it('turns a crash into COLLECTOR_CRASHED', () => {
 		let r = run(collector('boom', () => die('kaput')));
 		assert.match({ error: 'COLLECTOR_CRASHED', details: 'kaput' }, { error: r.result.error, details: r.result.details });
@@ -207,10 +218,30 @@ describe('scrape.scrape', () => {
 			'# TYPE node_scrape_collector_success gauge',
 			'node_scrape_collector_success{collector="a"} 1',
 			'node_scrape_collector_success{collector="failing"} 0',
+			'# HELP node_scrape_collector_observing Whether a collector had something to observe: 0 when its hardware, kernel feature or service is not there.',
+			'# TYPE node_scrape_collector_observing gauge',
+			'node_scrape_collector_observing{collector="a"} 1',
+			'node_scrape_collector_observing{collector="failing"} 1',
 			"# HELP ucode_prometheus_exporter_build_info A metric with a constant '1' value labeled by the version of ucode-prometheus-exporter.",
 			'# TYPE ucode_prometheus_exporter_build_info gauge',
 			'ucode_prometheus_exporter_build_info{version="2026.01.02-r3"} 1',
 		], lines(r.body));
+	});
+
+	it('answers a collector with nothing to observe as a success without samples, observing 0, and logs nothing', () => {
+		let idle = collector('idle', (d, out) => { out.gauge('idle_value')(null, 1); return Result.none('dnsmasq is disabled'); });
+		let r = scrape_with([ A, idle ], '');
+
+		assert.match([], r.logs);
+		assert.match(-1, index(r.body, 'idle_value'));
+		assert.match(contains([
+			'node_scrape_collector_success{collector="idle"} 1',
+			'node_scrape_collector_observing{collector="a"} 1',
+			'node_scrape_collector_observing{collector="idle"} 0',
+		]), lines(r.body));
+		assert.match([ 'node_scrape_collector_duration_seconds{collector="idle"}', 'node_scrape_collector_observing{collector="idle"}',
+			'node_scrape_collector_success{collector="idle"}' ],
+			sort(map(filter(lines(r.body), (l) => index(l, 'idle') >= 0), (l) => split(l, ' ')[0])));
 	});
 
 	it('writes the build whatever the query selects', () => {
@@ -276,6 +307,23 @@ describe('scrape.scrape', () => {
 
 		assert.match([ 1 ], map(conns, (c) => length(c.__utest__.calls.disconnect)));
 	});
+
+	prop('never logs nor writes a sample of a collector with nothing to observe, and counts it a success',
+		gen.array(gen.elements('ok', 'none', 'err'), { min_len: 1, max_len: 5 }), (kinds) => {
+			let made = map(kinds, (k, i) => collector(`c${i}`, function(d, out) {
+				out.gauge(`c${i}_value`)(null, 1);
+				return k == 'ok' ? Result.ok() : (k == 'none' ? Result.none(`c${i} is disabled`) : Result.err('SOURCE_INVALID'));
+			}));
+			let r = scrape_with(made, '');
+			let body = lines(r.body);
+
+			assert.match(length(filter(kinds, (k) => k == 'err')), length(r.logs));
+			for (let i, k in kinds) {
+				assert.match(k != 'none', `c${i}_value 1` in body, k);
+				assert.match(`node_scrape_collector_success{collector="c${i}"} ${k == 'err' ? 0 : 1}` in body, true, k);
+				assert.match(`node_scrape_collector_observing{collector="c${i}"} ${k == 'none' ? 0 : 1}` in body, true, k);
+			}
+		});
 
 	prop('reports each selected collector once, in the order asked, as valid exposition text',
 		gen.array(gen.elements('a', 'b-two', 'c', 'b_two'), { min_len: 0, max_len: 6 }), (asked) => {

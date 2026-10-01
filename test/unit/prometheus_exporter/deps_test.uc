@@ -44,6 +44,27 @@ describe('deps.ubus_channel', () => {
 		});
 	});
 
+	it('gives a failed call the status error() puts first, as 25.12\'s ucode words it', () => {
+		mock.inject('ubus', { strict: true, errors: {
+			'dsl:metrics': "Not found: Failed to resolve object name 'dsl'",
+			'dhcp:nosuch': "Method not found: Failed to invoke function 'nosuch' on object 'dhcp'",
+			'svc:bare': 'Request timed out',
+		} }, (ubus) => {
+			let ch = deps.ubus_channel(ubus.connect);
+			let dsl = ch.call('dsl', 'metrics');
+
+			assert.match("dsl metrics: Not found: Failed to resolve object name 'dsl'", dsl.details);
+			assert.match([ { status: 'Not found' }, { status: 'Method not found' }, { status: 'Request timed out' } ],
+				[ dsl.data, ch.call('dhcp', 'nosuch').data, ch.call('svc', 'bare').data ]);
+		});
+	});
+
+	prop('takes the status from the text before the first ": ", or all of a text without one',
+		gen.tuple(gen.string({ charset: 'abc d', min_len: 1, max_len: 10 }), gen.ascii({ max_len: 20 })), (p) => {
+			assert.match(p[0], deps.ubus_status(`${p[0]}: ${p[1]}`));
+			assert.match(p[0], deps.ubus_status(p[0]));
+		});
+
 	it('fails every call when ubusd cannot be reached', () => {
 		let ch = deps.ubus_channel(() => null);
 
