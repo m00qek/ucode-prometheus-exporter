@@ -24,6 +24,7 @@ define Package/$(PKG_NAME)/Default
   SECTION:=utils
   CATEGORY:=Utilities
   TITLE:=Prometheus exporter
+  URL:=https://m00qek.github.io/ucode-prometheus-exporter/0.1/
   PKGARCH:=all
 endef
 
@@ -214,6 +215,7 @@ define Package/$(LUCI_APP)
   CATEGORY:=LuCI
   SUBMENU:=3. Applications
   TITLE:=LuCI support for the Prometheus exporter
+  URL:=https://m00qek.github.io/ucode-prometheus-exporter/0.1/
   DEPENDS:=+luci-base +$(PKG_NAME)
   EXTRA_DEPENDS:=$(PKG_NAME) (=$(PKG_VERSION)-r$(PKG_RELEASE))
   PKGARCH:=all
