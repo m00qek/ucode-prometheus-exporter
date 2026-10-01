@@ -39,6 +39,14 @@ const callStatus = rpc.declare({
 	method: 'status'
 });
 
+// The crypt hash of a password, which auth_password holds: the password never reaches
+// the config.
+const callHashPassword = rpc.declare({
+	object: CONFIG,
+	method: 'hash_password',
+	params: [ 'password' ]
+});
+
 // A regular expression, as vmstat's `fields` takes. The exporter compiles it as a
 // POSIX extended regular expression; this only checks it compiles as a JavaScript one,
 // which catches unbalanced brackets and the like. The plugin's validate has the last word.
@@ -124,6 +132,10 @@ return baseclass.extend({
 
 	interfaces() {
 		return callInterfaces();
+	},
+
+	hashPassword(password) {
+		return callHashPassword(password);
 	},
 
 	// A collector's title, with its name when that differs.

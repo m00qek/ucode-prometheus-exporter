@@ -110,7 +110,8 @@ test.describe('Services → Prometheus exporter', () => {
     await saveAndApply(page);
     await applied(page);
     expect((await savedSections(request)).main).toEqual({
-      '.type': h.CONFIG, enabled: '1', listen_interface: 'vpn', listen_port: '9100', http_keepalive: '70', omit_zero_values: '0', exec_timeout: '5',
+      '.type': h.CONFIG, enabled: '1', listen_interface: 'vpn', listen_port: '9100', http_keepalive: '70', compress: '1',
+      omit_zero_values: '0', exec_timeout: '5',
     });
   });
 
@@ -396,7 +397,8 @@ test.describe('Services → Prometheus exporter', () => {
     expect(saved.textfile).toEqual({ '.type': 'collector', enabled: '0', directory: '/var/prometheus' });
     expect(saved.wifi).toEqual({ '.type': 'collector', stations: '0' });
     expect(saved.main).toEqual({
-      '.type': h.CONFIG, enabled: '1', listen_interface: '*', listen_port: '9102', http_keepalive: '0', omit_zero_values: '1', exec_timeout: '8',
+      '.type': h.CONFIG, enabled: '1', listen_interface: '*', listen_port: '9102', http_keepalive: '0', compress: '1', omit_zero_values: '1',
+      exec_timeout: '8',
     });
   });
 

@@ -8,6 +8,9 @@
 			"uci": [ "prometheus-exporter" ]
 		},
 		"write": {
+			"ubus": {
+				"prometheus-exporter": [ "hash_password" ]
+			},
 			"uci": [ "prometheus-exporter" ]
 		}
 	}

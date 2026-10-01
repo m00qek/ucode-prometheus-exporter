@@ -122,7 +122,9 @@ return view.extend({
 				row(_('State'), [ running ]),
 				row(_('Enabled in the settings'), [ yesNo(svc.enabled, _('Yes'), _('No'), _('Invalid setting')) ]),
 				row(_('Starts at boot'), [ yesNo(svc.boot, _('Yes'), _('No'), _('Unknown')) ]),
-				row(_('Metrics'), urls)
+				row(_('Metrics'), urls),
+				row(_('Basic auth'), [ (svc.auth === true) ? _('A scrape logs in, over HTTPS') : (svc.auth === false) ? _('None') : _('Invalid setting') ]),
+				row(_('Compression'), [ (svc.compress === true) ? _('gzip, when the scraper asks for it') : (svc.compress === false) ? _('Off') : _('Invalid setting') ])
 			])
 		]);
 	},

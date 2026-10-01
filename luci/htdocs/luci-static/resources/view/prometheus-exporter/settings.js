@@ -15,7 +15,10 @@
 // rest, and Dismiss drops them.
 //
 // What is saved states every setting: the main section's fields write their values even
-// at the defaults (but for the TLS files, which are unset without TLS). A collector's
+// at the defaults (but for the TLS files and basic auth, which are unset without them).
+// Basic auth's password is never saved, nor shown: Save hashes a password typed in its
+// field through the object's hash_password, and saves the hash; an empty field keeps the
+// saved one, and a user emptied takes basic auth away, hash and all. A collector's
 // `config collector '<module>'` section is there only while something differs from the
 // defaults, its switch included, or a timeout is set; while it is, it holds the switch
 // and every option the collector declares, each written out. timeout is written only
@@ -36,6 +39,13 @@ const fill = exporter.fill;
 
 // How long typing pauses before the values are checked, in ms.
 const CHECK_DELAY = 300;
+
+// What the object's validate is given for a password typed and not yet hashed: a hash of
+// the form auth_password takes, so that the options that go with it are checked.
+const PENDING_HASH = '$6$$' + '.'.repeat(86);
+
+// The longest password the object hashes, in bytes.
+const PASSWORD_MAX = 256;
 
 function alertBox(kind, children) {
 	return E('div', { 'class': 'alert-message ' + kind }, children);
@@ -118,6 +128,52 @@ const ListenSelect = form.ListValue.extend({
 		});
 
 		return widget.render();
+	}
+});
+
+// Basic auth's password. The field holds what is typed, never the saved hash; Save hashes
+// it through the object's hash_password and writes the hash. Left empty, the saved hash
+// stays; without a user, there is no basic auth and the hash goes. `user` is the option of
+// basic auth's user.
+const PasswordValue = form.Value.extend({
+	__name__: 'CBI.PrometheusExporterPassword',
+
+	cfgvalue(section_id) {
+		return null;
+	},
+
+	// The hash saved, as uci holds it with staged changes.
+	saved(section_id) {
+		return uci.get(CONFIG, section_id, 'auth_password');
+	},
+
+	renderWidget(section_id, option_index, cfgvalue) {
+		this.placeholder = blank(this.saved(section_id)) ? '' : _('Unchanged');
+		return this.super('renderWidget', [ section_id, option_index, cfgvalue ]);
+	},
+
+	// Writes nothing of what is typed: the hash of it, or nothing.
+	parse(section_id) {
+		const typed = this.formvalue(section_id);
+
+		if (blank(this.user.formvalue(section_id))) {
+			if (this.saved(section_id) != null)
+				uci.unset(CONFIG, section_id, 'auth_password');
+			return Promise.resolve();
+		}
+
+		if (!this.isValid(section_id))
+			return Promise.reject(new TypeError(_('Basic auth password:') + ' ' + this.getValidationError(section_id)));
+
+		if (blank(typed))
+			return Promise.resolve();
+
+		return exporter.hashPassword(typed).then((res) => {
+			if (!L.isObject(res) || typeof(res.hash) !== 'string')
+				throw new Error(_('The password could not be hashed:') + ' ' + String(res?.message ?? res?.error ?? ''));
+
+			uci.set(CONFIG, section_id, 'auth_password', res.hash);
+		});
 	}
 });
 
@@ -679,6 +735,32 @@ return view.extend({
 		o.datatype = 'file';
 		o.placeholder = '/etc/uhttpd.key';
 
+		const user = this.option(s, form.Value, 'auth_user', _('Basic auth user'),
+			_('With a password, a scrape logs in as this user. Over HTTPS only: it takes the TLS certificate and key. Empty for none.'));
+		user.placeholder = _('none');
+
+		o = this.option(s, PasswordValue, 'auth_password', _('Basic auth password'),
+			_('Saved as a hash, never as typed, and never shown. Empty keeps the saved one.'));
+		o.password = true;
+		o.user = user;
+		o.validate = (section_id, value) => {
+			const mark = lookup(this.marks, 'auth_password');
+
+			if (mark && mark.value === value)
+				return mark.message;
+			if (value != null && new TextEncoder().encode(value).length > PASSWORD_MAX)
+				return _('At most %d bytes').format(PASSWORD_MAX);
+			if (/[\x00-\x1f\x7f]/.test(value ?? ''))
+				return _('No control characters');
+
+			return true;
+		};
+
+		o = this.option(s, form.Flag, 'compress', _('Compress'),
+			_('Sends a scrape gzip-compressed when the scraper asks for it, as Prometheus and vmagent do.'));
+		o.default = '1';
+		o.rmempty = false;
+
 		o = this.option(s, form.Flag, 'omit_zero_values', _('Leave out zero values'),
 			_('Leaves out counters that are 0, most of which never move on a router.'));
 		o.default = '0';
@@ -693,6 +775,8 @@ return view.extend({
 	},
 
 	// The form's values as the object's validate takes them: empty fields left out, as unset.
+	// Basic auth's password is the saved hash, or a stand-in for one when a password is
+	// typed; it is none without a user.
 	candidate() {
 		const main = {};
 
@@ -701,6 +785,14 @@ return view.extend({
 			if (value != null && value !== '')
 				main[name] = String(value);
 		}
+
+		const saved = this.mainOptions.auth_password.saved('main');
+
+		delete main.auth_password;
+		if (main.auth_user != null && !blank(this.mainOptions.auth_password.formvalue('main')))
+			main.auth_password = PENDING_HASH;
+		else if (main.auth_user != null && !blank(saved))
+			main.auth_password = saved;
 
 		return { main: main, collectors: this.table.candidate() };
 	},
@@ -741,7 +833,11 @@ return view.extend({
 		this.marks = {};
 
 		for (const name in (errors.main ?? {}))
-			this.marks[name] = { value: candidate.main[name] ?? '', message: String(errors.main[name]) };
+			this.marks[name] = {
+				// The password's field holds what is typed, not what was checked.
+				value: (name === 'auth_password') ? (this.mainOptions.auth_password.formvalue('main') ?? '') : (candidate.main[name] ?? ''),
+				message: String(errors.main[name])
+			};
 
 		for (const name in this.mainOptions)
 			this.mainOptions[name].triggerValidation('main');
@@ -755,7 +851,8 @@ return view.extend({
 	showRefused(errors) {
 		const items = [];
 		const titles = { enabled: _('Enable'), listen_interface: _('Listen on'), listen_port: _('Port'),
-			http_keepalive: _('Keep-alive'), cert: _('TLS certificate'), key: _('TLS key'), omit_zero_values: _('Leave out zero values'),
+			http_keepalive: _('Keep-alive'), cert: _('TLS certificate'), key: _('TLS key'), auth_user: _('Basic auth user'),
+			auth_password: _('Basic auth password'), compress: _('Compress'), omit_zero_values: _('Leave out zero values'),
 			exec_timeout: _('Time for programs') };
 
 		for (const name in (errors.main ?? {}))

@@ -149,7 +149,7 @@ A whole scrape of the lab (every collector, about 1250 series, on x86_64) is 143
 
 ### Basic auth
 
-`auth_user` and `auth_password` make a scrape log in (HTTP basic auth). Basic auth sends the password in the clear, so it is taken over HTTPS only: `cert` and `key` must be set, and their files there. Otherwise the configuration is invalid, and refused wherever it is checked: start does not start, reload keeps the running exporter (the log says why), `check` fails saying why, and the ubus object's `validate` refuses it. So is half of it: a user without a hash, or a hash without a user.
+`auth_user` and `auth_password` make a scrape log in (HTTP basic auth). Basic auth sends the password in the clear, so it is taken over HTTPS only: `cert` and `key` must be set, and their files there. Otherwise the configuration is invalid, and refused wherever it is checked: start does not start, reload keeps the running exporter (the log says why), `check` fails saying why, and the ubus object's `validate` and LuCI refuse to save it. So is half of it: a user without a hash, or a hash without a user.
 
 `auth_password` holds the password's crypt hash, never the password: `$1$` (MD5-crypt, what `uhttpd -m <password>` prints), `$5$` or `$6$` (SHA-256-crypt and SHA-512-crypt, with their `rounds=`). Anything else is refused: DES's 13 characters (a plain password could look like one), bcrypt, and `$p$` lookups of system accounts. The ubus object makes one, freshly salted, without the password on a command line:
 
@@ -317,7 +317,7 @@ Each collector needs a test in `test/unit/prometheus_exporter/collectors/`, and 
 
 **Services → Prometheus exporter** has two tabs:
 
-- **Exporter**: the main section: enabled, the interface to listen on (or every address), port, keepalive, TLS files, `omit_zero_values`, and `exec_timeout`, the seconds the programs of a collector get. The interfaces are the ubus object's `interfaces`, netifd's logical interfaces, so a login granted this app's ACL alone, which may not read `/etc/config/network`, is offered every one; a saved interface netifd does not list is kept.
+- **Exporter**: the main section: enabled, the interface to listen on (or every address), port, keepalive, TLS files, basic auth's user and password, `compress`, `omit_zero_values`, and `exec_timeout`, the seconds the programs of a collector get. The password field is never filled: Save sends a password typed there to the object's `hash_password` and saves the hash it answers; left empty it keeps the saved hash, and emptying the user takes basic auth away, hash and all. Basic auth without the TLS files, or a user without a password, is refused. The interfaces are the ubus object's `interfaces`, netifd's logical interfaces, so a login granted this app's ACL alone, which may not read `/etc/config/network`, is offered every one; a saved interface netifd does not list is kept.
 - **Collectors**: a row per installed collector: its title, with its help below; its package (base, or the removable package's name); its switch; and, when it has options, an Edit button. Edit opens LuCI's dialog, as Network → Interfaces does: a field per option by its type, with its help and its datatype, and, read-only, the configs the collector reads and what its jail mounts. A collector that runs programs has Edit for `timeout` too, its own seconds, whose placeholder is what it gets while it is empty: its own default, or `exec_timeout` as the Exporter tab has it.
 
 The dialog's Save stages its values in uci, as LuCI's own dialogs do (they show among the unsaved changes), and Dismiss drops them; the page's Save & Apply applies them with the rest. Values are checked as they are typed, by their datatype and by the object's `validate`, as the exporter reads them, and again before the dialog stages them and before Save; nothing the exporter would refuse is saved.
@@ -327,9 +327,9 @@ What the page saves states every setting, so the file says what the exporter doe
 - The Exporter tab writes every field, at its default too (`option enabled '1'`, `option omit_zero_values '0'`); only the TLS files are left out while empty, as uci holds no empty value. A field emptied is refused.
 - A collector has a `config collector` section only while something differs from its defaults, its switch included: it is added when a value first differs, and removed once all are back. While it is there, it holds the switch and every option the collector declares, each written out; a collector whose row did not change keeps its section as it was.
 
-**Status → Prometheus exporter**: whether the service is enabled and runs, where it serves `/metrics`, and each collector's result, duration and error in a scrape run on the router (outside the jail) when the page opens or on Refresh, with what the jail mounts for it.
+**Status → Prometheus exporter**: whether the service is enabled and runs, where it serves `/metrics`, whether a scrape logs in and is gzipped, and each collector's result, duration and error in a scrape run on the router (outside the jail) when the page opens or on Refresh, with what the jail mounts for it.
 
-The app's ACL grants the ubus object's four methods, and `/etc/config/prometheus-exporter` to read and write; nothing else.
+The app's ACL grants the ubus object's four reading methods, `hash_password` to a login that may write, and `/etc/config/prometheus-exporter` to read and write; nothing else.
 
 | | |
 |---|---|

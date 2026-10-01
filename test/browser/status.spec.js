@@ -27,6 +27,8 @@ test.describe('Status → Prometheus exporter', () => {
     await expect(serviceRow(page, 'Starts at boot').locator('td').last()).toHaveText('Yes');
     await expect(serviceRow(page, 'Metrics').locator('a')).toHaveText([ 'http://127.0.0.1:9100/metrics', 'http://[::1]:9100/metrics' ]);
     await expect(serviceRow(page, 'Metrics').locator('td').last()).toContainText('(reachable from the router only)');
+    await expect(serviceRow(page, 'Basic auth').locator('td').last()).toHaveText('None');
+    await expect(serviceRow(page, 'Compression').locator('td').last()).toHaveText('gzip, when the scraper asks for it');
 
     await expect(cell(page, 'loadavg', 1)).toHaveText('Yes');
     await expect(cell(page, 'loadavg', 2)).toHaveText('OK');
@@ -48,6 +50,13 @@ test.describe('Status → Prometheus exporter', () => {
     await h.openStatus(page);
     const rows = await page.locator('#view tr[data-collector]').evaluateAll((trs) => trs.map((tr) => tr.getAttribute('data-collector')));
     expect(rows).toEqual(plugin.collectors.map((c) => c.id));
+  });
+
+  test('says a scrape logs in with basic auth, as configured', async ({ page, request }) => {
+    await h.useConfig(request, 'auth');
+    await h.openStatus(page);
+    await expect(serviceRow(page, 'Basic auth').locator('td').last()).toHaveText('A scrape logs in, over HTTPS');
+    expect(await page.content()).not.toContain('$1$$ysVNzQc4CTMkp5daOdZ.3/');
   });
 
   test('opens /metrics on every address at the address this page came from', async ({ page, request }) => {

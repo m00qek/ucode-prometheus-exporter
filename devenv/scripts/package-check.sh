@@ -200,14 +200,14 @@ seed_luci_caches() { mkdir -p /tmp/luci-modulecache && touch /tmp/luci-indexcach
 luci_caches_cleared() { [ ! -e /tmp/luci-indexcache.test.json ] && [ ! -e /tmp/luci-modulecache ]; }
 # luci-base and the exporter, and the libc every package depends on.
 app_depends() { [ "$(depends_of "luci-app-$NAME")" = "libc luci-base $PKG " ]; }
-# The ACL grants the object's methods, and the exporter's config to read and
-# write: nothing else.
+# The ACL grants the object's methods (hash_password to a login that may save),
+# and the exporter's config to read and write: nothing else.
 acl_is_ours() {
 	ucode -e "let acl = json(require('fs').readfile(ARGV[0]));
 		let want = { 'luci-app-$NAME': {
 			description: acl['luci-app-$NAME']?.description,
 			read: { ubus: { '$NAME': [ $APP_METHODS ] }, uci: [ '$NAME' ] },
-			write: { uci: [ '$NAME' ] } } };
+			write: { ubus: { '$NAME': [ 'hash_password' ] }, uci: [ '$NAME' ] } } };
 		exit(sprintf('%J', acl) == sprintf('%J', want) ? 0 : 1);" "$ACL"
 }
 plugin_kept() { for f in $PLUGIN $RPC_MODULE $STATUS_HELPER; do [ -f "$f" ] || return 1; done; }
