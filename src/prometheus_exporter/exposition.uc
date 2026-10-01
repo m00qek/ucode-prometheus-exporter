@@ -41,11 +41,11 @@ const SAMPLE_NAME = /^([a-zA-Z_:][a-zA-Z0-9_:]*)(.*)$/;
 const SAMPLE_VALUE = /^\s+(\S+)(\s+(-?[0-9]+))?\s*$/;
 const HELP_ESCAPE = /\\(\\|n)/g;
 
-// sanitize()'s answers, [ metric names, label names ]: the names a scrape uses
-// are the same few hundred in every scrape (the collectors', and those a
-// device's tables and drivers give). The memo stops growing at SANITIZED_MAX
-// names, so names that change from scrape to scrape (a textfile's) cannot
-// grow it without bound in uhttpd's long-lived process.
+// sanitize()'s answers, [ metric names, label names ]: a scrape asks for the
+// same names again and again (a label name in every sample). uhttpd runs each
+// request in a process of its own, forked from the one that loaded the
+// exporter, so this lives for one scrape there; the memo stops growing at
+// SANITIZED_MAX names all the same, for a process that scrapes many times.
 const SANITIZED = [ {}, {} ];
 const METRIC_NAMES = SANITIZED[0];
 const LABEL_NAMES = SANITIZED[1];
@@ -61,9 +61,15 @@ export function sanitize(name, is_label) {
 	let s = memo[name];
 
 	if (s == null) {
-		s = replace(name, is_label ? NOT_LABEL : NOT_METRIC, '_');
-		if (s == '' || match(s, LEADING_DIGIT))
-			s = '_' + s;
+		// Most names are valid already: one regex, not two.
+		if (match(name, is_label ? LABEL_NAME : METRIC_NAME)) {
+			s = name;
+		} else {
+			s = replace(name, is_label ? NOT_LABEL : NOT_METRIC, '_');
+			if (s == '' || match(s, LEADING_DIGIT))
+				s = '_' + s;
+		}
+
 		if (sanitized++ < SANITIZED_MAX)
 			memo[name] = s;
 	}
@@ -120,28 +126,15 @@ export function escape_label(value) {
 };
 
 function escape_help(text) {
+	if (index(text, '\\') < 0 && index(text, '\n') < 0)
+		return text;
+
 	return replace(replace(text, '\\', '\\\\'), '\n', '\\n');
 }
 
-// A family's HELP and TYPE lines, kept for the scrapes after by name, with the
-// type and help they were written for, up to HEADERS_MAX families: a scrape
-// writes the same families each time, a thousand of them on a router with
-// netstat and ethtool.
-const HEADERS = {};
-const HEADERS_MAX = 4096;
-let headers = 0;
-
+// A family's HELP and TYPE lines.
 function header(fam) {
-	let h = HEADERS[fam.name];
-
-	if (h && h[0] == fam.type && h[1] == fam.help)
-		return h[2];
-
-	let text = (fam.help ? `# HELP ${fam.name} ${escape_help(fam.help)}\n` : '') + `# TYPE ${fam.name} ${fam.type}`;
-	if (h || headers++ < HEADERS_MAX)
-		HEADERS[fam.name] = [ fam.type, fam.help, text ];
-
-	return text;
+	return (fam.help ? `# HELP ${fam.name} ${escape_help(fam.help)}\n` : '') + `# TYPE ${fam.name} ${fam.type}`;
 }
 
 // In one pass, left to right: undoing \n first would read the \\n of a

@@ -45,9 +45,8 @@ const ENTRIES = {
 
 // A driver has a few hundred statistics (a DesignWare MAC about 250), each
 // named with regexes: the regexes are constants (ucode compiles a literal
-// each time it is evaluated), each statistic is named once per scrape, and
-// the names are kept (NAMES) for the scrapes after, as a device's statistics
-// are the same in each.
+// each time it is evaluated), and each statistic is named once (NAMES), for
+// all the devices of its driver.
 const NOT_NAME = /_*[^0-9A-Za-z_]+_*/g;
 const RX = /(^|_)rx(_|$)/g;
 const TX = /(^|_)tx(_|$)/g;
@@ -70,8 +69,8 @@ export function fqname(stat) {
 };
 
 // [ fqname, [ family name, help ] ] of each statistic named so far, up to
-// NAMES_MAX of them: a driver's names are fixed, so this stops growing at
-// what the device's drivers have.
+// NAMES_MAX of them: a driver's names are fixed, so in a process that scrapes
+// many times this stops growing at what the device's drivers have.
 const NAMES = {};
 const NAMES_MAX = 4096;
 let named = 0;
