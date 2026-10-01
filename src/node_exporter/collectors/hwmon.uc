@@ -4,13 +4,19 @@
 // in OpenWrt's packages feed (Apache-2.0), rewritten for this exporter; see NOTICE.
 
 // The Lua exporter's hwmon collector: every chip under /sys/class/hwmon, its
-// sensor labels, temperatures and PWM duty cycles.
+// sensor labels, temperatures and PWM duty cycles, named and labeled as
+// node_exporter's hwmon collector (collector/hwmon_linux.go) has them.
 //
-// A chip is named as the Lua exporter names it (after node_exporter): the type
-// and name of the device its `device` link resolves to, `<type>_<name>` (as
-// thermal_thermal_zone0 or ieee80211_phy0), or else its `name` file, or else the
-// hwmonN directory. Unlike node_exporter, names are not lowercased or cleaned.
-// A sensor file that cannot be read is left out rather than failing the chip.
+// A chip is named as node_exporter names it: the type and name of the device
+// its `device` link resolves to, `<type>_<name>` (as thermal_thermal_zone0 or
+// ieee80211_phy0), or else its `name` file, or else the hwmonN directory, each
+// part cleaned (lowercase, every character but a-z, 0-9, ':' and '_' an
+// underscore, no underscore at either end); chips that would share a name get
+// their cleaned `name` file appended, or their hwmonN where that is shared too.
+// node_hwmon_chip_names is written for the chips with a `name` file. A sensor
+// file that cannot be read is left out rather than failing the chip. Only the
+// chip's own directory is read, not its device's, and of the sensors only the
+// labels, the temperature inputs and the PWM outputs.
 
 import * as Result from 'node_exporter.result';
 import { first_line } from 'node_exporter.proc';
@@ -41,17 +47,59 @@ function read_value(fs, path) {
 	return line == null ? null : trim(line);
 }
 
-function chip_of(fs, dir, chip_name) {
+// node_exporter's cleanMetricName.
+export function clean(name) {
+	return trim(replace(lc(name), /[^a-z0-9:_]/g, '_'), '_');
+};
+
+// The chip's name before telling apart chips that share it.
+function base_name(fs, dir, hw, name_file) {
 	let dev = fs.realpath(`${dir}/device`);
 
-	if (dev == null)
-		return chip_name;
+	if (dev != null) {
+		let dev_name = clean(basename(dev));
+		let dev_type = clean(basename(dirname(dev)));
 
-	let dev_name = basename(dev);
-	let dev_type = basename(dirname(dev));
+		if (dev_type != '' && dev_name != '')
+			return `${dev_type}_${dev_name}`;
+		if (dev_name != '')
+			return dev_name;
+	}
 
-	return dev_type != '' ? `${dev_type}_${dev_name}` : dev_name;
+	if (name_file != null && clean(name_file) != '')
+		return clean(name_file);
+
+	return clean(hw);
 }
+
+// { hw, dir, name_file, chip } of every chip, as node_exporter names them.
+export function chips(fs, dirs) {
+	let all = map(dirs, (hw) => {
+		let dir = `${ROOT}/${hw}`;
+		let name_file = read_value(fs, `${dir}/name`);
+
+		return { hw, dir, name_file, chip: base_name(fs, dir, hw, name_file) };
+	});
+	let chip_count = {}, name_count = {};
+
+	for (let c in all) {
+		chip_count[c.chip] = (chip_count[c.chip] ?? 0) + 1;
+		name_count[c.chip + '\n' + c.name_file] = (name_count[c.chip + '\n' + c.name_file] ?? 0) + 1;
+	}
+
+	for (let c in all) {
+		if (chip_count[c.chip] < 2)
+			continue;
+
+		let suffix = clean(c.name_file ?? '');
+		if (suffix == '' || name_count[c.chip + '\n' + c.name_file] > 1)
+			suffix = clean(c.hw);
+
+		c.chip = `${c.chip}_${suffix}`;
+	}
+
+	return all;
+};
 
 // The number a sensor file names: temp10_input sorts after temp2_input.
 function sensor_order(a, b) {
@@ -62,24 +110,22 @@ function sensor_order(a, b) {
 
 export function collect(deps, out) {
 	let fs = deps.fs;
-	let chip_names = out.gauge('node_hwmon_chip_names', 'Annotation metric for human-readable chip names.');
-	let sensor_label = out.gauge('node_hwmon_sensor_label', 'Label for a chip sensor.');
-	let temp_celsius = out.gauge('node_hwmon_temp_celsius', 'Hardware monitor temperature (input).');
-	let pwm = out.gauge('node_hwmon_pwm', 'Hardware monitor PWM duty cycle (0-255).');
+	// node_exporter's help texts; that of the PWM is its fallback's.
+	let chip_names = out.gauge('node_hwmon_chip_names', 'Annotation metric for human-readable chip names');
+	let sensor_label = out.gauge('node_hwmon_sensor_label', 'Label for given chip and sensor');
+	let temp_celsius = out.gauge('node_hwmon_temp_celsius', 'Hardware monitor for temperature (input)');
+	let pwm = out.gauge('node_hwmon_pwm', 'Hardware monitor pwm element ');
 
 	// No hwmon class at all is a kernel without hwmon drivers, not a failure.
-	let chips = filter(fs.lsdir(ROOT) ?? [], (e) => match(e, /^hwmon[0-9]+$/));
+	let dirs = filter(fs.lsdir(ROOT) ?? [], (e) => match(e, /^hwmon[0-9]+$/));
 
-	for (let hw in sort(chips, sensor_order)) {
-		let dir = `${ROOT}/${hw}`;
+	for (let c in chips(fs, sort(dirs, sensor_order))) {
+		let dir = c.dir;
+		let chip = c.chip;
 		let entries = sort(fs.lsdir(dir) ?? [], sensor_order);
-		let chip_name = read_value(fs, `${dir}/name`) ?? '';
 
-		if (chip_name == '')
-			chip_name = hw;
-
-		let chip = chip_of(fs, dir, chip_name);
-		chip_names({ chip, chip_name }, 1);
+		if (c.name_file != null && clean(c.name_file) != '')
+			chip_names({ chip, chip_name: clean(c.name_file) }, 1);
 
 		for (let e in entries) {
 			let m = match(e, /^(.+)_label$/);

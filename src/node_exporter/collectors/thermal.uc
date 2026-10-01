@@ -4,8 +4,12 @@
 // in OpenWrt's packages feed (Apache-2.0), rewritten for this exporter; see NOTICE.
 
 // The Lua exporter's thermal collector: the temperature of every thermal zone
-// in /sys/class/thermal, labeled with its zone number, type and policy, and its
-// mode and passive trip point where the zone has them.
+// in /sys/class/thermal, as node_exporter's thermal_zone collector
+// (collector/thermal_zone_linux.go) has it, labeled with the zone number and
+// type only. What the Lua collector had as labels besides is apart, so that a
+// series stays one series: the policy and mode (where the zone has one) as
+// node_thermal_zone_info, and the passive trip point, where the zone has one,
+// as node_thermal_zone_passive_celsius.
 //
 // Unlike the Lua collector, which stops at the first zone it cannot read, a zone
 // without a readable type, policy or temperature (a sensor that is asleep
@@ -32,7 +36,9 @@ function read_value(fs, path) {
 
 export function collect(deps, out) {
 	let fs = deps.fs;
-	let temp = out.gauge('node_thermal_zone_temp', 'Zone temperature in Celsius.');
+	let temp = out.gauge('node_thermal_zone_temp', 'Zone temperature in Celsius');
+	let info = out.gauge('node_thermal_zone_info', 'A thermal zone, by its policy and mode.');
+	let passive_celsius = out.gauge('node_thermal_zone_passive_celsius', 'Passive trip point of the zone, in Celsius.');
 	let zones = [];
 
 	for (let e in fs.lsdir(ROOT) ?? []) {
@@ -50,16 +56,14 @@ export function collect(deps, out) {
 		if (kind == null || policy == null || millideg == null || !match(millideg, INTEGER))
 			continue;
 
-		let labels = { zone, type: kind, policy };
+		let labels = { zone, type: kind };
 		let mode = read_value(fs, `${dir}/mode`);
 		let passive = read_value(fs, `${dir}/passive`);
 
-		if (mode != null)
-			labels.mode = mode;
-		if (passive != null && match(passive, INTEGER))
-			labels.passive = passive;
-
 		temp(labels, int(millideg) / 1000.0);
+		info({ ...labels, policy, mode }, 1);
+		if (passive != null && match(passive, INTEGER))
+			passive_celsius(labels, int(passive) / 1000.0);
 	}
 
 	return Result.ok();
