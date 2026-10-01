@@ -13,6 +13,8 @@
 //   load:<set>                compile and validate the set's collectors, as uhttpd does when it starts
 //   collector:<name>[@<n>]    one collector's run and its rendering; @n reads the n-entry conntrack table
 //   scrape:<set>              a whole scrape of the set, as uhttpd answers /metrics
+//   auth:md5                  basic auth's check of a password against a $1$ hash
+//   auth:<sha256|sha512>@<n>  the same against a $5$ or $6$ hash of n rounds
 //
 // A set is one named in WORLD/../sets.json: base, full (base and the -full group).
 
@@ -22,6 +24,8 @@ import * as loader from 'prometheus_exporter.loader';
 import * as scrape from 'prometheus_exporter.scrape';
 import * as exposition from 'prometheus_exporter.exposition';
 import * as Result from 'prometheus_exporter.result';
+import * as auth from 'prometheus_exporter.auth';
+import * as crypt from 'prometheus_exporter.crypt';
 import * as bench_world from 'bench.world';
 
 const STATUS = /^(VmHWM|VmRSS):\s+([0-9]+) kB/;
@@ -196,6 +200,22 @@ if (kind == 'calibrate') {
 	result.outside = result.time - collecting;
 	result.samples = samples(res.body);
 	result.bytes = length(res.body);
+} else if (kind == 'auth') {
+	// The check of a scrape's password, as the handler makes it before any
+	// scrape: auth.allowed on the Authorization header Prometheus sends.
+	let parts = split(arg, '@');
+	let password = 'bench-secret';
+	let header = 'Basic ' + b64enc(`prometheus:${password}`);
+	let hash = (parts[0] == 'md5') ? crypt.md5_crypt(password, 'saltsalt')
+		: crypt.sha_crypt((parts[0] == 'sha256') ? '5' : '6', password, 'saltsaltsaltsalt', +(parts[1] ?? auth.HASH_ROUNDS));
+	let a = { user: 'prometheus', hash };
+
+	mem_before = reset_peak();
+
+	let t = now();
+	result.ok = auth.allowed(a, header);
+	result.time = now() - t;
+	result.rounds = crypt.rounds(hash);
 } else {
 	die(`unknown case ${name}`);
 }

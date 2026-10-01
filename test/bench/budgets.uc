@@ -33,6 +33,8 @@ const TIME = [
 	[ 'large/collector:snmp6', 0.3, 'snmp6 on 50 devices' ],
 	// Measured 0.083 s; 0.48 s before.
 	[ 'large/collector:dhcp_leases', 0.5, 'dhcp_leases on 1200 leases' ],
+	// Measured 7.8 ms (2000 rounds); 75 ms for 20000 rounds, which nothing refused before.
+	[ 'typical/auth:sha512@2000', 0.03, 'basic auth\'s check of a SHA-512-crypt hash of the most rounds it takes' ],
 ];
 
 // [ world/case, kB, what ]: how far a run's peak memory may rise, about three
