@@ -17,7 +17,7 @@ const STRICT = "'use strict';\n";
 // The collectors as installed: their files listed in DIR, their modules found on
 // the search path.
 function install(files) {
-	let fs = mock.global.patch('fs', { data: { [DIR + '/loadavg.uc']: STRICT, ...files }, behavior: { open: lockable.open } });
+	let fs = mock.global.patch('fs', { data: { [DIR + '/loadavg.uc']: STRICT, ...files }, behavior: lockable.behavior });
 	mock.global.patch('ubus', { strict: true, data: {} });
 	mock.global.patch('uci', { strict: true, data: { [config.NAME]: {} } });
 	return fs;

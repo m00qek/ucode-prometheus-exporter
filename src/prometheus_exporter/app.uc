@@ -51,7 +51,8 @@ export function refusal(a, env, st) {
 
 // The env a scrape runs collectors in (prometheus_exporter.scrape), over the
 // modules `mods` and log(level, msg): each collector in a process of its own
-// (prometheus_exporter.runner), unless opts.fork is false.
+// (prometheus_exporter.runner), unless opts.fork is false; opts.tmp is the
+// directory of the file their runs cross by (/tmp).
 export function scrape_env(mods, log, opts) {
 	return {
 		session: (to) => deps.session({ ...mods, log: to ?? log }),
@@ -59,6 +60,9 @@ export function scrape_env(mods, log, opts) {
 		log,
 		version: version(),
 		fork: opts?.fork ?? true,
+		tmp: opts?.tmp,
+		mkstemp: mods.fs.mkstemp,
+		readfile: mods.fs.readfile,
 	};
 };
 
@@ -102,7 +106,8 @@ export function create(log, dir, opts) {
 // the instance (see prometheus_exporter.state); `state_dir` replaces its
 // directory, for tests.
 export function handler(log, dir, state_dir, opts) {
-	let app = create(log, dir, opts);
+	// The jail has no /tmp: the state's directory, on tmpfs, is the one it writes.
+	let app = create(log, dir, { tmp: state_dir ?? state.DIR, ...(opts ?? {}) });
 	let main = config.main(app.mods.uci.cursor());
 	let compress = main.ok ? main.data.compress : config.MAIN_OPTIONS.compress.default;
 	let scrape_timeout = main.ok ? main.data.scrape_timeout : config.SCRAPE_TIMEOUT;

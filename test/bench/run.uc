@@ -10,9 +10,16 @@
 //
 // CASE is
 //   calibrate:vm              the VM's own speed: an empty loop's turn and a builtin's call
-//   load:<set>                compile and validate the set's collectors, as uhttpd does when it starts
+//   load:<set>                compile and validate the set's collectors
+//   probe:<set>               the same, each module loaded in a child process first, as uhttpd does
+//                             when it starts (prometheus_exporter.runner's probe)
 //   collector:<name>[@<n>]    one collector's run and its rendering; @n reads the n-entry conntrack table
-//   scrape:<set>              a whole scrape of the set, as uhttpd answers /metrics
+//   scrape:<set>              a whole scrape of the set, as uhttpd answers /metrics: each collector
+//                             in a child process (prometheus_exporter.runner's forked)
+//   inline:<set>              the same scrape, every collector in the scrape's own process, as
+//                             before; scrape less inline is what running them apart costs
+//   progress:<set>            a scrape's progress file: a line for each collector of the set,
+//                             appended to its file in the state, and the file removed
 //   auth:md5                  basic auth's check of a password against a $1$ hash
 //   auth:<sha256|sha512>@<n>  the same against a $5$ or $6$ hash of n rounds
 //   auth:cached               the same by the cache a check before left (hash_password's hash)
@@ -37,9 +44,10 @@ import * as crypt from 'prometheus_exporter.crypt';
 import * as state from 'prometheus_exporter.state';
 import * as ledger from 'prometheus_exporter.ledger';
 import * as deadline from 'prometheus_exporter.deadline';
+import * as runner from 'prometheus_exporter.runner';
 import * as bench_world from 'bench.world';
 
-const STATUS = /^(VmHWM|VmRSS):\s+([0-9]+) kB/;
+const STATUS = /^(VmHWM|VmRSS|VmData):\s+([0-9]+) kB/;
 const DURATION = /^node_scrape_collector_duration_seconds\{collector="([^"]+)"\} (.*)$/;
 const FAILED = /^node_scrape_collector_success\{collector="([^"]+)"\} 0$/;
 
@@ -48,7 +56,7 @@ function now() {
 	return t[0] + t[1] / 1000000000.0;
 }
 
-// { VmHWM, VmRSS } in kB.
+// { VmHWM, VmRSS, VmData } in kB.
 function memory() {
 	let m = {};
 
@@ -87,13 +95,19 @@ let logs = [];
 let log = (level, msg) => push(logs, `${level}: ${msg}`);
 let kind = split(name, ':')[0], arg = split(name, ':')[1];
 
-// The collectors of a set, loaded as the exporter loads them.
-function load_set(set) {
+// The collectors of a set, loaded as the exporter loads them; with `probe`,
+// each loaded in a child process first, as uhttpd loads them.
+function load_set(set, probe) {
 	let names = sets[set] ?? die(`no set ${set}`);
 	let out = [];
+	let probed = probe ? runner.probe(map(names, loader.id_of), loader.import_module) : {};
 
 	for (let n in names) {
 		let id = loader.id_of(n);
+
+		if (probe && !probed[id]?.ok)
+			die(`${id} did not load: ${probed[id]?.error}`);
+
 		let res = loader.validate(id, loader.import_module(id));
 
 		if (!res.ok)
@@ -131,11 +145,11 @@ if (kind == 'calibrate') {
 		exec.run([ 'probe' ]);
 	result.exec_ms = (now() - t) * 1000 / n;
 	result.time = result.loop_us / 1000000;
-} else if (kind == 'load') {
+} else if (kind == 'load' || kind == 'probe') {
 	mem_before = reset_peak();
 
 	let t = now();
-	result.collectors = length(load_set(arg));
+	result.collectors = length(load_set(arg, kind == 'probe'));
 	result.time = now() - t;
 } else if (kind == 'collector') {
 	let parts = split(arg, '@');
@@ -169,17 +183,21 @@ if (kind == 'calibrate') {
 	result.error = run.result.ok ? null : Result.describe(run.result);
 	result.samples = samples(text);
 	result.bytes = length(text);
-} else if (kind == 'scrape') {
+} else if (kind == 'scrape' || kind == 'inline') {
 	let t = now();
 	let collectors = load_set(arg);
 	let needs = [];
+	let stats = {};
 
 	result.load = now() - t;
 	for (let c in collectors)
 		push(needs, ...c.meta.needs);
 
 	let mods = bench_world.modules(world, uniq(needs));
-	let env = { session: () => deps.session({ ...mods, log }), clock: () => clock(true), log, version: 'bench' };
+	let env = {
+		session: (to) => deps.session({ ...mods, log: to ?? log }), clock: () => clock(true), log, version: 'bench',
+		fork: kind == 'scrape', stats, mkstemp: fs.mkstemp, readfile: fs.readfile,
+	};
 
 	mem_before = reset_peak();
 
@@ -211,6 +229,31 @@ if (kind == 'calibrate') {
 	result.outside = result.time - collecting;
 	result.samples = samples(res.body);
 	result.bytes = length(res.body);
+	// The child's own memory, and how much the scrape's process holds.
+	result.children = stats.children;
+	result.child_hwm_kb = stats.child?.VmHWM;
+	result.child_data_kb = stats.child?.VmData;
+	result.data_kb = memory().VmData;
+} else if (kind == 'progress') {
+	let names = sets[arg] ?? die(`no set ${arg}`);
+	let dir = `${world_dir}/../state-progress`;
+
+	fs.mkdir(dir, 0o700);
+
+	let st = state.open(fs, dir, '1-1');
+
+	mem_before = reset_peak();
+
+	let t = now();
+	let p = st.progress();
+
+	for (let n in names)
+		p.start(loader.id_of(n));
+	p.collected();
+	p.finish();
+	result.time = now() - t;
+	result.collectors = length(names);
+	result.ok = !length(st.dead());
 } else if (kind == 'auth') {
 	// The check of a scrape's password, as the handler makes it before any
 	// scrape: auth.allowed on the Authorization header Prometheus sends.
@@ -249,7 +292,10 @@ if (kind == 'calibrate') {
 		push(needs, ...c.meta.needs);
 
 	let mods = bench_world.modules(world, uniq(needs), { redirect: { '/proc/net/nf_conntrack': `${world_dir}/conntrack/${parts[1]}` } });
-	let env = { session: () => deps.session({ ...mods, log }), clock: () => clock(true), log, version: 'bench' };
+	let env = {
+		session: (to) => deps.session({ ...mods, log: to ?? log }), clock: () => clock(true), log, version: 'bench',
+		fork: true, mkstemp: fs.mkstemp, readfile: fs.readfile,
+	};
 	let dir = `${world_dir}/../state-deadline`;
 	let timeout = 10;
 	let budget = deadline.budget(timeout);

@@ -14,10 +14,14 @@
 // { base: [ names ], full: [ names ], extra: [ names ] }, extra those in no
 // group that are benched alone too. The cases:
 //
-//   load:base, load:full          compiling the collectors, as uhttpd does when it starts
+//   load:base, load:full          compiling the collectors
+//   probe:full                    the same, each loaded in a child process first, as uhttpd does when it starts
 //   collector:<name>              each collector of `full` and `extra` on the large world
 //   collector:nat_traffic@<n>     the n-entry conntrack tables (1k, 10k, 20k)
-//   scrape:base, scrape:full      whole scrapes, on the typical and the large world
+//   scrape:base, scrape:full      whole scrapes, on the typical and the large world, as the service
+//                                 makes them: each collector in a child process
+//   inline:base, inline:full      the same scrapes, every collector in the scrape's own process
+//   progress:full                 a scrape's progress file in the state
 //   auth:<hash>, auth:cached      basic auth's check of a password, by each hash and by the cache
 //   ledger:full                   what the ledger in the state adds to a full scrape
 //   deadline:full@<n>             a full scrape for a 10 s timeout, nat_traffic on the n-entry table
@@ -60,7 +64,7 @@ let src = fs.realpath(`${here}/../../src`), test = fs.realpath(`${here}/..`);
 let search = (src ? `-L '${src}' ` : '') + `-L '${test}'`;
 
 // [ world, case ]
-let cases = [ [ 'large', 'calibrate:vm' ], [ 'large', 'load:base' ], [ 'large', 'load:full' ] ];
+let cases = [ [ 'large', 'calibrate:vm' ], [ 'large', 'load:base' ], [ 'large', 'load:full' ], [ 'large', 'probe:full' ] ];
 
 for (let n in [ ...sets.full, ...(sets.extra ?? []) ])
 	if (n != 'nat_traffic')
@@ -69,7 +73,8 @@ for (let n in json(fs.readfile(`${args.worlds}/large/world.json`)).sizes.conntra
 	push(cases, [ 'large', `collector:nat_traffic@${n}` ]);
 for (let w in [ 'typical', 'large' ])
 	for (let s in [ 'base', 'full' ])
-		push(cases, [ w, `scrape:${s}` ]);
+		push(cases, [ w, `scrape:${s}` ], [ w, `inline:${s}` ]);
+push(cases, [ 'typical', 'progress:full' ]);
 // Basic auth's check of a password: MD5-crypt, SHA-512-crypt at the rounds
 // hash_password makes, SHA-crypt at the most auth_password takes, and a
 // request let in by the cache.
@@ -183,14 +188,17 @@ for (let c in cases) {
 	if (r.kind == 'deadline')
 		note = sprintf('%s; left out: %s', (r.first != null) ? sprintf('first %.1f ms', r.first * 1000) : 'ledger kept', join(' ', r.left_out ?? []) || 'none') +
 			(r.ok === false ? ` ${r.error}` : '');
+	if (r.kind == 'progress' && r.ok !== false)
+		note = sprintf('%d collectors', r.collectors);
 	if (r.kind == 'ledger' && r.ok !== false)
 		note = sprintf('%d collectors, %d bytes', r.collectors, r.bytes);
 	if (r.kind == 'auth' && r.ok !== false)
 		note = r.cached ? 'by the cache' : sprintf('%d rounds', r.rounds);
-	if (r.kind == 'scrape') {
+	if (r.kind == 'scrape' || r.kind == 'inline') {
 		let top = slice(sort(keys(r.durations ?? {}), (a, b) => r.durations[b] - r.durations[a]), 0, 4);
-		note = sprintf('collectors %s ms (%s), outside %s ms, load %s ms %s', ms(r.collecting),
-			join(' ', map(top, (n) => `${n} ${ms(r.durations[n])}`)), ms(r.outside), ms(r.load), note);
+		note = sprintf('collectors %s ms (%s), outside %s ms, load %s ms%s %s', ms(r.collecting),
+			join(' ', map(top, (n) => `${n} ${ms(r.durations[n])}`)), ms(r.outside), ms(r.load),
+			(r.child_hwm_kb != null) ? sprintf(', data %d kB, child peak %d kB data %d kB', r.data_kb, r.child_hwm_kb, r.child_data_kb) : '', note);
 	}
 
 	print(sprintf('%-8s %-32s %10s %10s %10s %8s %9s  %s\n', c[0], c[1], ms(r.time?.min), ms(r.time?.median),

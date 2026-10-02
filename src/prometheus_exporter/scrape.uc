@@ -45,7 +45,9 @@
 //        log(level, msg): a collector that fails at warning, as the scrape
 //        answers without it; a main section the exporter cannot read at err,
 //        version: the exporter's version (prometheus_exporter.version),
-//        fork: whether to run the collectors in child processes }
+//        fork: whether to run the collectors in child processes,
+//        tmp: the directory of the file their runs cross by (runner.forked),
+//        stats: an object the runner fills in, for the benchmark }
 
 import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
@@ -264,7 +266,7 @@ function too_late(l, c, now, cutoff) {
 // env.fork, else inline. `omit`: omit_zero_values.
 function runner_of(env, chosen, omit) {
 	return env.fork
-		? runner.forked(env, run_one, { collectors: chosen, omit })
+		? runner.forked(env, run_one, { collectors: chosen, omit, stats: env.stats, tmp: env.tmp })
 		: runner.inline(env, run_one, { omit });
 }
 

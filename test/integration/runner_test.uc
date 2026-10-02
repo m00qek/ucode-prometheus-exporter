@@ -27,6 +27,7 @@ function env_of(logs) {
 		session: (to) => deps.session({ fs: {}, ubus: { connect: () => null }, uci: { cursor: () => null }, log: to }),
 		clock: () => clock(true),
 		log: (level, msg) => push(logs, [ level, msg ]),
+		mkstemp: fs.mkstemp,
 	};
 }
 
@@ -47,7 +48,7 @@ function run_forked(collectors, budget, cutoff) {
 			let limit = now() + budget;
 			let held = cutoff != null && cutoff < limit;
 
-			return { c, cutoff: null, limit: held ? cutoff : limit, at_deadline: held, budget, settings: { budget, max_samples: 1000, options: {} } };
+			return { c, cutoff: null, limit: held ? cutoff : limit, at_deadline: held, budget, settings: { budget, max_samples: c.meta.max_samples ?? 1000, options: {} } };
 		},
 		done: (job, r) => push(runs, r),
 	};
@@ -88,6 +89,41 @@ describe('runner.forked', () => {
 		assert.match([ { name: 'a_value', type: 'gauge', help: null, lines: [ 'a_value 1' ], values: [], packed: true } ], r.runs[0].families);
 		assert.match([ 1, true ], [ r.runs[1].samples, Result.is(r.runs[1].result) ]);
 		assert.match([], r.logs);
+	});
+
+	// A pipe holds 64 kB: a run that long once crossed it half, and was lost.
+	it('hands back a run of a megabyte whole, its labels and help as they were', () => {
+		let big = collector('big', function(d, out) {
+			let g = out.gauge('big_value', 'Help with "quotes" and a \\ backslash.');
+
+			for (let i = 0; i < 900; i++)
+				g({ i, quoted: 'a "b" \\ c' }, i);
+			out.counter('big_total', 'Another.')(null, 1);
+			d.log('a line logged on the way');
+			return Result.ok();
+		}, { needs: [ 'log' ] });
+		let r = run_forked([ big, gauge('after', 1) ], 5);
+		let text = exposition.render(r.runs[0].families);
+		let parsed = exposition.parse(text);
+
+		assert.match([ [ 'big', 'ok' ], [ 'after', 'ok' ] ], map(r.runs, summary));
+		assert.match([ true, 901, 2 ], [ parsed.ok, r.runs[0].samples, length(parsed.data) ]);
+		assert.match('Help with "quotes" and a \\ backslash.', parsed.data[0].help);
+		assert.match([ 'i', '899', 'quoted', 'a "b" \\ c' ], [ ...parsed.data[0].samples[899].labels[0], ...parsed.data[0].samples[899].labels[1] ]);
+		assert.match([ [ 'warning', "collector 'big': a line logged on the way" ] ], r.logs);
+	});
+
+	it('hands back a run far larger than a pipe holds', () => {
+		let big = collector('huge', function(d, out) {
+			let g = out.gauge('huge_value');
+
+			for (let i = 0; i < 20000; i++)
+				g({ i: sprintf('%080d', i) }, i);
+			return Result.ok();
+		}, { max_samples: 20000 });
+		let r = run_forked([ big ], 5);
+
+		assert.match([ 'ok', 20000 ], [ summary(r.runs[0])[1], length(split(r.runs[0].families[0].lines[0], '\n')) ]);
 	});
 
 	it('logs what a collector logged in its child, here', () => {

@@ -36,7 +36,8 @@
 // budget }, its families packed (prometheus_exporter.exposition's pack).
 //
 // env: { session(log) -> a deps session, clock() -> [ s, ns ] monotonic,
-//        log(level, msg) }; run_fn(env, session, c, job) -> a run.
+//        log(level, msg), mkstemp, readfile: fs's (forked's) };
+// run_fn(env, session, c, job) -> a run.
 
 import * as uloop from 'uloop';
 import * as Result from 'prometheus_exporter.result';
@@ -76,23 +77,43 @@ export function killed(job, took) {
 		sprintf('its process ended while it ran, after %.2f s: out of memory, a crash, or exit()', took)), took);
 };
 
-// A run as the pipe carries it (JSON): its Result without its prototype.
-export function pack(r) {
+// A run, and what was logged with it, as the child hands it over: a line of
+// JSON, { name, id, result, samples, duration, budget, logs, families: [
+// [ name, type, help, bytes ] ] }, its Result without its prototype, and then
+// each family's text, as many bytes as the line says, one after the other.
+// The text crosses as it is: JSON would escape every quote of every label.
+export function pack(r, logs) {
 	let res = r.result;
-
-	return {
-		name: r.name, id: r.id, families: r.families, samples: r.samples, duration: r.duration, budget: r.budget,
+	let head = {
+		name: r.name, id: r.id, samples: r.samples, duration: r.duration, budget: r.budget, logs,
 		result: { ok: res.ok, error: res.error, details: res.details, data: res.data, none: res.none },
+		families: map(r.families, (f) => [ f.name, f.type, f.help, length(f.lines[0]) ]),
 	};
+
+	return sprintf('%J\n', head) + join('', map(r.families, (f) => f.lines[0]));
 };
 
-export function unpack(msg) {
-	let res = msg.result ?? {};
+// The run of pack()'s text, its families packed, and its logs: { run, logs }.
+export function unpack(text) {
+	let nl = index(text, '\n');
+	let head = json(substr(text, 0, nl));
+	let res = head.result ?? {};
+	let at = nl + 1;
+	let families = [];
+
+	for (let f in head.families) {
+		push(families, { name: f[0], type: f[1], help: f[2], lines: [ substr(text, at, f[3]) ], values: [], packed: true });
+		at += f[3];
+	}
+
 	let result = res.ok
 		? ((res.none != null) ? Result.none(res.none) : Result.ok(res.data))
 		: Result.err(res.error ?? errors.COLLECTOR_KILLED, res.details, res.data);
 
-	return { ...msg, result, logs: null };
+	return {
+		run: { name: head.name, id: head.id, result, families, samples: head.samples, duration: head.duration, budget: head.budget },
+		logs: head.logs ?? [],
+	};
 };
 
 // The run of `job`, its families packed with `omit` (omit_zero_values).
@@ -123,10 +144,33 @@ export function inline(env, run_fn, opts) {
 	};
 };
 
+const STATUS = /^(VmHWM|VmData|VmRSS):\s+([0-9]+) kB/;
+
+// This process's memory, in kB: { VmHWM, VmData, VmRSS }, for the benchmark.
+// readfile: fs's.
+export function memory(readfile) {
+	let m = {};
+
+	for (let line in split(readfile('/proc/self/status') ?? '', '\n')) {
+		let f = match(line, STATUS);
+
+		if (f)
+			m[f[1]] = +f[2];
+	}
+
+	return m;
+};
+
 // What the child runs: the jobs this process sends, until it sends none.
 // Everything it needs it reads from `st`: uloop keeps the callbacks of every
 // task it ran for as long as the process lives, and what they hold with them,
 // so run() lets go of st's fields once it is done.
+//
+// Each run goes into st.out, a file this process made before it forked the
+// child, which they share, appended (pack()); the pipe carries where it is.
+// A message the child sends must be no longer than PIPE_BUF (4096 bytes), as
+// what ucode's uloop reads of the pipe without blocking: a longer one may be
+// half there when this process reads it, and ucode then loses it whole.
 function child_of(st) {
 	return function(pipe) {
 		let logs = [];
@@ -138,16 +182,28 @@ function child_of(st) {
 			logs = [];
 
 			let r = run_packed(child_env, st.run_fn, session, { ...job, c: st.by_id[job.id] }, st.omit);
+			let text = pack(r, logs);
 
-			pipe.send({ ...pack(r), logs });
+			st.out.seek(0, 2);
+
+			let at = st.out.tell();
+
+			st.out.write(text);
+			st.out.flush();
+			pipe.send({ id: r.id, at, size: length(text) });
 		}
 
 		session.close();
-		return { end: true };
+		return { end: true, memory: st.stats ? memory(st.env.readfile) : null };
 	};
 }
 
-// opts: { collectors: every collector a plan may pick, omit }.
+// opts: { collectors: every collector a plan may pick, omit, stats, tmp }.
+// stats, when given, is an object it fills in: children, how many it forked;
+// child, the memory of the last that ran to its end (memory()). tmp: the
+// directory of the file the runs cross by (/tmp), which is removed as soon as
+// it is made, and gone with the scrape: on tmpfs, the state's in the jail.
+
 export function forked(env, run_fn, opts) {
 	return {
 		run: function(plan) {
@@ -157,7 +213,7 @@ export function forked(env, run_fn, opts) {
 				by_id[c.id] = c;
 
 			let st = {
-				env, run_fn, by_id, plan, omit: opts?.omit,
+				env, run_fn, by_id, plan, omit: opts?.omit, stats: opts?.stats,
 				task: null, timer: null, gen: 0, job: null, started: null, closing: false, done: false, lost: 0,
 			};
 			let child = child_of(st);
@@ -168,7 +224,8 @@ export function forked(env, run_fn, opts) {
 				st.env.log('warning', 'cannot fork a process to run the collectors in; running them in the scrape\'s own');
 				inline(st.env, st.run_fn, { omit: st.omit }).run(st.plan);
 				st.done = true;
-				uloop.end();
+				if (st.timer)
+					uloop.end();
 			}
 
 			function finish(r) {
@@ -210,6 +267,8 @@ export function forked(env, run_fn, opts) {
 					return;
 
 				if (msg?.end) {
+					if (st.stats)
+						st.stats.child = msg.memory;
 					st.done = true;
 					uloop.end();
 					return;
@@ -218,10 +277,14 @@ export function forked(env, run_fn, opts) {
 				if (st.job == null || msg?.id != st.job.c.id)
 					return;
 
-				for (let l in msg.logs ?? [])
+				st.out.seek(msg.at);
+
+				let got = unpack(st.out.read(msg.size));
+
+				for (let l in got.logs)
 					st.env.log(l[0], l[1]);
 
-				finish(unpack(msg));
+				finish(got.run);
 			}
 
 			function spawn() {
@@ -233,6 +296,8 @@ export function forked(env, run_fn, opts) {
 				if (!st.task)
 					return fallback();
 
+				if (st.stats)
+					st.stats.children = (st.stats.children ?? 0) + 1;
 				arm();
 			}
 
@@ -283,6 +348,11 @@ export function forked(env, run_fn, opts) {
 				arm();
 			}
 
+			st.out = env.mkstemp(`${opts?.tmp ?? '/tmp'}/prometheus-exporter.XXXXXX`);
+
+			if (!st.out)
+				return fallback();
+
 			uloop.init();
 			st.timer = uloop.timer(POLL_MS, tick);
 			spawn();
@@ -292,8 +362,9 @@ export function forked(env, run_fn, opts) {
 
 			st.timer.cancel();
 			uloop.done();
+			st.out.close();
 
-			for (let k in [ 'env', 'run_fn', 'by_id', 'plan', 'task', 'timer', 'job' ])
+			for (let k in [ 'env', 'run_fn', 'by_id', 'plan', 'task', 'timer', 'job', 'stats', 'out' ])
 				st[k] = null;
 			st.done = true;
 		},
@@ -339,9 +410,10 @@ export function probe(ids, import_fn, seconds, clock_fn) {
 			try {
 				st.import_fn(id);
 			} catch (e) {
-				error = split(e.message, '\n')[0];
+				error = substr(split(e.message, '\n')[0], 0, 1024);
 			}
 
+			// No longer than PIPE_BUF, as child_of says.
 			pipe.send({ id, error });
 		}
 

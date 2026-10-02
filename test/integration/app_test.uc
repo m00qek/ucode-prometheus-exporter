@@ -24,7 +24,7 @@ const ROUTER = {
 
 // Not strict: the loader lists the real source directory.
 function patch(files, ubus) {
-	mock.global.patch('fs', { data: files });
+	mock.global.patch('fs', { data: files, behavior: { mkstemp: lockable.mkstemp } });
 	mock.global.patch('ubus', { strict: true, ...ubus });
 	mock.global.patch('uci', { strict: true, data: { [config.NAME]: {} } });
 }
@@ -83,7 +83,7 @@ describe('app', () => {
 	it('answers with every other collector when one\'s program hangs, and kills it', () => {
 		mock.global.patch('fs', commands.fs({
 			[commands.line([ 'nft', '--json', 'list', 'counters' ])]: { run: [ 'sh', '-c', 'sleep 3071; :' ], seconds: 1 },
-		}, { data: ROUTER.files }));
+		}, { data: ROUTER.files, behavior: { mkstemp: lockable.mkstemp } }));
 		mock.global.patch('ubus', { strict: true, data: { 'system:board': ROUTER.board } });
 		mock.global.patch('uci', { strict: true, data: { [config.NAME]: {} } });
 
@@ -129,7 +129,7 @@ describe('app.handler', () => {
 	});
 
 	function patch_main(main, files) {
-		mock.global.patch('fs', { data: { ...ROUTER.files, ...(files ?? {}) }, behavior: { open: lockable.open } });
+		mock.global.patch('fs', { data: { ...ROUTER.files, ...(files ?? {}) }, behavior: lockable.behavior });
 		mock.global.patch('ubus', { strict: true, data: {} });
 		mock.global.patch('uci', { strict: true, data: { [config.NAME]: main ? { main: { '.type': config.NAME, ...main } } : {} } });
 	}
@@ -150,7 +150,7 @@ describe('app.handler', () => {
 		let seen = [];
 
 		mock.global.patch('fs', { data: ROUTER.files, behavior: {
-			open: lockable.open,
+			...lockable.behavior,
 			popen: function(cmd) { push(seen, commands.parse(cmd).seconds); return { read: () => '{}', close: () => 0 }; },
 		} });
 		mock.global.patch('ubus', { strict: true, data: {} });
