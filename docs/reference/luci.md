@@ -67,12 +67,43 @@ While the ubus object is not there (rpcd reloading, or the package being upgrade
 
 ## Status → Prometheus exporter
 
+The page runs each enabled collector once, a **test run**, when it opens and on **Refresh**, never on a timer. The test run is the ubus object's `status`: on the router, outside the service's jail and without its deadline, and it runs a quarantined collector all the same. So its results can differ from what Prometheus gets; the page says so above the tables.
+
 | Part | Content |
 | :--- | :--- |
-| Service | Whether it is enabled in the settings, starts at boot and runs; where it serves `/metrics`, marked **(reachable from the router only)** on loopback; whether a scrape logs in, over HTTPS; whether it is compressed. |
-| Collectors | Each collector's state in the page's scrape, **OK**, **Failed**, **Nothing to observe** (with why) or **Not run** (disabled); its duration; its error; what the jail mounts for it; and, in the **Service** column, what the service's own scrapes found of it: **Quarantined** (with when it is tried again, and why) and **Left out at the deadline** (in the last scrape, or how many scrapes ago, within the last 10). |
+| Banner | What needs attention, above the tables. See [Banners](#banners). |
+| Service | Whether it runs, is enabled in the settings and starts at boot; where it serves `/metrics`, marked **(reachable from the router only)** on loopback; whether a scrape logs in, over HTTPS; whether it is compressed. |
+| Collectors | The test run's counts, as **3 failed, 20 OK, 3 with nothing to observe, 0 off.**, then a row per installed collector. See [Collectors](#collectors). |
 
-The scrape is the ubus object's `status`, run on the router outside the jail, when the page opens and on **Refresh**, never on a timer; it runs a quarantined collector all the same. The **Service** column is the ubus object's `service` of each collector, from the running instance's ledger. Without the ubus object, the page says so, as the settings page does.
+### Banners
+
+| Banner | When | Content |
+| :--- | :--- | :--- |
+| Error | The service is enabled and not running. | **The exporter is enabled but not running: Prometheus gets nothing.**, with buttons to **System → Startup** and **System log**. |
+| Notice | The service is switched off in its settings, and not running. | That Prometheus gets nothing, with a button to **Services → Prometheus exporter**. |
+| Warning | Collectors failed in the test run. | How many, by title: **3 collectors failed in the test run: …** |
+| Notice | The service quarantined collectors. | How many, by title, and that a restart of the service tries them at once. |
+
+### Collectors
+
+| Column | Content |
+| :--- | :--- |
+| Collector | Its title and name. |
+| Test run | How it did in the test run, in words: **OK**; **Failed**, with the error's detail, then its code, which links to [Error codes](error-codes.md), and its jail mounts folded away; *Nothing to observe*, in italics, with why; or *Not run: switched off*. |
+| Duration | Its time in the test run. |
+| Service's scrapes | What the service's own scrapes found of it, from the running instance's ledger (the ubus object's `service` of each collector): **Quarantined**, with when the service tries it again and why, and **Left out at the deadline**, in the service's last scrape or how many scrapes ago, within the last 10. Empty otherwise. |
+
+The rows are grouped, in this order, and sorted by title within a group:
+
+1. Failed in the test run.
+2. Quarantined, or left out at the deadline lately, by the service.
+3. OK.
+4. Nothing to observe.
+5. Not run.
+
+An error code the page does not know is shown and linked all the same; an error without a code is shown as it is. Status never rests on colour alone: each state is in words. On a narrow screen, a theme that shows each cell's column heading shows it only over a cell with something in it.
+
+Without the ubus object, the page says so, as the settings page does.
 
 ## ACL
 
