@@ -22,6 +22,7 @@ The exporter's configuration is `/etc/config/prometheus-exporter`. The file is o
 | `compress` | boolean | `1` | — | Send a scrape gzip-compressed when the scraper asks for it (Accept-Encoding: gzip); 0 never does. | exporter |
 | `exec_timeout` | integer | `5` | `range(1,30)` | Seconds the programs a collector runs get in all in each scrape, unless the collector says otherwise; one still running then is killed. | exporter |
 | `scrape_timeout` | integer | `10` | `range(1,60)` | Seconds a scrape has to answer when the scraper does not say (X-Prometheus-Scrape-Timeout-Seconds); collectors left when they are nearly spent are skipped. | exporter |
+| `collector_budget` | integer | `5` | `range(1,60)` | Seconds a collector may take in a scrape, unless it says otherwise; one that takes longer is quarantined for a few scrapes. | exporter |
 
 Options that go together, checked wherever the configuration is checked (start, reload, `check`, the ubus object's `validate` and LuCI):
 
@@ -37,8 +38,9 @@ Options that go together, checked wherever the configuration is checked (start, 
 | :--- | :--- | :--- | :--- | :--- |
 | `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 | `timeout` | integer | the collector's `meta.timeout`, else `exec_timeout` (5) | `range(1,30)` | Seconds the programs of this collector get in all in each scrape; one still running then is killed. |
+| `budget` | integer | `collector_budget` (5), or the collector's `timeout` and a second more when that is longer | `range(1,60)` | Seconds this collector may take in a scrape; one that takes longer is quarantined for a few scrapes. |
 
-`timeout` is only for a collector that runs programs (`exec` in its needs); the others ignore it. No collector may declare an option named `enabled`, `timeout`.
+`timeout` is only for a collector that runs programs (`exec` in its needs); the others ignore it. A collector that takes longer than its `budget` is quarantined: see [About deadlines and circuit breakers](../explanation/deadlines-and-breakers.md). No collector may declare an option named `enabled`, `timeout`, `budget`.
 
 ## Values {#values}
 
@@ -70,6 +72,7 @@ config prometheus-exporter 'main'
 	option compress '1'
 	option exec_timeout '5'
 	option scrape_timeout '10'
+	option collector_budget '5'
 
 config collector 'textfile'
 	option enabled '1'

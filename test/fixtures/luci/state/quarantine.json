@@ -1,0 +1,1 @@
+{ "v": 1, "scrapes": 40, "k": 0.00004, "c": { "loadavg": { "d": 7.25, "n": 3, "q": 42, "cd": 4, "why": "COLLECTOR_OVERRUN (took 7.25 s, over its budget of 5 s)" }, "uname": { "d": 0.002, "n": 1, "late": 40 }, "cpu": { "d": 0.01, "n": 40 } } }

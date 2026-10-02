@@ -165,6 +165,8 @@ export function validate(id, mod) {
 		return invalid(id, "option 'enabled' is the core's, every collector has it");
 	if ('timeout' in keys(meta.options ?? {}))
 		return invalid(id, "option 'timeout' is the core's, every collector that runs programs has it; meta.timeout sets its default");
+	if ('budget' in keys(meta.options ?? {}))
+		return invalid(id, "option 'budget' is the core's, every collector has it");
 
 	for (let key, spec in meta.options) {
 		let res = validate_option(id, key, spec);

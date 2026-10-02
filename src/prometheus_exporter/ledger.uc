@@ -13,14 +13,26 @@
 //   k        seconds per sample of writing a scrape's reply (merging and
 //            rendering), an exponential moving average
 //   entry    { d: its duration, a moving average; n: samples it wrote last;
-//              late: the scrape that last left it out at the deadline }
+//              late: the scrape that last left it out at the deadline;
+//              f, q, cd, why: its breaker's (prometheus_exporter.breaker) }
 //
 // The averages weigh the last run by ALPHA.
+
+import * as Result from 'prometheus_exporter.result';
+import * as errors from 'prometheus_exporter.errors';
+import * as breaker from 'prometheus_exporter.breaker';
 
 // The ledger's name in the state.
 export const NAME = 'scrape';
 
 export const VERSION = 1;
+
+// The scrapes after which the deadline leaving a collector out is old news to
+// check and the ubus object's status.
+export const RECENT = 10;
+
+// The most of a breaker's why the ledger keeps.
+const WHY_MAX = 200;
 
 // The weight of the last run in a duration's moving average. A collector
 // takes much the same time scrape after scrape, but for what it reads that
@@ -107,13 +119,34 @@ function average(old, value) {
 	return (old == null) ? value : old + ALPHA * (value - old);
 }
 
+// What a run means to its collector's breaker (prometheus_exporter.breaker),
+// and why: [ outcome, why ].
+export function outcome_of(r) {
+	let res = r.result;
+
+	if (r.skipped != null)
+		return [ 'neutral', null ];
+	if (r.budget != null && r.duration > r.budget)
+		return [ 'trip', sprintf('%s (took %.2f s, over its budget of %d s)', errors.COLLECTOR_OVERRUN, r.duration, r.budget) ];
+	if (res?.error == errors.COMMAND_TIMEOUT)
+		return [ 'trip', Result.describe(res) ];
+	if (res?.error == errors.SCRAPE_DEADLINE)
+		return [ 'neutral', null ];
+	if (!res?.ok)
+		return [ 'failed', Result.describe(res) ];
+
+	return [ 'ok', null ];
+};
+
 // The ledger `l` with scrape `runs` recorded, as the scrape counts it: one
-// more scrape; for each collector that ran, its duration and samples; for
-// each the deadline left out or cut, that it did; and the seconds per sample
-// the reply took to write (`written`: { seconds, samples }). `ids` are the
-// installed collectors': any other's entry goes. A run is scrape.run_one's or
-// not_run's: { id, result, duration, samples, skipped }.
-export function record(l, runs, written, ids) {
+// more scrape; for each collector that ran, its duration and samples, and
+// what its run makes of its breaker; for each the deadline left out or cut,
+// that it did; and the seconds per sample the reply took to write (`written`:
+// { seconds, samples }). `ids` are the installed collectors': any other's
+// entry goes. A run is scrape.run_one's or not_run's: { id, name, result,
+// duration, samples, budget, skipped }. `events`, when given, gets what
+// changed of the breakers: { name, tripped, closed, cooldown, why }.
+export function record(l, runs, written, ids, events) {
 	let n = number(l);
 	let c = {};
 
@@ -129,10 +162,16 @@ export function record(l, runs, written, ids) {
 			e.n = r.samples ?? 0;
 		}
 
-		if (r.result?.error == 'SCRAPE_DEADLINE')
+		if (r.result?.error == errors.SCRAPE_DEADLINE)
 			e.late = n;
 
-		c[r.id] = e;
+		let o = outcome_of(r);
+		let b = breaker.after(e, o[0], n, (o[1] != null) ? substr(o[1], 0, WHY_MAX) : null);
+
+		if (events && (b.tripped || b.closed))
+			push(events, { name: r.name, tripped: b.tripped, closed: b.closed, cooldown: b.entry.cd, why: b.entry.why });
+
+		c[r.id] = b.entry;
 	}
 
 	let k = l.k;
@@ -141,4 +180,40 @@ export function record(l, runs, written, ids) {
 		k = average(k, written.seconds / (written.samples * 1.0));
 
 	return { ...l, scrapes: n, k, c };
+};
+
+// Collector `id`'s breaker at scrape number `m`: 'closed', 'open' or 'trial'.
+export function phase(l, id, m) {
+	return breaker.phase(l.c[id], m);
+};
+
+// The result of a collector its breaker keeps out of scrape number `m`.
+export function quarantined(l, id, m) {
+	let e = l.c[id];
+	let k = breaker.left(e, m);
+
+	return Result.err(errors.COLLECTOR_QUARANTINED,
+		sprintf('not run: %s; tried again %s', e.why ?? 'its breaker is open', (k <= 1) ? 'at the next scrape' : `in ${k} scrapes`));
+};
+
+// What the ledger says of collector `id`, for check and the ubus object, as of
+// the instance's last scrape: { estimate, quarantined, reason, retry_in,
+// late }. retry_in: the scrapes until its trial, 1 for the next; late: the
+// scrapes since the deadline last left it out, 0 for the last. Null for a
+// collector the ledger has nothing of.
+export function report(l, id) {
+	let e = l.c[id];
+
+	if (e == null)
+		return null;
+
+	let held = (e.q != null);
+
+	return {
+		estimate: e.d,
+		quarantined: held,
+		reason: held ? e.why : null,
+		retry_in: held ? breaker.left(e, number(l)) + 1 : null,
+		late: (e.late != null) ? l.scrapes - e.late : null,
+	};
 };

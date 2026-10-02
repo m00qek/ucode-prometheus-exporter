@@ -10,15 +10,21 @@
 // `exporter.fixture` lets the tests switch that fixture (`service {name}`; the name
 // `none` withdraws `service`, as when procd cannot be asked), lay out the exporter's
 // config from $FIXTURES/config/<name> (`config {name}`; `default` puts back the one
-// the container started with) and read it back as it is on disk (`read`).
+// the container started with) and read it back as it is on disk (`read`). `state {name}`
+// lays out $FIXTURES/state/<name>.json as the ledger of a running instance of the
+// exporter (prometheus_exporter.ledger), in its state directory, as its scrapes would
+// leave it; `none` removes it.
 
 import * as ubus from 'ubus';
 import * as uloop from 'uloop';
-import { readfile, writefile } from 'fs';
+import { readfile, writefile, mkdir, unlink, lsdir } from 'fs';
 
 const DIR = getenv('FIXTURES') ?? '/fixtures';
 const CONFIG = '/etc/config/prometheus-exporter';
 const MB = 1024 * 1024;
+// The exporter's state directory (prometheus_exporter.state), and an instance's id in it.
+const STATE_DIRS = [ '/var/run/prometheus-exporter', '/var/run/prometheus-exporter/state' ];
+const INSTANCE = '4242-123456';
 
 const BOARD = {
 	kernel: '6.12.0',
@@ -76,6 +82,27 @@ function lay_out(name) {
 	return data != null && writefile(CONFIG, data) != null;
 }
 
+function use_state(name) {
+	let dir = STATE_DIRS[1];
+
+	for (let f in lsdir(dir) ?? [])
+		unlink(`${dir}/${f}`);
+
+	if (name == 'none')
+		return true;
+	if (!is_name(name))
+		return false;
+
+	let data = readfile(`${DIR}/state/${name}.json`);
+	if (data == null)
+		return false;
+
+	for (let d in STATE_DIRS)
+		mkdir(d, 0o700);
+
+	return writefile(`${dir}/${INSTANCE}.scrape`, data) != null;
+}
+
 conn.publish('system', {
 	board: { args: { ubus_rpc_session: '' }, call: () => BOARD },
 	info: {
@@ -115,6 +142,7 @@ conn.publish('exporter.fixture', {
 	service: { args: { ubus_rpc_session: '', name: '' }, call: (req) => ({ ok: use_service(req.args.name) }) },
 	config: { args: { ubus_rpc_session: '', name: '' }, call: (req) => ({ ok: lay_out(req.args.name) }) },
 	read: { args: { ubus_rpc_session: '' }, call: () => ({ data: readfile(CONFIG) }) },
+	state: { args: { ubus_rpc_session: '', name: '' }, call: (req) => ({ ok: use_state(req.args.name) }) },
 });
 
 if (!use_service(getenv('SERVICE') ?? 'running'))

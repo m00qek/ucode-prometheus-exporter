@@ -67,6 +67,7 @@ Every scrape ends with these, whatever `collect[]` selects: node_exporter's fami
 | `node_scrape_collector_duration_seconds` | gauge | `collector` | node\_exporter: Duration of a collector scrape. | — |
 | `node_scrape_collector_success` | gauge | `collector` | node\_exporter: Whether a collector succeeded. | — |
 | `node_scrape_collector_observing` | gauge | `collector` | Whether a collector had something to observe: 0 when its hardware, kernel feature or service is not there. | — |
+| `ucode_prometheus_exporter_collector_quarantined` | gauge | `collector` | Whether a collector is quarantined: its circuit breaker tripped, and it is not run until its cool-down is over. | — |
 | `ucode_prometheus_exporter_build_info` | gauge | `version` | A metric with a constant '1' value labeled by the version of ucode-prometheus-exporter. | — |
 
 ## `bmx7` {#bmx7}

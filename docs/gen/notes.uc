@@ -213,5 +213,7 @@ export const errors = {
 	COMMAND_FAILED: 'A program could not start or exited with a status other than 0. The detail is `<program>: exit status <n>` or `<program>: cannot start`.',
 	COMMAND_TIMEOUT: 'A program was still running when the collector\'s seconds for programs were spent, and was killed with every process it started; or the collector asked to run one after they were spent.',
 	SCRAPE_DEADLINE: 'The scrape\'s time was nearly spent: the collector was not run, or a program it ran was killed at the deadline, so that the scrape answers before the scraper gives up. The scrape logs every such collector in one line. See [About deadlines and circuit breakers](../explanation/deadlines-and-breakers.md).',
+	COLLECTOR_QUARANTINED: 'The collector\'s circuit breaker is open: it was not run in this scrape, even if the query named it. The detail says what tripped the breaker and when the collector is tried again; a restart of the service tries it at once.',
+	COLLECTOR_OVERRUN: 'What tripped a breaker: the collector took longer than its `budget`. The detail is how long it took and its budget. The run itself counts as it went; its breaker trips.',
 	EXPOSITION_INVALID: 'Text that is not valid Prometheus exposition format: a `*.prom` file of textfile, which the collector then leaves out. The detail names the line.',
 };

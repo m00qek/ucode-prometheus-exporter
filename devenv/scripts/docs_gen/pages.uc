@@ -495,9 +495,17 @@ export function uci_page(ctx) {
 	push(core, t);
 	note_type(config.TIMEOUT);
 
+	let b = option_row('budget', config.BUDGET, config.COLLECTOR_BUDGET);
+
+	b[2] = `\`collector_budget\` (${config.COLLECTOR_BUDGET}), or the collector's \`timeout\` and a second more when that is longer`;
+	push(core, b);
+	note_type(config.BUDGET);
+
 	push(blocks, md.table([ 'Option', 'Type', 'Default', 'Datatype', 'Description' ], core));
 	push(blocks,
 		'`timeout` is only for a collector that runs programs (`exec` in its needs); the others ignore it. ' +
+		'A collector that takes longer than its `budget` is quarantined: see ' +
+		'[About deadlines and circuit breakers](../explanation/deadlines-and-breakers.md). ' +
 		`No collector may declare an option named ${md.codes(config.RESERVED)}.`);
 
 	for (let c in ctx.collectors)

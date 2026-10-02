@@ -68,6 +68,13 @@ async function useConfig(request, name) {
   expect(res.ok, `config ${name}`).toBe(true);
 }
 
+// Lays out test/fixtures/luci/state/<name>.json as the ledger of the exporter's running
+// instance, as its own scrapes would leave it; `none` removes it.
+async function useState(request, name) {
+  const res = await ubus(request, 'exporter.fixture', 'state', { name });
+  expect(res.ok, `state fixture ${name}`).toBe(true);
+}
+
 // The exporter's config as it is on disk.
 async function readConfig(request) {
   return (await ubus(request, 'exporter.fixture', 'read', {})).data;
@@ -167,6 +174,6 @@ async function screenshot(page, name) {
 }
 
 module.exports = {
-  CONFIG, PACKAGE, APP_USER, HOSTILE, ubus, rawCall, denied, sessionOf, useService, useConfig, readConfig, sections, open, openSettings,
+  CONFIG, PACKAGE, APP_USER, HOSTILE, ubus, rawCall, denied, sessionOf, useService, useConfig, useState, readConfig, sections, open, openSettings,
   showTab, modal, editCollector, staged, openStatus, section, collectorRow, text, screenshot,
 };

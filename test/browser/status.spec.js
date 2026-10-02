@@ -17,6 +17,7 @@ test.describe('Status → Prometheus exporter', () => {
   test.afterEach(async ({ request }) => {
     await h.useService(request, 'running');
     await h.useConfig(request, 'default');
+    await h.useState(request, 'none');
   });
 
   test('says the exporter runs, where it serves /metrics, and how each collector did', async ({ page, request }) => {
@@ -57,6 +58,27 @@ test.describe('Status → Prometheus exporter', () => {
     // Nor unbound's package.
     await expect(cell(page, 'unbound', 2).locator('small')).toHaveText('unbound is not installed');
     await h.screenshot(page, 'status-nothing-to-observe');
+  });
+
+  // The service's ledger quarantines loadavg and left uname out at its last scrape's
+  // deadline: the page's own test run is apart from that, and still runs both.
+  test('says what the service\'s own scrapes found: a collector quarantined, and one left out at the deadline', async ({ page, request }) => {
+    await h.useState(request, 'quarantine');
+    await h.openStatus(page);
+    await expect(cell(page, 'loadavg', 6).locator('.label')).toHaveText('Quarantined');
+    await expect(cell(page, 'loadavg', 6)).toContainText('Tried again in 3 scrapes.');
+    await expect(cell(page, 'loadavg', 6)).toContainText('COLLECTOR_OVERRUN (took 7.25 s, over its budget of 5 s)');
+    await expect(cell(page, 'uname', 6).locator('.label')).toHaveText('Left out at the deadline');
+    await expect(cell(page, 'uname', 6)).toContainText('In the last scrape.');
+    await expect(cell(page, 'cpu', 6)).toHaveText('');
+    await expect(cell(page, 'loadavg', 2)).toHaveText('OK');
+    await expect(cell(page, 'uname', 2)).toHaveText('OK');
+    await h.screenshot(page, 'status-service');
+  });
+
+  test('says nothing of the service\'s scrapes before it has any', async ({ page }) => {
+    await h.openStatus(page);
+    await expect(cell(page, 'loadavg', 6)).toHaveText('');
   });
 
   test('lists every installed collector, as the settings do', async ({ page, request }) => {

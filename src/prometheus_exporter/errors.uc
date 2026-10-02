@@ -26,6 +26,8 @@ export const COMMAND_TIMEOUT      = 'COMMAND_TIMEOUT';
 
 // The scrape
 export const SCRAPE_DEADLINE      = 'SCRAPE_DEADLINE';
+export const COLLECTOR_QUARANTINED = 'COLLECTOR_QUARANTINED';
+export const COLLECTOR_OVERRUN    = 'COLLECTOR_OVERRUN';
 
 // Exposition text
 export const EXPOSITION_INVALID   = 'EXPOSITION_INVALID';

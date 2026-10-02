@@ -7,6 +7,7 @@ import * as deps from 'prometheus_exporter.deps';
 import * as config from 'prometheus_exporter.config';
 import * as jail from 'prometheus_exporter.jail';
 import * as Result from 'prometheus_exporter.result';
+import * as ledger from 'prometheus_exporter.ledger';
 import * as crypt from 'prometheus_exporter.crypt';
 import * as auth from 'prometheus_exporter.auth';
 import * as fixtures from 'lib.fixtures';
@@ -92,6 +93,7 @@ function with_sys(own, cfg, cb) {
 				log: quiet,
 			},
 			ubus: deps.ubus_channel(mods.ubus.connect),
+			ledger: cfg.ledger,
 		};
 
 		cb(sys);
@@ -541,12 +543,30 @@ describe('rpc.scrape_report and rpc.status', () => {
 		with_sys({ textfile: { '.type': 'collector', enabled: '0' } }, { collectors: [ LOADAVG, FAILING, TEXTFILE ] }, (sys) => {
 			assert.match([
 				{ name: 'loadavg', id: 'loadavg', title: 'loadavg', enabled: true, success: true, observing: true, reason: null,
-					duration: 0.005, error: null, mounts: [] },
+					duration: 0.005, error: null, mounts: [], service: null },
 				{ name: 'openwrt', id: 'openwrt', title: 'openwrt', enabled: true, success: false, observing: true, reason: null,
-					duration: 0.005, error: 'UBUS_CALL_FAILED (system board: Not found)', mounts: [] },
+					duration: 0.005, error: 'UBUS_CALL_FAILED (system board: Not found)', mounts: [], service: null },
 				{ name: 'textfile', id: 'textfile', title: 'textfile', enabled: false, success: null, observing: null, reason: null,
-					duration: null, error: null, mounts: [] },
+					duration: null, error: null, mounts: [], service: null },
 			], rpc.scrape_report(sys));
+		});
+	});
+
+	// The ledger of the service's running instance.
+	it('says what the service\'s scrapes found of each collector, and still runs a quarantined one', () => {
+		let l = { ...ledger.empty(), scrapes: 40, c: {
+			loadavg: { d: 0.01, n: 3, late: 40 },
+			openwrt: { d: 6, n: 1, q: 42, cd: 4, why: 'COLLECTOR_OVERRUN (took 6.00 s, over its budget of 5 s)' },
+		} };
+
+		with_sys({}, { collectors: [ LOADAVG, FAILING ], ledger: l }, (sys) => {
+			let r = rpc.scrape_report(sys);
+
+			assert.match([
+				{ estimate: 0.01, quarantined: false, reason: null, retry_in: null, late: 0 },
+				{ estimate: 6, quarantined: true, reason: 'COLLECTOR_OVERRUN (took 6.00 s, over its budget of 5 s)', retry_in: 3, late: null },
+			], map(r, (c) => c.service));
+			assert.match([ true, false ], map(r, (c) => c.success));
 		});
 	});
 

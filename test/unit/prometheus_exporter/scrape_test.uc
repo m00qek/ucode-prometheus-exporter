@@ -341,6 +341,10 @@ describe('scrape.scrape', () => {
 			'# TYPE node_scrape_collector_observing gauge',
 			'node_scrape_collector_observing{collector="a"} 1',
 			'node_scrape_collector_observing{collector="failing"} 1',
+			'# HELP ucode_prometheus_exporter_collector_quarantined Whether a collector is quarantined: its circuit breaker tripped, and it is not run until its cool-down is over.',
+			'# TYPE ucode_prometheus_exporter_collector_quarantined gauge',
+			'ucode_prometheus_exporter_collector_quarantined{collector="a"} 0',
+			'ucode_prometheus_exporter_collector_quarantined{collector="failing"} 0',
 			"# HELP ucode_prometheus_exporter_build_info A metric with a constant '1' value labeled by the version of ucode-prometheus-exporter.",
 			'# TYPE ucode_prometheus_exporter_build_info gauge',
 			'ucode_prometheus_exporter_build_info{version="0.1.0-r1"} 1',
@@ -359,7 +363,7 @@ describe('scrape.scrape', () => {
 			'node_scrape_collector_observing{collector="idle"} 0',
 		]), lines(r.body));
 		assert.match([ 'node_scrape_collector_duration_seconds{collector="idle"}', 'node_scrape_collector_observing{collector="idle"}',
-			'node_scrape_collector_success{collector="idle"}' ],
+			'node_scrape_collector_success{collector="idle"}', 'ucode_prometheus_exporter_collector_quarantined{collector="idle"}' ],
 			sort(map(filter(lines(r.body), (l) => index(l, 'idle') >= 0), (l) => split(l, ' ')[0])));
 	});
 
@@ -453,5 +457,131 @@ describe('scrape.scrape', () => {
 
 			assert.match(true, parsed.ok);
 			assert.match(expected, map(success.samples, (s) => s.labels[0][1]));
+		});
+});
+
+describe('scrape.scrape, with circuit breakers', () => {
+	// The instance's state, in memory, scrapes after scrapes.
+	function memory_state() {
+		let st = { text: null };
+
+		st.read = (name) => (name == ledger.NAME) ? st.text : null;
+		st.update = function(name, fn) {
+			let out = fn(st.text);
+
+			if (type(out) == 'string')
+				st.text = out;
+			return true;
+		};
+		return st;
+	}
+
+	// Scrapes with `query_string` on one state, `n` times: what each answered
+	// and logged, and which collectors ran.
+	function scrapes(collectors, n, query_string, st) {
+		let out = [];
+
+		st ??= memory_state();
+		for (let i = 0; i < n; i++)
+			with_mods({}, (mods) => {
+				let logs = [];
+				let levels = [];
+				let r = scrape.scrape(env_for(mods, logs, levels), collectors, query_string ?? '', { state: st });
+
+				push(out, { body: lines(r.body), logs, levels });
+			});
+
+		return out;
+	}
+
+	function flaky(name, plan, ran) {
+		let i = 0;
+
+		return collector(name, function(d, out) {
+			let ok = plan[min(i++, length(plan) - 1)];
+
+			push(ran, name);
+			out.gauge(`${name}_value`)(null, 1);
+			return ok ? Result.ok() : Result.err('SOURCE_INVALID', 'garbled');
+		});
+	}
+
+	function quarantined(r, name) {
+		return `ucode_prometheus_exporter_collector_quarantined{collector="${name}"} 1` in r.body;
+	}
+
+	function succeeded(r, name) {
+		return `node_scrape_collector_success{collector="${name}"} 1` in r.body;
+	}
+
+	it('quarantines a collector after three failures in a row, logs it once, and leaves it out for a scrape', () => {
+		let ran = [];
+		let rs = scrapes([ A, flaky('f', [ false ], ran) ], 5);
+
+		assert.match([ 'f', 'f', 'f', 'f' ], ran, 'runs 1 to 3, then 5: its trial');
+		assert.match([ false, false, false, true, false ], map(rs, (r) => quarantined(r, 'f')));
+		assert.match([ "collector 'f': SOURCE_INVALID (garbled)", "collector 'f' quarantined for 1 scrape: SOURCE_INVALID (garbled)" ], rs[2].logs);
+		assert.match([ [], [ 'warning', 'warning' ] ], [ rs[3].logs, rs[4].levels ]);
+		assert.match(contains([ 'node_scrape_collector_success{collector="a"} 1', 'node_scrape_collector_success{collector="f"} 0' ]),
+			slice(rs[3].body, 0));
+		assert.match(-1, index(join('\n', rs[3].body), 'f_value'));
+	});
+
+	it('keeps a quarantined collector out even when the query names it', () => {
+		let ran = [];
+		let st = memory_state();
+
+		scrapes([ A, flaky('f', [ false ], ran) ], 3, '', st);
+		let r = scrapes([ A, flaky('f', [ false ], ran) ], 1, 'collect[]=f', st)[0];
+
+		assert.match([ true, false, 3 ], [ quarantined(r, 'f'), succeeded(r, 'f'), length(ran) ]);
+	});
+
+	it('serves a collector again once its trial succeeds, and says so', () => {
+		let ran = [];
+		let rs = scrapes([ flaky('f', [ false, false, false, true ], ran) ], 6);
+
+		assert.match([ true, false, false ], [ quarantined(rs[3], 'f'), quarantined(rs[4], 'f'), quarantined(rs[5], 'f') ]);
+		assert.match([ "collector 'f' served again: its trial succeeded" ], rs[4].logs);
+		assert.match([ 'notice' ], rs[4].levels);
+		assert.match(true, succeeded(rs[5], 'f'));
+	});
+
+	// The clock reads 0.25 s apart: a collector takes 0.25 s.
+	it('quarantines a collector that takes longer than its budget, though it succeeded', () => {
+		let main = { main: { collector_budget: '1' } };
+
+		with_mods(main, (mods) => {
+			let logs = [];
+			let env = env_for(mods, logs);
+			let tick = env.clock;
+
+			// 1.25 s between two readings.
+			env.clock = () => { tick(); tick(); tick(); tick(); return tick(); };
+			let r = scrape.scrape(env, [ A ], '', { state: memory_state() });
+
+			assert.match(contains([ 'node_scrape_collector_success{collector="a"} 1' ]), lines(r.body));
+			assert.match([ "collector 'a' quarantined for 1 scrape: COLLECTOR_OVERRUN (took 1.25 s, over its budget of 1 s)" ], logs);
+		});
+	});
+
+	prop('never runs a quarantined collector, and always answers every selected one, in order',
+		gen.array(gen.elements(true, false), { min_len: 1, max_len: 12 }), (plan) => {
+			let ran = [];
+			let st = memory_state();
+			let f = flaky('f', plan, ran);
+			let runs = 0;
+
+			for (let i = 0; i < length(plan); i++) {
+				let before = length(ran);
+				let r = scrapes([ A, f, C ], 1, '', st)[0];
+				let names = map(filter(r.body, (l) => index(l, 'node_scrape_collector_success{') == 0), (l) => match(l, /collector="([^"]+)"/)[1]);
+
+				assert.match([ 'a', 'f', 'c' ], names);
+				assert.match(quarantined(r, 'f'), length(ran) == before);
+				runs++;
+			}
+
+			assert.match(length(plan), runs);
 		});
 });

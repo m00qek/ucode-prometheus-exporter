@@ -43,6 +43,15 @@ const EXEC_TIMEOUT_RANGE = `range(1,${EXEC_TIMEOUT_MAX})`;
 // Prometheus's own default scrape_timeout, and vmagent's.
 export const SCRAPE_TIMEOUT = 10;
 
+// The seconds a collector may take in a scrape before its breaker trips
+// (prometheus_exporter.breaker), unless it says otherwise: half of
+// Prometheus's default timeout. Every collector takes a small part of it on
+// a router: a typical full scrape takes a 500-MIPS MIPS router 2 seconds in
+// all; only nat_traffic on a table of tens of thousands goes past it.
+export const COLLECTOR_BUDGET = 5;
+
+const SECONDS_RANGE = `range(1,${SCRIPT_TIMEOUT})`;
+
 // The main section's options the exporter itself reads; the others are the
 // init script's (SERVICE_OPTIONS).
 export const MAIN_OPTIONS = {
@@ -53,8 +62,12 @@ export const MAIN_OPTIONS = {
 		help: 'Seconds the programs a collector runs get in all in each scrape, unless the collector says otherwise; one still running then is killed.',
 	},
 	scrape_timeout: {
-		default: SCRAPE_TIMEOUT, datatype: `range(1,${SCRIPT_TIMEOUT})`,
+		default: SCRAPE_TIMEOUT, datatype: SECONDS_RANGE,
 		help: 'Seconds a scrape has to answer when the scraper does not say (X-Prometheus-Scrape-Timeout-Seconds); collectors left when they are nearly spent are skipped.',
+	},
+	collector_budget: {
+		default: COLLECTOR_BUDGET, datatype: SECONDS_RANGE,
+		help: 'Seconds a collector may take in a scrape, unless it says otherwise; one that takes longer is quarantined for a few scrapes.',
 	},
 };
 
@@ -69,17 +82,28 @@ export const TIMEOUT = {
 	help: 'Seconds the programs of this collector get in all in each scrape; one still running then is killed.',
 };
 
+// The core's option of every collector, without its default, which is the
+// main section's collector_budget, or for a collector that runs programs its
+// timeout and a second more when that is longer (default_budget).
+export const BUDGET = {
+	datatype: SECONDS_RANGE,
+	help: 'Seconds this collector may take in a scrape; one that takes longer is quarantined for a few scrapes.',
+};
+
 // The option names the core keeps for itself: no collector declares them.
 // `timeout` is only an exec collector's; the others ignore it.
-export const RESERVED = [ 'enabled', 'timeout' ];
+export const RESERVED = [ 'enabled', 'timeout', 'budget' ];
 
-// The core's options of a collector with this meta, by name: enabled, and
-// timeout, whose default is `seconds`, when it runs programs.
-export function core(meta, seconds) {
+// The core's options of a collector with this meta, by name: enabled;
+// timeout, whose default is `seconds`, when it runs programs; and budget,
+// whose default is `budget` (COLLECTOR_BUDGET without one).
+export function core(meta, seconds, budget) {
 	let out = { enabled: ENABLED };
 
 	if ('exec' in (meta?.needs ?? []))
 		out.timeout = { default: seconds, ...TIMEOUT };
+
+	out.budget = { default: budget ?? COLLECTOR_BUDGET, ...BUDGET };
 
 	return out;
 };
@@ -300,6 +324,32 @@ export function default_timeout(uci, meta) {
 	return res.ok ? res.data.exec_timeout : EXEC_TIMEOUT;
 };
 
+// The seconds a collector may take when its section sets no budget: the main
+// section's collector_budget (its default while the main section is not
+// valid); for a collector whose programs get `timeout` seconds, that and a
+// second more when it is longer, as the watchdog counts whole seconds: a
+// budget never quarantines what a timeout allows.
+export function default_budget(uci, timeout) {
+	let res = main(uci);
+	let budget = res.ok ? res.data.collector_budget : COLLECTOR_BUDGET;
+
+	return (timeout != null) ? max(budget, timeout + 1) : budget;
+};
+
+// Where a collector's budget comes from: its section's `budget`, the main
+// section's `collector_budget`, or its `timeout`.
+export function budget_source(uci, id, timeout) {
+	let s = uci.get_all(NAME, id);
+
+	if (type(s) == 'object' && s['.type'] == 'collector' && 'budget' in s)
+		return 'budget';
+
+	let res = main(uci);
+	let budget = res.ok ? res.data.collector_budget : COLLECTOR_BUDGET;
+
+	return (timeout != null && timeout + 1 > budget) ? 'timeout' : 'collector_budget';
+};
+
 // Where a collector's seconds come from: its section's `timeout`, its
 // `meta.timeout` or the main section's `exec_timeout`; null for a collector
 // that runs no programs.
@@ -319,19 +369,24 @@ export function timeout_source(uci, id, meta) {
 // cannot hold the '-' of ltq-dsl.
 //
 // Every setting of the collector with this meta, as a Result of { enabled,
-// timeout, options }: the core's options (enabled, and timeout when it runs
-// programs, null otherwise) are checked like its own, which `options` holds.
-// So timeout's precedence: the section's, then meta.timeout, then the main
-// section's exec_timeout.
+// timeout, budget, options }: the core's options (enabled; timeout when it
+// runs programs, null otherwise; budget) are checked like its own, which
+// `options` holds. So timeout's precedence: the section's, then meta.timeout,
+// then the main section's exec_timeout; budget's: the section's, then
+// default_budget's.
 export function settings(uci, id, meta) {
-	let core_specs = core(meta, ('exec' in (meta?.needs ?? [])) ? default_timeout(uci, meta) : null);
+	let exec = ('exec' in (meta?.needs ?? []));
+	let seconds = exec ? default_timeout(uci, meta) : null;
+	let timeout_res = exec ? section(uci, id, 'collector', { timeout: { default: seconds, ...TIMEOUT } }) : null;
+	let timeout = (timeout_res?.ok) ? timeout_res.data.timeout : seconds;
+	let core_specs = core(meta, seconds, default_budget(uci, timeout));
 	let res = section(uci, id, 'collector', { ...(meta?.options ?? {}), ...core_specs });
 
 	if (!res.ok)
 		return res;
 
 	let options = res.data;
-	let out = { enabled: options.enabled, timeout: options.timeout ?? null };
+	let out = { enabled: options.enabled, timeout: options.timeout ?? null, budget: options.budget };
 
 	for (let name in RESERVED)
 		delete options[name];

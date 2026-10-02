@@ -7,6 +7,7 @@ import * as deps from 'prometheus_exporter.deps';
 import * as jail from 'prometheus_exporter.jail';
 import * as config from 'prometheus_exporter.config';
 import * as Result from 'prometheus_exporter.result';
+import * as ledger from 'prometheus_exporter.ledger';
 import { with_mods } from 'context';
 
 function collector(name, collect, meta) {
@@ -29,7 +30,7 @@ const HASH = '$1$$ysVNzQc4CTMkp5daOdZ.3/';
 
 // check.run over the mocks: `own` is the exporter's config, `files` the regular
 // files stat finds.
-function run(own, collectors, opts, files, skipped) {
+function run(own, collectors, opts, files, skipped, l) {
 	let out;
 
 	with_mods({ uci: { data: { [config.NAME]: own } } }, (mods) => {
@@ -42,6 +43,7 @@ function run(own, collectors, opts, files, skipped) {
 			collectors,
 			skipped,
 			env: { session: () => deps.session({ ...mods, log: quiet }), clock: () => [ 0, 0 ], log: quiet },
+			ledger: l,
 		}, opts);
 	});
 
@@ -51,7 +53,7 @@ function run(own, collectors, opts, files, skipped) {
 describe('check.run --config', () => {
 	it('passes a missing config: every option has its default', () => {
 		assert.match({ ok: true, lines: [
-			'ok   main: HTTP on interface loopback, port 9100, keepalive 70s, exec_timeout 5s, gzip when asked',
+			'ok   main: HTTP on interface loopback, port 9100, keepalive 70s, exec_timeout 5s, scrape_timeout 10s, collector_budget 5s, gzip when asked',
 			'ok   collectors: 2 installed collectors, their options valid',
 		] }, run({}, [ OK, TEXTFILE ], { config_only: true }));
 	});
@@ -75,7 +77,7 @@ describe('check.run --config', () => {
 
 		assert.match(false, r.ok);
 		assert.match([
-			'ok   main: HTTP on interface loopback, port 9100, keepalive 70s, exec_timeout 5s, gzip when asked',
+			'ok   main: HTTP on interface loopback, port 9100, keepalive 70s, exec_timeout 5s, scrape_timeout 10s, collector_budget 5s, gzip when asked',
 			'FAIL collector loadavg, section \'loadavg\': CONFIG_INVALID (enabled: expected a boolean, got "maybe")',
 			'FAIL collector textfile, section \'textfile\': CONFIG_INVALID (directory: expected a single value, got [ "a", "b" ])',
 		], r.lines);
@@ -103,7 +105,7 @@ describe('check.run --config', () => {
 			run(tls('/etc/x.crt', null), [], { config_only: true }).lines);
 		assert.match(contains([ 'warn main: /etc/x.key is missing; it serves HTTP until it is there' ]),
 			run(tls('/etc/x.crt', '/etc/x.key'), [], { config_only: true }, [ '/etc/x.crt' ]).lines);
-		assert.match(contains([ 'ok   main: HTTPS on interface loopback, port 9100, keepalive 70s, exec_timeout 5s, gzip when asked' ]),
+		assert.match(contains([ 'ok   main: HTTPS on interface loopback, port 9100, keepalive 70s, exec_timeout 5s, scrape_timeout 10s, collector_budget 5s, gzip when asked' ]),
 			run(tls('/etc/x.crt', '/etc/x.key'), [], { config_only: true }, [ '/etc/x.crt', '/etc/x.key' ]).lines);
 	});
 
@@ -112,7 +114,7 @@ describe('check.run --config', () => {
 		let r = run({ main }, [], { config_only: true }, [ '/etc/x.crt', '/etc/x.key' ]);
 
 		assert.match(true, r.ok);
-		assert.match(contains([ 'ok   main: HTTPS on interface loopback, port 9100, keepalive 70s, basic auth as user "prom", exec_timeout 5s, no compression (option compress)' ]),
+		assert.match(contains([ 'ok   main: HTTPS on interface loopback, port 9100, keepalive 70s, basic auth as user "prom", exec_timeout 5s, scrape_timeout 10s, collector_budget 5s, no compression (option compress)' ]),
 			r.lines);
 		assert.match(-1, index(join('\n', r.lines), HASH));
 	});
@@ -143,8 +145,36 @@ describe('check.run --config', () => {
 	});
 
 	it('says when the service is disabled', () => {
-		assert.match(contains([ 'ok   main: disabled (option enabled), HTTP on every address, port 9100, keepalive 0s, exec_timeout 5s, gzip when asked' ]),
+		assert.match(contains([ 'ok   main: disabled (option enabled), HTTP on every address, port 9100, keepalive 0s, exec_timeout 5s, scrape_timeout 10s, collector_budget 5s, gzip when asked' ]),
 			run({ main: { '.type': config.NAME, enabled: '0', listen_interface: '*', http_keepalive: '0' } }, [], { config_only: true }).lines);
+	});
+});
+
+describe('check.run, of the service\'s scrapes', () => {
+	it('says which collectors the service quarantined, why, and when it tries them again', () => {
+		let l = { ...ledger.empty(), scrapes: 40, c: {
+			loadavg: { d: 7, q: 40, cd: 2, why: 'COLLECTOR_OVERRUN (took 7.00 s, over its budget of 5 s)' },
+			nft_counters: { d: 5, q: 47, cd: 8, why: 'COMMAND_TIMEOUT (nft: still running after 5 s, killed)' },
+		} };
+
+		assert.match(contains([
+			'warn service: loadavg is quarantined: COLLECTOR_OVERRUN (took 7.00 s, over its budget of 5 s); the service tries it again at the next scrape, or at once once restarted',
+			'warn service: nft-counters is quarantined: COMMAND_TIMEOUT (nft: still running after 5 s, killed); the service tries it again in 8 scrapes, or at once once restarted',
+		]), run({}, [ OK, NFT ], {}, [ '/usr/sbin/nft' ], [], l).lines);
+	});
+
+	it('says which collectors the deadline left out lately, and not those of long ago', () => {
+		let l = { ...ledger.empty(), scrapes: 40, c: { loadavg: { d: 1, late: 40 }, nft_counters: { d: 1, late: 38 }, openwrt: { d: 1, late: 20 } } };
+		let lines = filter(run({}, [ OK, NFT, FAILING ], {}, [ '/usr/sbin/nft' ], [], l).lines, (x) => index(x, 'service:') >= 0);
+
+		assert.match([
+			'warn service: the scrape deadline left loadavg out in the last scrape',
+			'warn service: the scrape deadline left nft-counters out 2 scrapes ago',
+		], lines);
+	});
+
+	it('says nothing of the service without its ledger', () => {
+		assert.match([], filter(run({}, [ OK ], {}).lines, (x) => index(x, 'service:') >= 0));
 	});
 });
 
@@ -155,23 +185,27 @@ describe('check.run', () => {
 
 		assert.match(true, r.ok);
 		assert.match([
-			'ok   main: HTTP on interface loopback, port 9100, keepalive 70s, exec_timeout 5s, gzip when asked',
+			'ok   main: HTTP on interface loopback, port 9100, keepalive 70s, exec_timeout 5s, scrape_timeout 10s, collector_budget 5s, gzip when asked',
 			'ok   collectors: 4 installed collectors, their options valid',
 			'warn scrape, outside the jail: 3 of 4 collectors succeeded',
 			'warn scrape: openwrt: UBUS_CALL_FAILED (system board: Not found)',
 			'',
 			'collectors: 4 installed, 4 enabled',
 			'  loadavg (Test): section \'loadavg\', enabled',
+			'      budget   5s # the main section\'s collector_budget',
 			'      needs    fs',
 			'  nft-counters (Test): section \'nft_counters\', enabled',
 			'      timeout  5s # the main section\'s exec_timeout',
+			'      budget   6s # its timeout and a second more',
 			'      needs    exec',
 			'      commands nft=/usr/sbin/nft',
 			'      mounts   /bin/sh /usr/sbin/nft',
 			'  openwrt (Test): section \'openwrt\', enabled',
+			'      budget   5s # the main section\'s collector_budget',
 			'      needs    ubus',
 			'  textfile (Test): section \'textfile\', enabled',
 			'      option   directory="/srv/prom" # Where.',
+			'      budget   5s # the main section\'s collector_budget',
 			'      needs    fs',
 			'      paths    /srv/prom',
 			'      mounts   /srv/prom',
@@ -229,7 +263,7 @@ describe('check.run', () => {
 
 	it('says how many seconds each collector that runs programs gets, and where they come from', () => {
 		let radio = collector('ubnt-manager', () => Result.ok(), { needs: [ 'exec' ], commands: [ 'ubnt-manager' ], timeout: 12 });
-		let timeouts = (own) => filter(run(own, [ OK, NFT, radio ], {}).lines, (l) => index(l, ' timeout ') >= 0);
+		let timeouts = (own) => filter(run(own, [ OK, NFT, radio ], {}).lines, (l) => match(l, /^ +timeout /));
 
 		assert.match([
 			'      timeout  5s # the main section\'s exec_timeout',

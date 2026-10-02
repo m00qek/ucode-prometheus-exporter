@@ -12,7 +12,7 @@
 //                 -> { ok, errors: { main: { option: message }, collectors: { id: { option: message } } } }
 //   status {}     -> { service: { enabled, boot, running, error, auth, compress }, listen: [ url ],
 //                      collectors: [ { name, id, title, enabled, success, observing, reason,
-//                                      duration, error, mounts } ] }
+//                                      duration, error, mounts, service } ] }
 //   interfaces {} -> { interfaces: [ { name, proto } ] }
 //   hash_password { password } -> { hash }
 //
@@ -40,7 +40,11 @@
 // itself serves (wireguard, luci) and other requests are answered meanwhile.
 // A collector with nothing to observe (its hardware, kernel feature or
 // service is not there) succeeds, with `observing` false and `reason` saying
-// why; any other that ran has `observing` true.
+// why; any other that ran has `observing` true. A collector's `service` is
+// what the service's own scrapes found of it, from its running instance's
+// ledger (prometheus_exporter.ledger's report: { estimate, quarantined,
+// reason, retry_in, late }), or null; the scrape status runs is its own, and
+// runs a quarantined collector all the same.
 //
 // interfaces lists the logical interfaces netifd has (`network.interface
 // dump`), which the main section's listen_interface names: their names and
@@ -57,7 +61,7 @@
 //        found on, dir: the collectors' directory, apk: apk's per-package file
 //        lists, collectors: the loaded ones, skipped: what the loader logged,
 //        env: a scrape env (prometheus_exporter.scrape), ubus: a ubus channel,
-//        random(n): n random bytes }
+//        random(n): n random bytes, ledger: the service's ledger, or null }
 
 import * as Result from 'prometheus_exporter.result';
 import * as config from 'prometheus_exporter.config';
@@ -67,6 +71,8 @@ import * as jail from 'prometheus_exporter.jail';
 import * as scrape from 'prometheus_exporter.scrape';
 import * as check from 'prometheus_exporter.check';
 import * as auth from 'prometheus_exporter.auth';
+import * as state from 'prometheus_exporter.state';
+import * as ledger from 'prometheus_exporter.ledger';
 
 // The service's names follow from config.NAME, its packages' from config.PACKAGE.
 export const NAME = config.NAME;
@@ -405,6 +411,7 @@ export function scrape_report(sys) {
 			duration: r ? r.duration : null,
 			error: (r && !r.result.ok) ? Result.describe(r.result) : null,
 			mounts: j.enabled ? j.mounts : [],
+			service: sys.ledger ? ledger.report(sys.ledger, c.id) : null,
 		};
 	});
 };
@@ -500,6 +507,7 @@ export function system(opts) {
 	let skipped = [];
 	let quiet = () => null;
 	let load = opts?.collectors !== false;
+	let st = state.latest(mods.fs, state.DIR);
 
 	return {
 		uci: mods.uci.cursor(),
@@ -515,6 +523,7 @@ export function system(opts) {
 			log: quiet,
 		},
 		ubus: deps.ubus_channel(mods.ubus.connect),
+		ledger: st ? ledger.parse(st.read(ledger.NAME)) : null,
 		random: function(n) {
 			let f = mods.fs.open('/dev/urandom', 'r');
 			let bytes = f?.read(n);

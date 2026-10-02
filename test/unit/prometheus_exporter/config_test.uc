@@ -128,7 +128,7 @@ describe('config.settings', () => {
 
 	it('gives enabled, the timeout and the options apart', () => {
 		with_uci({ c: { '.type': 'collector', enabled: '0', stations: '0', timeout: '7' } }, (uci) => {
-			assert.match({ enabled: false, timeout: 7, options: { stations: false } }, config.settings(uci, 'c', EXEC).data);
+			assert.match({ enabled: false, timeout: 7, budget: 8, options: { stations: false } }, config.settings(uci, 'c', EXEC).data);
 			assert.match({ stations: false }, config.collector(uci, 'c', EXEC).data);
 		});
 	});
@@ -184,14 +184,62 @@ describe('config.settings', () => {
 });
 
 describe('config.core', () => {
-	it('gives every collector enabled, and one that runs programs timeout too', () => {
-		assert.match([ 'enabled' ], keys(config.core(meta({}, [ 'fs', 'ubus' ]), 5)));
-		assert.match({ enabled: config.ENABLED, timeout: { default: 9, ...config.TIMEOUT } }, config.core(meta({}, [ 'exec' ]), 9));
+	it('gives every collector enabled and budget, and one that runs programs timeout too', () => {
+		assert.match([ 'enabled', 'budget' ], keys(config.core(meta({}, [ 'fs', 'ubus' ]), 5)));
+		assert.match({ enabled: config.ENABLED, timeout: { default: 9, ...config.TIMEOUT }, budget: { default: 12, ...config.BUDGET } },
+			config.core(meta({}, [ 'exec' ]), 9, 12));
+		assert.match(config.COLLECTOR_BUDGET, config.core(meta({}, [ 'fs' ])).budget.default);
 	});
 
 	it('reserves the names of its options', () => {
 		assert.match(config.RESERVED, keys(config.core(meta({}, [ 'exec' ]), 5)));
 		assert.match('range(1,30)', config.TIMEOUT.datatype);
+	});
+});
+
+describe('config budget', () => {
+	const EXEC = meta({}, [ 'exec' ]);
+
+	function budget(m, main, own) {
+		let out;
+		let sections = { c: { '.type': 'collector', ...(own != null ? { budget: own } : {}) } };
+
+		if (main != null)
+			sections.main = { '.type': config.NAME, collector_budget: main };
+		with_uci(sections, (uci) => {
+			let res = config.settings(uci, 'c', m);
+			out = res.ok ? [ res.data.budget, config.budget_source(uci, 'c', res.data.timeout) ] : `${res.error} (${res.details})`;
+		});
+		return out;
+	}
+
+	it('takes the section\'s budget, then collector_budget, then a timeout and a second more when that is longer', () => {
+		assert.match([
+			[ config.COLLECTOR_BUDGET, 'collector_budget' ],
+			[ 20, 'collector_budget' ],
+			[ 2, 'budget' ],
+			[ config.EXEC_TIMEOUT + 1, 'timeout' ],
+			[ 13, 'timeout' ],
+			[ 20, 'collector_budget' ],
+		], [
+			budget(meta({}, [ 'fs' ])),
+			budget(meta({}, [ 'fs' ]), '20'),
+			budget(meta({}, [ 'fs' ]), '20', '2'),
+			budget(EXEC),
+			budget(meta({}, [ 'exec' ], { timeout: 12 })),
+			budget(EXEC, '20'),
+		]);
+	});
+
+	it('refuses a budget that is not 1 to 60 seconds', () => {
+		assert.match('CONFIG_INVALID (budget: expected an integer from 1 to 60, got 61)', budget(meta({}, [ 'fs' ]), null, '61'));
+		assert.match('CONFIG_INVALID (budget: expected an integer from 1 to 60, got 0)', budget(meta({}, [ 'fs' ]), null, '0'));
+	});
+
+	prop('never quarantines what a timeout allows', gen.tuple(gen.int(1, 30), gen.int(1, 60)), (t) => {
+		let b = budget(meta({}, [ 'exec' ], { timeout: t[0] }), `${t[1]}`);
+
+		assert.match(true, b[0] >= t[0] + 1 && b[0] >= t[1]);
 	});
 });
 
@@ -219,7 +267,8 @@ describe('config.enabled', () => {
 describe('config.main', () => {
 	it('reads omit_zero_values from the main section', () => {
 		with_uci({ main: { '.type': config.NAME, omit_zero_values: '1', listen_port: '9100' } }, (uci) => {
-			assert.match({ omit_zero_values: true, compress: true, exec_timeout: config.EXEC_TIMEOUT, scrape_timeout: config.SCRAPE_TIMEOUT }, config.main(uci).data);
+			assert.match({ omit_zero_values: true, compress: true, exec_timeout: config.EXEC_TIMEOUT, scrape_timeout: config.SCRAPE_TIMEOUT,
+				collector_budget: config.COLLECTOR_BUDGET }, config.main(uci).data);
 		});
 	});
 

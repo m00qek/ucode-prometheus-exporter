@@ -773,6 +773,20 @@ return view.extend({
 		o.default = '5';
 		o.placeholder = '5';
 		o.rmempty = false;
+
+		o = this.option(s, form.Value, 'scrape_timeout', _('Time for a scrape'),
+			_('Seconds a scrape has to answer when the scraper does not say, 1 to 60. Prometheus and vmagent say how long they wait; collectors left when that time is nearly spent are left out, so that the scrape answers in time.'));
+		o.datatype = 'range(1,60)';
+		o.default = '10';
+		o.placeholder = '10';
+		o.rmempty = false;
+
+		o = this.option(s, form.Value, 'collector_budget', _('Time for a collector'),
+			_('Seconds a collector may take in a scrape, 1 to 60. One that takes longer is quarantined: it is not run for a few scrapes, then tried again.'));
+		o.datatype = 'range(1,60)';
+		o.default = '5';
+		o.placeholder = '5';
+		o.rmempty = false;
 	},
 
 	// The form's values as the object's validate takes them: empty fields left out, as unset.
@@ -854,7 +868,7 @@ return view.extend({
 		const titles = { enabled: _('Enable'), listen_interface: _('Listen on'), listen_port: _('Port'),
 			http_keepalive: _('Keep-alive'), cert: _('TLS certificate'), key: _('TLS key'), auth_user: _('Basic auth user'),
 			auth_password: _('Basic auth password'), compress: _('Compress'), omit_zero_values: _('Leave out zero values'),
-			exec_timeout: _('Time for programs') };
+			exec_timeout: _('Time for programs'), scrape_timeout: _('Time for a scrape'), collector_budget: _('Time for a collector') };
 
 		for (const name in (errors.main ?? {}))
 			items.push(E('li', {}, [ lookup(titles, name) ?? name, ': ', String(errors.main[name]) ]));

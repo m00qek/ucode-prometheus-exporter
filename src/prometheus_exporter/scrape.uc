@@ -4,6 +4,7 @@
 // options, time it, and write every family once, followed by node_exporter's
 // node_scrape_collector_duration_seconds and node_scrape_collector_success,
 // node_scrape_collector_observing, and the exporter's own
+// ucode_prometheus_exporter_collector_quarantined and
 // ucode_prometheus_exporter_build_info.
 //
 // A collector with nothing to observe (Result.none: its hardware, kernel
@@ -13,10 +14,15 @@
 // observes and finds nothing to count; every other collector's is 1.
 //
 // The handler's scrapes keep a ledger in the instance's state
-// (prometheus_exporter.ledger): how long each collector took, and how many
-// samples it wrote. They run the collectors fastest first by it, so that a
-// deadline leaves out the few slow ones rather than the many fast ones; the
-// reply has them in the order the query selects, whatever order they ran in.
+// (prometheus_exporter.ledger): how long each collector took, how many
+// samples it wrote, and its circuit breaker (prometheus_exporter.breaker).
+// They run the collectors fastest first by it, so that a deadline leaves out
+// the few slow ones rather than the many fast ones; the reply has them in the
+// order the query selects, whatever order they ran in. A collector whose
+// breaker is open is not run, even when the query names it: it fails with
+// COLLECTOR_QUARANTINED, and its ucode_prometheus_exporter_collector_quarantined
+// is 1. The scrape logs a breaker that trips or closes, not each scrape that
+// leaves a collector out.
 //
 // A scrape may have a deadline (prometheus_exporter.deadline): it then starts
 // no collector the ledger does not expect done in time to write the reply,
@@ -40,6 +46,7 @@ import * as ledger from 'prometheus_exporter.ledger';
 export const CONTENT_TYPE = 'text/plain; version=0.0.4; charset=utf-8';
 
 export const BUILD_INFO = 'ucode_prometheus_exporter_build_info';
+export const QUARANTINED = 'ucode_prometheus_exporter_collector_quarantined';
 
 function seconds(t1, t2) {
 	return (t2[0] - t1[0]) + (t2[1] - t1[1]) / 1000000000.0;
@@ -79,7 +86,8 @@ export function select(collectors, query_string, disabled) {
 	}));
 };
 
-// Runs one collector: { name, id, result, families, samples, duration }. What it
+// Runs one collector: { name, id, result, families, samples, duration,
+// budget }, budget the seconds it may take (config.settings). What it
 // recorded is kept even when it fails, as upstream exporters do; nothing is
 // when it has nothing to observe. Its programs never run past `cutoff`
 // (monotonic seconds), when given.
@@ -87,6 +95,7 @@ export function run_one(env, session, c, cutoff) {
 	let rec = exposition.recorder();
 	let t1 = env.clock();
 	let res = config.settings(session.uci(), c.id, c.meta);
+	let budget = res.ok ? res.data.budget : null;
 
 	if (res.ok) {
 		let settings = res.data;
@@ -116,7 +125,7 @@ export function run_one(env, session, c, cutoff) {
 	for (let f in families)
 		samples += length(f.lines);
 
-	return { name: c.meta.name, id: c.id, result: res, families, samples, duration };
+	return { name: c.meta.name, id: c.id, result: res, families, samples, duration, budget };
 };
 
 // A collector left out, without running: { name, id, result, families: [],
@@ -157,17 +166,20 @@ function too_late(l, c, now, cutoff) {
 }
 
 // Runs the selected collectors, fastest first by the ledger `l`: each one's
-// run, by id. With a deadline, a collector runs only if the ledger expects it
-// done in time to write the reply, its own samples included; its programs
-// never run past that.
+// run, by id. One whose breaker is open does not run. With a deadline, a
+// collector runs only if the ledger expects it done in time to write the
+// reply, its own samples included; its programs never run past that.
 function run_all(env, session, l, chosen, deadline) {
 	let by_id = {};
 	let collected = 0;
+	let m = ledger.number(l);
 
 	for (let c in ledger.order(l, chosen)) {
 		let r;
 
-		if (deadline == null) {
+		if (ledger.phase(l, c.id, m) == 'open') {
+			r = not_run(c, ledger.quarantined(l, c.id, m), 'quarantine');
+		} else if (deadline == null) {
 			r = run_one(env, session, c);
 		} else {
 			let cutoff = deadline - ledger.writing(l, collected + ledger.samples(l, c.id));
@@ -183,12 +195,24 @@ function run_all(env, session, l, chosen, deadline) {
 	return by_id;
 }
 
+// What changed of the breakers (ledger.record's events), logged: a breaker
+// that tripped at warning, one that closed at notice.
+function log_breakers(env, events) {
+	for (let e in events) {
+		if (e.tripped)
+			env.log('warning', `collector '${e.name}' quarantined for ${e.cooldown} scrape${e.cooldown == 1 ? '' : 's'}: ${e.why}`);
+		else if (e.closed)
+			env.log('notice', `collector '${e.name}' served again: its trial succeeded`);
+	}
+}
+
 // { status, content_type, body } for a scrape with this query string. opts:
 // { deadline: when the collectors must be done by (monotonic seconds),
 //   budget: the seconds that left them, for the log,
 //   state: the instance's state (prometheus_exporter.state), whose ledger
 //          orders the collectors, says which ones the deadline has time
-//          for, and records this scrape }.
+//          for and which ones their breakers keep out, and records this
+//          scrape }.
 // Whatever order they ran in, the reply has them in the order selected.
 export function scrape(env, collectors, query_string, opts) {
 	let session = env.session();
@@ -236,6 +260,11 @@ export function scrape(env, collectors, query_string, opts) {
 	for (let r in runs)
 		observing({ collector: r.name }, !Result.is_none(r.result));
 
+	let held = scrape_meta.gauge(QUARANTINED,
+		'Whether a collector is quarantined: its circuit breaker tripped, and it is not run until its cool-down is over.');
+	for (let r in runs)
+		held({ collector: r.name }, r.skipped == 'quarantine');
+
 	// Whatever the query selects, as node_exporter's node_exporter_build_info.
 	scrape_meta.gauge(BUILD_INFO,
 		'A metric with a constant \'1\' value labeled by the version of ucode-prometheus-exporter.')({ version: env.version }, 1);
@@ -253,7 +282,13 @@ export function scrape(env, collectors, query_string, opts) {
 		for (let r in runs)
 			written.samples += r.samples;
 
-		st.update(ledger.NAME, (text) => ledger.serialize(ledger.record(ledger.parse(text), runs, written, ids)));
+		let events = [];
+
+		st.update(ledger.NAME, function(text) {
+			events = [];
+			return ledger.serialize(ledger.record(ledger.parse(text), runs, written, ids, events));
+		});
+		log_breakers(env, events);
 	}
 
 	return reply('200 OK', body);

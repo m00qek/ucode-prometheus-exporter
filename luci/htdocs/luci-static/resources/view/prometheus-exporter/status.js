@@ -6,7 +6,10 @@
 
 // Status → Prometheus exporter: whether the service runs and where it serves /metrics,
 // and how each collector did in a scrape the plugin's `status` runs on the router. The
-// scrape runs when the page opens and on Refresh only, never on a timer.
+// scrape runs when the page opens and on Refresh only, never on a timer. Apart from that
+// test run, the Service column says what the service's own scrapes found, from its
+// running instance's state: a collector quarantined, and one the scrape deadline left out
+// lately.
 //
 // Collector names, errors and paths come from the router: they reach E() only inside
 // arrays.
@@ -54,6 +57,38 @@ function outcome(c) {
 	];
 }
 
+// The scrapes after which the deadline leaving a collector out is old news, as `check`
+// has it (prometheus_exporter.ledger's RECENT).
+const RECENT = 10;
+
+// What the service's own scrapes found of a collector (the plugin's `service`), each
+// with a label that says it in words.
+function serviceState(s) {
+	if (!L.isObject(s))
+		return [ '' ];
+
+	const out = [];
+
+	if (s.quarantined === true)
+		out.push(E('div', {}, [
+			label('warning', _('Quarantined')), ' ',
+			E('small', {}, [ (s.retry_in > 1)
+				? _('Tried again in %d scrapes.').format(s.retry_in)
+				: _('Tried again at the next scrape.') ]),
+			E('div', {}, [ E('small', {}, [ String(s.reason ?? '') ]) ])
+		]));
+
+	if (typeof(s.late) === 'number' && s.late < RECENT)
+		out.push(E('div', {}, [
+			label('notice', _('Left out at the deadline')), ' ',
+			E('small', {}, [ (s.late === 0)
+				? _('In the last scrape.')
+				: _('%d scrapes ago.').format(s.late) ])
+		]));
+
+	return out.length ? out : [ '' ];
+}
+
 function duration(secs) {
 	if (typeof(secs) !== 'number')
 		return '';
@@ -89,6 +124,7 @@ return view.extend({
 			E('h2', { 'name': 'content' }, [ _('Prometheus exporter') ]),
 			E('div', { 'class': 'cbi-map-descr' }, [
 				_('Each enabled collector runs once when this page opens and on Refresh, on the router but outside the service\'s jail.'), ' ',
+				_('The Service column is what the service\'s own scrapes found: a collector it quarantined, and one its scrape deadline left out lately. A restart of the service tries a quarantined collector at once.'), ' ',
 				_('The settings are under'), ' ',
 				E('a', { 'href': L.url('admin/services/prometheus-exporter') }, [ _('Services → Prometheus exporter') ]), '.'
 			]),
@@ -143,7 +179,7 @@ return view.extend({
 	},
 
 	renderCollectors(collectors) {
-		const headers = [ _('Collector'), _('Enabled'), _('Last scrape'), _('Duration'), _('Error'), _('Jail mounts') ];
+		const headers = [ _('Collector'), _('Enabled'), _('Last scrape'), _('Duration'), _('Error'), _('Jail mounts'), _('Service') ];
 		const rows = collectors.map((c, i) => E('tr', { 'class': 'tr cbi-rowstyle-' + (1 + i % 2), 'data-collector': String(c.id) }, [
 			E('td', { 'class': 'td', 'data-title': headers[0] }, exporter.nameOf(c)),
 			E('td', { 'class': 'td', 'data-title': headers[1] }, [ c.enabled ? _('Yes') : _('No') ]),
@@ -152,7 +188,8 @@ return view.extend({
 			E('td', { 'class': 'td', 'data-title': headers[4] }, [ c.error ? E('small', {}, [ String(c.error) ]) : '' ]),
 			E('td', { 'class': 'td', 'data-title': headers[5] }, (Array.isArray(c.mounts) && c.mounts.length)
 				? c.mounts.map((m) => E('div', {}, [ E('code', {}, [ String(m) ]) ]))
-				: [ '' ])
+				: [ '' ]),
+			E('td', { 'class': 'td', 'data-title': headers[6] }, serviceState(c.service))
 		]));
 
 		const failed = collectors.filter((c) => c.success === false).length;

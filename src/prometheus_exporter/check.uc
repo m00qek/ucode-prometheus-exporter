@@ -8,14 +8,22 @@
 // (check.uc --config, which start and reload run) it stops after the
 // configuration. Only an invalid configuration makes it fail.
 //
+// It also says what the service's own scrapes found, from the ledger of its
+// running instance (prometheus_exporter.ledger): each collector quarantined,
+// why and when it is tried again, and each the deadline left out lately.
+// Its own scrape runs every enabled collector all the same, quarantined or
+// not: it is there to see what each does.
+//
 // sys: { uci: a uci cursor, fs: { stat }, path: the PATH commands are found on,
 //        collectors: the loaded ones, skipped: what the loader logged,
-//        env: a scrape env (prometheus_exporter.scrape) }
+//        env: a scrape env (prometheus_exporter.scrape),
+//        ledger: the service's ledger, or null when it has none }
 
 import * as Result from 'prometheus_exporter.result';
 import * as config from 'prometheus_exporter.config';
 import * as jail from 'prometheus_exporter.jail';
 import * as scrape from 'prometheus_exporter.scrape';
+import * as ledger from 'prometheus_exporter.ledger';
 
 const LABELS = { ok: 'ok  ', warn: 'warn', fail: 'FAIL' };
 
@@ -61,7 +69,8 @@ function check_main(sys, add) {
 		return;
 
 	add('ok', `main: ${svc.data.enabled ? '' : 'disabled (option enabled), '}${listen_summary(svc.data)}, ` +
-		`exec_timeout ${main.data.exec_timeout}s, ${main.data.compress ? 'gzip when asked' : 'no compression (option compress)'}`);
+		`exec_timeout ${main.data.exec_timeout}s, scrape_timeout ${main.data.scrape_timeout}s, collector_budget ${main.data.collector_budget}s, ` +
+		`${main.data.compress ? 'gzip when asked' : 'no compression (option compress)'}`);
 	check_tls(sys.fs, svc.data, add);
 }
 
@@ -110,6 +119,13 @@ const TIMEOUT_SOURCES = {
 	exec_timeout: "the main section's exec_timeout",
 };
 
+// Where a collector's budget comes from (config.budget_source).
+const BUDGET_SOURCES = {
+	budget: "its section's option budget",
+	collector_budget: "the main section's collector_budget",
+	timeout: 'its timeout and a second more',
+};
+
 // The lines that describe one collector.
 function describe_collector(sys, c, j) {
 	let lines = [ `${c.meta.name} (${c.meta.title}): section '${c.id}', ${j.enabled ? 'enabled' : 'disabled'}` ];
@@ -120,6 +136,8 @@ function describe_collector(sys, c, j) {
 		row('option', [ `${k}=${value_of(j.options.data[k])}`, '#', c.meta.options[k].help ]);
 	if (settings.ok && settings.data.timeout != null)
 		row('timeout', [ `${settings.data.timeout}s`, '#', TIMEOUT_SOURCES[config.timeout_source(sys.uci, c.id, c.meta)] ]);
+	if (settings.ok)
+		row('budget', [ `${settings.data.budget}s`, '#', BUDGET_SOURCES[config.budget_source(sys.uci, c.id, settings.data.timeout)] ]);
 	row('needs', c.meta.needs);
 	row('configs', c.meta.configs ?? []);
 	row('paths', j.paths);
@@ -171,6 +189,24 @@ function check_scrape(sys, add) {
 		add('ok', `scrape: ${r.name} has nothing to observe: ${r.result.none}`);
 }
 
+// What the service's scrapes found of each collector, by its ledger: the ones
+// quarantined, and the ones the deadline left out in its last RECENT scrapes.
+function check_service(sys, add) {
+	if (sys.ledger == null)
+		return;
+
+	for (let c in sys.collectors) {
+		let r = ledger.report(sys.ledger, c.id);
+
+		if (r?.quarantined)
+			add('warn', `service: ${c.meta.name} is quarantined: ${r.reason}; the service tries it again ` +
+				((r.retry_in <= 1) ? 'at the next scrape' : `in ${r.retry_in} scrapes`) + ', or at once once restarted');
+		if (r?.late != null && r.late < ledger.RECENT)
+			add('warn', `service: the scrape deadline left ${c.meta.name} out ` +
+				((r.late == 0) ? 'in the last scrape' : `${r.late} scrape${r.late == 1 ? '' : 's'} ago`));
+	}
+}
+
 // { ok, report }: ok unless the configuration is invalid.
 export function run(sys, opts) {
 	let lines = [];
@@ -189,6 +225,7 @@ export function run(sys, opts) {
 		let mounts = jail.mounts(sys.collectors, sys).mounts;
 
 		check_scrape(sys, add);
+		check_service(sys, add);
 
 		push(lines, '', `collectors: ${length(sys.collectors)} installed, ${enabled} enabled`, ...map(described, (l) => '  ' + l));
 		push(lines, '', 'jail mounts:', ...map(mounts, (m) => '  ' + m));
