@@ -12,7 +12,7 @@
 //   calibrate:vm              the VM's own speed: an empty loop's turn and a builtin's call
 //   load:<set>                compile and validate the set's collectors
 //   probe:<set>               the same, each module loaded in a child process first, as uhttpd does
-//                             when it starts (prometheus_exporter.runner's probe)
+//                             when it starts (prometheus_exporter.probe)
 //   collector:<name>[@<n>]    one collector's run and its rendering; @n reads the n-entry conntrack table
 //   scrape:<set>              a whole scrape of the set, as uhttpd answers /metrics: each collector
 //                             in a child process (prometheus_exporter.runner's forked)
@@ -45,6 +45,7 @@ import * as state from 'prometheus_exporter.state';
 import * as ledger from 'prometheus_exporter.ledger';
 import * as deadline from 'prometheus_exporter.deadline';
 import * as runner from 'prometheus_exporter.runner';
+import { probe as probe_modules } from 'prometheus_exporter.probe';
 import * as bench_world from 'bench.world';
 
 const STATUS = /^(VmHWM|VmRSS|VmData):\s+([0-9]+) kB/;
@@ -100,7 +101,7 @@ let kind = split(name, ':')[0], arg = split(name, ':')[1];
 function load_set(set, probe) {
 	let names = sets[set] ?? die(`no set ${set}`);
 	let out = [];
-	let probed = probe ? runner.probe(map(names, loader.id_of), loader.import_module) : {};
+	let probed = probe ? probe_modules(map(names, loader.id_of), loader.import_module) : {};
 
 	for (let n in names) {
 		let id = loader.id_of(n);

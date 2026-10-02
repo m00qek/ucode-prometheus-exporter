@@ -70,7 +70,7 @@ Reference pages describe the code as it is. When you change one of these, update
 | A collector, `config.uc` and `config/`, `errors.uc`, the package Makefile, `test/fixtures/` | The generated pages: `make docs-gen`. |
 | `files/etc/init.d/prometheus-exporter`, `check.uc`, `status.uc` | [Service commands](../../reference/service-commands.md) |
 | `cli.uc`, `files/usr/bin/prometheus-exporter` | [The `prometheus-exporter` command](../../reference/command.md), generated from `cli.uc`'s usage and `docs/gen/notes.uc`: `make docs-gen` |
-| `runner.uc`, `jailed.uc`, `conform.uc`, the guards of `scrape.uc`, `ownership.uc`, `progress.uc`, `exposition.uc`, `loader.uc` | [Collector contract](../../reference/collector-contract.md) |
+| `runner.uc`, `probe.uc`, `jailed.uc`, `conform.uc`, the guards of `scrape.uc`, `ownership.uc`, `progress.uc`, `exposition.uc`, `loader.uc` | [Collector contract](../../reference/collector-contract.md) |
 | `http.uc`, `app.uc`, `auth.uc`, `query.uc`, `scrape.uc` | [HTTP endpoint](../../reference/http.md) |
 | `rpc.uc` and `rpc/`, the rpcd plugin | [ubus object](../../reference/ubus.md) |
 | `luci/` | [LuCI app](../../reference/luci.md), [How to use the LuCI app](../luci.md) |

@@ -4,7 +4,7 @@
 // one not installed yet, keeps the collector contract, checked as the
 // exporter would load and run it on this device. For whoever writes one.
 //
-// It loads the module under the load timer (runner.probe, LOAD_TIMEOUT),
+// It loads the module under the load timer (probe.probe, LOAD_TIMEOUT),
 // validates its meta, and runs it under the guards a scrape runs it under: in
 // a process of its own, stopped at its budget, at most its max_samples
 // (scrape.trial); then it checks what it wrote is valid exposition text, each
@@ -18,7 +18,7 @@
 // another; so does one with nothing to observe here.
 //
 // sys: { fs: { readfile, realpath }, uci: a cursor, env: a scrape env (app.scrape_env),
-//        import_path(path) -> the module's exports, probe(id, import_fn) -> runner.probe's
+//        import_path(path) -> the module's exports, probe(id, import_fn) -> probe.probe's
 //        entry for it, installed: the loaded collectors, clock() -> [ s, ns ] }
 
 import * as Result from 'prometheus_exporter.result';

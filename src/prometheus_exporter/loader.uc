@@ -255,7 +255,7 @@ export function is_strict(text) {
 // The valid collectors in `dir`, sorted by name; log(level, msg) takes, at err,
 // each that is left out and why. A module must be in strict mode
 // (is_strict), which its text tells before it is loaded. probe(ids), when
-// given, loads them elsewhere first (prometheus_exporter.runner's probe):
+// given, loads them elsewhere first (prometheus_exporter.probe):
 // { <id>: { ok, error, hung } }, and only those that loaded there are loaded
 // here.
 export function load(fs, dir, import_fn, log, probe) {

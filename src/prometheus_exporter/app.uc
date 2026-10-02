@@ -13,6 +13,7 @@ import * as state from 'prometheus_exporter.state';
 import * as deadline from 'prometheus_exporter.deadline';
 import * as ledger from 'prometheus_exporter.ledger';
 import * as runner from 'prometheus_exporter.runner';
+import { probe as probe_modules } from 'prometheus_exporter.probe';
 import { version } from 'prometheus_exporter.version';
 
 // Basic auth as the handler finds it when it starts: null when uhttpd's
@@ -76,10 +77,10 @@ export function scrape_env(mods, log, opts) {
 };
 
 // The collectors in `dir` (loader.DIR), as the exporter loads them: each
-// probed first in a process of its own (prometheus_exporter.runner's probe),
+// probed first in a process of its own (prometheus_exporter.probe),
 // unless opts.fork is false.
 export function load(mods, dir, log, opts) {
-	let probe = (opts?.fork ?? true) ? (ids) => runner.probe(ids, loader.import_module) : null;
+	let probe = (opts?.fork ?? true) ? (ids) => probe_modules(ids, loader.import_module) : null;
 
 	return loader.load(mods.fs, dir ?? loader.DIR, loader.import_module, log, probe);
 };

@@ -15,6 +15,7 @@ import * as app from 'prometheus_exporter.app';
 import * as check from 'prometheus_exporter.check';
 import * as conform from 'prometheus_exporter.conform';
 import * as runner from 'prometheus_exporter.runner';
+import * as probe from 'prometheus_exporter.probe';
 import * as state from 'prometheus_exporter.state';
 import * as ledger from 'prometheus_exporter.ledger';
 import * as jail from 'prometheus_exporter.jail';
@@ -218,9 +219,9 @@ export function system() {
 			uci: mods.uci.cursor(),
 			env: app.scrape_env(mods, quiet),
 			import_path,
-			probe: (id, fn) => runner.probe([ id ], () => fn())[id],
+			probe: (id, fn) => probe.probe([ id ], () => fn())[id],
 			installed: app.load(mods, null, quiet),
-			load_timeout: runner.LOAD_TIMEOUT,
+			load_timeout: probe.LOAD_TIMEOUT,
 		}, path),
 		read_password: () => read_password(mods.fs),
 		random: function(n) {

@@ -244,11 +244,11 @@ export function deferred_json(req, io, command, name) {
 	return req.defer();
 };
 
-// A probe for loader.load in rpcd (prometheus_exporter.runner's probe), which
+// A probe for loader.load in rpcd (prometheus_exporter.probe), which
 // rpcd itself must not run: a collector module whose top level never returns
 // would hang rpcd, and every LuCI page with it, and rpcd's own event loop is
 // not one to run another inside. So `helper` (PROBE_HELPER) probes the modules
-// in a process of its own, which prints what runner.probe found as JSON, and
+// in a process of its own, which prints what probe.probe found as JSON, and
 // rpcd waits for it, a module's LOAD_TIMEOUT at most; and it does so once for
 // each version of a module, by its inode, size and change time in `dir`
 // (loader.DIR): a reload of rpcd forgets them all. fs: { stat, popen }.
