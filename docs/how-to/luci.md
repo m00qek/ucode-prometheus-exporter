@@ -10,11 +10,14 @@
 
 ## Change the exporter's settings
 
-1. Open **Services → Prometheus exporter**, tab **Exporter**.
-2. Change the fields. A value the exporter would not take is marked as you type, with why.
-3. **Save & Apply**. If the exporter would refuse a value, nothing is saved: a **Save error** dialog lists what and why. **Dismiss** it, fix the fields, and save again.
+1. Open **Services → Prometheus exporter**. The settings are on three tabs:
+    - **General**: whether it runs, where it listens, keep-alive, compression and zero values;
+    - **HTTPS & login**: the TLS certificate and key, and basic auth;
+    - **Limits**: the seconds programs, a scrape and a collector get.
+2. Change the fields. A value the exporter would not take is marked as you type, with why; a tab with such a field shows how many on its title.
+3. **Save & Apply**. If the exporter would refuse a value, nothing is saved: a **Save error** dialog lists what and why, each field by its tab. Press a field's name to go to it, fix it, and save again.
 
-To serve the LAN, pick its interface in **Listen on**. Basic auth needs HTTPS: fill in **TLS certificate** and **TLS key** first, then **Basic auth user** and **Basic auth password**. The password is saved as a hash on Save; the password itself is never stored. To keep the saved password, leave the field empty; to take basic auth away, empty the user.
+To serve the LAN, pick its interface in **Listen on**, on **General**. Basic auth needs HTTPS: on **HTTPS & login**, fill in **TLS certificate** and **TLS key** first, then **Basic auth user** and **Basic auth password**. The password is saved as a hash on Save; the password itself is never stored. To keep the saved password, leave the field empty; to take basic auth away, empty the user.
 
 ## Switch a collector off or on
 
@@ -32,9 +35,15 @@ To serve the LAN, pick its interface in **Listen on**. Basic auth needs HTTPS: f
 
 ## See how the exporter does
 
-Open **Status → Prometheus exporter**. It shows whether the service is enabled and runs, where it serves `/metrics`, and runs a scrape on the router to show each collector: **OK**, **Failed** with its error, **Nothing to observe** with why, or **Not run** when it is switched off. **Refresh** runs it again.
+1. Open **Status → Prometheus exporter**. The page runs each enabled collector once on the router, a test run, and shows:
+    - a banner, above the tables, for what needs attention: the exporter enabled but not running, collectors that failed, collectors the service quarantined;
+    - whether the service runs, is enabled and starts at boot, and where it serves `/metrics`;
+    - each collector, failed ones first: in **Test run**, **OK**, **Failed** with why and its error code, *Nothing to observe* with why, or *Not run: switched off*; in **Service's scrapes**, whether the service quarantined it or its deadline left it out lately.
+2. If the banner says the exporter is enabled but not running, press **System → Startup** to start it, or **System log** to see why it stopped.
+3. If a collector failed, its error code links to what it means. See [How to troubleshoot](troubleshoot.md).
+4. **Refresh** runs the test run again.
 
-The scrape runs outside the jail. A collector that is OK here and failing in Prometheus lacks something in the jail: see [How to troubleshoot](troubleshoot.md).
+The test run is not the service's: it runs outside the service's jail and without its scrape deadline. A collector that is OK in **Test run** and failing in Prometheus lacks something in the jail, or is quarantined or left out by the service, as **Service's scrapes** says: see [How to troubleshoot](troubleshoot.md).
 
 ## If a page says the ubus object is not available
 

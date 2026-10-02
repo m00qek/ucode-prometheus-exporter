@@ -15,9 +15,9 @@ Both need the ACL `luci-app-prometheus-exporter` and the config `prometheus-expo
 
 ## Services → Prometheus exporter
 
-The main section and the collector sections of `/etc/config/prometheus-exporter`, in two tabs.
+The main section and the collector sections of `/etc/config/prometheus-exporter`, in four tabs: **General**, **HTTPS & login** and **Limits** hold the main section, **Collectors** the collectors. LuCI reopens the page on the tab last shown; at first, on **General**.
 
-### Exporter tab
+### General tab
 
 | Field | Option | Notes |
 | :--- | :--- | :--- |
@@ -25,15 +25,34 @@ The main section and the collector sections of `/etc/config/prometheus-exporter`
 | Listen on | `listen_interface` | The interfaces of the ubus object's `interfaces`, and **Every address** (`*`). A saved interface netifd does not list is kept. |
 | Port | `listen_port` | |
 | Keep-alive | `http_keepalive` | |
-| TLS certificate | `cert` | No placeholder; the description names uhttpd's own files, `/etc/uhttpd.crt` and `/etc/uhttpd.key`. |
-| TLS key | `key` | |
-| Basic auth user | `auth_user` | The description says basic auth needs the TLS certificate and key first. |
-| Basic auth password | `auth_password` | Never filled in. A password typed here is sent to `hash_password` on Save, and the hash it answers is saved; the password itself is never stored. Empty, the saved hash stays. |
 | Compress | `compress` | |
 | Leave out zero values | `omit_zero_values` | |
-| Program timeout | `exec_timeout` | |
+
+### HTTPS & login tab
+
+The tab's description says basic auth needs HTTPS: the certificate and key first.
+
+| Field | Option | Notes |
+| :--- | :--- | :--- |
+| TLS certificate | `cert` | No placeholder; the description names uhttpd's own files, `/etc/uhttpd.crt` and `/etc/uhttpd.key`. |
+| TLS key | `key` | |
+| Basic auth user | `auth_user` | |
+| Basic auth password | `auth_password` | Never filled in. A password typed here is sent to `hash_password` on Save, and the hash it answers is saved; the password itself is never stored. Empty, the saved hash stays. |
+
+The basic auth fields show without the TLS files too: LuCI unsets a field it hides, which would drop the user and the hash on Save.
+
+### Limits tab
+
+The tab's description says the limits keep a slow or broken collector from costing the whole scrape.
+
+| Field | Option | Notes |
+| :--- | :--- | :--- |
 | Scrape timeout | `scrape_timeout` | |
 | Collector budget | `collector_budget` | |
+| Program timeout | `exec_timeout` | |
+| Sample limit | `max_samples` | |
+
+### Main section
 
 - Every field is written, at its default too (`option enabled '1'`), but for the TLS files and basic auth, which are left out while empty. Emptying another field is refused.
 - Emptying the user takes basic auth away, its hash with it.
@@ -46,7 +65,7 @@ One row per collector the ubus object's `collectors` lists, sorted by title: its
 **Edit** opens a dialog with:
 
 - a field per option of the collector, by its type, with its help and datatype;
-- for a collector that runs programs, a field for the core's `timeout`, whose placeholder is the seconds it gets while it is empty: its own default, or `exec_timeout` as the Exporter tab has it;
+- for a collector that runs programs, a field for the core's `timeout`, whose placeholder is the seconds it gets while it is empty: its own default, or `exec_timeout` as the Limits tab has it;
 - read-only rows: **Reads** (the configs it reads), **Runs** (the programs it runs), **Jail mounts** (what the jail mounts for it) and, when there are any, **Jail problems**.
 
 The first field has the focus when the dialog opens. The dialog's **Save** stages its values in uci, where they show among the unsaved changes; **Dismiss**, or Escape, drops them. Either way the focus goes back to the row's **Edit**. The page's **Save & Apply** applies them with the rest.
@@ -57,9 +76,11 @@ A collector has a `config collector` section only while something differs from i
 
 ### Checks
 
-Values are checked with the ubus object's `validate`, as the exporter reads them: the Exporter tab's while they are typed and again before Save, a dialog's while they are typed and again before it stages them. Nothing the exporter would refuse is saved or staged.
+Values are checked with the ubus object's `validate`, as the exporter reads them: the main section's while they are typed and again before Save, a dialog's while they are typed and again before it stages them. Nothing the exporter would refuse is saved or staged.
 
-A Save the exporter would refuse opens LuCI's **Save error** dialog, which lists each refused field and why, wherever the page is scrolled; the same list stays above the form until the values are fixed. A refused dialog says why inside the dialog.
+A tab with a field the exporter or LuCI would refuse shows how many on its title, LuCI's own badge, while another tab is shown.
+
+A Save the exporter would refuse opens LuCI's **Save error** dialog, which lists each refused field and why, wherever the page is scrolled; the same list stays above the form until the values are fixed. Each field is named by its tab, as **HTTPS & login → Basic auth user**, and a collector's option as **Collectors → sampler retries**. The name is a link: it closes the dialog, shows the tab, and gives the field the focus, or the collector's **Edit**. A refused dialog says why inside the dialog.
 
 ### Without the ubus object
 
@@ -67,12 +88,43 @@ While the ubus object is not there (rpcd reloading, or the package being upgrade
 
 ## Status → Prometheus exporter
 
+The page runs each enabled collector once, a **test run**, when it opens and on **Refresh**, never on a timer. The test run is the ubus object's `status`: on the router, outside the service's jail and without its deadline, and it runs a quarantined collector all the same. So its results can differ from what Prometheus gets; the page says so above the tables.
+
 | Part | Content |
 | :--- | :--- |
-| Service | Whether it is enabled in the settings, starts at boot and runs; where it serves `/metrics`, marked **(reachable from the router only)** on loopback; whether a scrape logs in, over HTTPS; whether it is compressed. |
-| Collectors | Each collector's state in the page's scrape, **OK**, **Failed**, **Nothing to observe** (with why) or **Not run** (disabled); its duration; its error; what the jail mounts for it; and, in the **Service** column, what the service's own scrapes found of it: **Quarantined** (with when it is tried again, and why) and **Left out at the deadline** (in the last scrape, or how many scrapes ago, within the last 10). |
+| Banner | What needs attention, above the tables. See [Banners](#banners). |
+| Service | Whether it runs, is enabled in the settings and starts at boot; where it serves `/metrics`, marked **(reachable from the router only)** on loopback; whether a scrape logs in, over HTTPS; whether it is compressed. |
+| Collectors | The test run's counts, as **3 failed, 20 OK, 3 with nothing to observe, 0 off.**, then a row per installed collector. See [Collectors](#collectors). |
 
-The scrape is the ubus object's `status`, run on the router outside the jail, when the page opens and on **Refresh**, never on a timer; it runs a quarantined collector all the same. The **Service** column is the ubus object's `service` of each collector, from the running instance's ledger. Without the ubus object, the page says so, as the settings page does.
+### Banners
+
+| Banner | When | Content |
+| :--- | :--- | :--- |
+| Error | The service is enabled and not running. | **The exporter is enabled but not running: Prometheus gets nothing.**, with buttons to **System → Startup** and **System log**. |
+| Notice | The service is switched off in its settings, and not running. | That Prometheus gets nothing, with a button to **Services → Prometheus exporter**. |
+| Warning | Collectors failed in the test run. | How many, by title: **3 collectors failed in the test run: …** |
+| Notice | The service quarantined collectors. | How many, by title, and that a restart of the service tries them at once. |
+
+### Collectors
+
+| Column | Content |
+| :--- | :--- |
+| Collector | Its title and name. |
+| Test run | How it did in the test run, in words: **OK**; **Failed**, with the error's detail, then its code, which links to [Error codes](error-codes.md), and its jail mounts folded away; *Nothing to observe*, in italics, with why; or *Not run: switched off*. |
+| Duration | Its time in the test run. |
+| Service's scrapes | What the service's own scrapes found of it, from the running instance's ledger (the ubus object's `service` of each collector): **Quarantined**, with when the service tries it again and why, and **Left out at the deadline**, in the service's last scrape or how many scrapes ago, within the last 10. Empty otherwise. |
+
+The rows are grouped, in this order, and sorted by title within a group:
+
+1. Failed in the test run.
+2. Quarantined, or left out at the deadline lately, by the service.
+3. OK.
+4. Nothing to observe.
+5. Not run.
+
+An error code the page does not know is shown and linked all the same; an error without a code is shown as it is. Status never rests on colour alone: each state is in words. On a narrow screen, a theme that shows each cell's column heading shows it only over a cell with something in it.
+
+Without the ubus object, the page says so, as the settings page does.
 
 ## ACL
 

@@ -1,0 +1,5 @@
+
+config prometheus-exporter 'main'
+	option enabled '0'
+	option listen_interface 'loopback'
+	option listen_port '9100'

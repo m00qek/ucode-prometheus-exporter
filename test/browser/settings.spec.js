@@ -3,8 +3,8 @@ const h = require('./helpers');
 
 // Services → Prometheus exporter against the real ubus object in rpcd and the exporter's
 // real collectors, with the configuration the tests lay out (test/fixtures/luci/config/).
-// The Exporter tab is the main section; the Collectors tab has a row per collector, with a
-// switch, and a dialog of its options behind Edit.
+// The General, HTTPS & login and Limits tabs are the main section; the Collectors tab has a
+// row per collector, with a switch, and a dialog of its options behind Edit.
 
 function field(page, option) {
   return page.locator(`[id="widget.cbid.${h.CONFIG}.main.${option}"]`);
@@ -65,6 +65,20 @@ async function refused(page, items) {
   await expect(h.modal(page)).toBeHidden();
 }
 
+// A tab of the page, in its menu, and its pane.
+function tab(page, name) {
+  return page.locator(`#view .cbi-tabmenu li[data-tab="${name}"]`);
+}
+
+function pane(page, name) {
+  return page.locator(`#view div[data-tab-title][data-tab="${name}"]`);
+}
+
+// The options of a tab's pane, in order.
+async function paneOptions(page, name) {
+  return pane(page, name).locator('.cbi-value[data-name]').evaluateAll((els) => els.map((el) => el.getAttribute('data-name')));
+}
+
 // The ids of the Collectors tab's rows, in order.
 async function rowIds(page) {
   return page.locator('#view tr[data-collector]').evaluateAll((trs) => trs.map((tr) => tr.getAttribute('data-collector')));
@@ -91,15 +105,15 @@ test.describe('Services → Prometheus exporter', () => {
     await h.useConfig(request, 'default');
   });
 
-  test('opens on the Exporter tab, with the main section as saved', async ({ page, request }) => {
+  test('opens on the General tab, with the main section as saved', async ({ page, request }) => {
     await h.useConfig(request, 'custom');
     await h.open(page, `admin/services/${h.CONFIG}`);
-    await expect(page.locator('#view .cbi-tabmenu li[data-tab="exporter"]')).toHaveClass('cbi-tab');
-    await expect(page.locator('#view .cbi-tabmenu li[data-tab="collectors"]')).toHaveClass('cbi-tab-disabled');
+    await expect(tab(page, 'general')).toHaveClass('cbi-tab');
+    for (const name of [ 'https', 'limits', 'collectors' ])
+      await expect(tab(page, name)).toHaveClass('cbi-tab-disabled');
     const tabs = await page.locator('#view .cbi-tabmenu li[data-tab]').evaluateAll((lis) => lis.map((li) => li.getAttribute('data-tab')));
-    expect(tabs).toEqual([ 'exporter', 'collectors' ]);
-    await expect(page.locator('#view .cbi-tabmenu li[data-tab="exporter"]')).toHaveText('Exporter');
-    await expect(page.locator('#view .cbi-tabmenu li[data-tab="collectors"]')).toHaveText('Collectors');
+    expect(tabs).toEqual([ 'general', 'https', 'limits', 'collectors' ]);
+    await expect(page.locator('#view .cbi-tabmenu li[data-tab]')).toHaveText([ 'General', 'HTTPS & login', 'Limits', 'Collectors' ]);
     await expect(flag(page, 'enabled')).toBeChecked();
     await expect(listen(page).locator('li[selected]')).toHaveAttribute('data-value', '*');
     await expect(field(page, 'listen_port')).toHaveValue('9102');
@@ -113,6 +127,80 @@ test.describe('Services → Prometheus exporter', () => {
     await expect(field(page, 'exec_timeout')).toHaveValue('8');
     await expect(page.locator('#view .cbi-map-descr a')).toHaveAttribute('href', `/cgi-bin/luci/admin/status/${h.CONFIG}`);
     await h.screenshot(page, 'settings-custom');
+  });
+
+  test('has the main section\'s fields on General, HTTPS & login and Limits, in their order, and says what two of them are for', async ({ page }) => {
+    await h.openSettings(page);
+    expect(await paneOptions(page, 'general')).toEqual([ 'enabled', 'listen_interface', 'listen_port', 'http_keepalive', 'compress', 'omit_zero_values' ]);
+    expect(await paneOptions(page, 'https')).toEqual([ 'cert', 'key', 'auth_user', 'auth_password' ]);
+    expect(await paneOptions(page, 'limits')).toEqual([ 'scrape_timeout', 'collector_budget', 'exec_timeout', 'max_samples' ]);
+    expect(await paneOptions(page, 'collectors')).toEqual([ '_collectors' ]);
+
+    await expect(pane(page, 'general').locator('.cbi-tab-descr')).toHaveCount(0);
+    await expect(pane(page, 'https').locator('.cbi-tab-descr')).toHaveText('Basic auth needs HTTPS: set the certificate and key first.');
+    await expect(pane(page, 'limits').locator('.cbi-tab-descr')).toHaveText('Limits keep a slow or broken collector from costing the whole scrape.');
+
+    // One tab is shown at a time; the theme folds the others away.
+    await expect(pane(page, 'general')).toHaveAttribute('data-tab-active', 'true');
+    await expect(pane(page, 'https')).toHaveAttribute('data-tab-active', 'false');
+    await h.showTab(page, 'https');
+    await expect(pane(page, 'general')).toHaveAttribute('data-tab-active', 'false');
+    await expect(pane(page, 'https')).toHaveAttribute('data-tab-active', 'true');
+    // Basic auth's fields are there without TLS: hidden, LuCI would unset them on Save.
+    for (const name of [ 'cert', 'key', 'auth_user', 'auth_password' ])
+      await expect(field(page, name)).toBeVisible();
+    await h.screenshot(page, 'settings-https');
+    await h.showTab(page, 'limits');
+    for (const name of [ 'exec_timeout', 'scrape_timeout', 'collector_budget' ])
+      await expect(field(page, name)).toBeVisible();
+    await h.screenshot(page, 'settings-limits');
+  });
+
+  test('LuCI\'s badge marks the tab of a field the exporter would refuse, and the Save error names the tab, with a link to the field', async ({ page, request }) => {
+    const before = await h.readConfig(request);
+    await h.openSettings(page);
+    await h.showTab(page, 'https');
+    await field(page, 'auth_user').fill('prom');
+    await field(page, 'auth_password').fill('browser-secret');
+    await expect(field(page, 'auth_user')).toHaveClass(/cbi-input-invalid/);
+    await h.showTab(page, 'general');
+    await expect(tab(page, 'https')).toHaveAttribute('data-errors', '1');
+    await expect(tab(page, 'https')).toHaveAttribute('data-tooltip', '1 invalid field(s)');
+    for (const name of [ 'general', 'limits', 'collectors' ])
+      await expect(tab(page, name)).not.toHaveAttribute('data-errors');
+    await h.screenshot(page, 'settings-tab-badge');
+
+    await saveAndApply(page);
+    const dialog = h.saveError(page);
+    await expect(dialog.locator('.exporter-line')).toHaveText([
+      'HTTPS & login → Basic auth user: basic auth needs HTTPS: set cert and key, or the password crosses the network in the clear',
+    ]);
+    await h.screenshot(page, 'settings-refused-tab');
+    // The link shows the tab, and the field.
+    await dialog.getByRole('link', { name: 'HTTPS & login → Basic auth user' }).click();
+    await expect(h.modal(page)).toBeHidden();
+    await expect(tab(page, 'https')).toHaveClass('cbi-tab');
+    await expect(field(page, 'auth_user')).toBeFocused();
+    expect(await h.readConfig(request)).toBe(before);
+
+    // Fixed, the badge goes.
+    await field(page, 'cert').fill('/etc/uhttpd.crt');
+    await field(page, 'key').fill('/etc/uhttpd.key');
+    await expect(field(page, 'auth_user')).not.toHaveClass(/cbi-input-invalid/);
+    await expect(tab(page, 'https')).not.toHaveAttribute('data-errors');
+  });
+
+  test('LuCI\'s badge counts the invalid fields of each tab', async ({ page }) => {
+    await h.openSettings(page);
+    // LuCI's port datatype takes 0; the exporter does not.
+    await field(page, 'listen_port').fill('0');
+    await field(page, 'http_keepalive').fill('');
+    await h.showTab(page, 'limits');
+    await field(page, 'exec_timeout').fill('31');
+    await expect(field(page, 'exec_timeout')).toHaveClass(/cbi-input-invalid/);
+    await expect(tab(page, 'general')).toHaveAttribute('data-errors', '2');
+    await expect(tab(page, 'limits')).toHaveAttribute('data-errors', '1');
+    await expect(tab(page, 'https')).not.toHaveAttribute('data-errors');
   });
 
   test('shows every field at its value, the defaults included', async ({ page, request }) => {
@@ -395,14 +483,14 @@ test.describe('Services → Prometheus exporter', () => {
     expect((await savedSections(request)).runner).toBeUndefined();
   });
 
-  test('the timeout\'s placeholder follows exec_timeout, as the Exporter tab has it', async ({ page, request }) => {
+  test('the timeout\'s placeholder follows exec_timeout, as the Limits tab has it', async ({ page, request }) => {
     await h.useConfig(request, 'custom');
     await h.openSettings(page);
     await h.editCollector(page, 'runner');
     await expect(option(page, 'runner', 'timeout')).toHaveAttribute('placeholder', '8');
     await dismissDialog(page);
 
-    await h.showTab(page, 'exporter');
+    await h.showTab(page, 'limits');
     await field(page, 'exec_timeout').fill('12');
     await h.editCollector(page, 'runner');
     await expect(option(page, 'runner', 'timeout')).toHaveAttribute('placeholder', '12');
@@ -412,11 +500,12 @@ test.describe('Services → Prometheus exporter', () => {
   test('refuses a timeout or an exec_timeout that is not 1 to 30 seconds, as the exporter would', async ({ page, request }) => {
     const before = await h.readConfig(request);
     await h.openSettings(page);
+    await h.showTab(page, 'limits');
     await field(page, 'exec_timeout').fill('31');
     await expect(field(page, 'exec_timeout')).toHaveClass(/cbi-input-invalid/);
     await saveAndApply(page);
-    await refused(page, [ 'Program timeout: expected an integer from 1 to 30, got 31' ]);
-    await expect(page.locator('#view .alert-message.error .exporter-line')).toHaveText([ 'Program timeout: expected an integer from 1 to 30, got 31' ]);
+    await refused(page, [ 'Limits → Program timeout: expected an integer from 1 to 30, got 31' ]);
+    await expect(page.locator('#view .alert-message.error .exporter-line')).toHaveText([ 'Limits → Program timeout: expected an integer from 1 to 30, got 31' ]);
     expect(await h.readConfig(request)).toBe(before);
     await field(page, 'exec_timeout').fill('5');
 
@@ -515,10 +604,10 @@ test.describe('Services → Prometheus exporter', () => {
     await saveAndApply(page);
     await expect(h.saveError(page)).toBeVisible();
     await h.screenshot(page, 'settings-refused-dialog');
-    await refused(page, [ 'Port: expected an integer from 1 to 65535, got 0' ]);
+    await refused(page, [ 'General → Port: expected an integer from 1 to 65535, got 0' ]);
     // And above the form, until it is fixed.
     await expect(page.locator('#view .alert-message.error')).toContainText('Nothing was saved: the exporter would refuse these values.');
-    await expect(page.locator('#view .alert-message.error .exporter-line')).toHaveText([ 'Port: expected an integer from 1 to 65535, got 0' ]);
+    await expect(page.locator('#view .alert-message.error .exporter-line')).toHaveText([ 'General → Port: expected an integer from 1 to 65535, got 0' ]);
     expect(await h.readConfig(request)).toBe(before);
     await h.screenshot(page, 'settings-refused');
 
@@ -538,8 +627,14 @@ test.describe('Services → Prometheus exporter', () => {
     await expect(note).toHaveText('The saved settings are not valid: CONFIG_INVALID (retries: expected an integer, got "many")');
 
     await saveAndApply(page);
-    await refused(page, [ 'sampler retries: expected an integer, got "many"' ]);
+    await refused(page, [ 'Collectors → sampler retries: expected an integer, got "many"' ]);
     expect(await h.readConfig(request)).toBe(before);
+
+    // Above the form, its link shows the collector's row, from another tab too.
+    await h.showTab(page, 'general');
+    await page.locator('#view .alert-message.error .exporter-line').getByRole('link', { name: 'Collectors → sampler retries' }).click();
+    await expect(tab(page, 'collectors')).toHaveClass('cbi-tab');
+    await expect(editButton(page, 'sampler')).toBeFocused();
 
     await h.editCollector(page, 'sampler');
     await expect(option(page, 'sampler', 'retries')).toHaveValue('many');
@@ -570,12 +665,20 @@ test.describe('Services → Prometheus exporter: what the user sees where they a
     await expect(dialog).toBeVisible();
     await expect(dialog).toBeInViewport();
     await page.waitForTimeout(300);
-    await expect(dialog.locator('.exporter-line')).toHaveText([ 'Port: expected an integer from 1 to 65535, got 0' ]);
+    await expect(dialog.locator('.exporter-line')).toHaveText([ 'General → Port: expected an integer from 1 to 65535, got 0' ]);
     await page.screenshot({ path: `${__dirname}/../results/screenshots/settings-refused-from-collectors.png` });
     // Escape dismisses it, as Dismiss does.
     await page.keyboard.press('Escape');
     await expect(h.modal(page)).toBeHidden();
     expect(await h.readConfig(request)).toBe(before);
+
+    // The field's link, in the dialog, shows its tab and gives it the focus.
+    await saveAndApply(page);
+    await h.saveError(page).getByRole('link', { name: 'General → Port' }).click();
+    await expect(h.modal(page)).toBeHidden();
+    await expect(tab(page, 'general')).toHaveClass('cbi-tab');
+    await expect(field(page, 'listen_port')).toBeFocused();
+    await expect(field(page, 'listen_port')).toBeInViewport();
   });
 
   test('Edit gives the focus to the dialog\'s first field, and Dismiss, Escape and Save give it back to Edit', async ({ page }) => {
