@@ -144,6 +144,7 @@ Nothing else.
 | `/www/luci-static/resources/view/prometheus-exporter/settings.js` | Services → Prometheus exporter. |
 | `/www/luci-static/resources/view/prometheus-exporter/status.js` | Status → Prometheus exporter. |
 | `/www/luci-static/resources/prometheus-exporter.js` | What both pages share. |
+| `/www/luci-static/resources/prometheus-exporter/widgets.js` | The settings page's widgets: the listen interface's picker, basic auth's password, and the Collectors tab's table and its Edit dialog. |
 | `/usr/share/luci/menu.d/luci-app-prometheus-exporter.json` | The menu entries. |
 | `/usr/share/rpcd/acl.d/luci-app-prometheus-exporter.json` | The ACL. |
 

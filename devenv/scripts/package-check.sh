@@ -206,7 +206,7 @@ APP_LIST=/lib/apk/packages/luci-app-$NAME.list
 VIEWS=/www/luci-static/resources/view/$NAME
 ACL=/usr/share/rpcd/acl.d/luci-app-$NAME.json
 APP_FILES="/usr/share/luci/menu.d/luci-app-$NAME.json $ACL
-	/www/luci-static/resources/$NAME.js $VIEWS/settings.js $VIEWS/status.js"
+	/www/luci-static/resources/$NAME.js /www/luci-static/resources/$NAME/widgets.js $VIEWS/settings.js $VIEWS/status.js"
 APP_METHODS="'collectors', 'interfaces', 'status', 'validate'"
 
 pins_exporter() { apk adbdump "$APP" | grep -qx "    - $PKG=$PKG_FULLVERSION"; }
