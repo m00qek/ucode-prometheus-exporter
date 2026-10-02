@@ -1,6 +1,6 @@
 # ubus Object
 
-The ubus object `prometheus-exporter` belongs to the base package. rpcd serves it, from the ucode plugin `/usr/share/rpcd/ucode/prometheus-exporter.uc`, over `src/prometheus_exporter/rpc.uc`, whether or not the service runs. rpcd loads it when it starts or reloads; the package reloads rpcd when it is installed, upgraded or removed.
+The ubus object `prometheus-exporter` belongs to the base package. rpcd serves it, from the ucode plugin `/usr/share/rpcd/ucode/prometheus-exporter.uc`, over `src/prometheus_exporter/rpc.uc` and its modules `rpc/describe.uc` and `rpc/validate.uc`, whether or not the service runs. rpcd loads it when it starts or reloads; the package reloads rpcd when it is installed, upgraded or removed.
 
 The object reads with the exporter's own modules and writes nothing. Each call reads the committed configuration and the installed collectors afresh.
 

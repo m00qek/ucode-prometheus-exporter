@@ -36,6 +36,7 @@ It conflicts with `prometheus-node-exporter-ucode` and `prometheus-node-exporter
 | `/usr/share/ucode/prometheus_exporter/*.uc` | The exporter's modules. `version.uc` holds the package's version. |
 | `/usr/share/ucode/prometheus_exporter/exposition/*.uc` | The modules split out of `exposition.uc`. |
 | `/usr/share/ucode/prometheus_exporter/deps/*.uc` | The capabilities of `deps.uc`, a module each. |
+| `/usr/share/ucode/prometheus_exporter/rpc/*.uc` | The modules split out of `rpc.uc`: what `collectors` describes, and `validate`. |
 | `/usr/share/ucode/prometheus_exporter/collectors/<module>.uc` | The base collectors. |
 
 ### At run time

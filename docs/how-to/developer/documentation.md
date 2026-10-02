@@ -72,7 +72,7 @@ Reference pages describe the code as it is. When you change one of these, update
 | `cli.uc`, `files/usr/bin/prometheus-exporter` | [The `prometheus-exporter` command](../../reference/command.md), generated from `cli.uc`'s usage and `docs/gen/notes.uc`: `make docs-gen` |
 | `runner.uc`, `jailed.uc`, `conform.uc`, the guards of `scrape.uc`, `exposition.uc`, `loader.uc` | [Collector contract](../../reference/collector-contract.md) |
 | `http.uc`, `app.uc`, `auth.uc`, `query.uc`, `scrape.uc` | [HTTP endpoint](../../reference/http.md) |
-| `rpc.uc`, the rpcd plugin | [ubus object](../../reference/ubus.md) |
+| `rpc.uc` and `rpc/`, the rpcd plugin | [ubus object](../../reference/ubus.md) |
 | `luci/` | [LuCI app](../../reference/luci.md), [How to use the LuCI app](../luci.md) |
 | `jail.uc`, `state.uc`, the init script's mounts | [The jail](../../reference/jail.md) |
 | `loader.uc`, `deps.uc` and `deps/`, `result.uc`, `services.uc`, `exposition.uc`'s recorder | [Collector interface](../../reference/collector-interface.md) |
