@@ -99,10 +99,11 @@ describe('ledger.order', () => {
 		return ledger.record(ledger.empty(), map(keys(d), (id) => ran(id, d[id])), null, keys(d));
 	}
 
-	it('runs the fastest first, one never run before the rest, equals in the order given', () => {
+	it('runs the fastest first, one never run after the rest, equals in the order given', () => {
 		let l = with_durations({ a: 3, b: 0.5, c: 0.5 });
 
-		assert.match([ 'd', 'b', 'c', 'a' ], ids(ledger.order(l, [ A, B, C, D ])));
+		assert.match([ 'b', 'c', 'a', 'd' ], ids(ledger.order(l, [ A, B, C, D ])));
+		assert.match([ 'd', 'a' ], ids(ledger.order(ledger.empty(), [ D, A ])));
 		assert.match([ 'c', 'b', 'a' ], ids(ledger.order(l, [ C, B, A ])));
 	});
 

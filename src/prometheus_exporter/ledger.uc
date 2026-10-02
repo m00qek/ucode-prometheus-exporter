@@ -96,23 +96,24 @@ export function samples(l, id) {
 	return l.c[id]?.n ?? 0;
 };
 
-// sort()'s order of [ last, estimate, index ]: by each, as numbers, which a
-// difference of seconds, a fraction, would not give it.
+// sort()'s order of [ last, never run, estimate, index ]: by each, as
+// numbers, which a difference of seconds, a fraction, would not give it.
 function by_keys(a, b) {
-	for (let i = 0; i < 3; i++)
+	for (let i = 0; i < 4; i++)
 		if (a[i] != b[i])
 			return (a[i] < b[i]) ? -1 : 1;
 
 	return 0;
 }
 
-// `collectors` in the order a scrape runs them: fastest first, one never run
-// (as fast as can be) before the rest, and in their order among equals; those
-// `last(c)` says, after every other.
+// `collectors` in the order a scrape runs them: fastest first; one never run,
+// which may be slow, after those the ledger knows, so that it cannot take
+// their time; in their order among equals; those `last(c)` says, after every
+// other.
 export function order(l, collectors, last) {
-	let keyed = map(collectors, (c, i) => [ (last && last(c)) ? 1 : 0, estimate(l, c.id) ?? 0, i, c ]);
+	let keyed = map(collectors, (c, i) => [ (last && last(c)) ? 1 : 0, (estimate(l, c.id) == null) ? 1 : 0, estimate(l, c.id) ?? 0, i, c ]);
 
-	return map(sort(keyed, by_keys), (x) => x[3]);
+	return map(sort(keyed, by_keys), (x) => x[4]);
 };
 
 function average(old, value) {
