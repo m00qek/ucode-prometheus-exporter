@@ -151,7 +151,7 @@ test.describe('Services → Prometheus exporter', () => {
       await expect(field(page, name)).toBeVisible();
     await h.screenshot(page, 'settings-https');
     await h.showTab(page, 'limits');
-    for (const name of [ 'exec_timeout', 'scrape_timeout', 'collector_budget' ])
+    for (const name of [ 'exec_timeout', 'scrape_timeout', 'collector_budget', 'max_samples' ])
       await expect(field(page, name)).toBeVisible();
     await h.screenshot(page, 'settings-limits');
   });
@@ -214,6 +214,7 @@ test.describe('Services → Prometheus exporter', () => {
     await expect(field(page, 'exec_timeout')).toHaveAttribute('placeholder', '5');
     await expect(field(page, 'scrape_timeout')).toHaveValue('10');
     await expect(field(page, 'collector_budget')).toHaveValue('5');
+    await expect(field(page, 'max_samples')).toHaveValue('20000');
     await expect(field(page, 'cert')).toHaveValue('');
   });
 
@@ -225,7 +226,7 @@ test.describe('Services → Prometheus exporter', () => {
     await applied(page);
     expect((await savedSections(request)).main).toEqual({
       '.type': h.CONFIG, enabled: '1', listen_interface: 'vpn', listen_port: '9100', http_keepalive: '70', compress: '1',
-      omit_zero_values: '0', exec_timeout: '5', scrape_timeout: '10', collector_budget: '5',
+      omit_zero_values: '0', exec_timeout: '5', scrape_timeout: '10', collector_budget: '5', max_samples: '20000',
     });
   });
 
@@ -534,7 +535,7 @@ test.describe('Services → Prometheus exporter', () => {
     expect(saved.wifi).toEqual({ '.type': 'collector', stations: '0' });
     expect(saved.main).toEqual({
       '.type': h.CONFIG, enabled: '1', listen_interface: '*', listen_port: '9102', http_keepalive: '0', compress: '1', omit_zero_values: '1',
-      exec_timeout: '8', scrape_timeout: '10', collector_budget: '5',
+      exec_timeout: '8', scrape_timeout: '10', collector_budget: '5', max_samples: '20000',
     });
   });
 

@@ -18,6 +18,9 @@ config prometheus-exporter 'main'
 	# Seconds a collector may take in a scrape (1-60) before it is quarantined
 	# for a few scrapes, unless the collector says otherwise.
 	option collector_budget '5'
+	# Samples a collector may write in a scrape (1-100000): one that writes
+	# more fails, and none of its samples are served, unless it says otherwise.
+	option max_samples '20000'
 	# '0': never gzip a scrape; otherwise it is, when the scraper asks for it.
 	option compress '1'
 	# Serve HTTPS: both files must exist, and uhttpd needs a TLS library.
