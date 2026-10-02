@@ -35,6 +35,7 @@ It conflicts with `prometheus-node-exporter-ucode` and `prometheus-node-exporter
 | `/usr/share/rpcd/ucode/prometheus-exporter.uc` | rpcd's plugin: the [ubus object](ubus.md). |
 | `/usr/share/ucode/prometheus_exporter/*.uc` | The exporter's modules. `version.uc` holds the package's version. |
 | `/usr/share/ucode/prometheus_exporter/exposition/*.uc` | The modules split out of `exposition.uc`. |
+| `/usr/share/ucode/prometheus_exporter/deps/*.uc` | The capabilities of `deps.uc`, a module each. |
 | `/usr/share/ucode/prometheus_exporter/collectors/<module>.uc` | The base collectors. |
 
 ### At run time

@@ -54,7 +54,7 @@ What this costs a scrape is a fork, a round trip per collector and the file; see
 
 ## Only one module touches the system
 
-`prometheus_exporter.deps` is the only module that imports `fs`, `ubus`, `uci`, `rtnl`, `nl80211` and `socket`. A collector does not import them: it declares in `meta.needs` the capabilities it wants, and `collect` receives exactly those, in its `deps` argument.
+`prometheus_exporter.deps` and its modules, one per capability (`deps/ubus.uc`, `deps/exec.uc`, ...), are the only ones that import `fs`, `ubus`, `uci`, `rtnl`, `nl80211` and `socket`. A collector does not import them: it declares in `meta.needs` the capabilities it wants, and `collect` receives exactly those, in its `deps` argument.
 
 This is dependency injection, and it pays three times.
 

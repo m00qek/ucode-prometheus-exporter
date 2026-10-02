@@ -75,7 +75,7 @@ Reference pages describe the code as it is. When you change one of these, update
 | `rpc.uc`, the rpcd plugin | [ubus object](../../reference/ubus.md) |
 | `luci/` | [LuCI app](../../reference/luci.md), [How to use the LuCI app](../luci.md) |
 | `jail.uc`, `state.uc`, the init script's mounts | [The jail](../../reference/jail.md) |
-| `loader.uc`, `deps.uc`, `result.uc`, `services.uc`, `exposition.uc`'s recorder | [Collector interface](../../reference/collector-interface.md) |
+| `loader.uc`, `deps.uc` and `deps/`, `result.uc`, `services.uc`, `exposition.uc`'s recorder | [Collector interface](../../reference/collector-interface.md) |
 | A log line | [Log messages](../../reference/log-messages.md) |
 | `files/`, the package Makefile | [Files and packages](../../reference/files.md) |
 | The root `Makefile`, `docs/Makefile` | [Make targets](../../reference/make-targets.md) |

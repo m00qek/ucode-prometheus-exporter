@@ -111,7 +111,7 @@ For a collector to tell nothing to observe from a failure, over `deps.ubus`:
 
 ## `needs`
 
-Only `prometheus_exporter.deps` touches the system. A collector gets the capabilities it names, and a scrape's collectors share one ubus connection and one uci cursor.
+Only `prometheus_exporter.deps`, with its modules of each capability (`prometheus_exporter.deps.ubus`, `.exec`, ...), touches the system. A collector gets the capabilities it names, and a scrape's collectors share one ubus connection and one uci cursor.
 
 | Need | `deps.<need>` |
 | :--- | :--- |

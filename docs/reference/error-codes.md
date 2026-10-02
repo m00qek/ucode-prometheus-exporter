@@ -26,20 +26,20 @@ A failure carries an uppercase code, from `src/prometheus_exporter/errors.uc`, a
 | Code | Meaning | Raised by |
 | :--- | :--- | :--- |
 | `NEED_MISSING` | A capability the collector needs is not installed: `nl80211` without ucode-mod-nl80211, `socket` without ucode-mod-socket. | `deps.uc` |
-| `UBUS_CONNECT_FAILED` | The exporter could not connect to ubus. | `deps.uc` |
-| `UBUS_CALL_FAILED` | A ubus call failed. The detail is `<object> <method>: <status>`, as `Not found`. | `deps.uc`, `services.uc` |
-| `NL80211_FAILED` | An nl80211 request failed. The detail is the device and the kernel's error. | `deps.uc` |
-| `RTNL_FAILED` | An rtnetlink request failed. The detail is the kernel's error. | `deps.uc` |
-| `SOCKET_FAILED` | A Unix socket is missing, refused the connection, or sent no more of its reply in time. The detail names the socket. | `deps.uc` |
-| `COMMAND_NOT_ALLOWED` | The collector ran a program its `meta.commands` does not list. | `conform.uc`, `deps.uc` |
-| `COMMAND_FAILED` | A program could not start or exited with a status other than 0. The detail is `<program>: exit status <n>` or `<program>: cannot start`. | `deps.uc` |
-| `COMMAND_TIMEOUT` | A program was still running when the collector's seconds for programs were spent, and was killed with every process it started; or the collector asked to run one after they were spent. | `deps.uc`, `ledger.uc` |
+| `UBUS_CONNECT_FAILED` | The exporter could not connect to ubus. | `deps/ubus.uc` |
+| `UBUS_CALL_FAILED` | A ubus call failed. The detail is `<object> <method>: <status>`, as `Not found`. | `deps/ubus.uc`, `services.uc` |
+| `NL80211_FAILED` | An nl80211 request failed. The detail is the device and the kernel's error. | `deps/netlink.uc` |
+| `RTNL_FAILED` | An rtnetlink request failed. The detail is the kernel's error. | `deps/netlink.uc` |
+| `SOCKET_FAILED` | A Unix socket is missing, refused the connection, or sent no more of its reply in time. The detail names the socket. | `deps/socket.uc` |
+| `COMMAND_NOT_ALLOWED` | The collector ran a program its `meta.commands` does not list. | `conform.uc`, `deps/exec.uc` |
+| `COMMAND_FAILED` | A program could not start or exited with a status other than 0. The detail is `<program>: exit status <n>` or `<program>: cannot start`. | `deps/exec.uc` |
+| `COMMAND_TIMEOUT` | A program was still running when the collector's seconds for programs were spent, and was killed with every process it started; or the collector asked to run one after they were spent. | `deps/exec.uc`, `ledger.uc` |
 
 ## The scrape
 
 | Code | Meaning | Raised by |
 | :--- | :--- | :--- |
-| `SCRAPE_DEADLINE` | The scrape's time was nearly spent: the collector was not run, or a program it ran was killed at the deadline, so that the scrape answers before the scraper gives up. The scrape logs every such collector in one line. See [About deadlines and circuit breakers](../explanation/deadlines-and-breakers.md). | `conform.uc`, `deps.uc`, `ledger.uc`, `runner.uc`, `scrape.uc` |
+| `SCRAPE_DEADLINE` | The scrape's time was nearly spent: the collector was not run, or a program it ran was killed at the deadline, so that the scrape answers before the scraper gives up. The scrape logs every such collector in one line. See [About deadlines and circuit breakers](../explanation/deadlines-and-breakers.md). | `conform.uc`, `deps/exec.uc`, `ledger.uc`, `runner.uc`, `scrape.uc` |
 | `COLLECTOR_QUARANTINED` | The collector's circuit breaker is open: it was not run in this scrape, even if the query named it. The detail says what tripped the breaker and when the collector is tried again; a restart of the service tries it at once. | `ledger.uc` |
 | `COLLECTOR_OVERRUN` | What tripped a breaker: the collector took longer than its `budget`. The detail is how long it took and its budget. The run itself counts as it went; its breaker trips. | `ledger.uc` |
 
