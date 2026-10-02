@@ -613,3 +613,73 @@ export function errors_page(ctx) {
 
 	return { text: md.page(blocks), problems };
 };
+
+// ---- command.md ---------------------------------------------------------------
+
+// The commands of a docopt usage text: the words that start each pattern of
+// its Usage: section, before any option or argument ('scrape', 'collector
+// list'); the patterns of options alone (-h, --version) are none.
+export function usage_commands(usage) {
+	let out = [];
+	let inside = false;
+
+	for (let line in split(usage, '\n')) {
+		if (line == 'Usage:') {
+			inside = true;
+			continue;
+		}
+		if (!inside)
+			continue;
+		if (trim(line) == '')
+			break;
+
+		let words = slice(split(trim(line), /\s+/), 1);
+		let cmd = [];
+
+		for (let w in words) {
+			if (!match(w, /^[a-z][a-z-]*$/))
+				break;
+			push(cmd, w);
+		}
+
+		if (length(cmd) && !(join(' ', cmd) in out))
+			push(out, join(' ', cmd));
+	}
+
+	return out;
+};
+
+export function command_page(ctx) {
+	let problems = [];
+	let notes = ctx.notes.command;
+	let blocks = [ HEADER, '# The `prometheus-exporter` Command', md.text(notes.intro), '```\n' + trim(ctx.usage) + '\n```' ];
+	let cmds = usage_commands(ctx.usage);
+
+	push(blocks, md.text(notes.usage));
+
+	for (let cmd in cmds) {
+		let n = notes.commands[cmd];
+
+		if (n == null) {
+			push(problems, `command: say what \`${cmd}\` does`);
+			continue;
+		}
+
+		push(blocks, md.heading(2, md.code(`prometheus-exporter ${cmd}`), md.anchor(replace(cmd, ' ', '-'))));
+		push(blocks, md.text(n.does));
+		if (length(n.notes ?? []))
+			push(blocks, join('\n', map(n.notes, (l) => `- ${md.text(l)}`)));
+		push(blocks, md.table([ 'Exit status', 'When' ], map(n.exit, (e) => [ md.code(e[0]), md.text(e[1]) ])));
+		if (n.example)
+			push(blocks, '```\n' + n.example + '\n```');
+	}
+
+	for (let cmd in keys(notes.commands))
+		if (!(cmd in cmds))
+			push(problems, `command: the usage has no \`${cmd}\``);
+
+	push(blocks, md.heading(2, 'Everywhere', 'everywhere'));
+	push(blocks, join('\n', map(notes.everywhere, (l) => `- ${md.text(l)}`)));
+
+	return { text: md.page(blocks), problems };
+};

@@ -42,7 +42,7 @@ service cron restart
 ## 3. Check it
 
 ```sh
-prometheus-exporter textfile
+prometheus-exporter scrape textfile
 ```
 
 The file's metrics are there, with `node_textfile_mtime_seconds{file="/var/prometheus/apk.prom"}`, when it was last written, and `node_textfile_scrape_error 0`.

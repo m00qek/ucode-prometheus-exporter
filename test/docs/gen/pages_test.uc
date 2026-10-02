@@ -7,6 +7,8 @@ import { describe, it, assert, contains } from 'utest';
 import * as fs from 'fs';
 import * as main from 'docs_gen.main';
 import * as harvest from 'docs_gen.harvest';
+import * as pages from 'docs_gen.pages';
+import * as cli from 'prometheus_exporter.cli';
 
 const NOTES = main.load_notes(`${fs.getcwd()}/${main.NOTES}`);
 const LOADED = main.load_collectors(fs, []);
@@ -32,9 +34,30 @@ describe('docs_gen.main.run', () => {
 		assert.match([], RUN.problems);
 	});
 
-	it('writes the four pages', () => {
-		assert.match([ 'docs/reference/collectors.md', 'docs/reference/error-codes.md', 'docs/reference/metrics.md', 'docs/reference/uci-config.md' ],
-			sort(keys(RUN.pages)));
+	it('writes the five pages', () => {
+		assert.match([ 'docs/reference/collectors.md', 'docs/reference/command.md', 'docs/reference/error-codes.md', 'docs/reference/metrics.md',
+			'docs/reference/uci-config.md' ], sort(keys(RUN.pages)));
+	});
+
+	it('writes the command\'s usage as it is, and a section for each of its commands', () => {
+		let page = RUN.pages['docs/reference/command.md'];
+
+		assert.match(true, index(page, '```\n' + trim(cli.USAGE) + '\n```') >= 0);
+		for (let cmd in [ 'scrape', 'check', 'collector list', 'collector check', 'hash-password' ])
+			assert.match(true, index(page, `## \`prometheus-exporter ${cmd}\``) >= 0, cmd);
+	});
+
+	it('takes the commands of a usage from its Usage: section', () => {
+		assert.match([ 'scrape', 'collector list', 'collector check' ], pages.usage_commands(
+			'x.\n\nUsage:\n  p scrape [<c>...]\n  p collector list\n  p collector check <path>\n  p -h | --help\n\nCommands:\n  other  Not one.\n'));
+	});
+
+	it('refuses a command of the usage the notes do not explain, and one the usage lacks', () => {
+		let notes = { ...NOTES, command: { ...NOTES.command, commands: { ...NOTES.command.commands, 'gone': { does: 'x', exit: [] } } } };
+
+		delete notes.command.commands['hash-password'];
+		assert.match([ 'command: say what `hash-password` does', 'command: the usage has no `gone`' ],
+			pages.command_page({ notes, usage: cli.USAGE }).problems);
 	});
 
 	it('documents every collector, in the collectors and the metrics', () => {

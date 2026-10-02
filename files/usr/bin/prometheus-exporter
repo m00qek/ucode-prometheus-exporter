@@ -1,9 +1,9 @@
 #!/usr/bin/ucode
 'use strict';
 
-// Prints a scrape; -h for usage.
+// The command line; -h for usage. See prometheus_exporter.cli.
 
-import { create } from 'prometheus_exporter.app';
-import { run } from 'prometheus_exporter.cli';
+import { parse, run, system } from 'prometheus_exporter.cli';
+import { version } from 'prometheus_exporter.version';
 
-exit(run(ARGV, create, print, warn));
+exit(run(parse(ARGV, version()), system()));

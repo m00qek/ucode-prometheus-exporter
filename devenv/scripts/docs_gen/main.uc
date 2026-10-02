@@ -4,6 +4,7 @@
 // written: see devenv/scripts/docs-gen.uc.
 
 import * as loader from 'prometheus_exporter.loader';
+import { USAGE } from 'prometheus_exporter.cli';
 import * as package from 'docs_gen.package';
 import * as harvest from 'docs_gen.harvest';
 import * as pages from 'docs_gen.pages';
@@ -64,6 +65,7 @@ export function run(fs, notes, loaded) {
 		sets: harvest.sets(fs, harvest.ROOT),
 		harvest: harvest.harvest(fs, harvest.ROOT, collectors),
 		errors: fs.readfile('src/prometheus_exporter/errors.uc'),
+		usage: USAGE,
 	};
 
 	let out = {};
@@ -73,6 +75,7 @@ export function run(fs, notes, loaded) {
 		[ 'metrics.md', pages.metrics_page ],
 		[ 'uci-config.md', pages.uci_page ],
 		[ 'error-codes.md', pages.errors_page ],
+		[ 'command.md', pages.command_page ],
 	]) {
 		let res = p[1](ctx);
 

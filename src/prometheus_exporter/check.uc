@@ -1,14 +1,14 @@
 'use strict';
 
-// `service prometheus-exporter check`: the configuration, checked as
-// the exporter and the init script read it; every installed collector, with its
-// section, options, needs and what the jail gives it; and one scrape, run here,
-// outside the jail, each collector in a process of its own and stopped at its
-// limit, as the service's scrapes run them (scrape.trial), with each collector
-// that fails and why, and each that has nothing to observe and why (a
-// success: 'dnsmasq is disabled'). With config_only
-// (check.uc --config, which start and reload run) it stops after the
-// configuration. Only an invalid configuration makes it fail.
+// `prometheus-exporter check`, which `service prometheus-exporter check` runs:
+// the configuration, checked as the exporter and the init script read it;
+// every installed collector, with its section, options, needs and what the
+// jail gives it; and one scrape, run here, outside the jail, each collector in
+// a process of its own and stopped at its limit, as the service's scrapes run
+// them (scrape.trial), with each collector that fails and why, and each that
+// has nothing to observe and why (a success: 'dnsmasq is disabled'). With
+// config_only (check --config, which start and reload run) it stops after
+// the configuration. Only an invalid configuration makes it fail.
 //
 // It also says what the service's own scrapes found, from the ledger of its
 // running instance (prometheus_exporter.ledger): each collector quarantined,

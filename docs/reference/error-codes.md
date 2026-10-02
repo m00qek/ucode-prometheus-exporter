@@ -10,15 +10,15 @@ A failure carries an uppercase code, from `src/prometheus_exporter/errors.uc`, a
 | :--- | :--- | :--- |
 | `SOURCE_UNREADABLE` | A file the collector reads is not there or cannot be read. The detail names it. | the collectors `bmx7`, `conntrack`, `cpu`, `dhcp_leases`, `diskstats`, `entropy`, `exporter`, `filefd`, `filesystem`, `loadavg`, `meminfo`, `nat_traffic`, `netstat`, `snmp6`, `sockstat`, `softnet`, `timesync`, `uci_dhcp_host`, `uname`, `vmstat` |
 | `SOURCE_INVALID` | What the collector read is not what it expects: a file, a ubus reply or a program's output it cannot parse. The detail says where. | `services.uc`; the collectors `bmx7`, `chrony`, `conntrack`, `cpu`, `dawn`, `dhcp_leases`, `diskstats`, `dnsmasq`, `entropy`, `filefd`, `filesystem`, `hostapd_stations`, `loadavg`, `ltq-dsl`, `meminfo`, `modemmanager`, `mwan3`, `netclass`, `netdev`, `netstat`, `nft-counters`, `openwrt`, `openwrt_interfaces`, `qdisc`, `realtek-poe`, `selinux`, `sockstat`, `softnet`, `time`, `timesync`, `ubnt-manager`, `unbound`, `vmstat`, `wifi`, `wifi_stations`, `wireguard` |
-| `COLLECTOR_CRASHED` | The collector died with an exception. The detail is the exception's first line. | `scrape.uc` |
-| `COLLECTOR_NO_RESULT` | The collector returned something other than a Result. The detail says what. | `scrape.uc` |
+| `COLLECTOR_CRASHED` | The collector died with an exception. The detail is the exception's first line. | `conform.uc`, `scrape.uc` |
+| `COLLECTOR_NO_RESULT` | The collector returned something other than a Result. The detail says what. | `conform.uc`, `scrape.uc` |
 | `COLLECTOR_INVALID` | A collector module that cannot be loaded as one (its `meta` or `collect`), which the exporter leaves out; or a query that names a collector that is not installed, or one that is disabled, which is answered 400. | `loader.uc`, `scrape.uc` |
 
 ## Configuration
 
 | Code | Meaning | Raised by |
 | :--- | :--- | :--- |
-| `CONFIG_INVALID` | An option has a value the exporter does not take, or options that go together are not set together. The detail is `<option>: expected <what>, got <value>` (never the value of `auth_password`), or what is missing. | `auth.uc`, `config.uc`; the collectors `diskstats`, `vmstat` |
+| `CONFIG_INVALID` | An option has a value the exporter does not take, or options that go together are not set together. The detail is `<option>: expected <what>, got <value>` (never the value of `auth_password`), or what is missing. | `auth.uc`, `config.uc`, `conform.uc`; the collectors `diskstats`, `vmstat` |
 | `FILE_UNWRITABLE` | The init script could not write or remove uhttpd's basic auth file, `/var/run/prometheus-exporter/uhttpd.conf`. | `auth.uc` |
 
 ## Capabilities
@@ -31,7 +31,7 @@ A failure carries an uppercase code, from `src/prometheus_exporter/errors.uc`, a
 | `NL80211_FAILED` | An nl80211 request failed. The detail is the device and the kernel's error. | `deps.uc` |
 | `RTNL_FAILED` | An rtnetlink request failed. The detail is the kernel's error. | `deps.uc` |
 | `SOCKET_FAILED` | A Unix socket is missing, refused the connection, or sent no more of its reply in time. The detail names the socket. | `deps.uc` |
-| `COMMAND_NOT_ALLOWED` | The collector ran a program its `meta.commands` does not list. | `deps.uc` |
+| `COMMAND_NOT_ALLOWED` | The collector ran a program its `meta.commands` does not list. | `conform.uc`, `deps.uc` |
 | `COMMAND_FAILED` | A program could not start or exited with a status other than 0. The detail is `<program>: exit status <n>` or `<program>: cannot start`. | `deps.uc` |
 | `COMMAND_TIMEOUT` | A program was still running when the collector's seconds for programs were spent, and was killed with every process it started; or the collector asked to run one after they were spent. | `deps.uc`, `ledger.uc` |
 
@@ -39,7 +39,7 @@ A failure carries an uppercase code, from `src/prometheus_exporter/errors.uc`, a
 
 | Code | Meaning | Raised by |
 | :--- | :--- | :--- |
-| `SCRAPE_DEADLINE` | The scrape's time was nearly spent: the collector was not run, or a program it ran was killed at the deadline, so that the scrape answers before the scraper gives up. The scrape logs every such collector in one line. See [About deadlines and circuit breakers](../explanation/deadlines-and-breakers.md). | `deps.uc`, `ledger.uc`, `runner.uc`, `scrape.uc` |
+| `SCRAPE_DEADLINE` | The scrape's time was nearly spent: the collector was not run, or a program it ran was killed at the deadline, so that the scrape answers before the scraper gives up. The scrape logs every such collector in one line. See [About deadlines and circuit breakers](../explanation/deadlines-and-breakers.md). | `conform.uc`, `deps.uc`, `ledger.uc`, `runner.uc`, `scrape.uc` |
 | `COLLECTOR_QUARANTINED` | The collector's circuit breaker is open: it was not run in this scrape, even if the query named it. The detail says what tripped the breaker and when the collector is tried again; a restart of the service tries it at once. | `ledger.uc` |
 | `COLLECTOR_OVERRUN` | What tripped a breaker: the collector took longer than its `budget`. The detail is how long it took and its budget. The run itself counts as it went; its breaker trips. | `ledger.uc` |
 
@@ -47,10 +47,10 @@ A failure carries an uppercase code, from `src/prometheus_exporter/errors.uc`, a
 
 | Code | Meaning | Raised by |
 | :--- | :--- | :--- |
-| `COLLECTOR_CANCELLED` | The collector was still running at the end of its `budget`, and was stopped with the process it ran in: a loop that never ends, or a system call that never returns. None of its samples are served, and its breaker trips. See [Collector contract](collector-contract.md). | `ledger.uc`, `runner.uc` |
-| `COLLECTOR_KILLED` | The process the collector ran in ended while it ran: it went past the memory limit, a native module crashed, or it called `exit()`; or the scrape process itself died while it ran, which the next scrape finds. None of its samples are served, and its breaker trips. | `ledger.uc`, `runner.uc` |
-| `SAMPLE_LIMIT` | The collector wrote more samples than its `max_samples`, and was stopped there. The detail says how many and in which family. None of its samples are served. | `scrape.uc` |
-| `FAMILY_CONFLICT` | The collector wrote a family that another collector of the reply wrote first, or one the exporter keeps for itself (`node_scrape_collector_*`, `ucode_prometheus_exporter_*`). The detail names it. None of its samples are served. | `scrape.uc` |
+| `COLLECTOR_CANCELLED` | The collector was still running at the end of its `budget`, and was stopped with the process it ran in: a loop that never ends, or a system call that never returns. None of its samples are served, and its breaker trips. See [Collector contract](collector-contract.md). | `conform.uc`, `ledger.uc`, `runner.uc` |
+| `COLLECTOR_KILLED` | The process the collector ran in ended while it ran: it went past the memory limit, a native module crashed, or it called `exit()`; or the scrape process itself died while it ran, which the next scrape finds. None of its samples are served, and its breaker trips. | `conform.uc`, `ledger.uc`, `runner.uc` |
+| `SAMPLE_LIMIT` | The collector wrote more samples than its `max_samples`, and was stopped there. The detail says how many and in which family. None of its samples are served. | `conform.uc`, `scrape.uc` |
+| `FAMILY_CONFLICT` | The collector wrote a family that another collector of the reply wrote first, or one the exporter keeps for itself (`node_scrape_collector_*`, `ucode_prometheus_exporter_*`). The detail names it. None of its samples are served. | `conform.uc`, `scrape.uc` |
 
 ## Exposition text
 

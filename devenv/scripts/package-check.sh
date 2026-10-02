@@ -65,8 +65,8 @@ check "keeps its config as a conffile" test -f /etc/config/$NAME
 check "runs its uci-defaults script once" test ! -e /etc/uci-defaults/$NAME-import
 check "the init script parses" sh -n /etc/init.d/$NAME
 
-check "every installed collector loads" test "$($NAME -l 2>/dev/null | wc -l)" -eq "$(installed)"
-check "the command line scrapes" sh -c "$NAME loadavg | grep -q '^node_load1 '"
+check "every installed collector loads" test "$($NAME collector list 2>/dev/null | wc -l)" -eq "$(installed)"
+check "the command line scrapes" sh -c "$NAME scrape loadavg | grep -q '^node_load1 '"
 
 # What the init script starts, less procd's jail; procd's and netifd's objects are
 # stand-ins answering with the caju router's replies, and procd's service list

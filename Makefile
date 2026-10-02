@@ -191,7 +191,7 @@ docs-test:  ; @$(MAKE) -C docs test
 docs-serve: ; @$(MAKE) -C docs serve
 
 # The reference pages the code holds as data (docs/reference/collectors.md,
-# metrics.md, uci-config.md, error-codes.md), from the code, the fixtures and
+# metrics.md, uci-config.md, error-codes.md, command.md), from the code, the fixtures and
 # docs/gen/notes.uc; make lint fails while one is out of date. Only
 # docs/reference is writable, and the files stay the invoking user's.
 docs-gen: $(IMAGE_STAMP)

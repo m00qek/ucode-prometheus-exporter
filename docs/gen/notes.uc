@@ -236,3 +236,55 @@ export const errors = {
 	FAMILY_CONFLICT: 'The collector wrote a family that another collector of the reply wrote first, or one the exporter keeps for itself (`node_scrape_collector_*`, `ucode_prometheus_exporter_*`). The detail names it. None of its samples are served.',
 	EXPOSITION_INVALID: 'Text that is not valid Prometheus exposition format: a `*.prom` file of textfile, which the collector then leaves out. The detail names the line.',
 };
+
+// The command line's reference page: its usage is cli.uc's USAGE, as docopt
+// parses it; each command of the usage needs an entry here, and an entry
+// for a command the usage lacks is refused.
+export const command = {
+	intro: '`/usr/bin/prometheus-exporter`, which the base package installs: a scrape on standard output, the checks of the service and of a collector module, and the hash of a password for basic auth. It parses its arguments with docopt (the `ucode-docopt` package) by the usage below, which is also what `-h` prints.',
+	usage: 'Up to 0.1, the command took the collectors alone, `prometheus-exporter [COLLECTOR...]`, and `-l` listed them: they are `prometheus-exporter scrape [<collector>...]` and `prometheus-exporter collector list` now. Arguments the usage does not take print it on standard error, with exit status `1`.',
+	commands: {
+		'scrape': {
+			does: 'Prints a scrape on standard output, as `/metrics` answers it: of every enabled collector, or of those named, by name (`ltq-dsl`) or module (`ltq_dsl`), in that order. For cron and push (see [How to push metrics](../how-to/push-metrics.md)), and for debugging.',
+			notes: [
+				'Each collector runs as the service runs it: in a process of its own, stopped at its `budget`, at most its `max_samples`, its families its own; the scrape has the main section\'s `scrape_timeout` (see [Collector contract](collector-contract.md)).',
+				'It has no ledger: nothing is quarantined, and the collectors run in their order, slow ones too, within the scrape\'s time.',
+				'`--dir` loads the collectors of a directory on ucode\'s module path, as a source tree\'s with `ucode -L src`, not the installed ones.',
+				'It never compresses and never asks for basic auth: those are the HTTP endpoint\'s.',
+			],
+			exit: [ [ '0', 'The scrape was printed, whatever its collectors did.' ], [ '1', 'The scrape was refused: a collector that is not installed, or one that is disabled, said on standard error as `COLLECTOR_INVALID (unknown collector \'nope\')`.' ] ],
+			example: '$ prometheus-exporter scrape loadavg\n# HELP node_load1 1m load average.\n# TYPE node_load1 gauge\nnode_load1 0.72\n...\nucode_prometheus_exporter_build_info{version="0.2.0-r1"} 1',
+		},
+		'check': {
+			does: 'Checks the configuration as the exporter and the init script read it, describes every installed collector (its section, options, needs and what the jail gives it), and runs a scrape of the enabled ones, outside the jail, each as the service runs it; then what the service\'s own scrapes found: each collector quarantined, and each the deadline left out lately. `service prometheus-exporter check` runs it. With `--config`, the configuration alone, as `start` and `reload` check it. See [Service commands](service-commands.md#check).',
+			exit: [ [ '0', 'The configuration is valid, whatever the collectors did.' ], [ '1', 'It is not: a line starts `FAIL`.' ] ],
+		},
+		'collector list': {
+			does: 'Prints a line per installed collector: its name, `enabled` or `disabled`, and what it collects.',
+			notes: [ '`--dir` lists a directory\'s, as `scrape` loads them.' ],
+			exit: [ [ '0', 'Always.' ] ],
+			example: '$ prometheus-exporter collector list\nconntrack                enabled  Connection tracking table usage, from /proc/sys/net/netfilter.\ncpu                      enabled  CPU time per mode, from /proc/stat.\n...',
+		},
+		'collector check': {
+			does: 'Checks a collector module before it is installed, on the device it is meant for: whether it keeps the [collector contract](collector-contract.md). It reads `<path>`, which must be `<module>.uc`, loads it under the load timer (5 s), validates its `meta`, and runs it as the service would, in a process of its own, at most its budget and its `max_samples`. It says how long it took to load and to run, the samples it wrote and its families, and then whether its text is valid exposition, each series once, and whether a family is one an installed collector or the exporter writes.',
+			notes: [
+				'A line starts `ok`, `warn` or `FAIL`. A rule broken is `FAIL`: not in strict mode; not loading, or not in time; a `meta` that is not valid; stopped at its budget or at the deadline, killed, over its `max_samples`, crashing, or not returning a Result; text that is not valid; a family another writes.',
+				'A failure that is the device\'s (`SOURCE_*`, `UBUS_*`, `COMMAND_FAILED`, `NEED_MISSING`) is `warn`, and so is nothing to observe: it may do its job on another device.',
+				'A module of the same name already installed is left out of the families it is compared with: a new version of a collector can be checked beside the old.',
+			],
+			exit: [ [ '0', 'No rule is broken.' ], [ '1', 'One is: a line starts `FAIL`.' ] ],
+			example: '$ prometheus-exporter collector check /tmp/apk_updates.uc\nok   strict mode: \'use strict\' first\nok   load: 0.004 s, of at most 5 s\nok   meta: apk_updates (APK updates), needs exec, budget 6 s, max_samples 20000\nok   run: 0.412 s, 3 samples in 2 families\nok   families: apk_upgradable_packages apk_installed_packages\nok   exposition: valid text, each series once',
+		},
+		'hash-password': {
+			does: 'Reads a password and prints its hash, SHA-512-crypt of 1000 rounds, freshly salted: the value `auth_password` takes. From a terminal it asks for the password, which it does not echo; otherwise it reads the first line of standard input. The password is never printed, nor taken as an argument, where `ps` would show it.',
+			exit: [ [ '0', 'The hash was printed.' ], [ '1', 'No password, or one it does not take: why, on standard error.' ] ],
+			example: '$ prometheus-exporter hash-password\nPassword:\n$6$rounds=1000$...',
+		},
+	},
+	everywhere: [
+		'It reads the committed configuration, as the service does: a collector disabled in `/etc/config/prometheus-exporter` is left out, and naming it is refused.',
+		'It runs as the user who runs it, outside the jail: a collector that works here and fails under the service lacks something in the jail; see [The jail](jail.md).',
+		'What the exporter logs goes to standard error, whatever its level.',
+		'The version (`--version`, and the build info\'s `version`) is the package\'s, `<version>-r<release>`, or `dev` from a source tree.',
+	],
+};

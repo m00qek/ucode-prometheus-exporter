@@ -225,7 +225,7 @@ popen_ms() {
 }
 duration_ms() { grep '^node_scrape_collector_duration_seconds{collector="nft-counters"}' | awk '{ s += $2 * 1000 } END { printf "%.1f\n", s / NR }'; }
 set -- $(popen_ms nft --json list counters) $(popen_ms ethtool -S e2e0)
-outside=$(i=0; while [ $i -lt $RUNS ]; do $NAME nft-counters; i=$((i + 1)); done | duration_ms)
+outside=$(i=0; while [ $i -lt $RUNS ]; do $NAME scrape nft-counters; i=$((i + 1)); done | duration_ms)
 inside=$(i=0; while [ $i -lt $RUNS ]; do fetch 'collect[]=nft-counters'; i=$((i + 1)); done | duration_ms)
 echo "info mean of $RUNS runs: nft $1 ms by popen, $2 ms through the watchdog;" \
 	"ethtool -S on a veth $3 ms by popen, $4 ms through the watchdog;" \
@@ -327,7 +327,7 @@ eventually "chrony reads chronyd in the jail" metric 'chrony_tracking_stratum 0$
 check "observing it" observing chrony 1
 check "its tracking, unsynchronized" metric 'chrony_tracking_info{tracking_address="",tracking_name="",tracking_refid="00000000"} 1$'
 check "but no serverstats in the jail, which gives chronyc no command socket" fails metric 'chrony_serverstats_'
-check "which it reads outside the jail, where chronyd serves time" says '^chrony_serverstats_command_packets_received_total ' "$NAME" chrony
+check "which it reads outside the jail, where chronyd serves time" says '^chrony_serverstats_command_packets_received_total ' "$NAME" scrape chrony
 check "timesync says chronyd is not synchronized, running chronyc in the jail" metric 'node_timesync_synchronized{daemon="chronyd"} 0$'
 check "beside busybox ntpd" metric 'node_timesync_synchronized{daemon="ntpd"} '
 /etc/init.d/chronyd stop

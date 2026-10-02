@@ -6,6 +6,8 @@ USE_PROCD=1
 
 NAME=prometheus-exporter
 LIBEXEC=/usr/libexec/$NAME
+# The command line: check, as this script's own check and before start and reload.
+COMMAND=/usr/bin/$NAME
 HANDLER=$LIBEXEC/handler.uc
 COLLECTORS=/usr/share/ucode/prometheus_exporter/collectors
 # The realm of basic auth, as prometheus_exporter.auth names it.
@@ -33,7 +35,7 @@ service_enabled() {
 # $1: what happens when the configuration is invalid
 config_valid() {
 	local report
-	report=$("$LIBEXEC/check.uc" --config 2>&1) && return 0
+	report=$("$COMMAND" check --config 2>&1) && return 0
 	echo "$report" | logger -s -t "$NAME" -p daemon.err
 	logger -s -t "$NAME" -p daemon.err "$1"
 	return 1
@@ -219,5 +221,5 @@ status_service() {
 }
 
 check() {
-	"$LIBEXEC/check.uc"
+	"$COMMAND" check
 }
