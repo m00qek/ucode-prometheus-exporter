@@ -109,6 +109,13 @@ describe('jail.resolve_paths', () => {
 		assert.match([ [ { directory: '/srv/prom' }, { dhcp: 'handle' } ] ], seen);
 	});
 
+	it('takes an option\'s directory that ends in /, as the collector reads it, as the directory', () => {
+		let meta = { paths: [ { path: '{directory}', owned: true } ] };
+
+		assert.match({ paths: [ '/srv/prom' ], owned: [ '/srv/prom' ], problems: [] }, jail.resolve_paths(meta, { directory: '/srv/prom//' }, {}));
+		assert.match({ paths: [], owned: [], problems: [ '/ is too broad to mount for one collector' ] }, jail.resolve_paths(meta, { directory: '/' }, {}));
+	});
+
 	it('says which paths are owned, and owns none that is not a mount', () => {
 		let meta = { paths: [ { path: '{directory}', owned: true }, '/var/run/x' ] };
 

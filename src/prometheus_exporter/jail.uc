@@ -140,6 +140,10 @@ export function resolve_paths(meta, options, handles) {
 				push(problems, `${entry}: an option it names is not a string`);
 				continue;
 			}
+			// An option's directory may end in '/', as datatype directory
+			// takes it and the collector reads it: the same directory.
+			if (length(p) > 1 && substr(p, -1) == '/')
+				p = rtrim(p, '/') || '/';
 			got = [ p ];
 		}
 

@@ -645,8 +645,11 @@ eventually "textfile reads its new directory" metric 'e2e_moved_value 7$'
 set_config "$NAME.textfile.enabled=0" "$NAME.textfile.directory=/srv/e2e-off"
 eventually "a disabled textfile is not served" not_served textfile
 check "nor its directory made" test ! -e /srv/e2e-off
-set_config "$NAME.textfile.enabled=1" "$NAME.textfile.directory=/srv/e2e-prom"
+# A directory with a trailing /, as its datatype takes it: the same one.
+set_config "$NAME.textfile.enabled=1" "$NAME.textfile.directory=/srv/e2e-prom/"
 eventually "enabled again, it is served" served textfile
+check "its directory named with a trailing / is mounted" mounted /srv/e2e-prom
+eventually "and read in the jail" metric 'e2e_moved_value 7$'
 
 before=$(pid)
 set_config "$NAME.main.listen_port=http"
