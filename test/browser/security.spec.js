@@ -39,13 +39,14 @@ test.describe('Data from the router is shown as text, never markup', () => {
     const dialog = await h.editCollector(page, 'sampler');
     await dialog.locator(`[id="widget.cbid.${h.CONFIG}.sampler.retries"]`).fill(h.HOSTILE);
     await dialog.getByRole('button', { name: 'Save', exact: true }).click();
-    await expect(dialog.locator('.alert-message.error li')).toHaveText([ `retries: expected an integer, got "${h.HOSTILE}"` ]);
+    await expect(dialog.locator('.alert-message.error .exporter-line')).toHaveText([ `retries: expected an integer, got "${h.HOSTILE}"` ]);
     await expectInert(page);
     await dialog.getByRole('button', { name: 'Dismiss', exact: true }).click();
 
     await h.showTab(page, 'exporter');
     await page.locator(`[id="widget.cbid.${h.CONFIG}.main.listen_port"]`).fill('0');
     await page.locator('#view .cbi-page-actions').getByText('Save & Apply', { exact: true }).click();
+    await expect(h.saveError(page)).toBeVisible();
     await expect(page.locator('#view .alert-message.error')).toBeVisible();
     await expectInert(page);
   });

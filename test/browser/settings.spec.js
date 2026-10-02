@@ -55,6 +55,27 @@ async function saveAndApply(page) {
   await page.locator('#view .cbi-page-actions').getByText('Save & Apply', { exact: true }).click();
 }
 
+// The Save error dialog a refused Save shows, with the list of what was refused; dismissed.
+async function refused(page, items) {
+  const dialog = h.saveError(page);
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText('Nothing was saved: the exporter would refuse these values.');
+  await expect(dialog.locator('.exporter-line')).toHaveText(items);
+  await dialog.getByRole('button', { name: 'Dismiss', exact: true }).click();
+  await expect(h.modal(page)).toBeHidden();
+}
+
+// The ids of the Collectors tab's rows, in order.
+async function rowIds(page) {
+  return page.locator('#view tr[data-collector]').evaluateAll((trs) => trs.map((tr) => tr.getAttribute('data-collector')));
+}
+
+// The plugin's collectors by title, as the Collectors tab lists them.
+function byTitle(collectors) {
+  const title = (c) => c.title || c.name;
+  return collectors.slice().sort((a, b) => title(a).localeCompare(title(b)));
+}
+
 // LuCI confirms an apply from the page that made it; one left unconfirmed would be
 // confirmed by the next page loaded, in the next test.
 async function applied(page) {
@@ -84,7 +105,10 @@ test.describe('Services → Prometheus exporter', () => {
     await expect(field(page, 'listen_port')).toHaveValue('9102');
     await expect(field(page, 'http_keepalive')).toHaveValue('0');
     await expect(field(page, 'cert')).toHaveValue('');
-    await expect(field(page, 'cert')).toHaveAttribute('placeholder', '/etc/uhttpd.crt');
+    // No placeholder that reads as a value: the description names uhttpd's files.
+    await expect(field(page, 'cert')).not.toHaveAttribute('placeholder', /./);
+    await expect(field(page, 'key')).not.toHaveAttribute('placeholder', /./);
+    await expect(page.locator(`[data-name="cert"] .cbi-value-description`)).toContainText('/etc/uhttpd.crt');
     await expect(flag(page, 'omit_zero_values')).toBeChecked();
     await expect(field(page, 'exec_timeout')).toHaveValue('8');
     await expect(page.locator('#view .cbi-map-descr a')).toHaveAttribute('href', `/cgi-bin/luci/admin/status/${h.CONFIG}`);
@@ -150,8 +174,8 @@ test.describe('Services → Prometheus exporter', () => {
     await h.openSettings(page);
     await h.showTab(page, 'collectors');
 
-    const rows = await page.locator('#view tr[data-collector]').evaluateAll((trs) => trs.map((tr) => tr.getAttribute('data-collector')));
-    expect(rows).toEqual(plugin.collectors.map((c) => c.id));
+    const rows = await rowIds(page);
+    expect(rows).toEqual(byTitle(plugin.collectors).map((c) => c.id));
     expect(rows).toEqual(expect.arrayContaining([ 'loadavg', 'wifi', 'textfile', 'dhcp_leases', 'wireguard', 'ltq_dsl', 'sampler', 'runner' ]));
 
     const headers = await page.locator('#view table.cbi-section-table th').allTextContents();
@@ -159,29 +183,49 @@ test.describe('Services → Prometheus exporter', () => {
 
     await expect(h.collectorRow(page, 'loadavg').locator('td').nth(0)).toContainText('Load average');
     await expect(h.collectorRow(page, 'loadavg').locator('td').nth(0)).toContainText('Load averages');
-    await expect(h.collectorRow(page, 'loadavg').locator('td').nth(1)).toHaveText('base');
-    await expect(h.collectorRow(page, 'wifi').locator('td').nth(1)).toHaveText(`${h.PACKAGE}-wifi`);
-    await expect(h.collectorRow(page, 'sampler').locator('td').nth(1)).toHaveText('none');
+    // A package by the rest of its name, the whole of it on hover.
+    await expect(h.collectorRow(page, 'loadavg').locator('td').nth(1)).toHaveText('Base');
+    await expect(h.collectorRow(page, 'wifi').locator('td').nth(1)).toHaveText('wifi');
+    await expect(h.collectorRow(page, 'wifi').locator('td').nth(1).locator('code')).toHaveAttribute('title', `${h.PACKAGE}-wifi`);
+    await expect(h.collectorRow(page, 'ltq_dsl').locator('td').nth(1)).toHaveText('ltq-dsl');
+    await expect(h.collectorRow(page, 'sampler').locator('td').nth(1)).toHaveText('None');
     await expect(h.collectorRow(page, 'ltq_dsl').locator('td').first()).toContainText('ltq-dsl');
+    await expect(page.locator('#view .exporter-count')).toHaveText(`${rows.length} of ${rows.length} collectors enabled`);
 
     for (const id of [ 'loadavg', 'wifi', 'sampler', 'textfile' ])
       await expect(toggle(page, id)).toBeChecked();
 
     const editable = await page.locator('#view tr[data-collector]').evaluateAll((trs) =>
       trs.filter((tr) => tr.querySelector('button.cbi-button-edit')).map((tr) => tr.getAttribute('data-collector')));
-    expect(editable).toEqual(plugin.collectors.filter((c) => c.options.length > 0).map((c) => c.id));
+    expect(editable).toEqual(byTitle(plugin.collectors).filter((c) => c.options.length > 0).map((c) => c.id));
     // runner declares no option, but runs a program: it has the core's timeout.
     expect(editable).toEqual(expect.arrayContaining([ 'wifi', 'textfile', 'dhcp_leases', 'wireguard', 'sampler', 'runner' ]));
     await expect(editButton(page, 'loadavg')).toHaveCount(0);
     await h.screenshot(page, 'settings-collectors');
   });
 
-  test('shows the switches as saved', async ({ page, request }) => {
+  test('lists the collectors by title, not by name', async ({ page, request }) => {
+    const plugin = await h.ubus(request, h.CONFIG, 'collectors', {});
+    await h.openSettings(page);
+    await h.showTab(page, 'collectors');
+    const titles = await page.locator('#view tr[data-collector] td:first-child strong').allTextContents();
+    expect(titles.length).toBe(plugin.collectors.length);
+    expect(titles).toEqual(titles.slice().sort((a, b) => a.localeCompare(b)));
+    // By name, Lantiq DSL line (ltq_dsl) would come after Load average (loadavg).
+    const rows = await rowIds(page);
+    expect(rows.indexOf('ltq_dsl')).toBeLessThan(rows.indexOf('loadavg'));
+  });
+
+  test('shows the switches as saved, and how many are on', async ({ page, request }) => {
     await h.useConfig(request, 'custom');
     await h.openSettings(page);
     await h.showTab(page, 'collectors');
     await expect(toggle(page, 'textfile')).not.toBeChecked();
     await expect(toggle(page, 'wifi')).toBeChecked();
+    const total = (await rowIds(page)).length;
+    await expect(page.locator('#view .exporter-count')).toHaveText(`${total - 1} of ${total} collectors enabled`);
+    await toggle(page, 'wifi').uncheck();
+    await expect(page.locator('#view .exporter-count')).toHaveText(`${total - 2} of ${total} collectors enabled`);
   });
 
   test('switching a collector off writes its section, every option stated, and switching it on again removes it', async ({ page, request }) => {
@@ -220,7 +264,8 @@ test.describe('Services → Prometheus exporter', () => {
     await expect(checkbox(page, 'sampler', 'verbose')).not.toBeChecked();
     await expect(dialog.locator('.cbi-value[data-option="retries"] .cbi-value-description')).toHaveText('How many times to try.');
     await expect(dialog.locator('.cbi-value[data-option="verbose"] .cbi-value-description')).toHaveText('Say more.');
-    await expect(dialog.locator('.exporter-reads')).toContainText('Its jail mounts nothing for it but what every collector gets');
+    await expect(dialog.locator('.exporter-reads [data-info="jail"]')).toHaveText(/^Jail mounts\s*Only what every collector gets/);
+    await expect(dialog.locator('.exporter-reads small')).toHaveCount(0);
     await h.screenshot(page, 'settings-dialog');
     await dismissDialog(page);
 
@@ -230,13 +275,13 @@ test.describe('Services → Prometheus exporter', () => {
 
     dialog = await h.editCollector(page, 'textfile');
     await expect(option(page, 'textfile', 'directory')).toHaveAttribute('placeholder', '/var/prometheus');
-    await expect(dialog.locator('.exporter-reads')).toContainText('Its jail mounts, as saved: /var/prometheus.');
+    await expect(dialog.locator('.exporter-reads [data-info="jail"] .cbi-value-field')).toHaveText('/var/prometheus');
     await dismissDialog(page);
 
     dialog = await h.editCollector(page, 'dhcp_leases');
     await expect(checkbox(page, 'dhcp_leases', 'leases')).not.toBeChecked();
-    await expect(dialog.locator('.exporter-reads')).toContainText('Reads /etc/config/dhcp.');
-    await expect(dialog.locator('.exporter-reads')).toContainText('Its jail mounts, as saved: /etc/config/dhcp');
+    await expect(dialog.locator('.exporter-reads [data-info="reads"] .cbi-value-field')).toHaveText('/etc/config/dhcp');
+    await expect(dialog.locator('.exporter-reads [data-info="jail"] .cbi-value-field')).toContainText('/etc/config/dhcp');
     await dismissDialog(page);
   });
 
@@ -323,7 +368,7 @@ test.describe('Services → Prometheus exporter', () => {
     await expect(option(page, 'runner', 'timeout')).toHaveValue('');
     await expect(option(page, 'runner', 'timeout')).toHaveAttribute('placeholder', '5');
     await expect(dialog.locator('.cbi-value[data-option="timeout"] .cbi-value-description')).toContainText('Seconds the programs of this collector get');
-    await expect(dialog.locator('.exporter-reads')).toContainText('Runs true.');
+    await expect(dialog.locator('.exporter-reads [data-info="runs"] .cbi-value-field')).toHaveText('true');
     await h.screenshot(page, 'settings-dialog-timeout');
     await option(page, 'runner', 'timeout').fill('2');
     await saveDialog(page);
@@ -370,7 +415,8 @@ test.describe('Services → Prometheus exporter', () => {
     await field(page, 'exec_timeout').fill('31');
     await expect(field(page, 'exec_timeout')).toHaveClass(/cbi-input-invalid/);
     await saveAndApply(page);
-    await expect(page.locator('#view .alert-message.error li')).toHaveText([ 'Time for programs: expected an integer from 1 to 30, got 31' ]);
+    await refused(page, [ 'Program timeout: expected an integer from 1 to 30, got 31' ]);
+    await expect(page.locator('#view .alert-message.error .exporter-line')).toHaveText([ 'Program timeout: expected an integer from 1 to 30, got 31' ]);
     expect(await h.readConfig(request)).toBe(before);
     await field(page, 'exec_timeout').fill('5');
 
@@ -378,7 +424,7 @@ test.describe('Services → Prometheus exporter', () => {
     await option(page, 'runner', 'timeout').fill('0');
     await expect(option(page, 'runner', 'timeout')).toHaveClass(/cbi-input-invalid/);
     await h.modal(page).getByRole('button', { name: 'Save', exact: true }).click();
-    await expect(h.modal(page).locator('.alert-message.error li')).toHaveText([ 'timeout: expected an integer from 1 to 30, got 0' ]);
+    await expect(h.modal(page).locator('.alert-message.error .exporter-line')).toHaveText([ 'timeout: expected an integer from 1 to 30, got 0' ]);
     await dismissDialog(page);
     expect(await h.staged(page)).toEqual({});
     expect(await h.readConfig(request)).toBe(before);
@@ -411,7 +457,7 @@ test.describe('Services → Prometheus exporter', () => {
     await expect(option(page, 'sampler', 'retries')).toHaveClass(/cbi-input-invalid/);
     await expect(option(page, 'sampler', 'retries')).toHaveAttribute('data-tooltip', 'Expecting: valid integer value');
     await h.modal(page).getByRole('button', { name: 'Save', exact: true }).click();
-    await expect(h.modal(page).locator('.alert-message.error li')).toHaveText([ 'retries: expected an integer, got "many"' ]);
+    await expect(h.modal(page).locator('.alert-message.error .exporter-line')).toHaveText([ 'retries: expected an integer, got "many"' ]);
     await expect(h.modal(page)).toBeVisible();
     await dismissDialog(page);
 
@@ -467,8 +513,12 @@ test.describe('Services → Prometheus exporter', () => {
     await expect(field(page, 'listen_port')).toHaveClass(/cbi-input-invalid/);
     await expect(field(page, 'listen_port')).toHaveAttribute('data-tooltip', 'expected an integer from 1 to 65535, got 0');
     await saveAndApply(page);
+    await expect(h.saveError(page)).toBeVisible();
+    await h.screenshot(page, 'settings-refused-dialog');
+    await refused(page, [ 'Port: expected an integer from 1 to 65535, got 0' ]);
+    // And above the form, until it is fixed.
     await expect(page.locator('#view .alert-message.error')).toContainText('Nothing was saved: the exporter would refuse these values.');
-    await expect(page.locator('#view .alert-message.error li')).toHaveText([ 'Port: expected an integer from 1 to 65535, got 0' ]);
+    await expect(page.locator('#view .alert-message.error .exporter-line')).toHaveText([ 'Port: expected an integer from 1 to 65535, got 0' ]);
     expect(await h.readConfig(request)).toBe(before);
     await h.screenshot(page, 'settings-refused');
 
@@ -488,7 +538,7 @@ test.describe('Services → Prometheus exporter', () => {
     await expect(note).toHaveText('The saved settings are not valid: CONFIG_INVALID (retries: expected an integer, got "many")');
 
     await saveAndApply(page);
-    await expect(page.locator('#view .alert-message.error li')).toHaveText([ 'sampler retries: expected an integer, got "many"' ]);
+    await refused(page, [ 'sampler retries: expected an integer, got "many"' ]);
     expect(await h.readConfig(request)).toBe(before);
 
     await h.editCollector(page, 'sampler');
@@ -500,6 +550,102 @@ test.describe('Services → Prometheus exporter', () => {
     await saveAndApply(page);
     await applied(page);
     expect((await savedSections(request)).sampler).toBeUndefined();
+  });
+});
+
+test.describe('Services → Prometheus exporter: what the user sees where they are', () => {
+  test.afterEach(async ({ request }) => {
+    await h.useConfig(request, 'default');
+  });
+
+  test('a refused Save shows a dialog in view, from the bottom of the Collectors tab too', async ({ page, request }) => {
+    const before = await h.readConfig(request);
+    await h.openSettings(page);
+    await field(page, 'listen_port').fill('0');
+    await expect(field(page, 'listen_port')).toHaveClass(/cbi-input-invalid/);
+    await h.showTab(page, 'collectors');
+    await page.locator('#view .cbi-page-actions').scrollIntoViewIfNeeded();
+    await saveAndApply(page);
+    const dialog = h.saveError(page);
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toBeInViewport();
+    await page.waitForTimeout(300);
+    await expect(dialog.locator('.exporter-line')).toHaveText([ 'Port: expected an integer from 1 to 65535, got 0' ]);
+    await page.screenshot({ path: `${__dirname}/../results/screenshots/settings-refused-from-collectors.png` });
+    // Escape dismisses it, as Dismiss does.
+    await page.keyboard.press('Escape');
+    await expect(h.modal(page)).toBeHidden();
+    expect(await h.readConfig(request)).toBe(before);
+  });
+
+  test('Edit gives the focus to the dialog\'s first field, and Dismiss, Escape and Save give it back to Edit', async ({ page }) => {
+    await h.openSettings(page);
+    await h.editCollector(page, 'sampler');
+    await expect(option(page, 'sampler', 'retries')).toBeFocused();
+    await dismissDialog(page);
+    await expect(editButton(page, 'sampler')).toBeFocused();
+
+    await editButton(page, 'sampler').click();
+    await expect(option(page, 'sampler', 'retries')).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(h.modal(page)).toBeHidden();
+    await expect(editButton(page, 'sampler')).toBeFocused();
+
+    await editButton(page, 'sampler').click();
+    await option(page, 'sampler', 'retries').fill('4');
+    await saveDialog(page);
+    await expect(editButton(page, 'sampler')).toBeFocused();
+  });
+
+  test('the dialog\'s buttons are LuCI\'s: a button row, Dismiss first', async ({ page }) => {
+    await h.openSettings(page);
+    await expect(editButton(page, 'sampler')).toHaveClass('btn cbi-button cbi-button-edit');
+    const dialog = await h.editCollector(page, 'sampler');
+    const buttons = dialog.locator(':scope > .button-row > button');
+    await expect(buttons).toHaveText([ 'Dismiss', 'Save' ]);
+    await expect(buttons.nth(0)).toHaveClass('btn cbi-button');
+    await expect(buttons.nth(1)).toHaveClass(/^btn cbi-button cbi-button-positive important/);
+    await dismissDialog(page);
+  });
+
+  test('without the exporter\'s ubus object, says so in words, reads no collector, and saves nothing', async ({ page }) => {
+    await h.withoutObject(page);
+    await h.open(page, `admin/services/${h.CONFIG}`);
+    const alert = page.locator('#view .alert-message.warning');
+    await expect(alert).toHaveText([
+      'The exporter\'s ubus object is not available (rpcd may be restarting). Reload in a moment. Until then the settings are read-only.',
+    ]);
+    await expect(page.locator('#view')).not.toContainText('No collector is installed.');
+    await expect(page.locator('#view')).not.toContainText('handleCallReply');
+    await expect(page.locator('#view')).not.toContainText('-32000');
+    await h.showTab(page, 'collectors');
+    await expect(page.locator('#view table.cbi-section-table .placeholder')).toHaveText('The collectors could not be read.');
+    await expect(page.locator('#view .cbi-page-actions .cbi-button-save')).toBeDisabled();
+    await expect(flag(page, 'enabled')).toBeDisabled();
+    await h.screenshot(page, 'settings-without-object');
+  });
+});
+
+test.describe('Services → Prometheus exporter, for a login that may only read', () => {
+  test('opens a collector\'s options, but cannot change or save them', async ({ page, request }) => {
+    const before = await h.readConfig(request);
+    await h.openSettings(page, h.VIEWER);
+    await expect(page.locator('#view .cbi-page-actions .cbi-button-save')).toBeDisabled();
+    await expect(field(page, 'listen_port')).toBeDisabled();
+    await h.showTab(page, 'collectors');
+    await expect(toggle(page, 'wifi')).toBeDisabled();
+    await expect(editButton(page, 'sampler')).toBeEnabled();
+
+    const dialog = await h.editCollector(page, 'sampler');
+    await expect(option(page, 'sampler', 'retries')).toBeDisabled();
+    await expect(checkbox(page, 'sampler', 'verbose')).toBeDisabled();
+    await expect(dialog.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
+    await expect(dialog.getByRole('button', { name: 'Dismiss', exact: true })).toBeFocused();
+    await h.screenshot(page, 'settings-viewer-dialog');
+    await dismissDialog(page);
+    await expect(editButton(page, 'sampler')).toBeFocused();
+    expect(await h.staged(page)).toEqual({});
+    expect(await h.readConfig(request)).toBe(before);
   });
 });
 

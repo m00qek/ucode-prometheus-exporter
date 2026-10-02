@@ -14,29 +14,36 @@
 // The exporter's uci config, and its ubus object: both take the name of its service.
 const CONFIG = 'prometheus-exporter';
 
+// Every call rejects when ubus answers other than OK (`reject`), so that a missing object
+// or method fails the call as uhttpd's own errors do, and describeError() says why.
+
 const callCollectors = rpc.declare({
 	object: CONFIG,
-	method: 'collectors'
+	method: 'collectors',
+	reject: true
 });
 
 const callValidate = rpc.declare({
 	object: CONFIG,
 	method: 'validate',
-	params: [ 'main', 'collectors' ]
+	params: [ 'main', 'collectors' ],
+	reject: true
 });
 
 // netifd's logical interfaces, by name and protocol: what the listen interface
 // takes. The object reads them for a login that may not read the network config.
 const callInterfaces = rpc.declare({
 	object: CONFIG,
-	method: 'interfaces'
+	method: 'interfaces',
+	reject: true
 });
 
 // Runs a scrape of the enabled collectors on the router, so it is only called on
 // request: when the status page opens, and on Refresh.
 const callStatus = rpc.declare({
 	object: CONFIG,
-	method: 'status'
+	method: 'status',
+	reject: true
 });
 
 // The crypt hash of a password, which auth_password holds: the password never reaches
@@ -44,7 +51,8 @@ const callStatus = rpc.declare({
 const callHashPassword = rpc.declare({
 	object: CONFIG,
 	method: 'hash_password',
-	params: [ 'password' ]
+	params: [ 'password' ],
+	reject: true
 });
 
 // A regular expression, as vmstat's `fields` takes. The exporter compiles it as a
@@ -60,6 +68,30 @@ if (typeof(validation.types.regex) !== 'function') {
 			return this.assert(false, _('a valid regular expression'));
 		}
 	};
+}
+
+// What says the object or its method is not there: uhttpd's JSON-RPC errors for an object
+// it cannot find (-32000) and for access it cannot check (-32002: rpcd, which holds the
+// sessions, is not answering), and ubus' codes for a method or object not found (3, 4).
+// rpcd reloading, or the package being upgraded, has it for a moment.
+const UNAVAILABLE = /failed with (?:error (?:-32000|-32002)|ubus code [34]):/;
+
+// Whether a call failed for want of the object, as UNAVAILABLE has it.
+function isUnavailable(err) {
+	return UNAVAILABLE.test(String(err?.message ?? ''));
+}
+
+// What went wrong with a call, for the user: the object's absence in words, an error the
+// object answered ({ error, message }) by its message, and any other by the first line of
+// its message, without the stack trace LuCI appends to it.
+function describeError(err) {
+	if (isUnavailable(err))
+		return _('The exporter\'s ubus object is not available (rpcd may be restarting). Reload in a moment.');
+
+	if (L.isObject(err) && !(err instanceof Error))
+		return String(err.message ?? err.error ?? '');
+
+	return String(err?.message ?? err ?? '').split('\n')[0];
 }
 
 function lookup(table, key) {
@@ -114,6 +146,8 @@ return baseclass.extend({
 
 	lookup: lookup,
 	fill: fill,
+	isUnavailable: isUnavailable,
+	describeError: describeError,
 	datatypeOf: datatypeOf,
 	isTrue: isTrue,
 	isFalse: isFalse,

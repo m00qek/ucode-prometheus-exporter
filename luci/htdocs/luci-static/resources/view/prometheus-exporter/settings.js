@@ -8,11 +8,12 @@
 
 // Services → Prometheus exporter: /etc/config/prometheus-exporter as a form, in two tabs.
 // Exporter has the main section's options. Collectors has a row per installed collector, as
-// the ubus object's `collectors` lists them: its title and help, its package, its switch,
-// and, when it has options, an Edit button. Edit opens a dialog with a field per option
-// (the collector's own, and the core's timeout when it runs programs), whose Save stages
-// them in uci, as LuCI's own dialogs do; the page's Save & Apply applies them with the
-// rest, and Dismiss drops them.
+// the ubus object's `collectors` lists them, by title: its title and help, its package, its
+// switch, and, when it has options, an Edit button. Edit opens a dialog with a field per
+// option (the collector's own, and the core's timeout when it runs programs), whose Save
+// stages them in uci, as LuCI's own dialogs do; the page's Save & Apply applies them with
+// the rest, and Dismiss drops them. A read-only login opens the dialog too, its fields and
+// Save disabled, as LuCI's GridSection has it.
 //
 // What is saved states every setting: the main section's fields write their values even
 // at the defaults (but for the TLS files and basic auth, which are unset without them).
@@ -27,7 +28,9 @@
 //
 // The object's `validate` checks values as the exporter reads them: the main section's
 // while they are typed and again before Save, a dialog's while they are typed and again
-// before it stages them. Nothing the exporter would refuse is saved.
+// before it stages them. Nothing the exporter would refuse is saved: a Save it refuses says
+// why in a dialog, as LuCI's own Save error does, and above the form until it is fixed.
+// Without the object (rpcd reloading, the package upgraded), the page is read-only.
 //
 // Collector names and help, package names, interfaces and paths come from the router: they
 // reach E() only inside arrays, and never a form title or description, which LuCI renders
@@ -48,6 +51,9 @@ const PENDING_HASH = '$6$rounds=1000$$' + '.'.repeat(86);
 // The longest password the object hashes, in bytes.
 const PASSWORD_MAX = 256;
 
+// What every collector package's name starts with; the Package column shows the rest.
+const PACKAGE_PREFIX = 'ucode-prometheus-exporter-';
+
 function alertBox(kind, children) {
 	return E('div', { 'class': 'alert-message ' + kind }, children);
 }
@@ -62,6 +68,12 @@ function joined(items, separator) {
 	});
 
 	return out;
+}
+
+// A line of a list of what was refused or skipped. Not an <li>: a theme may colour list
+// items its own way, which an alert's colours do not reach (material's grey on red).
+function line(children) {
+	return E('div', { 'class': 'exporter-line' }, children);
 }
 
 function codes(items) {
@@ -169,11 +181,15 @@ const PasswordValue = form.Value.extend({
 		if (blank(typed))
 			return Promise.resolve();
 
+		const failed = (why) => new Error(_('The password could not be hashed:') + ' ' + why);
+
 		return exporter.hashPassword(typed).then((res) => {
 			if (!L.isObject(res) || typeof(res.hash) !== 'string')
-				throw new Error(_('The password could not be hashed:') + ' ' + String(res?.message ?? res?.error ?? ''));
+				throw failed(exporter.describeError(res));
 
 			uci.set(CONFIG, section_id, 'auth_password', res.hash);
+		}, (err) => {
+			throw failed(exporter.describeError(err));
 		});
 	}
 });
@@ -187,6 +203,7 @@ const CollectorTable = form.Value.extend({
 	__init__(...args) {
 		this.super('__init__', args);
 		this.collectors = [];
+		this.failed = false;
 		this.rows = [];
 		this.editor = null;
 	},
@@ -216,19 +233,35 @@ const CollectorTable = form.Value.extend({
 
 	renderWidget(section_id, option_index, cfgvalue) {
 		const headers = [ _('Collector'), _('Package'), _('Enabled'), '' ];
+		const title = (c) => String(c.title || c.name || '');
+		const sorted = this.collectors.slice().sort((a, b) => title(a).localeCompare(title(b)));
 
-		this.rows = this.collectors.map((c, i) => this.renderRow(c, i, headers));
+		this.rows = sorted.map((c, i) => this.renderRow(c, i, headers));
+		this.count = E('p', { 'class': 'exporter-count' }, []);
+		this.updateCount();
 
+		const empty = this.failed ? _('The collectors could not be read.') : _('No collector is installed.');
 		const body = this.rows.length ? this.rows.map((row) => row.node) : [
 			E('tr', { 'class': 'tr placeholder' }, [
-				E('td', { 'class': 'td', 'colspan': String(headers.length) }, [ E('em', {}, [ _('No collector is installed.') ]) ])
+				E('td', { 'class': 'td', 'colspan': String(headers.length) }, [ E('em', {}, [ empty ]) ])
 			])
 		];
 
-		return E('table', { 'class': 'table cbi-section-table', 'id': this.cbid(section_id) }, [
+		const table = E('table', { 'class': 'table cbi-section-table', 'id': this.cbid(section_id) }, [
 			E('tr', { 'class': 'tr table-titles' }, headers.map((h, i) =>
 				E('th', { 'class': (i === headers.length - 1) ? 'th cbi-section-actions' : 'th' }, [ h ])))
 		].concat(body));
+
+		table.addEventListener('widget-change', () => this.updateCount());
+		table.addEventListener('change', () => this.updateCount());
+
+		return E([], [ this.rows.length ? this.count : '', table ]);
+	},
+
+	// How many collectors are switched on, as the page has them.
+	updateCount() {
+		const on = this.rows.filter((row) => row.enabled.getValue() === '1').length;
+		dom.content(this.count, [ _('%d of %d collectors enabled').format(on, this.rows.length) ]);
 	},
 
 	renderRow(c, i, headers) {
@@ -240,14 +273,14 @@ const CollectorTable = form.Value.extend({
 			{ id: `cbid.${CONFIG}.${c.id}.enabled`, disabled: readonly });
 
 		const toggle = row.enabled.render();
-		toggle.querySelector('input').setAttribute('aria-label', fill(_('Enable %s'), c.name).join(''));
+		toggle.querySelector('input').setAttribute('aria-label', fill(_('Enable the %s collector'), c.name).join(''));
 
-		const edit = (c.options ?? []).length ? E('button', {
-			'class': 'cbi-button cbi-button-edit',
+		// A read-only login opens the dialog too: its fields and Save are disabled there.
+		row.edit = (c.options ?? []).length ? E('button', {
+			'class': 'btn cbi-button cbi-button-edit',
 			'title': fill(_('Edit the options of %s'), c.name).join(''),
-			'disabled': readonly ? '' : null,
 			'click': ui.createHandlerFn(this, 'openEditor', row)
-		}, [ _('Edit') ]) : '';
+		}, [ _('Edit') ]) : null;
 
 		row.node = E('tr', { 'class': 'tr cbi-section-table-row cbi-rowstyle-' + (1 + i % 2), 'data-collector': c.id }, [
 			E('td', { 'class': 'td', 'data-title': headers[0] }, [
@@ -255,18 +288,25 @@ const CollectorTable = form.Value.extend({
 			]),
 			E('td', { 'class': 'td', 'data-title': headers[1] }, [ this.packageOf(c) ]),
 			E('td', { 'class': 'td', 'data-title': headers[2] }, [ toggle ]),
-			E('td', { 'class': 'td cbi-section-actions' }, [ edit ])
+			E('td', { 'class': 'td cbi-section-actions' }, [ row.edit ?? '' ])
 		]);
 
 		return row;
 	},
 
-	// The base package, the removable package that installed it, or none.
+	// The base package, the removable package that installed it by the rest of its name
+	// (wifi for ucode-prometheus-exporter-wifi), or none.
 	packageOf(c) {
 		if (c.base === true)
-			return E('span', {}, [ _('base') ]);
+			return E('span', {}, [ _('Base') ]);
 
-		return c.package ? E('code', { 'style': 'white-space:nowrap' }, [ String(c.package) ]) : E('em', {}, [ _('none') ]);
+		if (!c.package)
+			return E('em', {}, [ _('None') ]);
+
+		const name = String(c.package);
+		const short = name.startsWith(PACKAGE_PREFIX) ? name.substring(PACKAGE_PREFIX.length) : name;
+
+		return E('code', { 'title': name }, [ short ]);
 	},
 
 	errorNote(error) {
@@ -274,25 +314,29 @@ const CollectorTable = form.Value.extend({
 			fill(_('The saved settings are not valid: %s'), String(error))) ] : [];
 	},
 
-	// What the collector reads, and what its jail gives it.
+	// What the collector reads, and what its jail gives it, as rows of the dialog.
 	reads(c) {
-		const lines = [];
+		const rows = [];
 		const mounts = c.jail?.mounts ?? [];
+		const problems = c.jail?.problems ?? [];
+		const info = (name, title, children) => E('div', { 'class': 'cbi-value', 'data-info': name }, [
+			E('label', { 'class': 'cbi-value-title' }, [ title ]),
+			E('div', { 'class': 'cbi-value-field' }, children)
+		]);
 
 		if ((c.configs ?? []).length)
-			lines.push(fill(_('Reads %s.'), codes(c.configs.map((name) => `/etc/config/${name}`))));
+			rows.push(info('reads', _('Reads'), codes(c.configs.map((name) => `/etc/config/${name}`))));
 
 		if ((c.commands ?? []).length)
-			lines.push(fill(_('Runs %s.'), codes(c.commands)));
+			rows.push(info('runs', _('Runs'), codes(c.commands)));
 
-		lines.push(mounts.length
-			? fill(_('Its jail mounts, as saved: %s.'), codes(mounts))
-			: [ _('Its jail mounts nothing for it but what every collector gets: procfs, sysfs, ubus and the log.') ]);
+		rows.push(info('jail', _('Jail mounts'), mounts.length ? codes(mounts)
+			: [ _('Only what every collector gets: procfs, sysfs, ubus and the log.') ]));
 
-		for (const problem of (c.jail?.problems ?? []))
-			lines.push(fill(_('Jail: %s'), String(problem)));
+		if (problems.length)
+			rows.push(info('problems', _('Jail problems'), problems.map((problem) => E('div', {}, [ String(problem) ]))));
 
-		return lines.map((line) => E('p', {}, [ E('small', {}, line) ]));
+		return rows;
 	},
 
 	// The dialog of a collector's options: a field per option, by its type, with its help,
@@ -305,25 +349,34 @@ const CollectorTable = form.Value.extend({
 
 		editor.node = E('div', { 'class': 'exporter-editor', 'data-collector': c.id }, [
 			E('p', {}, [ String(c.help ?? '') ]),
-			E('div', { 'class': 'cbi-section' }, [ E('div', { 'class': 'cbi-section-node' }, fields) ]),
-			E('div', { 'class': 'exporter-reads' }, this.reads(c)),
-			editor.problem,
-			E('div', { 'class': 'right' }, [
-				E('button', { 'class': 'cbi-button', 'click': ui.createHandlerFn(this, 'dismissEditor', editor) }, [ _('Dismiss') ]),
-				' ',
-				E('button', {
-					'class': 'cbi-button cbi-button-positive important',
-					'disabled': this.map.readonly ? '' : null,
-					'click': ui.createHandlerFn(this, 'saveEditor', editor)
-				}, [ _('Save') ])
-			])
+			E('div', { 'class': 'cbi-section' }, [
+				E('div', { 'class': 'cbi-section-node' }, fields),
+				E('div', { 'class': 'cbi-section-node exporter-reads' }, this.reads(c))
+			]),
+			editor.problem
+		]);
+
+		// As LuCI's own dialogs: Escape presses the first button of the row, Dismiss.
+		const buttons = E('div', { 'class': 'button-row' }, [
+			E('button', { 'class': 'btn cbi-button', 'click': ui.createHandlerFn(this, 'dismissEditor', editor) }, [ _('Dismiss') ]),
+			' ',
+			E('button', {
+				'class': 'btn cbi-button cbi-button-positive important',
+				'disabled': this.map.readonly ? '' : null,
+				'click': ui.createHandlerFn(this, 'saveEditor', editor)
+			}, [ _('Save') ])
 		]);
 
 		editor.node.addEventListener('input', () => this.scheduleEditorCheck(editor));
 		editor.node.addEventListener('widget-change', () => this.scheduleEditorCheck(editor));
 
 		this.editor = editor;
-		ui.showModal(exporter.nameOf(c), [ editor.node ], 'cbi-modal');
+		ui.showModal(exporter.nameOf(c), [ editor.node, buttons ], 'cbi-modal');
+
+		// The first field takes the focus; a read-only login's are disabled, so Dismiss does.
+		const first = editor.node.querySelector('input:not([type="hidden"]):not([disabled]), select:not([disabled])');
+		(first ?? buttons.querySelector('button')).focus();
+
 		this.checkEditor(editor);
 	},
 
@@ -356,7 +409,7 @@ const CollectorTable = form.Value.extend({
 		const input = node.querySelector('input:not([type="hidden"])');
 
 		if (input)
-			input.setAttribute('aria-label', fill(_('%s of %s'), o.name, c.name).join(''));
+			input.setAttribute('aria-label', fill(_('%s option of the %s collector'), o.name, c.name).join(''));
 
 		editor.fields.push({ option: o, widget: widget });
 
@@ -413,7 +466,7 @@ const CollectorTable = form.Value.extend({
 				return null;
 
 			if (!L.isObject(res) || !L.isObject(res.errors)) {
-				this.showEditorProblem(editor, [ _('The options could not be checked:'), ' ', String(res?.message ?? res?.error ?? '') ]);
+				this.showEditorProblem(editor, [ _('The options could not be checked:'), ' ', exporter.describeError(res) ]);
 				return null;
 			}
 
@@ -431,7 +484,7 @@ const CollectorTable = form.Value.extend({
 			return { ok: !Object.keys(errors).length, errors: errors };
 		}, (err) => {
 			if (seq === editor.seq)
-				this.showEditorProblem(editor, [ _('The options could not be checked:'), ' ', String(err?.message ?? err) ]);
+				this.showEditorProblem(editor, [ _('The options could not be checked:'), ' ', exporter.describeError(err) ]);
 			return null;
 		});
 	},
@@ -440,17 +493,23 @@ const CollectorTable = form.Value.extend({
 		dom.content(editor.problem, alertBox('error', children));
 	},
 
+	// Hides the dialog, and gives the focus back to the row's Edit: on Dismiss, on Escape
+	// (which presses Dismiss), and once Save has staged the values.
 	dismissEditor(editor) {
 		editor.seq++;
 		window.clearTimeout(editor.timer);
 		this.editor = null;
 		ui.hideModal();
+		editor.row.edit?.focus();
 	},
 
 	// Stages the dialog's values in uci when the exporter would take them all; the page's
 	// Save & Apply applies them.
 	saveEditor(editor) {
 		const c = editor.row.c;
+
+		if (this.map.readonly)
+			return Promise.resolve(null);
 
 		return this.checkEditor(editor).then((res) => {
 			if (res == null)
@@ -463,13 +522,13 @@ const CollectorTable = form.Value.extend({
 				const message = lookup(res.errors, name) ?? (f.widget.isValid() ? null : f.widget.getValidationError());
 
 				if (message != null)
-					refused.push(E('li', {}, [ E('code', {}, [ name ]), ': ', String(message) ]));
+					refused.push(line([ E('code', {}, [ name ]), ': ', String(message) ]));
 			}
 
 			if (refused.length) {
 				this.showEditorProblem(editor, [
 					E('p', {}, [ _('Nothing was staged: the exporter would refuse these values.') ]),
-					E('ul', {}, refused)
+					E('div', {}, refused)
 				]);
 				return null;
 			}
@@ -484,12 +543,10 @@ const CollectorTable = form.Value.extend({
 			}
 
 			return uci.save().then(() => {
-				editor.seq++;
-				this.editor = null;
-				ui.hideModal();
+				this.dismissEditor(editor);
 				return this.refreshNote(editor.row);
 			}, (err) => {
-				this.showEditorProblem(editor, [ _('The options could not be staged:'), ' ', String(err?.message ?? err) ]);
+				this.showEditorProblem(editor, [ _('The options could not be staged:'), ' ', exporter.describeError(err) ]);
 				return null;
 			});
 		});
@@ -615,10 +672,13 @@ const CollectorTable = form.Value.extend({
 });
 
 return view.extend({
+	// A call that fails answers { failure }, which alerts() describes.
 	load() {
+		const failure = (err) => ({ failure: err });
+
 		return Promise.all([
-			L.resolveDefault(exporter.collectors(), null),
-			L.resolveDefault(exporter.interfaces(), null),
+			exporter.collectors().catch(failure),
+			exporter.interfaces().catch(failure),
 			uci.load(CONFIG)
 		]);
 	},
@@ -637,30 +697,40 @@ return view.extend({
 		this.marks = {};
 		this.checkSeq = 0;
 		this.checkTimer = null;
+		this.problem = null;
+
+		// Without the object nothing can be checked, so nothing is saved: the page is
+		// read-only, as for a login that may not write the config.
+		this.unavailable = exporter.isUnavailable(data?.failure);
+		if (this.unavailable)
+			m.readonly = true;
 
 		s.tab('exporter', _('Exporter'));
 		s.tab('collectors', _('Collectors'),
-			_('A collector that is switched off is not served. Edit opens its options: Save there stages them, and Save & Apply applies them. A collector has a section in the configuration only while something differs from its defaults; the section then states every option.'));
+			_('Untick a collector to stop serving its metrics; Edit changes its options; Save & Apply applies them.'));
 
 		this.renderMain(s, (L.isObject(ifaces) && Array.isArray(ifaces.interfaces)) ? ifaces.interfaces : []);
 
 		this.table = s.taboption('collectors', CollectorTable, '_collectors', '');
 		this.table.collectors = Array.isArray(data?.collectors) ? data.collectors : [];
+		this.table.failed = !Array.isArray(data?.collectors);
 		this.table.execTimeout = () => this.mainOptions.exec_timeout?.formvalue('main');
 
 		this.panel = E('div', {}, []);
 
 		return m.render().then((node) => {
-			node.addEventListener('widget-change', () => this.scheduleCheck());
-			node.addEventListener('input', () => this.scheduleCheck());
-			this.scheduleCheck(0);
+			if (!this.unavailable) {
+				node.addEventListener('widget-change', () => this.scheduleCheck());
+				node.addEventListener('input', () => this.scheduleCheck());
+				this.scheduleCheck(0);
+			}
 
 			return E([], [
 				E('h2', { 'name': 'content' }, [ _('Prometheus exporter') ]),
 				E('div', { 'class': 'cbi-map-descr' }, [
 					_('Node metrics for Prometheus, served at /metrics.'), ' ',
-					_('Whether it runs, and how each collector did, is under'), ' ',
-					E('a', { 'href': L.url('admin/status/prometheus-exporter') }, [ _('Status → Prometheus exporter') ]), '.'
+					...fill(_('Whether it runs, and how each collector did, is under %s.'),
+						E('a', { 'href': L.url('admin/status/prometheus-exporter') }, [ _('Status → Prometheus exporter') ]))
 				]),
 				E([], this.alerts(data, ifaces)),
 				this.panel,
@@ -672,18 +742,26 @@ return view.extend({
 	alerts(data, ifaces) {
 		const out = [];
 
+		// The object missing is one alert: the interfaces are not there for the same reason.
+		if (this.unavailable)
+			return [ alertBox('warning', [
+				exporter.describeError(data.failure), ' ', _('Until then the settings are read-only.')
+			]) ];
+
 		if (!L.isObject(data) || !Array.isArray(data.collectors))
-			out.push(alertBox('warning', [ _('The installed collectors could not be read.') ]));
+			out.push(alertBox('warning', [
+				_('The installed collectors could not be read:'), ' ', exporter.describeError(data?.failure ?? data)
+			]));
 		else if (Array.isArray(data.skipped) && data.skipped.length)
 			out.push(alertBox('warning', [
 				_('These collectors are installed but do not load:'),
-				E('ul', {}, data.skipped.map((msg) => E('li', {}, [ String(msg) ])))
+				E('div', {}, data.skipped.map((msg) => line([ String(msg) ])))
 			]));
 
 		if (!L.isObject(ifaces) || !Array.isArray(ifaces.interfaces))
 			out.push(alertBox('warning', [
 				_('The router\'s interfaces could not be read, so only every address and the saved interface are offered to listen on.'),
-				' ', String(ifaces?.message ?? '')
+				' ', exporter.describeError(ifaces?.failure ?? ifaces)
 			]));
 
 		return out;
@@ -705,12 +783,12 @@ return view.extend({
 	// Every field writes its value, even at the default, so the saved section states every
 	// setting; but for the TLS files, unset without TLS. A field left empty is refused.
 	renderMain(s, interfaces) {
-		let o = this.option(s, form.Flag, 'enabled', _('Enable'), _('Off, the service does not start.'));
+		let o = this.option(s, form.Flag, 'enabled', _('Enable'), _('Runs the exporter.'));
 		o.default = '1';
 		o.rmempty = false;
 
 		o = this.option(s, ListenSelect, 'listen_interface', _('Listen on'),
-			_('The interface whose addresses serve the metrics, or every address. On loopback only programs on the router reach them.'));
+			_('The interface whose addresses serve the metrics, or every address. On loopback, only programs on the router can scrape it.'));
 		o.default = 'loopback';
 		o.interfaces = interfaces;
 
@@ -728,20 +806,18 @@ return view.extend({
 		o.rmempty = false;
 
 		o = this.option(s, form.Value, 'cert', _('TLS certificate'),
-			_('With a key, serves HTTPS. Both files must exist, and uhttpd needs a TLS library.'));
+			_('With a key, serves HTTPS; empty, plain HTTP. Both files must exist, and uhttpd needs a TLS library. LuCI\'s own are /etc/uhttpd.crt and /etc/uhttpd.key.'));
 		o.datatype = 'file';
-		o.placeholder = '/etc/uhttpd.crt';
 
-		o = this.option(s, form.Value, 'key', _('TLS key'));
+		o = this.option(s, form.Value, 'key', _('TLS key'), _('The private key of the certificate.'));
 		o.datatype = 'file';
-		o.placeholder = '/etc/uhttpd.key';
 
 		const user = this.option(s, form.Value, 'auth_user', _('Basic auth user'),
-			_('With a password, a scrape logs in as this user. Over HTTPS only: it takes the TLS certificate and key. Empty for none.'));
-		user.placeholder = _('none');
+			_('Basic auth needs HTTPS: set the TLS certificate and key first. With a password, a scrape logs in as this user. Empty for none.'));
+		user.placeholder = _('None');
 
 		o = this.option(s, PasswordValue, 'auth_password', _('Basic auth password'),
-			_('Saved as a hash, never as typed, and never shown. Empty keeps the saved one.'));
+			_('Saved as a hash; the password itself is never stored. Empty keeps the saved one.'));
 		o.password = true;
 		o.user = user;
 		o.validate = (section_id, value) => {
@@ -758,7 +834,7 @@ return view.extend({
 		};
 
 		o = this.option(s, form.Flag, 'compress', _('Compress'),
-			_('Sends a scrape gzip-compressed when the scraper asks for it, as Prometheus and vmagent do.'));
+			_('Gzip-compresses a scrape when the scraper asks for it, as Prometheus and vmagent do.'));
 		o.default = '1';
 		o.rmempty = false;
 
@@ -767,22 +843,22 @@ return view.extend({
 		o.default = '0';
 		o.rmempty = false;
 
-		o = this.option(s, form.Value, 'exec_timeout', _('Time for programs'),
-			_('Seconds the programs a collector runs get in all in each scrape, 1 to 30; one still running then is killed, and its collector fails. A collector may have a default of its own, and its Edit dialog sets its own time.'));
+		o = this.option(s, form.Value, 'exec_timeout', _('Program timeout'),
+			_('Seconds, 1 to 30, that the programs a collector runs get in each scrape; one still running then is stopped, and its collector fails. A collector\'s Edit can set its own.'));
 		o.datatype = 'range(1,30)';
 		o.default = '5';
 		o.placeholder = '5';
 		o.rmempty = false;
 
-		o = this.option(s, form.Value, 'scrape_timeout', _('Time for a scrape'),
-			_('Seconds a scrape has to answer when the scraper does not say, 1 to 60. Prometheus and vmagent say how long they wait; collectors left when that time is nearly spent are left out, so that the scrape answers in time.'));
+		o = this.option(s, form.Value, 'scrape_timeout', _('Scrape timeout'),
+			_('Seconds, 1 to 60, a scrape has to answer when the scraper does not say; Prometheus and vmagent do. Collectors left when the time is nearly spent are skipped, so the scrape still answers.'));
 		o.datatype = 'range(1,60)';
 		o.default = '10';
 		o.placeholder = '10';
 		o.rmempty = false;
 
-		o = this.option(s, form.Value, 'collector_budget', _('Time for a collector'),
-			_('Seconds a collector may take in a scrape, 1 to 60. One that takes longer is quarantined: it is not run for a few scrapes, then tried again.'));
+		o = this.option(s, form.Value, 'collector_budget', _('Collector budget'),
+			_('Seconds, 1 to 60, a collector may take in a scrape. One that takes longer is quarantined: skipped for a few scrapes, then tried again.'));
 		o.datatype = 'range(1,60)';
 		o.default = '5';
 		o.placeholder = '5';
@@ -830,16 +906,17 @@ return view.extend({
 				return null;
 
 			if (!L.isObject(res) || !L.isObject(res.errors)) {
-				this.showProblem([ _('The settings could not be checked:'), ' ', String(res?.message ?? res?.error ?? '') ]);
+				this.showProblem(exporter.describeError(res));
 				return null;
 			}
 
 			this.mark(candidate, res.errors);
+			this.problem = null;
 			dom.content(this.panel, []);
 			return res;
 		}, (err) => {
 			if (seq === this.checkSeq)
-				this.showProblem([ _('The settings could not be checked:'), ' ', String(err?.message ?? err) ]);
+				this.showProblem(exporter.describeError(err));
 			return null;
 		});
 	},
@@ -858,36 +935,62 @@ return view.extend({
 			this.mainOptions[name].triggerValidation('main');
 	},
 
-	showProblem(children) {
-		dom.content(this.panel, alertBox('error', children));
+	// Why the settings could not be checked, above the form; a Save shows it in a dialog.
+	showProblem(why) {
+		this.problem = [ _('The settings could not be checked:'), ' ', why ];
+		dom.content(this.panel, alertBox('error', this.problem));
 	},
 
-	// What the object found, in a list above the form.
+	// What the object found, in a list above the form, which stays until it is fixed, and
+	// in a dialog, which the user sees wherever the page is scrolled.
 	showRefused(errors) {
-		const items = [];
-		const titles = { enabled: _('Enable'), listen_interface: _('Listen on'), listen_port: _('Port'),
-			http_keepalive: _('Keep-alive'), cert: _('TLS certificate'), key: _('TLS key'), auth_user: _('Basic auth user'),
-			auth_password: _('Basic auth password'), compress: _('Compress'), omit_zero_values: _('Leave out zero values'),
-			exec_timeout: _('Time for programs'), scrape_timeout: _('Time for a scrape'), collector_budget: _('Time for a collector') };
+		const items = () => {
+			const out = [];
 
-		for (const name in (errors.main ?? {}))
-			items.push(E('li', {}, [ lookup(titles, name) ?? name, ': ', String(errors.main[name]) ]));
+			for (const name in (errors.main ?? {}))
+				out.push(line([ lookup(this.mainOptions, name)?.title ?? name, ': ', String(errors.main[name]) ]));
 
-		for (const id in (errors.collectors ?? {}))
-			for (const name in errors.collectors[id])
-				items.push(E('li', {}, [ E('code', {}, [ id ]), ' ', E('code', {}, [ name ]), ': ', String(errors.collectors[id][name]) ]));
+			for (const id in (errors.collectors ?? {}))
+				for (const name in errors.collectors[id])
+					out.push(line([ E('code', {}, [ id ]), ' ', E('code', {}, [ name ]), ': ', String(errors.collectors[id][name]) ]));
 
-		dom.content(this.panel, alertBox('error', [
+			return out;
+		};
+		const refused = () => [
 			E('p', {}, [ _('Nothing was saved: the exporter would refuse these values.') ]),
-			E('ul', {}, items)
-		]));
+			E('div', {}, items())
+		];
+
+		dom.content(this.panel, alertBox('error', refused()));
+		this.saveError(refused());
+	},
+
+	// LuCI's own Save error dialog, as form.Map's save() shows it; Dismiss, or Escape, gives
+	// the focus back to what had it, the button that saved.
+	saveError(children) {
+		const from = document.activeElement;
+		const dismiss = () => {
+			ui.hideModal();
+			if (from && from !== document.body && typeof(from.focus) === 'function')
+				from.focus();
+		};
+
+		ui.showModal(_('Save error'), [
+			...children,
+			E('div', { 'class': 'right' }, [ E('button', { 'class': 'btn cbi-button', 'click': dismiss }, [ _('Dismiss') ]) ])
+		]);
 	},
 
 	// Saves only what the object passes.
 	checked() {
+		if (this.unavailable)
+			return Promise.resolve(false);
+
 		return this.check().then((res) => {
-			if (res == null)
+			if (res == null) {
+				this.saveError([ E('p', {}, [ _('Nothing was saved.'), ' ', ...(this.problem ?? []) ]) ]);
 				return false;
+			}
 			if (!res.ok)
 				this.showRefused(res.errors);
 			return res.ok === true;

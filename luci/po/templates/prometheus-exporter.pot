@@ -9,6 +9,10 @@ msgstr ""
 msgid "%d ms"
 msgstr ""
 
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:264
+msgid "%d of %d collectors enabled"
+msgstr ""
+
 #: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/status.js:86
 msgid "%d scrapes ago."
 msgstr ""
@@ -19,64 +23,67 @@ msgid ""
 "there."
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:359
-msgid "%s of %s"
-msgstr ""
-
 #: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/status.js:200
 msgid "%s of %s collectors that ran succeeded."
+msgstr ""
+
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:412
+msgid "%s option of the %s collector"
 msgstr ""
 
 #: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/status.js:166
 msgid "(reachable from the router only)"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:643
-msgid ""
-"A collector that is switched off is not served. Edit opens its options: Save "
-"there stages them, and Save & Apply applies them. A collector has a section "
-"in the configuration only while something differs from its defaults; the "
-"section then states every option."
-msgstr ""
-
 #: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/status.js:175
 msgid "A scrape logs in, over HTTPS"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:753
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:829
 msgid "At most %d bytes"
+msgstr ""
+
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:301
+msgid "Base"
 msgstr ""
 
 #: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/status.js:175
 msgid "Basic auth"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:743
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:870
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:816
+msgid ""
+"Basic auth needs HTTPS: set the TLS certificate and key first. With a "
+"password, a scrape logs in as this user. Empty for none."
+msgstr ""
+
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:819
 msgid "Basic auth password"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:167
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:179
 msgid "Basic auth password:"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:739
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:869
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:815
 msgid "Basic auth user"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:218
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:235
 #: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/status.js:182
 msgid "Collector"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:642
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:860
+msgid "Collector budget"
+msgstr ""
+
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:709
 #: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/status.js:199
 msgid "Collectors"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:760
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:870
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:836
 msgid "Compress"
 msgstr ""
 
@@ -84,7 +91,8 @@ msgstr ""
 msgid "Compression"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:312
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:361
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:980
 msgid "Dismiss"
 msgstr ""
 
@@ -98,24 +106,23 @@ msgid ""
 "router but outside the service's jail."
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:250
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:283
 msgid "Edit"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:247
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:281
 msgid "Edit the options of %s"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:708
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:868
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:786
 msgid "Enable"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:243
-msgid "Enable %s"
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:276
+msgid "Enable the %s collector"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:218
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:235
 #: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/status.js:182
 msgid "Enabled"
 msgstr ""
@@ -128,11 +135,11 @@ msgstr ""
 msgid "Error"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:113
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:125
 msgid "Every address"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:641
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:708
 msgid "Exporter"
 msgstr ""
 
@@ -142,6 +149,12 @@ msgstr ""
 
 #: applications/luci-app-prometheus-exporter/root/usr/share/rpcd/acl.d/luci-app-prometheus-exporter.json:3
 msgid "Grant access to the Prometheus exporter's settings and status"
+msgstr ""
+
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:837
+msgid ""
+"Gzip-compresses a scrape when the scraper asks for it, as Prometheus and "
+"vmagent do."
 msgstr ""
 
 #: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/status.js:85
@@ -154,26 +167,16 @@ msgstr ""
 msgid "Invalid setting"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:290
-msgid ""
-"Its jail mounts nothing for it but what every collector gets: procfs, sysfs, "
-"ubus and the log."
-msgstr ""
-
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:289
-msgid "Its jail mounts, as saved: %s."
-msgstr ""
-
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:333
 #: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/status.js:182
 msgid "Jail mounts"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:293
-msgid "Jail: %s"
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:337
+msgid "Jail problems"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:723
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:869
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:801
 msgid "Keep-alive"
 msgstr ""
 
@@ -181,12 +184,11 @@ msgstr ""
 msgid "Last scrape"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:765
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:870
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:841
 msgid "Leave out zero values"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:766
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:842
 msgid "Leaves out counters that are 0, most of which never move on a router."
 msgstr ""
 
@@ -194,8 +196,7 @@ msgstr ""
 msgid "Left out at the deadline"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:712
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:868
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:790
 msgid "Listen on"
 msgstr ""
 
@@ -213,19 +214,21 @@ msgstr ""
 msgid "No address"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:224
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:243
 #: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/status.js:207
 msgid "No collector is installed."
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:755
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:831
 msgid "No control characters"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:661
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:731
 msgid "Node metrics for Prometheus, served at /metrics."
 msgstr ""
 
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:304
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:817
 #: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/status.js:175
 msgid "None"
 msgstr ""
@@ -246,11 +249,15 @@ msgstr ""
 msgid "Nothing to observe"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:881
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:991
+msgid "Nothing was saved."
+msgstr ""
+
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:960
 msgid "Nothing was saved: the exporter would refuse these values."
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:471
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:530
 msgid "Nothing was staged: the exporter would refuse these values."
 msgstr ""
 
@@ -262,20 +269,23 @@ msgstr ""
 msgid "Off"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:708
-msgid "Off, the service does not start."
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:334
+msgid "Only what every collector gets: procfs, sysfs, ubus and the log."
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:218
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:235
 msgid "Package"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:717
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:868
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:795
 msgid "Port"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:659
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:846
+msgid "Program timeout"
+msgstr ""
+
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:729
 #: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/status.js:124
 #: applications/luci-app-prometheus-exporter/root/usr/share/luci/menu.d/luci-app-prometheus-exporter.json:3
 #: applications/luci-app-prometheus-exporter/root/usr/share/luci/menu.d/luci-app-prometheus-exporter.json:16
@@ -286,8 +296,8 @@ msgstr ""
 msgid "Quarantined"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:283
-msgid "Reads %s."
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:328
+msgid "Reads"
 msgstr ""
 
 #: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/status.js:135
@@ -298,47 +308,54 @@ msgstr ""
 msgid "Running"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:286
-msgid "Runs %s."
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:331
+msgid "Runs"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:318
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:786
+msgid "Runs the exporter."
+msgstr ""
+
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:367
 msgid "Save"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:744
-msgid ""
-"Saved as a hash, never as typed, and never shown. Empty keeps the saved one."
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:978
+msgid "Save error"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:785
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:820
 msgid ""
-"Seconds a collector may take in a scrape, 1 to 60. One that takes longer is "
-"quarantined: it is not run for a few scrapes, then tried again."
+"Saved as a hash; the password itself is never stored. Empty keeps the saved "
+"one."
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:778
-msgid ""
-"Seconds a scrape has to answer when the scraper does not say, 1 to 60. "
-"Prometheus and vmagent say how long they wait; collectors left when that "
-"time is nearly spent are left out, so that the scrape answers in time."
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:853
+msgid "Scrape timeout"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:724
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:802
 msgid "Seconds an idle connection stays open; 0 closes it after each reply."
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:771
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:847
 msgid ""
-"Seconds the programs a collector runs get in all in each scrape, 1 to 30; "
-"one still running then is killed, and its collector fails. A collector may "
-"have a default of its own, and its Edit dialog sets its own time."
+"Seconds, 1 to 30, that the programs a collector runs get in each scrape; one "
+"still running then is stopped, and its collector fails. A collector's Edit "
+"can set its own."
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:761
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:861
 msgid ""
-"Sends a scrape gzip-compressed when the scraper asks for it, as Prometheus "
-"and vmagent do."
+"Seconds, 1 to 60, a collector may take in a scrape. One that takes longer is "
+"quarantined: skipped for a few scrapes, then tried again."
+msgstr ""
+
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:854
+msgid ""
+"Seconds, 1 to 60, a scrape has to answer when the scraper does not say; "
+"Prometheus and vmagent do. Collectors left when the time is nearly spent are "
+"skipped, so the scrape still answers."
 msgstr ""
 
 #: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/status.js:169
@@ -358,17 +375,15 @@ msgstr ""
 msgid "State"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:663
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:733
 msgid "Status → Prometheus exporter"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:730
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:869
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:808
 msgid "TLS certificate"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:735
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:869
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:812
 msgid "TLS key"
 msgstr ""
 
@@ -379,51 +394,64 @@ msgid ""
 "service tries a quarantined collector at once."
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:481
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:243
+msgid "The collectors could not be read."
+msgstr ""
+
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:540
 msgid ""
 "The configuration has a section %s of another type, which the exporter "
 "ignores: nothing was staged."
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:676
-msgid "The installed collectors could not be read."
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter.js:89
+msgid ""
+"The exporter's ubus object is not available (rpcd may be restarting). Reload "
+"in a moment."
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:713
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:753
+msgid "The installed collectors could not be read:"
+msgstr ""
+
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:791
 msgid ""
 "The interface whose addresses serve the metrics, or every address. On "
-"loopback only programs on the router reach them."
+"loopback, only programs on the router can scrape it."
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:416
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:434
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:469
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:487
 msgid "The options could not be checked:"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:492
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:549
 msgid "The options could not be staged:"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:174
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:184
 msgid "The password could not be hashed:"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:685
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:812
+msgid "The private key of the certificate."
+msgstr ""
+
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:763
 msgid ""
 "The router's interfaces could not be read, so only every address and the "
 "saved interface are offered to listen on."
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:274
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:314
 msgid "The saved settings are not valid: %s"
 msgstr ""
 
 #: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/status.js:128
-msgid "The settings are under"
+msgid "The settings are under %s."
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:833
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:842
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:940
 msgid "The settings could not be checked:"
 msgstr ""
 
@@ -431,23 +459,8 @@ msgstr ""
 msgid "The status of the exporter could not be read:"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:679
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:757
 msgid "These collectors are installed but do not load:"
-msgstr ""
-
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:784
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:871
-msgid "Time for a collector"
-msgstr ""
-
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:777
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:871
-msgid "Time for a scrape"
-msgstr ""
-
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:770
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:871
-msgid "Time for programs"
 msgstr ""
 
 #: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/status.js:77
@@ -458,7 +471,7 @@ msgstr ""
 msgid "Tried again in %d scrapes."
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:152
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:164
 msgid "Unchanged"
 msgstr ""
 
@@ -467,20 +480,25 @@ msgstr ""
 msgid "Unknown"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:662
-msgid "Whether it runs, and how each collector did, is under"
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:710
+msgid ""
+"Untick a collector to stop serving its metrics; Edit changes its options; "
+"Save & Apply applies them."
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:731
-msgid ""
-"With a key, serves HTTPS. Both files must exist, and uhttpd needs a TLS "
-"library."
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:748
+msgid "Until then the settings are read-only."
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:740
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:732
+msgid "Whether it runs, and how each collector did, is under %s."
+msgstr ""
+
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:809
 msgid ""
-"With a password, a scrape logs in as this user. Over HTTPS only: it takes "
-"the TLS certificate and key. Empty for none."
+"With a key, serves HTTPS; empty, plain HTTP. Both files must exist, and "
+"uhttpd needs a TLS library. LuCI's own are /etc/uhttpd.crt and /etc/"
+"uhttpd.key."
 msgstr ""
 
 #: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/status.js:172
@@ -489,19 +507,10 @@ msgstr ""
 msgid "Yes"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter.js:60
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter.js:68
 msgid "a valid regular expression"
-msgstr ""
-
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:267
-msgid "base"
 msgstr ""
 
 #: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/status.js:176
 msgid "gzip, when the scraper asks for it"
-msgstr ""
-
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:269
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:741
-msgid "none"
 msgstr ""

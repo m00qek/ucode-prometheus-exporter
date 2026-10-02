@@ -14,6 +14,9 @@ const PACKAGE = 'ucode-prometheus-exporter';
 // A login granted luci-base and the app's ACL alone (devenv/services/luci/start.sh).
 const APP_USER = { username: 'metrics', password: 'metrics' };
 
+// A login granted the same for reading alone.
+const VIEWER = { username: 'viewer', password: 'viewer' };
+
 // The help and error of the hostile test collector (test/fixtures/luci/collectors/hostile.uc).
 const HOSTILE = '<img src=x onerror=window.__xss=1>';
 
@@ -131,6 +134,29 @@ function modal(page) {
   return page.locator('#modal_overlay > .modal');
 }
 
+// LuCI's Save error dialog, as a refused Save shows it.
+function saveError(page) {
+  return modal(page).filter({ has: page.locator('h4', { hasText: /^Save error$/ }) });
+}
+
+// Answers every call of the exporter's ubus object as uhttpd does while the object is not
+// there (rpcd reloading): JSON-RPC error -32000, Object not found. Other calls go through.
+async function withoutObject(page) {
+  await page.route(/\/ubus\//, async (route) => {
+    const body = JSON.parse(route.request().postData() ?? 'null');
+    const calls = [].concat(body ?? []);
+    const ours = (c) => c?.method === 'call' && c.params?.[1] === CONFIG;
+    if (!calls.some(ours))
+      return route.continue();
+    const res = await route.fetch();
+    const replies = [].concat(await res.json());
+    const out = calls.map((c) => ours(c)
+      ? { jsonrpc: '2.0', id: c.id, error: { code: -32000, message: 'Object not found' } }
+      : replies.find((r) => r.id === c.id));
+    await route.fulfill({ response: res, json: Array.isArray(body) ? out : out[0] });
+  });
+}
+
 // Opens the dialog of a collector's options from its row on the Collectors tab.
 async function editCollector(page, id) {
   await showTab(page, 'collectors');
@@ -174,6 +200,6 @@ async function screenshot(page, name) {
 }
 
 module.exports = {
-  CONFIG, PACKAGE, APP_USER, HOSTILE, ubus, rawCall, denied, sessionOf, useService, useConfig, useState, readConfig, sections, open, openSettings,
-  showTab, modal, editCollector, staged, openStatus, section, collectorRow, text, screenshot,
+  CONFIG, PACKAGE, APP_USER, VIEWER, HOSTILE, ubus, rawCall, denied, sessionOf, useService, useConfig, useState, readConfig, sections, open, openSettings,
+  showTab, modal, saveError, withoutObject, editCollector, staged, openStatus, section, collectorRow, text, screenshot,
 };
