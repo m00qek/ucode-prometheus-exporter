@@ -8,7 +8,7 @@ A failure carries an uppercase code, from `src/prometheus_exporter/errors.uc`, a
 
 | Code | Meaning | Raised by |
 | :--- | :--- | :--- |
-| `SOURCE_UNREADABLE` | A file the collector reads is not there or cannot be read. The detail names it. | the collectors `bmx7`, `conntrack`, `cpu`, `dhcp_leases`, `diskstats`, `entropy`, `filefd`, `filesystem`, `loadavg`, `meminfo`, `nat_traffic`, `netstat`, `snmp6`, `sockstat`, `softnet`, `timesync`, `uci_dhcp_host`, `uname`, `vmstat` |
+| `SOURCE_UNREADABLE` | A file the collector reads is not there or cannot be read. The detail names it. | the collectors `bmx7`, `conntrack`, `cpu`, `dhcp_leases`, `diskstats`, `entropy`, `exporter`, `filefd`, `filesystem`, `loadavg`, `meminfo`, `nat_traffic`, `netstat`, `snmp6`, `sockstat`, `softnet`, `timesync`, `uci_dhcp_host`, `uname`, `vmstat` |
 | `SOURCE_INVALID` | What the collector read is not what it expects: a file, a ubus reply or a program's output it cannot parse. The detail says where. | `services.uc`; the collectors `bmx7`, `chrony`, `conntrack`, `cpu`, `dawn`, `dhcp_leases`, `diskstats`, `dnsmasq`, `entropy`, `filefd`, `filesystem`, `hostapd_stations`, `loadavg`, `ltq-dsl`, `meminfo`, `modemmanager`, `mwan3`, `netclass`, `netdev`, `netstat`, `nft-counters`, `openwrt`, `openwrt_interfaces`, `qdisc`, `realtek-poe`, `selinux`, `sockstat`, `softnet`, `time`, `timesync`, `ubnt-manager`, `unbound`, `vmstat`, `wifi`, `wifi_stations`, `wireguard` |
 | `COLLECTOR_CRASHED` | The collector died with an exception. The detail is the exception's first line. | `scrape.uc` |
 | `COLLECTOR_NO_RESULT` | The collector returned something other than a Result. The detail says what. | `scrape.uc` |

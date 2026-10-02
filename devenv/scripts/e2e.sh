@@ -444,6 +444,17 @@ wget -q -O - "$URL?collect[]=ubnt-manager" >/tmp/fresh
 took=$(($(date +%s) - started))
 check "and ubnt-manager runs again, at its 5 s ($took s): a restart forgets the quarantine" test "$took" -ge 5
 check "not quarantined" sh -c "grep -qx 'ucode_prometheus_exporter_collector_quarantined{collector=\"ubnt-manager\"} 0' /tmp/fresh"
+# The exporter collector, in the jail: the serving uhttpd, and the new
+# instance's counters, this scrape its second.
+fetch >/tmp/self
+check "the exporter collector describes the serving uhttpd in the jail: its descriptors" grep -q '^process_open_fds [1-9]' /tmp/self
+check "its CPU, its memory, its start and its limit" sh -c "grep -q '^process_cpu_seconds_total ' /tmp/self && grep -q '^process_resident_memory_bytes [1-9]' /tmp/self &&
+	grep -q '^process_start_time_seconds [1-9]' /tmp/self && grep -q '^process_max_fds [1-9]' /tmp/self"
+check "and counts the scrapes of the instance since its restart" grep -qx 'ucode_prometheus_exporter_scrapes_total 2' /tmp/self
+check "the quarantine of ubnt-manager, and its program killed" sh -c "grep -qx 'ucode_prometheus_exporter_quarantines_total{collector=\"ubnt-manager\"} 1' /tmp/self &&
+	grep -qx 'ucode_prometheus_exporter_program_timeouts_total{collector=\"ubnt-manager\"} 1' /tmp/self &&
+	grep -qx 'ucode_prometheus_exporter_collector_failures_total{collector=\"ubnt-manager\",reason=\"COMMAND_TIMEOUT\"} 1' /tmp/self"
+check "and the samples of each collector of the scrape" grep -q '^ucode_prometheus_exporter_collector_samples{collector="cpu"} [1-9]' /tmp/self
 kill $silent
 set_config "ubnt-manager.sample_ap.target=127.0.0.1"
 eventually "the radio that answers again is read again" metric 'ubnt_uptime_seconds{device="sample_ap"} 4242$'

@@ -22,6 +22,7 @@ The labels are those seen on the captures; a collector leaves out a label it has
 | [`dnsmasq`](#dnsmasq) | 30 | a router | — |
 | [`entropy`](#entropy) | 2 | an access point, a router | — |
 | [`ethtool`](#ethtool) | 259 | an access point, a router | — |
+| [`exporter`](#exporter) | 0 | none | `process_cpu_seconds_total`, `process_virtual_memory_bytes`, `process_resident_memory_bytes`, `process_start_time_seconds`, `process_open_fds`, `process_max_fds`, `ucode_prometheus_exporter_scrapes_total`, `ucode_prometheus_exporter_auth_failures_total`, `ucode_prometheus_exporter_collector_failures_total`, `ucode_prometheus_exporter_program_timeouts_total`, `ucode_prometheus_exporter_quarantines_total`, `ucode_prometheus_exporter_deadline_skips_total`, `ucode_prometheus_exporter_collector_samples` |
 | [`filefd`](#filefd) | 2 | an access point, a router | — |
 | [`filesystem`](#filesystem) | 4 | an access point, a router | — |
 | [`hostapd_stations`](#hostapd_stations) | 14 | an access point | — |
@@ -266,6 +267,26 @@ Network driver statistics. [Collector](collectors.md#ethtool).
 | `node_ethtool_received_dropped_total` | untyped | `device` | Number of received frames dropped | — |
 | `node_ethtool_received_errors_total` | untyped | `device` | Number of received frames with errors | — |
 | `node_ethtool_transmitted_errors_total` | untyped | `device` | Number of sent frames with errors | — |
+
+## `exporter` {#exporter}
+
+The exporter itself. [Collector](collectors.md#exporter).
+
+| Family | Type | Labels | Help | Notes |
+| :--- | :--- | :--- | :--- | :--- |
+| `process_cpu_seconds_total` | counter | — | Total user and system CPU time spent in seconds, the scrapes it answered in processes of their own included. | Listed from the code: The exporter's own, from the serving uhttpd's /proc/&lt;pid&gt;/stat, which no capture holds: its CPU and its reaped scrapes'. |
+| `process_virtual_memory_bytes` | gauge | — | Virtual memory size in bytes. | Listed from the code: As process\_cpu\_seconds\_total. |
+| `process_resident_memory_bytes` | gauge | — | Resident memory size in bytes. | Listed from the code: From the serving uhttpd's /proc/&lt;pid&gt;/status. |
+| `process_start_time_seconds` | gauge | — | Start time of the process since unix epoch in seconds. | Listed from the code: From its /proc/&lt;pid&gt;/stat and /proc/stat's btime. |
+| `process_open_fds` | gauge | — | Number of open file descriptors. | Listed from the code: Its /proc/&lt;pid&gt;/fd. |
+| `process_max_fds` | gauge | — | Maximum number of open file descriptors. | Listed from the code: Its /proc/&lt;pid&gt;/limits; left out where unlimited. |
+| `ucode_prometheus_exporter_scrapes_total` | counter | — | Scrapes the exporter answered since the service started. | Listed from the code: Counted in the instance's ledger, which only the handler's scrapes keep; reset when the service restarts. |
+| `ucode_prometheus_exporter_auth_failures_total` | counter | — | Requests basic auth refused since the service started. | Listed from the code: As scrapes\_total: the requests basic auth refused (401). |
+| `ucode_prometheus_exporter_collector_failures_total` | counter | `collector`, `reason` | Scrapes in which a collector failed, by its error code, since the service started. | Listed from the code: As scrapes\_total: a collector's failures by error code. |
+| `ucode_prometheus_exporter_program_timeouts_total` | counter | `collector` | Programs of a collector killed at their timeout since the service started. | Listed from the code: As scrapes\_total: programs killed at their timeout. |
+| `ucode_prometheus_exporter_quarantines_total` | counter | `collector` | Times a collector's circuit breaker tripped since the service started. | Listed from the code: As scrapes\_total: times a collector's circuit breaker tripped. |
+| `ucode_prometheus_exporter_deadline_skips_total` | counter | `collector` | Scrapes whose deadline left a collector out, or killed its program, since the service started. | Listed from the code: As scrapes\_total: times the deadline left a collector out or killed its program. |
+| `ucode_prometheus_exporter_collector_samples` | gauge | `collector` | Samples a collector wrote in this scrape. | Listed from the code: This scrape's: the samples each collector that ran before it wrote. |
 
 ## `filefd` {#filefd}
 

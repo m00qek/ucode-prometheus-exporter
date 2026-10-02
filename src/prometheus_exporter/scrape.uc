@@ -42,6 +42,7 @@ import * as config from 'prometheus_exporter.config';
 import * as query from 'prometheus_exporter.query';
 import { seconds as now_of } from 'prometheus_exporter.deadline';
 import * as ledger from 'prometheus_exporter.ledger';
+import { pid_of } from 'prometheus_exporter.state';
 
 export const CONTENT_TYPE = 'text/plain; version=0.0.4; charset=utf-8';
 
@@ -91,7 +92,7 @@ export function select(collectors, query_string, disabled) {
 // recorded is kept even when it fails, as upstream exporters do; nothing is
 // when it has nothing to observe. Its programs never run past `cutoff`
 // (monotonic seconds), when given.
-export function run_one(env, session, c, cutoff) {
+export function run_one(env, session, c, cutoff, view) {
 	let rec = exposition.recorder();
 	let t1 = env.clock();
 	let res = config.settings(session.uci(), c.id, c.meta);
@@ -100,7 +101,7 @@ export function run_one(env, session, c, cutoff) {
 	if (res.ok) {
 		let settings = res.data;
 
-		res = session.for(c.meta, settings, cutoff);
+		res = session.for(c.meta, settings, cutoff, view);
 		if (res.ok) {
 			try {
 				let r = c.collect(res.data, rec, settings.options);
@@ -169,23 +170,53 @@ function too_late(l, c, now, cutoff) {
 // run, by id. One whose breaker is open does not run. With a deadline, a
 // collector runs only if the ledger expects it done in time to write the
 // reply, its own samples included; its programs never run past that.
-function run_all(env, session, l, chosen, deadline) {
+//
+// A collector that needs `exporter` runs after every other, and sees the
+// scrape so far: the ledger's counters with this scrape's runs, and their
+// samples (deps.exporter_channel). `collectors` are the installed ones;
+// `pid` the serving process's, null for this one; `kept` whether the
+// ledger is the instance's. The counters name collectors by their names.
+function run_all(env, session, l, chosen, deadline, collectors, pid, kept) {
 	let by_id = {};
 	let collected = 0;
 	let m = ledger.number(l);
+	let ids = map(collectors, (c) => c.id);
+	let view = {
+		pid,
+		counters: function() {
+			if (!kept)
+				return null;
 
-	for (let c in ledger.order(l, chosen)) {
+			let n = ledger.counters(ledger.record(l, values(by_id), null, ids));
+			let named = {};
+
+			for (let c in collectors)
+				if (n.collectors[c.id] != null)
+					named[c.meta.name] = n.collectors[c.id];
+
+			return { ...n, collectors: named };
+		},
+		samples: function() {
+			let out = {};
+
+			for (let id, r in by_id)
+				out[r.name] = r.samples;
+			return out;
+		},
+	};
+
+	for (let c in ledger.order(l, chosen, (c) => 'exporter' in c.meta.needs)) {
 		let r;
 
 		if (ledger.phase(l, c.id, m) == 'open') {
 			r = not_run(c, ledger.quarantined(l, c.id, m), 'quarantine');
 		} else if (deadline == null) {
-			r = run_one(env, session, c);
+			r = run_one(env, session, c, null, view);
 		} else {
 			let cutoff = deadline - ledger.writing(l, collected + ledger.samples(l, c.id));
 			let late = too_late(l, c, now_of(env.clock()), cutoff);
 
-			r = late ? not_run(c, late, 'deadline') : run_one(env, session, c, cutoff);
+			r = late ? not_run(c, late, 'deadline') : run_one(env, session, c, cutoff, view);
 		}
 
 		collected += r.samples;
@@ -234,7 +265,8 @@ export function scrape(env, collectors, query_string, opts) {
 
 	let st = opts?.state;
 	let l = ledger.parse(st?.read(ledger.NAME));
-	let by_id = run_all(env, session, l, sel.data, opts?.deadline);
+	let ids = map(collectors, (c) => c.id);
+	let by_id = run_all(env, session, l, sel.data, opts?.deadline, collectors, st ? pid_of(st.id) : null, st != null);
 	let runs = map(sel.data, (c) => by_id[c.id]);
 
 	session.close();
@@ -277,7 +309,6 @@ export function scrape(env, collectors, query_string, opts) {
 
 	if (st) {
 		let written = { seconds: seconds(t1, env.clock()), samples: 0 };
-		let ids = map(collectors, (c) => c.id);
 
 		for (let r in runs)
 			written.samples += r.samples;

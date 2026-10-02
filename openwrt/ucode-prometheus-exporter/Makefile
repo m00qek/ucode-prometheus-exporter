@@ -18,7 +18,7 @@ MODULES_DIR:=/usr/share/ucode/prometheus_exporter
 COLLECTORS_DIR:=$(MODULES_DIR)/collectors
 
 # Installed with the exporter itself; every other collector is a subpackage.
-BASE_COLLECTORS:=conntrack cpu entropy filefd loadavg meminfo netclass netdev openwrt_interfaces selinux softnet time timesync uname vmstat
+BASE_COLLECTORS:=conntrack cpu entropy exporter filefd loadavg meminfo netclass netdev openwrt_interfaces selinux softnet time timesync uname vmstat
 
 define Package/$(PKG_NAME)/Default
   SECTION:=utils

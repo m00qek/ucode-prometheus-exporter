@@ -21,7 +21,7 @@ import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
 import { EXEC_TIMEOUT } from 'prometheus_exporter.config';
 
-export const NEEDS = [ 'fs', 'ubus', 'uci', 'rtnl', 'nl80211', 'socket', 'exec', 'time', 'log' ];
+export const NEEDS = [ 'fs', 'ubus', 'uci', 'rtnl', 'nl80211', 'socket', 'exec', 'time', 'log', 'exporter' ];
 
 // The functions of fs a collector may use. popen is exec's.
 export const FS_API = [ 'readfile', 'open', 'lsdir', 'glob', 'stat', 'realpath' ];
@@ -317,6 +317,40 @@ export function exec_channel(popen_fn, allowed, seconds, clock_fn, cutoff) {
 	};
 };
 
+// The files of the serving process's /proc/<pid> exporter_channel reads.
+export const PROCESS_FILES = [ 'stat', 'status', 'limits' ];
+
+// The system's files exporter_channel reads: the boot time, and the
+// auxiliary vector (the clock tick and the page size).
+export const SYSTEM_FILES = [ '/proc/stat', '/proc/self/auxv' ];
+
+// The exporter itself, read only, for its own collector: the process that
+// serves the scrapes and the counters of its scrapes, and nothing else.
+//   process(file)  /proc/<pid>/<file> of the serving process, for a file
+//                  of PROCESS_FILES; null for any other
+//   fds()          how many descriptors it has open, or null
+//   system(file)   a file of SYSTEM_FILES, or null for any other
+//   counters()     ledger.counters of its scrapes, this one's so far
+//                  included, or null where there is no ledger
+//   samples()      { collector: samples } of this scrape's collectors so far
+// `view` is the scrape's: { pid, counters(), samples() }; without it, the
+// process is this one and there are no counters.
+export function exporter_channel(fs, view) {
+	let base = `/proc/${view?.pid ?? 'self'}`;
+
+	return {
+		process: (file) => (file in PROCESS_FILES) ? fs.readfile(`${base}/${file}`) : null,
+		fds: function() {
+			let entries = fs.lsdir(`${base}/fd`);
+
+			return (entries == null) ? null : length(entries);
+		},
+		system: (file) => (file in SYSTEM_FILES) ? fs.readfile(file) : null,
+		counters: () => view?.counters ? view.counters() : null,
+		samples: () => view?.samples ? view.samples() : {},
+	};
+};
+
 function uci_handle(cursor_fn, name) {
 	let loaded = null;
 
@@ -392,7 +426,7 @@ export function session(mods) {
 		return uci;
 	}
 
-	function capability(need, meta, settings, cutoff) {
+	function capability(need, meta, settings, cutoff, view) {
 		switch (need) {
 		case 'fs':      return fs;
 		case 'ubus':    return ubus;
@@ -403,6 +437,7 @@ export function session(mods) {
 		case 'exec':    return exec_channel(mods.fs.popen, meta.commands ?? [], settings?.timeout ?? meta.timeout, mods.clock, cutoff);
 		case 'time':    return { now: mods.time };
 		case 'log':     return mods.log ? (msg) => mods.log('warning', `collector '${meta.name}': ${msg}`) : null;
+		case 'exporter': return exporter_channel(mods.fs, view);
 		}
 	}
 
@@ -413,12 +448,13 @@ export function session(mods) {
 		// the system lacks one of its needs (nl80211 and socket are separate
 		// packages). settings: what its config says (config.settings): exec's
 		// programs get settings.timeout seconds, else meta.timeout's, and
-		// never run past `cutoff` (exec_channel).
-		for: function(meta, settings, cutoff) {
+		// never run past `cutoff` (exec_channel). `view`: the scrape's, for
+		// exporter (exporter_channel).
+		for: function(meta, settings, cutoff, view) {
 			let deps = {};
 
 			for (let need in meta.needs) {
-				let cap = capability(need, meta, settings, cutoff);
+				let cap = capability(need, meta, settings, cutoff, view);
 
 				if (cap == null)
 					return Result.err(errors.NEED_MISSING, `${need} is not installed`);

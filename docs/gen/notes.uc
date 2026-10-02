@@ -182,6 +182,21 @@ export const family_notes = {
 // refuses a family here that the fixtures show, or that the collector's code
 // does not declare.
 export const unharvested = {
+	'exporter': [
+		{ name: 'process_cpu_seconds_total', labels: [], why: 'The exporter\'s own, from the serving uhttpd\'s /proc/<pid>/stat, which no capture holds: its CPU and its reaped scrapes\'.' },
+		{ name: 'process_virtual_memory_bytes', labels: [], why: 'As process_cpu_seconds_total.' },
+		{ name: 'process_resident_memory_bytes', labels: [], why: 'From the serving uhttpd\'s /proc/<pid>/status.' },
+		{ name: 'process_start_time_seconds', labels: [], why: 'From its /proc/<pid>/stat and /proc/stat\'s btime.' },
+		{ name: 'process_open_fds', labels: [], why: 'Its /proc/<pid>/fd.' },
+		{ name: 'process_max_fds', labels: [], why: 'Its /proc/<pid>/limits; left out where unlimited.' },
+		{ name: 'ucode_prometheus_exporter_scrapes_total', labels: [], why: 'Counted in the instance\'s ledger, which only the handler\'s scrapes keep; reset when the service restarts.' },
+		{ name: 'ucode_prometheus_exporter_auth_failures_total', labels: [], why: 'As scrapes_total: the requests basic auth refused (401).' },
+		{ name: 'ucode_prometheus_exporter_collector_failures_total', labels: [ 'collector', 'reason' ], why: 'As scrapes_total: a collector\'s failures by error code.' },
+		{ name: 'ucode_prometheus_exporter_program_timeouts_total', labels: [ 'collector' ], why: 'As scrapes_total: programs killed at their timeout.' },
+		{ name: 'ucode_prometheus_exporter_quarantines_total', labels: [ 'collector' ], why: 'As scrapes_total: times a collector\'s circuit breaker tripped.' },
+		{ name: 'ucode_prometheus_exporter_deadline_skips_total', labels: [ 'collector' ], why: 'As scrapes_total: times the deadline left a collector out or killed its program.' },
+		{ name: 'ucode_prometheus_exporter_collector_samples', labels: [ 'collector' ], why: 'This scrape\'s: the samples each collector that ran before it wrote.' },
+	],
 	'thermal': [
 		{ name: 'node_thermal_zone_passive_celsius', labels: [ 'zone', 'type' ], why: 'Written for a zone with a passive trip point; no captured zone has one.' },
 	],

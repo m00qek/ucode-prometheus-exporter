@@ -16,6 +16,7 @@ Every collector of `ucode-prometheus-exporter 0.1.0`. A collector's name is what
 | [`dnsmasq`](#dnsmasq) | dnsmasq DNS and DHCP | `ucode-prometheus-exporter-dnsmasq` | `ucode-prometheus-exporter-full` |
 | [`entropy`](#entropy) | Kernel entropy | `ucode-prometheus-exporter` (base) | — |
 | [`ethtool`](#ethtool) | Network driver statistics | `ucode-prometheus-exporter-ethtool` | `ucode-prometheus-exporter-network`, `ucode-prometheus-exporter-full` |
+| [`exporter`](#exporter) | The exporter itself | `ucode-prometheus-exporter` (base) | — |
 | [`filefd`](#filefd) | File descriptors | `ucode-prometheus-exporter` (base) | — |
 | [`filesystem`](#filesystem) | Filesystems | `ucode-prometheus-exporter-filesystem` | `ucode-prometheus-exporter-hardware`, `ucode-prometheus-exporter-full` |
 | [`hostapd_stations`](#hostapd_stations) | hostapd stations | `ucode-prometheus-exporter-hostapd_stations` | `ucode-prometheus-exporter-wireless`, `ucode-prometheus-exporter-full` |
@@ -54,7 +55,7 @@ Every collector of `ucode-prometheus-exporter 0.1.0`. A collector's name is what
 
 ## Packages {#packages}
 
-The base package, `ucode-prometheus-exporter`, installs `conntrack`, `cpu`, `entropy`, `filefd`, `loadavg`, `meminfo`, `netclass`, `netdev`, `openwrt_interfaces`, `selinux`, `softnet`, `time`, `timesync`, `uname`, `vmstat`. Every other collector is a package of its own, `ucode-prometheus-exporter-<name>`, which depends on the base package of the same release. A group package installs no files, only its collectors.
+The base package, `ucode-prometheus-exporter`, installs `conntrack`, `cpu`, `entropy`, `exporter`, `filefd`, `loadavg`, `meminfo`, `netclass`, `netdev`, `openwrt_interfaces`, `selinux`, `softnet`, `time`, `timesync`, `uname`, `vmstat`. Every other collector is a package of its own, `ucode-prometheus-exporter-<name>`, which depends on the base package of the same release. A group package installs no files, only its collectors.
 
 | Group package | For | Collectors |
 | :--- | :--- | :--- |
@@ -256,6 +257,20 @@ Network driver statistics from ethtool -S.
 | :--- | :--- | :--- | :--- | :--- |
 | `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 | `timeout` | integer | `exec_timeout`'s (5) | `range(1,30)` | Seconds the programs of this collector get in all in each scrape; one still running then is killed. |
+
+## `exporter` {#exporter}
+
+The CPU, memory and descriptors of the uhttpd instance that serves the scrapes, its scrapes, and what went wrong in them: failures, programs killed, quarantines, collectors left out at the deadline.
+
+- **Title:** The exporter itself
+- **Package:** `ucode-prometheus-exporter` (base)
+- **Section:** `config collector 'exporter'`
+- **Needs:** `exporter`
+- **Metrics:** [exporter](metrics.md#exporter)
+
+| Option | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
 ## `filefd` {#filefd}
 
