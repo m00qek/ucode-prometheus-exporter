@@ -20,16 +20,18 @@ Logged by uhttpd's handler, with the pid of the uhttpd process.
 | Message | Priority | When |
 | :--- | :--- | :--- |
 | `serving <n> collectors[, with basic auth][, gzip when asked]` | `info` | uhttpd loaded the handler. |
-| `cannot load collector '<module>': <error>` | `err` | A collector module does not compile or import. It is left out. |
-| `skipping collector: COLLECTOR_INVALID (<module>: <why>)` | `err` | A module's `meta` or `collect` is not valid. It is left out. |
+| `cannot load collector '<module>': <error>` | `err` | A collector module does not compile or import, or its loading ended the process it loaded in. It is left out. |
+| `collector '<module>' hung at load: still loading after 5 s: stopped; it is left out` | `err` | A collector module's top level did not return in 5 s, in the child process it is first loaded in. |
+| `skipping collector: COLLECTOR_INVALID (<module>: <why>)` | `err` | A module's `meta` or `collect` is not valid, or it is not in strict mode (`not in strict mode: its first statement must be 'use strict'`). It is left out. |
 | `/var/run/prometheus-exporter/uhttpd.conf is not one line of a user and a hash for /metrics: every request is denied` | `err` | Basic auth's file is there, and wrong. |
-| `collector '<name>': <CODE (detail)>` | `warning` | A collector failed in a scrape, but for `SCRAPE_DEADLINE`, which the scrape's line says. See [Error codes](error-codes.md). |
+| `collector '<name>': <CODE (detail)>` | `warning` | A collector failed in a scrape, but for `SCRAPE_DEADLINE`, which the scrape's line says: as it returned it, or as the exporter stopped it (`COLLECTOR_CANCELLED`, `COLLECTOR_KILLED`, `SAMPLE_LIMIT`, `FAMILY_CONFLICT`). See [Error codes](error-codes.md) and [Collector contract](collector-contract.md). |
+| `collector '<name>' was running when a scrape process died` | `warning` | A scrape found the progress file of a scrape process that died while this collector ran. It is quarantined, and the child process it ran in is killed. |
+| `cannot fork a process to run the collectors in; running them in the scrape's own` | `warning` | The system could not fork (out of processes or memory): the scrape ran its collectors in its own process, which nothing can stop midway. |
 | `scrape deadline: <n> collector[s] not served in its <seconds> s: <name>, ...` | `warning` | The scrape's deadline left these collectors out, or killed their programs: one line per scrape. See [HTTP endpoint](http.md#deadline). |
 | `collector '<name>' quarantined for <n> scrape[s]: <CODE (detail)>` | `warning` | Its circuit breaker tripped: a program killed at its timeout, `COLLECTOR_OVERRUN` (over its budget), or a third failure in a row; or its trial failed. |
 | `collector '<name>' served again: its trial succeeded` | `notice` | Its circuit breaker closed. |
-| `collector '<name>': <message>` | `warning` | A collector that succeeded said something with its `log` capability: textfile's `skipped <file>: <why>`. |
+| `collector '<name>': <message>` | `warning` | A collector that succeeded said something with its `log` capability: textfile's `skipped <file>: <why>`, as `skipped /var/prometheus/x.prom: is not a regular file (fifo): not read`. |
 | `collector '<name>': '<family>' declared with two types; later samples dropped` | `warning` | A collector declared a family twice. |
-| `'<family>' declared with two types by different collectors; later samples dropped` | `warning` | Two collectors declared a family with two types. |
 | `main: <CODE (detail)>` | `err` | A scrape read a main section it does not take, and used the defaults. |
 
 ## The init script

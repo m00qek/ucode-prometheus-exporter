@@ -47,7 +47,7 @@ ubus call prometheus-exporter status
 
 ## A collector is quarantined
 
-A collector whose program was killed at its timeout, that took longer than its budget, or that failed three scrapes in a row is left out for a few scrapes, then tried again. Its `node_scrape_collector_success` is 0 and its `ucode_prometheus_exporter_collector_quarantined` is 1. `check` says why, and when the service tries it again:
+A collector whose program was killed at its timeout, that was still running at the end of its budget, whose process ended under it, or that failed three scrapes in a row is left out for a few scrapes, then tried again. Its `node_scrape_collector_success` is 0 and its `ucode_prometheus_exporter_collector_quarantined` is 1. `check` says why, and when the service tries it again:
 
 ```
 warn service: nat_traffic is quarantined: COLLECTOR_OVERRUN (took 7.84 s, over its budget of 5 s); the service tries it again in 8 scrapes, or at once once restarted
@@ -58,6 +58,20 @@ warn service: nat_traffic is quarantined: COLLECTOR_OVERRUN (took 7.84 s, over i
 3. To try it at once rather than at its trial, `service prometheus-exporter restart`: a restart forgets every quarantine.
 
 LuCI's **Status → Prometheus exporter** shows the same in its **Service's scrapes** column, and names the quarantined collectors in a notice above the tables. How often it happened since the service started is the `exporter` collector's `ucode_prometheus_exporter_quarantines_total{collector}`.
+
+## A collector breaks the contract
+
+The log says `collector '<name>': ` and one of these, and the collector fails alone: every other is served as before.
+
+| Error | What happened | Do |
+| :--- | :--- | :--- |
+| `COLLECTOR_CANCELLED` | It was still running at the end of its budget, and was stopped with its process: a loop that never ends, or a read that never returns (a FIFO, a socket). | If it is only slow, raise its `budget`; otherwise it is a bug of the collector. |
+| `COLLECTOR_KILLED` | Its process ended under it: past the memory limit, a crash, `exit()`; or its scrape process died while it ran, `collector '<name>' was running when a scrape process died`. | Raise `memory_limit` if it is only large; otherwise it is a bug. |
+| `SAMPLE_LIMIT` | It wrote more than its `max_samples`: the detail says how many, and in which family. | If its output is that large on this device, raise its `max_samples`. |
+| `FAMILY_CONFLICT` | It wrote a family another collector writes, or one the exporter keeps for itself: the detail names it. | Disable one of the two, or fix the collector's names. |
+| `hung at load` (at `err`) | Its module's top level did not return in 5 s: it is left out until the service restarts. | A bug of the module. |
+
+`prometheus-exporter collector check <module file>` runs a module as the service would and says which rule it breaks: see [Collector contract](../reference/collector-contract.md).
 
 ## Collectors are left out at the deadline
 
@@ -72,7 +86,7 @@ See [About deadlines and circuit breakers](../explanation/deadlines-and-breakers
 
 ## A collector works in `check` and fails under procd
 
-`check`, the ubus object's `status`, LuCI's status page and the `prometheus-exporter` command run outside the jail, as root. Prometheus's scrapes run in it. A collector that only fails there lacks something the jail does not give it.
+`check`, the ubus object's `status`, LuCI's status page and `prometheus-exporter scrape` run the collectors in the service's own jail, as Prometheus's scrapes do: they find what Prometheus gets. Where ujail cannot run they run outside the jail, as root, and `check` says `scrape, outside the jail`; a collector that works there and fails under procd lacks something the jail does not give it.
 
 1. See what the jail gives it:
 

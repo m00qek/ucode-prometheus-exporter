@@ -42,10 +42,10 @@ With busybox ntpd running too, timesync writes a series for each, `daemon="ntpd"
 
 chronyd's server statistics, `chrony_serverstats_*`, are never in a scrape of `/metrics`. chronyd answers them on its Unix command socket only, and `chronyc` reaches that socket only by making one of its own beside it, in `/var/run/chrony`. Writing there is commanding chronyd, which sets the clock, so the exporter's jail does not give it: under procd the collector asks over chronyd's UDP command port, as `chronyc` falls back to, which answers tracking and sources, and leaves the server statistics out.
 
-Outside the jail they are read where chronyd serves time, an `allow` section in `/etc/config/chrony`. To see them on the device:
+`prometheus-exporter scrape chrony` runs in the service's jail too, so it does not show them either. To see them on the device, ask chronyd:
 
 ```sh
-prometheus-exporter chrony | grep '^chrony_serverstats_'
+chronyc serverstats
 ```
 
 ## If it fails

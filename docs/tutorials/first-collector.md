@@ -95,7 +95,7 @@ make shell
 ```
 
 ```sh
-ucode -L /exporter/src files/usr/bin/prometheus-exporter -d src/prometheus_exporter/collectors tasks
+ucode -L /exporter/src files/usr/bin/prometheus-exporter scrape -d src/prometheus_exporter/collectors tasks
 ```
 
 This is the exporter's own command, run from the source tree, with the collectors of `src/` and only ours. It prints a scrape:
@@ -114,7 +114,24 @@ node_scrape_collector_success{collector="tasks"} 1
 ucode_prometheus_exporter_build_info{version="dev"} 1
 ```
 
-Our two families come first, then what every scrape says of each collector that ran: ours succeeded. The version is `dev`, as it is from a source tree. `exit` the shell.
+Our two families come first, then what every scrape says of each collector that ran: ours succeeded. The version is `dev`, as it is from a source tree.
+
+Now let the exporter check our module against the rules it holds every collector to, as it would before anyone installs it:
+
+```sh
+ucode -L /exporter/src files/usr/bin/prometheus-exporter collector check src/prometheus_exporter/collectors/tasks.uc
+```
+
+```
+ok   strict mode: 'use strict' first
+ok   load: 0.001 s, of at most 5 s
+ok   meta: tasks (Scheduler tasks), needs fs, budget 5 s, max_samples 20000
+ok   run: 0.000 s, 2 samples in 2 families
+ok   families: node_tasks_runnable node_tasks
+ok   exposition: valid text, each series once
+```
+
+Every line is `ok`: it loads quickly, its `meta` is valid, it ran in a process of its own well within its budget, and it wrote two families no installed collector writes. Had it looped, or written `node_load1`, a line would say `FAIL`, and why. `exit` the shell.
 
 ## 5. Test it
 
@@ -258,11 +275,12 @@ make docs-gen
 
 ## What we did
 
-We wrote a collector that asks for one capability and writes two families, ran it on the command line, tested it with `test/context.uc`'s fakes, gave it a package, generated its reference, and saw it served by OpenWrt in its jail and listed in LuCI.
+We wrote a collector that asks for one capability and writes two families, ran it on the command line, checked it keeps the collector contract, tested it with `test/context.uc`'s fakes, gave it a package, generated its reference, and saw it served by OpenWrt in its jail and listed in LuCI.
 
 ## Next
 
 - [Collector interface](../reference/collector-interface.md): every field of `meta`, every capability, `out` and the Results.
+- [Collector contract](../reference/collector-contract.md): what the exporter enforces of a collector, and what breaking a rule costs.
 - [About nothing to observe](../explanation/nothing-to-observe.md): when a collector should answer `Result.none`.
 - [How to capture fixtures from a device](../how-to/developer/fixtures.md): to test on what a real router answers.
 - [How to package a collector](../how-to/developer/package-collector.md) and [How to run the benchmark](../how-to/developer/benchmarks.md).

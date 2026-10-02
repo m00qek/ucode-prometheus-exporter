@@ -38,6 +38,20 @@ The second is that what must outlast a request has to go to disk. Two things do.
 
 Requests run at once, so the state is written under a lock: an exclusive `flock()` of the instance's lock file, which the kernel lets go of however a request ends. Each write is a whole new file renamed over the old, so a read, which takes no lock, never sees half of one; and a scrape records itself by reading the ledger again under the lock and adding to it, so scrapes that ran at once each count.
 
+## A process of its own {#a-process-of-its-own}
+
+A scrape cannot trust its collectors to return. One may loop forever, wait on a FIFO that nothing writes to, allocate until the memory runs out, or call `exit()`. Within one process there is no stopping that: ucode's VM runs a signal handler at its next instruction, which would do, but uhttpd-mod-ucode's VM handles no signals at all (a handler is never called, and the signal's default action ends the request), and a native call blocked in a system call would not reach the next instruction anyway.
+
+So each scrape forks a child, with ucode's `uloop.task`, from the process that already has the collectors loaded: a fork costs no compiling. The child runs the collectors one after the other, asking the scrape for each, and the scrape holds a timer on the one that runs. When the collector's budget ends, or the scrape's deadline comes first, the scrape kills the child, records the collector as stopped, and forks another for the rest. A child that dies under a collector, out of memory or of a crash, costs that collector alone. Each process of the service has a data limit, so a collector that allocates without end aborts its own child, not the router.
+
+A collector's run crosses back to the scrape through a file the scrape made before it forked the child, removed as soon as it is made, which they share: its samples as the text the reply will hold, never re-encoded. The pipe between them carries only where each run is, in messages short enough that the scrape reads them whole: ucode's uloop reads the pipe without blocking, and loses a message that is half there.
+
+The scrape keeps a progress file beside the ledger: a line before each collector, with the child it runs in. If the scrape process itself dies, killed from outside, the next scrape finds the file, names the collector that was running, quarantines it, and kills the child it may have left looping.
+
+Loading is guarded the same way. uhttpd loads the collectors once, in the process every scrape is forked from: a module whose top level never returns would keep it from ever serving. So each module is first loaded in a child, five seconds at most, and only those that loaded there are loaded for real. rpcd, which must never hang either (it serves the whole of LuCI), asks a helper process to load a module it has not seen before, once per version of the module.
+
+What this costs a scrape is a fork, a round trip per collector and the file; see [Performance on small routers](performance.md#a-process-per-collector).
+
 ## Only one module touches the system
 
 `prometheus_exporter.deps` is the only module that imports `fs`, `ubus`, `uci`, `rtnl`, `nl80211` and `socket`. A collector does not import them: it declares in `meta.needs` the capabilities it wants, and `collect` receives exactly those, in its `deps` argument.
@@ -52,13 +66,13 @@ Taking every native function by name in one module also makes `make lint` meanin
 
 ## The loader
 
-The loader takes every module of the collectors' directory, validates its `meta` and `collect`, and leaves out one that does not load or is not valid, logging why. A broken subpackage costs its own collector and nothing else. The same loader runs in the handler, the command line, `check`, the jail's script and the ubus object, so all of them agree on what is installed.
+The loader takes every module of the collectors' directory, refuses one that is not in strict mode (a variable never declared is then an error, not a global every later collector sees), loads each in a child process first, validates its `meta` and `collect`, and leaves out one that does not load in time or is not valid, logging why. A broken subpackage costs its own collector and nothing else. The same loader runs in the handler, the command line, `check`, the jail's script and the ubus object, so all of them agree on what is installed.
 
 ## Why the ubus object lives in rpcd
 
 The handler only runs inside a request, and only in the jail. Something has to answer questions about the exporter when nobody scrapes, outside the jail, and to LuCI: rpcd, which every image runs, and which already serves LuCI's other objects. Its plugin reads with the exporter's own modules, so it sees what the exporter sees.
 
-One method, `status`, runs a scrape. Collectors call ubus objects, and some of those objects are rpcd's own (`wireguard`, `luci`): rpcd cannot answer them while it waits for the scrape. So `status` runs the scrape in a process of its own and replies when that process is done, and rpcd answers other calls meanwhile.
+One method, `status`, runs a scrape. Collectors call ubus objects, and some of those objects are rpcd's own (`wireguard`, `luci`): rpcd cannot answer them while it waits for the scrape. So `status` runs the scrape in a process of its own and replies when that process is done, and rpcd answers other calls meanwhile. That process runs the collectors in the service's own jail, with ujail, as `check` and the command line's scrape do, so all of them find what Prometheus gets; and rpcd kills it, with all it started, if it ever outlives a scrape's time.
 
 ## See also
 

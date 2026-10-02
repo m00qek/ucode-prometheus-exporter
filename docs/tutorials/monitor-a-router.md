@@ -158,9 +158,9 @@ service prometheus-exporter check
 The first lines are its findings, something like:
 
 ```
-ok   main: HTTP on interface lan, port 9100, keepalive 70s, exec_timeout 5s, gzip when asked
+ok   main: HTTP on interface lan, port 9100, keepalive 70s, exec_timeout 5s, scrape_timeout 10s, collector_budget 5s, max_samples 20000, memory_limit 64 MB (a quarter of the RAM, at most 64), gzip when asked
 ok   collectors: 15 installed collectors, their options valid
-ok   scrape, outside the jail: 15 of 15 collectors succeeded
+ok   scrape, in the service's jail: 15 of 15 collectors succeeded
 ```
 
 Then one block per collector, with what it reads and what the service's jail gives it, and last, everything the jail mounts. Each `ok` is a check that passed; a problem would be a `warn` or `FAIL` line saying what is wrong.

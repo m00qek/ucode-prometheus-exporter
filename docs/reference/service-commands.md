@@ -8,7 +8,7 @@ The init script is `/etc/init.d/prometheus-exporter` (procd, `START=60`). Every 
 
 | Action | What it does |
 | :--- | :--- |
-| `start` | Unless `option enabled '0'`: checks the configuration (`check.uc --config`), sets up basic auth's file, makes the directories the collectors own and the state directory, and hands procd the uhttpd instance, in its jail. Refuses an invalid configuration, logging why at `err`. Waits for the listen interface: with no address on it yet, it logs `deferring start until listen interface <interface> becomes ready` and starts once the interface comes up. |
+| `start` | Unless `option enabled '0'`: checks the configuration (`prometheus-exporter check --config`), sets up basic auth's file, makes the directories the collectors own and the state directory, and hands procd the uhttpd instance, in its jail. Refuses an invalid configuration, logging why at `err`. Waits for the listen interface: with no address on it yet, it logs `deferring start until listen interface <interface> becomes ready` and starts once the interface comes up. |
 | `stop` | Stops the instances. |
 | `restart` | `stop`, then `start`. The new instance starts without [state](jail.md#state). |
 | `reload` | Checks the configuration. Invalid, it keeps the running instance and logs why; valid, it runs `start` again, and procd restarts the instance only if its command line, mounts or watched files changed. |
@@ -16,7 +16,7 @@ The init script is `/etc/init.d/prometheus-exporter` (procd, `START=60`). Every 
 | `enabled` | Exits 0 when the boot link is there. |
 | `running` | Exits 0 when procd runs the service. |
 | `status` | procd's state of the service, then one line: `disabled (option enabled in /etc/config/prometheus-exporter)`, or, while it runs, where it listens. See [`status`](#status). |
-| `check` | Checks the configuration, lists every installed collector and runs a scrape, outside the jail. See [`check`](#check). |
+| `check` | Checks the configuration, lists every installed collector and runs a scrape, in the service's jail. See [`check`](#check). |
 
 `option enabled` in the main section and the boot link are separate: `enabled '0'` stops the service whether or not it is enabled at boot.
 
@@ -38,12 +38,12 @@ listening on http://127.0.0.1:9100/metrics, gzip when asked, serving 15 collecto
 
 ## `check`
 
-`service prometheus-exporter check` runs `/usr/libexec/prometheus-exporter/check.uc`. It prints a line per finding, then every installed collector, then the jail's mounts:
+`service prometheus-exporter check` runs `prometheus-exporter check` (see [The command](command.md#check)). It prints a line per finding, then every installed collector, then the jail's mounts:
 
 ```
-ok   main: HTTP on every address, port 9100, keepalive 70s, exec_timeout 5s, scrape_timeout 10s, collector_budget 5s, gzip when asked
+ok   main: HTTP on every address, port 9100, keepalive 70s, exec_timeout 5s, scrape_timeout 10s, collector_budget 5s, max_samples 20000, memory_limit 64 MB (a quarter of the RAM, at most 64), gzip when asked
 ok   collectors: 17 installed collectors, their options valid
-ok   scrape, outside the jail: 17 of 17 collectors succeeded, 1 with nothing to observe
+ok   scrape, in the service's jail: 17 of 17 collectors succeeded, 1 with nothing to observe
 ok   scrape: wifi has nothing to observe: no wireless radios
 
 collectors: 17 installed, 17 enabled
@@ -73,7 +73,7 @@ Each finding starts with `ok`, `warn` or `FAIL`. Only a `FAIL` makes `check` exi
 
 | Finding | Level |
 | :--- | :--- |
-| `main: <listen summary>, exec_timeout <n>s, scrape_timeout <n>s, collector_budget <n>s, gzip when asked` (or `no compression (option compress)`) | `ok` |
+| `main: <listen summary>, exec_timeout <n>s, scrape_timeout <n>s, collector_budget <n>s, max_samples <n>, memory_limit <n> MB[ (a quarter of the RAM, at most 64)], gzip when asked` (or `no compression (option compress)`) | `ok` |
 | `main: <CODE (detail)>`: an option of the main section the exporter does not take, or options that go together not set together | `FAIL` |
 | `main: cert and key go together; with only cert, it serves HTTP` | `warn` |
 | `main: <file> is missing; it serves HTTP until it is there` | `warn` |
@@ -85,7 +85,7 @@ Each finding starts with `ok`, `warn` or `FAIL`. Only a `FAIL` makes `check` exi
 | `cannot load collector '<module>': ...` or `skipping collector: COLLECTOR_INVALID (...)`: a module the loader left out | `warn` |
 | `jail: <collector>: <problem>`: a path or command the jail cannot give | `warn` |
 | `jail: <collector>: <path> is not there; the service mounts it once it is` | `warn` |
-| `scrape, outside the jail: <n> of <m> collectors succeeded[, <k> with nothing to observe]` | `ok`, or `warn` when one failed |
+| `scrape, in the service's jail: <n> of <m> collectors succeeded[, <k> with nothing to observe]` (or `outside the jail`, where ujail cannot run) | `ok`, or `warn` when one failed |
 | `scrape: <collector>: <CODE (detail)>`: a collector that failed | `warn` |
 | `scrape: <collector> has nothing to observe: <reason>` | `ok` |
 | `service: <collector> is quarantined: <CODE (detail)>; the service tries it again at the next scrape` (or `in <n> scrapes`)`, or at once once restarted` | `warn` |
@@ -108,7 +108,7 @@ One block per installed collector, enabled or not:
 | `commands` | Each program it runs, `<name>=<path>`, or `(not found)`. |
 | `mounts` | What the jail mounts for it, when it is enabled. |
 
-The scrape `check` runs is outside the jail, as root, with the committed configuration, without a deadline, and runs a collector the service quarantined all the same. A collector that works in `check` and fails under procd lacks something in the jail: see [The jail](jail.md). The `service:` findings are what the service's own scrapes found, from its running instance's ledger: see [The jail](jail.md#the-ledger).
+The scrape `check` runs is in the service's own jail, with ujail, as the service's scrapes run (each collector in a process of its own, stopped at its budget, within `scrape_timeout`), with the committed configuration, and runs a collector the service quarantined all the same. Where ujail cannot run (not root, or a kernel or container that refuses it a namespace), it runs outside the jail, as root, with the same guards, and says `outside the jail`: a collector that works there and fails under procd lacks something in the jail; see [The jail](jail.md). The `service:` findings are what the service's own scrapes found, from its running instance's ledger: see [The jail](jail.md#the-ledger).
 
 ## procd
 

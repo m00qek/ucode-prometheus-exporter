@@ -10,6 +10,8 @@ make bench
 
 It prints a table and writes `bin/bench/devenv.json`, and checks the budgets of `test/bench/budgets.uc`: scaling and memory always, times too when the container is unconstrained. CI runs the same.
 
+A `scrape:` case runs each collector in a child process, as the service does; its `inline:` twin runs them all in the scrape's own process, so the difference is what that containment costs, which a budget holds. `probe:full` loads every collector in a child process first, as uhttpd does when it starts, and `progress:full` is a scrape's progress file. The table's note for a scrape gives the child's peak memory, to size `memory_limit` by.
+
 Narrow it to some cases, or run each more:
 
 ```bash

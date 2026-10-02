@@ -9,13 +9,15 @@ uhttpd, and with it the exporter, runs in procd's jail (ujail), named `prometheu
 | From | What |
 | :--- | :--- |
 | The jail's options | procfs, sysfs, the ubus socket, `/dev/log`. |
-| The exporter | `/usr/lib/uhttpd_ucode.so`, `/lib/libubus.so*`, `/lib/libuci.so*`, `/usr/lib/libnl*.so*`, `/usr/lib/libz.so*`, `/usr/lib/ucode`, `/usr/share/ucode/prometheus_exporter`, `/usr/libexec/prometheus-exporter/handler.uc`. |
+| The exporter | `/usr/lib/uhttpd_ucode.so`, `/lib/libubus.so*`, `/lib/libuci.so*`, `/usr/lib/libnl*.so*`, `/usr/lib/libz.so*`, `/usr/lib/ucode`, `/usr/share/ucode/prometheus_exporter`, `/usr/libexec/prometheus-exporter/handler.uc`; `/bin/sh`, whose `kill` a scrape uses to end a collector's process a dead scrape left running. |
 | The configuration | `/etc/config/prometheus-exporter`. |
 | HTTPS, with `cert` set | `cert`, `key`, `/lib/libustream-*.so*`, `/usr/lib/libustream-*.so*`. |
 | Basic auth | Its file, `/var/run/prometheus-exporter/uhttpd.conf`. |
 | The state | `/var/run/prometheus-exporter/state`, read-write. |
 
-Every mount is read-only but the state.
+Every mount is read-only but the state. procd starts the instance at nice 10, with a data limit (`RLIMIT_DATA`) on each of its processes of `memory_limit` MB, or a quarter of the RAM, at most 64 MB: see [Collector contract](collector-contract.md).
+
+`check`, the ubus object's `status` and `prometheus-exporter scrape` run their collectors in a jail of the same mounts, with ujail, at the same priority and data limit: `/usr/libexec/prometheus-exporter/trial.uc`, with the libraries of `/usr/lib/ucode/*.so` given one by one (ujail mounts what each needs), named `prometheus-exporter-trial`. Where ujail cannot run they run outside it.
 
 ## What a collector gets
 
@@ -70,7 +72,7 @@ A path the service owns is never missing: it makes it first.
 | Lock | `<pid>-<start time>.lock`: every write holds an exclusive `flock()` of it; a read takes none. |
 | Other instances' files | Removed when the handler loads. |
 | Lifetime | Until the instance stops: a restart starts without state, a reload that keeps the instance keeps it. |
-| Used for | Basic auth's cache, `<instance>.auth`: one digest of the last `Authorization` header let in. The ledger, `<instance>.scrape`: below. |
+| Used for | Basic auth's cache, `<instance>.auth`: one digest of the last `Authorization` header let in. The ledger, `<instance>.scrape`: below. Each scrape's progress file, `<instance>.p<pid>_<start time>`, named by its process: a line `start <collector> <child pid>-<start time>` appended before each collector, `collected` once they are done, removed when the reply is written; one left by a dead process names the collector it was running, for the next scrape. The file a scrape's collectors' runs cross by, made with `mkstemp` and removed at once. |
 
 ### The ledger
 

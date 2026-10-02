@@ -50,7 +50,7 @@ See [About deadlines and circuit breakers](../explanation/deadlines-and-breakers
 
 `Content-Type: text/plain; version=0.0.4; charset=utf-8`: the Prometheus text exposition format, version 0.0.4.
 
-- Each collector's families, merged by name: a family two collectors write is written once, with the samples of both. A family declared with two types keeps the first, drops the later samples, and logs a warning.
+- Each collector's families. A family is one collector's: the first of the reply that writes it, the exporter's own collectors before those of other packages; another that writes it fails with `FAMILY_CONFLICT`, and none of its samples are served (see [Collector contract](collector-contract.md)). Within a collector, a family declared with two types keeps the first, drops the later samples, and logs a warning.
 - Then, for every collector selected: `node_scrape_collector_duration_seconds` (0 for one not run), `node_scrape_collector_success`, `node_scrape_collector_observing` and `ucode_prometheus_exporter_collector_quarantined`, labeled `collector`. Then `ucode_prometheus_exporter_build_info{version}`. See [Metrics](metrics.md#scrape).
 - A collector that fails keeps the samples it wrote before it failed. One with nothing to observe writes none.
 - With `option omit_zero_values '1'`, samples of counters whose value is 0 are left out.

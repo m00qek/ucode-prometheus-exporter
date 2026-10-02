@@ -22,7 +22,7 @@ $ ubus -v list prometheus-exporter
 | :--- | :--- | :--- |
 | [`collectors`](#collectors) | none | `{ collectors: [ collector ], skipped: [ message ] }` |
 | [`validate`](#validate) | `{ main?, collectors? }` | `{ ok, errors: { main: { <option>: message }, collectors: { <module>: { <option>: message } } } }` |
-| [`status`](#status) | none | `{ service: { enabled, boot, running, error, auth, compress }, listen: [ url ], collectors: [ result ] }` |
+| [`status`](#status) | none | `{ service: { enabled, boot, running, error, auth, compress }, listen: [ url ], collectors: [ result ], jailed }` |
 | [`interfaces`](#interfaces) | none | `{ interfaces: [ { name, proto } ] }` |
 | [`hash_password`](#hash_password) | `{ password }` | `{ hash }` |
 
@@ -87,7 +87,7 @@ $ ubus call prometheus-exporter validate '{"main":{"listen_port":"0","auth_user"
 
 ## `status`
 
-Runs one scrape of the enabled collectors, outside the jail, and replies when it is done. rpcd runs it in a process of its own, `/usr/libexec/prometheus-exporter/rpc-status.uc`, and answers other calls meanwhile, the collectors' calls to objects rpcd serves (`wireguard`, `luci`) among them. It runs a collector the service quarantined all the same, and has no deadline.
+Runs one scrape of the enabled collectors and replies when it is done: in the service's own jail, with ujail, where it can, as the service's scrapes run them (each collector in a process of its own, stopped at its budget, within `scrape_timeout`). rpcd runs it in a process of its own, `/usr/libexec/prometheus-exporter/rpc-status.uc`, and answers other calls meanwhile, the collectors' calls to objects rpcd serves (`wireguard`, `luci`) among them; it kills that process, with all it started, if it is still running after 60 s. It runs a collector the service quarantined all the same.
 
 | Field | Type | Content |
 | :--- | :--- | :--- |
@@ -99,6 +99,7 @@ Runs one scrape of the enabled collectors, outside the jail, and replies when it
 | `service.compress` | boolean or null | `option compress`. |
 | `listen` | array | The URLs the running instance listens on, as `http://*:9100/metrics`. |
 | `collectors` | array | One result per installed collector, in the order of their names. |
+| `jailed` | boolean | Whether the scrape ran in the service's jail; `false` where ujail cannot run, as for a process that is not root's. |
 
 | Field of a result | Type | Content |
 | :--- | :--- | :--- |
@@ -159,7 +160,7 @@ The password is 1 to 256 bytes, without control characters. rpcd runs the method
 | :--- | :--- | :--- |
 | `ARGS_INVALID` | `main and collectors must be objects`, `collectors.<module> must be an object` | `validate` was given something else. |
 | `ARGS_INVALID` | `password: expected a password`, `password: expected a password of at most 256 bytes`, `password: expected a password without control characters` | `hash_password` was given a password it does not take. |
-| `STATUS_FAILED` | `cannot run /usr/libexec/prometheus-exporter/rpc-status.uc 2>/dev/null`, `... printed no reply` | `status` could not run its scrape, or the scrape printed no reply. |
+| `STATUS_FAILED` | `cannot run /usr/libexec/prometheus-exporter/rpc-status.uc`, `... printed no reply` | `status` could not run its scrape, or the scrape printed no reply (or was killed at 60 s). |
 | A [code](error-codes.md) | `CODE (detail)` | `interfaces` could not ask netifd; `hash_password` had no random bytes. |
 
 ubus itself refuses arguments of the wrong type, as a string for `main`, with `Invalid argument`.

@@ -71,6 +71,7 @@ nav:
           - Giving Programs More Time: how-to/exec-timeout.md
           - Setting a Collector's Options: how-to/collector-options.md
           - Publishing Metrics from Scripts: how-to/textfile.md
+          - Pushing Metrics from the Router: how-to/push-metrics.md
           - Monitoring Unbound: how-to/unbound.md
           - Monitoring chrony: how-to/chrony.md
           - Monitoring SQM and CAKE: how-to/sqm-cake.md
@@ -103,6 +104,7 @@ nav:
       - LuCI App: reference/luci.md
       - The Jail: reference/jail.md
       - Collector Interface: reference/collector-interface.md
+      - Collector Contract: reference/collector-contract.md
       - Log Messages: reference/log-messages.md
       - Error Codes: reference/error-codes.md
       - Files and Packages: reference/files.md

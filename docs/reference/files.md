@@ -22,15 +22,16 @@ It conflicts with `prometheus-node-exporter-ucode` and `prometheus-node-exporter
 | `/etc/init.d/prometheus-exporter` | The service. See [Service commands](service-commands.md). |
 | `/etc/uci-defaults/prometheus-exporter-import` | Takes over a feed exporter's settings, once. See [How to move from the feed's exporters](../how-to/migrate-from-feed.md). |
 | `/etc/hotplug.d/ntp/90-prometheus-exporter` | Keeps busybox ntpd's last event for timesync. |
-| `/usr/bin/prometheus-exporter` | The command. See [The `prometheus-exporter` command](command.md). |
+| `/usr/bin/prometheus-exporter` | The command; `service prometheus-exporter check` runs its `check`, and start and reload its `check --config`. See [The `prometheus-exporter` command](command.md). |
 | `/usr/libexec/prometheus-exporter/handler.uc` | uhttpd's handler for `/metrics`. |
-| `/usr/libexec/prometheus-exporter/check.uc` | `service prometheus-exporter check`, and with `--config`, the check of start and reload. |
 | `/usr/libexec/prometheus-exporter/status.uc` | What `status` prints of a running service. |
 | `/usr/libexec/prometheus-exporter/jail.uc` | The jail's mounts; `--missing`, the paths not there yet; `--make`, the directories the service makes. |
 | `/usr/libexec/prometheus-exporter/auth.uc` | Writes or removes basic auth's file. |
 | `/usr/libexec/prometheus-exporter/watch.uc` | The `watch` instance. |
 | `/usr/libexec/prometheus-exporter/import.uc` | The import the uci-defaults script runs. |
 | `/usr/libexec/prometheus-exporter/rpc-status.uc` | The scrape of the ubus object's `status`. |
+| `/usr/libexec/prometheus-exporter/trial.uc` | What runs in the service's jail for `check`, `status` and the command's `scrape`. |
+| `/usr/libexec/prometheus-exporter/probe.uc` | Loads collector modules in a process of its own, for rpcd, which loads none it has not seen load. |
 | `/usr/share/rpcd/ucode/prometheus-exporter.uc` | rpcd's plugin: the [ubus object](ubus.md). |
 | `/usr/share/ucode/prometheus_exporter/*.uc` | The exporter's modules. `version.uc` holds the package's version. |
 | `/usr/share/ucode/prometheus_exporter/collectors/<module>.uc` | The base collectors. |
@@ -41,7 +42,7 @@ It conflicts with `prometheus-node-exporter-ucode` and `prometheus-node-exporter
 | :--- | :--- |
 | `/var/run/prometheus-exporter/` | Mode 0700. |
 | `/var/run/prometheus-exporter/uhttpd.conf` | Basic auth's file, mode 0600, while basic auth is on. |
-| `/var/run/prometheus-exporter/state/` | The handler's state. See [The jail](jail.md#state). |
+| `/var/run/prometheus-exporter/state/` | The handler's state, and each scrape's progress file and the file its collectors' runs cross by. See [The jail](jail.md#state). |
 | `/var/run/prometheus-exporter/timesync/ntpd` | busybox ntpd's last event. |
 
 All are on tmpfs: none survives a reboot.

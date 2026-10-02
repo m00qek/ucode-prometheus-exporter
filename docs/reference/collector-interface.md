@@ -40,7 +40,9 @@ That is `loadavg`, as the base package installs it.
 
 ## Loading
 
-The loader (`src/prometheus_exporter/loader.uc`) takes every file of the collectors' directory named `[a-z0-9_]+.uc`, imports it, and validates its exports. A module that does not import, or whose `meta` or `collect` is not valid, is left out, and the rest load: the handler logs it at `err`, `check` and the ubus object's `collectors` list it. The collectors are sorted by name.
+The loader (`src/prometheus_exporter/loader.uc`) takes every file of the collectors' directory named `[a-z0-9_]+.uc`, imports it, and validates its exports. A module must be in strict mode, its first statement `'use strict'` (after comments only), and its top level must return within 5 seconds: it is first loaded in a process of its own. A module that is not in strict mode, does not import in time, or whose `meta` or `collect` is not valid, is left out, and the rest load: the handler logs it at `err`, `check` and the ubus object's `collectors` list it. The collectors are sorted by name.
+
+What the exporter enforces of a collector, and what breaking each rule costs, is in [Collector contract](collector-contract.md).
 
 uhttpd loads them once, when it starts; a scrape runs what was loaded. Installing or removing a collector package reloads the service, which restarts uhttpd.
 
@@ -56,6 +58,8 @@ uhttpd loads them once, when it starts; a scrape runs what was loaded. Installin
 | `commands` | with `exec` | array | The programs it runs. Not allowed without `exec`. |
 | `optional_commands` | no | array | Those of `commands` it runs only where they are installed: no package it depends on has them, and the jail does without them. |
 | `timeout` | no | integer | With `exec`: the seconds its programs get in all per scrape, 1 to 30, unless its section sets `timeout`. Without it, the main section's `exec_timeout`. |
+| `max_samples` | no | integer | The samples it may write per scrape, 1 to 100,000, unless its section sets `max_samples`. Without it, the main section's `max_samples` (20,000). |
+| `cost` | no | string | `light` (the default) or `heavy`: until the ledger has timed it, a heavy collector runs after the others not yet timed. |
 | `options` | no | object | Its own options, `{ <name>: { default, help, datatype } }`. See [Options](#options). |
 | `paths` | no | array | What it reads outside procfs and sysfs, with `fs`, `socket` or `exec` in `needs`. See [The jail](jail.md#paths). |
 
@@ -63,7 +67,7 @@ uhttpd loads them once, when it starts; a scrape runs what was loaded. Installin
 
 | Key | Required | Rules |
 | :--- | :--- | :--- |
-| (the name) | | `[a-z][a-z0-9_]*`; not `enabled` nor `timeout`, which are the core's. |
+| (the name) | | `[a-z][a-z0-9_]*`; not `enabled`, `timeout`, `budget` nor `max_samples`, which are the core's. |
 | `default` | yes | A boolean, an integer or a string: it sets the option's type. |
 | `help` | yes | A sentence: what the option does. |
 | `datatype` | no | One of the datatypes the core checks: `uinteger`, `range(min,max)`, `directory`, `file`, `regex`. It must take the default. See [UCI configuration](uci-config.md#values). |
@@ -78,7 +82,9 @@ uhttpd loads them once, when it starts; a scrape runs what was loaded. Installin
 | `out` | The recorder the collector writes its families to. |
 | `options` | Its own options, typed. |
 
-It returns a Result. Anything else fails it with `COLLECTOR_NO_RESULT`; an exception, with `COLLECTOR_CRASHED`. What it recorded is kept when it fails, and dropped when it has nothing to observe.
+It returns a Result. Anything else fails it with `COLLECTOR_NO_RESULT`; an exception, with `COLLECTOR_CRASHED`. What it recorded is kept when it fails, and dropped when it has nothing to observe, or when the exporter stopped it (see [Collector contract](collector-contract.md)).
+
+It runs in a process of its own, forked from the scrape's: it shares nothing with the collectors before or after it but the ubus connection and the uci cursor of that process, and it must not end the process (`exit()`).
 
 ### Results
 
@@ -143,6 +149,8 @@ A need the system lacks (`nl80211`, `socket`) fails the collector with `NEED_MIS
 - A value that is not a number is skipped: null, an empty string, a word. A string of digits, or of hex as in sysfs flags, is read as one. `true` and `false` are 1 and 0.
 - Names are made valid: every character the format does not allow is an underscore.
 - A family declared twice with two types keeps the first, and logs a warning.
+- At most `max_samples` samples in all: the next stops the collector (it throws, again at each sample after), and it fails with `SAMPLE_LIMIT`.
+- A family is the first collector's that writes it: one another collector writes, or one of the exporter's own (`node_scrape_collector_*`, `ucode_prometheus_exporter_*`), fails the collector with `FAMILY_CONFLICT`.
 
 ## Tests and packaging
 

@@ -27,7 +27,7 @@ chmod 0644 "$tmp"
 mv -f "$tmp" "$dir/apk.prom"
 ```
 
-The temporary file's name must not end in `.prom`: the collector would read it.
+The temporary file's name must not end in `.prom`: the collector would read it. Write a regular file: the collector skips anything else (a FIFO, a device), counting it in `node_textfile_scrape_error`, and never opens it, so a pipe nothing writes to cannot hold a scrape. A file whose metrics another collector writes too (`node_load1`, say) makes textfile fail whole, with `FAMILY_CONFLICT`: name your metrics your own.
 
 ## 2. Run it
 
