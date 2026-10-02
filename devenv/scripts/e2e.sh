@@ -333,13 +333,15 @@ check "beside busybox ntpd" metric 'node_timesync_synchronized{daemon="ntpd"} '
 /etc/init.d/chronyd stop
 failing() { metric "node_scrape_collector_success{collector=\"$1\"} 0$"; }
 eventually "enabled and stopped, chronyd fails chrony" failing chrony
-check "observing it" observing chrony 1
+# One scrape, before three failures in a row quarantine them.
+fetch >/tmp/chrony_down
+check "observing it" grep -qx 'node_scrape_collector_observing{collector="chrony"} 1' /tmp/chrony_down
 check "logged at warning" says "daemon.warn $NAME\[[0-9]*\]: collector 'chrony': COMMAND_FAILED (chronyc: exit status 1)" logread
-check "and timesync" failing timesync
-check "which still says what busybox ntpd does" metric 'node_timesync_synchronized{daemon="ntpd"} '
+check "and timesync" grep -qx 'node_scrape_collector_success{collector="timesync"} 0' /tmp/chrony_down
+check "which still says what busybox ntpd does" grep -q '^node_timesync_synchronized{daemon="ntpd"} ' /tmp/chrony_down
 /etc/init.d/chronyd disable
 eventually "disabled again, chrony has nothing to observe" observing chrony 0
-check "and timesync observes busybox ntpd alone" served timesync
+eventually "and timesync observes busybox ntpd alone" served timesync
 check "without chronyd" fails metric 'node_timesync_synchronized{daemon="chronyd"}'
 
 # --- a program that hangs, in the jail
@@ -385,8 +387,63 @@ check "check says where its seconds come from" says "timeout  1s # its section's
 check "a timeout out of range fails check" says \
 	"FAIL collector ubnt-manager, section 'ubnt_manager': CONFIG_INVALID (timeout: expected an integer from 1 to 30, got 31)" \
 	sh -c "uci set $NAME.ubnt_manager.timeout=31 && uci commit $NAME && $INIT check; uci set $NAME.ubnt_manager.timeout=1 && uci commit $NAME"
+before=$(pid)
 uci delete "$NAME.ubnt_manager"
 set_config "$NAME.main.exec_timeout=5"
+
+# --- the scrape's deadline and the circuit breakers, in the jail
+# The radio still does not answer: ubnt-manager's ssh hangs. Each restart
+# starts the instance without a ledger, without durations or breakers.
+deadline_fetch() { wget -q -O - --header="X-Prometheus-Scrape-Timeout-Seconds: $1" "$URL"; }
+quarantined() { grep -qx "ucode_prometheus_exporter_collector_quarantined{collector=\"$1\"} 1" "$2"; }
+check "uhttpd gives a scrape 60 seconds, as the exporter reckons" says ' -t 60 ' command_line
+eventually "exec_timeout 5 again restarts the instance" restarted_from "$before"
+before=$(pid)
+# Every other collector timed once: ubnt-manager, never run, runs after them.
+fetch 'exclude[]=ubnt-manager' >/dev/null
+started=$(date +%s)
+deadline_fetch 3 >/tmp/late
+took=$(($(date +%s) - started))
+ubnt_ledger() { grep -o '"ubnt_manager": {[^}]*}' "$STATE"/*.scrape; }
+echo "info a scrape of 3 s: $(grep 'ubnt-manager' /tmp/late | tr '\n' ' '); its ledger: $(ubnt_ledger)"
+echo "info $(logread | grep 'scrape deadline' | tail -1)"
+check "a scrape Prometheus gives 3 seconds answers within them ($took s)" test "$took" -le 3 -a -s /tmp/late
+check "without ubnt-manager, its program killed at the deadline" grep -qx 'node_scrape_collector_success{collector="ubnt-manager"} 0' /tmp/late
+check "serving every other collector as before" test "$(succeeded_but ubnt-manager </tmp/late)" = "$others"
+check "and says so in one line, at warning" \
+	says "daemon.warn $NAME\[[0-9]*\]: scrape deadline: 1 collector not served in its 2.5 s: ubnt-manager$" logread
+check "not a line of the collector's own" fails says "collector 'ubnt-manager': SCRAPE_DEADLINE" logread
+check "and does not quarantine it" fails quarantined ubnt-manager /tmp/late
+# Without the header, scrape_timeout's 10 s: ubnt-manager's program runs its
+# own 5 s, is killed, and trips its breaker.
+fetch >/tmp/hung
+echo "info then a scrape of 10 s: its ledger: $(ubnt_ledger)"
+check "a program killed at its own timeout" says "COMMAND_TIMEOUT (ubnt-manager: still running after 5 s, killed)" logread
+check "quarantines its collector for a scrape, which is logged" \
+	says "daemon.warn $NAME\[[0-9]*\]: collector 'ubnt-manager' quarantined for 1 scrape: COMMAND_TIMEOUT" logread
+# The next scrape, which names it.
+started=$(date +%s)
+fetch 'collect[]=ubnt-manager&collect[]=loadavg' >/tmp/held
+took=$(($(date +%s) - started))
+check "the next scrape leaves it out, at once, though it names it ($took s)" test "$took" -lt 2
+check "saying it is quarantined" quarantined ubnt-manager /tmp/held
+check "and that it failed" grep -qx 'node_scrape_collector_success{collector="ubnt-manager"} 0' /tmp/held
+check "serving the others" grep -qx 'node_scrape_collector_success{collector="loadavg"} 1' /tmp/held
+check "check says the service quarantined it, why, and when it tries again" \
+	says '^warn service: ubnt-manager is quarantined: COMMAND_TIMEOUT (ubnt-manager: still running after 5 s, killed); the service tries it again' "$INIT" check
+service_quarantined() { rpc status | jsonfilter -e "@.collectors[@.name='ubnt-manager'].service.quarantined" | grep -qx true; }
+check "so does the ubus object's status" service_quarantined
+check "the ledger is the instance's, in the state directory" test -s "$(ls "$STATE"/*.scrape)"
+ledger=$(ls "$STATE"/*.scrape)
+"$INIT" restart
+eventually "a restart starts a new instance" restarted_from "$before"
+eventually "which removes the ledger of the one before" test ! -e "$ledger"
+check "check then says nothing of a quarantine" fails says 'service: ubnt-manager is quarantined' "$INIT" check
+started=$(date +%s)
+wget -q -O - "$URL?collect[]=ubnt-manager" >/tmp/fresh
+took=$(($(date +%s) - started))
+check "and ubnt-manager runs again, at its 5 s ($took s): a restart forgets the quarantine" test "$took" -ge 5
+check "not quarantined" sh -c "grep -qx 'ucode_prometheus_exporter_collector_quarantined{collector=\"ubnt-manager\"} 0' /tmp/fresh"
 kill $silent
 set_config "ubnt-manager.sample_ap.target=127.0.0.1"
 eventually "the radio that answers again is read again" metric 'ubnt_uptime_seconds{device="sample_ap"} 4242$'
