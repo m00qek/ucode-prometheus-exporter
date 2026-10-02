@@ -19,8 +19,10 @@
 // does not give it that directory (writing there is commanding chronyd,
 // which can set the clock): under procd chronyc asks over UDP, as it does
 // for tracking and sources, and serverstats are left out. Outside the jail
-// (check, the ubus object's status, the command line) they are read, when
-// chronyd serves time: /etc/config/chrony has an `allow` section.
+// (where ujail cannot be had, and `collector check` of a module) they are
+// read, when chronyd serves time: /etc/config/chrony has an `allow` section.
+// SOCKET is so a path it looks for without declaring it, knowing the jail
+// never has it; its tests say so (test/context.uc's outside_jail).
 
 import { Result, errors, services } from 'prometheus_exporter.api';
 
