@@ -46,7 +46,7 @@ test.describe('Data from the router is shown as text, never markup', () => {
     await expectInert(page);
     await dialog.getByRole('button', { name: 'Dismiss', exact: true }).click();
 
-    await h.showTab(page, 'exporter');
+    await h.showTab(page, 'general');
     await page.locator(`[id="widget.cbid.${h.CONFIG}.main.listen_port"]`).fill('0');
     await page.locator('#view .cbi-page-actions').getByText('Save & Apply', { exact: true }).click();
     await expect(h.saveError(page)).toBeVisible();

@@ -115,15 +115,15 @@ async function open(page, route, user) {
   await expect(page.locator('#view .spinning')).toHaveCount(0, { timeout: 20000 });
 }
 
-// The settings page, on its Exporter tab: LuCI reopens a page on the tab last shown.
+// The settings page, on its General tab: LuCI reopens a page on the tab last shown.
 async function openSettings(page, user) {
   await open(page, `admin/services/${CONFIG}`, user);
   await expect(page.locator('#view h2', { hasText: 'Prometheus exporter' })).toBeVisible();
   await expect(page.locator('#view tr[data-collector]').first()).toBeAttached();
-  await showTab(page, 'exporter');
+  await showTab(page, 'general');
 }
 
-// Shows a tab of the settings page: exporter or collectors.
+// Shows a tab of the settings page: general, https, limits or collectors.
 async function showTab(page, name) {
   await page.locator(`#view .cbi-tabmenu li[data-tab="${name}"] > a`).click();
   await expect(page.locator(`#view .cbi-tabmenu li[data-tab="${name}"]`)).toHaveClass(/cbi-tab(?!-)/);

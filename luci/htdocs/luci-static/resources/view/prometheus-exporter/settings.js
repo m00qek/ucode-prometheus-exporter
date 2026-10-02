@@ -6,14 +6,14 @@
 'require dom';
 'require prometheus-exporter as exporter';
 
-// Services → Prometheus exporter: /etc/config/prometheus-exporter as a form, in two tabs.
-// Exporter has the main section's options. Collectors has a row per installed collector, as
-// the ubus object's `collectors` lists them, by title: its title and help, its package, its
-// switch, and, when it has options, an Edit button. Edit opens a dialog with a field per
-// option (the collector's own, and the core's timeout when it runs programs), whose Save
-// stages them in uci, as LuCI's own dialogs do; the page's Save & Apply applies them with
-// the rest, and Dismiss drops them. A read-only login opens the dialog too, its fields and
-// Save disabled, as LuCI's GridSection has it.
+// Services → Prometheus exporter: /etc/config/prometheus-exporter as a form, in four tabs.
+// General, HTTPS & login and Limits have the main section's options. Collectors has a row
+// per installed collector, as the ubus object's `collectors` lists them, by title: its
+// title and help, its package, its switch, and, when it has options, an Edit button. Edit
+// opens a dialog with a field per option (the collector's own, and the core's timeout when
+// it runs programs), whose Save stages them in uci, as LuCI's own dialogs do; the page's
+// Save & Apply applies them with the rest, and Dismiss drops them. A read-only login opens
+// the dialog too, its fields and Save disabled, as LuCI's GridSection has it.
 //
 // What is saved states every setting: the main section's fields write their values even
 // at the defaults (but for the TLS files and basic auth, which are unset without them).
@@ -29,8 +29,10 @@
 // The object's `validate` checks values as the exporter reads them: the main section's
 // while they are typed and again before Save, a dialog's while they are typed and again
 // before it stages them. Nothing the exporter would refuse is saved: a Save it refuses says
-// why in a dialog, as LuCI's own Save error does, and above the form until it is fixed.
-// Without the object (rpcd reloading, the package upgraded), the page is read-only.
+// why in a dialog, as LuCI's own Save error does, and above the form until it is fixed,
+// each field by its tab, with a link that shows it; LuCI marks a tab that holds an invalid
+// field with how many. Without the object (rpcd reloading, the package upgraded), the page
+// is read-only.
 //
 // Collector names and help, package names, interfaces and paths come from the router: they
 // reach E() only inside arrays, and never a form title or description, which LuCI renders
@@ -421,7 +423,7 @@ const CollectorTable = form.Value.extend({
 	},
 
 	// What an empty field stands for: the option's default. The timeout of a collector
-	// without a default of its own follows exec_timeout, as the Exporter tab has it now.
+	// without a default of its own follows exec_timeout, as the Limits tab has it now.
 	placeholderOf(o) {
 		if (o.core && o.default_from === 'exec_timeout' && typeof(this.execTimeout) === 'function') {
 			const own = this.execTimeout();
@@ -705,8 +707,18 @@ return view.extend({
 		if (this.unavailable)
 			m.readonly = true;
 
-		s.tab('exporter', _('Exporter'));
-		s.tab('collectors', _('Collectors'),
+		this.tabs = {
+			general: _('General'),
+			https: _('HTTPS & login'),
+			limits: _('Limits'),
+			collectors: _('Collectors')
+		};
+		this.tabOf = {};
+
+		s.tab('general', this.tabs.general);
+		s.tab('https', this.tabs.https, _('Basic auth needs HTTPS: set the certificate and key first.'));
+		s.tab('limits', this.tabs.limits, _('Limits keep a slow or broken collector from costing the whole scrape.'));
+		s.tab('collectors', this.tabs.collectors,
 			_('Untick a collector to stop serving its metrics; Edit changes its options; Save & Apply applies them.'));
 
 		this.renderMain(s, (L.isObject(ifaces) && Array.isArray(ifaces.interfaces)) ? ifaces.interfaces : []);
@@ -767,11 +779,12 @@ return view.extend({
 		return out;
 	},
 
-	// An option of the main section, on the Exporter tab, which the object's validate may mark.
-	option(s, type, name, title, description) {
-		const o = s.taboption('exporter', type, name, title, description);
+	// An option of the main section, on one of its tabs, which the object's validate may mark.
+	option(s, tab, type, name, title, description) {
+		const o = s.taboption(tab, type, name, title, description);
 
 		this.mainOptions[name] = o;
+		this.tabOf[name] = tab;
 		o.validate = (section_id, value) => {
 			const mark = lookup(this.marks, name);
 			return (mark && mark.value === value) ? mark.message : true;
@@ -783,40 +796,42 @@ return view.extend({
 	// Every field writes its value, even at the default, so the saved section states every
 	// setting; but for the TLS files, unset without TLS. A field left empty is refused.
 	renderMain(s, interfaces) {
-		let o = this.option(s, form.Flag, 'enabled', _('Enable'), _('Runs the exporter.'));
+		let o = this.option(s, 'general', form.Flag, 'enabled', _('Enable'), _('Runs the exporter.'));
 		o.default = '1';
 		o.rmempty = false;
 
-		o = this.option(s, ListenSelect, 'listen_interface', _('Listen on'),
+		o = this.option(s, 'general', ListenSelect, 'listen_interface', _('Listen on'),
 			_('The interface whose addresses serve the metrics, or every address. On loopback, only programs on the router can scrape it.'));
 		o.default = 'loopback';
 		o.interfaces = interfaces;
 
-		o = this.option(s, form.Value, 'listen_port', _('Port'));
+		o = this.option(s, 'general', form.Value, 'listen_port', _('Port'));
 		o.datatype = 'port';
 		o.default = '9100';
 		o.placeholder = '9100';
 		o.rmempty = false;
 
-		o = this.option(s, form.Value, 'http_keepalive', _('Keep-alive'),
+		o = this.option(s, 'general', form.Value, 'http_keepalive', _('Keep-alive'),
 			_('Seconds an idle connection stays open; 0 closes it after each reply.'));
 		o.datatype = 'uinteger';
 		o.default = '70';
 		o.placeholder = '70';
 		o.rmempty = false;
 
-		o = this.option(s, form.Value, 'cert', _('TLS certificate'),
+		o = this.option(s, 'https', form.Value, 'cert', _('TLS certificate'),
 			_('With a key, serves HTTPS; empty, plain HTTP. Both files must exist, and uhttpd needs a TLS library. LuCI\'s own are /etc/uhttpd.crt and /etc/uhttpd.key.'));
 		o.datatype = 'file';
 
-		o = this.option(s, form.Value, 'key', _('TLS key'), _('The private key of the certificate.'));
+		o = this.option(s, 'https', form.Value, 'key', _('TLS key'), _('The private key of the certificate.'));
 		o.datatype = 'file';
 
-		const user = this.option(s, form.Value, 'auth_user', _('Basic auth user'),
-			_('Basic auth needs HTTPS: set the TLS certificate and key first. With a password, a scrape logs in as this user. Empty for none.'));
+		// Basic auth's fields are shown without TLS too, and the object refuses them: LuCI
+		// unsets an option whose depends are not met, which would drop the user and hash.
+		const user = this.option(s, 'https', form.Value, 'auth_user', _('Basic auth user'),
+			_('With a password, a scrape logs in as this user. Empty for none.'));
 		user.placeholder = _('None');
 
-		o = this.option(s, PasswordValue, 'auth_password', _('Basic auth password'),
+		o = this.option(s, 'https', PasswordValue, 'auth_password', _('Basic auth password'),
 			_('Saved as a hash; the password itself is never stored. Empty keeps the saved one.'));
 		o.password = true;
 		o.user = user;
@@ -833,31 +848,31 @@ return view.extend({
 			return true;
 		};
 
-		o = this.option(s, form.Flag, 'compress', _('Compress'),
+		o = this.option(s, 'general', form.Flag, 'compress', _('Compress'),
 			_('Gzip-compresses a scrape when the scraper asks for it, as Prometheus and vmagent do.'));
 		o.default = '1';
 		o.rmempty = false;
 
-		o = this.option(s, form.Flag, 'omit_zero_values', _('Leave out zero values'),
+		o = this.option(s, 'general', form.Flag, 'omit_zero_values', _('Leave out zero values'),
 			_('Leaves out counters that are 0, most of which never move on a router.'));
 		o.default = '0';
 		o.rmempty = false;
 
-		o = this.option(s, form.Value, 'exec_timeout', _('Program timeout'),
+		o = this.option(s, 'limits', form.Value, 'exec_timeout', _('Program timeout'),
 			_('Seconds, 1 to 30, that the programs a collector runs get in each scrape; one still running then is stopped, and its collector fails. A collector\'s Edit can set its own.'));
 		o.datatype = 'range(1,30)';
 		o.default = '5';
 		o.placeholder = '5';
 		o.rmempty = false;
 
-		o = this.option(s, form.Value, 'scrape_timeout', _('Scrape timeout'),
+		o = this.option(s, 'limits', form.Value, 'scrape_timeout', _('Scrape timeout'),
 			_('Seconds, 1 to 60, a scrape has to answer when the scraper does not say; Prometheus and vmagent do. Collectors left when the time is nearly spent are skipped, so the scrape still answers.'));
 		o.datatype = 'range(1,60)';
 		o.default = '10';
 		o.placeholder = '10';
 		o.rmempty = false;
 
-		o = this.option(s, form.Value, 'collector_budget', _('Collector budget'),
+		o = this.option(s, 'limits', form.Value, 'collector_budget', _('Collector budget'),
 			_('Seconds, 1 to 60, a collector may take in a scrape. One that takes longer is quarantined: skipped for a few scrapes, then tried again.'));
 		o.datatype = 'range(1,60)';
 		o.default = '5';
@@ -933,6 +948,9 @@ return view.extend({
 
 		for (const name in this.mainOptions)
 			this.mainOptions[name].triggerValidation('main');
+
+		// LuCI counts a tab's invalid fields when a value changes, before this answer.
+		ui.tabs.updateTabs(null, this.map.root);
 	},
 
 	// Why the settings could not be checked, above the form; a Save shows it in a dialog.
@@ -941,18 +959,61 @@ return view.extend({
 		dom.content(this.panel, alertBox('error', this.problem));
 	},
 
+	// Shows a tab, and gives the focus to what `selector` finds on it; hides the Save error
+	// dialog, which a link of it calls this from.
+	reveal(tab, selector) {
+		const root = this.map.root;
+
+		ui.hideModal();
+		root.querySelector(`.cbi-tabmenu > li.cbi-tab-disabled[data-tab="${tab}"] > a`)?.click();
+
+		const target = root.querySelector(selector);
+		if (target) {
+			target.scrollIntoView({ block: 'center' });
+			target.focus();
+		}
+	},
+
+	// A link that shows a tab and a field of it, named by the tab and `children`. It takes
+	// the colour of the text around it, underlined: a theme's link colour may not show on
+	// its error alert (bootstrap's blue on red).
+	revealLink(tab, selector, children) {
+		return E('a', {
+			'href': '#',
+			'style': 'color:inherit;text-decoration:underline',
+			'click': (ev) => {
+				ev.preventDefault();
+				this.reveal(tab, selector);
+			}
+		}, fill(_('%s → %s'), this.tabs[tab], children));
+	},
+
 	// What the object found, in a list above the form, which stays until it is fixed, and
-	// in a dialog, which the user sees wherever the page is scrolled.
+	// in a dialog, which the user sees wherever the page is scrolled. Each field is named
+	// by its tab, as a link that shows it.
 	showRefused(errors) {
 		const items = () => {
 			const out = [];
 
-			for (const name in (errors.main ?? {}))
-				out.push(line([ lookup(this.mainOptions, name)?.title ?? name, ': ', String(errors.main[name]) ]));
+			for (const name in (errors.main ?? {})) {
+				const o = lookup(this.mainOptions, name);
+				const where = o ? this.revealLink(this.tabOf[name],
+					`.cbi-value[data-name="${CSS.escape(name)}"] :is(input:not([type="hidden"]), select, textarea, .cbi-dropdown)`,
+					[ o.title ]) : name;
+
+				out.push(line([ where, ': ', String(errors.main[name]) ]));
+			}
 
 			for (const id in (errors.collectors ?? {}))
-				for (const name in errors.collectors[id])
-					out.push(line([ E('code', {}, [ id ]), ' ', E('code', {}, [ name ]), ': ', String(errors.collectors[id][name]) ]));
+				for (const name in errors.collectors[id]) {
+					const row = `tr[data-collector="${CSS.escape(id)}"]`;
+					const target = (name === 'enabled') ? `${row} input[type="checkbox"]` : `${row} .cbi-button-edit`;
+
+					out.push(line([
+						this.revealLink('collectors', target, [ E('code', {}, [ id ]), ' ', E('code', {}, [ name ]) ]),
+						': ', String(errors.collectors[id][name])
+					]));
+				}
 
 			return out;
 		};
