@@ -76,7 +76,7 @@ msgstr ""
 msgid "Collector"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:875
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:868
 msgid "Collector budget"
 msgstr ""
 
@@ -292,7 +292,7 @@ msgstr ""
 msgid "Port"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:861
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:875
 msgid "Program timeout"
 msgstr ""
 
@@ -341,7 +341,7 @@ msgid ""
 "one."
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:868
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:861
 msgid "Scrape timeout"
 msgstr ""
 
@@ -349,20 +349,20 @@ msgstr ""
 msgid "Seconds an idle connection stays open; 0 closes it after each reply."
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:862
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:876
 msgid ""
 "Seconds, 1 to 30, that the programs a collector runs get in each scrape; one "
 "still running then is stopped, and its collector fails. A collector's Edit "
 "can set its own."
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:876
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:869
 msgid ""
 "Seconds, 1 to 60, a collector may take in a scrape. One that takes longer is "
 "quarantined: skipped for a few scrapes, then tried again."
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:869
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:862
 msgid ""
 "Seconds, 1 to 60, a scrape has to answer when the scraper does not say; "
 "Prometheus and vmagent do. Collectors left when the time is nearly spent are "

@@ -133,7 +133,7 @@ test.describe('Services → Prometheus exporter', () => {
     await h.openSettings(page);
     expect(await paneOptions(page, 'general')).toEqual([ 'enabled', 'listen_interface', 'listen_port', 'http_keepalive', 'compress', 'omit_zero_values' ]);
     expect(await paneOptions(page, 'https')).toEqual([ 'cert', 'key', 'auth_user', 'auth_password' ]);
-    expect(await paneOptions(page, 'limits')).toEqual([ 'exec_timeout', 'scrape_timeout', 'collector_budget' ]);
+    expect(await paneOptions(page, 'limits')).toEqual([ 'scrape_timeout', 'collector_budget', 'exec_timeout' ]);
     expect(await paneOptions(page, 'collectors')).toEqual([ '_collectors' ]);
 
     await expect(pane(page, 'general').locator('.cbi-tab-descr')).toHaveCount(0);

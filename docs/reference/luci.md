@@ -47,9 +47,9 @@ The tab's description says the limits keep a slow or broken collector from costi
 
 | Field | Option | Notes |
 | :--- | :--- | :--- |
-| Program timeout | `exec_timeout` | |
 | Scrape timeout | `scrape_timeout` | |
 | Collector budget | `collector_budget` | |
+| Program timeout | `exec_timeout` | |
 
 ### Main section
 

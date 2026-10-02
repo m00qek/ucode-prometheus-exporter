@@ -858,13 +858,6 @@ return view.extend({
 		o.default = '0';
 		o.rmempty = false;
 
-		o = this.option(s, 'limits', form.Value, 'exec_timeout', _('Program timeout'),
-			_('Seconds, 1 to 30, that the programs a collector runs get in each scrape; one still running then is stopped, and its collector fails. A collector\'s Edit can set its own.'));
-		o.datatype = 'range(1,30)';
-		o.default = '5';
-		o.placeholder = '5';
-		o.rmempty = false;
-
 		o = this.option(s, 'limits', form.Value, 'scrape_timeout', _('Scrape timeout'),
 			_('Seconds, 1 to 60, a scrape has to answer when the scraper does not say; Prometheus and vmagent do. Collectors left when the time is nearly spent are skipped, so the scrape still answers.'));
 		o.datatype = 'range(1,60)';
@@ -875,6 +868,13 @@ return view.extend({
 		o = this.option(s, 'limits', form.Value, 'collector_budget', _('Collector budget'),
 			_('Seconds, 1 to 60, a collector may take in a scrape. One that takes longer is quarantined: skipped for a few scrapes, then tried again.'));
 		o.datatype = 'range(1,60)';
+		o.default = '5';
+		o.placeholder = '5';
+		o.rmempty = false;
+
+		o = this.option(s, 'limits', form.Value, 'exec_timeout', _('Program timeout'),
+			_('Seconds, 1 to 30, that the programs a collector runs get in each scrape; one still running then is stopped, and its collector fails. A collector\'s Edit can set its own.'));
+		o.datatype = 'range(1,30)';
 		o.default = '5';
 		o.placeholder = '5';
 		o.rmempty = false;
