@@ -143,6 +143,8 @@ function collector_section(ctx, c, problems) {
 		push(facts, `- **Seconds for its programs:** ${seconds}`);
 	if (meta.max_samples != null)
 		push(facts, `- **Samples it may write:** ${meta.max_samples}, its own (\`meta.max_samples\`), unless its section sets \`max_samples\``);
+	if (length(meta.yields ?? []))
+		push(facts, `- **Yields to:** ${md.codes(meta.yields)} (\`meta.yields\`): its samples of a family one of them writes in the same scrape are left out, so none is exported twice`);
 	if (meta.cost == 'heavy')
 		push(facts, '- **Cost:** heavy (`meta.cost`): until the ledger has timed it, it runs after the others');
 	if (none)

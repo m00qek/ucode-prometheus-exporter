@@ -191,6 +191,16 @@ function family_problem(c, name, owners) {
 	return null;
 }
 
+// The samples of a family, as a recorder or pack() keeps it.
+function samples_of(f) {
+	let n = 0;
+
+	for (let l in f.lines)
+		n += f.packed ? length(split(l, '\n')) : 1;
+
+	return n;
+}
+
 // Each family to the first collector of `runs` (scrape.run_one's, in the
 // order of the reply, `by_id` their collectors) that writes it: a run that
 // writes a family another wrote first, or one the core keeps for itself,
@@ -200,18 +210,40 @@ function family_problem(c, name, owners) {
 // same collector wins every scrape, and one of another package never takes
 // a family of the exporter's own. A family a collector writes is its own,
 // and the reply has each once.
+//
+// But for a collector that declares it yields to others (meta.yields, their
+// names): its samples of a family one of them wrote are left out, and it
+// does not fail. It comes after every collector that does not yield. So a
+// collector that writes what another of the exporter's writes too, with
+// more, never exports anything twice (wifi_stations, beside wifi's
+// stations), and serves it when the other does not.
 export function own(env, runs, by_id) {
 	let owners = {};
-	let first = filter(runs, (r) => r.id in loader.OWN);
+	let yields = (r) => length(by_id[r.id]?.meta.yields ?? []) > 0;
+	let rank = (r) => (yields(r) ? 2 : 0) + ((r.id in loader.OWN) ? 0 : 1);
+	let ordered = [];
 
-	for (let r in [ ...first, ...filter(runs, (r) => !(r.id in loader.OWN)) ]) {
+	for (let k = 0; k < 4; k++)
+		push(ordered, ...filter(runs, (r) => rank(r) == k));
+
+	for (let r in ordered) {
 		let c = by_id[r.id];
 		let why = null;
+		let kept = [];
+		let dropped = 0;
 
 		for (let f in r.families) {
+			let owner = owners[f.name];
+
+			if (owner != null && owner != c.meta.name && owner in (c.meta.yields ?? [])) {
+				dropped += samples_of(f);
+				continue;
+			}
+
 			why = family_problem(c, f.name, owners);
 			if (why)
 				break;
+			push(kept, f);
 		}
 
 		if (why) {
@@ -222,7 +254,9 @@ export function own(env, runs, by_id) {
 			continue;
 		}
 
-		for (let f in r.families)
+		r.families = kept;
+		r.samples -= dropped;
+		for (let f in kept)
 			owners[f.name] ??= r.name;
 	}
 

@@ -13,8 +13,8 @@
 //
 // With option `stations` (on by default) it also writes one sample per station
 // to the node_wifi_station_* families, which the wifi_stations collector writes
-// too (without the `radio` label). Install one of the two, or set `stations`
-// off here, or each station is exported twice.
+// too (without the `radio` label), and leaves to this one (its meta.yields):
+// each station is exported once.
 //
 // An interface nl80211 cannot answer for is left out and fails the collector
 // once the other interfaces are written. A driver without a channel survey

@@ -806,6 +806,7 @@ Wi-Fi stations of each interface, from ubus network.wireless and nl80211.
 - **Depends on:** `ucode-mod-nl80211`
 - **Section:** `config collector 'wifi_stations'`
 - **Needs:** `ubus`, `nl80211`
+- **Yields to:** `wifi` (`meta.yields`): its samples of a family one of them writes in the same scrape are left out, so none is exported twice
 - **Nothing to observe:** As wifi, or no radio with an interface. See [Nothing to observe](#nothing-to-observe).
 - **Metrics:** [wifi\_stations](metrics.md#wifi_stations)
 

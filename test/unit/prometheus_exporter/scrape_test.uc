@@ -463,6 +463,33 @@ describe('scrape.scrape', () => {
 		assert.match(-1, index(r.body, 'ucode_prometheus_exporter_scrapes_total'));
 	});
 
+	it('leaves out what a collector that yields writes of another\'s families, and does not fail it', () => {
+		let wide = collector('wide', (d, out) => {
+			out.gauge('station_signal')({ radio: 'r0', device: 'wlan0' }, -50);
+			return Result.ok();
+		});
+		let narrow = collector('narrow', (d, out) => {
+			out.gauge('station_signal')({ device: 'wlan0' }, -50);
+			out.gauge('narrow_only')(null, 1);
+			return Result.ok();
+		}, { yields: [ 'wide' ] });
+
+		for (let q in [ '', 'collect[]=narrow&collect[]=wide' ]) {
+			let r = scrape_with([ narrow, wide ], q);
+
+			assert.match(contains([ 'narrow_only 1', 'station_signal{radio="r0",device="wlan0"} -50',
+				'node_scrape_collector_success{collector="narrow"} 1', 'node_scrape_collector_success{collector="wide"} 1' ]), lines(r.body), q);
+			assert.match([ -1, [] ], [ index(r.body, 'station_signal{device="wlan0"}'), r.logs ], q);
+		}
+	});
+
+	it('serves what a collector that yields writes when the other does not write it', () => {
+		let narrow = collector('narrow', gauge_of('station_signal', -50), { yields: [ 'wide' ] });
+		let r = scrape_with([ narrow, collector('wide', gauge_of('other', 1)) ], '');
+
+		assert.match(contains([ 'station_signal -50', 'node_scrape_collector_success{collector="narrow"} 1' ]), lines(r.body));
+	});
+
 	it('lets a collector that describes the exporter write the exporter\'s families', () => {
 		let r = scrape_with([ collector('self', gauge_of('ucode_prometheus_exporter_scrapes_total', 9), { needs: [ 'exporter' ] }) ], '');
 
