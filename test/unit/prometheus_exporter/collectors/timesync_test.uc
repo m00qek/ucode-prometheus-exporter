@@ -6,6 +6,8 @@ import * as rc from 'lib.rc';
 import * as fixtures from 'lib.fixtures';
 import * as commands from 'lib.commands';
 import * as timesync from 'prometheus_exporter.collectors.timesync';
+import * as state from 'prometheus_exporter.state';
+import { readfile } from 'fs';
 
 const TRACKING = commands.line(timesync.CHRONYC_TRACKING);
 
@@ -151,6 +153,13 @@ describe('collectors.timesync', () => {
 		with_collector(timesync, { ubus: { data: {}, errors: { 'service:list': 'Permission denied' } } }, (r) => {
 			assert.match([ false, 'UBUS_CALL_FAILED' ], [ r.result.ok, r.result.error ]);
 		});
+	});
+
+	it('reads the event file where the hotplug script writes it, in the service\'s run directory', () => {
+		let script = readfile('files/etc/hotplug.d/ntp/90-prometheus-exporter');
+
+		assert.match(`${state.RUN_DIR}/timesync`, timesync.STATE_DIR);
+		assert.match([ true, true ], [ index(script, `\ndir=${state.RUN_DIR}\n`) >= 0, index(script, '\nstate=$dir/timesync/ntpd\n') >= 0 ]);
 	});
 
 	it('gets the event file\'s directory in the jail, which the service makes, and chronyc where it is installed', () => {

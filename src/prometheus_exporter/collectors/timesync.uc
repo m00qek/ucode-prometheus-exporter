@@ -37,15 +37,16 @@
 import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
 import * as services from 'prometheus_exporter.services';
-import { RUN_DIR } from 'prometheus_exporter.state';
 
 // Where the hotplug script keeps busybox ntpd's last event: in the service's
-// run directory (prometheus_exporter.state's), beside the exporter's own
-// state, which is the uhttpd instance's and goes with it, where this is
-// written from outside and outlives a restart. The jail mounts the directory,
-// read-only: the script renames a new file into it, which a mount of the file
-// itself would not show.
-export const STATE_DIR = `${RUN_DIR}/timesync`;
+// run directory, beside the exporter's own state, which is the uhttpd
+// instance's and goes with it, where this is written from outside and
+// outlives a restart. The jail mounts the directory, read-only: the script
+// renames a new file into it, which a mount of the file itself would not
+// show. It is this collector's own path, declared in meta.paths like any
+// other: the script and this collector name it, and a test holds both to the
+// run directory prometheus_exporter.state keeps, which is the core's.
+export const STATE_DIR = '/var/run/prometheus-exporter/timesync';
 export const NTPD_STATE = `${STATE_DIR}/ntpd`;
 
 export const meta = {
