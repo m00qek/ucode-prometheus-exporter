@@ -6,6 +6,89 @@ The contract is for collectors that have bugs, not for hostile ones: see [About 
 
 ---
 
+## What a collector may import
+
+A collector module imports `prometheus_exporter.api`, the collector API, and nothing else:
+
+```js
+import { Result, errors, services, proc, exposition } from 'prometheus_exporter.api';
+```
+
+| Export | Names |
+| :--- | :--- |
+| `Result` | `ok`, `err`, `none`, `is`, `is_none`, `describe` |
+| `errors` | `SOURCE_UNREADABLE`, `SOURCE_INVALID`, `CONFIG_INVALID`, the codes it fails with; `UBUS_CONNECT_FAILED`, `UBUS_CALL_FAILED`, `NL80211_FAILED`, `RTNL_FAILED`, `SOCKET_FAILED`, `COMMAND_NOT_ALLOWED`, `COMMAND_FAILED`, `COMMAND_TIMEOUT`, `SCRAPE_DEADLINE`, `EXPOSITION_INVALID`, those its capabilities return |
+| `services` | `state`, `idle`, `unless_disabled`, `object_missing`; `ENABLED`, `DISABLED`, `NOT_INSTALLED`, `NOT_FOUND` |
+| `proc` | `first_line`, `lines`, `each_line`, `fields`, `auxv`; `AT_PAGESZ`, `AT_CLKTCK` |
+| `exposition` | `parse`, `format_value`, `sanitize` |
+
+Each is described in [Collector interface](collector-interface.md#the-collector-api). These are the collector's semantic-versioning surface: what the API exports changes incompatibly only in a major version. The modules behind it are the core's, and change in any release. See [About versions](../explanation/versions.md#what-a-version-promises).
+
+Refused, before the module is loaded:
+
+- **Any other module.** `fs`, `ubus`, `uci`, `socket`, `rtnl`, `nl80211`, `uloop`: the capabilities of `meta.needs` do their work, under the exporter's guards. The core's modules, `prometheus_exporter.*`, including another collector's. Pure modules too, `math`, `struct` or `digest`: one would be a dependency the collector's package does not declare, and one more exception to judge; what collectors need of them belongs in the API, in a minor version.
+- **Code loaded past the imports.** A call of `require`, `loadfile` or `loadstring`: `require('fs')` reaches `fs` as surely as an import.
+
+The module's text is read for its imports without compiling it: comments, strings, templates and regular expressions are passed over. A collector is a single module; one that wants code of its own in another module has no way to, as every module of the collectors' directory is loaded as a collector.
+
+| Where | Broken: |
+| :--- | :--- |
+| The loader, wherever collectors are loaded: the service, `check`, the ubus object, the command line | Not loaded; logged at `err`: `skipping collector: COLLECTOR_INVALID (<module>: imports fs (line 3): a collector reads files through deps.fs, with 'fs' in meta.needs)` |
+| `prometheus-exporter collector check` | A `FAIL` line, with the same text: `FAIL imports fs (line 3): a collector reads files through deps.fs, with 'fs' in meta.needs` |
+| The repository's tests | `test/unit/prometheus_exporter/imports_test.uc` holds every collector of `src/` to it. |
+
+Each module refused is named with what to use instead: the capability, for a module of the system; the API, for the core's `result`, `errors`, `services`, `proc` and `exposition` (`take Result from prometheus_exporter.api`); `a collector imports prometheus_exporter.api alone`, for any other.
+
+## What a collector may touch
+
+| Of the system | Only |
+| :--- | :--- |
+| Files and directories | Procfs, sysfs, and what `meta.configs` and `meta.paths` declare. The jail has nothing else a collector would read: see [The jail](jail.md). |
+| Unix sockets | Those in a directory of `meta.paths`. |
+| Programs | Those of `meta.commands`. |
+| ubus, uci, netlink | Through `deps.ubus`, `deps.uci` (the configs of `meta.configs`), `deps.rtnl`, `deps.nl80211`. |
+
+Nothing it may read is writable.
+
+### In the tests
+
+`test/context.uc`'s `with_collector` runs a collector's test in the filesystem the service's jail gives it: the jail's mounts for its `meta`, and what every jail has (`jail.COMMON`: procfs, sysfs, the log's and ubus's sockets, ujail's devices and `/etc/resolv.conf`, the exporter's code, ucode's modules and libraries, the shell, the exporter's own config and state). Whatever the fs and socket mocks hold, an access outside them answers as in the jail:
+
+| Access | Answers |
+| :--- | :--- |
+| `readfile`, `open` | `null` |
+| `lsdir` | `null`; for a directory above a mount, such as `/etc`, the names of what is mounted under it |
+| `stat`, `realpath` | `null`; for a directory above a mount, a directory |
+| `glob` | What the pattern matches of the mounts only |
+| `open` to write, of any path | `null`: the mounts are read-only |
+| `deps.socket.unix_request` | `SOCKET_FAILED`, `connect(): No such file or directory` |
+| `deps.exec.run` of a program not in `meta.commands` | `COMMAND_NOT_ALLOWED`, as everywhere |
+
+Each such access is recorded, and once the collector has run the test fails, by `assert.fail()` (a failure, which a property test shrinks), not from inside the run, where the collector's error boundary would take it for a crash and a collector that falls back on a default would pass:
+
+```
+collector 'foo' read /etc/foo/state, which its meta does not declare.
+In the service's jail that path does not exist: the read returns null, as it did here.
+Declare it in meta.paths (or its directory: '/etc/foo'), or stop reading it.
+Declared: /proc, /sys, /etc/config/foo
+```
+
+```
+collector 'foo' connected to the socket /var/run/foo/foo.sock, which its meta does not declare.
+In the service's jail that socket is not there: connect fails with 'No such file or directory', as it did here.
+Declare its directory in meta.paths ('/var/run/foo'): the jail cannot mount a socket itself. Or stop connecting to it.
+Declared: /proc, /sys
+```
+
+```
+collector 'foo' ran 'false', which its meta.commands does not list.
+The exporter refuses it, in the jail or not: run() returns COMMAND_NOT_ALLOWED without running it, as it did here. A test that expects the collector to fail may pass by accident.
+List it in meta.commands, with 'exec' in meta.needs, or stop running it.
+Declared commands: true
+```
+
+A `meta` the loader refuses, and text that is not valid exposition, fail the test the same way. `with_collector` asserts nothing of the collector's Result: the test does. A test's `outside_jail` names paths a collector looks for knowing the jail never has them, which the mocks then answer: chrony's command socket, for the server statistics it reads where it runs outside the jail.
+
 ## What a collector may do
 
 | A collector may | Through |
@@ -23,6 +106,7 @@ The contract is for collectors that have bugs, not for hostile ones: see [About 
 | Rule | Limit, by default | Set by | Broken: the error | Its breaker |
 | :--- | :--- | :--- | :--- | :--- |
 | The module is in strict mode: its first statement is `'use strict'`. | — | — | Not loaded; logged at `err`, `COLLECTOR_INVALID`. | — |
+| It imports the collector API alone, and calls no `require`, `loadfile` nor `loadstring`. | — | — | Not loaded; logged at `err`, `COLLECTOR_INVALID`. See [What a collector may import](#what-a-collector-may-import). | — |
 | Its top level only declares: it loads in time. | 5 s | — | Not loaded; logged at `err`, `collector '<module>' hung at load`. | — |
 | `meta` and `collect` are valid. | — | — | Not loaded; logged at `err`, `COLLECTOR_INVALID`. | — |
 | It returns a Result, without throwing. | — | — | `COLLECTOR_NO_RESULT`, `COLLECTOR_CRASHED`. | A failure |
@@ -66,7 +150,7 @@ Until the ledger has timed them, as on the first scrape after a restart, the exp
 prometheus-exporter collector check /tmp/my_collector.uc
 ```
 
-It loads the module under the load timer, validates its `meta`, runs it on the device under the rules above, and says how long it took to load and to run, the samples it wrote and its families; then whether its text is valid exposition, each series once, and whether a family is one an installed collector or the exporter writes. A rule broken is a `FAIL` line, and exit status `1`. See [The prometheus-exporter command](command.md#collector-check).
+It reads the module's text for strict mode and its imports, loads the module under the load timer, validates its `meta`, runs it on the device under the rules above, and says how long it took to load and to run, the samples it wrote and its families; then whether its text is valid exposition, each series once, and whether a family is one an installed collector or the exporter writes. A rule broken is a `FAIL` line, and exit status `1`. See [The prometheus-exporter command](command.md#collector-check).
 
 ## See also
 

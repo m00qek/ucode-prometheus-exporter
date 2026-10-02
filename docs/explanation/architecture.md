@@ -54,7 +54,7 @@ What this costs a scrape is a fork, a round trip per collector and the file; see
 
 ## Only one module touches the system
 
-`prometheus_exporter.deps` and its modules, one per capability (`deps/ubus.uc`, `deps/exec.uc`, ...), are the only ones that import `fs`, `ubus`, `uci`, `rtnl`, `nl80211` and `socket`. A collector does not import them: it declares in `meta.needs` the capabilities it wants, and `collect` receives exactly those, in its `deps` argument.
+`prometheus_exporter.deps` and its modules, one per capability (`deps/ubus.uc`, `deps/exec.uc`, ...), are the only ones that import `fs`, `ubus`, `uci`, `rtnl`, `nl80211` and `socket`. A collector does not import them: it declares in `meta.needs` the capabilities it wants, and `collect` receives exactly those, in its `deps` argument. What it takes of the exporter's code comes from one module, `prometheus_exporter.api`, the collector API, and it imports no other: the loader refuses one that does, before it loads it. The API is to collectors what the ubus object and the configuration are to scripts, the surface a version promises; behind it, the core's modules move freely.
 
 This is dependency injection, and it pays three times.
 
@@ -66,7 +66,7 @@ Taking every native function by name in one module also makes `make lint` meanin
 
 ## The loader
 
-The loader takes every module of the collectors' directory, refuses one that is not in strict mode (a variable never declared is then an error, not a global every later collector sees), loads each in a child process first, validates its `meta` and `collect`, and leaves out one that does not load in time or is not valid, logging why. A broken subpackage costs its own collector and nothing else. The same loader runs in the handler, the command line, `check`, the jail's script and the ubus object, so all of them agree on what is installed.
+The loader takes every module of the collectors' directory, refuses one that is not in strict mode (a variable never declared is then an error, not a global every later collector sees) or that imports anything but the collector API, loads each in a child process first, validates its `meta` and `collect`, and leaves out one that does not load in time or is not valid, logging why. A broken subpackage costs its own collector and nothing else. The same loader runs in the handler, the command line, `check`, the jail's script and the ubus object, so all of them agree on what is installed.
 
 ## Why the ubus object lives in rpcd
 

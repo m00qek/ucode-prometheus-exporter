@@ -8,11 +8,17 @@ Releases are semantic versions, `X.Y.Z`, tagged `vX.Y.Z`. This page is about wha
 
 People build on the exporter in several ways: queries and dashboards on its metric names, scripts on its uci options and ubus methods, collectors on its collector interface, images on its package names. A version says which of those can break.
 
-- **Major**: a metric, label or metric type renamed or removed; a uci option renamed, removed or meaning something else; a ubus method's arguments or replies changed incompatibly; `collect(deps, out, options)` or `meta` changed incompatibly; a package or group renamed or split.
-- **Minor**: new collectors, metrics, labels on new families, options, ubus methods, and new cases of nothing to observe.
+- **Major**: a metric, label or metric type renamed or removed; a uci option renamed, removed or meaning something else; a ubus method's arguments or replies changed incompatibly; `collect(deps, out, options)`, `meta` or the collector API changed incompatibly (a name it exports removed, or meaning something else); a package or group renamed or split.
+- **Minor**: new collectors, metrics, labels on new families, options, ubus methods, names the collector API exports, and new cases of nothing to observe.
 - **Patch**: fixes, speed, and documentation.
 
 A new case of nothing to observe is a minor change, though it changes what a scrape says of a collector: a collector that failed on some device now succeeds there, with `node_scrape_collector_observing` 0. Nothing that worked stops working, and an alert on failures fires less, for the right reason.
+
+## The collector API
+
+A collector imports one module, `prometheus_exporter.api`, and the loader refuses one that imports any other (see [Collector contract](../reference/collector-contract.md#what-a-collector-may-import)). That makes the API the whole of what a collector builds on in the exporter's code, beside `meta`, `collect` and the capabilities in `deps`: what it exports is what a major version protects. The modules behind it, `prometheus_exporter.result`, `.proc` and the rest, are the core's, split, renamed and changed in any release, as the core needs, because no collector can have imported them.
+
+Without that rule, every module a collector happened to import would be a promise, and the core could not move a function without a major version, or would break a collector of someone else's package without knowing. The API lists, name by name, what is promised; the rest is free.
 
 ## Before 1.0.0
 

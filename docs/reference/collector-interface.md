@@ -1,13 +1,11 @@
 # Collector Interface
 
-A collector is a ucode module, `src/prometheus_exporter/collectors/<module>.uc`, installed to `/usr/share/ucode/prometheus_exporter/collectors/`. It exports `meta` and `collect`:
+A collector is a ucode module, `src/prometheus_exporter/collectors/<module>.uc`, installed to `/usr/share/ucode/prometheus_exporter/collectors/`. It imports [the collector API](#the-collector-api) alone, and exports `meta` and `collect`:
 
 ```js
 'use strict';
 
-import * as Result from 'prometheus_exporter.result';
-import * as errors from 'prometheus_exporter.errors';
-import { first_line, fields } from 'prometheus_exporter.proc';
+import { Result, errors, proc } from 'prometheus_exporter.api';
 
 export const meta = {
 	name: 'loadavg',
@@ -17,12 +15,12 @@ export const meta = {
 };
 
 export function collect(deps, out) {
-	let line = first_line(deps.fs, '/proc/loadavg');
+	let line = proc.first_line(deps.fs, '/proc/loadavg');
 
 	if (line == null)
 		return Result.err(errors.SOURCE_UNREADABLE, '/proc/loadavg');
 
-	let x = fields(line);
+	let x = proc.fields(line);
 	if (length(x) < 3)
 		return Result.err(errors.SOURCE_INVALID, `/proc/loadavg: ${sprintf('%J', line)}`);
 
@@ -40,7 +38,7 @@ That is `loadavg`, as the base package installs it.
 
 ## Loading
 
-The loader (`src/prometheus_exporter/loader.uc`) takes every file of the collectors' directory named `[a-z0-9_]+.uc`, imports it, and validates its exports. A module must be in strict mode, its first statement `'use strict'` (after comments only), and its top level must return within 5 seconds: it is first loaded in a process of its own. A module that is not in strict mode, does not import in time, or whose `meta` or `collect` is not valid, is left out, and the rest load: the handler logs it at `err`, `check` and the ubus object's `collectors` list it. The collectors are sorted by name.
+The loader (`src/prometheus_exporter/loader.uc`) takes every file of the collectors' directory named `[a-z0-9_]+.uc`, imports it, and validates its exports. A module must be in strict mode, its first statement `'use strict'` (after comments only), import `prometheus_exporter.api` and no other module, and its top level must return within 5 seconds: it is first loaded in a process of its own. A module that is not in strict mode, imports another module, does not import in time, or whose `meta` or `collect` is not valid, is left out, and the rest load: the handler logs it at `err`, `check` and the ubus object's `collectors` list it. The collectors are sorted by name.
 
 What the exporter enforces of a collector, and what breaking each rule costs, is in [Collector contract](collector-contract.md).
 
@@ -88,19 +86,19 @@ It runs in a process of its own, forked from the scrape's: it shares nothing wit
 
 ### Results
 
-`prometheus_exporter.result`:
+`Result`, of the collector API:
 
 | Call | Means | `node_scrape_collector_success` | `node_scrape_collector_observing` | Logged |
 | :--- | :--- | :--- | :--- | :--- |
 | `Result.ok()` | It observed what it reads. | 1 | 1 | No |
-| `Result.err(code, details, data)` | It failed: `code` from `prometheus_exporter.errors`, `details` a string for the log. | 0 | 1 | At `warning`: `collector '<name>': CODE (details)` |
+| `Result.err(code, details, data)` | It failed: `code` from the API's `errors`, `details` a string for the log. | 0 | 1 | At `warning`: `collector '<name>': CODE (details)` |
 | `Result.none(reason)` | Nothing to observe: its hardware, kernel feature or service is not there. Its samples are dropped. | 1 | 0 | No |
 
 `Result.is(r)` tells a Result, `Result.is_none(r)` one of nothing to observe, `Result.describe(r)` gives `CODE (details)`.
 
-### `prometheus_exporter.services`
+### `services`
 
-For a collector to tell nothing to observe from a failure, over `deps.ubus`:
+The collector API's, for a collector to tell nothing to observe from a failure, over `deps.ubus`:
 
 | Function | Returns |
 | :--- | :--- |
@@ -108,6 +106,27 @@ For a collector to tell nothing to observe from a failure, over `deps.ubus`:
 | `idle(ubus, name)` | That reason, or null. |
 | `state(ubus, name)` | A Result of `enabled`, `disabled` or `not installed`. |
 | `object_missing(res)` | Whether a ubus call failed for its object not being there (`Not found`). |
+
+## The collector API
+
+`prometheus_exporter.api`, the one module a collector imports, exports five objects, each of exactly these names. What it exports is what a major version protects; see [Collector contract](collector-contract.md#what-a-collector-may-import).
+
+| Export | Name | Is |
+| :--- | :--- | :--- |
+| `Result` | `ok`, `err`, `none`, `is`, `is_none`, `describe` | See [Results](#results). |
+| `errors` | `SOURCE_UNREADABLE`, `SOURCE_INVALID`, `CONFIG_INVALID` | What a collector fails with, of its own. |
+| | `UBUS_CONNECT_FAILED`, `UBUS_CALL_FAILED`, `NL80211_FAILED`, `RTNL_FAILED`, `SOCKET_FAILED`, `COMMAND_NOT_ALLOWED`, `COMMAND_FAILED`, `COMMAND_TIMEOUT`, `SCRAPE_DEADLINE`, `EXPOSITION_INVALID` | What its capabilities and `out.parse` fail with. See [Error codes](error-codes.md). |
+| `services` | `state`, `idle`, `unless_disabled`, `object_missing`, `ENABLED`, `DISABLED`, `NOT_INSTALLED`, `NOT_FOUND` | See [`services`](#services). |
+| `proc` | `first_line(fs, path)` | The first line of a file, without its newline; null when it cannot be read. |
+| | `lines(fs, path)` | Every line, without newlines; null when it cannot be read. |
+| | `each_line(fs, path, cb)` | `cb(line)` for each line, read one at a time; false when it cannot be read. |
+| | `fields(line)` | The whitespace-separated fields of a line; `[]` for none or for null. |
+| | `auxv(text)`, `AT_PAGESZ`, `AT_CLKTCK` | An auxiliary vector as `/proc/self/auxv` gives it, `{ type: value }`, or null; two of its types. |
+| `exposition` | `parse(text)` | Exposition text read strictly, as a Result of its families (`EXPOSITION_INVALID`). |
+| | `format_value(v)` | A value as the format spells it, or null for one that is not a number. |
+| | `sanitize(name)` | A metric name made valid: every character the format does not allow an underscore. |
+
+`fs` is the collector's `deps.fs`. `exposition`'s functions load the exposition format the first time one is called.
 
 ## `needs`
 
@@ -155,6 +174,8 @@ A need the system lacks (`nl80211`, `socket`) fails the collector with `NEED_MIS
 ## Tests and packaging
 
 Every collector has a unit test, `test/unit/prometheus_exporter/collectors/<module>_test.uc`, and a package: in the base package's `BASE_COLLECTORS`, or a `Collector` line of the package Makefile that depends on what its `needs` and `commands` call for. `test/integration/collectors_test.uc` holds every collector to both. See [How to package a collector](../how-to/developer/package-collector.md).
+
+A unit test runs the collector with `test/context.uc`'s `with_collector`, which fails the test when the collector touches a path, a socket or a program its `meta` does not declare: see [Collector contract](collector-contract.md#in-the-tests).
 
 ## See also
 

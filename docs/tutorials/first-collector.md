@@ -55,9 +55,7 @@ Create `src/prometheus_exporter/collectors/tasks.uc`:
 ```js
 'use strict';
 
-import * as Result from 'prometheus_exporter.result';
-import * as errors from 'prometheus_exporter.errors';
-import { first_line, fields } from 'prometheus_exporter.proc';
+import { Result, errors, proc } from 'prometheus_exporter.api';
 
 export const meta = {
 	name: 'tasks',
@@ -67,12 +65,12 @@ export const meta = {
 };
 
 export function collect(deps, out) {
-	let line = first_line(deps.fs, '/proc/loadavg');
+	let line = proc.first_line(deps.fs, '/proc/loadavg');
 
 	if (line == null)
 		return Result.err(errors.SOURCE_UNREADABLE, '/proc/loadavg');
 
-	let counts = split(fields(line)[3] ?? '', '/');
+	let counts = split(proc.fields(line)[3] ?? '', '/');
 
 	if (length(counts) != 2)
 		return Result.err(errors.SOURCE_INVALID, `/proc/loadavg: ${line}`);
@@ -84,7 +82,7 @@ export function collect(deps, out) {
 };
 ```
 
-Notice three things. `meta.needs` asks for `fs`, and `collect` reads the file through `deps.fs`, not by importing `fs`: a collector only gets what it asks for. `out.gauge` declares a family and returns a function that records a sample. And `collect` returns a Result: `Result.ok()` when it worked, `Result.err()` with a code when it did not.
+Notice four things. The collector imports one module, `prometheus_exporter.api`, the collector API: what it uses of the exporter comes from there. `meta.needs` asks for `fs`, and `collect` reads the file through `deps.fs`, not by importing `fs`: a collector only gets what it asks for, and the exporter refuses one that imports anything else. `out.gauge` declares a family and returns a function that records a sample. And `collect` returns a Result: `Result.ok()` when it worked, `Result.err()` with a code when it did not.
 
 ## 4. Run it
 
@@ -124,6 +122,7 @@ ucode -L /exporter/src files/usr/bin/prometheus-exporter collector check src/pro
 
 ```
 ok   strict mode: 'use strict' first
+ok   imports: prometheus_exporter.api alone
 ok   load: 0.001 s, of at most 5 s
 ok   meta: tasks (Scheduler tasks), needs fs, budget 5 s, max_samples 20000
 ok   run: 0.000 s, 2 samples in 2 families
@@ -131,7 +130,7 @@ ok   families: node_tasks_runnable node_tasks
 ok   exposition: valid text, each series once
 ```
 
-Every line is `ok`: it loads quickly, its `meta` is valid, it ran in a process of its own well within its budget, and it wrote two families no installed collector writes. Had it looped, or written `node_load1`, a line would say `FAIL`, and why. `exit` the shell.
+Every line is `ok`: it imports the API alone, it loads quickly, its `meta` is valid, it ran in a process of its own well within its budget, and it wrote two families no installed collector writes. Had it looped, or written `node_load1`, a line would say `FAIL`, and why. `exit` the shell.
 
 ## 5. Test it
 
@@ -168,7 +167,7 @@ describe('collectors.tasks', () => {
 });
 ```
 
-`with_collector` hands the collector an `fs` that answers from `data`, runs it, and gives us what it wrote: `r.result`, `r.lines`, and `r.logs`, what the scrape would log. The second test hands it a file that cannot be read. Run only these:
+`with_collector` hands the collector an `fs` that answers from `data`, runs it, and gives us what it wrote: `r.result`, `r.lines`, and `r.logs`, what the scrape would log. The second test hands it a file that cannot be read. `with_collector` also answers as the exporter's jail would: had our collector read a file outside `/proc` and `/sys` without declaring it, the test would fail, and say so. Run only these:
 
 ```bash
 make unit MODULES=test/unit/prometheus_exporter/collectors/tasks_test.uc
