@@ -123,26 +123,3 @@ describe('collectors', () => {
 	for (let id in IDS)
 		checks(id);
 });
-
-// wifi and wifi_stations on the access point's captures: wifi_stations yields
-// its station families to wifi (meta.yields), so each station is exported once.
-describe('wifi beside wifi_stations', () => {
-	it('exports each station once, by wifi, and fails neither', () => {
-		let fixtures = loadstring("import * as f from 'docs_gen.fixtures'; return f;", { raw_mode: true })();
-		let scrape = loadstring("import * as s from 'prometheus_exporter.scrape'; return s;", { raw_mode: true })();
-		let deps = loadstring("import * as d from 'prometheus_exporter.deps'; return d;", { raw_mode: true })();
-		let wifi = loader.validate('wifi', loader.import_module('wifi')).data;
-		let stations = loader.validate('wifi_stations', loader.import_module('wifi_stations')).data;
-		let mods = fixtures.modules('test/fixtures/caju-ap', {});
-		let logs = [];
-		let env = { session: () => deps.session({ ...mods, log: () => null }), clock: () => [ 0, 0 ], log: (l, m) => push(logs, m), version: 'dev' };
-		let body = split(scrape.scrape(env, [ wifi, stations ], '').body, '\n');
-		let signals = filter(body, (l) => index(l, 'node_wifi_station_signal_dbm{') == 0);
-
-		assert.match([], logs);
-		assert.match(true, 'node_scrape_collector_success{collector="wifi"} 1' in body);
-		assert.match(true, 'node_scrape_collector_success{collector="wifi_stations"} 1' in body);
-		assert.match(true, length(signals) > 0);
-		assert.match([], filter(signals, (l) => index(l, 'radio="') < 0));
-	});
-});

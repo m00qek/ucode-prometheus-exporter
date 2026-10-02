@@ -12,10 +12,8 @@
 // collector writes them.
 //
 // The wifi collector's `stations` option writes the same node_wifi_station_*
-// families, with a `radio` label besides. This one yields to it (meta.yields):
-// in a scrape where wifi writes them, this one's are left out, so no station
-// is exported twice; it serves them where wifi does not (its `stations` off,
-// or wifi not installed).
+// families, with a `radio` label besides. Install one of the two, or set that
+// option off, or each station is exported twice.
 //
 // An interface whose dump fails is left out, and fails the collector once the
 // others are written.
@@ -29,7 +27,6 @@ export const meta = {
 	title: 'Wi-Fi stations',
 	help: 'Wi-Fi stations of each interface, from ubus network.wireless and nl80211.',
 	needs: [ 'ubus', 'nl80211' ],
-	yields: [ 'wifi' ],
 };
 
 // nl80211's bitrates are in units of 100 kbit/s, its expected throughput in kbit/s.

@@ -185,11 +185,6 @@ export function validate(id, mod) {
 	if (meta.cost != null && !(meta.cost in COSTS))
 		return invalid(id, `meta.cost must be one of ${join(', ', COSTS)}`);
 
-	// The collectors whose families it leaves to them (scrape.own).
-	if (meta.yields != null)
-		if (!is_strings(meta.yields) || length(filter(meta.yields, (n) => !match(n, NAME) || n == meta.name)))
-			return invalid(id, 'meta.yields must list the names of other collectors');
-
 	if (meta.options != null && type(meta.options) != 'object')
 		return invalid(id, 'meta.options must be an object of { default, help, datatype }');
 

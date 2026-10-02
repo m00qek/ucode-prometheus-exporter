@@ -183,12 +183,6 @@ describe('loader.validate', () => {
 		assert.match([ true, options ], [ res.ok, res.data.meta.options ]);
 	});
 
-	it('takes yields naming other collectors', () => {
-		assert.match(true, loader.validate('x', module_named('x', { yields: [ 'wifi', 'ltq-dsl' ] })).ok);
-		for (let y in [ 'wifi', [ 'x' ], [ 'Bad Name' ], [ 1 ] ])
-			assert.match('x: meta.yields must list the names of other collectors', problem('x', module_named('x', { yields: y })), y);
-	});
-
 	it('takes a cost of light or heavy, and nothing else', () => {
 		assert.match([ true, true, true ], map([ null, 'light', 'heavy' ], (cost) => loader.validate('x', module_named('x', { cost })).ok));
 		assert.match('x: meta.cost must be one of light, heavy', problem('x', module_named('x', { cost: 5 })));
