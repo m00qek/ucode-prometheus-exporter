@@ -19,6 +19,8 @@
 //   collector:nat_traffic@<n>     the n-entry conntrack tables (1k, 10k, 20k)
 //   scrape:base, scrape:full      whole scrapes, on the typical and the large world
 //   auth:<hash>, auth:cached      basic auth's check of a password, by each hash and by the cache
+//   ledger:full                   what the ledger in the state adds to a full scrape
+//   deadline:full@<n>             a full scrape for a 10 s timeout, nat_traffic on the n-entry table
 
 import * as fs from 'fs';
 import * as budgets from 'bench.budgets';
@@ -73,6 +75,8 @@ for (let w in [ 'typical', 'large' ])
 // request let in by the cache.
 for (let c in [ 'md5', `sha512@${auth.HASH_ROUNDS}`, `sha256@${auth.ROUNDS_MAX}`, `sha512@${auth.ROUNDS_MAX}`, 'cached' ])
 	push(cases, [ 'typical', `auth:${c}` ]);
+push(cases, [ 'typical', 'ledger:full' ]);
+push(cases, [ 'large', `deadline:full@${max(...json(fs.readfile(`${args.worlds}/large/world.json`)).sizes.conntrack_scaling)}` ]);
 
 if (args.filter)
 	cases = filter(cases, (c) => match(`${c[0]}/${c[1]}`, args.filter));
@@ -176,6 +180,11 @@ for (let c in cases) {
 	let note = r.ok === false ? (r.error ?? 'failed') : '';
 	if (r.kind == 'calibrate')
 		note = sprintf('%.3f us a loop turn, %.3f us a builtin call, %.1f ms a program run', r.loop_us, r.call_us, r.exec_ms);
+	if (r.kind == 'deadline')
+		note = sprintf('%s; left out: %s', (r.first != null) ? sprintf('first %.1f ms', r.first * 1000) : 'ledger kept', join(' ', r.left_out ?? []) || 'none') +
+			(r.ok === false ? ` ${r.error}` : '');
+	if (r.kind == 'ledger' && r.ok !== false)
+		note = sprintf('%d collectors, %d bytes', r.collectors, r.bytes);
 	if (r.kind == 'auth' && r.ok !== false)
 		note = r.cached ? 'by the cache' : sprintf('%d rounds', r.rounds);
 	if (r.kind == 'scrape') {

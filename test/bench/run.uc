@@ -16,6 +16,13 @@
 //   auth:md5                  basic auth's check of a password against a $1$ hash
 //   auth:<sha256|sha512>@<n>  the same against a $5$ or $6$ hash of n rounds
 //   auth:cached               the same by the cache a check before left (hash_password's hash)
+//   deadline:<set>@<n>        a scrape of the set as the handler makes it for Prometheus's
+//                             default 10 s timeout, nat_traffic reading the n-entry table:
+//                             after a first scrape that leaves the ledger, the time to
+//                             answer, which must be within the timeout
+//   ledger:<set>              what the ledger adds to a scrape of the set: reading and
+//                             parsing it, ordering the collectors, and recording the
+//                             scrape under the state's lock, with every collector in it
 //
 // A set is one named in WORLD/../sets.json: base, full (base and the -full group).
 
@@ -28,6 +35,8 @@ import * as Result from 'prometheus_exporter.result';
 import * as auth from 'prometheus_exporter.auth';
 import * as crypt from 'prometheus_exporter.crypt';
 import * as state from 'prometheus_exporter.state';
+import * as ledger from 'prometheus_exporter.ledger';
+import * as deadline from 'prometheus_exporter.deadline';
 import * as bench_world from 'bench.world';
 
 const STATUS = /^(VmHWM|VmRSS):\s+([0-9]+) kB/;
@@ -231,6 +240,83 @@ if (kind == 'calibrate') {
 	result.time = now() - t;
 	result.rounds = crypt.rounds(hash);
 	result.cached = st != null;
+} else if (kind == 'deadline') {
+	let parts = split(arg, '@');
+	let collectors = load_set(parts[0]);
+	let needs = [];
+
+	for (let c in collectors)
+		push(needs, ...c.meta.needs);
+
+	let mods = bench_world.modules(world, uniq(needs), { redirect: { '/proc/net/nf_conntrack': `${world_dir}/conntrack/${parts[1]}` } });
+	let env = { session: () => deps.session({ ...mods, log }), clock: () => clock(true), log, version: 'bench' };
+	let dir = `${world_dir}/../state-deadline`;
+	let timeout = 10;
+	let budget = deadline.budget(timeout);
+
+	fs.mkdir(dir, 0o700);
+
+	// One instance for every run, as the scrapes of one uhttpd: its ledger
+	// lasts from run to run, which a first scrape fills.
+	let st = state.open(fs, dir, '1-1');
+
+	if (st.read(ledger.NAME) == null) {
+		let t = now();
+		scrape.scrape(env, collectors, '', { deadline: t + budget, budget, state: st });
+		result.first = now() - t;
+	}
+
+	mem_before = reset_peak();
+
+	let t = now();
+	let res = scrape.scrape(env, collectors, '', { deadline: t + budget, budget, state: st });
+	result.time = now() - t;
+
+	let left = [];
+	for (let line in split(res.body, '\n')) {
+		let m = match(line, FAILED);
+		if (m)
+			push(left, m[1]);
+	}
+
+	result.timeout = timeout;
+	result.ok = res.status == '200 OK' && result.time < timeout;
+	result.error = result.ok ? null : sprintf('%.2f s, past the %d s timeout', result.time, timeout);
+	result.left_out = left;
+	result.samples = samples(res.body);
+	result.entries = +parts[1];
+} else if (kind == 'ledger') {
+	// A ledger of every collector of the set, after scrapes in which one of
+	// them failed every time and another ran into the deadline, in the
+	// state of this process's instance, as the handler's.
+	let collectors = load_set(arg);
+	let ids = map(collectors, (c) => c.id);
+	let dir = `${world_dir}/../state-ledger`;
+	let runs = map(collectors, (c, i) => ({
+		id: c.id, name: c.meta.name, duration: 0.001 * (i + 1), samples: 10 * i, budget: 5,
+		result: (i == 0) ? Result.err('SOURCE_INVALID', 'a failure of a few words') : ((i == 1) ? Result.err('SCRAPE_DEADLINE', 'killed') : Result.ok()),
+	}));
+
+	fs.mkdir(dir, 0o700);
+
+	let st = state.open(fs, dir, state.instance_id(fs));
+	let l = ledger.empty();
+
+	for (let i = 0; i < 5; i++)
+		l = ledger.record(l, runs, { seconds: 0.05, samples: 2000 }, ids);
+	st.write(ledger.NAME, ledger.serialize(l));
+
+	mem_before = reset_peak();
+
+	let t = now();
+	let read = ledger.parse(st.read(ledger.NAME));
+	let order = ledger.order(read, collectors);
+
+	st.update(ledger.NAME, (text) => ledger.serialize(ledger.record(ledger.parse(text), runs, { seconds: 0.05, samples: 2000 }, ids)));
+	result.time = now() - t;
+	result.ok = length(order) == length(collectors);
+	result.collectors = length(collectors);
+	result.bytes = length(st.read(ledger.NAME));
 } else {
 	die(`unknown case ${name}`);
 }
