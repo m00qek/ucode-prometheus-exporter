@@ -477,8 +477,9 @@ broken() {
 	name=$1 top=$2 meta=$3; shift 3
 	cat >"$DIR/$name.uc" <<EOF
 'use strict';
-import * as Result from 'prometheus_exporter.result';
-export const meta = { name: '$name', title: 'Broken on purpose', help: 'A collector that breaks the contract, for e2e.', needs: [ 'fs' ]$meta };
+import { Result } from 'prometheus_exporter.api';
+${IMPORT:+$IMPORT
+}export const meta = { name: '$name', title: 'Broken on purpose', help: 'A collector that breaks the contract, for e2e.', needs: [ 'fs' ]$meta };
 $top
 export function collect(deps, out) {
 	$*
@@ -492,6 +493,10 @@ broken e2e_flood '' '' "let g = out.gauge('e2e_flood_value'); for (let i = 0; ; 
 broken e2e_thief '' '' "out.gauge('node_load1', 'Not its own.')(null, 42);"
 broken e2e_hog '' '' "let s = 'x'; while (true) s += s;"
 broken e2e_stuck 'while (true) ;' '' ''
+# A third party's module that imports fs, as ucode's own scripts do.
+IMPORT="import { readfile } from 'fs';"
+broken e2e_importer '' '' 'readfile("/etc/passwd");'
+IMPORT=
 mkfifo /var/prometheus/e2e-fifo.prom
 # Stopped at 2 s rather than 5: the e2e waits less.
 uci set $NAME.e2e_loop=collector && uci set $NAME.e2e_loop.budget=2 && uci commit $NAME
@@ -522,6 +527,8 @@ check "one that allocates past the memory limit costs its own process" failed e2
 check "and logged as killed" logged_as e2e_hog 'COLLECTOR_KILLED (its process ended while it ran'
 check "one that hangs when loaded is left out, logged at err" says "daemon.err $NAME\[[0-9]*\]: collector 'e2e_stuck' hung at load: still loading after 5 s: stopped; it is left out" logread
 check "and is not served" fails grep -q 'collector="e2e_stuck"' /tmp/broken
+check "one that imports fs is left out unloaded, logged at err with what to use" says "daemon.err $NAME\[[0-9]*\]: skipping collector: COLLECTOR_INVALID (e2e_importer: imports fs (line 3): a collector reads files through deps.fs, with 'fs' in meta.needs)" logread
+check "and is not served" fails grep -q 'collector="e2e_importer"' /tmp/broken
 check "a FIFO in textfile's directory does not hold it" grep -qx 'node_scrape_collector_success{collector="textfile"} 1' /tmp/broken
 check "it is skipped and counted" grep -qx 'node_textfile_scrape_error 1' /tmp/broken
 check "and logged" says "collector 'textfile': skipped /var/prometheus/e2e-fifo.prom: is not a regular file (fifo): not read" logread

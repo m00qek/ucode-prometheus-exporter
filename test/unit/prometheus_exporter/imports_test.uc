@@ -7,6 +7,7 @@
 
 import { describe, it, assert } from 'utest';
 import { readfile, lsdir, stat } from 'fs';
+import * as loader from 'prometheus_exporter.loader';
 
 const IMPORT = /(^|\n)[ \t]*import[^'"\n;]*from[ \t]*(['"])([^'"]+)['"]/g;
 
@@ -146,5 +147,24 @@ describe('modules split into a directory', () => {
 			'devenv/scripts/package-check.sh', 'test/lib/commands.uc', 'test/context.uc',
 		], (p) => !(p in scanned))) == 0);
 		assert.match(true, 'exposition' in facades() && !('collectors' in facades()));
+	});
+});
+
+// A collector imports the collector API alone, and loads no code past it: the
+// loader leaves out one that does (loader.import_problem), so each the
+// packages ship must keep to it.
+describe('what the collectors import', () => {
+	it('is the collector API alone, for each collector the packages ship', () => {
+		let problems = [];
+
+		for (let path in files_under('src/prometheus_exporter/collectors', [])) {
+			let why = loader.import_problem(readfile(path));
+
+			if (why != null)
+				push(problems, `${path}: ${why}`);
+		}
+
+		assert.match([], problems);
+		assert.match(true, length(files_under('src/prometheus_exporter/collectors', [])) >= length(loader.OWN));
 	});
 });

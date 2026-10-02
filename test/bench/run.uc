@@ -96,11 +96,24 @@ let logs = [];
 let log = (level, msg) => push(logs, `${level}: ${msg}`);
 let kind = split(name, ':')[0], arg = split(name, ':')[1];
 
-// The collectors of a set, loaded as the exporter loads them; with `probe`,
-// each loaded in a child process first, as uhttpd loads them.
+// Where the collectors' modules are: the source tree's beside the bench, or
+// else the installed ones, as bench.uc finds the exporter.
+const COLLECTORS = fs.realpath(`${fs.dirname(sourcepath())}/../../src/prometheus_exporter/collectors`) ?? loader.DIR;
+
+// The collectors of a set, loaded as the exporter loads them: each module's
+// text read and checked first (loader.refusal); with `probe`, each loaded in
+// a child process first, as uhttpd loads them.
 function load_set(set, probe) {
 	let names = sets[set] ?? die(`no set ${set}`);
 	let out = [];
+
+	for (let n in names) {
+		let why = loader.refusal(fs.readfile(`${COLLECTORS}/${loader.id_of(n)}.uc`));
+
+		if (why != null)
+			die(`${n}: ${why}`);
+	}
+
 	let probed = probe ? probe_modules(map(names, loader.id_of), loader.import_module) : {};
 
 	for (let n in names) {

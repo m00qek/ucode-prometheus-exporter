@@ -213,6 +213,25 @@ describe('loader.is_strict', () => {
 			assert.match(true, loader.is_strict(text), text);
 	});
 
+	it('reads comments and blank space longer than the window it looks in first', () => {
+		let long = '', blank = '';
+
+		for (let i = 0; i < 3000; i++) {
+			long += 'x';
+			blank += ' ';
+		}
+
+		for (let text in [
+			`/* ${long} */\n'use strict';\n${long}\n`,
+			`// ${long}\n'use strict';\n`,
+			`${blank}\n'use strict';\n`,
+			`/* a */\n/* ${long}\n${long} */ 'use strict';\n`,
+		])
+			assert.match(true, loader.is_strict(text), substr(text, 0, 20));
+
+		assert.match([ false, false ], [ loader.is_strict(`/* ${long}\n'use strict';\n`), loader.is_strict(`/* ${long} */ x;\n'use strict';\n`) ]);
+	});
+
 	it('refuses one without it first, or where it is not a statement of its own', () => {
 		for (let text in [
 			'',
@@ -233,6 +252,60 @@ describe('loader.is_strict', () => {
 	it('takes every collector of the source tree', () => {
 		for (let f in require('fs').glob('src/prometheus_exporter/collectors/*.uc'))
 			assert.match(true, loader.is_strict(require('fs').readfile(f)), f);
+	});
+});
+
+describe('loader.import_problem', () => {
+	const API = "'use strict';\nimport { Result } from 'prometheus_exporter.api';\n";
+
+	it('takes a module that imports the collector API alone, or nothing', () => {
+		assert.match([ null, null ], [ loader.import_problem(API), loader.import_problem("'use strict';\nexport const x = 1;\n") ]);
+	});
+
+	it('refuses the modules of the system, saying which capability gives what each would', () => {
+		assert.match(join('; ', [
+			"imports fs (line 3): a collector reads files through deps.fs, with 'fs' in meta.needs",
+			"imports ubus (line 4): a collector calls ubus through deps.ubus, with 'ubus' in meta.needs",
+			"imports uci (line 5): a collector reads uci configs through deps.uci, with 'uci' in meta.needs",
+			"imports socket (line 6): a collector talks to a Unix socket through deps.socket, with 'socket' in meta.needs",
+			"imports rtnl (line 7): a collector asks rtnetlink through deps.rtnl, with 'rtnl' in meta.needs",
+			"imports nl80211 (line 8): a collector asks nl80211 through deps.nl80211, with 'nl80211' in meta.needs",
+		]), loader.import_problem(API + join('\n', map([ 'fs', 'ubus', 'uci', 'socket', 'rtnl', 'nl80211' ],
+			(m) => `import * as x_${m} from '${m}';`))));
+	});
+
+	it('refuses the core\'s modules, pointing at the API for what it exports of them', () => {
+		assert.match(join('; ', [
+			'imports prometheus_exporter.result (line 1): take Result from prometheus_exporter.api',
+			'imports prometheus_exporter.proc (line 2): take proc from prometheus_exporter.api',
+			'imports prometheus_exporter.deps (line 3): a collector imports prometheus_exporter.api alone',
+			'imports prometheus_exporter.collectors.loadavg (line 4): a collector imports prometheus_exporter.api alone',
+		]), loader.import_problem(join('\n', [
+			"import * as Result from 'prometheus_exporter.result';",
+			"import { fields } from 'prometheus_exporter.proc';",
+			"import * as deps from 'prometheus_exporter.deps';",
+			"import { collect } from 'prometheus_exporter.collectors.loadavg';",
+		])));
+	});
+
+	it('refuses the pure modules too, and code loaded past the imports', () => {
+		assert.match(join('; ', [
+			'imports math (line 3): a collector imports prometheus_exporter.api alone',
+			"calls require(\"fs\") (line 4): a collector reads files through deps.fs, with 'fs' in meta.needs",
+			'calls loadstring() (line 5): a collector imports prometheus_exporter.api alone',
+		]), loader.import_problem(API + "import { abs } from 'math';\nlet fs = require('fs');\nlet f = loadstring(src);\n"));
+	});
+
+	it('is why the loader leaves a module out by its text: strict mode first, then its imports', () => {
+		assert.match([
+			"not in strict mode: its first statement must be 'use strict'",
+			"imports fs (line 2): a collector reads files through deps.fs, with 'fs' in meta.needs",
+			null,
+		], [
+			loader.refusal("import * as fs from 'fs';\n"),
+			loader.refusal("'use strict';\nimport * as fs from 'fs';\n"),
+			loader.refusal(API),
+		]);
 	});
 });
 
@@ -269,6 +342,20 @@ describe('loader.discover and load', () => {
 
 			assert.match([ 'a', 'broken', 'odd' ], imported);
 			assert.match(contains([ [ 'err', "skipping collector: COLLECTOR_INVALID (b: not in strict mode: its first statement must be 'use strict')" ] ]), logs);
+			assert.match([ 'a', 'broken', 'odd' ], map(loaded, (c) => c.meta.name));
+		});
+	});
+
+	it('refuses a module that imports anything but the collector API, without loading it', () => {
+		let text = "'use strict';\nimport { Result } from 'prometheus_exporter.api';\nimport { readfile } from 'fs';\n";
+
+		mock.inject('fs', { strict: true, data: { ...FILES, [DIR + '/b.uc']: text } }, (fs) => {
+			let logs = [];
+			let imported = [];
+			let loaded = loader.load(fs, DIR, (id) => { push(imported, id); return module_named(id); }, (level, m) => push(logs, [ level, m ]));
+
+			assert.match([ 'a', 'broken', 'odd' ], imported);
+			assert.match(contains([ [ 'err', "skipping collector: COLLECTOR_INVALID (b: imports fs (line 3): a collector reads files through deps.fs, with 'fs' in meta.needs)" ] ]), logs);
 			assert.match([ 'a', 'broken', 'odd' ], map(loaded, (c) => c.meta.name));
 		});
 	});

@@ -4,8 +4,9 @@
 // one not installed yet, keeps the collector contract, checked as the
 // exporter would load and run it on this device. For whoever writes one.
 //
-// It loads the module under the load timer (probe.probe, LOAD_TIMEOUT),
-// validates its meta, and runs it under the guards a scrape runs it under: in
+// It reads the module's text as the loader does: strict mode, and that it
+// imports the collector API alone (loader.import_problem). It loads the module
+// under the load timer (probe.probe, LOAD_TIMEOUT), validates its meta, and runs it under the guards a scrape runs it under: in
 // a process of its own, stopped at its budget, at most its max_samples
 // (scrape.trial); then it checks what it wrote is valid exposition text, each
 // series once, and that no family is one an installed collector writes, nor
@@ -90,6 +91,14 @@ export function run(sys, path) {
 		return done();
 	}
 	add('ok', "strict mode: 'use strict' first");
+
+	let why = loader.import_problem(text);
+
+	if (why != null) {
+		add('fail', why);
+		return done();
+	}
+	add('ok', `imports: ${loader.API} alone`);
 
 	let load = () => sys.import_path(real);
 	let probed = sys.probe(id, load);

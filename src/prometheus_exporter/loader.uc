@@ -3,14 +3,19 @@
 // Finds the installed collectors: every module in the collectors directory that
 // exports a valid `meta` and a `collect`. One that does not load or is not valid
 // is logged and left out, so a broken subpackage costs only its own collector.
-// So is one that is not in strict mode, and, given a probe
-// (prometheus_exporter.runner's), one that does not load within its time.
+// So is one that is not in strict mode, or imports anything but the collector
+// API, which its text tells before it is loaded, and, given a probe
+// (prometheus_exporter.probe's), one that does not load within its time.
+//
+// It is the facade of loader/: the modules there are its own, and what others
+// take of them it exports.
 
 import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
 import { NEEDS } from 'prometheus_exporter.deps';
 import * as jail from 'prometheus_exporter.jail';
 import * as config from 'prometheus_exporter.config';
+import * as scan from 'prometheus_exporter.loader.imports';
 
 export const DIR = '/usr/share/ucode/prometheus_exporter/collectors';
 
@@ -226,6 +231,25 @@ export function discover(fs, dir) {
 const LEADING = /^(\s+|\/\/[^\n]*|\/\*([^*]|\*+[^*\/])*\*+\/)/;
 const DIRECTIVES = [ "'use strict'", '"use strict"' ];
 
+// LEADING's match at the start of `text`. musl's regexec reads the whole text
+// for it, a module of 10 kB for a comment of a line: so it reads a window,
+// and the whole text only when what it found, or a block comment it did not
+// find the end of, may go on past the window.
+const WINDOW = 1024;
+
+function leading(text) {
+	if (length(text) <= WINDOW)
+		return match(text, LEADING);
+
+	let w = substr(text, 0, WINDOW);
+	let m = match(w, LEADING);
+
+	if ((m && length(m[0]) == WINDOW) || (!m && substr(w, 0, 2) == '/*'))
+		return match(text, LEADING);
+
+	return m;
+}
+
 // Whether the text of a module is in strict mode: its first statement is the
 // 'use strict' directive. ucode honours the directive there alone, after only
 // what LEADING skips: anywhere else it is a string that does nothing. Strict
@@ -240,7 +264,7 @@ export function is_strict(text) {
 		text = (nl < 0) ? '' : substr(text, nl);
 	}
 
-	for (let m = match(text, LEADING); m; m = match(text, LEADING))
+	for (let m = leading(text); m; m = leading(text))
 		text = substr(text, length(m[0]));
 
 	if (!(substr(text, 0, 12) in DIRECTIVES))
@@ -252,21 +276,93 @@ export function is_strict(text) {
 	return rest == '' || substr(rest, 0, 1) in [ ';', '\n' ];
 };
 
+// The one module a collector imports: the collector API.
+export const API = 'prometheus_exporter.api';
+
+// What a module's text imports and loads, without compiling it
+// (prometheus_exporter.loader.imports).
+export const imports = scan.imports;
+
+// The capabilities a collector reaches the system through, by the module it
+// would import for it instead: [ need, what it does with it ].
+const CAPABILITIES = {
+	fs: [ 'fs', 'reads files' ],
+	ubus: [ 'ubus', 'calls ubus' ],
+	uci: [ 'uci', 'reads uci configs' ],
+	rtnl: [ 'rtnl', 'asks rtnetlink' ],
+	nl80211: [ 'nl80211', 'asks nl80211' ],
+	socket: [ 'socket', 'talks to a Unix socket' ],
+};
+
+// The modules of the core the API exports a part of, by the name it has there.
+const PARTS = {
+	'prometheus_exporter.result': 'Result',
+	'prometheus_exporter.errors': 'errors',
+	'prometheus_exporter.services': 'services',
+	'prometheus_exporter.proc': 'proc',
+	'prometheus_exporter.exposition': 'exposition',
+};
+
+// What a collector does instead of loading `module` (null when it is not a
+// string literal).
+function instead(module) {
+	let cap = CAPABILITIES[module];
+
+	if (cap)
+		return `a collector ${cap[1]} through deps.${cap[0]}, with '${cap[0]}' in meta.needs`;
+	if (PARTS[module])
+		return `take ${PARTS[module]} from ${API}`;
+
+	return `a collector imports ${API} alone`;
+}
+
+// Why a collector module's text loads what a collector may not, or null: it
+// imports a module other than the collector API, or calls require, loadfile
+// or loadstring, which load code past its imports. A collector takes the
+// system through the capabilities collect() gets in deps, and what it uses of
+// the exporter from the API. The loader logs the same text, `collector check`
+// fails with it, and the tests hold our collectors to it.
+export function import_problem(text) {
+	let found = imports(text);
+	let problems = [];
+
+	for (let i in found.imports)
+		if (i.module != API)
+			push(problems, `imports ${i.module} (line ${i.line}): ${instead(i.module)}`);
+
+	for (let l in found.loads)
+		push(problems, `calls ${l.fn}(${l.module != null ? sprintf('%J', l.module) : ''}) (line ${l.line}): ${instead(l.module)}`);
+
+	return length(problems) ? join('; ', problems) : null;
+};
+
+// Why the loader leaves a module out by its text alone, before it loads it,
+// or null: it is not in strict mode (is_strict), or it loads what a collector
+// may not (import_problem).
+export function refusal(text) {
+	if (!is_strict(text))
+		return "not in strict mode: its first statement must be 'use strict'";
+
+	return import_problem(text);
+};
+
 // The valid collectors in `dir`, sorted by name; log(level, msg) takes, at err,
-// each that is left out and why. A module must be in strict mode
-// (is_strict), which its text tells before it is loaded. probe(ids), when
-// given, loads them elsewhere first (prometheus_exporter.probe):
-// { <id>: { ok, error, hung } }, and only those that loaded there are loaded
-// here.
+// each that is left out and why. A module must be in strict mode and import
+// the collector API alone (refusal), which its text tells before it is
+// loaded. probe(ids), when given, loads them elsewhere first
+// (prometheus_exporter.probe): { <id>: { ok, error, hung } }, and only those
+// that loaded there are loaded here.
 export function load(fs, dir, import_fn, log, probe) {
 	let collectors = [];
 	let ids = [];
 
 	for (let id in discover(fs, dir)) {
-		if (is_strict(fs.readfile(`${dir}/${id}.uc`)))
+		let why = refusal(fs.readfile(`${dir}/${id}.uc`));
+
+		if (why == null)
 			push(ids, id);
 		else
-			log('err', `skipping collector: ${Result.describe(invalid(id, "not in strict mode: its first statement must be 'use strict'"))}`);
+			log('err', `skipping collector: ${Result.describe(invalid(id, why))}`);
 	}
 
 	let probed = probe ? probe(ids) : {};

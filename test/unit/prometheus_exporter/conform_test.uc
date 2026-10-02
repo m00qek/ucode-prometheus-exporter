@@ -55,6 +55,7 @@ describe('conform.run', () => {
 		assert.match(true, r.ok, join('\n', r.lines));
 		assert.match([
 			"ok   strict mode: 'use strict' first",
+			'ok   imports: prometheus_exporter.api alone',
 			'ok   load: 0.002 s, of at most 5 s',
 			'ok   meta: mine (Mine), needs nothing, budget 5 s, max_samples 20000',
 			'ok   run: 0.001 s, 2 samples in 1 family',
@@ -67,6 +68,15 @@ describe('conform.run', () => {
 		let r = check('/tmp/mine.uc', { files: { '/tmp/mine.uc': 'export const meta = {};\n' } });
 
 		assert.match([ false, [ "FAIL strict mode: its first statement must be 'use strict'" ] ], [ r.ok, r.lines ]);
+	});
+
+	it('fails one that imports anything but the collector API, without loading it, as the loader says', () => {
+		let text = STRICT + "import { Result } from 'prometheus_exporter.api';\nimport * as ubus from 'ubus';\n";
+		let r = check('/tmp/mine.uc', { files: { '/tmp/mine.uc': text }, probed: { ok: false, error: 'loaded' } });
+		let why = loader.import_problem(text);
+
+		assert.match("imports ubus (line 3): a collector calls ubus through deps.ubus, with 'ubus' in meta.needs", why);
+		assert.match([ false, [ "ok   strict mode: 'use strict' first", `FAIL ${why}` ] ], [ r.ok, r.lines ]);
 	});
 
 	it('fails one that does not load in time, or at all', () => {
