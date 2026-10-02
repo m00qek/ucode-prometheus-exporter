@@ -31,7 +31,10 @@ test.describe('Data from the router is shown as text, never markup', () => {
   test('on the status page', async ({ page }) => {
     await h.openStatus(page);
     await expectInert(page);
-    await expect(h.collectorRow(page, 'hostile').locator('td').nth(4)).toHaveText(`SOURCE_INVALID (${h.HOSTILE})`);
+    const result = h.collectorRow(page, 'hostile').locator('td').nth(1);
+    await expect(result.locator(':scope > div')).toHaveText([ 'Failed', h.HOSTILE, 'Error code: SOURCE_INVALID' ]);
+    // Its title, in the banner of failed collectors too.
+    await expect(page.locator('#view .exporter-banners .alert-message.warning strong', { hasText: h.HOSTILE })).toHaveText(h.HOSTILE);
   });
 
   test('in what the ubus object refuses', async ({ page }) => {
