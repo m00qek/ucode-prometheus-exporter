@@ -571,6 +571,8 @@ check "quarantines it" grep -qx 'ucode_prometheus_exporter_collector_quarantined
 check "counts it as killed" grep -qx 'ucode_prometheus_exporter_collector_failures_total{collector="e2e_slow",reason="COLLECTOR_KILLED"} 1' /tmp/after
 eventually "and kills the child left running" test ! -d "/proc/$child_pid"
 check "leaving no progress file" test -z "$(ls "$STATE" | grep '\.p[0-9]*_[0-9]*$')"
+grep -q 'ucode_prometheus_exporter_collector_quarantined{collector="e2e_slow"} 1' /tmp/after ||
+	echo "info the scrape after: $(grep 'e2e_slow' /tmp/after | tr '\n' ' '); its state: $(ls "$STATE" | tr '\n' ' '); $(cat "$STATE"/*.p* 2>/dev/null | tr '\n' ' ')"
 
 # The ubus object's status, with a collector that never returns: each run
 # is stopped by its scrape's deadline, so a page refreshed again and again

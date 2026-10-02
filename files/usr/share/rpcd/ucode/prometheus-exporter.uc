@@ -31,4 +31,4 @@ const io = {
 	},
 };
 
-return { [rpc.OBJECT]: rpc.methods((opts) => rpc.system({ ...opts, probe }), io) };
+return { [rpc.OBJECT]: rpc.methods((opts) => rpc.system({ ...(opts ?? {}), probe }), io) };

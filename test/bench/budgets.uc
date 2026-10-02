@@ -51,6 +51,23 @@ const AUTH_CACHED_SHARE = 0.1;
 // per collector, or a ledger that grew with the scrapes, would pass it.
 const LEDGER_SHARE = 0.05;
 
+// How much running each collector in a child process may add to a typical
+// full scrape, over running them all in the scrape's own (inline:): a fork,
+// a round trip per collector, the runs' file. Measured 10% in the devenv
+// (175 ms against 158); a scrape that forked per collector, or copied each
+// run's samples more than once, would pass it.
+const CONTAINMENT_SHARE = 0.25;
+
+// How much of a typical full scrape its progress file may take: a line
+// appended before each collector, the file removed. Measured 0.3 ms of
+// 175 ms in the devenv, a fifth of a percent.
+const PROGRESS_SHARE = 0.02;
+
+// How much loading every collector first in a child process (probe:) may
+// take of loading them alone (load:): it compiles each twice. Measured 2.2
+// times in the devenv.
+const PROBE_FACTOR = 3.0;
+
 // [ world/case, kB, what ]: how far a run's peak memory may rise, about three
 // times what was measured on x86_64 (a 32-bit router's is less), which a
 // return of per-sample objects (67 MB for the large full scrape before) or of
@@ -105,6 +122,24 @@ export function check(results, absolute) {
 	if (scrape?.time && kept?.time && kept.time.median > scrape.time.median * LEDGER_SHARE)
 		push(over, sprintf('ledger:full: %.2f ms, over %d%% of a typical full scrape\'s %.1f ms', kept.time.median * 1000,
 			LEDGER_SHARE * 100, scrape.time.median * 1000));
+
+	let inline = r['typical/inline:full'];
+
+	if (scrape?.time && inline?.time && scrape.time.median > inline.time.median * (1 + CONTAINMENT_SHARE))
+		push(over, sprintf('scrape:full: %.1f ms, over %d%% more than inline:full\'s %.1f ms', scrape.time.median * 1000,
+			CONTAINMENT_SHARE * 100, inline.time.median * 1000));
+
+	let progress = r['typical/progress:full'];
+
+	if (scrape?.time && progress?.time && progress.time.median > scrape.time.median * PROGRESS_SHARE)
+		push(over, sprintf('progress:full: %.2f ms, over %d%% of a typical full scrape\'s %.1f ms', progress.time.median * 1000,
+			PROGRESS_SHARE * 100, scrape.time.median * 1000));
+
+	let load = r['large/load:full'], probe = r['large/probe:full'];
+
+	if (load?.time && probe?.time && probe.time.median > load.time.median * PROBE_FACTOR)
+		push(over, sprintf('probe:full: %.1f ms, over %.1f times load:full\'s %.1f ms', probe.time.median * 1000,
+			PROBE_FACTOR, load.time.median * 1000));
 
 	for (let b in MEMORY)
 		if (r[b[0]]?.growth_kb > b[1])

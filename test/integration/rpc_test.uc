@@ -72,3 +72,16 @@ describe('the LuCI plugin over the real collectors', () => {
 		});
 	});
 });
+
+// rpcd's plugin, as rpcd loads it: the object it returns, and each method
+// that loads no collector of the system's (none is installed here).
+describe('the rpcd plugin', () => {
+	it('answers collectors and validate, which rpcd calls without options', () => {
+		let plugin = loadfile('files/usr/share/rpcd/ucode/prometheus-exporter.uc')();
+		let methods = plugin['prometheus-exporter'];
+
+		assert.match([ 'collectors', 'hash_password', 'interfaces', 'status', 'validate' ], sort(keys(methods)));
+		assert.match({ collectors: [], skipped: [] }, methods.collectors.call({}));
+		assert.match({ ok: true, errors: { main: {}, collectors: {} } }, methods.validate.call({ args: {} }));
+	});
+});
