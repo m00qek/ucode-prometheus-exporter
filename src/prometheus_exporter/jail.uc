@@ -27,10 +27,29 @@
 import * as Result from 'prometheus_exporter.result';
 import * as config from 'prometheus_exporter.config';
 import { uci_handles } from 'prometheus_exporter.deps';
+import { DIR as STATE_DIR } from 'prometheus_exporter.state';
 
 export const CONFIG_DIR = '/etc/config';
 export const OWN_CONFIG = `${CONFIG_DIR}/${config.NAME}`;
 export const SHELL = '/bin/sh';
+
+// What every jail of the service has, whatever its collectors declare: what
+// procd's jail options give (procfs, sysfs, the log's socket and ubus's) and
+// ujail itself (its devices and resolv.conf), and the init script's own
+// mounts (the exporter's code, ucode's modules and the libraries they load,
+// the handler, the shell, the exporter's config and its state). A path that
+// ends in '*' is every file whose path starts with the rest. Nothing else is
+// there but what the enabled collectors declare: a collector reads these
+// without declaring them, though only procfs and sysfs are meant for it.
+// test/context.uc runs a collector's tests in a filesystem of these and its
+// own mounts, and a test holds the init script to this list.
+export const COMMON = [
+	'/proc', '/sys', '/dev/log', '/var/run/ubus/ubus.sock',
+	'/dev/null', '/dev/zero', '/dev/full', '/dev/random', '/dev/urandom', '/etc/resolv.conf',
+	'/usr/lib/uhttpd_ucode.so', '/lib/libubus.so*', '/lib/libuci.so*', '/usr/lib/libnl*.so*', '/usr/lib/libz.so*',
+	'/usr/lib/ucode', '/usr/share/ucode/prometheus_exporter', `/usr/libexec/${config.NAME}/handler.uc`,
+	SHELL, OWN_CONFIG, STATE_DIR,
+];
 
 // procd's PATH, which the jailed uhttpd and so popen's shell have.
 export const PATH = '/usr/sbin:/usr/bin:/sbin:/bin';

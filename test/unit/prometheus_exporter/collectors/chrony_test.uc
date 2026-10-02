@@ -38,10 +38,13 @@ function with_chrony(cfg, cb) {
 		if (r[1] != null)
 			outputs[r[0]] = type(r[1]) == 'string' ? { out: r[1] } : r[1];
 
+	// chrony looks for chronyd's command socket, which the service's jail
+	// never has, to read the server statistics where it runs outside it.
 	with_collector(chrony, {
 		ubus: { data: rc.rc(cfg.rc ?? { chronyd: true }) },
 		uci: { data: { chrony: cfg.uci ?? {} } },
 		fs: commands.fs(outputs, { behavior: { stat: (p) => (cfg.socket && p == chrony.SOCKET) ? { type: 'socket' } : null } }),
+		outside_jail: [ chrony.SOCKET ],
 	}, cb);
 }
 

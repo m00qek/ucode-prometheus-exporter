@@ -5,6 +5,7 @@ import * as jail from 'prometheus_exporter.jail';
 import * as loader from 'prometheus_exporter.loader';
 import * as config from 'prometheus_exporter.config';
 import * as Result from 'prometheus_exporter.result';
+import { readfile } from 'fs';
 
 function collector(name, meta) {
 	let res = loader.validate(loader.id_of(name), { meta: { name, title: 'Test', help: 'Test.', needs: [], ...meta }, collect: () => Result.ok() });
@@ -293,6 +294,47 @@ describe('jail.mounts', () => {
 				assert.match(true, jail.OWN_CONFIG in m);
 			});
 		});
+});
+
+describe('jail.COMMON', () => {
+	// What procd's jail options and ujail itself give, which the init script
+	// asks for by its options: procfs, sysfs, log and ubus.
+	const GIVEN = [ '/proc', '/sys', '/dev/log', '/var/run/ubus/ubus.sock', '/dev/null', '/dev/zero', '/dev/full',
+		'/dev/random', '/dev/urandom', '/etc/resolv.conf' ];
+
+	// The init script's mounts that every instance has, its variables filled in.
+	function init_mounts(text) {
+		let vars = { NAME: config.NAME };
+		let out = [];
+
+		vars.LIBEXEC = `/usr/libexec/${vars.NAME}`;
+		vars.HANDLER = `${vars.LIBEXEC}/handler.uc`;
+		vars.STATE = `/var/run/${vars.NAME}/state`;
+
+		for (let line in split(text, '\n')) {
+			let m = match(line, /^\tprocd_add_jail_mount(_rw)? (.*)$/);
+
+			if (!m)
+				continue;
+
+			for (let arg in split(m[2], ' '))
+				if (arg != '$mounts')
+					push(out, replace(replace(arg, /"/g, ''), /\$([A-Z]+)/g, (all, v) => vars[v] ?? all));
+		}
+
+		return out;
+	}
+
+	it('is what the init script has procd mount in every instance, its options\' and its own config', () => {
+		let text = readfile('files/etc/init.d/prometheus-exporter');
+
+		assert.match(true, index(text, '\n\tprocd_add_jail "$NAME" log procfs sysfs ubus\n') >= 0);
+		assert.match(sort([ ...GIVEN, ...init_mounts(text), jail.OWN_CONFIG ]), sort([ ...jail.COMMON ]));
+
+		with_sys({}, {}, null, (sys) => {
+			assert.match([ jail.OWN_CONFIG ], jail.mounts([], sys).mounts);
+		});
+	});
 });
 
 describe('jail.make', () => {
