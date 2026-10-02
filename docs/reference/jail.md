@@ -88,6 +88,11 @@ A path the service owns is never missing: it makes it first.
 | `c.<module>.q` | The last scrape of its quarantine; absent while its breaker is closed. |
 | `c.<module>.cd` | The cool-down of that quarantine, in scrapes: 1, 2, 4, 8, 16 or 32. |
 | `c.<module>.why` | What tripped its breaker, as `CODE (detail)`. |
+| `auth_failures` | The requests basic auth refused (401). |
+| `c.<module>.fails` | Its failures by error code, `{ CODE: n }`, at most 8 codes; any other is counted as `OTHER`. |
+| `c.<module>.to` | Its programs killed at their timeout. |
+| `c.<module>.qn` | The times its breaker tripped. |
+| `c.<module>.dl` | The times the deadline left it out, or killed its program. |
 
 A collector no longer installed is dropped from it.
 

@@ -8,6 +8,7 @@ import { create, handler } from 'prometheus_exporter.app';
 import { inflate } from 'zlib';
 import * as auth from 'prometheus_exporter.auth';
 import * as state from 'prometheus_exporter.state';
+import * as ledger from 'prometheus_exporter.ledger';
 import * as deps from 'prometheus_exporter.deps';
 import * as exposition from 'prometheus_exporter.exposition';
 import * as config from 'prometheus_exporter.config';
@@ -214,6 +215,23 @@ describe('app.handler', () => {
 
 		assert.match([ '200 OK', auth.digest({ user: 'prom', hash: HASH }, basic('prom:secret')) ], [ app.handle(right).status, fs.readfile(cached_file()) ]);
 		assert.match([ '200 OK', '401 Unauthorized' ], [ app.handle(right).status, app.handle(request('', { authorization: basic('prom:wrong') })).status ]);
+	});
+
+	it('counts its scrapes and the requests basic auth refused in the instance\'s ledger', () => {
+		patch_main(null, { [auth.FILE]: auth.conf('prom', HASH) });
+
+		let fs = deps.modules().fs;
+		let app = handler(() => null, SOURCES, STATE);
+		let ledger_file = `${STATE}/${state.instance_id(fs)}.${ledger.NAME}`;
+
+		app.handle(request('collect[]=loadavg', { authorization: basic('prom:secret') }));
+		app.handle(request('collect[]=loadavg', { authorization: basic('prom:wrong') }));
+		app.handle(request('collect[]=loadavg'));
+		app.handle(request('collect[]=loadavg', { authorization: basic('prom:secret') }));
+
+		let l = ledger.parse(fs.readfile(ledger_file));
+
+		assert.match([ 2, 2 ], [ l.scrapes, l.auth_failures ]);
 	});
 
 	// The digest of a wrong password's header, as if a request had left it:

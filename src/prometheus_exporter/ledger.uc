@@ -7,14 +7,19 @@
 // done, under the state's lock (update), on the ledger as it is then: scrapes
 // that ran at once each add what they saw.
 //
-// It is JSON: { v, scrapes, k, c: { <collector id>: entry } }
+// It is JSON: { v, scrapes, auth_failures, k, c: { <collector id>: entry } }
 //   v        VERSION; a ledger of another is read as empty
 //   scrapes  the scrapes the instance answered, this one's number less one
+//   auth_failures  the requests basic auth refused (401)
 //   k        seconds per sample of writing a scrape's reply (merging and
 //            rendering), an exponential moving average
 //   entry    { d: its duration, a moving average; n: samples it wrote last;
 //              late: the scrape that last left it out at the deadline;
-//              f, q, cd, why: its breaker's (prometheus_exporter.breaker) }
+//              f, q, cd, why: its breaker's (prometheus_exporter.breaker);
+//              counted since the instance started: fails, { code: its failures
+//              with it }; to, its programs killed at their timeout; qn, the
+//              times its breaker tripped; dl, the times the deadline left it
+//              out or cut it }
 //
 // The averages weigh the last run by ALPHA.
 
@@ -30,6 +35,12 @@ export const VERSION = 1;
 // The scrapes after which the deadline leaving a collector out is old news to
 // check and the ubus object's status.
 export const RECENT = 10;
+
+// The most error codes a collector's failures are counted by; any other is
+// counted as OTHER. The codes are errors.uc's, a dozen that a collector can
+// fail with, but a collector of another's may make its own.
+export const REASONS_MAX = 8;
+export const OTHER = 'OTHER';
 
 // The most of a breaker's why the ledger keeps.
 const WHY_MAX = 200;
@@ -157,20 +168,35 @@ export function record(l, runs, written, ids, events) {
 
 	for (let r in runs) {
 		let e = { ...(c[r.id] ?? {}) };
+		let code = r.result?.error;
 
 		if (r.skipped == null) {
 			e.d = average(e.d, r.duration);
 			e.n = r.samples ?? 0;
+
+			if (code != null && code != errors.SCRAPE_DEADLINE) {
+				let fails = { ...(e.fails ?? {}) };
+				let key = (code in keys(fails) || length(fails) < REASONS_MAX) ? code : OTHER;
+
+				fails[key] = (fails[key] ?? 0) + 1;
+				e.fails = fails;
+			}
+			if (code == errors.COMMAND_TIMEOUT)
+				e.to = (e.to ?? 0) + 1;
 		}
 
-		if (r.result?.error == errors.SCRAPE_DEADLINE)
+		if (code == errors.SCRAPE_DEADLINE) {
 			e.late = n;
+			e.dl = (e.dl ?? 0) + 1;
+		}
 
 		let o = outcome_of(r);
 		let b = breaker.after(e, o[0], n, (o[1] != null) ? substr(o[1], 0, WHY_MAX) : null);
 
 		if (events && (b.tripped || b.closed))
 			push(events, { name: r.name, tripped: b.tripped, closed: b.closed, cooldown: b.entry.cd, why: b.entry.why });
+		if (b.tripped)
+			b.entry.qn = (b.entry.qn ?? 0) + 1;
 
 		c[r.id] = b.entry;
 	}
@@ -181,6 +207,23 @@ export function record(l, runs, written, ids, events) {
 		k = average(k, written.seconds / (written.samples * 1.0));
 
 	return { ...l, scrapes: n, k, c };
+};
+
+// The ledger `l` with one more request that basic auth refused.
+export function auth_failure(l) {
+	return { ...l, auth_failures: (l.auth_failures ?? 0) + 1 };
+};
+
+// What the ledger counts, for the exporter's own collector: { scrapes,
+// auth_failures, collectors: { <id>: { failures: { code: n }, timeouts,
+// quarantines, deadline_skips } } }.
+export function counters(l) {
+	let out = { scrapes: l.scrapes, auth_failures: l.auth_failures ?? 0, collectors: {} };
+
+	for (let id, e in l.c)
+		out.collectors[id] = { failures: e.fails ?? {}, timeouts: e.to ?? 0, quarantines: e.qn ?? 0, deadline_skips: e.dl ?? 0 };
+
+	return out;
 };
 
 // Collector `id`'s breaker at scrape number `m`: 'closed', 'open' or 'trial'.

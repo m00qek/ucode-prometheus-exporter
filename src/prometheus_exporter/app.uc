@@ -11,6 +11,7 @@ import * as auth from 'prometheus_exporter.auth';
 import * as http from 'prometheus_exporter.http';
 import * as state from 'prometheus_exporter.state';
 import * as deadline from 'prometheus_exporter.deadline';
+import * as ledger from 'prometheus_exporter.ledger';
 import { version } from 'prometheus_exporter.version';
 
 // Basic auth as the handler finds it when it starts: null when uhttpd's
@@ -100,6 +101,11 @@ export function handler(log, dir, state_dir) {
 		handle: function(req) {
 			let start = deadline.seconds(clock(true));
 			let refused = refusal(a, req, st);
+
+			// Counted for the exporter's own collector: a 401 is a request
+			// whose credentials basic auth refused.
+			if (refused?.status == '401 Unauthorized')
+				st.update(ledger.NAME, (text) => ledger.serialize(ledger.auth_failure(ledger.parse(text))));
 
 			if (refused)
 				return refused;

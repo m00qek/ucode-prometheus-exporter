@@ -47,13 +47,13 @@ describe('ledger.record', () => {
 		let l = ledger.record(ledger.empty(), [ ran('a', 1, 5) ], null, [ 'a' ]);
 
 		l = ledger.record(l, [ skipped('a') ], null, [ 'a' ]);
-		assert.match({ d: 1, n: 5, late: 2 }, l.c.a);
+		assert.match({ d: 1, n: 5, late: 2, dl: 1 }, l.c.a);
 	});
 
 	it('averages a collector cut at the deadline with what it ran, and says it was late', () => {
 		let l = ledger.record(ledger.empty(), [ ran('a', 2, 0, Result.err('SCRAPE_DEADLINE', 'killed')) ], null, [ 'a' ]);
 
-		assert.match({ d: 2, n: 0, late: 1 }, l.c.a);
+		assert.match({ d: 2, n: 0, late: 1, dl: 1 }, l.c.a);
 	});
 
 	it('drops what it kept of a collector no longer installed', () => {
@@ -198,4 +198,74 @@ describe('ledger, the breakers', () => {
 		// Ten in a tenth of the state's room.
 		assert.match(true, length(ledger.serialize(l)) * 10 < 32768, `${length(ledger.serialize(l))}`);
 	});
+});
+
+describe('ledger.counters', () => {
+	function run_with(id, result, extra) {
+		return { id, name: id, duration: 0.1, samples: 1, result: result ?? Result.ok(), budget: 5, ...(extra ?? {}) };
+	}
+
+	it('counts each collector\'s failures by code, programs killed, quarantines and deadline skips, and the scrapes', () => {
+		let runs = [
+			run_with('a', Result.err('COMMAND_TIMEOUT', 'nft: still running after 5 s, killed')),
+			run_with('b', Result.err('SOURCE_INVALID', 'x')),
+			run_with('c', Result.err('SCRAPE_DEADLINE', 'not run'), { skipped: 'deadline', duration: 0 }),
+			run_with('d', Result.none('no radios')),
+		];
+		let l = ledger.record(ledger.empty(), runs, null, [ 'a', 'b', 'c', 'd' ]);
+
+		l = ledger.record(l, [ run_with('b', Result.err('SOURCE_UNREADABLE', 'y')) ], null, [ 'a', 'b', 'c', 'd' ]);
+
+		assert.match({
+			scrapes: 2, auth_failures: 0, collectors: {
+				a: { failures: { COMMAND_TIMEOUT: 1 }, timeouts: 1, quarantines: 1, deadline_skips: 0 },
+				b: { failures: { SOURCE_INVALID: 1, SOURCE_UNREADABLE: 1 }, timeouts: 0, quarantines: 0, deadline_skips: 0 },
+				c: { failures: {}, timeouts: 0, quarantines: 0, deadline_skips: 1 },
+				d: { failures: {}, timeouts: 0, quarantines: 0, deadline_skips: 0 },
+			},
+		}, ledger.counters(l));
+	});
+
+	it('counts the requests basic auth refused', () => {
+		assert.match(2, ledger.counters(ledger.auth_failure(ledger.auth_failure(ledger.empty()))).auth_failures);
+	});
+
+	it('counts any code past REASONS_MAX as OTHER', () => {
+		let l = ledger.empty();
+
+		for (let i = 0; i < ledger.REASONS_MAX + 2; i++)
+			l = ledger.record(l, [ run_with('a', Result.err(`CODE_${i}`)) ], null, [ 'a' ]);
+
+		let f = ledger.counters(l).collectors.a.failures;
+
+		assert.match([ ledger.REASONS_MAX + 1, 2 ], [ length(f), f[ledger.OTHER] ]);
+	});
+
+	prop('never lets a counter go down, scrape after scrape',
+		gen.array(gen.elements('ok', 'failed', 'timeout', 'late', 'none'), { min_len: 1, max_len: 40 }), (kinds) => {
+			let results = {
+				ok: Result.ok(), none: Result.none('x'), failed: Result.err('SOURCE_INVALID'),
+				timeout: Result.err('COMMAND_TIMEOUT'), late: Result.err('SCRAPE_DEADLINE'),
+			};
+			let l = ledger.empty();
+			let before = ledger.counters(l);
+
+			for (let k in kinds) {
+				let m = ledger.number(l);
+				let run = (ledger.phase(l, 'a', m) == 'open')
+					? run_with('a', Result.err('COLLECTOR_QUARANTINED'), { skipped: 'quarantine', duration: 0 })
+					: run_with('a', results[k]);
+
+				l = ledger.record(l, [ run ], null, [ 'a' ]);
+
+				let after = ledger.counters(l);
+				let a = after.collectors.a, b = before.collectors.a ?? { failures: {}, timeouts: 0, quarantines: 0, deadline_skips: 0 };
+
+				assert.match([ true, true, true, true ], [ after.scrapes == before.scrapes + 1, a.timeouts >= b.timeouts,
+					a.quarantines >= b.quarantines, a.deadline_skips >= b.deadline_skips ]);
+				for (let code, n in b.failures)
+					assert.match(true, a.failures[code] >= n);
+				before = after;
+			}
+		});
 });
