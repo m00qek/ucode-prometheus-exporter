@@ -300,6 +300,15 @@ function too_late(l, c, now, cutoff) {
 	return null;
 }
 
+// Where a collector the ledger has not timed runs among the others it has
+// not (ledger.order), as on the first scrape after a restart: the exporter's
+// own (loader.OWN) first, then those of other packages, which may be a loop
+// under a budget longer than the scrape; and of each, one that declares itself
+// heavy (meta.cost) after the rest.
+function untimed_rank(c) {
+	return 1 + ((c.id in loader.OWN) ? 0 : 2) + ((c.meta.cost == 'heavy') ? 1 : 0);
+}
+
 // The runner of `chosen` for env (prometheus_exporter.runner): forked with
 // env.fork, else inline. `omit`: omit_zero_values.
 function runner_of(env, chosen, omit) {
@@ -329,7 +338,7 @@ export function collect(env, uci, l, chosen, opts) {
 	let installed = opts?.collectors ?? chosen;
 	let ids = map(installed, (c) => c.id);
 	let deadline = opts?.deadline;
-	let queue = ledger.order(l, chosen, (c) => 'exporter' in c.meta.needs, (c) => c.meta.cost);
+	let queue = ledger.order(l, chosen, (c) => 'exporter' in c.meta.needs, untimed_rank);
 	let next = 0;
 
 	function view() {

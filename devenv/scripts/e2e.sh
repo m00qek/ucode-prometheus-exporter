@@ -15,6 +15,8 @@ LIBEXEC=/usr/libexec/$NAME
 URL=http://127.0.0.1:9100/metrics
 # The exporter's state, which the jail mounts read-write (prometheus_exporter.state).
 STATE=/var/run/$NAME/state
+# Where the packages put the collectors.
+COLLECTORS_DIR=/usr/share/ucode/prometheus_exporter/collectors
 failures=0
 
 pass() { echo "ok   $*"; }
@@ -52,7 +54,8 @@ mounts() { instance | jsonfilter -e '@[*].instances.instance1.mount' | ucode -e 
 own_mount() { case $1 in /lib/libubus.so* | /lib/libuci.so* | /usr/lib/libnl* | /usr/lib/libz.so* | /usr/lib/uhttpd_ucode.so | /usr/lib/ucode | \
 	/usr/share/ucode/prometheus_exporter | $LIBEXEC/handler.uc | $STATE) return 0 ;; esac; return 1; }
 collector_mounts() { mounts | while read -r m; do own_mount "$m" || echo "$m"; done; }
-mounts_match_jail() { [ "$(collector_mounts)" = "$($LIBEXEC/jail.uc 2>/dev/null)" ]; }
+# /bin/sh is the exporter's own mount, and an exec collector's too.
+mounts_match_jail() { [ "$(collector_mounts | grep -vx /bin/sh)" = "$($LIBEXEC/jail.uc 2>/dev/null | grep -vx /bin/sh)" ]; }
 # What the jailed uhttpd sees of /etc/config: procd's pid is ujail's, which
 # runs uhttpd as its child, in the jail's mount namespace.
 jail_configs() { p=$(pid); ls "/proc/$(echo $(cat /proc/$p/task/$p/children))/root/etc/config"; }
@@ -130,6 +133,11 @@ check "and gzips a scrape asked for it, its jail giving zlib's library" gzip_rep
 check "it logs how many it serves at info" says "daemon.info $NAME\[[0-9]*\]: serving [0-9]* collectors, gzip when asked$" logread
 check "and none of that at err" fails says "daemon.err.*serving [0-9]* collectors" logread
 check "it runs in procd's jail" jailed
+# Its priority, and the data each of its processes may take: the uhttpd
+# procd started in the jail, the child of the instance's ujail.
+uhttpd_of() { cat /proc/$(pid)/task/*/children | tr ' ' '\n' | grep . | head -1; }
+check "it runs at nice 10" test "$(cut -d' ' -f19 /proc/$(uhttpd_of)/stat)" = 10
+check "its processes may take 64 MB of data at most" grep -q '^Max data size *67108864 *67108864 *bytes' /proc/$(uhttpd_of)/limits
 check "its mounts are what jail.uc prints" mounts_match_jail
 check "the jail has its own config and no other" test "$(jail_configs)" = "$NAME"
 check "no /etc/config/network in its mounts" not_mounted /etc/config/network
@@ -207,8 +215,8 @@ check "and reads the counters" metric 'nft_counter_packets_total{.*name="e2e_hit
 # run by a plain popen (itself a shell running it) and through the watchdog
 # (deps.exec_script); for nft, and for ethtool failing on a link with no
 # statistics, as on a router's virtual links. Then of nft-counters (one run of
-# nft, its JSON parsed) in a scrape, outside the jail (the command line) and in
-# it (uhttpd). Printed, and checked loosely.
+# nft, its JSON parsed) in a scrape, by the command line (in the jail too,
+# by ujail) and by uhttpd. Printed, and checked loosely.
 RUNS=20
 popen_ms() {
 	ucode -e "import { popen } from 'fs';
@@ -229,7 +237,7 @@ outside=$(i=0; while [ $i -lt $RUNS ]; do $NAME scrape nft-counters; i=$((i + 1)
 inside=$(i=0; while [ $i -lt $RUNS ]; do fetch 'collect[]=nft-counters'; i=$((i + 1)); done | duration_ms)
 echo "info mean of $RUNS runs: nft $1 ms by popen, $2 ms through the watchdog;" \
 	"ethtool -S on a veth $3 ms by popen, $4 ms through the watchdog;" \
-	"nft-counters in a scrape $outside ms outside the jail, $inside ms in it"
+	"nft-counters in a scrape $outside ms by the command line, $inside ms by uhttpd"
 check "the watchdog adds less than 20 ms to a program (nft: $1 -> $2 ms)" awk "BEGIN { exit !($2 - $1 < 20) }"
 # No device backs a link here (no /sys/class/net/<link>/device): ethtool asks none.
 check "ethtool is served" served ethtool
@@ -327,7 +335,7 @@ eventually "chrony reads chronyd in the jail" metric 'chrony_tracking_stratum 0$
 check "observing it" observing chrony 1
 check "its tracking, unsynchronized" metric 'chrony_tracking_info{tracking_address="",tracking_name="",tracking_refid="00000000"} 1$'
 check "but no serverstats in the jail, which gives chronyc no command socket" fails metric 'chrony_serverstats_'
-check "which it reads outside the jail, where chronyd serves time" says '^chrony_serverstats_command_packets_received_total ' "$NAME" scrape chrony
+check "nor in the command line's scrape, which runs in the service's jail too" fails says '^chrony_serverstats_' "$NAME" scrape chrony
 check "timesync says chronyd is not synchronized, running chronyc in the jail" metric 'node_timesync_synchronized{daemon="chronyd"} 0$'
 check "beside busybox ntpd" metric 'node_timesync_synchronized{daemon="ntpd"} '
 /etc/init.d/chronyd stop
@@ -458,6 +466,137 @@ check "and the samples of each collector of the scrape" grep -q '^ucode_promethe
 kill $silent
 set_config "ubnt-manager.sample_ap.target=127.0.0.1"
 eventually "the radio that answers again is read again" metric 'ubnt_uptime_seconds{device="sample_ap"} 4242$'
+
+# --- containment: collectors that break the contract
+# Each is a module dropped where the packages put collectors, as a third
+# party's package would, and each costs its own collector and nothing more:
+# the rest of the scrape is served on time, and the culprit is named in the
+# reply, logged, counted by the exporter collector and quarantined.
+DIR=$COLLECTORS_DIR
+broken() {
+	name=$1 top=$2 meta=$3; shift 3
+	cat >"$DIR/$name.uc" <<EOF
+'use strict';
+import * as Result from 'prometheus_exporter.result';
+export const meta = { name: '$name', title: 'Broken on purpose', help: 'A collector that breaks the contract, for e2e.', needs: [ 'fs' ]$meta };
+$top
+export function collect(deps, out) {
+	$*
+	return Result.ok();
+};
+EOF
+}
+broken e2e_loop '' '' 'while (true) ;'
+broken e2e_hang '' ", needs: [ 'exec' ], commands: [ 'sleep' ], timeout: 1" "return deps.exec.run([ 'sleep', '600' ]);"
+broken e2e_flood '' '' "let g = out.gauge('e2e_flood_value'); for (let i = 0; ; i++) g({ i }, i);"
+broken e2e_thief '' '' "out.gauge('node_load1', 'Not its own.')(null, 42);"
+broken e2e_hog '' '' "let s = 'x'; while (true) s += s;"
+broken e2e_stuck 'while (true) ;' '' ''
+mkfifo /var/prometheus/e2e-fifo.prom
+# Stopped at 2 s rather than 5: the e2e waits less.
+uci set $NAME.e2e_loop=collector && uci set $NAME.e2e_loop.budget=2 && uci commit $NAME
+before=$(pid)
+"$INIT" reload
+eventually "installing broken collectors restarts the instance" restarted_from "$before"
+eventually "which serves again" served loadavg
+started=$(date +%s)
+fetch >/tmp/broken
+took=$(($(date +%s) - started))
+echo "info a scrape with the broken collectors took $took s: $(grep -c '^node_scrape_collector_success{.*} 1$' /tmp/broken) collectors served"
+failed() { grep -qx "node_scrape_collector_success{collector=\"$1\"} 0" "${2:-/tmp/broken}"; }
+logged_as() { logread | grep -q "daemon.warn $NAME\[[0-9]*\]: collector '$1': $2"; }
+check "a scrape still answers, in the scraper's time ($took s)" test -s /tmp/broken -a "$took" -lt 10
+check "serving the other collectors" sh -c "grep -qx 'node_scrape_collector_success{collector=\"loadavg\"} 1' /tmp/broken &&
+	grep -qx 'node_scrape_collector_success{collector=\"cpu\"} 1' /tmp/broken && grep -q '^node_load1 [0-9]' /tmp/broken"
+check "one that never returns is stopped at its budget" failed e2e_loop
+check "and logged as cancelled" logged_as e2e_loop 'COLLECTOR_CANCELLED (still running after 2.0[0-9] s, over its budget of 2 s: stopped)'
+check "one whose program hangs fails at its timeout" failed e2e_hang
+check "and logged" logged_as e2e_hang 'COMMAND_TIMEOUT (sleep: still running after 1 s, killed)'
+check "one that writes far over the sample limit fails" failed e2e_flood
+check "with none of its samples served" fails grep -q '^e2e_flood_value' /tmp/broken
+check "and logged with how far it got" logged_as e2e_flood 'SAMPLE_LIMIT (more than its max_samples of 20000: stopped at 20001 samples, in e2e_flood_value)'
+check "one that writes another's family fails" failed e2e_thief
+check "the family staying the first's" fails grep -qx 'node_load1 42' /tmp/broken
+check "and logged" logged_as e2e_thief 'FAMILY_CONFLICT (node_load1 belongs to collector loadavg)'
+check "one that allocates past the memory limit costs its own process" failed e2e_hog
+check "and logged as killed" logged_as e2e_hog 'COLLECTOR_KILLED (its process ended while it ran'
+check "one that hangs when loaded is left out, logged at err" says "daemon.err $NAME\[[0-9]*\]: collector 'e2e_stuck' hung at load: still loading after 5 s: stopped; it is left out" logread
+check "and is not served" fails grep -q 'collector="e2e_stuck"' /tmp/broken
+check "a FIFO in textfile's directory does not hold it" grep -qx 'node_scrape_collector_success{collector="textfile"} 1' /tmp/broken
+check "it is skipped and counted" grep -qx 'node_textfile_scrape_error 1' /tmp/broken
+check "and logged" says "collector 'textfile': skipped /var/prometheus/e2e-fifo.prom: is not a regular file (fifo): not read" logread
+# A breaker trips as soon as its collector fails as it does, and a trial
+# after a quarantine trips it again: some scrape of the next ones says it.
+quarantined_soon() { cat /tmp/broken2 /tmp/broken3 /tmp/broken4 | grep -qx "ucode_prometheus_exporter_collector_quarantined{collector=\"$1\"} 1"; }
+fetch >/tmp/broken2; fetch >/tmp/broken3; fetch >/tmp/broken4
+for c in e2e_loop e2e_hang e2e_hog e2e_flood e2e_thief; do
+	check "$c is quarantined" quarantined_soon $c
+	check "and its quarantine logged" says "daemon.warn $NAME\[[0-9]*\]: collector '$c' quarantined for [0-9]* scrape" logread
+done
+counted() { grep -qx "ucode_prometheus_exporter_collector_failures_total{collector=\"$1\",reason=\"$2\"} [1-9][0-9]*" /tmp/broken4; }
+for t in e2e_loop:COLLECTOR_CANCELLED e2e_hang:COMMAND_TIMEOUT e2e_flood:SAMPLE_LIMIT e2e_thief:FAMILY_CONFLICT e2e_hog:COLLECTOR_KILLED; do
+	check "and counts ${t%%:*}'s ${t#*:}" counted "${t%%:*}" "${t#*:}"
+done
+check "and every other collector is still served" test "$(grep -c '^node_scrape_collector_success{.*} 1$' /tmp/broken4)" -eq "$(grep -c '^node_scrape_collector_success{.*} 1$' /tmp/broken)"
+
+# A scrape process killed while a collector runs (as uhttpd kills one past
+# its -t, or the kernel's OOM killer would): the next scrape finds its
+# progress file, names the collector it was running, quarantines it, and
+# kills the child process it was running in, which nothing else stops.
+broken e2e_slow '' '' 'while (true) ;'
+uci set $NAME.e2e_slow=collector && uci set $NAME.e2e_slow.budget=30 && uci commit $NAME
+before=$(pid)
+"$INIT" reload
+eventually "a collector that loops for 30 s restarts the instance" restarted_from "$before"
+eventually "which serves" served loadavg
+fetch 'collect[]=e2e_slow&collect[]=loadavg' >/dev/null 2>&1 &
+# The scrape process of that request: a child of uhttpd (the child of the
+# instance's ujail) with a child of its own.
+children() { cat /proc/$1/task/*/children 2>/dev/null | tr ' ' '\n' | grep .; }
+running() {
+	for p in $(children "$(children "$(pid)" | head -1)"); do
+		c=$(children "$p" | head -1)
+		[ -n "$c" ] && { scrape_pid=$p child_pid=$c; return 0; }
+	done
+	return 1
+}
+eventually "the scrape runs its collector in a child process" running
+echo "info the scrape process $scrape_pid ran e2e_slow in $child_pid; killing the scrape process"
+kill -KILL "$scrape_pid"
+sleep 1
+check "the child is left running when its scrape process dies" test -d "/proc/$child_pid"
+fetch >/tmp/after
+check "the next scrape names the collector it was running" says "daemon.warn $NAME\[[0-9]*\]: collector 'e2e_slow' was running when a scrape process died" logread
+check "quarantines it" grep -qx 'ucode_prometheus_exporter_collector_quarantined{collector="e2e_slow"} 1' /tmp/after
+check "counts it as killed" grep -qx 'ucode_prometheus_exporter_collector_failures_total{collector="e2e_slow",reason="COLLECTOR_KILLED"} 1' /tmp/after
+eventually "and kills the child left running" test ! -d "/proc/$child_pid"
+check "leaving no progress file" test -z "$(ls "$STATE" | grep '\.p[0-9]*_[0-9]*$')"
+
+# The ubus object's status, with a collector that never returns: each run
+# is stopped by its scrape's deadline, so a page refreshed again and again
+# leaves no helper behind.
+helpers() { ps w | grep -c -e '[r]pc-status.uc' -e '[t]rial.uc'; }
+started=$(date +%s)
+for i in 1 2 3; do ubus -t 60 call "$NAME" status >/tmp/status$i.json 2>/dev/null & sleep 1; done
+most=0
+while [ "$(helpers)" -gt 0 ] && [ $(($(date +%s) - started)) -lt 40 ]; do
+	n=$(helpers); [ "$n" -le "$most" ] || most=$n
+	sleep 1
+done
+wait
+took=$(($(date +%s) - started))
+echo "info three status calls 1 s apart, with e2e_slow looping: $took s, at most $most processes of theirs at once (helpers, ujail, their children)"
+check "status helpers end within the scrape's time ($took s), none left" test "$(helpers)" -eq 0 -a "$took" -lt 25
+check "each status call answered, scraping in the jail" sh -c 'for i in 1 2 3; do jsonfilter -i /tmp/status$i.json -e "@.jailed" | grep -qx true || exit 1; done'
+check "saying e2e_slow failed" sh -c "jsonfilter -i /tmp/status1.json -e \"@.collectors[@.name='e2e_slow'].success\" | grep -qx false"
+
+# Gone again.
+rm -f "$DIR"/e2e_*.uc /var/prometheus/e2e-fifo.prom
+uci delete "$NAME.e2e_loop" && uci delete "$NAME.e2e_slow" && uci commit "$NAME"
+before=$(pid)
+"$INIT" reload
+eventually "removing the broken collectors restarts the instance" restarted_from "$before"
+eventually "which serves every base collector" all_base_served
 
 # --- unbound, jailed, against a real unbound
 # As at boot: the exporter starts before unbound has made /var/lib/unbound.

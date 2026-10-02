@@ -295,6 +295,15 @@ describe('scrape.scrape', () => {
 			map(keys(durations), (id) => ({ id, duration: durations[id], samples: 1, result: Result.ok() })), null, keys(durations)));
 	}
 
+	it('runs the exporter\'s own collectors first when none was timed, light before heavy, then the others', () => {
+		let ran = [];
+		let heavy = (name) => collector(name, function(d, out) { push(ran, name); return Result.ok(); }, { cost: 'heavy' });
+
+		scrape_with([ noting('aaa', ran), heavy('abc'), heavy('nat_traffic'), noting('loadavg', ran), noting('zz', ran) ], '', {},
+			{ state: memory_state(null) });
+		assert.match([ 'loadavg', 'nat_traffic', 'aaa', 'zz', 'abc' ], ran);
+	});
+
 	it('runs the collectors fastest first by the ledger, and writes them in the order selected', () => {
 		let ran = [];
 		let r = scrape_with([ noting('a', ran), noting('b-two', ran), noting('c', ran) ], '', {},

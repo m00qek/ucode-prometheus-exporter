@@ -111,13 +111,13 @@ describe('ledger.order', () => {
 		assert.match([ 'a', 'b' ], ids(ledger.order(with_durations({ a: 3, b: 0.5 }), [ A, B ], (c) => c.id == 'b')));
 	});
 
-	it('runs one that declares itself heavy after the others the ledger has not timed, until it has', () => {
-		let cost = (c) => c.cost;
-		let H = { id: 'h', cost: 'heavy' }, L = { id: 'l', cost: 'light' };
+	it('orders those the ledger has not timed by their rank, until it has', () => {
+		let rank = (c) => c.rank;
+		let H = { id: 'h', rank: 2 }, L = { id: 'l', rank: 1 };
 
-		assert.match([ 'l', 'd', 'h' ], ids(ledger.order(ledger.empty(), [ H, L, D ], null, cost)));
-		assert.match([ 'a', 'l', 'h' ], ids(ledger.order(with_durations({ a: 9 }), [ H, L, A ], null, cost)));
-		assert.match([ 'h', 'l' ], ids(ledger.order(with_durations({ h: 0.1 }), [ H, L ], null, cost)));
+		assert.match([ 'l', 'd', 'h' ], ids(ledger.order(ledger.empty(), [ H, L, { id: 'd', rank: 1 } ], null, rank)));
+		assert.match([ 'a', 'l', 'h' ], ids(ledger.order(with_durations({ a: 9 }), [ H, L, A ], null, rank)));
+		assert.match([ 'h', 'l' ], ids(ledger.order(with_durations({ h: 0.1 }), [ H, L ], null, rank)));
 	});
 
 	prop('orders every collector once, by what each is expected to take',

@@ -119,17 +119,18 @@ function by_keys(a, b) {
 
 // `collectors` in the order a scrape runs them: fastest first; one never run,
 // which may be slow, after those the ledger knows, so that it cannot take
-// their time, and among those, one whose `cost(c)` (meta.cost) is 'heavy'
-// after the others; in their order among equals; those `last(c)` says, after
-// every other.
+// their time, and among those, by `rank(c)` (1 without it): the scrape
+// ranks the exporter's own collectors before the others, and of each, one
+// that declares itself heavy (meta.cost) after the rest; in their order among
+// equals; those `last(c)` says, after every other.
 //
 // A declared cost orders and does nothing else: the deadline leaves a
 // collector out only by what the ledger measured, so that one that declares
 // itself heavy is still run, and timed, rather than left out for good.
-export function order(l, collectors, last, cost) {
+export function order(l, collectors, last, rank) {
 	let keyed = map(collectors, function(c, i) {
 		let known = estimate(l, c.id) != null;
-		let unknown = known ? 0 : ((cost && cost(c) == 'heavy') ? 2 : 1);
+		let unknown = known ? 0 : (rank ? rank(c) : 1);
 
 		return [ (last && last(c)) ? 1 : 0, unknown, estimate(l, c.id) ?? 0, i, c ];
 	});
