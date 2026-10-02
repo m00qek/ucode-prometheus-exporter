@@ -77,3 +77,32 @@ describe('proc.fields', () => {
 			assert.match(t == '' ? [] : split(t, SPACE_RUN), proc.fields(line), sprintf('%J', line));
 		});
 });
+
+// An auxiliary vector of `pairs`, then AT_NULL, in words of `size` bytes.
+function vector(pairs, size, le) {
+	let s = '';
+
+	for (let p in [ ...pairs, [ 0, 0 ] ])
+		for (let v in p)
+			for (let i = 0; i < size; i++) {
+				let shift = 8 * (le ? i : size - 1 - i);
+				s += chr(shift < 32 ? (v >> shift) & 0xff : 0);
+			}
+
+	return s;
+}
+
+describe('proc.auxv', () => {
+	it('reads the types and values of a vector, the page size and the clock tick among them', () => {
+		for (let layout in [ [ 8, true ], [ 4, true ], [ 8, false ], [ 4, false ] ]) {
+			let v = proc.auxv(vector([ [ 16, 0x8ff ], [ proc.AT_PAGESZ, 4096 ], [ proc.AT_CLKTCK, 100 ] ], layout[0], layout[1]));
+
+			assert.match([ 4096, 100 ], [ v?.[proc.AT_PAGESZ], v?.[proc.AT_CLKTCK] ], sprintf('%J', layout));
+		}
+	});
+
+	it('is null for what is not a vector, or one without a page size', () => {
+		assert.match([ null, null, null, null ],
+			[ proc.auxv(null), proc.auxv(''), proc.auxv('garbage!'), proc.auxv(vector([ [ proc.AT_CLKTCK, 100 ] ], 8, true)) ]);
+	});
+});

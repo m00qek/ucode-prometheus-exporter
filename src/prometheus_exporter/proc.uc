@@ -39,6 +39,60 @@ export function each_line(fs, path, cb) {
 	return true;
 };
 
+// The auxiliary vector's types (linux/auxvec.h): the vector ends with AT_NULL,
+// and no type the kernel defines is as large as AT_MAX.
+const AT_NULL = 0;
+export const AT_PAGESZ = 6;
+export const AT_CLKTCK = 17;
+const AT_MAX = 64;
+
+// The layouts an auxiliary vector may have: [ bytes of a word, little-endian ].
+const LAYOUTS = [ [ 8, true ], [ 4, true ], [ 8, false ], [ 4, false ] ];
+
+function word(s, at, size, le) {
+	let v = 0;
+
+	for (let i = 0; i < size; i++)
+		v = v * 256 + ord(s, le ? at + size - 1 - i : at + i);
+
+	return v;
+}
+
+// An auxiliary vector as /proc/self/auxv gives it, { type: value }: pairs of
+// words (a type, a value) in the process's own word size and byte order,
+// which nothing says, ending with AT_NULL. The layout is the one by which
+// every type is one the kernel could define, the vector ends at AT_NULL and
+// AT_PAGESZ is a power of two; any other reads a value or an address as a
+// type, and stops at its first. Null when none fits.
+export function auxv(s) {
+	let n = length(s ?? '');
+
+	for (let l in LAYOUTS) {
+		let size = l[0], le = l[1], pair = size * 2, out = {};
+
+		if (!n || n % pair)
+			continue;
+
+		for (let at = 0; at < n; at += pair) {
+			let t = word(s, at, size, le);
+
+			if (t >= AT_MAX || t < 0)
+				break;
+			if (t == AT_NULL) {
+				let ps = out[AT_PAGESZ];
+
+				if (at + pair == n && ps >= 1024 && !(ps & (ps - 1)))
+					return out;
+				break;
+			}
+
+			out[t] = word(s, at + size, size, le);
+		}
+	}
+
+	return null;
+};
+
 const SPACE_RUN = /\s+/;
 const RARE_SPACE = /[\n\v\f\r]/;
 
