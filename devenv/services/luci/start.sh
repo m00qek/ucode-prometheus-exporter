@@ -46,6 +46,20 @@ uci batch <<-'EOF'
 	commit rpcd
 EOF
 
+# A login granted the same for reading alone: LuCI shows it the pages read-only.
+echo 'viewer:x:1001:1001:viewer:/var:/bin/false' >>/etc/passwd
+echo 'viewer:*:0:0:99999:7:::' >>/etc/shadow
+printf 'viewer\nviewer\n' | passwd viewer >/dev/null 2>&1
+uci batch <<-'EOF'
+	add rpcd login
+	set rpcd.@login[-1].username='viewer'
+	set rpcd.@login[-1].password='$p$viewer'
+	add_list rpcd.@login[-1].read='unauthenticated'
+	add_list rpcd.@login[-1].read='luci-base'
+	add_list rpcd.@login[-1].read='luci-app-prometheus-exporter'
+	commit rpcd
+EOF
+
 mkdir -p /var/run/ubus /var/lock
 ubusd &
 for _ in 1 2 3 4 5 6 7 8 9 10; do [ -S /var/run/ubus/ubus.sock ] && break; sleep 1; done

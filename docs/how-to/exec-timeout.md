@@ -42,7 +42,7 @@ uci commit prometheus-exporter
 service prometheus-exporter reload
 ```
 
-In LuCI, it is **Time for programs** on the Exporter tab.
+In LuCI, it is **Program timeout** on the Exporter tab.
 
 ## Keep within Prometheus's timeout
 

@@ -21,6 +21,18 @@ async function saveAndApply(page) {
   await page.locator('#view .cbi-page-actions').getByText('Save & Apply', { exact: true }).click();
 }
 
+// A refused Save: LuCI's Save error dialog, with what was refused, which is dismissed;
+// what was refused stays above the form.
+async function refused(page, items) {
+  const dialog = h.saveError(page);
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText('Nothing was saved');
+  await expect(dialog.locator('.exporter-line')).toContainText(items);
+  await dialog.getByRole('button', { name: 'Dismiss', exact: true }).click();
+  await expect(h.modal(page)).toBeHidden();
+  await expect(page.locator('#view .alert-message.error .exporter-line')).toContainText(items);
+}
+
 async function applied(page) {
   await expect(page.getByText('Configuration changes applied.')).toBeVisible({ timeout: 30000 });
 }
@@ -50,7 +62,10 @@ test.describe('Services → Prometheus exporter: basic auth and compress', () =>
   test('has a user and a password field for basic auth, and compress on by default', async ({ page }) => {
     await h.openSettings(page);
     await expect(field(page, 'auth_user')).toHaveValue('');
-    await expect(field(page, 'auth_user')).toHaveAttribute('placeholder', 'none');
+    await expect(field(page, 'auth_user')).toHaveAttribute('placeholder', 'None');
+    // What basic auth takes is said before a Save is refused for it.
+    await expect(page.locator('[data-name="auth_user"] .cbi-value-description')).toContainText('Basic auth needs HTTPS: set the TLS certificate and key first.');
+    await expect(page.locator('[data-name="auth_password"] .cbi-value-description')).toHaveText('Saved as a hash; the password itself is never stored. Empty keeps the saved one.');
     await expect(field(page, 'auth_password')).toHaveValue('');
     await expect(field(page, 'auth_password')).toHaveAttribute('type', 'password');
     await expect(field(page, 'auth_password')).not.toHaveAttribute('placeholder', 'Unchanged');
@@ -66,8 +81,7 @@ test.describe('Services → Prometheus exporter: basic auth and compress', () =>
     await field(page, 'auth_password').fill(PASSWORD);
     await expect(field(page, 'auth_user')).toHaveClass(/cbi-input-invalid/);
     await saveAndApply(page);
-    await expect(page.locator('#view .alert-message.error')).toContainText('Nothing was saved');
-    await expect(page.locator('#view .alert-message.error li')).toContainText([
+    await refused(page, [
       'Basic auth user: basic auth needs HTTPS: set cert and key, or the password crosses the network in the clear',
     ]);
     expect(await h.readConfig(request)).toBe(before);
@@ -144,7 +158,7 @@ test.describe('Services → Prometheus exporter: basic auth and compress', () =>
     await field(page, 'key').fill('/etc/uhttpd.key');
     await field(page, 'auth_user').fill('prom');
     await saveAndApply(page);
-    await expect(page.locator('#view .alert-message.error li')).toContainText([
+    await refused(page, [
       'Basic auth password: basic auth needs the hash of a password along with auth_user',
     ]);
     await expect(field(page, 'auth_password')).toHaveClass(/cbi-input-invalid/);
@@ -158,7 +172,7 @@ test.describe('Services → Prometheus exporter: basic auth and compress', () =>
     await h.openSettings(page);
     await field(page, 'listen_port').fill('9101');
     await saveAndApply(page);
-    await expect(page.locator('#view .alert-message.error li')).toContainText([
+    await refused(page, [
       /^Basic auth password: expected a hash of at most 2000 rounds, which a scrape computes to check the password/,
     ]);
     expect(await h.readConfig(request)).toBe(before);
@@ -176,7 +190,7 @@ test.describe('Services → Prometheus exporter: basic auth and compress', () =>
     await h.openSettings(page);
     await field(page, 'auth_user').fill('pr:om');
     await saveAndApply(page);
-    await expect(page.locator('#view .alert-message.error li')).toContainText([ /^Basic auth user: expected a user of 1 to 64 characters/ ]);
+    await refused(page, [ /^Basic auth user: expected a user of 1 to 64 characters/ ]);
     expect((await savedMain(request)).auth_user).toBe('prom');
   });
 
