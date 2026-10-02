@@ -38,7 +38,7 @@ function run(own, collectors, opts, files, skipped, l) {
 
 		out = check.run({
 			uci: mods.uci.cursor(),
-			fs: { stat: (p) => p in (files ?? []) ? { type: 'file' } : null },
+			fs: { stat: (p) => p in (files ?? []) ? { type: 'file' } : null, readfile: (p) => (p == '/proc/meminfo') ? 'MemTotal:         524288 kB\n' : null },
 			path: jail.PATH,
 			collectors,
 			skipped,
@@ -53,7 +53,7 @@ function run(own, collectors, opts, files, skipped, l) {
 describe('check.run --config', () => {
 	it('passes a missing config: every option has its default', () => {
 		assert.match({ ok: true, lines: [
-			'ok   main: HTTP on interface loopback, port 9100, keepalive 70s, exec_timeout 5s, scrape_timeout 10s, collector_budget 5s, gzip when asked',
+			'ok   main: HTTP on interface loopback, port 9100, keepalive 70s, exec_timeout 5s, scrape_timeout 10s, collector_budget 5s, max_samples 20000, memory_limit 64 MB (a quarter of the RAM, at most 64), gzip when asked',
 			'ok   collectors: 2 installed collectors, their options valid',
 		] }, run({}, [ OK, TEXTFILE ], { config_only: true }));
 	});
@@ -77,7 +77,7 @@ describe('check.run --config', () => {
 
 		assert.match(false, r.ok);
 		assert.match([
-			'ok   main: HTTP on interface loopback, port 9100, keepalive 70s, exec_timeout 5s, scrape_timeout 10s, collector_budget 5s, gzip when asked',
+			'ok   main: HTTP on interface loopback, port 9100, keepalive 70s, exec_timeout 5s, scrape_timeout 10s, collector_budget 5s, max_samples 20000, memory_limit 64 MB (a quarter of the RAM, at most 64), gzip when asked',
 			'FAIL collector loadavg, section \'loadavg\': CONFIG_INVALID (enabled: expected a boolean, got "maybe")',
 			'FAIL collector textfile, section \'textfile\': CONFIG_INVALID (directory: expected a single value, got [ "a", "b" ])',
 		], r.lines);
@@ -105,7 +105,7 @@ describe('check.run --config', () => {
 			run(tls('/etc/x.crt', null), [], { config_only: true }).lines);
 		assert.match(contains([ 'warn main: /etc/x.key is missing; it serves HTTP until it is there' ]),
 			run(tls('/etc/x.crt', '/etc/x.key'), [], { config_only: true }, [ '/etc/x.crt' ]).lines);
-		assert.match(contains([ 'ok   main: HTTPS on interface loopback, port 9100, keepalive 70s, exec_timeout 5s, scrape_timeout 10s, collector_budget 5s, gzip when asked' ]),
+		assert.match(contains([ 'ok   main: HTTPS on interface loopback, port 9100, keepalive 70s, exec_timeout 5s, scrape_timeout 10s, collector_budget 5s, max_samples 20000, memory_limit 64 MB (a quarter of the RAM, at most 64), gzip when asked' ]),
 			run(tls('/etc/x.crt', '/etc/x.key'), [], { config_only: true }, [ '/etc/x.crt', '/etc/x.key' ]).lines);
 	});
 
@@ -114,7 +114,7 @@ describe('check.run --config', () => {
 		let r = run({ main }, [], { config_only: true }, [ '/etc/x.crt', '/etc/x.key' ]);
 
 		assert.match(true, r.ok);
-		assert.match(contains([ 'ok   main: HTTPS on interface loopback, port 9100, keepalive 70s, basic auth as user "prom", exec_timeout 5s, scrape_timeout 10s, collector_budget 5s, no compression (option compress)' ]),
+		assert.match(contains([ 'ok   main: HTTPS on interface loopback, port 9100, keepalive 70s, basic auth as user "prom", exec_timeout 5s, scrape_timeout 10s, collector_budget 5s, max_samples 20000, memory_limit 64 MB (a quarter of the RAM, at most 64), no compression (option compress)' ]),
 			r.lines);
 		assert.match(-1, index(join('\n', r.lines), HASH));
 	});
@@ -145,7 +145,7 @@ describe('check.run --config', () => {
 	});
 
 	it('says when the service is disabled', () => {
-		assert.match(contains([ 'ok   main: disabled (option enabled), HTTP on every address, port 9100, keepalive 0s, exec_timeout 5s, scrape_timeout 10s, collector_budget 5s, gzip when asked' ]),
+		assert.match(contains([ 'ok   main: disabled (option enabled), HTTP on every address, port 9100, keepalive 0s, exec_timeout 5s, scrape_timeout 10s, collector_budget 5s, max_samples 20000, memory_limit 64 MB (a quarter of the RAM, at most 64), gzip when asked' ]),
 			run({ main: { '.type': config.NAME, enabled: '0', listen_interface: '*', http_keepalive: '0' } }, [], { config_only: true }).lines);
 	});
 });
@@ -185,7 +185,7 @@ describe('check.run', () => {
 
 		assert.match(true, r.ok);
 		assert.match([
-			'ok   main: HTTP on interface loopback, port 9100, keepalive 70s, exec_timeout 5s, scrape_timeout 10s, collector_budget 5s, gzip when asked',
+			'ok   main: HTTP on interface loopback, port 9100, keepalive 70s, exec_timeout 5s, scrape_timeout 10s, collector_budget 5s, max_samples 20000, memory_limit 64 MB (a quarter of the RAM, at most 64), gzip when asked',
 			'ok   collectors: 4 installed collectors, their options valid',
 			'warn scrape, outside the jail: 3 of 4 collectors succeeded',
 			'warn scrape: openwrt: UBUS_CALL_FAILED (system board: Not found)',
@@ -333,5 +333,22 @@ describe('check.status', () => {
 	it('reads HTTPS and a bare port', () => {
 		assert.match([ 'https://*:9100/metrics' ], check.listening([ 'uhttpd', '-C', 'c', '-K', 'k', '-s', '9100' ]));
 		assert.match([], check.listening([ 'uhttpd', '-p' ]));
+	});
+});
+
+describe('check, the memory limit', () => {
+	it('is memory_limit, or a quarter of the RAM, at most 64 MB', () => {
+		assert.match([ 16, 32, 64, 64, 200 ], [
+			config.memory_limit_mb(0, 65536), config.memory_limit_mb(0, 131072), config.memory_limit_mb(0, 262144),
+			config.memory_limit_mb(0, 8388608), config.memory_limit_mb(200, 65536),
+		]);
+	});
+
+	// The init script works it out in shell: its numbers are config's.
+	it('is what the init script works out', () => {
+		let script = require('fs').readfile('files/etc/init.d/prometheus-exporter');
+
+		assert.match(true, index(script, `mb=$((\${total:-0} / 1024 / ${config.MEMORY_LIMIT_SHARE}))`) >= 0);
+		assert.match(true, index(script, `[ "$mb" -le ${config.MEMORY_LIMIT_MAX} ] || mb=${config.MEMORY_LIMIT_MAX}`) >= 0);
 	});
 });

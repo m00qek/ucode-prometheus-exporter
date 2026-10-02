@@ -336,13 +336,13 @@ describe('config.service', () => {
 
 	it('gives the init script\'s defaults for a missing section', () => {
 		assert.match(config.defaults(config.SERVICE_OPTIONS), service(null));
-		assert.match({ enabled: true, listen_interface: 'loopback', listen_port: 9100, http_keepalive: 70, cert: '', key: '', auth_user: '', auth_password: '' },
-			service(null));
+		assert.match({ enabled: true, listen_interface: 'loopback', listen_port: 9100, http_keepalive: 70, cert: '', key: '', auth_user: '', auth_password: '',
+			memory_limit: 0 }, service(null));
 	});
 
 	it('reads the options, typed', () => {
-		assert.match({ enabled: false, listen_interface: '*', listen_port: 9100, http_keepalive: 0, cert: '/etc/x.crt', key: '', auth_user: '', auth_password: '' },
-			service({ enabled: '0', listen_interface: '*', listen_port: '9100', http_keepalive: '0', cert: '/etc/x.crt' }));
+		assert.match({ enabled: false, listen_interface: '*', listen_port: 9100, http_keepalive: 0, cert: '/etc/x.crt', key: '', auth_user: '', auth_password: '',
+			memory_limit: 48 }, service({ enabled: '0', listen_interface: '*', listen_port: '9100', http_keepalive: '0', cert: '/etc/x.crt', memory_limit: '48' }));
 	});
 
 	it('refuses what the init script would misread', () => {

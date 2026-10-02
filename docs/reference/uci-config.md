@@ -18,6 +18,7 @@ The exporter's configuration is `/etc/config/prometheus-exporter`. The file is o
 | `key` | string | unset | — | The private key of cert. | init script |
 | `auth_user` | string | unset | `username` | The user a scrape logs in as (basic auth), with auth\_password; HTTPS only. | init script |
 | `auth_password` | string | unset | `crypt` | The crypt hash of the password of auth\_user: $1$ (uhttpd -m), $5$ or $6$, as the ubus object's hash\_password makes it. | init script |
+| `memory_limit` | integer | `0` | `uinteger` | MB of memory each of the exporter's processes may take (its data, RLIMIT\_DATA): a collector that takes more fails alone. 0 for a quarter of the RAM, at most 64 MB. | init script |
 | `omit_zero_values` | boolean | `0` | — | Leave out counters that are 0, most of which never move on a router. | exporter |
 | `compress` | boolean | `1` | — | Send a scrape gzip-compressed when the scraper asks for it (Accept-Encoding: gzip); 0 never does. | exporter |
 | `exec_timeout` | integer | `5` | `range(1,30)` | Seconds the programs a collector runs get in all in each scrape, unless the collector says otherwise; one still running then is killed. | exporter |
@@ -71,6 +72,7 @@ config prometheus-exporter 'main'
 	option listen_interface 'loopback'
 	option listen_port '9100'
 	option http_keepalive '70'
+	option memory_limit '0'
 	option omit_zero_values '0'
 	option compress '1'
 	option exec_timeout '5'

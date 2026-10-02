@@ -287,6 +287,24 @@ export const SERVICE_OPTIONS = {
 		default: '', datatype: 'crypt', secret: true,
 		help: 'The crypt hash of the password of auth_user: $1$ (uhttpd -m), $5$ or $6$, as the ubus object\'s hash_password makes it.',
 	},
+	memory_limit: {
+		default: 0, datatype: 'uinteger',
+		help: 'MB of memory each of the exporter\'s processes may take (its data, RLIMIT_DATA): a collector that takes more fails alone. 0 for a quarter of the RAM, at most 64 MB.',
+	},
+};
+
+// memory_limit when it is 0: a quarter of the RAM, at most MEMORY_LIMIT_MAX MB,
+// which the init script works out (memory_limit_mb()). A scrape's processes
+// take some 3 MB on a typical router, and 25 MB at most on the benchmark's
+// large world, a router busier than most, with every collector, on a 64-bit
+// CPU: 64 MB leaves more than twice that, and a router with less RAM than
+// 256 MB a quarter of what it has.
+export const MEMORY_LIMIT_MAX = 64;
+export const MEMORY_LIMIT_SHARE = 4;
+
+// The MB memory_limit `mb` makes on a device of `total_kb` kB of RAM.
+export function memory_limit_mb(mb, total_kb) {
+	return (mb > 0) ? mb : min(MEMORY_LIMIT_MAX, int(total_kb / 1024 / MEMORY_LIMIT_SHARE));
 };
 
 // The init script's options, each alone: what it would misread.

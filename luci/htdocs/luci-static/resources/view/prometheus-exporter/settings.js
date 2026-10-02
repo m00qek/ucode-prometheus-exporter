@@ -863,6 +863,13 @@ return view.extend({
 		o.default = '5';
 		o.placeholder = '5';
 		o.rmempty = false;
+
+		o = this.option(s, form.Value, 'max_samples', _('Sample limit'),
+			_('Samples, 1 to 100000, a collector may write in a scrape. One that writes more fails, and none of its samples are served.'));
+		o.datatype = 'range(1,100000)';
+		o.default = '20000';
+		o.placeholder = '20000';
+		o.rmempty = false;
 	},
 
 	// The form's values as the object's validate takes them: empty fields left out, as unset.

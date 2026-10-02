@@ -39,6 +39,20 @@ config_valid() {
 	return 1
 }
 
+# The bytes of data each of the exporter's processes may take (RLIMIT_DATA):
+# memory_limit's MB, or a quarter of the RAM, at most 64 MB, as
+# prometheus_exporter.config's memory_limit_mb() works it out.
+memory_limit() {
+	local mb total
+	config_get mb main memory_limit 0
+	[ "$mb" -gt 0 ] 2>/dev/null || {
+		total=$(sed -n 's/^MemTotal: *\([0-9]*\) kB$/\1/p' /proc/meminfo)
+		mb=$((${total:-0} / 1024 / 4))
+		[ "$mb" -le 64 ] || mb=64
+	}
+	echo $((mb * 1024 * 1024))
+}
+
 # The jail's mounts for the installed and enabled collectors, one per line;
 # what cannot be mounted is logged.
 jail_mounts() {
@@ -60,7 +74,7 @@ start_service() {
 
 	. /lib/functions/network.sh
 
-	local interface port keepalive cert key listen bind4 bind6 mounts missing auth
+	local interface port keepalive cert key listen bind4 bind6 mounts missing auth data
 
 	config_get interface main listen_interface loopback
 	config_get port main listen_port 9100
@@ -131,6 +145,16 @@ start_service() {
 	# each instance its own, so a restart starts without it.
 	procd_add_jail_mount_rw "$STATE"
 	procd_set_param no_new_privs 1
+
+	# What a collector may take of the router. Each of uhttpd's processes,
+	# the scrapes and the child processes their collectors run in, may take
+	# this much data: past it an allocation fails, and ucode aborts the
+	# process, a collector's child alone (prometheus_exporter.runner). And
+	# the exporter yields the CPU to the router's own work (hostapd,
+	# dnsmasq, netifd), which a scrape never competes with.
+	data=$(memory_limit)
+	procd_set_param limits data="$data $data"
+	procd_set_param nice 10
 
 	# The jail binds files, which keep their old contents when a new file
 	# replaces them, as uci commit does: so a reload restarts the instance

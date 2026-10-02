@@ -16,7 +16,7 @@
 // Its own scrape runs every enabled collector all the same, quarantined or
 // not: it is there to see what each does.
 //
-// sys: { uci: a uci cursor, fs: { stat }, path: the PATH commands are found on,
+// sys: { uci: a uci cursor, fs: { stat, readfile }, path: the PATH commands are found on,
 //        collectors: the loaded ones, skipped: what the loader logged,
 //        env: a scrape env (prometheus_exporter.scrape, app.scrape_env),
 //        ledger: the service's ledger, or null when it has none }
@@ -40,6 +40,15 @@ function listen_summary(o) {
 	let login = (o.auth_user != '') ? `, basic auth as user ${sprintf('%J', o.auth_user)}` : '';
 
 	return `${tls} on ${where}, port ${o.listen_port}, keepalive ${o.http_keepalive}s${login}`;
+}
+
+// The memory each of the service's processes may take (memory_limit), as the
+// init script works it out.
+function memory_summary(fs, mb) {
+	let m = match(fs.readfile?.('/proc/meminfo') ?? '', /MemTotal:\s+([0-9]+) kB/);
+	let limit = config.memory_limit_mb(mb, m ? +m[1] : 0);
+
+	return (mb > 0) ? `memory_limit ${limit} MB` : `memory_limit ${limit} MB (a quarter of the RAM, at most ${config.MEMORY_LIMIT_MAX})`;
 }
 
 // The cert and key the init script serves HTTPS with: both, and both there.
@@ -72,6 +81,7 @@ function check_main(sys, add) {
 
 	add('ok', `main: ${svc.data.enabled ? '' : 'disabled (option enabled), '}${listen_summary(svc.data)}, ` +
 		`exec_timeout ${main.data.exec_timeout}s, scrape_timeout ${main.data.scrape_timeout}s, collector_budget ${main.data.collector_budget}s, ` +
+		`max_samples ${main.data.max_samples}, ${memory_summary(sys.fs, svc.data.memory_limit)}, ` +
 		`${main.data.compress ? 'gzip when asked' : 'no compression (option compress)'}`);
 	check_tls(sys.fs, svc.data, add);
 }
