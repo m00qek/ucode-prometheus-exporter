@@ -108,6 +108,44 @@ describe('exposition.recorder', () => {
 	});
 });
 
+describe('exposition.pack', () => {
+	it('packs each family\'s samples into one block of text, which render() writes as they were', () => {
+		let rec = exposition.recorder();
+
+		rec.gauge('a', 'A.')({ x: '1' }, 1)({ x: '2' }, 2);
+		rec.counter('b_total')(null, 0);
+
+		let packed = exposition.pack(rec.families());
+
+		assert.match([ { name: 'a', type: 'gauge', help: 'A.', lines: [ 'a{x="1"} 1\na{x="2"} 2' ], values: [], packed: true },
+			{ name: 'b_total', type: 'counter', help: null, lines: [ 'b_total 0' ], values: [], packed: true } ], packed);
+		assert.match(exposition.render(rec.families()), exposition.render(packed));
+	});
+
+	it('leaves out zero counters with omit, and a family left without samples, and render() omits nothing more', () => {
+		let rec = exposition.recorder();
+
+		rec.counter('z_total')(null, 0);
+		rec.counter('c_total')({ i: '1' }, 0)({ i: '2' }, 5);
+
+		let packed = exposition.pack(rec.families(), true);
+
+		assert.match([ 'c_total' ], map(packed, (f) => f.name));
+		assert.match('# TYPE c_total counter\nc_total{i="2"} 5\n', exposition.render(packed, { omit_zero_counters: true }));
+	});
+
+	prop('renders what render() would, packed or not, with omit or without',
+		gen.tuple(gen.array(gen.int(0, 3), { min_len: 0, max_len: 6 }), gen.bool()), (t) => {
+			let rec = exposition.recorder();
+			let c = rec.counter('n_total');
+
+			for (let i, v in t[0])
+				c({ i }, v);
+			assert.match(exposition.render(rec.families(), { omit_zero_counters: t[1] }),
+				exposition.render(exposition.pack(rec.families(), t[1])));
+		});
+});
+
 describe('exposition.merge', () => {
 	it('merges families by name in the order they first appear', () => {
 		let a = exposition.recorder(), b = exposition.recorder();

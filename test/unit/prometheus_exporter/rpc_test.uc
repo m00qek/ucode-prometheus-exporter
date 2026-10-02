@@ -620,6 +620,43 @@ describe('rpc.scrape_report and rpc.status', () => {
 	});
 });
 
+describe('rpc.cached_probe', () => {
+	// fs over modules `sigs` ({ id: 'inode:size:mtime' }), whose helper prints `out`.
+	function fs_of(sigs, out, cmds) {
+		return {
+			stat: function(p) {
+				let id = match(p, /\/([a-z0-9_]+)\.uc$/)[1];
+				let s = sigs[id];
+
+				return s ? { inode: split(s, ':')[0], size: split(s, ':')[1], mtime: split(s, ':')[2] } : null;
+			},
+			popen: function(cmd) { push(cmds, cmd); return { read: () => out, close: () => 0 }; },
+		};
+	}
+
+	it('asks the helper of the modules it has not seen, once per version of each', () => {
+		let cmds = [];
+		let sigs = { a: '1:10:100', b: '2:20:200' };
+		let out = '{"a":{"ok":true},"b":{"ok":false,"hung":true,"error":"still loading after 5 s: stopped"}}';
+		let probe = rpc.cached_probe(fs_of(sigs, out, cmds), '/c', '/probe.uc');
+
+		assert.match({ a: { ok: true }, b: { ok: false, hung: true, error: 'still loading after 5 s: stopped' } }, probe([ 'a', 'b' ]));
+		assert.match({ a: { ok: true }, b: { ok: false, hung: true, error: 'still loading after 5 s: stopped' } }, probe([ 'a', 'b' ]));
+		sigs.b = '3:21:300';
+		probe([ 'a', 'b' ]);
+		assert.match([ '/probe.uc a b 2>/dev/null', '/probe.uc b 2>/dev/null' ], cmds);
+	});
+
+	it('takes a module the helper says nothing of as not loaded, and asks again next time', () => {
+		let cmds = [];
+		let probe = rpc.cached_probe(fs_of({ a: '1:1:1' }, 'not json', cmds), '/c', '/probe.uc');
+
+		assert.match({ a: { ok: false, hung: false, error: '/probe.uc said nothing of it' } }, probe([ 'a' ]));
+		probe([ 'a' ]);
+		assert.match(2, length(cmds));
+	});
+});
+
 describe('rpc.deferred_json', () => {
 	// A request that records its reply, and io whose command prints `out`.
 	function run(out, opts) {

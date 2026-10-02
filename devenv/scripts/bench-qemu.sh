@@ -52,12 +52,7 @@ mkdir -p /mnt/p && cd /mnt/p && tar -xf /dev/sdb
 ip addr add 10.0.2.15/24 dev br-lan
 ip route add default via 10.0.2.2
 rm -f /etc/resolv.conf && echo 'nameserver 10.0.2.3' >/etc/resolv.conf
-# ucode-docopt, the command line's parser, from its author's feed, pinned.
-feed=https://m00qek.github.io/packages.ucode.dev/$(. /etc/openwrt_release; echo "$DISTRIB_RELEASE" | cut -d. -f1,2)
-mkdir -p /etc/apk/keys /etc/apk/repositories.d
-wget -qO /etc/apk/keys/packages.ucode.dev.pem "$feed/feed.pub.pem" && echo "$feed" >/etc/apk/repositories.d/ucode-dev.list
 apk update >/dev/null && apk add --allow-untrusted $(cat packages) || echo 'bench-qemu: apk failed'
-apk list -I 2>/dev/null | grep -q '^ucode-docopt-1\.0\.2-' || echo 'bench-qemu: expected ucode-docopt 1.0.2'
 /etc/init.d/prometheus-exporter stop 2>/dev/null
 echo 'bench-qemu: installed'
 apk list -I 2>/dev/null | grep -E '^(ucode|ucode-prometheus-exporter|ucode-mod-[a-z0-9]+)-[0-9]' | sed 's/^/bench-qemu: /'
@@ -79,7 +74,8 @@ cd /artifacts
 echo "$label" >"$work/payload/label"
 echo "${BENCH_ARGS:-}" >"$work/payload/args"
 # The base package and the -full group, with its collectors: the bench's sets.
-apks=ucode-prometheus-exporter-$PKG_FULLVERSION.apk
+# ucode-docopt, from its author's feed, which make bench-qemu fetched.
+apks="ucode-prometheus-exporter-$PKG_FULLVERSION.apk $(cd /artifacts && ls ucode-docopt-*.apk)"
 for p in full $(/exporter/devenv/scripts/package-info.sh groups | sed -n 's/^full //p'); do
 	apks="$apks ucode-prometheus-exporter-$p-$PKG_FULLVERSION.apk"
 done

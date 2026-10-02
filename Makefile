@@ -153,7 +153,12 @@ QEMU_IMAGE  := ucode-prometheus-exporter-qemu:$(shell sha256sum devenv/services/
 QEMU_SHIFT  ?= 1
 QEMU_MEMORY ?= 128
 
-bench-qemu: package bench-worlds
+# ucode-docopt, which the base package depends on, is in its author's feed and
+# not in the release's the guest installs from: fetched here, from the pkgcheck
+# image's feed (pinned there), and installed beside the built packages.
+bench-qemu: package bench-worlds pkgcheck-image
+	@docker run --rm --network host -u $$(id -u):$$(id -g) -v $(CURDIR)/bin:/artifacts $(PKGCHECK_IMAGE) \
+		sh -c 'rm -f /artifacts/ucode-docopt-*.apk && apk fetch -q -o /artifacts ucode-docopt'
 	docker build -q -t $(QEMU_IMAGE) devenv/services/qemu >/dev/null
 	@docker run --rm -v $(CURDIR):/exporter:ro -v $(CURDIR)/bin:/artifacts \
 		-e OPENWRT_VERSION -e PKG_FULLVERSION=$(PKG_FULLVERSION) -e QEMU_SHIFT=$(QEMU_SHIFT) -e QEMU_MEMORY=$(QEMU_MEMORY) \

@@ -35,6 +35,41 @@ describe('deps.ubus_channel', () => {
 		});
 	});
 
+	// A connection's timeout, in ucode's ubus, is set when it connects.
+	it('waits no longer than the collector\'s limit: a connection of the seconds left, a second at least', () => {
+		mock.inject('ubus', { strict: true, data: { 'system:board': {} } }, (ubus) => {
+			let now = 100;
+			let timeouts = [];
+			let ch = deps.ubus_channel(function(path, timeout) { push(timeouts, timeout); return ubus.connect(); }, () => [ now, 0 ]);
+
+			ch.call('system', 'board');
+			ch.limit(104.2);
+			ch.call('system', 'board');
+			now = 102;
+			ch.call('system', 'board');
+			now = 104.1;
+			ch.call('system', 'board');
+			ch.limit(110);
+			ch.call('system', 'board');
+			ch.limit(null);
+			ch.call('system', 'board');
+
+			assert.match([ deps.UBUS_TIMEOUT, 5, 3, 1, 6, deps.UBUS_TIMEOUT ], timeouts);
+		});
+	});
+
+	prop('never connects for longer than is left before the limit, nor for less than a second',
+		gen.tuple(gen.int(0, 100), gen.int(0, 100)), (t) => {
+			mock.inject('ubus', { strict: true, data: { 'a:b': {} } }, (ubus) => {
+				let got = [];
+				let ch = deps.ubus_channel(function(path, timeout) { push(got, timeout); return ubus.connect(); }, () => [ t[0], 0 ]);
+
+				ch.limit(t[0] + t[1] / 10.0);
+				ch.call('a', 'b');
+				assert.match(true, got[0] >= 1 && got[0] <= max(1, int(t[1] / 10.0 + 0.999)), got);
+			});
+		});
+
 	it('tells a method without data from a failed call', () => {
 		mock.inject('ubus', { strict: true, data: { 'svc:quiet': null }, errors: { 'svc:broken': 'Not found' } }, (ubus) => {
 			let ch = deps.ubus_channel(ubus.connect);
