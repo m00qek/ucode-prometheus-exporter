@@ -27,8 +27,8 @@ export const TIMEOUT_MAX = config.EXEC_TIMEOUT_MAX;
 // The collectors of the exporter's own packages, by module: those of
 // src/prometheus_exporter/collectors, as a test keeps it. A family one of
 // them writes is its own in a scrape before any other collector's
-// (scrape.own): a collector of another package never takes one of theirs,
-// whatever its name.
+// (prometheus_exporter.ownership): a collector of another package never takes
+// one of theirs, whatever its name.
 export const OWN = [
 	'bmx7', 'chrony', 'conntrack', 'cpu', 'dawn', 'dhcp_leases', 'diskstats', 'dnsmasq', 'entropy', 'ethtool',
 	'exporter', 'filefd', 'filesystem', 'hostapd_stations', 'hostapd_ubus_stations', 'hwmon', 'loadavg', 'ltq_dsl',

@@ -64,7 +64,8 @@ export function scrape_env(mods, log, opts) {
 		mkstemp: mods.fs.mkstemp,
 		readfile: mods.fs.readfile,
 		// A collector's child process its scrape left behind
-		// (scrape.bury): ash's kill, as the jail has no kill program.
+		// (prometheus_exporter.progress's bury): ash's kill, as the jail
+		// has no kill program.
 		kill: function(pid) {
 			let p = mods.fs.popen(`kill -KILL ${int(pid)} 2>/dev/null`, 'r');
 

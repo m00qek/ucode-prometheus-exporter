@@ -36,9 +36,9 @@
 // it fails alone; without, in this process, as the tests run it. It writes at
 // most its max_samples (prometheus_exporter.exposition's recorder), and a
 // family belongs to the first collector of the reply that writes it: another
-// that writes it fails with FAMILY_CONFLICT (own()). A collector that breaks
-// one of these rules, or is stopped, fails, and none of its samples are
-// served.
+// that writes it fails with FAMILY_CONFLICT (prometheus_exporter.ownership).
+// A collector that breaks one of these rules, or is stopped, fails, and none
+// of its samples are served.
 //
 // env: { session(log) -> a deps session, its collectors' lines logged with
 //        log when given, clock() -> [ s, ns ] monotonic,
@@ -59,6 +59,8 @@ import * as ledger from 'prometheus_exporter.ledger';
 import * as runner from 'prometheus_exporter.runner';
 import * as loader from 'prometheus_exporter.loader';
 import { pid_of } from 'prometheus_exporter.state';
+import { own } from 'prometheus_exporter.ownership';
+import { bury, log_breakers } from 'prometheus_exporter.progress';
 
 export const CONTENT_TYPE = 'text/plain; version=0.0.4; charset=utf-8';
 
@@ -165,69 +167,6 @@ export function run_one(env, session, c, job) {
 // samples: 0, duration: 0, skipped }.
 export function not_run(c, res, why) {
 	return { name: c.meta.name, id: c.id, result: res, families: [], samples: 0, duration: 0, skipped: why };
-};
-
-// The prefixes of the families the core writes: node_exporter's
-// node_scrape_collector_* of every collector, and the exporter's own, which
-// only a collector that describes the exporter (exporter in meta.needs) may
-// write too.
-export const SCRAPE_PREFIX = 'node_scrape_collector_';
-export const EXPORTER_PREFIX = 'ucode_prometheus_exporter_';
-
-function prefixed(name, prefix) {
-	return substr(name, 0, length(prefix)) == prefix;
-}
-
-// Why collector `c` may not write family `name`, which `owners` ({ family:
-// collector name }) says who wrote first, or null when it may.
-function family_problem(c, name, owners) {
-	if (prefixed(name, SCRAPE_PREFIX))
-		return `${name} belongs to the scrape itself`;
-	if (prefixed(name, EXPORTER_PREFIX) && !('exporter' in c.meta.needs))
-		return `${name} belongs to the exporter itself`;
-	if (owners[name] != null && owners[name] != c.meta.name)
-		return `${name} belongs to collector ${owners[name]}`;
-
-	return null;
-}
-
-// Each family to the first collector of `runs` (scrape.run_one's, in the
-// order of the reply, `by_id` their collectors) that writes it: a run that
-// writes a family another wrote first, or one the core keeps for itself,
-// fails with FAMILY_CONFLICT, logged at warning, and none of its samples are
-// served. The exporter's own collectors (loader.OWN) come first, then the
-// others; each in the order of the reply, not the order they ran in, so the
-// same collector wins every scrape, and one of another package never takes
-// a family of the exporter's own. A family a collector writes is its own,
-// and the reply has each once.
-export function own(env, runs, by_id) {
-	let owners = {};
-	let first = filter(runs, (r) => r.id in loader.OWN);
-
-	for (let r in [ ...first, ...filter(runs, (r) => !(r.id in loader.OWN)) ]) {
-		let c = by_id[r.id];
-		let why = null;
-
-		for (let f in r.families) {
-			why = family_problem(c, f.name, owners);
-			if (why)
-				break;
-		}
-
-		if (why) {
-			r.result = Result.err(errors.FAMILY_CONFLICT, why);
-			r.families = [];
-			r.text = '';
-			r.samples = 0;
-			env.log('warning', `collector '${r.name}': ${Result.describe(r.result)}`);
-			continue;
-		}
-
-		for (let f in r.families)
-			owners[f.name] ??= r.name;
-	}
-
-	return runs;
 };
 
 // Whether a run was cut by the deadline: left out, its program killed there,
@@ -411,63 +350,6 @@ export function trial(env, uci, l, chosen, installed) {
 	return map(chosen, (c) => by_id[c.id]);
 };
 
-// What changed of the breakers (ledger.record's events), logged: a breaker
-// that tripped at warning, one that closed at notice.
-function log_breakers(env, events) {
-	for (let e in events) {
-		if (e.tripped)
-			env.log('warning', `collector '${e.name}' quarantined for ${e.cooldown} scrape${e.cooldown == 1 ? '' : 's'}: ${e.why}`);
-		else if (e.closed)
-			env.log('notice', `collector '${e.name}' served again: its trial succeeded`);
-	}
-}
-
-// The collectors that were running when a scrape process of the instance
-// died (prometheus_exporter.state's dead): each fails with COLLECTOR_KILLED,
-// which trips its breaker, counted and logged at warning. A process that
-// died once its collectors were done costs none of them. Each dead process
-// is reckoned once, by the scrape that claims its progress file, under the
-// state's lock. The child process its collector ran in, which nothing stops
-// once the scrape that held its timer is gone, is killed (env.kill).
-function bury(env, st, collectors) {
-	let dead = st.dead();
-
-	if (!length(dead))
-		return;
-
-	let names = {};
-	let events = [];
-	let blamed = [];
-
-	for (let c in collectors)
-		names[c.id] = c.meta.name;
-
-	st.update(ledger.NAME, function(text) {
-		let l = ledger.parse(text);
-
-		events = [];
-		blamed = [];
-		for (let d in dead) {
-			if (!st.claim(d.file))
-				continue;
-			if (d.running == null || names[d.running] == null)
-				continue;
-
-			push(blamed, names[d.running]);
-			if (d.child && env.kill)
-				env.kill(d.child.pid);
-			l = ledger.killed(l, d.running, names[d.running],
-				'its scrape process died while it ran: out of memory, a crash, or killed', events);
-		}
-
-		return ledger.serialize(l);
-	});
-
-	for (let name in blamed)
-		env.log('warning', `collector '${name}' was running when a scrape process died`);
-	log_breakers(env, events);
-}
-
 // { status, content_type, body } for a scrape with this query string. opts:
 // { deadline: when the collectors must be done by (monotonic seconds),
 //   budget: the seconds that left them, for the log,
@@ -541,7 +423,7 @@ export function scrape(env, collectors, query_string, opts) {
 	scrape_meta.gauge(BUILD_INFO,
 		'A metric with a constant \'1\' value labeled by the version of ucode-prometheus-exporter.')({ version: env.version }, 1);
 
-	// A family is one collector's (own()): the reply is each one's text,
+	// A family is one collector's (ownership.own): the reply is each one's text,
 	// in the order selected, then the scrape's own.
 	let body = join('', map(runs, (r) => r.text ?? '')) + exposition.render(scrape_meta.families());
 

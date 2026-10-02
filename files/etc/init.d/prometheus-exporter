@@ -141,7 +141,7 @@ start_service() {
 	procd_add_jail_mount /usr/lib/uhttpd_ucode.so /lib/libubus.so* /lib/libuci.so* /usr/lib/libnl*.so* /usr/lib/libz.so*
 	procd_add_jail_mount /usr/lib/ucode /usr/share/ucode/prometheus_exporter "$HANDLER"
 	# ash, for its kill: a scrape kills the child process a scrape that died
-	# left running a collector (prometheus_exporter.scrape's bury).
+	# left running a collector (prometheus_exporter.progress's bury).
 	procd_add_jail_mount /bin/sh
 	procd_add_jail_mount $mounts
 	[ -n "$cert" ] && procd_add_jail_mount "$cert" "$key" /lib/libustream-*.so* /usr/lib/libustream-*.so*

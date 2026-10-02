@@ -222,10 +222,10 @@ export function render(families, opts) {
 
 // A collector's families as a scrape keeps its run: { families, text }, the
 // families' names and types, which a scrape needs to say whose each family
-// is (scrape.own), and the text render() writes of them, with `omit`
-// (omit_zero_values). The reply is the text of each collector, one after the
-// other: a family is one collector's, so the reply has it once without a
-// merge.
+// is (prometheus_exporter.ownership), and the text render() writes of them,
+// with `omit` (omit_zero_values). The reply is the text of each collector,
+// one after the other: a family is one collector's, so the reply has it once
+// without a merge.
 export function pack(families, omit) {
 	return {
 		families: map(families, (f) => ({ name: f.name, type: f.type })),

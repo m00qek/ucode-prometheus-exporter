@@ -50,7 +50,7 @@ A failure carries an uppercase code, from `src/prometheus_exporter/errors.uc`, a
 | `COLLECTOR_CANCELLED` | The collector was still running at the end of its `budget`, and was stopped with the process it ran in: a loop that never ends, or a system call that never returns. None of its samples are served, and its breaker trips. See [Collector contract](collector-contract.md). | `conform.uc`, `ledger.uc`, `runner.uc` |
 | `COLLECTOR_KILLED` | The process the collector ran in ended while it ran: it went past the memory limit, a native module crashed, or it called `exit()`; or the scrape process itself died while it ran, which the next scrape finds. None of its samples are served, and its breaker trips. | `conform.uc`, `ledger.uc`, `runner.uc` |
 | `SAMPLE_LIMIT` | The collector wrote more samples than its `max_samples`, and was stopped there. The detail says how many and in which family. None of its samples are served. | `conform.uc`, `scrape.uc` |
-| `FAMILY_CONFLICT` | The collector wrote a family that another collector of the reply wrote first, or one the exporter keeps for itself (`node_scrape_collector_*`, `ucode_prometheus_exporter_*`). The detail names it. None of its samples are served. | `conform.uc`, `scrape.uc` |
+| `FAMILY_CONFLICT` | The collector wrote a family that another collector of the reply wrote first, or one the exporter keeps for itself (`node_scrape_collector_*`, `ucode_prometheus_exporter_*`). The detail names it. None of its samples are served. | `conform.uc`, `ownership.uc` |
 
 ## Exposition text
 
