@@ -18,7 +18,7 @@ A failure carries an uppercase code, from `src/prometheus_exporter/errors.uc`, a
 
 | Code | Meaning | Raised by |
 | :--- | :--- | :--- |
-| `CONFIG_INVALID` | An option has a value the exporter does not take, or options that go together are not set together. The detail is `<option>: expected <what>, got <value>` (never the value of `auth_password`), or what is missing. | `auth.uc`, `config.uc`, `conform.uc`; the collectors `diskstats`, `vmstat` |
+| `CONFIG_INVALID` | An option has a value the exporter does not take, or options that go together are not set together. The detail is `<option>: expected <what>, got <value>` (never the value of `auth_password`), or what is missing. | `auth.uc`, `config.uc`, `config/types.uc`, `conform.uc`; the collectors `diskstats`, `vmstat` |
 | `FILE_UNWRITABLE` | The init script could not write or remove uhttpd's basic auth file, `/var/run/prometheus-exporter/uhttpd.conf`. | `auth.uc` |
 
 ## Capabilities

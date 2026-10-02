@@ -34,6 +34,7 @@ It conflicts with `prometheus-node-exporter-ucode` and `prometheus-node-exporter
 | `/usr/libexec/prometheus-exporter/probe.uc` | Loads collector modules in a process of its own, for rpcd, which loads none it has not seen load. |
 | `/usr/share/rpcd/ucode/prometheus-exporter.uc` | rpcd's plugin: the [ubus object](ubus.md). |
 | `/usr/share/ucode/prometheus_exporter/*.uc` | The exporter's modules. `version.uc` holds the package's version. |
+| `/usr/share/ucode/prometheus_exporter/config/*.uc` | The modules split out of `config.uc`: the options' types and datatypes. |
 | `/usr/share/ucode/prometheus_exporter/exposition/*.uc` | The modules split out of `exposition.uc`. |
 | `/usr/share/ucode/prometheus_exporter/deps/*.uc` | The capabilities of `deps.uc`, a module each. |
 | `/usr/share/ucode/prometheus_exporter/rpc/*.uc` | The modules split out of `rpc.uc`: what `collectors` describes, and `validate`. |

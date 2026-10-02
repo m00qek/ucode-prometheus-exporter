@@ -45,7 +45,7 @@ Five reference pages are written from the code by `make docs-gen`, and never by 
 | :--- | :--- |
 | `docs/reference/collectors.md` | Each collector's `meta`, the package Makefile, and the code's reasons for nothing to observe. |
 | `docs/reference/metrics.md` | What each collector writes when it runs on the fixture sets of `test/fixtures/`. |
-| `docs/reference/uci-config.md` | `config.uc`'s option specs and datatypes. |
+| `docs/reference/uci-config.md` | `config.uc`'s option specs, and `config/types.uc`'s datatypes. |
 | `docs/reference/error-codes.md` | `errors.uc`, and where each code is raised. |
 | `docs/reference/command.md` | The command's usage, `cli.uc`'s `USAGE`, which docopt parses its arguments by. |
 
@@ -67,7 +67,7 @@ Reference pages describe the code as it is. When you change one of these, update
 
 | Code | Reference page |
 | :--- | :--- |
-| A collector, `config.uc`, `errors.uc`, the package Makefile, `test/fixtures/` | The generated pages: `make docs-gen`. |
+| A collector, `config.uc` and `config/`, `errors.uc`, the package Makefile, `test/fixtures/` | The generated pages: `make docs-gen`. |
 | `files/etc/init.d/prometheus-exporter`, `check.uc`, `status.uc` | [Service commands](../../reference/service-commands.md) |
 | `cli.uc`, `files/usr/bin/prometheus-exporter` | [The `prometheus-exporter` command](../../reference/command.md), generated from `cli.uc`'s usage and `docs/gen/notes.uc`: `make docs-gen` |
 | `runner.uc`, `jailed.uc`, `conform.uc`, the guards of `scrape.uc`, `ownership.uc`, `progress.uc`, `exposition.uc`, `loader.uc` | [Collector contract](../../reference/collector-contract.md) |

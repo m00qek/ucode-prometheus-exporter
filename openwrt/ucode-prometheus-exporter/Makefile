@@ -17,8 +17,9 @@ SERVICE:=prometheus-exporter
 MODULES_DIR:=/usr/share/ucode/prometheus_exporter
 COLLECTORS_DIR:=$(MODULES_DIR)/collectors
 # The directories of the modules split out of one of the exporter's own
-# (exposition.uc's exposition/, deps.uc's deps/, rpc.uc's rpc/), installed with them.
-MODULE_SUBDIRS:=exposition deps rpc
+# (config.uc's config/, deps.uc's deps/, exposition.uc's exposition/, rpc.uc's
+# rpc/), installed with them.
+MODULE_SUBDIRS:=config deps exposition rpc
 
 # Installed with the exporter itself; every other collector is a subpackage.
 BASE_COLLECTORS:=conntrack cpu entropy exporter filefd loadavg meminfo netclass netdev openwrt_interfaces selinux softnet time timesync uname vmstat
