@@ -348,6 +348,12 @@ msgid ""
 "ignores: nothing was staged."
 msgstr ""
 
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter.js:89
+msgid ""
+"The exporter's ubus object is not available (rpcd may be restarting). Reload "
+"in a moment."
+msgstr ""
+
 #: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:676
 msgid "The installed collectors could not be read."
 msgstr ""
@@ -382,7 +388,7 @@ msgid "The saved settings are not valid: %s"
 msgstr ""
 
 #: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/status.js:92
-msgid "The settings are under"
+msgid "The settings are under %s."
 msgstr ""
 
 #: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:819
@@ -434,7 +440,7 @@ msgstr ""
 msgid "Yes"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter.js:60
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter.js:68
 msgid "a valid regular expression"
 msgstr ""
 

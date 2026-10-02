@@ -78,7 +78,7 @@ return view.extend({
 	},
 
 	fetch() {
-		return exporter.status().catch((err) => ({ error: 'RPC_FAILED', message: String(err?.message ?? err) }));
+		return exporter.status().catch((err) => ({ error: 'RPC_FAILED', message: exporter.describeError(err) }));
 	},
 
 	render(status) {
@@ -89,8 +89,8 @@ return view.extend({
 			E('h2', { 'name': 'content' }, [ _('Prometheus exporter') ]),
 			E('div', { 'class': 'cbi-map-descr' }, [
 				_('Each enabled collector runs once when this page opens and on Refresh, on the router but outside the service\'s jail.'), ' ',
-				_('The settings are under'), ' ',
-				E('a', { 'href': L.url('admin/services/prometheus-exporter') }, [ _('Services → Prometheus exporter') ]), '.'
+				...fill(_('The settings are under %s.'),
+					E('a', { 'href': L.url('admin/services/prometheus-exporter') }, [ _('Services → Prometheus exporter') ]))
 			]),
 			E('div', { 'class': 'cbi-page-actions', 'style': 'text-align:left' }, [
 				E('button', {

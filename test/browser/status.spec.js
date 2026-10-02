@@ -116,6 +116,15 @@ test.describe('Status → Prometheus exporter', () => {
     await expect(serviceRow(page, 'State').locator('td').last()).toHaveText('Not running');
   });
 
+  test('without the exporter\'s ubus object, says so in words, without a stack trace', async ({ page }) => {
+    await h.withoutObject(page);
+    await h.openStatus(page);
+    await expect(page.locator('#view .alert-message.error')).toHaveText(
+      'The status of the exporter could not be read: The exporter\'s ubus object is not available (rpcd may be restarting). Reload in a moment.');
+    await expect(page.locator('#view')).not.toContainText('handleCallReply');
+    await expect(page.locator('#view')).not.toContainText('No collector is installed.');
+  });
+
   test('works for a login with the app\'s ACL alone', async ({ page }) => {
     await h.openStatus(page, h.APP_USER);
     await expect(serviceRow(page, 'State').locator('td').last()).toHaveText('Running');
