@@ -66,10 +66,30 @@ A path the service owns is never missing: it makes it first.
 | | |
 | :--- | :--- |
 | Owner | A uhttpd instance: the handler names it when uhttpd loads it, before any request, by the pid and start time of that process. |
-| Files | `<pid>-<start time>.<name>`, mode 0600, at most 4096 bytes each, written whole: to `<file>.new`, then renamed. |
+| Files | `<pid>-<start time>.<name>`, mode 0600, at most 32768 bytes each, written whole: to `<file>.new`, then renamed. |
+| Lock | `<pid>-<start time>.lock`: every write holds an exclusive `flock()` of it; a read takes none. |
 | Other instances' files | Removed when the handler loads. |
 | Lifetime | Until the instance stops: a restart starts without state, a reload that keeps the instance keeps it. |
-| Used for | Basic auth's cache, `<instance>.auth`: one digest of the last `Authorization` header let in. |
+| Used for | Basic auth's cache, `<instance>.auth`: one digest of the last `Authorization` header let in. The ledger, `<instance>.scrape`: below. |
+
+### The ledger
+
+`<instance>.scrape` is JSON, which every scrape of the handler reads when it starts and records itself in when it ends, re-reading it under the lock. `check` and the ubus object's `status` read the ledger of the instance that started last.
+
+| Field | Content |
+| :--- | :--- |
+| `v` | 1, the ledger's version. A ledger of another version is read as empty. |
+| `scrapes` | The scrapes the instance answered. |
+| `k` | Seconds per sample of writing a reply, a moving average. |
+| `c.<module>.d` | The collector's seconds, a moving average weighing the last run by 0.25. |
+| `c.<module>.n` | The samples it wrote last. |
+| `c.<module>.late` | The scrape that last left it out at the deadline. |
+| `c.<module>.f` | Its failures in a row, while its breaker is closed. |
+| `c.<module>.q` | The last scrape of its quarantine; absent while its breaker is closed. |
+| `c.<module>.cd` | The cool-down of that quarantine, in scrapes: 1, 2, 4, 8, 16 or 32. |
+| `c.<module>.why` | What tripped its breaker, as `CODE (detail)`. |
+
+A collector no longer installed is dropped from it.
 
 ## Files the service writes
 

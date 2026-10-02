@@ -5,10 +5,11 @@ The exporter logs to syslog as `prometheus-exporter`, facility `daemon`, each li
 | Priority | For |
 | :--- | :--- |
 | `err` | What stops it doing its job: an invalid configuration, a collector that does not load. |
-| `warning` | What it does without: a collector that fails, which the scrape answers without; a path the jail cannot mount. |
+| `warning` | What it does without: a collector that fails, which the scrape answers without; collectors the deadline left out; a quarantine; a path the jail cannot mount. |
+| `notice` | A quarantined collector served again. |
 | `info` | What it says of itself: how many collectors it serves, a directory it made, the settings it took over. |
 
-A collector with nothing to observe logs nothing. Neither the password of basic auth nor its hash is ever logged.
+A collector with nothing to observe logs nothing, nor does a quarantined one while it is left out. Neither the password of basic auth nor its hash is ever logged.
 
 ---
 
@@ -22,7 +23,10 @@ Logged by uhttpd's handler, with the pid of the uhttpd process.
 | `cannot load collector '<module>': <error>` | `err` | A collector module does not compile or import. It is left out. |
 | `skipping collector: COLLECTOR_INVALID (<module>: <why>)` | `err` | A module's `meta` or `collect` is not valid. It is left out. |
 | `/var/run/prometheus-exporter/uhttpd.conf is not one line of a user and a hash for /metrics: every request is denied` | `err` | Basic auth's file is there, and wrong. |
-| `collector '<name>': <CODE (detail)>` | `warning` | A collector failed in a scrape. See [Error codes](error-codes.md). |
+| `collector '<name>': <CODE (detail)>` | `warning` | A collector failed in a scrape, but for `SCRAPE_DEADLINE`, which the scrape's line says. See [Error codes](error-codes.md). |
+| `scrape deadline: <n> collector[s] not served in its <seconds> s: <name>, ...` | `warning` | The scrape's deadline left these collectors out, or killed their programs: one line per scrape. See [HTTP endpoint](http.md#deadline). |
+| `collector '<name>' quarantined for <n> scrape[s]: <CODE (detail)>` | `warning` | Its circuit breaker tripped: a program killed at its timeout, `COLLECTOR_OVERRUN` (over its budget), or a third failure in a row; or its trial failed. |
+| `collector '<name>' served again: its trial succeeded` | `notice` | Its circuit breaker closed. |
 | `collector '<name>': <message>` | `warning` | A collector that succeeded said something with its `log` capability: textfile's `skipped <file>: <why>`. |
 | `collector '<name>': '<family>' declared with two types; later samples dropped` | `warning` | A collector declared a family twice. |
 | `'<family>' declared with two types by different collectors; later samples dropped` | `warning` | Two collectors declared a family with two types. |

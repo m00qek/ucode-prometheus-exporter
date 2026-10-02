@@ -41,17 +41,19 @@ listening on http://127.0.0.1:9100/metrics, gzip when asked, serving 15 collecto
 `service prometheus-exporter check` runs `/usr/libexec/prometheus-exporter/check.uc`. It prints a line per finding, then every installed collector, then the jail's mounts:
 
 ```
-ok   main: HTTP on every address, port 9100, keepalive 70s, exec_timeout 5s, gzip when asked
+ok   main: HTTP on every address, port 9100, keepalive 70s, exec_timeout 5s, scrape_timeout 10s, collector_budget 5s, gzip when asked
 ok   collectors: 17 installed collectors, their options valid
 ok   scrape, outside the jail: 17 of 17 collectors succeeded, 1 with nothing to observe
 ok   scrape: wifi has nothing to observe: no wireless radios
 
 collectors: 17 installed, 17 enabled
   conntrack (Connection tracking): section 'conntrack', enabled
+      budget   5s # the main section's collector_budget
       needs    fs
   ...
   textfile (Text files): section 'textfile', enabled
       option   directory="/var/prometheus" # The directory of the *.prom files.
+      budget   5s # the main section's collector_budget
       needs    fs log
       paths    /var/prometheus
       makes    /var/prometheus
@@ -71,7 +73,7 @@ Each finding starts with `ok`, `warn` or `FAIL`. Only a `FAIL` makes `check` exi
 
 | Finding | Level |
 | :--- | :--- |
-| `main: <listen summary>, exec_timeout <n>s, gzip when asked` (or `no compression (option compress)`) | `ok` |
+| `main: <listen summary>, exec_timeout <n>s, scrape_timeout <n>s, collector_budget <n>s, gzip when asked` (or `no compression (option compress)`) | `ok` |
 | `main: <CODE (detail)>`: an option of the main section the exporter does not take, or options that go together not set together | `FAIL` |
 | `main: cert and key go together; with only cert, it serves HTTP` | `warn` |
 | `main: <file> is missing; it serves HTTP until it is there` | `warn` |
@@ -86,6 +88,8 @@ Each finding starts with `ok`, `warn` or `FAIL`. Only a `FAIL` makes `check` exi
 | `scrape, outside the jail: <n> of <m> collectors succeeded[, <k> with nothing to observe]` | `ok`, or `warn` when one failed |
 | `scrape: <collector>: <CODE (detail)>`: a collector that failed | `warn` |
 | `scrape: <collector> has nothing to observe: <reason>` | `ok` |
+| `service: <collector> is quarantined: <CODE (detail)>; the service tries it again at the next scrape` (or `in <n> scrapes`)`, or at once once restarted` | `warn` |
+| `service: the scrape deadline left <collector> out in the last scrape` (or `<n> scrapes ago`, within the last 10) | `warn` |
 
 The listen summary is `HTTP` or `HTTPS`, `on interface <name>` or `on every address`, the port and the keepalive, and `basic auth as user "<user>"` when basic auth is on. The password's hash is never shown.
 
@@ -98,12 +102,13 @@ One block per installed collector, enabled or not:
 | `<name> (<title>): section '<module>', enabled` | Its name, title, the section that configures it, and whether it is enabled. |
 | `option` | Each of its own options: `<name>=<value> # <help>`. |
 | `timeout` | For a collector that runs programs: its seconds, and where they come from: `its section's option timeout`, `the collector's own (meta.timeout)` or `the main section's exec_timeout`. |
+| `budget` | The seconds it may take before its circuit breaker trips, and where they come from: `its section's option budget`, `the main section's collector_budget` or `its timeout and a second more`. |
 | `needs`, `configs` | Its `meta.needs` and `meta.configs`. |
 | `paths`, `makes` | The paths it reads outside procfs and sysfs, and those the service makes for it. |
 | `commands` | Each program it runs, `<name>=<path>`, or `(not found)`. |
 | `mounts` | What the jail mounts for it, when it is enabled. |
 
-The scrape `check` runs is outside the jail, as root, with the committed configuration. A collector that works in `check` and fails under procd lacks something in the jail: see [The jail](jail.md).
+The scrape `check` runs is outside the jail, as root, with the committed configuration, without a deadline, and runs a collector the service quarantined all the same. A collector that works in `check` and fails under procd lacks something in the jail: see [The jail](jail.md). The `service:` findings are what the service's own scrapes found, from its running instance's ledger: see [The jail](jail.md#the-ledger).
 
 ## procd
 

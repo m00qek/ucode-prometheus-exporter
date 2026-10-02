@@ -20,7 +20,25 @@ uhttpd serves the exporter's handler, `/usr/libexec/prometheus-exporter/handler.
 | `collect=<name>` | The same, as the feed's ucode exporter spelled it. |
 | `exclude[]=<name>` | Leave this collector out. |
 
-A name is a collector's name (`ltq-dsl`) or its module (`ltq_dsl`), URL-encoded or not. Without `collect[]`, a scrape runs every enabled collector, in the order of their names, less those excluded. Other parameters are ignored.
+A name is a collector's name (`ltq-dsl`) or its module (`ltq_dsl`), URL-encoded or not. Without `collect[]`, a scrape selects every enabled collector, in the order of their names, less those excluded; the reply is in that order. Other parameters are ignored.
+
+## Request headers
+
+| Header | Meaning |
+| :--- | :--- |
+| `X-Prometheus-Scrape-Timeout-Seconds` | The seconds the scraper waits, as Prometheus and vmagent send it: a positive number, as `10` or `9.5`. Without it, or with a value that is not one, the main section's `scrape_timeout` (10). Never more than 60, uhttpd's `-t`. |
+| `Accept-Encoding` | Whether the scraper takes gzip: [Compression](#compression). |
+| `Authorization` | Basic auth: [Basic auth](#basic-auth). |
+
+## Deadline
+
+A scrape's collectors get the timeout less 0.5 seconds, or half of it when that is less, counted from when the request reaches the handler. The collectors run fastest first, by how long each took before (a collector never timed after the others), and a collector is started only if what it took before, and the reply's writing, still fit:
+
+- A collector left out fails with `SCRAPE_DEADLINE`; so does one whose program was killed at the deadline. A program gets the whole seconds left, and is not started with less than one.
+- A collector quarantined by its circuit breaker is not run, even when `collect[]` names it: it fails with `COLLECTOR_QUARANTINED`, and its `ucode_prometheus_exporter_collector_quarantined` is 1.
+- The scrape logs those the deadline left out in one line: see [Log messages](log-messages.md#the-handler).
+
+See [About deadlines and circuit breakers](../explanation/deadlines-and-breakers.md).
 
 | Query | Status | Body |
 | :--- | :--- | :--- |
@@ -33,7 +51,7 @@ A name is a collector's name (`ltq-dsl`) or its module (`ltq_dsl`), URL-encoded 
 `Content-Type: text/plain; version=0.0.4; charset=utf-8`: the Prometheus text exposition format, version 0.0.4.
 
 - Each collector's families, merged by name: a family two collectors write is written once, with the samples of both. A family declared with two types keeps the first, drops the later samples, and logs a warning.
-- Then, for every collector that ran: `node_scrape_collector_duration_seconds`, `node_scrape_collector_success` and `node_scrape_collector_observing`, labeled `collector`. Then `ucode_prometheus_exporter_build_info{version}`. See [Metrics](metrics.md#scrape).
+- Then, for every collector selected: `node_scrape_collector_duration_seconds` (0 for one not run), `node_scrape_collector_success`, `node_scrape_collector_observing` and `ucode_prometheus_exporter_collector_quarantined`, labeled `collector`. Then `ucode_prometheus_exporter_build_info{version}`. See [Metrics](metrics.md#scrape).
 - A collector that fails keeps the samples it wrote before it failed. One with nothing to observe writes none.
 - With `option omit_zero_values '1'`, samples of counters whose value is 0 are left out.
 
@@ -62,7 +80,7 @@ With `auth_user` and `auth_password` set, the handler checks every request befor
 
 These replies are `Content-Type: text/plain; charset=utf-8`. The init script never serves basic auth over HTTP: the 403 is for a request that reaches the handler without TLS all the same.
 
-The handler reads the file, and `compress`, once, when uhttpd starts it. A change of either restarts uhttpd: see [Service commands](service-commands.md#triggers).
+The handler reads the file, `compress` and `scrape_timeout` once, when uhttpd starts it. A change of any restarts uhttpd: see [Service commands](service-commands.md#triggers).
 
 The password is checked against the hash: `$1$` (MD5-crypt), `$5$` (SHA-256-crypt) or `$6$` (SHA-512-crypt), of at most 2000 rounds. After a request is let in, the handler keeps a digest of its `Authorization` header in its state, and lets in a later request with the same header on the digest alone. See [The jail](jail.md#state).
 

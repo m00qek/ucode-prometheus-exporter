@@ -82,12 +82,12 @@ $ ubus call prometheus-exporter validate '{"main":{"listen_port":"0","auth_user"
 - Each value is checked alone. An empty value is unset, and takes the default.
 - Options nobody declared, and collectors that are not installed, are ignored, as the exporter ignores them.
 - The main section's options that go together, basic auth's user and hash and the `cert` and `key` they need, are checked as if the values given were the whole section.
-- A collector section takes `enabled`, `timeout` for a collector that runs programs, and the collector's own options.
+- A collector section takes `enabled`, `timeout` for a collector that runs programs, `budget`, and the collector's own options.
 - No message holds the value of `auth_password`.
 
 ## `status`
 
-Runs one scrape of the enabled collectors, outside the jail, and replies when it is done. rpcd runs it in a process of its own, `/usr/libexec/prometheus-exporter/rpc-status.uc`, and answers other calls meanwhile, the collectors' calls to objects rpcd serves (`wireguard`, `luci`) among them.
+Runs one scrape of the enabled collectors, outside the jail, and replies when it is done. rpcd runs it in a process of its own, `/usr/libexec/prometheus-exporter/rpc-status.uc`, and answers other calls meanwhile, the collectors' calls to objects rpcd serves (`wireguard`, `luci`) among them. It runs a collector the service quarantined all the same, and has no deadline.
 
 | Field | Type | Content |
 | :--- | :--- | :--- |
@@ -110,6 +110,15 @@ Runs one scrape of the enabled collectors, outside the jail, and replies when it
 | `duration` | number or null | Its seconds. |
 | `error` | string or null | Why it failed, as `CODE (detail)`. |
 | `mounts` | array | What the jail mounts for it; empty when it is disabled. |
+| `service` | object or null | What the service's own scrapes found of it, from the ledger of its running instance (see [The jail](jail.md#the-ledger)); null when the ledger has nothing of it. |
+
+| Field of `service` | Type | Content |
+| :--- | :--- | :--- |
+| `estimate` | number or null | Its seconds, as the ledger averages them; null before it ran. |
+| `quarantined` | boolean | Whether its circuit breaker is open, or its trial is due. |
+| `reason` | string or null | What tripped its breaker, as `CODE (detail)`. |
+| `retry_in` | integer or null | The scrapes until its trial: 1 for the next. |
+| `late` | integer or null | The scrapes since the deadline last left it out: 0 for the service's last scrape. |
 
 ## `interfaces`
 

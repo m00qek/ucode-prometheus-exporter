@@ -34,9 +34,17 @@ QEMU is the closer model of a MIPS router. It counts instructions (`-icount shif
 
 nat_traffic reads the whole conntrack table, a line per connection, at every scrape. Its time grows with the table, linearly, as its scaling budget holds it to: 0.41 s for 20,000 entries in the devenv. A home router's table holds a few hundred entries; a busy one, or one under a flood of connections, tens of thousands.
 
-Scaled by the loop turn, the 500-MIPS 24Kc is about thirty times slower than the devenv: 20,000 entries would take it about twelve seconds, more than Prometheus's default `scrape_timeout` of ten. That is an estimate, not a measurement: the benchmark's QEMU runs time the typical world, whose table is small. But the risk is plain. On a weak MIPS router with a large table, nat_traffic alone can make every scrape time out, and Prometheus then drops the whole scrape, not only nat_traffic's part.
+Scaled by the loop turn, the 500-MIPS 24Kc is about thirty times slower than the devenv: 20,000 entries would take it about twelve seconds, more than Prometheus's default `scrape_timeout` of ten. Prometheus drops a scrape that answers late whole, not only nat_traffic's part.
 
-It is in the `-network` and `-full` groups. On such a router, leave it out, [disable it](../how-to/choose-collectors.md#disable-a-collector), or scrape it in a job of its own with a longer timeout; and watch `node_scrape_collector_duration_seconds{collector="nat_traffic"}`.
+So a scrape has a deadline, the scraper's timeout less half a second, and runs the collectors fastest first: nat_traffic, slowest, comes last, and when the time left does not fit what it took before, it is left out, and the scrape answers with the rest. And a collector that takes longer than its budget, 5 seconds by default, is quarantined for a few scrapes.
+
+On QEMU's 500-MIPS 24Kc (`make bench-qemu`), the full scrape of the benchmark's large world, whose conntrack table holds 20,000 connections, takes 14.1 s without a deadline, nat_traffic 7.0 s of it. With Prometheus's default timeout of 10 s (`deadline:full@20000`), once the first scrape has filled the ledger, it answers in 7.0 s, nat_traffic left out and every other collector served. The first scrape after a restart, before the ledger knows how long nat_traffic takes, can still be late. See [About deadlines and circuit breakers](deadlines-and-breakers.md).
+
+It is in the `-network` and `-full` groups. On such a router, leave it out, [disable it](../how-to/choose-collectors.md#disable-a-collector), or scrape it in a job of its own with a longer timeout and a `budget` to match; and watch `node_scrape_collector_duration_seconds{collector="nat_traffic"}`.
+
+## The ledger
+
+Ordering the collectors and keeping their breakers costs a scrape a read of a small file when it starts, and a locked read and write when it ends (`make bench`'s `ledger:full`, 35 collectors, a ledger of 1.5 kB): 1.0 ms in the devenv and 21 ms on the 500-MIPS 24Kc, about 1% of a typical full scrape on both.
 
 ## Gzip
 

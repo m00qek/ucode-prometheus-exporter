@@ -32,6 +32,8 @@ The main section and the collector sections of `/etc/config/prometheus-exporter`
 | Compress | `compress` | |
 | Leave out zero values | `omit_zero_values` | |
 | Program timeout | `exec_timeout` | |
+| Scrape timeout | `scrape_timeout` | |
+| Collector budget | `collector_budget` | |
 
 - Every field is written, at its default too (`option enabled '1'`), but for the TLS files and basic auth, which are left out while empty. Emptying another field is refused.
 - Emptying the user takes basic auth away, its hash with it.
@@ -68,9 +70,9 @@ While the ubus object is not there (rpcd reloading, or the package being upgrade
 | Part | Content |
 | :--- | :--- |
 | Service | Whether it is enabled in the settings, starts at boot and runs; where it serves `/metrics`, marked **(reachable from the router only)** on loopback; whether a scrape logs in, over HTTPS; whether it is compressed. |
-| Collectors | Each collector's state, **OK**, **Failed**, **Nothing to observe** (with why) or **Not run** (disabled); its duration; its error; and what the jail mounts for it. |
+| Collectors | Each collector's state in the page's scrape, **OK**, **Failed**, **Nothing to observe** (with why) or **Not run** (disabled); its duration; its error; what the jail mounts for it; and, in the **Service** column, what the service's own scrapes found of it: **Quarantined** (with when it is tried again, and why) and **Left out at the deadline** (in the last scrape, or how many scrapes ago, within the last 10). |
 
-The scrape is the ubus object's `status`, run on the router outside the jail, when the page opens and on **Refresh**, never on a timer. Without the ubus object, the page says so, as the settings page does.
+The scrape is the ubus object's `status`, run on the router outside the jail, when the page opens and on **Refresh**, never on a timer; it runs a quarantined collector all the same. The **Service** column is the ubus object's `service` of each collector, from the running instance's ledger. Without the ubus object, the page says so, as the settings page does.
 
 ## ACL
 

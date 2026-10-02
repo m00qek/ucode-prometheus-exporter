@@ -45,6 +45,30 @@ The same is on LuCI's **Status → Prometheus exporter** page, and in the ubus o
 ubus call prometheus-exporter status
 ```
 
+## A collector is quarantined
+
+A collector whose program was killed at its timeout, that took longer than its budget, or that failed three scrapes in a row is left out for a few scrapes, then tried again. Its `node_scrape_collector_success` is 0 and its `ucode_prometheus_exporter_collector_quarantined` is 1. `check` says why, and when the service tries it again:
+
+```
+warn service: nat_traffic is quarantined: COLLECTOR_OVERRUN (took 7.84 s, over its budget of 5 s); the service tries it again in 8 scrapes, or at once once restarted
+```
+
+1. Fix what tripped it: the `warn scrape:` line of `check` runs it now and says how it fails.
+2. If it is slow but you want it, raise its budget: `uci set prometheus-exporter.<module>=collector`, `uci set prometheus-exporter.<module>.budget=15`, commit, `reload_config`. For a program, raise its `timeout`: [How to give programs more time](exec-timeout.md).
+3. To try it at once rather than at its trial, `service prometheus-exporter restart`: a restart forgets every quarantine.
+
+LuCI's **Status → Prometheus exporter** shows the same in its **Service** column.
+
+## Collectors are left out at the deadline
+
+The log says `scrape deadline: <n> collectors not served in its <seconds> s: ...`, and `check` says `the scrape deadline left <name> out`: a scrape ran out of the time the scraper gives it. Collectors run fastest first, so the ones left out are the slowest.
+
+- Leave the slow collector out of this job, `params: { 'exclude[]': [ nat_traffic ] }`, and scrape it in a job of its own with a longer `scrape_timeout` (and a `budget` to match).
+- Or raise the job's `scrape_timeout`: Prometheus sends it with each scrape.
+- A scraper that does not send `X-Prometheus-Scrape-Timeout-Seconds` gets the main section's `scrape_timeout`, 10 seconds.
+
+See [About deadlines and circuit breakers](../explanation/deadlines-and-breakers.md).
+
 ## A collector works in `check` and fails under procd
 
 `check`, the ubus object's `status`, LuCI's status page and the `prometheus-exporter` command run outside the jail, as root. Prometheus's scrapes run in it. A collector that only fails there lacks something the jail does not give it.
@@ -68,7 +92,7 @@ What the jail holds is in [The jail](../reference/jail.md).
 | Prometheus says | Do |
 | :--- | :--- |
 | `connection refused` | The exporter does not listen where Prometheus asks. `service prometheus-exporter status` says where it listens; by default, loopback only. See [How to listen on the LAN](listen-on-lan.md). |
-| A timeout | The firewall drops it, or a collector's programs take too long: see [How to give programs more time](exec-timeout.md). |
+| A timeout | The firewall drops it, or the scrape is slow: the exporter answers within the timeout the scraper sends, but not on the first scrape after a restart, before it knows how long each collector takes. A timeout scrape after scrape is a scraper that sends none: set `scrape_timeout` to its timeout. |
 | `400 Bad Request` | The scrape's `collect[]` names a collector that is not installed, or is disabled. The body says which. |
 | `401 Unauthorized` | The user or password is wrong. |
 | `server returned HTTP status 403 Forbidden` | Basic auth is on and the request came over HTTP: use `scheme: https`. |
