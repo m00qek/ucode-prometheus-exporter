@@ -57,7 +57,7 @@ warn service: nat_traffic is quarantined: COLLECTOR_OVERRUN (took 7.84 s, over i
 2. If it is slow but you want it, raise its budget: `uci set prometheus-exporter.<module>=collector`, `uci set prometheus-exporter.<module>.budget=15`, commit, `reload_config`. For a program, raise its `timeout`: [How to give programs more time](exec-timeout.md).
 3. To try it at once rather than at its trial, `service prometheus-exporter restart`: a restart forgets every quarantine.
 
-LuCI's **Status → Prometheus exporter** shows the same in its **Service** column.
+LuCI's **Status → Prometheus exporter** shows the same in its **Service** column. How often it happened since the service started is the `exporter` collector's `ucode_prometheus_exporter_quarantines_total{collector}`.
 
 ## Collectors are left out at the deadline
 
@@ -66,6 +66,7 @@ The log says `scrape deadline: <n> collectors not served in its <seconds> s: ...
 - Leave the slow collector out of this job, `params: { 'exclude[]': [ nat_traffic ] }`, and scrape it in a job of its own with a longer `scrape_timeout` (and a `budget` to match).
 - Or raise the job's `scrape_timeout`: Prometheus sends it with each scrape.
 - A scraper that does not send `X-Prometheus-Scrape-Timeout-Seconds` gets the main section's `scrape_timeout`, 10 seconds.
+- `ucode_prometheus_exporter_deadline_skips_total{collector}` counts them since the service started.
 
 See [About deadlines and circuit breakers](../explanation/deadlines-and-breakers.md).
 

@@ -56,6 +56,8 @@ It is the instance's, and the service's restart starts a new one without it: eve
 
 A scrape that names a quarantined collector in `collect[]` does not run it either. The alternative, running whatever is asked for, would let any job that names the collector pay its cost every scrape, and trip and re-trip its breaker. A job of its own for a slow collector, with a longer timeout, is the way to scrape it: its `budget` raised to match, it is not quarantined in the first place.
 
+The `exporter` collector, in the base package, counts what happened since the service started: `ucode_prometheus_exporter_quarantines_total`, `_deadline_skips_total`, `_program_timeouts_total` and `_collector_failures_total` by collector, so that an alert can ask how often, not only whether now. The counters live in the same ledger, and a restart starts them again at 0, as a new process's counters would.
+
 `check` and LuCI's status page are different. They run a scrape of their own, outside the jail, to show what each collector does now, quarantined or not; beside it they show what the service's own scrapes found, from the running instance's ledger: each collector quarantined, why, and when it is tried again, and each the deadline left out lately.
 
 ## Trade-offs
