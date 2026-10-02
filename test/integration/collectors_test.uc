@@ -18,6 +18,12 @@ const COMMAND_PACKAGES = { nft: '+nftables-json', mmcli: '+modemmanager', 'ubnt-
 
 const IDS = sort(map(filter(lsdir(SOURCES), (f) => match(f, /\.uc$/)), (f) => substr(f, 0, -3)));
 
+describe('loader.OWN', () => {
+	it('names every collector of the source tree, and nothing else', () => {
+		assert.match(IDS, sort([ ...loader.OWN ]));
+	});
+});
+
 function base_collectors() {
 	return split(trim(match(MAKEFILE, /\nBASE_COLLECTORS:=([^\n]*)/)[1]), /\s+/);
 }

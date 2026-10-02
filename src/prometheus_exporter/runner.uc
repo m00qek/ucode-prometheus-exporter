@@ -20,9 +20,10 @@
 //
 // inline(): in this process, for the tests: nothing stops a collector there.
 //
-// A plan is { next() -> job or null, done(job, run) }. next() is called each
-// time a collector can start: it returns the next to run, or null when there
-// is none, and leaves out (and hands done) any it does not run. A job is
+// A plan is { next(pid) -> job or null, done(job, run) }. next() is called
+// each time a collector can start, with the pid of the process it would run
+// in: it returns the next to run, or null when there is none, and leaves out
+// (and hands done) any it does not run. A job is
 // { c, cutoff, limit, at_deadline, budget, settings, view }:
 //   c            the collector
 //   cutoff       when its programs must be done by (monotonic seconds), or null
@@ -248,7 +249,7 @@ export function forked(env, run_fn, opts) {
 				if (g != st.gen || st.done)
 					return null;
 
-				let job = st.plan.next();
+				let job = st.plan.next(st.task?.pid());
 
 				if (job == null) {
 					st.closing = true;

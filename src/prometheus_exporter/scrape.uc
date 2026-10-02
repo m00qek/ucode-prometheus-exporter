@@ -57,6 +57,7 @@ import * as query from 'prometheus_exporter.query';
 import { seconds as now_of, budget as deadline_budget } from 'prometheus_exporter.deadline';
 import * as ledger from 'prometheus_exporter.ledger';
 import * as runner from 'prometheus_exporter.runner';
+import * as loader from 'prometheus_exporter.loader';
 import { pid_of } from 'prometheus_exporter.state';
 
 export const CONTENT_TYPE = 'text/plain; version=0.0.4; charset=utf-8';
@@ -185,7 +186,7 @@ function family_problem(c, name, owners) {
 	if (prefixed(name, EXPORTER_PREFIX) && !('exporter' in c.meta.needs))
 		return `${name} belongs to the exporter itself`;
 	if (owners[name] != null && owners[name] != c.meta.name)
-		return `${name} belongs to collector ${owners[name]}, which wrote it first`;
+		return `${name} belongs to collector ${owners[name]}`;
 
 	return null;
 }
@@ -194,13 +195,16 @@ function family_problem(c, name, owners) {
 // order of the reply, `by_id` their collectors) that writes it: a run that
 // writes a family another wrote first, or one the core keeps for itself,
 // fails with FAMILY_CONFLICT, logged at warning, and none of its samples are
-// served. The order is the reply's, not the order they ran in, so the same
-// collector wins every scrape. A family a collector writes is its own, and
-// the reply has each once.
+// served. The exporter's own collectors (loader.OWN) come first, then the
+// others; each in the order of the reply, not the order they ran in, so the
+// same collector wins every scrape, and one of another package never takes
+// a family of the exporter's own. A family a collector writes is its own,
+// and the reply has each once.
 export function own(env, runs, by_id) {
 	let owners = {};
+	let first = filter(runs, (r) => r.id in loader.OWN);
 
-	for (let r in runs) {
+	for (let r in [ ...first, ...filter(runs, (r) => !(r.id in loader.OWN)) ]) {
 		let c = by_id[r.id];
 		let why = null;
 
@@ -317,7 +321,7 @@ export function collect(env, uci, l, chosen, opts) {
 	}
 
 	let plan = {
-		next: function() {
+		next: function(pid) {
 			while (next < length(queue)) {
 				let c = queue[next++];
 
@@ -350,7 +354,7 @@ export function collect(env, uci, l, chosen, opts) {
 					held = true;
 				}
 
-				opts?.progress?.start(c.id);
+				opts?.progress?.start(c.id, pid);
 
 				return {
 					c, cutoff, limit, at_deadline: held, budget,
@@ -413,7 +417,8 @@ function log_breakers(env, events) {
 // which trips its breaker, counted and logged at warning. A process that
 // died once its collectors were done costs none of them. Each dead process
 // is reckoned once, by the scrape that claims its progress file, under the
-// state's lock.
+// state's lock. The child process its collector ran in, which nothing stops
+// once the scrape that held its timer is gone, is killed (env.kill).
 function bury(env, st, collectors) {
 	let dead = st.dead();
 
@@ -439,6 +444,8 @@ function bury(env, st, collectors) {
 				continue;
 
 			push(blamed, names[d.running]);
+			if (d.child && env.kill)
+				env.kill(d.child.pid);
 			l = ledger.killed(l, d.running, names[d.running],
 				'its scrape process died while it ran: out of memory, a crash, or killed', events);
 		}

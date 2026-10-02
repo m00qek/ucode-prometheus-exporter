@@ -428,7 +428,7 @@ describe('scrape.scrape', () => {
 			'node_scrape_collector_success{collector="x"} 1', 'node_scrape_collector_success{collector="y"} 0',
 			'node_scrape_collector_success{collector="c"} 1' ]), lines(r.body));
 		assert.match([ -1, -1 ], [ index(r.body, 'by="y"'), index(r.body, 'y_value') ]);
-		assert.match([ "collector 'y': FAMILY_CONFLICT (shared belongs to collector x, which wrote it first)" ], r.logs);
+		assert.match([ "collector 'y': FAMILY_CONFLICT (shared belongs to collector x)" ], r.logs);
 	});
 
 	it('gives it by the order of the reply, not the order they ran in', () => {
@@ -438,6 +438,14 @@ describe('scrape.scrape', () => {
 		assert.match(contains([ 'shared 1', 'node_scrape_collector_success{collector="y"} 0' ]), lines(r.body));
 		r = scrape_with([ collector('x', gauge_of('shared', 1)), collector('y', gauge_of('shared', 2)) ], 'collect[]=y&collect[]=x');
 		assert.match(contains([ 'shared 2', 'node_scrape_collector_success{collector="x"} 0' ]), lines(r.body));
+	});
+
+	it('gives a family one of the exporter\'s own collectors writes to it, before any other\'s', () => {
+		let r = scrape_with([ collector('aaa', gauge_of('node_load1', 42)), collector('loadavg', gauge_of('node_load1', 1)) ], '');
+
+		assert.match(contains([ 'node_load1 1', 'node_scrape_collector_success{collector="aaa"} 0',
+			'node_scrape_collector_success{collector="loadavg"} 1' ]), lines(r.body));
+		assert.match([ "collector 'aaa': FAMILY_CONFLICT (node_load1 belongs to collector loadavg)" ], r.logs);
 	});
 
 	it('keeps the scrape\'s own families and the exporter\'s to themselves', () => {
@@ -573,7 +581,7 @@ describe('scrape.scrape, with circuit breakers', () => {
 
 	// Scrapes with `query_string` on one state, `n` times: what each answered
 	// and logged, and which collectors ran.
-	function scrapes(collectors, n, query_string, st) {
+	function scrapes(collectors, n, query_string, st, extra) {
 		let out = [];
 
 		st ??= memory_state();
@@ -581,7 +589,7 @@ describe('scrape.scrape, with circuit breakers', () => {
 			with_mods({}, (mods) => {
 				let logs = [];
 				let levels = [];
-				let r = scrape.scrape(env_for(mods, logs, levels), collectors, query_string ?? '', { state: st });
+				let r = scrape.scrape({ ...env_for(mods, logs, levels), ...(extra ?? {}) }, collectors, query_string ?? '', { state: st });
 
 				push(out, { body: lines(r.body), logs, levels });
 			});
@@ -665,7 +673,7 @@ describe('scrape.scrape, with circuit breakers', () => {
 		let st = memory_state();
 		let claimed = [];
 
-		st.dead = () => [ { file: '1-1.p9_9', running: 'f' }, { file: '1-1.p8_8', running: null } ];
+		st.dead = () => [ { file: '1-1.p9_9', running: 'f', child: { pid: 77, start: '9' } }, { file: '1-1.p8_8', running: null } ];
 		st.claim = function(f) {
 			if (f in claimed)
 				return false;
@@ -673,7 +681,10 @@ describe('scrape.scrape, with circuit breakers', () => {
 			return true;
 		};
 
-		let rs = scrapes([ A, flaky('f', [ true ], ran) ], 2, '', st);
+		let killed = [];
+		let rs = scrapes([ A, flaky('f', [ true ], ran) ], 2, '', st, { kill: (pid) => push(killed, pid) });
+
+		assert.match([ 77 ], killed, 'the child it ran in, left behind');
 
 		assert.match([ [ 'f' ], [ '1-1.p9_9', '1-1.p8_8' ] ], [ ran, claimed ], 'run once: the second scrape is its trial');
 		assert.match([ true, false ], [ quarantined(rs[0], 'f'), quarantined(rs[1], 'f') ]);

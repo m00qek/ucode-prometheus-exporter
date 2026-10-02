@@ -24,6 +24,20 @@ export const TITLE_MAX = 40;
 // The most seconds meta.timeout may give a collector's commands.
 export const TIMEOUT_MAX = config.EXEC_TIMEOUT_MAX;
 
+// The collectors of the exporter's own packages, by module: those of
+// src/prometheus_exporter/collectors, as a test keeps it. A family one of
+// them writes is its own in a scrape before any other collector's
+// (scrape.own): a collector of another package never takes one of theirs,
+// whatever its name.
+export const OWN = [
+	'bmx7', 'chrony', 'conntrack', 'cpu', 'dawn', 'dhcp_leases', 'diskstats', 'dnsmasq', 'entropy', 'ethtool',
+	'exporter', 'filefd', 'filesystem', 'hostapd_stations', 'hostapd_ubus_stations', 'hwmon', 'loadavg', 'ltq_dsl',
+	'meminfo', 'modemmanager', 'mwan3', 'nat_traffic', 'netclass', 'netdev', 'netstat', 'nft_counters', 'openwrt',
+	'openwrt_interfaces', 'qdisc', 'realtek_poe', 'selinux', 'snmp6', 'sockstat', 'softnet', 'textfile', 'thermal',
+	'time', 'timesync', 'ubnt_manager', 'uci_dhcp_host', 'uname', 'unbound', 'vmstat', 'wifi', 'wifi_stations',
+	'wireguard',
+];
+
 // What meta.cost takes: how much a run of the collector costs, roughly, before
 // the ledger has timed it (prometheus_exporter.ledger's order).
 export const COSTS = [ 'light', 'heavy' ];

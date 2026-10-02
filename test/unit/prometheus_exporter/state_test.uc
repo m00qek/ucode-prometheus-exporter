@@ -278,12 +278,12 @@ describe('state, a scrape\'s progress', () => {
 	}
 
 	it('appends a line for each collector it starts, and removes the file once the reply is written', () => {
-		let o = opened();
+		let o = opened(null, { '42': stat_of(42, 'ucode', 555) });
 		let p = o.st.progress();
 
 		p.start('cpu');
-		p.start('nat_traffic');
-		assert.match("start cpu\nstart nat_traffic\n", o.fs.files[`${DIR}/${ID}.p42_555`].data);
+		p.start('nat_traffic', 42);
+		assert.match("start cpu\nstart nat_traffic 42-555\n", o.fs.files[`${DIR}/${ID}.p42_555`].data);
 		p.collected();
 		p.finish();
 		assert.match([], keys(o.fs.files));
@@ -291,13 +291,18 @@ describe('state, a scrape\'s progress', () => {
 
 	it('finds the progress of a scrape process that is gone, and the collector it was running', () => {
 		let o = opened({
-			[`${DIR}/${ID}.p50_600`]: { data: 'start cpu\nstart oom\n' },
+			[`${DIR}/${ID}.p50_600`]: { data: 'start cpu 60-700\nstart oom 61-701\n' },
+			[`${DIR}/${ID}.p53_603`]: { data: 'start loop 62-702\n' },
 			[`${DIR}/${ID}.p51_601`]: { data: 'start cpu\ncollected\n' },
 			[`${DIR}/${ID}.p52_602`]: { data: 'start cpu\n' },
 			[`${DIR}/${ID}.scrape`]: { data: '{}' },
-		}, { '52': stat_of(52, 'uhttpd', 602), '50': stat_of(50, 'uhttpd', 999) });
+		}, { '52': stat_of(52, 'uhttpd', 602), '50': stat_of(50, 'uhttpd', 999), '62': stat_of(62, 'uhttpd', 702) });
 
-		assert.match([ { file: `${ID}.p50_600`, running: 'oom' }, { file: `${ID}.p51_601`, running: null } ], o.st.dead());
+		assert.match([
+			{ file: `${ID}.p50_600`, running: 'oom', child: null },
+			{ file: `${ID}.p51_601`, running: null, child: null },
+			{ file: `${ID}.p53_603`, running: 'loop', child: { pid: 62, start: '702' } },
+		], sort(o.st.dead(), (a, b) => (a.file < b.file) ? -1 : 1));
 	});
 
 	it('lets one scrape claim a dead one\'s file', () => {

@@ -29,12 +29,14 @@
 // count something both count it; write() alone, the last writer wins.
 //
 // A scrape keeps a progress file, <id>.p<pid>_<start>, named by its own process:
-// a line `start <collector>` appended before each collector it starts (O_APPEND,
-// one write; no rename, no lock), `collected` once they are done, and the file
-// removed when the reply is written. A scrape process that dies (killed at
-// uhttpd's timeout, out of memory) leaves its file behind, and a later scrape
-// of the instance finds it, its process gone (dead()): the collector it last
-// started, unless it says `collected`, was running when it died.
+// a line `start <collector> <pid>-<start>` appended before each collector it
+// starts, the pid and start time of the child process it runs in (O_APPEND,
+// one write; no rename, no lock), `collected` once they are done, and the
+// file removed when the reply is written. A scrape process that dies (killed
+// at uhttpd's timeout, out of memory) leaves its file behind, and a later
+// scrape of the instance finds it, its process gone (dead()): the collector it
+// last started, unless it says `collected`, was running when it died, in a
+// child that may be running still.
 //
 // fs: { readfile, writefile, rename, unlink, lsdir, chmod, stat, mkdir, open,
 // error }, as the fs module has them.
@@ -59,6 +61,8 @@ const FILE = /^([0-9]+)-([0-9]+)\.[a-z][a-z0-9_]*(\.new)?$/;
 const LOCK = 'lock';
 // A progress file's name after <id>.p: the pid and start time of its process.
 const PROGRESS = /^([0-9]+)_([0-9]+)$/;
+// A progress file's line before a collector, and the process it runs in.
+const STARTED = /^start ([a-z0-9_]+)( ([0-9]+)-([0-9]+))?$/;
 
 // This process's instance id, "<pid>-<start time>" (/proc/self/stat's first
 // and 22nd fields), or null when /proc does not say.
@@ -181,7 +185,11 @@ export function open(fs, dir, id) {
 			}
 
 			return {
-				start: (collector) => line(`start ${collector}`),
+				start: function(collector, pid) {
+					let start = (pid != null) ? start_of(fs, pid) : null;
+
+					line(`start ${collector}` + ((start != null) ? ` ${pid}-${start}` : ''));
+				},
 				collected: () => line('collected'),
 				finish: function() {
 					h?.close();
@@ -193,9 +201,10 @@ export function open(fs, dir, id) {
 		},
 
 		// The progress files of the instance's scrape processes that are
-		// gone: [ { file, running } ], running the collector each was
-		// running when it died, or null. A process is gone when no process
-		// has its pid and start time.
+		// gone: [ { file, running, child } ], running the collector each was
+		// running when it died, or null, and child the process it ran in,
+		// when it is there still: { pid, start }. A process is gone when no
+		// process has its pid and start time.
 		dead: function() {
 			let out = [];
 
@@ -212,9 +221,10 @@ export function open(fs, dir, id) {
 					continue;
 
 				let lines = split(trim(fs.readfile(`${dir}/${f}`, SIZE_MAX) ?? ''), '\n');
-				let last = match(lines[-1] ?? '', /^start ([a-z0-9_]+)$/);
+				let last = match(lines[-1] ?? '', STARTED);
+				let child = (last?.[3] != null && start_of(fs, last[3]) == last[4]) ? { pid: +last[3], start: last[4] } : null;
 
-				push(out, { file: f, running: last ? last[1] : null });
+				push(out, { file: f, running: last ? last[1] : null, child });
 			}
 
 			return out;
