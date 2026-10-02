@@ -76,7 +76,8 @@ echo "${BENCH_ARGS:-}" >"$work/payload/args"
 # The base package and the -full group, with its collectors: the bench's sets.
 # ucode-docopt, from its author's feed, which make bench-qemu fetched.
 apks="ucode-prometheus-exporter-$PKG_FULLVERSION.apk $(cd /artifacts && ls ucode-docopt-*.apk)"
-for p in full $(/exporter/devenv/scripts/package-info.sh groups | sed -n 's/^full //p'); do
+# And chrony, which the bench runs alone (bench.sh's extra set).
+for p in full chrony $(/exporter/devenv/scripts/package-info.sh groups | sed -n 's/^full //p'); do
 	apks="$apks ucode-prometheus-exporter-$p-$PKG_FULLVERSION.apk"
 done
 ls $apks >/dev/null

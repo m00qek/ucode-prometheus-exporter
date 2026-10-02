@@ -114,7 +114,8 @@ export function unpack(text) {
 	};
 };
 
-// The run of `job`, its families packed with `omit` (omit_zero_values).
+// The run of `job`, its families written as its text, with `omit`
+// (omit_zero_values): exposition.pack.
 function run_packed(env, run_fn, session, job, omit) {
 	let r = run_fn(env, session, job.c, job);
 	let p = exposition.pack(r.families, omit);

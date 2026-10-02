@@ -294,11 +294,12 @@ export const SERVICE_OPTIONS = {
 };
 
 // memory_limit when it is 0: a quarter of the RAM, at most MEMORY_LIMIT_MAX MB,
-// which the init script works out (memory_limit_mb()). A scrape's processes
-// take some 3 MB on a typical router, and 25 MB at most on the benchmark's
-// large world, a router busier than most, with every collector, on a 64-bit
-// CPU: 64 MB leaves more than twice that, and a router with less RAM than
-// 256 MB a quarter of what it has.
+// which the init script works out (memory_limit_mb()). Measured as the peak
+// resident memory of a scrape's child process (make bench): a typical
+// router's full scrape 9 MB on a 64-bit CPU and 7 MB on a 32-bit MIPS one
+// (QEMU), the benchmark's large world, a router busier than most, with every
+// collector, 30 MB on 64 bits. 64 MB leaves more than twice the largest, and
+// a router with less RAM than 256 MB a quarter of what it has.
 export const MEMORY_LIMIT_MAX = 64;
 export const MEMORY_LIMIT_SHARE = 4;
 

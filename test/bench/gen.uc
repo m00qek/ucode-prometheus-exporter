@@ -672,8 +672,12 @@ function generate(dir, profile) {
 	put(root, '/tmp/dhcp.leases', leasefile(p, rand));
 	put(root, '/etc/config/dhcp', uci_dhcp(p));
 	let wg = wireguard(p, rand);
+	// The bench measures what a scrape costs, not where its guards stop it:
+	// no collector is stopped at its budget, which nat_traffic on 20,000
+	// connections passes on a slow router. The deadline cases still have
+	// their deadline.
 	put(root, '/etc/config/prometheus-exporter',
-		"config prometheus-exporter 'main'\n\toption enabled '1'\n\n" +
+		"config prometheus-exporter 'main'\n\toption enabled '1'\n\toption collector_budget '60'\n\n" +
 		"config collector 'dhcp_leases'\n\toption leases '1'\n\n" +
 		"config collector 'wireguard'\n\toption peer_names '1'\n\n");
 

@@ -42,6 +42,21 @@ On QEMU's 500-MIPS 24Kc (`make bench-qemu`), the full scrape of the benchmark's 
 
 It is in the `-network` and `-full` groups. On such a router, leave it out, [disable it](../how-to/choose-collectors.md#disable-a-collector), or scrape it in a job of its own with a longer timeout and a `budget` to match; and watch `node_scrape_collector_duration_seconds{collector="nat_traffic"}`.
 
+## A process per collector {#a-process-per-collector}
+
+Each scrape runs its collectors in a child process, so that one that never returns, or ends its process, costs itself alone (see [About the architecture](architecture.md#a-process-of-its-own)). That has a price, which the benchmark measures as a scrape forked (`scrape:`) against the same scrape in one process (`inline:`):
+
+| Scrape | devenv | QEMU's 500-MIPS 24Kc |
+| :--- | :--- | :--- |
+| typical, base collectors (16) | 24.1 ms, 6.7 ms more | 420 ms, 76 ms more (+22%) |
+| typical, every collector (36) | 156 ms, 20 ms more (+15%) | 2.72 s, 271 ms more (+11%) |
+| large, base collectors | 50.6 ms, 7 ms more | 904 ms, 70 ms more (+8%) |
+| large, every collector | 685 ms, 61 ms more (+10%) | nat_traffic alone takes 7.3 s there |
+
+On the router, that is about a twentieth of a second for the fork and some 7 ms a collector: the round trip between the scrape and its child, and the pages the child copies from the scrape's as it writes them (copy-on-write). Loading every collector first in a child process costs uhttpd's start as much again as loading them: 0.88 s rather than 0.45 s on the 24Kc, once per start. The progress file costs a scrape 3.6 ms there, a tenth of a percent.
+
+So a scrape on a slow router costs a tenth to a fifth more than it would if its collectors could not stop it. That is the trade: a collector that loops, waits on a FIFO or runs out of memory then costs its own budget and nothing more, where it would hold every later scrape, or end the request with nothing answered.
+
 ## The ledger
 
 Ordering the collectors and keeping their breakers costs a scrape a read of a small file when it starts, and a locked read and write when it ends (`make bench`'s `ledger:full`, 35 collectors, a ledger of 1.5 kB): 1.0 ms in the devenv and 21 ms on the 500-MIPS 24Kc, about 1% of a typical full scrape on both.
