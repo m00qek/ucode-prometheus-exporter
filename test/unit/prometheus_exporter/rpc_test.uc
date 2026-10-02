@@ -749,7 +749,8 @@ describe('rpc.methods', () => {
 		assert.match({ ok: true, errors: { main: {}, collectors: {} } }, m.validate.call({ args: { main: { listen_port: '80' } } }));
 		assert.match(2, made);
 		m.status.call({ args: {}, defer: () => null });
-		assert.match([ `${rpc.STATUS_HELPER} 2>/dev/null` ], commands);
+		assert.match([ rpc.STATUS_COMMAND ], commands);
+		assert.match(0, index(rpc.STATUS_COMMAND, `set -- 60 '${rpc.STATUS_HELPER}'\n`));
 	});
 
 	it('serves interfaces on a sys without collectors, and closes its ubus channel', () => {

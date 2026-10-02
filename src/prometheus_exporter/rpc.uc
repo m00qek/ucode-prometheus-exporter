@@ -84,6 +84,16 @@ export const NAME = config.NAME;
 export const PACKAGE = config.PACKAGE;
 export const OBJECT = NAME;
 export const STATUS_HELPER = `/usr/libexec/${NAME}/rpc-status.uc`;
+
+// The seconds the status helper may take before it is killed, with every
+// process it started: what uhttpd gives a scrape. Its scrape has the main
+// section's scrape_timeout, at most as long, and every collector of it is
+// stopped by then; this is for anything else: so no helper outlives it, and
+// a LuCI page refreshed again and again leaves none behind.
+export const STATUS_SECONDS = config.SCRIPT_TIMEOUT;
+
+// The command rpcd runs for status: the helper, under exec's watchdog.
+export const STATUS_COMMAND = deps.exec_script([ STATUS_HELPER ], STATUS_SECONDS);
 export const PROBE_HELPER = `/usr/libexec/${NAME}/probe.uc`;
 
 export const APK_LISTS = '/lib/apk/packages';
@@ -448,12 +458,15 @@ export function hash_password(sys, args) {
 // Runs `command` without blocking rpcd, and replies with the JSON object it
 // prints. io: { popen(command) -> a handle, or null; watch(handle, cb): calls
 // cb once the handle can be read }. The reply is { error: STATUS_FAILED,
-// message } when the command cannot start or prints no object.
-export function deferred_json(req, io, command) {
+// message } when the command cannot start or prints no object; `name` names
+// it there (the command itself without one).
+export function deferred_json(req, io, command, name) {
 	let p = io.popen(command);
 
+	name ??= command;
+
 	if (!p)
-		return { error: STATUS_FAILED, message: `cannot run ${command}` };
+		return { error: STATUS_FAILED, message: `cannot run ${name}` };
 
 	io.watch(p, function() {
 		let out = p.read('all');
@@ -470,7 +483,7 @@ export function deferred_json(req, io, command) {
 		// rpcd has answered already if the command outlived its request timeout.
 		try {
 			req.reply((type(data) == 'object') ? data
-				: { error: STATUS_FAILED, message: `${command} printed no reply` });
+				: { error: STATUS_FAILED, message: `${name} printed no reply` });
 		} catch (e) {
 		}
 	});
@@ -545,7 +558,7 @@ export function methods(make_sys, io) {
 		},
 		status: {
 			args: {},
-			call: (req) => deferred_json(req, io, `${STATUS_HELPER} 2>/dev/null`),
+			call: (req) => deferred_json(req, io, STATUS_COMMAND, STATUS_HELPER),
 		},
 		interfaces: {
 			args: {},
