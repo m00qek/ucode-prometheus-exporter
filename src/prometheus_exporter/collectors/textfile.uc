@@ -12,11 +12,14 @@
 // As in node_exporter, a file that cannot be used is left out whole and the
 // collector still succeeds: node_textfile_scrape_error is 1, and no
 // node_textfile_mtime_seconds is written for that file. A file cannot be used
-// when it cannot be read, is not valid exposition text, gives a family a type
-// an earlier file gave another one, repeats a series an earlier file has, or
-// writes one of this collector's own families; the log says which and why. A
-// missing directory is no files, not an error. Unlike node_exporter, samples with timestamps are kept, as the
-// Lua exporter kept them.
+// when it is not a regular file, cannot be read, is not valid exposition text,
+// gives a family a type an earlier file gave another one, repeats a series an
+// earlier file has, or writes one of this collector's own families; the log
+// says which and why. Only a regular file (or a link to one) is opened at all:
+// opening a FIFO that nothing writes to never returns, nor does reading a
+// device that never ends. A missing directory is no files, not an error.
+// Unlike node_exporter, samples with timestamps are kept, as the Lua exporter
+// kept them.
 
 import * as Result from 'prometheus_exporter.result';
 import * as exposition from 'prometheus_exporter.exposition';
@@ -72,10 +75,12 @@ function misfit(families, types, series) {
 
 // Why a file cannot be used, or null.
 function problem(text, st, parsed, types, series) {
-	if (text == null)
-		return 'cannot be read';
 	if (st == null)
 		return 'cannot be stat()ed';
+	if (st.type != 'file')
+		return `is not a regular file (${st.type}): not read`;
+	if (text == null)
+		return 'cannot be read';
 	if (!parsed.ok)
 		return Result.describe(parsed);
 
@@ -91,8 +96,9 @@ export function collect(deps, out, options) {
 	let failed = false;
 
 	for (let path in files) {
-		let text = fs.readfile(path);
+		// stat() follows a link, and opens nothing.
 		let st = fs.stat(path);
+		let text = (st?.type == 'file') ? fs.readfile(path) : null;
 		let parsed = text == null ? null : exposition.parse(text);
 		let why = problem(text, st, parsed, types, series);
 

@@ -95,6 +95,28 @@ describe('collectors.textfile', () => {
 		});
 	});
 
+	// A FIFO with no writer would hold open() forever, a character device
+	// read() forever: neither is opened.
+	it('never opens what is not a regular file, and counts it as an error', () => {
+		let fifo = `${DIR}/pipe.prom`, dev = `${DIR}/zero.prom`;
+		let opened = [];
+		let data = { ...pick([ APK ]), [fifo]: 'never read', [dev]: 'never read' };
+		let types = { [fifo]: 'fifo', [dev]: 'char' };
+		let behavior = {
+			stat: (p) => data[p] != null ? { size: 0, mtime: MTIMES[p] ?? 0, type: types[p] ?? 'file' } : null,
+			readfile: function(p) { push(opened, p); return data[p]; },
+		};
+
+		with_collector(textfile, { fs: fs_of(data, behavior) }, (r) => {
+			assert.match([ true, [ APK ] ], [ r.result.ok, opened ]);
+			assert.match(true, index(r.text, 'node_textfile_scrape_error 1') >= 0);
+			assert.match([
+				`collector 'textfile': skipped ${fifo}: is not a regular file (fifo): not read`,
+				`collector 'textfile': skipped ${dev}: is not a regular file (char): not read`,
+			], r.logs);
+		});
+	});
+
 	it('writes only node_textfile_scrape_error 0 when the directory is missing', () => {
 		with_collector(textfile, { fs: { data: {} } }, (r) => {
 			assert.match(true, r.result.ok);

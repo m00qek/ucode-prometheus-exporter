@@ -9,6 +9,7 @@ import * as scrape from 'prometheus_exporter.scrape';
 import * as loader from 'prometheus_exporter.loader';
 import * as deps from 'prometheus_exporter.deps';
 import * as Result from 'prometheus_exporter.result';
+import * as exposition from 'prometheus_exporter.exposition';
 import { seconds } from 'prometheus_exporter.deadline';
 import * as fs from 'fs';
 
@@ -191,5 +192,29 @@ describe('runner.probe', () => {
 		let res = runner.probe(ids, loader.import_module);
 
 		assert.match([], filter(ids, (id) => !res[id]?.ok));
+	});
+});
+
+describe('textfile, on a real directory', () => {
+	it('skips a FIFO that nothing writes to, rather than wait on it', () => {
+		let dir = fs.mkdtemp('/tmp/textfile-XXXXXX');
+		let logs = [];
+
+		fs.writefile(`${dir}/a.prom`, 'a_value 1\n');
+		system(`mkfifo '${dir}/b.prom'`);
+
+		let textfile = loader.import_module('textfile');
+		let rec = exposition.recorder();
+		let t = now();
+		let res = textfile.collect({ fs: { glob: fs.glob, stat: fs.stat, readfile: fs.readfile }, log: (m) => push(logs, m) }, rec, { directory: dir });
+		let took = now() - t;
+
+		fs.unlink(`${dir}/a.prom`);
+		fs.unlink(`${dir}/b.prom`);
+		fs.rmdir(dir);
+
+		assert.match([ true, [ `skipped ${dir}/b.prom: is not a regular file (fifo): not read` ] ], [ res.ok, logs ]);
+		assert.match(contains([ 'a_value 1' ]), split(exposition.render(rec.families()), '\n'));
+		assert.match(true, took < 1, `took ${took} s`);
 	});
 });
