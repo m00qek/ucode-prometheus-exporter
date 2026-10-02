@@ -9,9 +9,7 @@
 // { ssid: { bssid: { ap fields..., client mac: { client fields } } } }, the
 // only objects under an AP being its clients; APs of other nodes are left out.
 
-import * as Result from 'prometheus_exporter.result';
-import * as errors from 'prometheus_exporter.errors';
-import * as services from 'prometheus_exporter.services';
+import { Result, errors, services } from 'prometheus_exporter.api';
 
 export const meta = {
 	name: 'dawn',

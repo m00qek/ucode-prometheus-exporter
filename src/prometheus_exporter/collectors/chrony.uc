@@ -22,9 +22,7 @@
 // (check, the ubus object's status, the command line) they are read, when
 // chronyd serves time: /etc/config/chrony has an `allow` section.
 
-import * as Result from 'prometheus_exporter.result';
-import * as errors from 'prometheus_exporter.errors';
-import * as services from 'prometheus_exporter.services';
+import { Result, errors, services } from 'prometheus_exporter.api';
 
 // chronyd's command socket (chrony's --chronyrundir, /var/run/chrony).
 export const SOCKET = '/var/run/chrony/chronyd.sock';

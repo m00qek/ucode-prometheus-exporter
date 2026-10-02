@@ -10,8 +10,7 @@
 // directions). Without conntrack accounting (net.netfilter.nf_conntrack_acct)
 // there are no bytes= fields and every pair sums to 0.
 
-import * as Result from 'prometheus_exporter.result';
-import * as errors from 'prometheus_exporter.errors';
+import { Result, errors } from 'prometheus_exporter.api';
 
 export const meta = {
 	name: 'nat_traffic',

@@ -17,9 +17,7 @@
 // protocol and pairs of a key and an integer fails the collector, as it fails
 // procfs's parser.
 
-import * as Result from 'prometheus_exporter.result';
-import * as errors from 'prometheus_exporter.errors';
-import { lines, auxv, AT_PAGESZ } from 'prometheus_exporter.proc';
+import { Result, errors, proc } from 'prometheus_exporter.api';
 
 export const meta = {
 	name: 'sockstat',
@@ -37,7 +35,7 @@ const KEYS = [ 'inuse', 'orphan', 'tw', 'alloc', 'mem', 'memory' ];
 
 // AT_PAGESZ of an auxiliary vector as /proc/self/auxv gives it, or null.
 export function page_size(s) {
-	return auxv(s)?.[AT_PAGESZ];
+	return proc.auxv(s)?.[proc.AT_PAGESZ];
 };
 
 // A file's lines as { used, protocols: [ { protocol, values: { key: n } } ] };
@@ -74,7 +72,7 @@ export function parse(rows) {
 // The parsed file at `path`; null where `optional` and it is not there; or a
 // Result.err.
 function read(fs, path, optional) {
-	let rows = lines(fs, path);
+	let rows = proc.lines(fs, path);
 
 	if (rows == null)
 		return (optional && fs.stat(path) == null) ? null : Result.err(errors.SOURCE_UNREADABLE, path);

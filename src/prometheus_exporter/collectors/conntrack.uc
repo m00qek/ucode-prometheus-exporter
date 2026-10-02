@@ -4,9 +4,7 @@
 // in OpenWrt's packages feed (Apache-2.0), rewritten for this exporter; see NOTICE.
 // The statistics are node_exporter's (collector/conntrack_linux.go).
 
-import * as Result from 'prometheus_exporter.result';
-import * as errors from 'prometheus_exporter.errors';
-import { first_line, fields } from 'prometheus_exporter.proc';
+import { Result, errors, proc } from 'prometheus_exporter.api';
 
 // Regexes are constants: ucode compiles a regex literal each time it is evaluated.
 const COUNT = /^[0-9]+$/;
@@ -50,7 +48,7 @@ const HEX = /^[0-9a-fA-F]+$/;
 // columns before (searched is clashres now). A string says what is wrong.
 export function sum_columns(text) {
 	let rows = filter(split(text, '\n'), (l) => trim(l) != '');
-	let header = fields(rows[0]);
+	let header = proc.fields(rows[0]);
 
 	if (!length(header))
 		return 'no header';
@@ -62,7 +60,7 @@ export function sum_columns(text) {
 		sums[name] = 0;
 
 	for (let i = 1; i < length(rows); i++) {
-		let row = fields(rows[i]);
+		let row = proc.fields(rows[i]);
 
 		if (length(row) != length(header))
 			return `row ${i}: ${length(row)} columns for ${length(header)}`;
@@ -89,7 +87,7 @@ export function collect(deps, out) {
 		return Result.none('no connection tracking (nf_conntrack is not loaded)');
 
 	for (let g in GAUGES) {
-		let line = first_line(deps.fs, g[0]);
+		let line = proc.first_line(deps.fs, g[0]);
 
 		if (line == null)
 			return Result.err(errors.SOURCE_UNREADABLE, g[0]);

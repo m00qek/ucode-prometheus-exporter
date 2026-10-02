@@ -6,8 +6,7 @@
 // Named nftables counters, as the Lua exporter's nft_counters collector: the
 // packets and bytes of each counter object in `nft --json list counters`.
 
-import * as Result from 'prometheus_exporter.result';
-import * as errors from 'prometheus_exporter.errors';
+import { Result, errors } from 'prometheus_exporter.api';
 
 export const meta = {
 	name: 'nft-counters',

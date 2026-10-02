@@ -3,9 +3,7 @@
 // Based on utils/prometheus-node-exporter-ucode/files/extra/dnsmasq.uc
 // in OpenWrt's packages feed (Apache-2.0), rewritten for this exporter; see NOTICE.
 
-import * as Result from 'prometheus_exporter.result';
-import * as errors from 'prometheus_exporter.errors';
-import * as services from 'prometheus_exporter.services';
+import { Result, errors, services } from 'prometheus_exporter.api';
 
 export const meta = {
 	name: 'dnsmasq',

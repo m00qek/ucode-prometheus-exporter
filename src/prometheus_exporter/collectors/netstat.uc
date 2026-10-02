@@ -12,9 +12,7 @@
 // being node_netstat_Ip6_InReceives. Every field is exported, where
 // node_exporter keeps a few by default (--collector.netstat.fields).
 
-import * as Result from 'prometheus_exporter.result';
-import * as errors from 'prometheus_exporter.errors';
-import { lines, fields } from 'prometheus_exporter.proc';
+import { Result, errors, proc } from 'prometheus_exporter.api';
 
 export const meta = {
 	name: 'netstat',
@@ -38,7 +36,7 @@ function record(out, section, name, value) {
 // match (named apart, or with more names than values or fewer), which are left
 // out. Null when the file cannot be read.
 function parse_table(fs, out, path) {
-	let l = lines(fs, path);
+	let l = proc.lines(fs, path);
 
 	if (l == null)
 		return null;
@@ -46,8 +44,8 @@ function parse_table(fs, out, path) {
 	let bad = [];
 
 	for (let i = 0; i + 1 < length(l); i += 2) {
-		let names = fields(l[i]);
-		let values = fields(l[i + 1]);
+		let names = proc.fields(l[i]);
+		let values = proc.fields(l[i + 1]);
 
 		if (!length(names) || names[0] != values[0] || length(names) != length(values)
 		    || substr(names[0], -1) != ':') {
@@ -61,7 +59,7 @@ function parse_table(fs, out, path) {
 	}
 
 	if (length(l) % 2)
-		push(bad, fields(l[-1])[0] ?? '');
+		push(bad, proc.fields(l[-1])[0] ?? '');
 
 	return bad;
 }
@@ -70,13 +68,13 @@ function parse_table(fs, out, path) {
 // line without a value or a protocol is left out. Null when the file cannot be
 // read, as where IPv6 is disabled.
 function parse_snmp6(fs, out) {
-	let l = lines(fs, SNMP6);
+	let l = proc.lines(fs, SNMP6);
 
 	if (l == null)
 		return null;
 
 	for (let line in l) {
-		let x = fields(line);
+		let x = proc.fields(line);
 		let m = length(x) >= 2 ? match(x[0], SNMP6_NAME) : null;
 
 		if (m)

@@ -3,8 +3,7 @@
 // Based on utils/prometheus-node-exporter-lua/files/usr/lib/lua/prometheus-collectors/ubnt-manager.lua
 // in OpenWrt's packages feed (Apache-2.0), rewritten for this exporter; see NOTICE.
 
-import * as Result from 'prometheus_exporter.result';
-import * as errors from 'prometheus_exporter.errors';
+import { Result, errors } from 'prometheus_exporter.api';
 
 // ubnt-manager is a shell script: in the jail it needs what it sources and
 // runs, besides the shell. It reads its devices with config_load (functions.sh,

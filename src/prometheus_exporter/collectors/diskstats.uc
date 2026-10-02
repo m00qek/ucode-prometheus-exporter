@@ -28,9 +28,7 @@
 // whose traffic is vmstat's pswpin and pswpout already. A router without a
 // disk, the usual one, then has nothing to observe.
 
-import * as Result from 'prometheus_exporter.result';
-import * as errors from 'prometheus_exporter.errors';
-import { lines, fields, first_line } from 'prometheus_exporter.proc';
+import { Result, errors, proc } from 'prometheus_exporter.api';
 
 export const DEFAULT_EXCLUDE = '^(z?ram|loop|fd|(h|s|v|xv)d[a-z]|nvme[0-9]+n[0-9]+p|mtdblock|ubiblock[0-9]+_|mmcblk[0-9]+(p|boot))[0-9]+$';
 
@@ -98,7 +96,7 @@ export function parse(rows, exclude) {
 	let out = [];
 
 	for (let i, line in rows) {
-		let f = fields(line);
+		let f = proc.fields(line);
 
 		if (length(f) < MIN_FIELDS || match(f[2], exclude))
 			continue;
@@ -120,7 +118,7 @@ export function parse(rows, exclude) {
 
 // node_exporter's rotationalLabel: "1" for a rotational device, else "0".
 function rotational(fs, device) {
-	return trim(first_line(fs, `/sys/block/${device}/queue/rotational`) ?? '') == '1' ? '1' : '0';
+	return trim(proc.first_line(fs, `/sys/block/${device}/queue/rotational`) ?? '') == '1' ? '1' : '0';
 }
 
 export function collect(deps, out, options) {
@@ -132,7 +130,7 @@ export function collect(deps, out, options) {
 		return Result.err(errors.CONFIG_INVALID, `device_exclude: ${e.message}`);
 	}
 
-	let rows = lines(deps.fs, PATH);
+	let rows = proc.lines(deps.fs, PATH);
 	if (rows == null)
 		return Result.err(errors.SOURCE_UNREADABLE, PATH);
 
@@ -140,7 +138,7 @@ export function collect(deps, out, options) {
 	if (type(disks) == 'string')
 		return Result.err(errors.SOURCE_INVALID, `${PATH}: ${disks}`);
 	if (!length(disks))
-		return length(filter(rows, (l) => length(fields(l)) >= MIN_FIELDS))
+		return length(filter(rows, (l) => length(proc.fields(l)) >= MIN_FIELDS))
 			? Result.none('device_exclude leaves out every block device')
 			: Result.none('no block devices');
 

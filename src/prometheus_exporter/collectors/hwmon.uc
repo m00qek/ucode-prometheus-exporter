@@ -22,8 +22,7 @@
 // only the files of the sensors' labels, temperature inputs, PWM outputs and
 // READINGS are read, each named by one match at most.
 
-import * as Result from 'prometheus_exporter.result';
-import { first_line } from 'prometheus_exporter.proc';
+import { Result, proc } from 'prometheus_exporter.api';
 
 // Regexes are constants: ucode compiles a regex literal each time it is evaluated.
 const NUMBER = /[0-9]+/;
@@ -70,7 +69,7 @@ function dirname(path) {
 
 // The trimmed first line of a file, or null when it cannot be read.
 function read_value(fs, path) {
-	let line = first_line(fs, path);
+	let line = proc.first_line(fs, path);
 
 	return line == null ? null : trim(line);
 }

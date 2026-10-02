@@ -34,9 +34,7 @@
 // node_exporter's timex collector reads the kernel's adjtimex(2) state, which
 // ucode cannot ask; these are the daemon's, so they are named apart.
 
-import * as Result from 'prometheus_exporter.result';
-import * as errors from 'prometheus_exporter.errors';
-import * as services from 'prometheus_exporter.services';
+import { Result, errors, services } from 'prometheus_exporter.api';
 
 // Where the hotplug script keeps busybox ntpd's last event: in the service's
 // run directory, beside the exporter's own state, which is the uhttpd

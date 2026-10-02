@@ -3,10 +3,7 @@
 // Based on utils/prometheus-node-exporter-lua/files/usr/lib/lua/prometheus-collectors/modemmanager.lua
 // in OpenWrt's packages feed (Apache-2.0), rewritten for this exporter; see NOTICE.
 
-import * as Result from 'prometheus_exporter.result';
-import * as errors from 'prometheus_exporter.errors';
-import * as services from 'prometheus_exporter.services';
-import { sanitize } from 'prometheus_exporter.exposition';
+import { Result, errors, services, exposition } from 'prometheus_exporter.api';
 
 // mmcli asks ModemManager over D-Bus, on the system bus's socket in this
 // directory (the dbus package's /var/run/dbus/system_bus_socket); the
@@ -57,7 +54,7 @@ export const UNITS = {
 // The family of a measure: modemmanager_signal_<technology>_<measure><unit>,
 // as a metric name.
 export function family_of(tech, measure) {
-	return sanitize(`modemmanager_signal_${tech}_${measure}${UNITS[measure] ?? ''}`);
+	return exposition.sanitize(`modemmanager_signal_${tech}_${measure}${UNITS[measure] ?? ''}`);
 };
 
 // For each number `mmcli --signal-get` reports: lte rssi, rsrq, rsrp and snr,

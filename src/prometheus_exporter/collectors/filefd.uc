@@ -3,9 +3,7 @@
 // Based on utils/prometheus-node-exporter-ucode/files/base/filefd.uc
 // in OpenWrt's packages feed (Apache-2.0), rewritten for this exporter; see NOTICE.
 
-import * as Result from 'prometheus_exporter.result';
-import * as errors from 'prometheus_exporter.errors';
-import { first_line, fields } from 'prometheus_exporter.proc';
+import { Result, errors, proc } from 'prometheus_exporter.api';
 
 // Regexes are constants: ucode compiles a regex literal each time it is evaluated.
 const COUNT = /^[0-9]+$/;
@@ -21,12 +19,12 @@ const PATH = '/proc/sys/fs/file-nr';
 
 // `allocated  free  maximum`; free has been 0 since Linux 2.6.
 export function collect(deps, out) {
-	let line = first_line(deps.fs, PATH);
+	let line = proc.first_line(deps.fs, PATH);
 
 	if (line == null)
 		return Result.err(errors.SOURCE_UNREADABLE, PATH);
 
-	let x = fields(line);
+	let x = proc.fields(line);
 	if (length(x) < 3 || length(filter(slice(x, 0, 3), (v) => !match(v, COUNT))))
 		return Result.err(errors.SOURCE_INVALID, `${PATH}: ${sprintf('%J', line)}`);
 

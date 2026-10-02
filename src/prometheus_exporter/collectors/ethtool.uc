@@ -22,7 +22,7 @@
 // node_ethtool_info) is not in `ethtool -S`, so this collector does not export
 // it.
 
-import * as Result from 'prometheus_exporter.result';
+import { Result } from 'prometheus_exporter.api';
 
 export const meta = {
 	name: 'ethtool',

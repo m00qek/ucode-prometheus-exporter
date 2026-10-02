@@ -12,9 +12,7 @@
 // node_netstat_Ip6_*, Icmp6_*, Udp6_* and UdpLite6_*, as in node_exporter,
 // which has no per-device ones.
 
-import * as Result from 'prometheus_exporter.result';
-import * as errors from 'prometheus_exporter.errors';
-import { lines, fields } from 'prometheus_exporter.proc';
+import { Result, errors, proc } from 'prometheus_exporter.api';
 
 export const meta = {
 	name: 'snmp6',
@@ -45,8 +43,8 @@ export function family_of(stat) {
 function parse(fs, out, families, device) {
 	let labels = out.labels({ device });
 
-	for (let line in lines(fs, `${DEVICES}/${device}`) ?? []) {
-		let x = fields(line);
+	for (let line in proc.lines(fs, `${DEVICES}/${device}`) ?? []) {
+		let x = proc.fields(line);
 
 		if (length(x) >= 2) {
 			let record = families[x[0]];

@@ -13,7 +13,7 @@
 // other failed call leaves its interface out, and fails the collector once the
 // others are written.
 
-import * as Result from 'prometheus_exporter.result';
+import { Result } from 'prometheus_exporter.api';
 
 export const meta = {
 	name: 'hostapd_ubus_stations',

@@ -3,9 +3,7 @@
 // Based on utils/prometheus-node-exporter-ucode/files/base/loadavg.uc
 // in OpenWrt's packages feed (Apache-2.0), rewritten for this exporter; see NOTICE.
 
-import * as Result from 'prometheus_exporter.result';
-import * as errors from 'prometheus_exporter.errors';
-import { first_line, fields } from 'prometheus_exporter.proc';
+import { Result, errors, proc } from 'prometheus_exporter.api';
 
 export const meta = {
 	name: 'loadavg',
@@ -15,12 +13,12 @@ export const meta = {
 };
 
 export function collect(deps, out) {
-	let line = first_line(deps.fs, '/proc/loadavg');
+	let line = proc.first_line(deps.fs, '/proc/loadavg');
 
 	if (line == null)
 		return Result.err(errors.SOURCE_UNREADABLE, '/proc/loadavg');
 
-	let x = fields(line);
+	let x = proc.fields(line);
 	if (length(x) < 3)
 		return Result.err(errors.SOURCE_INVALID, `/proc/loadavg: ${sprintf('%J', line)}`);
 

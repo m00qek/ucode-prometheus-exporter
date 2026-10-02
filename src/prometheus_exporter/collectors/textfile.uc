@@ -21,8 +21,7 @@
 // Unlike node_exporter, samples with timestamps are kept, as the Lua exporter
 // kept them.
 
-import * as Result from 'prometheus_exporter.result';
-import * as exposition from 'prometheus_exporter.exposition';
+import { Result, exposition } from 'prometheus_exporter.api';
 
 export const meta = {
 	name: 'textfile',

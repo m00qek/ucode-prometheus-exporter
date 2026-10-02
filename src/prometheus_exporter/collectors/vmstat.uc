@@ -11,9 +11,7 @@
 // CONFIG_VM_EVENT_COUNTERS, as on small targets, have no event fields: the
 // default pattern then matches nothing, and the collector succeeds empty.
 
-import * as Result from 'prometheus_exporter.result';
-import * as errors from 'prometheus_exporter.errors';
-import { lines, fields } from 'prometheus_exporter.proc';
+import { Result, errors, proc } from 'prometheus_exporter.api';
 
 export const DEFAULT_FIELDS = '^(oom_kill|pgpg|pswp|pg.*fault).*';
 
@@ -41,7 +39,7 @@ export function collect(deps, out, options) {
 		return Result.err(errors.CONFIG_INVALID, `fields: ${e.message}`);
 	}
 
-	let rows = lines(deps.fs, PATH);
+	let rows = proc.lines(deps.fs, PATH);
 	if (rows == null)
 		return Result.err(errors.SOURCE_UNREADABLE, PATH);
 
@@ -49,7 +47,7 @@ export function collect(deps, out, options) {
 	// line fails the scrape, whatever the pattern.
 	let matched = [];
 	for (let i, line in rows) {
-		let f = fields(line);
+		let f = proc.fields(line);
 
 		if (!length(f))
 			continue;

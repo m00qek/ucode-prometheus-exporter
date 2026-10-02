@@ -3,9 +3,7 @@
 // Based on utils/prometheus-node-exporter-ucode/files/base/cpu.uc
 // in OpenWrt's packages feed (Apache-2.0), rewritten for this exporter; see NOTICE.
 
-import * as Result from 'prometheus_exporter.result';
-import * as errors from 'prometheus_exporter.errors';
-import { lines, fields } from 'prometheus_exporter.proc';
+import { Result, errors, proc } from 'prometheus_exporter.api';
 
 // Regexes are constants: ucode compiles a regex literal each time it is evaluated.
 const COUNT = /^[0-9]+$/;
@@ -45,7 +43,7 @@ function is_count(s) {
 }
 
 export function collect(deps, out) {
-	let l = lines(deps.fs, PATH);
+	let l = proc.lines(deps.fs, PATH);
 
 	if (l == null)
 		return Result.err(errors.SOURCE_UNREADABLE, PATH);
@@ -55,7 +53,7 @@ export function collect(deps, out) {
 
 	// The `cpu` line sums the others, so only the cpuN lines are exported.
 	for (let line in l) {
-		let x = fields(line);
+		let x = proc.fields(line);
 
 		if (match(x[0], CPU_LINE)) {
 			let times = slice(x, 1, 1 + length(MODES));

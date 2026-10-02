@@ -18,9 +18,7 @@
 // An interface whose hostapd object does not answer is left out, and fails the
 // collector once the others are written.
 
-import * as Result from 'prometheus_exporter.result';
-import * as errors from 'prometheus_exporter.errors';
-import * as services from 'prometheus_exporter.services';
+import { Result, errors, services } from 'prometheus_exporter.api';
 
 export const meta = {
 	name: 'hostapd_stations',

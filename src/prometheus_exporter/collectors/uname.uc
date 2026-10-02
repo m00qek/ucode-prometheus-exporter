@@ -3,9 +3,7 @@
 // Based on utils/prometheus-node-exporter-ucode/files/base/uname.uc
 // in OpenWrt's packages feed (Apache-2.0), rewritten for this exporter; see NOTICE.
 
-import * as Result from 'prometheus_exporter.result';
-import * as errors from 'prometheus_exporter.errors';
-import { first_line } from 'prometheus_exporter.proc';
+import { Result, errors, proc } from 'prometheus_exporter.api';
 
 export const meta = {
 	name: 'uname',
@@ -33,7 +31,7 @@ export function collect(deps, out) {
 
 	for (let f in FIELDS) {
 		let path = `/proc/sys/kernel/${f[1]}`;
-		let value = first_line(deps.fs, path);
+		let value = proc.first_line(deps.fs, path);
 
 		if (value == null)
 			push(missing, path);

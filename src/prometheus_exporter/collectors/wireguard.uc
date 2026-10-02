@@ -13,8 +13,7 @@
 // read, nor in the jail: rpcd's uci object hands over the interface's peer
 // sections alone, and all but each one's public key and description is let go.
 
-import * as Result from 'prometheus_exporter.result';
-import * as errors from 'prometheus_exporter.errors';
+import { Result, errors } from 'prometheus_exporter.api';
 
 export const meta = {
 	name: 'wireguard',

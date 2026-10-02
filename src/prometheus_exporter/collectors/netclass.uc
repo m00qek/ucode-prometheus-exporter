@@ -11,9 +11,7 @@
 // allmulti counts dropped) and sysfs's the device's own. The output is what
 // reading every attribute from sysfs gives.
 
-import * as Result from 'prometheus_exporter.result';
-import * as errors from 'prometheus_exporter.errors';
-import { first_line } from 'prometheus_exporter.proc';
+import { Result, errors, proc } from 'prometheus_exporter.api';
 
 // Regexes are constants: ucode compiles a regex literal each time it is evaluated.
 const FLAGS = /^0[xX][0-9a-fA-F]+$|^[0-9]+$/;
@@ -96,7 +94,7 @@ export function collect(deps, out) {
 	for (let link in res.data) {
 		let device = link.dev;
 		let dir = `${ROOT}/${device}`;
-		let sysfs = (attr) => first_line(deps.fs, `${dir}/${attr}`);
+		let sysfs = (attr) => proc.first_line(deps.fs, `${dir}/${attr}`);
 
 		let labels = out.labels({ device });
 		let operstate = OPERSTATES[link.operstate];

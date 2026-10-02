@@ -3,9 +3,7 @@
 // Based on utils/prometheus-node-exporter-ucode/files/base/entropy.uc
 // in OpenWrt's packages feed (Apache-2.0), rewritten for this exporter; see NOTICE.
 
-import * as Result from 'prometheus_exporter.result';
-import * as errors from 'prometheus_exporter.errors';
-import { first_line } from 'prometheus_exporter.proc';
+import { Result, errors, proc } from 'prometheus_exporter.api';
 
 // Regexes are constants: ucode compiles a regex literal each time it is evaluated.
 const COUNT = /^[0-9]+$/;
@@ -24,7 +22,7 @@ const GAUGES = [
 
 export function collect(deps, out) {
 	for (let g in GAUGES) {
-		let line = first_line(deps.fs, g[0]);
+		let line = proc.first_line(deps.fs, g[0]);
 
 		if (line == null)
 			return Result.err(errors.SOURCE_UNREADABLE, g[0]);

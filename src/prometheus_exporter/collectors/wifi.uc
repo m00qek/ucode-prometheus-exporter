@@ -19,9 +19,7 @@
 // once the other interfaces are written. A driver without a channel survey
 // gives no noise reading: NaN, as upstream, and not a failure.
 
-import * as Result from 'prometheus_exporter.result';
-import * as errors from 'prometheus_exporter.errors';
-import * as services from 'prometheus_exporter.services';
+import { Result, errors, services } from 'prometheus_exporter.api';
 
 export const meta = {
 	name: 'wifi',

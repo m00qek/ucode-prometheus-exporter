@@ -6,9 +6,7 @@
 // (a full backlog) and squeezes (time or budget ran out with work left) are
 // what tells a router's CPU is the bottleneck, which no interface counter shows.
 
-import * as Result from 'prometheus_exporter.result';
-import * as errors from 'prometheus_exporter.errors';
-import { lines, fields } from 'prometheus_exporter.proc';
+import { Result, errors, proc } from 'prometheus_exporter.api';
 
 export const meta = {
 	name: 'softnet',
@@ -49,7 +47,7 @@ export function parse(rows) {
 	let seen = {};
 
 	for (let i, line in rows) {
-		let row = fields(line);
+		let row = proc.fields(line);
 
 		if (!length(row))
 			continue;
@@ -76,7 +74,7 @@ export function parse(rows) {
 // A metric whose column an older kernel does not write is left out for it,
 // where node_exporter writes 0.
 export function collect(deps, out) {
-	let rows = lines(deps.fs, PATH);
+	let rows = proc.lines(deps.fs, PATH);
 
 	if (rows == null)
 		return Result.err(errors.SOURCE_UNREADABLE, PATH);

@@ -22,8 +22,7 @@
 // CAKE's statistics is widely used: the names follow the conventions, from
 // tc's JSON keys (tc/q_cake.c), in base units.
 
-import * as Result from 'prometheus_exporter.result';
-import * as errors from 'prometheus_exporter.errors';
+import { Result, errors } from 'prometheus_exporter.api';
 
 export const meta = {
 	name: 'qdisc',

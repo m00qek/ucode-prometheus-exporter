@@ -15,9 +15,7 @@
 // The file system type and the read-only flag (the "ro" mount option, where the
 // Lua collector read statvfs's ST_RDONLY) come from /proc/self/mounts.
 
-import * as Result from 'prometheus_exporter.result';
-import * as errors from 'prometheus_exporter.errors';
-import { lines, fields } from 'prometheus_exporter.proc';
+import { Result, errors, proc } from 'prometheus_exporter.api';
 
 export const meta = {
 	name: 'filesystem',
@@ -52,7 +50,7 @@ function key(device, mount_point) {
 }
 
 export function collect(deps, out) {
-	let mounts = lines(deps.fs, MOUNTS);
+	let mounts = proc.lines(deps.fs, MOUNTS);
 
 	if (mounts == null)
 		return Result.err(errors.SOURCE_UNREADABLE, MOUNTS);
@@ -77,7 +75,7 @@ export function collect(deps, out) {
 	let seen = {};
 
 	for (let line in mounts) {
-		let f = fields(line);
+		let f = proc.fields(line);
 
 		if (length(f) < 4)
 			continue;

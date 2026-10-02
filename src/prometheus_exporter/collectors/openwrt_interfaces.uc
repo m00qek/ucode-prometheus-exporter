@@ -35,8 +35,7 @@
 // netifd runs on every OpenWrt system, so its object missing from ubus, or the
 // call failing, is an error, unlike an absent kernel feature such as nf_conntrack.
 
-import * as Result from 'prometheus_exporter.result';
-import * as errors from 'prometheus_exporter.errors';
+import { Result, errors } from 'prometheus_exporter.api';
 
 export const meta = {
 	name: 'openwrt_interfaces',

@@ -3,9 +3,7 @@
 // Based on utils/prometheus-node-exporter-ucode/files/base/selinux.uc
 // in OpenWrt's packages feed (Apache-2.0), rewritten for this exporter; see NOTICE.
 
-import * as Result from 'prometheus_exporter.result';
-import * as errors from 'prometheus_exporter.errors';
-import { first_line } from 'prometheus_exporter.proc';
+import { Result, errors, proc } from 'prometheus_exporter.api';
 
 // Regexes are constants: ucode compiles a regex literal each time it is evaluated.
 const COUNT = /^[0-9]+$/;
@@ -21,7 +19,7 @@ const ENFORCE = '/sys/fs/selinux/enforce';
 
 // No selinuxfs means SELinux is off: that is a reading, not a failure.
 export function collect(deps, out) {
-	let mode = first_line(deps.fs, ENFORCE);
+	let mode = proc.first_line(deps.fs, ENFORCE);
 	let enabled = out.gauge('node_selinux_enabled', 'SELinux is enabled, 1 is true, 0 is false');
 
 	if (mode == null) {

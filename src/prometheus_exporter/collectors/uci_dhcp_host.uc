@@ -10,8 +10,7 @@
 // has a sample per MAC, where upstream dropped the mac label of a list; a host
 // without a MAC, name or IP has a sample without that label.
 
-import * as Result from 'prometheus_exporter.result';
-import * as errors from 'prometheus_exporter.errors';
+import { Result, errors } from 'prometheus_exporter.api';
 
 // Regexes are constants: ucode compiles a regex literal each time it is evaluated.
 const SPACES = /\s+/;

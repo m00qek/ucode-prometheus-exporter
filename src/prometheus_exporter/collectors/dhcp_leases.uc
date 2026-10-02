@@ -36,10 +36,7 @@
 // observe. One enabled that is not there (no lease file, odhcpd not on ubus)
 // fails the collector, once the other's leases are written.
 
-import * as Result from 'prometheus_exporter.result';
-import * as errors from 'prometheus_exporter.errors';
-import * as services from 'prometheus_exporter.services';
-import { fields } from 'prometheus_exporter.proc';
+import { Result, errors, services, proc } from 'prometheus_exporter.api';
 
 export const DEFAULT_LEASEFILE = '/tmp/dhcp.leases';
 
@@ -84,7 +81,7 @@ export function parse_leasefile(text) {
 	let leases = [];
 
 	for (let i, line in split(text, '\n')) {
-		let f = fields(line);
+		let f = proc.fields(line);
 
 		if (!length(f) || !match(f[0], DIGITS))
 			continue;

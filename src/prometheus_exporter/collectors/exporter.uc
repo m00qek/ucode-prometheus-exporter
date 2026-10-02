@@ -20,9 +20,7 @@
 // It does not repeat what Prometheus knows of the scrape itself
 // (scrape_duration_seconds, scrape_samples_scraped).
 
-import * as Result from 'prometheus_exporter.result';
-import * as errors from 'prometheus_exporter.errors';
-import { auxv, AT_CLKTCK } from 'prometheus_exporter.proc';
+import { Result, errors, proc } from 'prometheus_exporter.api';
 
 export const meta = {
 	name: 'exporter',
@@ -70,7 +68,7 @@ function process(deps, out) {
 	if (stat == null)
 		return Result.err(errors.SOURCE_UNREADABLE, 'the serving process\'s /proc/<pid>/stat');
 
-	let tick = auxv(ex.system('/proc/self/auxv'))?.[AT_CLKTCK] || CLOCK_TICKS;
+	let tick = proc.auxv(ex.system('/proc/self/auxv'))?.[proc.AT_CLKTCK] || CLOCK_TICKS;
 	let btime = number_of(ex.system('/proc/stat'), BTIME);
 	let rss = number_of(ex.process('status'), VMRSS);
 	let max_fds = number_of(ex.process('limits'), MAX_FILES);

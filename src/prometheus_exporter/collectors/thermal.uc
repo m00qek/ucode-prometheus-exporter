@@ -16,8 +16,7 @@
 // answers EAGAIN or ENODATA) is skipped and the others are still reported, and a
 // temperature below zero keeps its sign.
 
-import * as Result from 'prometheus_exporter.result';
-import { first_line } from 'prometheus_exporter.proc';
+import { Result, proc } from 'prometheus_exporter.api';
 
 // Regexes are constants: ucode compiles a regex literal each time it is evaluated.
 const ZONE = /^thermal_zone([0-9]+)$/;
@@ -33,7 +32,7 @@ const ROOT = '/sys/class/thermal';
 const INTEGER = /^-?[0-9]+$/;
 
 function read_value(fs, path) {
-	let line = first_line(fs, path);
+	let line = proc.first_line(fs, path);
 
 	return line == null ? null : trim(line);
 }

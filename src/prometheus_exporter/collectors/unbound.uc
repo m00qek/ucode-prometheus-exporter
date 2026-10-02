@@ -24,10 +24,7 @@
 // observe: the socket is asked first, and rpcd's rc only when it fails.
 // Enabled, a socket that does not answer is a failure.
 
-import * as Result from 'prometheus_exporter.result';
-import * as errors from 'prometheus_exporter.errors';
-import * as services from 'prometheus_exporter.services';
-import { format_value } from 'prometheus_exporter.exposition';
+import { Result, errors, services, exposition } from 'prometheus_exporter.api';
 
 // The directory of a socket's path: '/' for one at the root.
 export function socket_dir(path) {
@@ -151,7 +148,7 @@ export function collect(deps, out, options) {
 
 		if (v == null)
 			return;
-		if (format_value(v) == null) {
+		if (exposition.format_value(v) == null) {
 			bad ??= `${key}=${v}`;
 			return;
 		}
