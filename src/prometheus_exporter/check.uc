@@ -3,10 +3,11 @@
 // `prometheus-exporter check`, which `service prometheus-exporter check` runs:
 // the configuration, checked as the exporter and the init script read it;
 // every installed collector, with its section, options, needs and what the
-// jail gives it; and one scrape, run here, outside the jail, each collector in
-// a process of its own and stopped at its limit, as the service's scrapes run
-// them (scrape.trial), with each collector that fails and why, and each that
-// has nothing to observe and why (a success: 'dnsmasq is disabled'). With
+// jail gives it; and one scrape, in the service's own jail where it can be had
+// (prometheus_exporter.jailed), else here, each collector in a process of its
+// own and stopped at its limit, as the service's scrapes run them
+// (scrape.trial), with each collector that fails and why, and each that has
+// nothing to observe and why (a success: 'dnsmasq is disabled'). With
 // config_only (check --config, which start and reload run) it stops after
 // the configuration. Only an invalid configuration makes it fail.
 //
@@ -19,6 +20,9 @@
 // sys: { uci: a uci cursor, fs: { stat, readfile }, path: the PATH commands are found on,
 //        collectors: the loaded ones, skipped: what the loader logged,
 //        env: a scrape env (prometheus_exporter.scrape, app.scrape_env),
+//        trial(chosen, here) -> { jailed, runs }: the run of `chosen` in the
+//        service's jail (prometheus_exporter.jailed), here() where it cannot
+//        be had; without it, here,
 //        ledger: the service's ledger, or null when it has none }
 
 import * as Result from 'prometheus_exporter.result';
@@ -180,18 +184,27 @@ function describe_collectors(sys, add_line, add) {
 	return enabled;
 }
 
-// One scrape of the enabled collectors, guarded as the service's are
-// (scrape.trial): each that fails, and why, and each that has nothing to
-// observe, and why.
+// A run of each of `chosen`: sys.trial's, in the service's jail where it can
+// be had ({ jailed, runs }), or else here, guarded as the service's are
+// (scrape.trial).
+export function trial(sys, chosen) {
+	let here = () => scrape.trial(sys.env, sys.uci, sys.ledger, chosen, sys.collectors);
+
+	return sys.trial ? sys.trial(chosen, here) : { jailed: false, runs: here() };
+};
+
+// One scrape of the enabled collectors: each that fails, and why, and each
+// that has nothing to observe, and why.
 function check_scrape(sys, add) {
 	let chosen = filter(sys.collectors, (c) => config.enabled(sys.uci, c.id));
-	let runs = scrape.trial(sys.env, sys.uci, sys.ledger, chosen, sys.collectors);
+	let t = trial(sys, chosen);
+	let runs = t.runs;
 
 	let failing = filter(runs, (r) => !r.result.ok);
 	let idle = filter(runs, (r) => Result.is_none(r.result));
 
 	add(length(failing) ? 'warn' : 'ok',
-		`scrape, outside the jail: ${length(runs) - length(failing)} of ${count(length(runs), 'collector')} succeeded` +
+		`scrape, ${t.jailed ? 'in the service\'s jail' : 'outside the jail'}: ${length(runs) - length(failing)} of ${count(length(runs), 'collector')} succeeded` +
 		(length(idle) ? `, ${length(idle)} with nothing to observe` : ''));
 	for (let r in failing)
 		add('warn', `scrape: ${r.name}: ${Result.describe(r.result)}`);

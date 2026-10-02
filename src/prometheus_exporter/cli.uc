@@ -18,6 +18,7 @@ import * as runner from 'prometheus_exporter.runner';
 import * as state from 'prometheus_exporter.state';
 import * as ledger from 'prometheus_exporter.ledger';
 import * as jail from 'prometheus_exporter.jail';
+import * as jailed from 'prometheus_exporter.jailed';
 
 export const USAGE = `prometheus-exporter: metrics of OpenWrt for Prometheus.
 
@@ -66,13 +67,23 @@ export function parse(argv, version) {
 };
 
 // A scrape on standard output, of the named collectors, within the
-// configuration's scrape_timeout.
+// configuration's scrape_timeout: in the service's jail, where it can be had
+// (sys.jailed_scrape), else here. --dir's collectors are a source tree's,
+// which the jail has not.
 function scrape_cmd(args, sys) {
-	let app = sys.create((level, msg) => sys.err(msg + '\n'), args['--dir']);
-	let main = config.main(app.mods.uci.cursor());
-	let budget = deadline.budget(main.ok ? main.data.scrape_timeout : config.SCRAPE_TIMEOUT);
 	let query = join('&', map(args['<collector>'] ?? [], (n) => 'collect[]=' + urlencode(n)));
-	let res = app.scrape(query, { deadline: deadline.seconds(sys.clock()) + budget, budget });
+	let res = (args['--dir'] == null && sys.jailed_scrape) ? sys.jailed_scrape(query) : null;
+
+	if (res) {
+		for (let l in res.logs ?? [])
+			sys.err(l[1] + '\n');
+	} else {
+		let app = sys.create((level, msg) => sys.err(msg + '\n'), args['--dir']);
+		let main = config.main(app.mods.uci.cursor());
+		let budget = deadline.budget(main.ok ? main.data.scrape_timeout : config.SCRAPE_TIMEOUT);
+
+		res = app.scrape(query, { deadline: deadline.seconds(sys.clock()) + budget, budget });
+	}
 
 	if (substr(res.status, 0, 3) != '200') {
 		sys.err(res.body);
@@ -121,6 +132,8 @@ function hash_cmd(sys) {
 // The exit status of a command, for args as parse() gives them. sys: {
 //   out(text), err(text), clock(),
 //   create(log, dir): prometheus_exporter.app's create,
+//   jailed_scrape(query) -> { status, body, logs }, the scrape in the
+//     service's jail, or null where it cannot be had (optional),
 //   check({ config_only }) -> check.run's { ok, report },
 //   conform(path) -> conform.run's { ok, report },
 //   read_password() -> the password read, or null,
@@ -177,13 +190,17 @@ export function system() {
 		err: warn,
 		clock: () => clock(true),
 		create: app.create,
+		jailed_scrape: function(query) {
+			let collectors = app.load(mods, null, quiet);
+
+			return jailed.run({ uci: mods.uci.cursor(), fs: mods.fs, path: jail.PATH }, collectors, [ 'scrape', query ]);
+		},
 		check: function(opts) {
 			let skipped = [];
 			let collectors = app.load(mods, null, (level, msg) => push(skipped, msg));
 			// The running instance's: the service's own scrapes.
 			let st = state.latest(mods.fs, state.DIR);
-
-			return check.run({
+			let sys = {
 				uci: mods.uci.cursor(),
 				fs: mods.fs,
 				path: jail.PATH,
@@ -191,7 +208,10 @@ export function system() {
 				skipped,
 				ledger: st ? ledger.parse(st.read(ledger.NAME)) : null,
 				env: app.scrape_env(mods, quiet),
-			}, opts);
+			};
+
+			sys.trial = (chosen, here) => jailed.trial(sys, collectors, chosen, here);
+			return check.run(sys, opts);
 		},
 		conform: (path) => conform.run({
 			fs: mods.fs,

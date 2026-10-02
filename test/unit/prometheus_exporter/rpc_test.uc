@@ -595,8 +595,27 @@ describe('rpc.scrape_report and rpc.status', () => {
 		with_sys({}, { collectors: [ LOADAVG ], ubus: { data: { 'service:list': {} } } }, (sys) => {
 			let res = rpc.status(sys);
 
-			assert.match([ 'collectors', 'listen', 'service' ], sort(keys(res)));
+			assert.match([ 'collectors', 'jailed', 'listen', 'service' ], sort(keys(res)));
 			assert.match([ 'loadavg' ], map(res.collectors, (c) => c.name));
+			assert.match(false, res.jailed);
+		});
+	});
+
+	it('scrapes in the service\'s jail when sys can, and says it did', () => {
+		with_sys({}, { collectors: [ LOADAVG ], ubus: { data: { 'service:list': {} } } }, (sys) => {
+			let asked = [];
+
+			sys.trial = function(chosen, here) {
+				push(asked, map(chosen, (c) => c.id));
+				return { jailed: true, runs: [ { name: 'loadavg', id: 'loadavg', duration: 0.01, samples: 3, result: { ok: true } } ] };
+			};
+
+			let res = rpc.status(sys);
+
+			assert.match([ [ [ 'loadavg' ] ], true ], [ asked, res.jailed ]);
+			assert.match({ name: 'loadavg', success: true, observing: true, duration: 0.01, error: null },
+				{ name: res.collectors[0].name, success: res.collectors[0].success, observing: res.collectors[0].observing,
+					duration: res.collectors[0].duration, error: res.collectors[0].error });
 		});
 	});
 });

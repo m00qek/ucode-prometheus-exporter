@@ -12,7 +12,7 @@
 //                 -> { ok, errors: { main: { option: message }, collectors: { id: { option: message } } } }
 //   status {}     -> { service: { enabled, boot, running, error, auth, compress }, listen: [ url ],
 //                      collectors: [ { name, id, title, enabled, success, observing, reason,
-//                                      duration, error, mounts, service } ] }
+//                                      duration, error, mounts, service } ], jailed }
 //   interfaces {} -> { interfaces: [ { name, proto } ] }
 //   hash_password { password } -> { hash }
 //
@@ -34,9 +34,12 @@
 // whole section. A message never holds auth_password's value. Malformed
 // arguments are answered { error: ARGS_INVALID, message }.
 //
-// status runs one scrape of the enabled collectors, outside the jail, as
-// `service prometheus-exporter check` does: rpcd runs it in a process
-// of its own (rpc-status.uc), so that collectors can call the ubus objects rpcd
+// status runs one scrape of the enabled collectors, as `service
+// prometheus-exporter check` does: in the service's own jail where it can be
+// had, which `jailed` says (prometheus_exporter.jailed), else outside it, each
+// collector guarded as the service's scrapes guard it, so it ends within
+// scrape_timeout whatever a collector does. rpcd runs it in a process of its
+// own (rpc-status.uc), so that collectors can call the ubus objects rpcd
 // itself serves (wireguard, luci) and other requests are answered meanwhile.
 // A collector with nothing to observe (its hardware, kernel feature or
 // service is not there) succeeds, with `observing` false and `reason` saying
@@ -74,6 +77,7 @@ import * as auth from 'prometheus_exporter.auth';
 import * as state from 'prometheus_exporter.state';
 import * as ledger from 'prometheus_exporter.ledger';
 import { scrape_env } from 'prometheus_exporter.app';
+import * as jailed from 'prometheus_exporter.jailed';
 
 // The service's names follow from config.NAME, its packages' from config.PACKAGE.
 export const NAME = config.NAME;
@@ -388,14 +392,17 @@ export function interfaces(sys) {
 
 // One scrape of the enabled collectors: how each did, whether it had
 // something to observe (and why not), and what the jail gives it.
-export function scrape_report(sys) {
+// { jailed, collectors }: scrape_report's collectors, and whether they ran in
+// the service's jail.
+export function scrape_run(sys) {
 	let chosen = filter(sys.collectors, (c) => config.enabled(sys.uci, c.id));
+	let t = check.trial(sys, chosen);
 	let runs = {};
 
-	for (let r in scrape.trial(sys.env, sys.uci, sys.ledger, chosen, sys.collectors))
+	for (let r in t.runs)
 		runs[r.id] = r;
 
-	return map(sys.collectors, function(c) {
+	return { jailed: t.jailed, collectors: map(sys.collectors, function(c) {
 		let r = runs[c.id];
 		let j = jail.collector(c, sys);
 
@@ -412,11 +419,17 @@ export function scrape_report(sys) {
 			mounts: j.enabled ? j.mounts : [],
 			service: sys.ledger ? ledger.report(sys.ledger, c.id) : null,
 		};
-	});
+	}) };
+};
+
+export function scrape_report(sys) {
+	return scrape_run(sys).collectors;
 };
 
 export function status(sys) {
-	return { ...service(sys), collectors: scrape_report(sys) };
+	let report = scrape_run(sys);
+
+	return { ...service(sys), collectors: report.collectors, jailed: report.jailed };
 };
 
 // { hash } of args.password, for auth_password.
@@ -562,7 +575,7 @@ export function system(opts) {
 	let load = opts?.collectors !== false;
 	let st = state.latest(mods.fs, state.DIR);
 
-	return {
+	let sys = {
 		uci: mods.uci.cursor(),
 		fs: mods.fs,
 		path: jail.PATH,
@@ -581,4 +594,9 @@ export function system(opts) {
 			return bytes;
 		},
 	};
+
+	// In the service's jail, where it can be had (check.trial).
+	sys.trial = (chosen, here) => jailed.trial(sys, sys.collectors, chosen, here);
+
+	return sys;
 };
