@@ -18,10 +18,6 @@ export const nothing_to_observe = {
 		when: 'No `network.wireless` object, or one without radios.',
 		failure: 'Another failed call; an interface nl80211 cannot answer for.',
 	},
-	'wifi_stations': {
-		when: 'As wifi, or no radio with an interface.',
-		failure: 'As wifi.',
-	},
 	'hostapd_stations': {
 		when: 'As wifi, or no `hostapd.<ifname>` object for any interface.',
 		failure: 'A hostapd object that does not answer.',
@@ -202,9 +198,6 @@ export const unharvested = {
 	],
 	'wifi': [
 		{ name: 'node_wifi_station_beacon_loss_total', labels: [ 'radio', 'device', 'mac_address' ], why: 'Written where the driver reports beacon losses; the captured one does not.' },
-	],
-	'wifi_stations': [
-		{ name: 'node_wifi_station_beacon_loss_total', labels: [ 'device', 'mac_address' ], why: 'As wifi.' },
 	],
 };
 

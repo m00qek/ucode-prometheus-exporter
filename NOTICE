@@ -62,11 +62,11 @@ src/prometheus_exporter/collectors/ names the files it is based on.
   uname                  Andre Heider          Etienne Champetier (*)
   unbound                -                     Bruno Marinier
   wifi                   Andre Heider          Etienne Champetier (*)
-  wifi_stations          -                     Etienne Champetier (*)
   wireguard              Andre Heider          -
 
   (*) Split out in 2017, by Etienne Champetier, of the exporter script
-      Christian Simon added (wifi_stations out of wifi.lua).
+      Christian Simon added. The Lua exporter's wifi_stations, split out of
+      wifi.lua then, lives on in wifi's stations (its option stations).
 
 The exposition writer and scrape loop (src/prometheus_exporter/exposition.uc and
 scrape.uc) are modeled on the ucode package's files/metrics.uc; the uhttpd

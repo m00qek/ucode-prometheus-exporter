@@ -56,7 +56,6 @@ The labels are those seen on the captures; a collector leaves out a label it has
 | [`unbound`](#unbound) | 25 | made-up captures | — |
 | [`vmstat`](#vmstat) | 7 | a router | — |
 | [`wifi`](#wifi) | 24 | an access point | `node_wifi_station_beacon_loss_total` |
-| [`wifi_stations`](#wifi_stations) | 13 | an access point | `node_wifi_station_beacon_loss_total` |
 | [`wireguard`](#wireguard) | 5 | a router | — |
 
 ## The scrape's own {#scrape}
@@ -812,27 +811,6 @@ Wi-Fi. [Collector](collectors.md#wifi).
 | `node_wifi_channel_receive_seconds_total` | counter | `radio`, `device` | Time the radio has spent receiving on the interface's channel, in seconds. | — |
 | `node_wifi_channel_transmit_seconds_total` | counter | `radio`, `device` | Time the radio has spent transmitting on the interface's channel, in seconds. | — |
 | `node_wifi_station_beacon_loss_total` | counter | `radio`, `device`, `mac_address` | The total number of times a station has detected a beacon loss. | Listed from the code: Written where the driver reports beacon losses; the captured one does not. |
-
-## `wifi_stations` {#wifi_stations}
-
-Wi-Fi stations. [Collector](collectors.md#wifi_stations).
-
-| Family | Type | Labels | Help | Notes |
-| :--- | :--- | :--- | :--- | :--- |
-| `node_wifi_stations` | gauge | `device` | Stations associated with the interface. | — |
-| `node_wifi_station_connected_seconds_total` | counter | `device`, `mac_address` | The total number of seconds a station has been connected to an access point. | — |
-| `node_wifi_station_inactive_seconds` | gauge | `device`, `mac_address` | The number of seconds since any wireless activity has occurred on a station. | — |
-| `node_wifi_station_receive_bits_per_second` | gauge | `device`, `mac_address` | The current WiFi receive bitrate of a station, in bits per second. | — |
-| `node_wifi_station_transmit_bits_per_second` | gauge | `device`, `mac_address` | The current WiFi transmit bitrate of a station, in bits per second. | — |
-| `node_wifi_station_receive_bytes_total` | counter | `device`, `mac_address` | The total number of bytes received by a WiFi station. | — |
-| `node_wifi_station_transmit_bytes_total` | counter | `device`, `mac_address` | The total number of bytes transmitted by a WiFi station. | — |
-| `node_wifi_station_signal_dbm` | gauge | `device`, `mac_address` | The current WiFi signal strength, in decibel-milliwatts (dBm). | — |
-| `node_wifi_station_transmit_retries_total` | counter | `device`, `mac_address` | The total number of times a station has had to retry while sending a packet. | — |
-| `node_wifi_station_transmit_failed_total` | counter | `device`, `mac_address` | The total number of times a station has failed to send a packet. | — |
-| `node_wifi_station_transmitted_packets_total` | counter | `device`, `mac_address` | The total number of packets transmitted by a station. | — |
-| `node_wifi_station_received_packets_total` | counter | `device`, `mac_address` | The total number of packets received by a station. | — |
-| `node_wifi_station_expected_throughput_bits_per_second` | gauge | `device`, `mac_address` | Expected throughput to the station, in bits per second. | — |
-| `node_wifi_station_beacon_loss_total` | counter | `device`, `mac_address` | The total number of times a station has detected a beacon loss. | Listed from the code: As wifi. |
 
 ## `wireguard` {#wireguard}
 

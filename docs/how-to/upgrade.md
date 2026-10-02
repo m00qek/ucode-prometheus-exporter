@@ -25,6 +25,14 @@ apk add --allow-untrusted /tmp/ucode-prometheus-exporter-*0.2.0-r1.apk /tmp/luci
 
 Adding the base package alone fails: the installed collectors still want the old version.
 
+## From 0.1 to 0.2
+
+0.2.0 changes what 0.1 did in these ways:
+
+- **The command line takes subcommands.** `prometheus-exporter [COLLECTOR...]` is `prometheus-exporter scrape [COLLECTOR...]`, and `prometheus-exporter -l` is `prometheus-exporter collector list`. A script or cron job that runs the command needs the new form: see [The prometheus-exporter command](../reference/command.md).
+- **wifi_stations is gone.** It wrote the very families wifi's option `stations` writes, so each station was exported twice. Remove `ucode-prometheus-exporter-wifi_stations` before the upgrade (`apk del ucode-prometheus-exporter-wifi_stations`), and install `ucode-prometheus-exporter-wifi` if it is not there: its `stations` is on by default.
+- **A collector that breaks the collector contract fails alone**: it is stopped at its budget, at its `max_samples`, or when it writes another collector's family. See [Collector contract](../reference/collector-contract.md).
+
 ## Check the result
 
 ```sh

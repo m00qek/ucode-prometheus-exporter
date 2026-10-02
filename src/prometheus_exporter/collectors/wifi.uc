@@ -12,9 +12,8 @@
 // node_wifi_* too, in base units: bits per second, seconds, a ratio.
 //
 // With option `stations` (on by default) it also writes one sample per station
-// to the node_wifi_station_* families, which the wifi_stations collector writes
-// too (without the `radio` label). Install one of the two, or set `stations`
-// off here, or each station is exported twice.
+// to the node_wifi_station_* families: what the Lua exporter's wifi_stations
+// collector did, which this exporter has no more of.
 //
 // An interface nl80211 cannot answer for is left out and fails the collector
 // once the other interfaces are written. A driver without a channel survey
@@ -44,8 +43,7 @@ const IFTYPES = [
 const BITRATE_UNIT = 100000;
 const KBIT = 1000;
 
-// node_exporter's station families, and the expected throughput: the same
-// as the wifi_stations collector's.
+// node_exporter's station families, and the expected throughput.
 function station_metrics(out) {
 	return {
 		connected: out.counter('node_wifi_station_connected_seconds_total', 'The total number of seconds a station has been connected to an access point.'),

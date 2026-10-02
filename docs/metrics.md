@@ -47,7 +47,7 @@ conntrack, entropy, filefd, loadavg, time and uname already had node_exporter's 
 
 ## Wireless collectors
 
-wifi and wifi_stations write node_exporter's wifi collector families, with its help texts and its labels: `device` (was `ifname`) and `mac_address` (was `mac`). wifi adds a `radio` label to every family.
+wifi writes node_exporter's wifi collector families, with its help texts and its labels: `device` (was `ifname`) and `mac_address` (was `mac`), and a `radio` label on every family. Its option `stations`, on by default, writes the station metrics, which the Lua exporter's separate wifi_stations collector wrote: this exporter has no wifi_stations collector since 0.2.0.
 
 | Before | After | Type | Why |
 |---|---|---|---|
@@ -59,7 +59,7 @@ wifi and wifi_stations write node_exporter's wifi collector families, with its h
 | `wifi_network_noise_dbm` | `node_wifi_network_noise_dbm` | gauge | `node_wifi_` namespace. |
 | `wifi_network_signal_dbm` | `node_wifi_network_signal_dbm` | gauge | `node_wifi_` namespace. |
 | — | `node_wifi_channel_{active,busy,receive,transmit}_seconds_total{radio,device}` | counter | New, from the survey of the interface's channel (NL80211_SURVEY_INFO_TIME, `_BUSY`, `_RX`, `_TX`, in ms), in seconds; node_exporter has no such metric. Per interface, as the noise: the interfaces of one radio repeat its counts. A time the driver does not count is left out. |
-| `wifi_stations_total{radio,ifname}` (wifi), `wifi_stations{ifname}` (wifi_stations) | `node_wifi_stations{[radio,]device}` | counter → gauge (wifi) | The stations associated now are not a counter. |
+| `wifi_stations_total{radio,ifname}` (wifi), `wifi_stations{ifname}` (Lua's wifi_stations) | `node_wifi_stations{radio,device}` | counter → gauge (wifi) | The stations associated now are not a counter; wifi's `stations` writes them. |
 | — | `node_wifi_station_connected_seconds_total` | counter | New: node_exporter's. |
 | `wifi_station_inactive_milliseconds` | `node_wifi_station_inactive_seconds` | gauge | node_exporter's name, in seconds. |
 | `wifi_station_receive_kilobits_per_second` | `node_wifi_station_receive_bits_per_second` | gauge | node_exporter's name, in bits per second. |

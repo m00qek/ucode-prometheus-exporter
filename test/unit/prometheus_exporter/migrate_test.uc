@@ -113,6 +113,21 @@ describe('migrate.plan', () => {
 		}));
 	});
 
+	it('takes no section of a collector this exporter has not, and says what does its job', () => {
+		assert.match({
+			from: UCODE,
+			main: {},
+			collectors: { wifi: { stations: '1' } },
+			skipped: [ `${UCODE}: collector wifi_stations is not this exporter's: wifi writes the stations, with its option stations, on by default` ],
+		}, plan_of({
+			[UCODE]: {
+				main: { '.type': UCODE },
+				wifi: { '.type': 'collector', stations: '1' },
+				wifi_stations: { '.type': 'collector', enabled: '1' },
+			},
+		}));
+	});
+
 	it('prefers the ucode exporter\'s config to the Lua one\'s', () => {
 		assert.match(UCODE, plan_of({
 			[UCODE]: { main: { '.type': UCODE } },

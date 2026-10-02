@@ -166,7 +166,6 @@ $(eval $(call Collector,ubnt_manager,ubnt-manager,Ubiquiti airOS radios,+ubnt-ma
 $(eval $(call Collector,uci_dhcp_host,uci_dhcp_host,static DHCP leases,))
 $(eval $(call Collector,unbound,unbound,Unbound DNS resolver,+ucode-mod-socket))
 $(eval $(call Collector,wifi,wifi,Wi-Fi radios networks and stations,+ucode-mod-nl80211))
-$(eval $(call Collector,wifi_stations,wifi_stations,Wi-Fi stations,+ucode-mod-nl80211))
 $(eval $(call Collector,wireguard,wireguard,WireGuard interfaces and peers,+rpcd-mod-wireguard))
 
 # $(1): the group's name (the package suffix), $(2): what it is for, $(3): the
@@ -193,7 +192,7 @@ define Group
 endef
 
 NETWORK_GROUP:=ethtool nat_traffic netstat nft-counters qdisc snmp6 sockstat
-# Not wifi_stations, which repeats the station metrics of wifi, nor dawn, which needs DAWN.
+# Not dawn, which needs DAWN.
 WIRELESS_GROUP:=hostapd_stations hostapd_ubus_stations wifi
 HARDWARE_GROUP:=diskstats filesystem hwmon thermal
 # Not the collectors of particular hardware or services: DSL, PoE, bmx7, mwan3, ModemManager, airOS, chrony.

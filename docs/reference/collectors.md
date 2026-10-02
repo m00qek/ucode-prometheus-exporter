@@ -50,7 +50,6 @@ Every collector of `ucode-prometheus-exporter 0.1.0`. A collector's name is what
 | [`unbound`](#unbound) | Unbound DNS resolver | `ucode-prometheus-exporter-unbound` | — |
 | [`vmstat`](#vmstat) | Virtual memory statistics | `ucode-prometheus-exporter` (base) | — |
 | [`wifi`](#wifi) | Wi-Fi | `ucode-prometheus-exporter-wifi` | `ucode-prometheus-exporter-wireless`, `ucode-prometheus-exporter-full` |
-| [`wifi_stations`](#wifi_stations) | Wi-Fi stations | `ucode-prometheus-exporter-wifi_stations` | — |
 | [`wireguard`](#wireguard) | WireGuard | `ucode-prometheus-exporter-wireguard` | `ucode-prometheus-exporter-full` |
 
 ## Packages {#packages}
@@ -64,7 +63,7 @@ The base package, `ucode-prometheus-exporter`, installs `conntrack`, `cpu`, `ent
 | `ucode-prometheus-exporter-hardware` | hardware and filesystems | `diskstats`, `filesystem`, `hwmon`, `thermal` |
 | `ucode-prometheus-exporter-full` | a router or access point | `ethtool`, `nat_traffic`, `netstat`, `nft-counters`, `qdisc`, `snmp6`, `sockstat`, `hostapd_stations`, `hostapd_ubus_stations`, `wifi`, `diskstats`, `filesystem`, `hwmon`, `thermal`, `dhcp_leases`, `dnsmasq`, `openwrt`, `textfile`, `uci_dhcp_host`, `wireguard` |
 
-In no group: `bmx7`, `chrony`, `dawn`, `ltq-dsl`, `modemmanager`, `mwan3`, `realtek-poe`, `ubnt-manager`, `unbound`, `wifi_stations`.
+In no group: `bmx7`, `chrony`, `dawn`, `ltq-dsl`, `modemmanager`, `mwan3`, `realtek-poe`, `ubnt-manager`, `unbound`.
 
 ## Nothing to observe {#nothing-to-observe}
 
@@ -91,7 +90,6 @@ These collectors can have nothing to observe: they succeed without samples, and 
 | [`ubnt-manager`](#ubnt-manager) | `ubnt-manager -l` lists no radio. | `ubnt-manager lists no radios` | A radio that fails or does not answer. |
 | [`unbound`](#unbound) | unbound disabled, or not installed. | `unbound is disabled`, `unbound is not installed` | unbound enabled, and its control socket not answering. |
 | [`wifi`](#wifi) | No `network.wireless` object, or one without radios. | `no wireless radios` | Another failed call; an interface nl80211 cannot answer for. |
-| [`wifi_stations`](#wifi_stations) | As wifi, or no radio with an interface. | `no wireless radios`, `no wireless interfaces` | As wifi. |
 
 ## `bmx7` {#bmx7}
 
@@ -795,22 +793,6 @@ Wi-Fi radios, networks and stations, from ubus network.wireless and nl80211.
 | Option | Type | Default | Datatype | Description |
 | :--- | :--- | :--- | :--- | :--- |
 | `stations` | boolean | `1` | — | Per-station metrics: signal, rates and traffic of each client. |
-| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
-
-## `wifi_stations` {#wifi_stations}
-
-Wi-Fi stations of each interface, from ubus network.wireless and nl80211.
-
-- **Title:** Wi-Fi stations
-- **Package:** `ucode-prometheus-exporter-wifi_stations`
-- **Depends on:** `ucode-mod-nl80211`
-- **Section:** `config collector 'wifi_stations'`
-- **Needs:** `ubus`, `nl80211`
-- **Nothing to observe:** As wifi, or no radio with an interface. See [Nothing to observe](#nothing-to-observe).
-- **Metrics:** [wifi\_stations](metrics.md#wifi_stations)
-
-| Option | Type | Default | Datatype | Description |
-| :--- | :--- | :--- | :--- | :--- |
 | `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
 ## `wireguard` {#wireguard}

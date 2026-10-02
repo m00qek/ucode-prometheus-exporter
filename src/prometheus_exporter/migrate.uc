@@ -30,6 +30,12 @@ export const SOURCES = [
 	{ name: 'prometheus-node-exporter-lua', port: '9100', collectors: false },
 ];
 
+// The collectors the feed's exporters had that this one has not, by module:
+// a section of one is not taken over, and the log says what does its job.
+export const GONE = {
+	wifi_stations: 'wifi writes the stations, with its option stations, on by default',
+};
+
 // The main section's options taken over, as this exporter declares them.
 export const OPTIONS = [ 'listen_interface', 'listen_port', 'http_keepalive', 'cert', 'key', 'omit_zero_values' ];
 
@@ -131,9 +137,15 @@ export function plan(uci) {
 		let res = main_options(source, main ? options_of(main) : {});
 		let collectors = {};
 
-		for (let s in (source.collectors ? all : []))
-			if (s['.type'] == 'collector' && !s['.anonymous'])
+		for (let s in (source.collectors ? all : [])) {
+			if (s['.type'] != 'collector' || s['.anonymous'])
+				continue;
+
+			if (GONE[s['.name']])
+				push(res.skipped, `${source.name}: collector ${s['.name']} is not this exporter's: ${GONE[s['.name']]}`);
+			else
 				collectors[s['.name']] = options_of(s);
+		}
 
 		return { from: source.name, main: res.set, collectors, skipped: res.skipped };
 	}
