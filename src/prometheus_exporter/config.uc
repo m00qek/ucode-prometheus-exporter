@@ -298,7 +298,7 @@ export const SERVICE_OPTIONS = {
 // resident memory of a scrape's child process (make bench): a typical
 // router's full scrape 9 MB on a 64-bit CPU and 7 MB on a 32-bit MIPS one
 // (QEMU), the benchmark's large world, a router busier than most, with every
-// collector, 30 MB on 64 bits. 64 MB leaves more than twice the largest, and
+// collector, 30 MB on 64 bits and 22 MB on the MIPS one. 64 MB leaves more than twice the largest, and
 // a router with less RAM than 256 MB a quarter of what it has.
 export const MEMORY_LIMIT_MAX = 64;
 export const MEMORY_LIMIT_SHARE = 4;

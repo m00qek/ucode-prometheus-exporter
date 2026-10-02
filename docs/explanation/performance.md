@@ -38,7 +38,7 @@ Scaled by the loop turn, the 500-MIPS 24Kc is about thirty times slower than the
 
 So a scrape has a deadline, the scraper's timeout less half a second, and runs the collectors fastest first: nat_traffic, slowest, comes last, and when the time left does not fit what it took before, it is left out, and the scrape answers with the rest. And a collector that takes longer than its budget, 5 seconds by default, is quarantined for a few scrapes.
 
-On QEMU's 500-MIPS 24Kc (`make bench-qemu`), the full scrape of the benchmark's large world, whose conntrack table holds 20,000 connections, takes 14.1 s without a deadline, nat_traffic 7.0 s of it. With Prometheus's default timeout of 10 s (`deadline:full@20000`), once the first scrape has filled the ledger, it answers in 7.0 s, nat_traffic left out and every other collector served. The first scrape after a restart, before the ledger knows how long nat_traffic takes, can still be late. See [About deadlines and circuit breakers](deadlines-and-breakers.md).
+On QEMU's 500-MIPS 24Kc (`make bench-qemu`), the full scrape of the benchmark's large world, whose conntrack table holds 20,000 connections, takes 16.6 s without a deadline, nat_traffic 7.7 s of it. With Prometheus's default timeout of 10 s (`deadline:full@20000`), once the first scrape has filled the ledger, it answers in 8.6 to 9.7 s, nat_traffic left out and every other collector served: within the timeout, by little, as a collector still running at the deadline is stopped there. The first scrape after a restart, before the ledger knows how long nat_traffic takes, can still be late. See [About deadlines and circuit breakers](deadlines-and-breakers.md).
 
 It is in the `-network` and `-full` groups. On such a router, leave it out, [disable it](../how-to/choose-collectors.md#disable-a-collector), or scrape it in a job of its own with a longer timeout and a `budget` to match; and watch `node_scrape_collector_duration_seconds{collector="nat_traffic"}`.
 
@@ -48,10 +48,10 @@ Each scrape runs its collectors in a child process, so that one that never retur
 
 | Scrape | devenv | QEMU's 500-MIPS 24Kc |
 | :--- | :--- | :--- |
-| typical, base collectors (16) | 24.1 ms, 6.7 ms more | 420 ms, 76 ms more (+22%) |
-| typical, every collector (36) | 156 ms, 20 ms more (+15%) | 2.72 s, 271 ms more (+11%) |
-| large, base collectors | 50.6 ms, 7 ms more | 904 ms, 70 ms more (+8%) |
-| large, every collector | 685 ms, 61 ms more (+10%) | nat_traffic alone takes 7.3 s there |
+| typical, base collectors (16) | 24.1 ms, 6.7 ms more | 431 ms, 66 ms more (+18%) |
+| typical, every collector (36) | 156 ms, 20 ms more (+15%) | 2.79 s, 294 ms more (+12%) |
+| large, base collectors | 50.6 ms, 7 ms more | 925 ms, 68 ms more (+8%) |
+| large, every collector | 685 ms, 61 ms more (+10%) | 16.6 s, 0.98 s more (+6%) |
 
 On the router, that is about a twentieth of a second for the fork and some 7 ms a collector: the round trip between the scrape and its child, and the pages the child copies from the scrape's as it writes them (copy-on-write). Loading every collector first in a child process costs uhttpd's start as much again as loading them: 0.88 s rather than 0.45 s on the 24Kc, once per start. The progress file costs a scrape 3.6 ms there, a tenth of a percent.
 
