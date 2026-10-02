@@ -29,11 +29,16 @@ export function load(dir) {
 	return w;
 };
 
+// What the exporter collector reads of the process that serves the scrapes,
+// which no world holds: a real process's, the bench's own (self), or the
+// one an instance's id names.
+const PROCESS = /^\/proc\/(self|[0-9]+)\/(stat|status|limits|fd|auxv)$/;
+
 // fs over the world's root. `redirect` maps a path to another file: the
 // conntrack table of a scaling case.
 function rooted_fs(world, redirect) {
 	let root = world.root;
-	let at = (p) => redirect[p] ?? (root + p);
+	let at = (p) => redirect[p] ?? (match(p, PROCESS) ? p : (root + p));
 	let strip = (p) => (p != null && substr(p, 0, length(root)) == root) ? substr(p, length(root)) : p;
 
 	return {
