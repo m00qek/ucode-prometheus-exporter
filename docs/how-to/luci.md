@@ -10,11 +10,14 @@
 
 ## Change the exporter's settings
 
-1. Open **Services → Prometheus exporter**, tab **Exporter**.
-2. Change the fields. A value the exporter would not take is marked as you type, with why.
-3. **Save & Apply**. If the exporter would refuse a value, nothing is saved: a **Save error** dialog lists what and why. **Dismiss** it, fix the fields, and save again.
+1. Open **Services → Prometheus exporter**. The settings are on three tabs:
+    - **General**: whether it runs, where it listens, keep-alive, compression and zero values;
+    - **HTTPS & login**: the TLS certificate and key, and basic auth;
+    - **Limits**: the seconds programs, a scrape and a collector get.
+2. Change the fields. A value the exporter would not take is marked as you type, with why; a tab with such a field shows how many on its title.
+3. **Save & Apply**. If the exporter would refuse a value, nothing is saved: a **Save error** dialog lists what and why, each field by its tab. Press a field's name to go to it, fix it, and save again.
 
-To serve the LAN, pick its interface in **Listen on**. Basic auth needs HTTPS: fill in **TLS certificate** and **TLS key** first, then **Basic auth user** and **Basic auth password**. The password is saved as a hash on Save; the password itself is never stored. To keep the saved password, leave the field empty; to take basic auth away, empty the user.
+To serve the LAN, pick its interface in **Listen on**, on **General**. Basic auth needs HTTPS: on **HTTPS & login**, fill in **TLS certificate** and **TLS key** first, then **Basic auth user** and **Basic auth password**. The password is saved as a hash on Save; the password itself is never stored. To keep the saved password, leave the field empty; to take basic auth away, empty the user.
 
 ## Switch a collector off or on
 

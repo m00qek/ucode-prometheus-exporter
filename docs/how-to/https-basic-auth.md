@@ -106,4 +106,4 @@ With `cert` and `key` left, it serves HTTPS without a login; delete them too for
 
 - [HTTP endpoint](../reference/http.md#basic-auth): the replies.
 - [About the security model](../explanation/security.md): why HTTPS only, and why the handler checks the password itself.
-- In LuCI: the Exporter tab's TLS and basic auth fields hash the password for you. See [How to use the LuCI app](luci.md).
+- In LuCI: the **HTTPS & login** tab's fields hash the password for you. See [How to use the LuCI app](luci.md).

@@ -15,9 +15,9 @@ Both need the ACL `luci-app-prometheus-exporter` and the config `prometheus-expo
 
 ## Services → Prometheus exporter
 
-The main section and the collector sections of `/etc/config/prometheus-exporter`, in two tabs.
+The main section and the collector sections of `/etc/config/prometheus-exporter`, in four tabs: **General**, **HTTPS & login** and **Limits** hold the main section, **Collectors** the collectors. LuCI reopens the page on the tab last shown; at first, on **General**.
 
-### Exporter tab
+### General tab
 
 | Field | Option | Notes |
 | :--- | :--- | :--- |
@@ -25,15 +25,33 @@ The main section and the collector sections of `/etc/config/prometheus-exporter`
 | Listen on | `listen_interface` | The interfaces of the ubus object's `interfaces`, and **Every address** (`*`). A saved interface netifd does not list is kept. |
 | Port | `listen_port` | |
 | Keep-alive | `http_keepalive` | |
-| TLS certificate | `cert` | No placeholder; the description names uhttpd's own files, `/etc/uhttpd.crt` and `/etc/uhttpd.key`. |
-| TLS key | `key` | |
-| Basic auth user | `auth_user` | The description says basic auth needs the TLS certificate and key first. |
-| Basic auth password | `auth_password` | Never filled in. A password typed here is sent to `hash_password` on Save, and the hash it answers is saved; the password itself is never stored. Empty, the saved hash stays. |
 | Compress | `compress` | |
 | Leave out zero values | `omit_zero_values` | |
+
+### HTTPS & login tab
+
+The tab's description says basic auth needs HTTPS: the certificate and key first.
+
+| Field | Option | Notes |
+| :--- | :--- | :--- |
+| TLS certificate | `cert` | No placeholder; the description names uhttpd's own files, `/etc/uhttpd.crt` and `/etc/uhttpd.key`. |
+| TLS key | `key` | |
+| Basic auth user | `auth_user` | |
+| Basic auth password | `auth_password` | Never filled in. A password typed here is sent to `hash_password` on Save, and the hash it answers is saved; the password itself is never stored. Empty, the saved hash stays. |
+
+The basic auth fields show without the TLS files too: LuCI unsets a field it hides, which would drop the user and the hash on Save.
+
+### Limits tab
+
+The tab's description says the limits keep a slow or broken collector from costing the whole scrape.
+
+| Field | Option | Notes |
+| :--- | :--- | :--- |
 | Program timeout | `exec_timeout` | |
 | Scrape timeout | `scrape_timeout` | |
 | Collector budget | `collector_budget` | |
+
+### Main section
 
 - Every field is written, at its default too (`option enabled '1'`), but for the TLS files and basic auth, which are left out while empty. Emptying another field is refused.
 - Emptying the user takes basic auth away, its hash with it.
@@ -46,7 +64,7 @@ One row per collector the ubus object's `collectors` lists, sorted by title: its
 **Edit** opens a dialog with:
 
 - a field per option of the collector, by its type, with its help and datatype;
-- for a collector that runs programs, a field for the core's `timeout`, whose placeholder is the seconds it gets while it is empty: its own default, or `exec_timeout` as the Exporter tab has it;
+- for a collector that runs programs, a field for the core's `timeout`, whose placeholder is the seconds it gets while it is empty: its own default, or `exec_timeout` as the Limits tab has it;
 - read-only rows: **Reads** (the configs it reads), **Runs** (the programs it runs), **Jail mounts** (what the jail mounts for it) and, when there are any, **Jail problems**.
 
 The first field has the focus when the dialog opens. The dialog's **Save** stages its values in uci, where they show among the unsaved changes; **Dismiss**, or Escape, drops them. Either way the focus goes back to the row's **Edit**. The page's **Save & Apply** applies them with the rest.
@@ -57,9 +75,11 @@ A collector has a `config collector` section only while something differs from i
 
 ### Checks
 
-Values are checked with the ubus object's `validate`, as the exporter reads them: the Exporter tab's while they are typed and again before Save, a dialog's while they are typed and again before it stages them. Nothing the exporter would refuse is saved or staged.
+Values are checked with the ubus object's `validate`, as the exporter reads them: the main section's while they are typed and again before Save, a dialog's while they are typed and again before it stages them. Nothing the exporter would refuse is saved or staged.
 
-A Save the exporter would refuse opens LuCI's **Save error** dialog, which lists each refused field and why, wherever the page is scrolled; the same list stays above the form until the values are fixed. A refused dialog says why inside the dialog.
+A tab with a field the exporter or LuCI would refuse shows how many on its title, LuCI's own badge, while another tab is shown.
+
+A Save the exporter would refuse opens LuCI's **Save error** dialog, which lists each refused field and why, wherever the page is scrolled; the same list stays above the form until the values are fixed. Each field is named by its tab, as **HTTPS & login → Basic auth user**, and a collector's option as **Collectors → sampler retries**. The name is a link: it closes the dialog, shows the tab, and gives the field the focus, or the collector's **Edit**. A refused dialog says why inside the dialog.
 
 ### Without the ubus object
 
