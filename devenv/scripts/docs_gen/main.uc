@@ -16,6 +16,7 @@ export const COLLECTORS = 'src/prometheus_exporter/collectors';
 // The modules and programs whose text says which error codes they raise.
 const RAISERS = [
 	'src/prometheus_exporter/*.uc',
+	'src/prometheus_exporter/*/*.uc',
 	'src/prometheus_exporter/collectors/*.uc',
 	'files/usr/libexec/prometheus-exporter/*.uc',
 	'files/usr/share/rpcd/ucode/*.uc',

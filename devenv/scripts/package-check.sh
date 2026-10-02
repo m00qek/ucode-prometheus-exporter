@@ -148,6 +148,13 @@ for f in $PLUGIN $RPC_MODULE $STATUS_HELPER; do
 	check "the base package ships $f" grep -qx "$f" "$BASE_LIST"
 	check "$f parses" parses "$f"
 done
+# Every module of the source tree but the collectors, the subdirectories split
+# out of a module (exposition/ ...) included: shipped, and each loads.
+library() { cd /exporter/src && find prometheus_exporter -name '*.uc' ! -path 'prometheus_exporter/collectors/*' | sort; }
+ships_library() { for f in $(library); do grep -qx "/usr/share/ucode/$f" "$BASE_LIST" || return 1; done; }
+library_loads() { for f in $(library); do parses "/usr/share/ucode/$f" || return 1; done; }
+check "the base package ships every module of the exporter, in their directories" ships_library
+check "each of them loads" library_loads
 check "$PLUGIN 0644" has_mode 644 "$PLUGIN"
 check "$RPC_MODULE 0644" has_mode 644 "$RPC_MODULE"
 check "$STATUS_HELPER 0755" has_mode 755 "$STATUS_HELPER"

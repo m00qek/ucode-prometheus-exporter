@@ -2,10 +2,11 @@
 
 // What each program of the package loads, by its static imports: the
 // handler, which uhttpd runs per scrape, and the rpcd plugin, which rpcd
-// keeps loaded, never load the command line's parser.
+// keeps loaded, never load the command line's parser. And a module split into
+// a directory is imported through the module in front of it.
 
 import { describe, it, assert } from 'utest';
-import { readfile } from 'fs';
+import { readfile, lsdir, stat } from 'fs';
 
 const IMPORT = /(^|\n)[ \t]*import[^'"\n;]*from[ \t]*(['"])([^'"]+)['"]/g;
 
@@ -48,5 +49,102 @@ describe('what the programs load', () => {
 			'files/usr/libexec/prometheus-exporter/probe.uc',
 		])
 			assert.match(false, 'docopt' in loaded_by(path), path);
+	});
+});
+
+// A module split into a directory of its own (exposition.uc and exposition/)
+// is the directory's facade: the modules of exposition/ are its, and only it,
+// they themselves and each one's own unit test (test/unit/prometheus_exporter/
+// exposition/<module>_test.uc) import them. Everything else takes what the
+// facade exports. collectors/ has no facade: collectors are loaded by name.
+const ANY_IMPORT = /import[^'"\n;]*from[ \t]*(['"])([^'"]+)['"]/g;
+const INTERNAL = /^prometheus_exporter\.([a-z_]+)\.([a-z0-9_]+)$/;
+const SCANNED = [ 'src', 'files', 'devenv/scripts', 'test' ];
+const SKIPPED = [ 'test/fixtures', 'test/browser', 'devenv/scripts/node_modules' ];
+
+// The paths of the files under `dir` whose imports are scanned: ucode's, the
+// shell scripts that run ucode -e, and the command line.
+function files_under(dir, out) {
+	for (let name in sort(lsdir(dir) ?? [])) {
+		let path = `${dir}/${name}`;
+
+		if (path in SKIPPED)
+			continue;
+		if (stat(path)?.type == 'directory')
+			files_under(path, out);
+		else if (match(name, /\.(uc|sh)$/) || path == 'files/usr/bin/prometheus-exporter')
+			push(out, path);
+	}
+
+	return out;
+}
+
+// The directories of src/prometheus_exporter that a module of the same name fronts.
+function facades() {
+	return filter(lsdir('src/prometheus_exporter') ?? [], (d) =>
+		stat(`src/prometheus_exporter/${d}`)?.type == 'directory' && stat(`src/prometheus_exporter/${d}.uc`)?.type == 'file');
+}
+
+// What is wrong of `importer` importing module `name`, or null when nothing
+// is: an internal module of one of `fronted`'s directories, from outside.
+function boundary_problem(importer, name, fronted) {
+	let m = match(name, INTERNAL);
+
+	if (!m || !(m[1] in fronted))
+		return null;
+	if (importer == `src/prometheus_exporter/${m[1]}.uc` || index(importer, `src/prometheus_exporter/${m[1]}/`) == 0 ||
+	    importer == `test/unit/prometheus_exporter/${m[1]}/${m[2]}_test.uc`)
+		return null;
+
+	return `${importer} imports ${name}, which is internal to prometheus_exporter.${m[1]}: import prometheus_exporter.${m[1]}, which exports what others take of it`;
+}
+
+describe('modules split into a directory', () => {
+	it('are imported only by their facade, each other and their own tests', () => {
+		let fronted = facades();
+		let problems = [];
+
+		for (let dir in SCANNED)
+			for (let path in files_under(dir, []))
+				for (let m in match(readfile(path) ?? '', ANY_IMPORT) ?? []) {
+					let problem = boundary_problem(path, m[2], fronted);
+
+					if (problem)
+						push(problems, problem);
+				}
+
+		assert.match([], problems);
+	});
+
+	it('the rule catches an import from outside the directory, and lets the rest through', () => {
+		let fronted = [ 'deps' ];
+
+		assert.match([
+			'src/prometheus_exporter/app.uc imports prometheus_exporter.deps.exec, which is internal to prometheus_exporter.deps: import prometheus_exporter.deps, which exports what others take of it',
+			'test/unit/prometheus_exporter/deps/ubus_test.uc imports prometheus_exporter.deps.exec, which is internal to prometheus_exporter.deps: import prometheus_exporter.deps, which exports what others take of it',
+			'test/lib/commands.uc imports prometheus_exporter.deps.exec, which is internal to prometheus_exporter.deps: import prometheus_exporter.deps, which exports what others take of it',
+			null, null, null, null, null, null,
+		], [
+			boundary_problem('src/prometheus_exporter/app.uc', 'prometheus_exporter.deps.exec', fronted),
+			boundary_problem('test/unit/prometheus_exporter/deps/ubus_test.uc', 'prometheus_exporter.deps.exec', fronted),
+			boundary_problem('test/lib/commands.uc', 'prometheus_exporter.deps.exec', fronted),
+			boundary_problem('src/prometheus_exporter/deps.uc', 'prometheus_exporter.deps.exec', fronted),
+			boundary_problem('src/prometheus_exporter/deps/ubus.uc', 'prometheus_exporter.deps.exec', fronted),
+			boundary_problem('test/unit/prometheus_exporter/deps/exec_test.uc', 'prometheus_exporter.deps.exec', fronted),
+			boundary_problem('src/prometheus_exporter/app.uc', 'prometheus_exporter.deps', fronted),
+			boundary_problem('devenv/scripts/e2e.sh', 'prometheus_exporter.collectors.diskstats', fronted),
+			boundary_problem('src/prometheus_exporter/app.uc', 'prometheus_exporter.rpc.validate', fronted),
+		]);
+	});
+
+	it('scans the programs, the scripts and the tests, and finds the facades', () => {
+		let scanned = [ ...files_under('src', []), ...files_under('files', []), ...files_under('devenv/scripts', []), ...files_under('test', []) ];
+
+		assert.match(true, length(filter([
+			'files/usr/libexec/prometheus-exporter/handler.uc', 'files/usr/bin/prometheus-exporter',
+			'files/usr/share/rpcd/ucode/prometheus-exporter.uc', 'devenv/scripts/docs_gen/harvest.uc',
+			'devenv/scripts/package-check.sh', 'test/lib/commands.uc', 'test/context.uc',
+		], (p) => !(p in scanned))) == 0);
+		assert.match(true, 'exposition' in facades() && !('collectors' in facades()));
 	});
 });

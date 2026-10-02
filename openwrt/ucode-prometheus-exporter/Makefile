@@ -16,6 +16,9 @@ include $(INCLUDE_DIR)/package.mk
 SERVICE:=prometheus-exporter
 MODULES_DIR:=/usr/share/ucode/prometheus_exporter
 COLLECTORS_DIR:=$(MODULES_DIR)/collectors
+# The directories of the modules split out of one of the exporter's own
+# (exposition.uc's exposition/), installed with them.
+MODULE_SUBDIRS:=exposition
 
 # Installed with the exporter itself; every other collector is a subpackage.
 BASE_COLLECTORS:=conntrack cpu entropy exporter filefd loadavg meminfo netclass netdev openwrt_interfaces selinux softnet time timesync uname vmstat
@@ -75,6 +78,7 @@ endef
 define Package/$(PKG_NAME)/install
 	$(INSTALL_DIR) $(1)$(MODULES_DIR) $(1)$(COLLECTORS_DIR)
 	$(INSTALL_DATA) ./src/prometheus_exporter/*.uc $(1)$(MODULES_DIR)/
+	$(foreach d,$(MODULE_SUBDIRS),$(INSTALL_DIR) $(1)$(MODULES_DIR)/$(d) && $(INSTALL_DATA) ./src/prometheus_exporter/$(d)/*.uc $(1)$(MODULES_DIR)/$(d)/;)
 	# The version ucode_prometheus_exporter_build_info reports: the package's.
 	$(SED) "/^const VERSION = /s/'dev'/'$(PKG_VERSION)-r$(PKG_RELEASE)'/" $(1)$(MODULES_DIR)/version.uc
 	grep -q "^const VERSION = '$(PKG_VERSION)-r$(PKG_RELEASE)';" $(1)$(MODULES_DIR)/version.uc

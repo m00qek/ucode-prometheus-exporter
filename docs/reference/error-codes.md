@@ -56,4 +56,4 @@ A failure carries an uppercase code, from `src/prometheus_exporter/errors.uc`, a
 
 | Code | Meaning | Raised by |
 | :--- | :--- | :--- |
-| `EXPOSITION_INVALID` | Text that is not valid Prometheus exposition format: a `*.prom` file of textfile, which the collector then leaves out. The detail names the line. | `exposition.uc` |
+| `EXPOSITION_INVALID` | Text that is not valid Prometheus exposition format: a `*.prom` file of textfile, which the collector then leaves out. The detail names the line. | `exposition/parse.uc` |

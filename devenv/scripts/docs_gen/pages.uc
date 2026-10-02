@@ -558,7 +558,14 @@ export function uci_page(ctx) {
 
 // ---- error-codes.md -----------------------------------------------------------
 
+// A module of the exporter by its path among them (exposition/parse.uc), a
+// collector or a program by its file's name.
+const LIBRARY = 'src/prometheus_exporter/';
+
 function module_name(path) {
+	if (substr(path, 0, length(LIBRARY)) == LIBRARY && index(path, '/collectors/') < 0)
+		return substr(path, length(LIBRARY));
+
 	return replace(path, /^.*\//, '');
 }
 
