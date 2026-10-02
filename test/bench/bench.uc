@@ -66,7 +66,11 @@ let search = (src ? `-L '${src}' ` : '') + `-L '${test}'`;
 // [ world, case ]
 let cases = [ [ 'large', 'calibrate:vm' ], [ 'large', 'load:base' ], [ 'large', 'load:full' ], [ 'large', 'probe:full' ] ];
 
-for (let n in [ ...sets.full, ...(sets.extra ?? []) ])
+// An extra collector is benched where it is there: the installed exporter
+// (QEMU's) has the -full group's alone.
+let extra = filter(sets.extra ?? [], (n) => src || fs.stat(`/usr/share/ucode/prometheus_exporter/collectors/${replace(n, '-', '_')}.uc`));
+
+for (let n in [ ...sets.full, ...extra ])
 	if (n != 'nat_traffic')
 		push(cases, [ 'large', `collector:${n}` ]);
 for (let n in json(fs.readfile(`${args.worlds}/large/world.json`)).sizes.conntrack_scaling)
