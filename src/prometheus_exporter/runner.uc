@@ -34,7 +34,8 @@
 //   settings     config.settings' data, or null to read them in the run
 //   view         the exporter collector's data (deps.exporter_channel)
 // A run is scrape.run_one's: { name, id, result, families, samples, duration,
-// budget }, its families packed (prometheus_exporter.exposition's pack).
+// budget, text }: its families' names and types, and the text of them the
+// reply holds (prometheus_exporter.exposition's pack).
 //
 // env: { session(log) -> a deps session, clock() -> [ s, ns ] monotonic,
 //        log(level, msg), mkstemp, readfile: fs's (forked's) };
@@ -57,7 +58,7 @@ function now(env) {
 
 // The run of a collector stopped from outside, which wrote nothing.
 function stopped(job, res, took) {
-	return { name: job.c.meta.name, id: job.c.id, result: res, families: [], samples: 0, duration: took, budget: job.budget };
+	return { name: job.c.meta.name, id: job.c.id, result: res, families: [], samples: 0, duration: took, budget: job.budget, text: '' };
 }
 
 // The run of a collector stopped at its limit: its budget's end, or the
@@ -80,39 +81,35 @@ export function killed(job, took) {
 
 // A run, and what was logged with it, as the child hands it over: a line of
 // JSON, { name, id, result, samples, duration, budget, logs, families: [
-// [ name, type, help, bytes ] ] }, its Result without its prototype, and then
-// each family's text, as many bytes as the line says, one after the other.
-// The text crosses as it is: JSON would escape every quote of every label.
+// [ name, type ] ] }, its Result without its prototype, and then its text,
+// as it is: JSON would escape every quote of every label.
 export function pack(r, logs) {
 	let res = r.result;
 	let head = {
 		name: r.name, id: r.id, samples: r.samples, duration: r.duration, budget: r.budget, logs,
 		result: { ok: res.ok, error: res.error, details: res.details, data: res.data, none: res.none },
-		families: map(r.families, (f) => [ f.name, f.type, f.help, length(f.lines[0]) ]),
+		families: map(r.families, (f) => [ f.name, f.type ]),
 	};
 
-	return sprintf('%J\n', head) + join('', map(r.families, (f) => f.lines[0]));
+	return sprintf('%J\n', head) + r.text;
 };
 
-// The run of pack()'s text, its families packed, and its logs: { run, logs }.
+// The run of pack()'s text, and its logs: { run, logs }.
 export function unpack(text) {
 	let nl = index(text, '\n');
 	let head = json(substr(text, 0, nl));
 	let res = head.result ?? {};
-	let at = nl + 1;
-	let families = [];
-
-	for (let f in head.families) {
-		push(families, { name: f[0], type: f[1], help: f[2], lines: [ substr(text, at, f[3]) ], values: [], packed: true });
-		at += f[3];
-	}
+	let families = map(head.families ?? [], (f) => ({ name: f[0], type: f[1] }));
 
 	let result = res.ok
 		? ((res.none != null) ? Result.none(res.none) : Result.ok(res.data))
 		: Result.err(res.error ?? errors.COLLECTOR_KILLED, res.details, res.data);
 
 	return {
-		run: { name: head.name, id: head.id, result, families, samples: head.samples, duration: head.duration, budget: head.budget },
+		run: {
+			name: head.name, id: head.id, result, families, samples: head.samples, duration: head.duration, budget: head.budget,
+			text: substr(text, nl + 1),
+		},
 		logs: head.logs ?? [],
 	};
 };
@@ -120,8 +117,10 @@ export function unpack(text) {
 // The run of `job`, its families packed with `omit` (omit_zero_values).
 function run_packed(env, run_fn, session, job, omit) {
 	let r = run_fn(env, session, job.c, job);
+	let p = exposition.pack(r.families, omit);
 
-	r.families = exposition.pack(r.families, omit);
+	r.families = p.families;
+	r.text = p.text;
 	return r;
 }
 

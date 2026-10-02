@@ -568,40 +568,6 @@ export function recorder(max) {
 	};
 };
 
-// Families as a recorder keeps them, packed to cross a process's pipe: each
-// family's samples as one block of text, and with `omit` (omit_zero_values)
-// without the counter samples whose value is 0, as render() would leave them
-// out. render() takes them as they are; a family left without samples is not
-// kept.
-export function pack(families, omit) {
-	let out = [];
-
-	for (let fam in families) {
-		if (fam.packed) {
-			push(out, fam);
-			continue;
-		}
-
-		let lines = fam.lines ?? map(fam.samples, sample_line);
-
-		if (omit && fam.type == 'counter' && !fam.packed) {
-			let values = fam.values ?? map(fam.samples, (s) => s.value);
-			let kept = [];
-
-			for (let i, line in lines)
-				if (+values[i] != 0)
-					push(kept, line);
-
-			lines = kept;
-		}
-
-		if (length(lines))
-			push(out, { name: fam.name, type: fam.type, help: fam.help, lines: [ join('\n', lines) ], values: [], packed: true });
-	}
-
-	return out;
-};
-
 // The families of several recorders as one list, merged by name in the order
 // they first appear. { families, conflicts }: the names declared with two types.
 //
@@ -634,7 +600,7 @@ export function merge(lists) {
 			if (!copied[name]) {
 				let have = set.list[i];
 
-				set.by_name[name] = set.list[i] = { name, type: have.type, help: have.help, lines: [ ...have.lines ], values: [ ...have.values ], packed: have.packed };
+				set.by_name[name] = set.list[i] = { name, type: have.type, help: have.help, lines: [ ...have.lines ], values: [ ...have.values ] };
 				copied[name] = true;
 			}
 
@@ -645,11 +611,10 @@ export function merge(lists) {
 	return { families: set.list, conflicts: uniq(conflicts) };
 };
 
-// The text of families as a recorder or merge() keeps them, as pack() makes
-// them, or as parse() gives them. opts.omit_zero_counters leaves out counter
-// samples whose value is 0 (the lua exporter's omit_zero_values), but for a
-// packed family, whose pack() did. A family left without samples is not
-// written.
+// The text of families as a recorder or merge() keeps them, or as parse()
+// gives them. opts.omit_zero_counters leaves out counter samples whose value
+// is 0 (the lua exporter's omit_zero_values). A family left without samples
+// is not written.
 export function render(families, opts) {
 	let parts = [];
 	let omit = opts?.omit_zero_counters;
@@ -657,7 +622,7 @@ export function render(families, opts) {
 	for (let fam in families) {
 		let lines = fam.lines ?? map(fam.samples, sample_line);
 
-		if (omit && fam.type == 'counter' && !fam.packed) {
+		if (omit && fam.type == 'counter') {
 			let values = fam.values ?? map(fam.samples, (s) => s.value);
 			let kept = [];
 
@@ -673,4 +638,17 @@ export function render(families, opts) {
 	}
 
 	return length(parts) ? join('\n', parts) + '\n' : '';
+};
+
+// A collector's families as a scrape keeps its run: { families, text }, the
+// families' names and types, which a scrape needs to say whose each family
+// is (scrape.own), and the text render() writes of them, with `omit`
+// (omit_zero_values). The reply is the text of each collector, one after the
+// other: a family is one collector's, so the reply has it once without a
+// merge.
+export function pack(families, omit) {
+	return {
+		families: map(families, (f) => ({ name: f.name, type: f.type })),
+		text: render(families, { omit_zero_counters: omit }),
+	};
 };

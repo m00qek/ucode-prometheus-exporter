@@ -109,7 +109,7 @@ describe('exposition.recorder', () => {
 });
 
 describe('exposition.pack', () => {
-	it('packs each family\'s samples into one block of text, which render() writes as they were', () => {
+	it('gives the families\' names and types, and their text as render() writes it', () => {
 		let rec = exposition.recorder();
 
 		rec.gauge('a', 'A.')({ x: '1' }, 1)({ x: '2' }, 2);
@@ -117,32 +117,26 @@ describe('exposition.pack', () => {
 
 		let packed = exposition.pack(rec.families());
 
-		assert.match([ { name: 'a', type: 'gauge', help: 'A.', lines: [ 'a{x="1"} 1\na{x="2"} 2' ], values: [], packed: true },
-			{ name: 'b_total', type: 'counter', help: null, lines: [ 'b_total 0' ], values: [], packed: true } ], packed);
-		assert.match(exposition.render(rec.families()), exposition.render(packed));
+		assert.match([ { name: 'a', type: 'gauge' }, { name: 'b_total', type: 'counter' } ], packed.families);
+		assert.match(exposition.render(rec.families()), packed.text);
 	});
 
-	it('leaves out zero counters with omit, and a family left without samples, and render() omits nothing more', () => {
+	it('leaves out zero counters with omit, and a family left without samples', () => {
 		let rec = exposition.recorder();
 
 		rec.counter('z_total')(null, 0);
 		rec.counter('c_total')({ i: '1' }, 0)({ i: '2' }, 5);
-
-		let packed = exposition.pack(rec.families(), true);
-
-		assert.match([ 'c_total' ], map(packed, (f) => f.name));
-		assert.match('# TYPE c_total counter\nc_total{i="2"} 5\n', exposition.render(packed, { omit_zero_counters: true }));
+		assert.match('# TYPE c_total counter\nc_total{i="2"} 5\n', exposition.pack(rec.families(), true).text);
 	});
 
-	prop('renders what render() would, packed or not, with omit or without',
+	prop('writes what render() would, with omit or without',
 		gen.tuple(gen.array(gen.int(0, 3), { min_len: 0, max_len: 6 }), gen.bool()), (t) => {
 			let rec = exposition.recorder();
 			let c = rec.counter('n_total');
 
 			for (let i, v in t[0])
 				c({ i }, v);
-			assert.match(exposition.render(rec.families(), { omit_zero_counters: t[1] }),
-				exposition.render(exposition.pack(rec.families(), t[1])));
+			assert.match(exposition.render(rec.families(), { omit_zero_counters: t[1] }), exposition.pack(rec.families(), t[1]).text);
 		});
 });
 

@@ -62,39 +62,6 @@ function rooted_fs(world, redirect) {
 	};
 }
 
-function ubus(world) {
-	let last = null;
-
-	return {
-		connect: () => ({
-			call: function(object, method, args) {
-				let reply = world.ubus[`${object}:${method}`];
-
-				last = reply == null ? 'Not found' : null;
-				return reply;
-			},
-			list: () => uniq(map(keys(world.ubus), (k) => split(k, ':')[0])),
-			error: () => last,
-			disconnect: () => true,
-		}),
-	};
-}
-
-function netlink(replies, consts) {
-	let last = null;
-
-	return {
-		const: consts,
-		request: function(cmd, flags, attrs) {
-			let key = attrs?.dev != null ? `${cmd}:${attrs.dev}` : cmd;
-
-			last = (key in replies) ? null : 'No such device';
-			return replies[key];
-		},
-		error: () => last,
-	};
-}
-
 // What a source answers, read once: a case reads only the sources its
 // collectors need, so its memory is theirs and not the whole world's.
 function source(world, name) {
@@ -102,11 +69,49 @@ function source(world, name) {
 	return world[name];
 }
 
+function ubus(world) {
+	let last = null;
+
+	return {
+		connect: () => ({
+			call: function(object, method, args) {
+				let reply = source(world, 'ubus')[`${object}:${method}`];
+
+				last = reply == null ? 'Not found' : null;
+				return reply;
+			},
+			list: () => uniq(map(keys(source(world, 'ubus')), (k) => split(k, ':')[0])),
+			error: () => last,
+			disconnect: () => true,
+		}),
+	};
+}
+
+// replies(): the source's replies, read when first asked.
+function netlink(replies, consts) {
+	let last = null;
+
+	return {
+		const: consts,
+		request: function(cmd, flags, attrs) {
+			let key = attrs?.dev != null ? `${cmd}:${attrs.dev}` : cmd;
+			let r = replies();
+
+			last = (key in r) ? null : 'No such device';
+			return r[key];
+		},
+		error: () => last,
+	};
+}
+
 // The modules deps.session() takes, as deps.modules() gives the real ones.
-// needs: the collectors' needs (meta.needs), whose sources are read now.
-// opts.redirect: { path: file } read in place of the world's.
+// needs: the collectors' needs (meta.needs), whose sources are read now;
+// with opts.lazy, when a collector first asks them, in the scrape, as a
+// router's kernel and services answer then: what a scrape forks inherits no
+// world it would not have on a router. opts.redirect: { path: file } read in
+// place of the world's.
 export function modules(world, needs, opts) {
-	for (let need in needs)
+	for (let need in (opts?.lazy ? [] : needs))
 		if (need in [ 'ubus', 'nl80211', 'rtnl' ])
 			source(world, need);
 
@@ -114,8 +119,8 @@ export function modules(world, needs, opts) {
 		fs: rooted_fs(world, opts?.redirect ?? {}),
 		ubus: ubus(world),
 		uci: { cursor: () => cursor(`${world.root}/etc/config`, '/nonexistent/uci-deltas') },
-		rtnl: netlink(world.rtnl, RTNL_CONST),
-		nl80211: netlink(world.nl80211, NL80211_CONST),
+		rtnl: netlink(() => source(world, 'rtnl'), RTNL_CONST),
+		nl80211: netlink(() => source(world, 'nl80211'), NL80211_CONST),
 		socket: null,
 		time: () => 1790850000,
 		clock: () => clock(true),

@@ -139,7 +139,7 @@ export function run(sys, path) {
 
 		add('ok', `families: ${join(' ', shown)}` + ((length(names) > length(shown)) ? `, and ${length(names) - length(shown)} more` : ''));
 
-		let parsed = exposition.parse(exposition.render(r.families));
+		let parsed = exposition.parse(r.text);
 
 		if (parsed.ok)
 			add('ok', 'exposition: valid text, each series once');

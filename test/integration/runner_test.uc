@@ -77,7 +77,7 @@ function summary(r) {
 }
 
 describe('runner.forked', () => {
-	it('runs each collector in a child process and hands back its run, its families packed', () => {
+	it('runs each collector in a child process and hands back its run, its families\' names and its text', () => {
 		let pids = [];
 		let me = collector('me', function(d, out) {
 			out.gauge('me_value')(null, 1);
@@ -86,7 +86,7 @@ describe('runner.forked', () => {
 		let r = run_forked([ gauge('a', 1), me ], 5);
 
 		assert.match([ [ 'a', 'ok' ], [ 'me', 'ok' ] ], map(r.runs, summary));
-		assert.match([ { name: 'a_value', type: 'gauge', help: null, lines: [ 'a_value 1' ], values: [], packed: true } ], r.runs[0].families);
+		assert.match([ [ { name: 'a_value', type: 'gauge' } ], '# TYPE a_value gauge\na_value 1\n' ], [ r.runs[0].families, r.runs[0].text ]);
 		assert.match([ 1, true ], [ r.runs[1].samples, Result.is(r.runs[1].result) ]);
 		assert.match([], r.logs);
 	});
@@ -103,8 +103,7 @@ describe('runner.forked', () => {
 			return Result.ok();
 		}, { needs: [ 'log' ] });
 		let r = run_forked([ big, gauge('after', 1) ], 5);
-		let text = exposition.render(r.runs[0].families);
-		let parsed = exposition.parse(text);
+		let parsed = exposition.parse(r.runs[0].text);
 
 		assert.match([ [ 'big', 'ok' ], [ 'after', 'ok' ] ], map(r.runs, summary));
 		assert.match([ true, 901, 2 ], [ parsed.ok, r.runs[0].samples, length(parsed.data) ]);
@@ -123,7 +122,7 @@ describe('runner.forked', () => {
 		}, { max_samples: 20000 });
 		let r = run_forked([ big ], 5);
 
-		assert.match([ 'ok', 20000 ], [ summary(r.runs[0])[1], length(split(r.runs[0].families[0].lines[0], '\n')) ]);
+		assert.match([ 'ok', 20000 ], [ summary(r.runs[0])[1], length(filter(split(r.runs[0].text, '\n'), (l) => index(l, 'huge_value{') == 0)) ]);
 	});
 
 	it('logs what a collector logged in its child, here', () => {

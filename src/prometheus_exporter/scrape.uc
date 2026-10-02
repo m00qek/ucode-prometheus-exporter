@@ -217,6 +217,7 @@ export function own(env, runs, by_id) {
 		if (why) {
 			r.result = Result.err(errors.FAMILY_CONFLICT, why);
 			r.families = [];
+			r.text = '';
 			r.samples = 0;
 			env.log('warning', `collector '${r.name}': ${Result.describe(r.result)}`);
 			continue;
@@ -540,11 +541,9 @@ export function scrape(env, collectors, query_string, opts) {
 	scrape_meta.gauge(BUILD_INFO,
 		'A metric with a constant \'1\' value labeled by the version of ucode-prometheus-exporter.')({ version: env.version }, 1);
 
-	let merged = exposition.merge([ ...map(runs, (r) => r.families), scrape_meta.families() ]);
-	for (let name in merged.conflicts)
-		env.log('warning', `'${name}' declared with two types by different collectors; later samples dropped`);
-
-	let body = exposition.render(merged.families, { omit_zero_counters: main.data.omit_zero_values });
+	// A family is one collector's (own()): the reply is each one's text,
+	// in the order selected, then the scrape's own.
+	let body = join('', map(runs, (r) => r.text ?? '')) + exposition.render(scrape_meta.families());
 
 	progress?.finish();
 

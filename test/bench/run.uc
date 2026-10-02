@@ -193,7 +193,8 @@ if (kind == 'calibrate') {
 	for (let c in collectors)
 		push(needs, ...c.meta.needs);
 
-	let mods = bench_world.modules(world, uniq(needs));
+	// The world's replies are read in the scrape, as a router's are made then.
+	let mods = bench_world.modules(world, uniq(needs), { lazy: true });
 	let env = {
 		session: (to) => deps.session({ ...mods, log: to ?? log }), clock: () => clock(true), log, version: 'bench',
 		fork: kind == 'scrape', stats, mkstemp: fs.mkstemp, readfile: fs.readfile,
@@ -291,7 +292,7 @@ if (kind == 'calibrate') {
 	for (let c in collectors)
 		push(needs, ...c.meta.needs);
 
-	let mods = bench_world.modules(world, uniq(needs), { redirect: { '/proc/net/nf_conntrack': `${world_dir}/conntrack/${parts[1]}` } });
+	let mods = bench_world.modules(world, uniq(needs), { lazy: true, redirect: { '/proc/net/nf_conntrack': `${world_dir}/conntrack/${parts[1]}` } });
 	let env = {
 		session: (to) => deps.session({ ...mods, log: to ?? log }), clock: () => clock(true), log, version: 'bench',
 		fork: true, mkstemp: fs.mkstemp, readfile: fs.readfile,
