@@ -251,6 +251,7 @@ Network driver statistics from ethtool -S.
 - **Needs:** `rtnl`, `fs`, `exec`
 - **Runs:** `ethtool`, with `/bin/sh`
 - **Seconds for its programs:** The main section's `exec_timeout`, unless its section sets `timeout`
+- **Cost:** heavy (`meta.cost`): until the ledger has timed it, it runs after the others
 - **Metrics:** [ethtool](metrics.md#ethtool)
 
 | Option | Type | Default | Datatype | Description |
@@ -437,6 +438,8 @@ Bytes per source and destination address, from /proc/net/nf\_conntrack.
 - **In the groups:** `ucode-prometheus-exporter-network`, `ucode-prometheus-exporter-full`
 - **Section:** `config collector 'nat_traffic'`
 - **Needs:** `fs`
+- **Samples it may write:** 65536, its own (`meta.max_samples`), unless its section sets `max_samples`
+- **Cost:** heavy (`meta.cost`): until the ledger has timed it, it runs after the others
 - **Nothing to observe:** nf\_conntrack not loaded: no `/proc/net/nf_conntrack`. See [Nothing to observe](#nothing-to-observe).
 - **Metrics:** [nat\_traffic](metrics.md#nat_traffic)
 

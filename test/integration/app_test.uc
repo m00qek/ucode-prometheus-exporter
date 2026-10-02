@@ -156,7 +156,8 @@ describe('app.handler', () => {
 		mock.global.patch('ubus', { strict: true, data: {} });
 		mock.global.patch('uci', { strict: true, data: { [config.NAME]: { main: { '.type': config.NAME, scrape_timeout: '3' } } } });
 
-		let app = handler(() => null, SOURCES);
+		// The collectors run in this process, where the mock sees their programs.
+		let app = handler(() => null, SOURCES, null, { fork: false });
 
 		app.handle(request('collect[]=nft-counters', { 'x-prometheus-scrape-timeout-seconds': '2' }, true));
 		app.handle(request('collect[]=nft-counters', { 'x-prometheus-scrape-timeout-seconds': '30' }, true));

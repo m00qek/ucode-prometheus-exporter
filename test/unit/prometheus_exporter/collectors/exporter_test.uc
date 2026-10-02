@@ -70,7 +70,7 @@ function samples(lines) {
 
 describe('collectors.exporter', () => {
 	it('describes the serving process as Prometheus\'s client libraries do, its scrapes\' CPU in its own', () => {
-		let r = run(files(1234), { pid: 1234, counters: () => null, samples: () => ({}) });
+		let r = run(files(1234), { pid: 1234, counters: null, samples: {} });
 
 		assert.match([ true, true ], [ r.result.ok, r.parsed.ok ]);
 		assert.match([
@@ -85,7 +85,7 @@ describe('collectors.exporter', () => {
 	});
 
 	it('writes the ledger\'s counters, by collector and by code, and this scrape\'s samples', () => {
-		let r = run(files(1234), { pid: 1234, counters: () => COUNTERS, samples: () => ({ cpu: 46, 'nft-counters': 0, loadavg: 3 }) });
+		let r = run(files(1234), { pid: 1234, counters: COUNTERS, samples: { cpu: 46, 'nft-counters': 0, loadavg: 3 } });
 
 		assert.match(contains([
 			'ucode_prometheus_exporter_scrapes_total 42',
@@ -123,7 +123,7 @@ describe('collectors.exporter', () => {
 	});
 
 	it('fails with SOURCE_UNREADABLE without the process\'s stat, and still writes the counters', () => {
-		let r = run({ '/proc/3/stat': null, '/proc/stat': PROC_STAT }, { pid: 3, counters: () => COUNTERS, samples: () => ({}) });
+		let r = run({ '/proc/3/stat': null, '/proc/stat': PROC_STAT }, { pid: 3, counters: COUNTERS, samples: {} });
 
 		assert.match('SOURCE_UNREADABLE', r.result.error);
 		assert.match(contains([ 'ucode_prometheus_exporter_scrapes_total 42' ]), r.lines);

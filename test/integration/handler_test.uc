@@ -11,11 +11,13 @@ import { inflate } from 'zlib';
 import * as lockable from 'lib.lockable';
 
 const HANDLER = 'files/usr/libexec/prometheus-exporter/handler.uc';
+// What a collector module starts with: the loader takes no other.
+const STRICT = "'use strict';\n";
 
 // The collectors as installed: their files listed in DIR, their modules found on
 // the search path.
 function install(files) {
-	let fs = mock.global.patch('fs', { data: { [DIR + '/loadavg.uc']: '', ...files }, behavior: { open: lockable.open } });
+	let fs = mock.global.patch('fs', { data: { [DIR + '/loadavg.uc']: STRICT, ...files }, behavior: { open: lockable.open } });
 	mock.global.patch('ubus', { strict: true, data: {} });
 	mock.global.patch('uci', { strict: true, data: { [config.NAME]: {} } });
 	return fs;
@@ -79,7 +81,7 @@ describe('handler', () => {
 
 		assert.match([ 'loadavg' ], answered(request('')));
 
-		fs.writefile(DIR + '/time.uc', '');
+		fs.writefile(DIR + '/time.uc', STRICT);
 		assert.match([ 'loadavg' ], answered(request('')), 'installed while running');
 
 		let restarted = serve();

@@ -289,7 +289,7 @@ describe('deps.exporter_channel', () => {
 	});
 
 	it('gives the scrape\'s counters and samples', () => {
-		with_channel({ pid: 42, counters: () => ({ scrapes: 3 }), samples: () => ({ cpu: 9 }) }, (ch) => {
+		with_channel({ pid: 42, counters: { scrapes: 3 }, samples: { cpu: 9 } }, (ch) => {
 			assert.match([ { scrapes: 3 }, { cpu: 9 } ], [ ch.counters(), ch.samples() ]);
 		});
 	});

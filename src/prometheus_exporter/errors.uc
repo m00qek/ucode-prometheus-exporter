@@ -29,5 +29,11 @@ export const SCRAPE_DEADLINE      = 'SCRAPE_DEADLINE';
 export const COLLECTOR_QUARANTINED = 'COLLECTOR_QUARANTINED';
 export const COLLECTOR_OVERRUN    = 'COLLECTOR_OVERRUN';
 
+// What the exporter enforces of a collector
+export const COLLECTOR_CANCELLED  = 'COLLECTOR_CANCELLED';
+export const COLLECTOR_KILLED     = 'COLLECTOR_KILLED';
+export const SAMPLE_LIMIT         = 'SAMPLE_LIMIT';
+export const FAMILY_CONFLICT      = 'FAMILY_CONFLICT';
+
 // Exposition text
 export const EXPOSITION_INVALID   = 'EXPOSITION_INVALID';

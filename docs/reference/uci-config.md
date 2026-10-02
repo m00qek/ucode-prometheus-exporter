@@ -22,7 +22,8 @@ The exporter's configuration is `/etc/config/prometheus-exporter`. The file is o
 | `compress` | boolean | `1` | — | Send a scrape gzip-compressed when the scraper asks for it (Accept-Encoding: gzip); 0 never does. | exporter |
 | `exec_timeout` | integer | `5` | `range(1,30)` | Seconds the programs a collector runs get in all in each scrape, unless the collector says otherwise; one still running then is killed. | exporter |
 | `scrape_timeout` | integer | `10` | `range(1,60)` | Seconds a scrape has to answer when the scraper does not say (X-Prometheus-Scrape-Timeout-Seconds); collectors left when they are nearly spent are skipped. | exporter |
-| `collector_budget` | integer | `5` | `range(1,60)` | Seconds a collector may take in a scrape, unless it says otherwise; one that takes longer is quarantined for a few scrapes. | exporter |
+| `collector_budget` | integer | `5` | `range(1,60)` | Seconds a collector may take in a scrape, unless it says otherwise; one still running then is stopped, and quarantined for a few scrapes. | exporter |
+| `max_samples` | integer | `20000` | `range(1,100000)` | Samples a collector may write in a scrape, unless it says otherwise; one that writes more fails, and none of its samples are served. | exporter |
 
 Options that go together, checked wherever the configuration is checked (start, reload, `check`, the ubus object's `validate` and LuCI):
 
@@ -38,9 +39,10 @@ Options that go together, checked wherever the configuration is checked (start, 
 | :--- | :--- | :--- | :--- | :--- |
 | `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 | `timeout` | integer | the collector's `meta.timeout`, else `exec_timeout` (5) | `range(1,30)` | Seconds the programs of this collector get in all in each scrape; one still running then is killed. |
-| `budget` | integer | `collector_budget` (5), or the collector's `timeout` and a second more when that is longer | `range(1,60)` | Seconds this collector may take in a scrape; one that takes longer is quarantined for a few scrapes. |
+| `budget` | integer | `collector_budget` (5), or the collector's `timeout` and a second more when that is longer | `range(1,60)` | Seconds this collector may take in a scrape; one still running then is stopped, and quarantined for a few scrapes. |
+| `max_samples` | integer | the collector's `meta.max_samples`, else `max_samples` (20000) | `range(1,100000)` | Samples this collector may write in a scrape; one that writes more fails, and none of its samples are served. |
 
-`timeout` is only for a collector that runs programs (`exec` in its needs); the others ignore it. A collector that takes longer than its `budget` is quarantined: see [About deadlines and circuit breakers](../explanation/deadlines-and-breakers.md). No collector may declare an option named `enabled`, `timeout`, `budget`.
+`timeout` is only for a collector that runs programs (`exec` in its needs); the others ignore it. A collector still running at the end of its `budget` is stopped and quarantined, and one that writes more than its `max_samples` fails: see [Collector contract](collector-contract.md) and [About deadlines and circuit breakers](../explanation/deadlines-and-breakers.md). No collector may declare an option named `enabled`, `timeout`, `budget`, `max_samples`.
 
 ## Values {#values}
 
@@ -51,6 +53,7 @@ A boolean takes `1`, `yes`, `on`, `true`, `enabled` for true and `0`, `no`, `off
 | `crypt` | a crypt hash: $1$ (uhttpd -m), $5$ or $6$ |
 | `directory` | an absolute path |
 | `file` | an absolute path |
+| `range(1,100000)` | an integer from 1 to 100000 |
 | `range(1,30)` | an integer from 1 to 30 |
 | `range(1,60)` | an integer from 1 to 60 |
 | `range(1,65535)` | an integer from 1 to 65535 |
@@ -73,6 +76,7 @@ config prometheus-exporter 'main'
 	option exec_timeout '5'
 	option scrape_timeout '10'
 	option collector_budget '5'
+	option max_samples '20000'
 
 config collector 'textfile'
 	option enabled '1'

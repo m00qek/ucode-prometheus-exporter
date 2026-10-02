@@ -30,6 +30,11 @@ export const meta = {
 	help: 'Network driver statistics from ethtool -S.',
 	needs: [ 'rtnl', 'fs', 'exec' ],
 	commands: [ 'ethtool' ],
+	// A program run for each port: the benchmark's 17 ports take the devenv
+	// 0.13 s, the slowest collector there but nat_traffic, and a slow router
+	// tens of times that. Before the ledger times it, it runs after the
+	// others, so that a first scrape does not spend their time on it.
+	cost: 'heavy',
 };
 
 // node_exporter's families of the common statistics: [ name, help ].

@@ -119,10 +119,20 @@ function by_keys(a, b) {
 
 // `collectors` in the order a scrape runs them: fastest first; one never run,
 // which may be slow, after those the ledger knows, so that it cannot take
-// their time; in their order among equals; those `last(c)` says, after every
-// other.
-export function order(l, collectors, last) {
-	let keyed = map(collectors, (c, i) => [ (last && last(c)) ? 1 : 0, (estimate(l, c.id) == null) ? 1 : 0, estimate(l, c.id) ?? 0, i, c ]);
+// their time, and among those, one whose `cost(c)` (meta.cost) is 'heavy'
+// after the others; in their order among equals; those `last(c)` says, after
+// every other.
+//
+// A declared cost orders and does nothing else: the deadline leaves a
+// collector out only by what the ledger measured, so that one that declares
+// itself heavy is still run, and timed, rather than left out for good.
+export function order(l, collectors, last, cost) {
+	let keyed = map(collectors, function(c, i) {
+		let known = estimate(l, c.id) != null;
+		let unknown = known ? 0 : ((cost && cost(c) == 'heavy') ? 2 : 1);
+
+		return [ (last && last(c)) ? 1 : 0, unknown, estimate(l, c.id) ?? 0, i, c ];
+	});
 
 	return map(sort(keyed, by_keys), (x) => x[4]);
 };
@@ -138,6 +148,8 @@ export function outcome_of(r) {
 
 	if (r.skipped != null)
 		return [ 'neutral', null ];
+	if (res?.error in [ errors.COLLECTOR_CANCELLED, errors.COLLECTOR_KILLED ])
+		return [ 'trip', Result.describe(res) ];
 	if (r.budget != null && r.duration > r.budget)
 		return [ 'trip', sprintf('%s (took %.2f s, over its budget of %d s)', errors.COLLECTOR_OVERRUN, r.duration, r.budget) ];
 	if (res?.error == errors.COMMAND_TIMEOUT)
@@ -149,6 +161,16 @@ export function outcome_of(r) {
 
 	return [ 'ok', null ];
 };
+
+// One failure of collector `id` counted in `e` (an entry): by `code`, or as
+// OTHER past REASONS_MAX codes.
+function count_failure(e, code) {
+	let fails = { ...(e.fails ?? {}) };
+	let key = (code in keys(fails) || length(fails) < REASONS_MAX) ? code : OTHER;
+
+	fails[key] = (fails[key] ?? 0) + 1;
+	e.fails = fails;
+}
 
 // The ledger `l` with scrape `runs` recorded, as the scrape counts it: one
 // more scrape; for each collector that ran, its duration and samples, and
@@ -174,13 +196,8 @@ export function record(l, runs, written, ids, events) {
 			e.d = average(e.d, r.duration);
 			e.n = r.samples ?? 0;
 
-			if (code != null && code != errors.SCRAPE_DEADLINE) {
-				let fails = { ...(e.fails ?? {}) };
-				let key = (code in keys(fails) || length(fails) < REASONS_MAX) ? code : OTHER;
-
-				fails[key] = (fails[key] ?? 0) + 1;
-				e.fails = fails;
-			}
+			if (code != null && code != errors.SCRAPE_DEADLINE)
+				count_failure(e, code);
 			if (code == errors.COMMAND_TIMEOUT)
 				e.to = (e.to ?? 0) + 1;
 		}
@@ -207,6 +224,27 @@ export function record(l, runs, written, ids, events) {
 		k = average(k, written.seconds / (written.samples * 1.0));
 
 	return { ...l, scrapes: n, k, c };
+};
+
+// The ledger `l` with collector `id` (named `name`) killed with the scrape
+// process it ran in, `why`: a failure, COLLECTOR_KILLED, which trips its
+// breaker as of the scrape that died, which never recorded itself: its
+// cool-down begins with the next scrape. `events` gets what changed of the
+// breaker, as record's.
+export function killed(l, id, name, why, events) {
+	let n = number(l) - 1;
+	let e = { ...(l.c[id] ?? {}) };
+	let res = Result.err(errors.COLLECTOR_KILLED, why);
+
+	count_failure(e, errors.COLLECTOR_KILLED);
+
+	let b = breaker.after(e, 'trip', n, substr(Result.describe(res), 0, WHY_MAX));
+
+	b.entry.qn = (b.entry.qn ?? 0) + 1;
+	if (events)
+		push(events, { name, tripped: true, closed: false, cooldown: b.entry.cd, why: b.entry.why });
+
+	return { ...l, c: { ...l.c, [id]: b.entry } };
 };
 
 // The ledger `l` with one more request that basic auth refused.

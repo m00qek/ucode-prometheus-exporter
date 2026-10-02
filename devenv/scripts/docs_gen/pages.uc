@@ -141,6 +141,10 @@ function collector_section(ctx, c, problems) {
 
 	if (seconds)
 		push(facts, `- **Seconds for its programs:** ${seconds}`);
+	if (meta.max_samples != null)
+		push(facts, `- **Samples it may write:** ${meta.max_samples}, its own (\`meta.max_samples\`), unless its section sets \`max_samples\``);
+	if (meta.cost == 'heavy')
+		push(facts, '- **Cost:** heavy (`meta.cost`): until the ledger has timed it, it runs after the others');
 	if (none)
 		push(facts, `- **Nothing to observe:** ${md.text(none.when)} See [Nothing to observe](#nothing-to-observe).`);
 
@@ -501,10 +505,17 @@ export function uci_page(ctx) {
 	push(core, b);
 	note_type(config.BUDGET);
 
+	let n = option_row('max_samples', config.SAMPLES, config.MAX_SAMPLES);
+
+	n[2] = `the collector's \`meta.max_samples\`, else \`max_samples\` (${config.MAX_SAMPLES})`;
+	push(core, n);
+	note_type(config.SAMPLES);
+
 	push(blocks, md.table([ 'Option', 'Type', 'Default', 'Datatype', 'Description' ], core));
 	push(blocks,
 		'`timeout` is only for a collector that runs programs (`exec` in its needs); the others ignore it. ' +
-		'A collector that takes longer than its `budget` is quarantined: see ' +
+		'A collector still running at the end of its `budget` is stopped and quarantined, and one that writes more ' +
+		'than its `max_samples` fails: see [Collector contract](collector-contract.md) and ' +
 		'[About deadlines and circuit breakers](../explanation/deadlines-and-breakers.md). ' +
 		`No collector may declare an option named ${md.codes(config.RESERVED)}.`);
 

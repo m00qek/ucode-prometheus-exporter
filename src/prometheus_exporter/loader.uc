@@ -3,6 +3,8 @@
 // Finds the installed collectors: every module in the collectors directory that
 // exports a valid `meta` and a `collect`. One that does not load or is not valid
 // is logged and left out, so a broken subpackage costs only its own collector.
+// So is one that is not in strict mode, and, given a probe
+// (prometheus_exporter.runner's), one that does not load within its time.
 
 import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
@@ -21,6 +23,10 @@ export const TITLE_MAX = 40;
 
 // The most seconds meta.timeout may give a collector's commands.
 export const TIMEOUT_MAX = config.EXEC_TIMEOUT_MAX;
+
+// What meta.cost takes: how much a run of the collector costs, roughly, before
+// the ledger has timed it (prometheus_exporter.ledger's order).
+export const COSTS = [ 'light', 'heavy' ];
 
 // The module a collector's name lives in: a module name cannot hold '-'.
 export function id_of(name) {
@@ -158,6 +164,13 @@ export function validate(id, mod) {
 			return invalid(id, `meta.timeout must be the seconds its commands may take, 1 to ${TIMEOUT_MAX}`);
 	}
 
+	if (meta.max_samples != null)
+		if (type(meta.max_samples) != 'int' || meta.max_samples < 1 || meta.max_samples > config.MAX_SAMPLES_MAX)
+			return invalid(id, `meta.max_samples must be the samples it may write, 1 to ${config.MAX_SAMPLES_MAX}`);
+
+	if (meta.cost != null && !(meta.cost in COSTS))
+		return invalid(id, `meta.cost must be one of ${join(', ', COSTS)}`);
+
 	if (meta.options != null && type(meta.options) != 'object')
 		return invalid(id, 'meta.options must be an object of { default, help, datatype }');
 
@@ -167,6 +180,8 @@ export function validate(id, mod) {
 		return invalid(id, "option 'timeout' is the core's, every collector that runs programs has it; meta.timeout sets its default");
 	if ('budget' in keys(meta.options ?? {}))
 		return invalid(id, "option 'budget' is the core's, every collector has it");
+	if ('max_samples' in keys(meta.options ?? {}))
+		return invalid(id, "option 'max_samples' is the core's, every collector has it; meta.max_samples sets its default");
 
 	for (let key, spec in meta.options) {
 		let res = validate_option(id, key, spec);
@@ -193,13 +208,69 @@ export function discover(fs, dir) {
 	return sort(map(files, (f) => substr(f, 0, -3)));
 };
 
+// What comes before a module's first statement: blank space, comments, and a
+// first line that starts with #! (as ucode skips it).
+const LEADING = /^(\s+|\/\/[^\n]*|\/\*([^*]|\*+[^*\/])*\*+\/)/;
+const DIRECTIVES = [ "'use strict'", '"use strict"' ];
+
+// Whether the text of a module is in strict mode: its first statement is the
+// 'use strict' directive. ucode honours the directive there alone, after only
+// what LEADING skips: anywhere else it is a string that does nothing. Strict
+// mode makes a variable that was never declared an error rather than a
+// global that every later collector of the scrape would see.
+export function is_strict(text) {
+	if (type(text) != 'string')
+		return false;
+
+	if (substr(text, 0, 2) == '#!') {
+		let nl = index(text, '\n');
+		text = (nl < 0) ? '' : substr(text, nl);
+	}
+
+	for (let m = match(text, LEADING); m; m = match(text, LEADING))
+		text = substr(text, length(m[0]));
+
+	if (!(substr(text, 0, 12) in DIRECTIVES))
+		return false;
+
+	// The directive is a statement of its own: a ';' or the end of its line.
+	let rest = ltrim(substr(text, 12), ' \t\r');
+
+	return rest == '' || substr(rest, 0, 1) in [ ';', '\n' ];
+};
+
 // The valid collectors in `dir`, sorted by name; log(level, msg) takes, at err,
-// each that is left out and why.
-export function load(fs, dir, import_fn, log) {
+// each that is left out and why. A module must be in strict mode
+// (is_strict), which its text tells before it is loaded. probe(ids), when
+// given, loads them elsewhere first (prometheus_exporter.runner's probe):
+// { <id>: { ok, error, hung } }, and only those that loaded there are loaded
+// here.
+export function load(fs, dir, import_fn, log, probe) {
 	let collectors = [];
+	let ids = [];
 
 	for (let id in discover(fs, dir)) {
+		if (is_strict(fs.readfile(`${dir}/${id}.uc`)))
+			push(ids, id);
+		else
+			log('err', `skipping collector: ${Result.describe(invalid(id, "not in strict mode: its first statement must be 'use strict'"))}`);
+	}
+
+	let probed = probe ? probe(ids) : {};
+
+	for (let id in ids) {
+		let p = probed[id];
 		let mod;
+
+		if (p?.hung) {
+			log('err', `collector '${id}' hung at load: ${p.error}; it is left out`);
+			continue;
+		}
+
+		if (p != null && !p.ok) {
+			log('err', `cannot load collector '${id}': ${p.error}`);
+			continue;
+		}
 
 		try {
 			mod = import_fn(id);

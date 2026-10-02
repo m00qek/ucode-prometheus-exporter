@@ -111,6 +111,15 @@ describe('ledger.order', () => {
 		assert.match([ 'a', 'b' ], ids(ledger.order(with_durations({ a: 3, b: 0.5 }), [ A, B ], (c) => c.id == 'b')));
 	});
 
+	it('runs one that declares itself heavy after the others the ledger has not timed, until it has', () => {
+		let cost = (c) => c.cost;
+		let H = { id: 'h', cost: 'heavy' }, L = { id: 'l', cost: 'light' };
+
+		assert.match([ 'l', 'd', 'h' ], ids(ledger.order(ledger.empty(), [ H, L, D ], null, cost)));
+		assert.match([ 'a', 'l', 'h' ], ids(ledger.order(with_durations({ a: 9 }), [ H, L, A ], null, cost)));
+		assert.match([ 'h', 'l' ], ids(ledger.order(with_durations({ h: 0.1 }), [ H, L ], null, cost)));
+	});
+
 	prop('orders every collector once, by what each is expected to take',
 		gen.array(gen.int(0, 5000), { min_len: 0, max_len: 8 }), (ms) => {
 			let cs = map(ms, (m, i) => ({ id: `c${i}` }));
@@ -197,6 +206,35 @@ describe('ledger, the breakers', () => {
 
 		// Ten in a tenth of the state's room.
 		assert.match(true, length(ledger.serialize(l)) * 10 < 32768, `${length(ledger.serialize(l))}`);
+	});
+});
+
+describe('ledger, a collector stopped or killed', () => {
+	function run_with(id, result, duration) {
+		return { id, name: id, duration: duration ?? 0.1, samples: 0, result, budget: 5 };
+	}
+
+	it('trips the breaker of one stopped at its budget, or killed with its process, at once', () => {
+		for (let code in [ 'COLLECTOR_CANCELLED', 'COLLECTOR_KILLED' ])
+			assert.match([ 'trip', `${code} (why)` ], ledger.outcome_of(run_with('c', Result.err(code, 'why'))), code);
+	});
+
+	it('counts one over its samples, or writing another\'s family, as a failure', () => {
+		for (let code in [ 'SAMPLE_LIMIT', 'FAMILY_CONFLICT' ])
+			assert.match('failed', ledger.outcome_of(run_with('c', Result.err(code, 'why')))[0], code);
+	});
+
+	it('takes one stopped at the deadline as the deadline\'s, not the collector\'s', () => {
+		assert.match('neutral', ledger.outcome_of(run_with('c', Result.err('SCRAPE_DEADLINE', 'stopped', { deadline: true }), 3))[0]);
+	});
+
+	it('quarantines a collector killed with its scrape process, and counts it', () => {
+		let events = [];
+		let l = ledger.killed(ledger.record(ledger.empty(), [ ran('a', 0.1) ], null, [ 'a' ]), 'a', 'a', 'it died', events);
+
+		assert.match([ 'open', 'trial', { COLLECTOR_KILLED: 1 }, 1 ], [ ledger.phase(l, 'a', ledger.number(l)), ledger.phase(l, 'a', ledger.number(l) + 1), l.c.a.fails, l.c.a.qn ]);
+		assert.match([ { name: 'a', tripped: true, closed: false, cooldown: 1, why: 'COLLECTOR_KILLED (it died)' } ], events);
+		assert.match({ failures: { COLLECTOR_KILLED: 1 }, timeouts: 0, quarantines: 1, deadline_skips: 0 }, ledger.counters(l).collectors.a);
 	});
 });
 

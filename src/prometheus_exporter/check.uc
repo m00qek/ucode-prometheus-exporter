@@ -3,8 +3,10 @@
 // `service prometheus-exporter check`: the configuration, checked as
 // the exporter and the init script read it; every installed collector, with its
 // section, options, needs and what the jail gives it; and one scrape, run here,
-// outside the jail, with each collector that fails and why, and each that has
-// nothing to observe and why (a success: 'dnsmasq is disabled'). With config_only
+// outside the jail, each collector in a process of its own and stopped at its
+// limit, as the service's scrapes run them (scrape.trial), with each collector
+// that fails and why, and each that has nothing to observe and why (a
+// success: 'dnsmasq is disabled'). With config_only
 // (check.uc --config, which start and reload run) it stops after the
 // configuration. Only an invalid configuration makes it fail.
 //
@@ -16,7 +18,7 @@
 //
 // sys: { uci: a uci cursor, fs: { stat }, path: the PATH commands are found on,
 //        collectors: the loaded ones, skipped: what the loader logged,
-//        env: a scrape env (prometheus_exporter.scrape),
+//        env: a scrape env (prometheus_exporter.scrape, app.scrape_env),
 //        ledger: the service's ledger, or null when it has none }
 
 import * as Result from 'prometheus_exporter.result';
@@ -168,14 +170,12 @@ function describe_collectors(sys, add_line, add) {
 	return enabled;
 }
 
-// One scrape of the enabled collectors: each that fails, and why, and each
-// that has nothing to observe, and why.
+// One scrape of the enabled collectors, guarded as the service's are
+// (scrape.trial): each that fails, and why, and each that has nothing to
+// observe, and why.
 function check_scrape(sys, add) {
 	let chosen = filter(sys.collectors, (c) => config.enabled(sys.uci, c.id));
-	let session = sys.env.session();
-	let runs = map(chosen, (c) => scrape.run_one(sys.env, session, c));
-
-	session.close();
+	let runs = scrape.trial(sys.env, sys.uci, sys.ledger, chosen, sys.collectors);
 
 	let failing = filter(runs, (r) => !r.result.ok);
 	let idle = filter(runs, (r) => Result.is_none(r.result));

@@ -128,7 +128,7 @@ describe('config.settings', () => {
 
 	it('gives enabled, the timeout and the options apart', () => {
 		with_uci({ c: { '.type': 'collector', enabled: '0', stations: '0', timeout: '7' } }, (uci) => {
-			assert.match({ enabled: false, timeout: 7, budget: 8, options: { stations: false } }, config.settings(uci, 'c', EXEC).data);
+			assert.match({ enabled: false, timeout: 7, budget: 8, max_samples: config.MAX_SAMPLES, options: { stations: false } }, config.settings(uci, 'c', EXEC).data);
 			assert.match({ stations: false }, config.collector(uci, 'c', EXEC).data);
 		});
 	});
@@ -185,15 +185,46 @@ describe('config.settings', () => {
 
 describe('config.core', () => {
 	it('gives every collector enabled and budget, and one that runs programs timeout too', () => {
-		assert.match([ 'enabled', 'budget' ], keys(config.core(meta({}, [ 'fs', 'ubus' ]), 5)));
-		assert.match({ enabled: config.ENABLED, timeout: { default: 9, ...config.TIMEOUT }, budget: { default: 12, ...config.BUDGET } },
-			config.core(meta({}, [ 'exec' ]), 9, 12));
-		assert.match(config.COLLECTOR_BUDGET, config.core(meta({}, [ 'fs' ])).budget.default);
+		assert.match([ 'enabled', 'budget', 'max_samples' ], keys(config.core(meta({}, [ 'fs', 'ubus' ]), 5)));
+		assert.match({ enabled: config.ENABLED, timeout: { default: 9, ...config.TIMEOUT }, budget: { default: 12, ...config.BUDGET },
+			max_samples: { default: 300, ...config.SAMPLES } }, config.core(meta({}, [ 'exec' ]), 9, 12, 300));
+		assert.match([ config.COLLECTOR_BUDGET, config.MAX_SAMPLES ],
+			[ config.core(meta({}, [ 'fs' ])).budget.default, config.core(meta({}, [ 'fs' ])).max_samples.default ]);
 	});
 
 	it('reserves the names of its options', () => {
 		assert.match(config.RESERVED, keys(config.core(meta({}, [ 'exec' ]), 5)));
 		assert.match('range(1,30)', config.TIMEOUT.datatype);
+	});
+});
+
+describe('config max_samples', () => {
+	function samples(m, main, own) {
+		let out;
+		let sections = { c: { '.type': 'collector', ...(own != null ? { max_samples: own } : {}) } };
+
+		if (main != null)
+			sections.main = { '.type': config.NAME, max_samples: main };
+		with_uci(sections, (uci) => {
+			let res = config.settings(uci, 'c', m);
+			out = res.ok ? res.data.max_samples : `${res.error} (${res.details})`;
+		});
+		return out;
+	}
+
+	it('takes the section\'s max_samples, then meta.max_samples, then the main section\'s', () => {
+		assert.match([ config.MAX_SAMPLES, 500, 70000, 7, 7 ], [
+			samples(meta({}, [ 'fs' ])),
+			samples(meta({}, [ 'fs' ]), '500'),
+			samples(meta({}, [ 'fs' ], { max_samples: 70000 }), '500'),
+			samples(meta({}, [ 'fs' ], { max_samples: 70000 }), '500', '7'),
+			samples(meta({}, [ 'fs' ]), null, '7'),
+		]);
+	});
+
+	it('refuses one of none, or past the most the core allows', () => {
+		assert.match(`CONFIG_INVALID (max_samples: expected an integer from 1 to ${config.MAX_SAMPLES_MAX}, got 0)`, samples(meta({}, [ 'fs' ]), null, '0'));
+		assert.match(true, index(samples(meta({}, [ 'fs' ]), null, `${config.MAX_SAMPLES_MAX + 1}`), 'CONFIG_INVALID (max_samples') == 0);
 	});
 });
 
@@ -268,7 +299,7 @@ describe('config.main', () => {
 	it('reads omit_zero_values from the main section', () => {
 		with_uci({ main: { '.type': config.NAME, omit_zero_values: '1', listen_port: '9100' } }, (uci) => {
 			assert.match({ omit_zero_values: true, compress: true, exec_timeout: config.EXEC_TIMEOUT, scrape_timeout: config.SCRAPE_TIMEOUT,
-				collector_budget: config.COLLECTOR_BUDGET }, config.main(uci).data);
+				collector_budget: config.COLLECTOR_BUDGET, max_samples: config.MAX_SAMPLES }, config.main(uci).data);
 		});
 	});
 

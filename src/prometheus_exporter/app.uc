@@ -12,6 +12,7 @@ import * as http from 'prometheus_exporter.http';
 import * as state from 'prometheus_exporter.state';
 import * as deadline from 'prometheus_exporter.deadline';
 import * as ledger from 'prometheus_exporter.ledger';
+import * as runner from 'prometheus_exporter.runner';
 import { version } from 'prometheus_exporter.version';
 
 // Basic auth as the handler finds it when it starts: null when uhttpd's
@@ -48,22 +49,40 @@ export function refusal(a, env, st) {
 	return null;
 };
 
+// The env a scrape runs collectors in (prometheus_exporter.scrape), over the
+// modules `mods` and log(level, msg): each collector in a process of its own
+// (prometheus_exporter.runner), unless opts.fork is false.
+export function scrape_env(mods, log, opts) {
+	return {
+		session: (to) => deps.session({ ...mods, log: to ?? log }),
+		clock: () => clock(true),
+		log,
+		version: version(),
+		fork: opts?.fork ?? true,
+	};
+};
+
+// The collectors in `dir` (loader.DIR), as the exporter loads them: each
+// probed first in a process of its own (prometheus_exporter.runner's probe),
+// unless opts.fork is false.
+export function load(mods, dir, log, opts) {
+	let probe = (opts?.fork ?? true) ? (ids) => runner.probe(ids, loader.import_module) : null;
+
+	return loader.load(mods.fs, dir ?? loader.DIR, loader.import_module, log, probe);
+};
+
 // { collectors(), scrape(query_string) }. log(level, msg) takes what the
 // loader, the scrapes and the collectors log (deps.LEVELS). `dir` replaces the
-// installed collectors' directory, for running from a source tree.
+// installed collectors' directory, for running from a source tree. opts.fork
+// false runs every collector, and loads every module, in this process.
 //
 // The collectors are loaded once: installing, removing or upgrading a
 // collector package reloads the service, which restarts uhttpd when the
 // collectors changed (see the init script).
-export function create(log, dir) {
+export function create(log, dir, opts) {
 	let mods = deps.modules();
-	let env = {
-		session: () => deps.session({ ...mods, log }),
-		clock: () => clock(true),
-		log,
-		version: version(),
-	};
-	let loaded = loader.load(mods.fs, dir ?? loader.DIR, loader.import_module, log);
+	let env = scrape_env(mods, log, opts);
+	let loaded = load(mods, dir, log, opts);
 
 	return {
 		collectors: () => loaded,
@@ -82,8 +101,8 @@ export function create(log, dir) {
 // opened here too, in the process uhttpd forks each request from, which names
 // the instance (see prometheus_exporter.state); `state_dir` replaces its
 // directory, for tests.
-export function handler(log, dir, state_dir) {
-	let app = create(log, dir);
+export function handler(log, dir, state_dir, opts) {
+	let app = create(log, dir, opts);
 	let main = config.main(app.mods.uci.cursor());
 	let compress = main.ok ? main.data.compress : config.MAIN_OPTIONS.compress.default;
 	let scrape_timeout = main.ok ? main.data.scrape_timeout : config.SCRAPE_TIMEOUT;

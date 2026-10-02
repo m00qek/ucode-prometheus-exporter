@@ -1,6 +1,6 @@
 'use strict';
 
-import { describe, it, prop, gen, assert, mock, regex } from 'utest';
+import { describe, it, prop, gen, assert, mock, regex, contains } from 'utest';
 import * as loader from 'prometheus_exporter.loader';
 import * as Result from 'prometheus_exporter.result';
 import * as config from 'prometheus_exporter.config';
@@ -183,14 +183,63 @@ describe('loader.validate', () => {
 		assert.match([ true, options ], [ res.ok, res.data.meta.options ]);
 	});
 
+	it('takes a cost of light or heavy, and nothing else', () => {
+		assert.match([ true, true, true ], map([ null, 'light', 'heavy' ], (cost) => loader.validate('x', module_named('x', { cost })).ok));
+		assert.match('x: meta.cost must be one of light, heavy', problem('x', module_named('x', { cost: 5 })));
+	});
+
+	it('takes max_samples of 1 up to the most the core allows', () => {
+		assert.match(true, loader.validate('x', module_named('x', { max_samples: 65536 })).ok);
+		for (let n in [ 0, config.MAX_SAMPLES_MAX + 1, '10', 1.5 ])
+			assert.match(`x: meta.max_samples must be the samples it may write, 1 to ${config.MAX_SAMPLES_MAX}`,
+				problem('x', module_named('x', { max_samples: n })), n);
+	});
+
 	prop('takes any title of 1 to 40 characters', gen.string({ charset: 'abc XYZ-', min_len: 1, max_len: 40 }), (title) => {
 		assert.match(true, loader.validate('x', module_named('x', { title })).ok);
 	});
 });
 
+describe('loader.is_strict', () => {
+	it('takes a module whose first statement is the directive, after comments, blank lines and #!', () => {
+		for (let text in [
+			"'use strict';\n",
+			'"use strict";\nexport const x = 1;',
+			"'use strict'\nexport const x = 1;",
+			"// A collector.\n\n/* Of things. */\n'use strict';\n",
+			"#!/usr/bin/ucode\n'use strict';\n",
+			"'use strict'",
+		])
+			assert.match(true, loader.is_strict(text), text);
+	});
+
+	it('refuses one without it first, or where it is not a statement of its own', () => {
+		for (let text in [
+			'',
+			"export const x = 1;\n'use strict';\n",
+			"'use strict' + 1;\n",
+			"'use  strict';\n",
+			"/* unterminated\n'use strict';\n",
+			"'use strictly';\n",
+			null,
+		])
+			assert.match(false, loader.is_strict(text), text);
+	});
+
+	prop('is strict whatever comments come first', gen.array(gen.elements('// x\n', '/* y */', '\n', ' ', '/** z **/'), { min_len: 0, max_len: 5 }), (lead) => {
+		assert.match(true, loader.is_strict(join('', lead) + "'use strict';\n"));
+	});
+
+	it('takes every collector of the source tree', () => {
+		for (let f in require('fs').glob('src/prometheus_exporter/collectors/*.uc'))
+			assert.match(true, loader.is_strict(require('fs').readfile(f)), f);
+	});
+});
+
 describe('loader.discover and load', () => {
 	const DIR = '/usr/share/ucode/prometheus_exporter/collectors';
-	const FILES = { [DIR + '/b.uc']: '', [DIR + '/a.uc']: '', [DIR + '/broken.uc']: '', [DIR + '/odd.uc']: '', [DIR + '/README']: '' };
+	const STRICT = "'use strict';\n";
+	const FILES = { [DIR + '/b.uc']: STRICT, [DIR + '/a.uc']: STRICT, [DIR + '/broken.uc']: STRICT, [DIR + '/odd.uc']: STRICT, [DIR + '/README']: '' };
 
 	it('finds the modules of a directory, sorted', () => {
 		mock.inject('fs', { strict: true, data: FILES }, (fs) => {
@@ -208,6 +257,42 @@ describe('loader.discover and load', () => {
 			assert.match([
 				[ 'err', "cannot load collector 'broken': Unable to compile module" ],
 				[ 'err', 'skipping collector: COLLECTOR_INVALID (odd: exports no meta)' ],
+			], logs);
+		});
+	});
+
+	it('refuses a module that is not in strict mode, without loading it', () => {
+		mock.inject('fs', { strict: true, data: { ...FILES, [DIR + '/b.uc']: "'use strict' + 1;\n" } }, (fs) => {
+			let logs = [];
+			let imported = [];
+			let loaded = loader.load(fs, DIR, (id) => { push(imported, id); return module_named(id); }, (level, m) => push(logs, [ level, m ]));
+
+			assert.match([ 'a', 'broken', 'odd' ], imported);
+			assert.match(contains([ [ 'err', "skipping collector: COLLECTOR_INVALID (b: not in strict mode: its first statement must be 'use strict')" ] ]), logs);
+			assert.match([ 'a', 'broken', 'odd' ], map(loaded, (c) => c.meta.name));
+		});
+	});
+
+	it('loads only what the probe loaded, and says why it left the others out', () => {
+		mock.inject('fs', { strict: true, data: FILES }, (fs) => {
+			let logs = [];
+			let imported = [];
+			let probed = [];
+			let probe = function(ids) {
+				push(probed, ...ids);
+				return {
+					a: { ok: true }, b: { ok: false, hung: true, error: 'still loading after 5 s: stopped' },
+					broken: { ok: false, error: 'Unable to compile module' }, odd: { ok: true },
+				};
+			};
+			let loaded = loader.load(fs, DIR, (id) => { push(imported, id); return module_named(id); }, (level, m) => push(logs, [ level, m ]), probe);
+
+			assert.match([ 'a', 'b', 'broken', 'odd' ], probed);
+			assert.match([ 'a', 'odd' ], imported);
+			assert.match([ 'a', 'odd' ], map(loaded, (c) => c.meta.name));
+			assert.match([
+				[ 'err', "collector 'b' hung at load: still loading after 5 s: stopped; it is left out" ],
+				[ 'err', "cannot load collector 'broken': Unable to compile module" ],
 			], logs);
 		});
 	});

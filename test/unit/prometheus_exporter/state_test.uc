@@ -11,7 +11,7 @@ const DIR = '/state';
 // a lock not taken). `locks` has what happened to locks, in order: [ 'x', path ]
 // when one is taken, [ 'close', path ] when its file is closed; `held`, the
 // path of the lock held, or null.
-function filesystem(files, dirs, broken, stat) {
+function filesystem(files, dirs, broken, stat, procs) {
 	let fails = (name) => (name in (broken ?? []));
 	let fs = null;
 
@@ -31,6 +31,8 @@ function filesystem(files, dirs, broken, stat) {
 					return true;
 				},
 				close: function() { push(fs.locks, [ 'close', p ]); if (fs.held == p) fs.held = null; return true; },
+				write: function(text) { files[p].data += text; return length(text); },
+				flush: () => true,
 			};
 		},
 		error: () => 'Permission denied',
@@ -46,6 +48,8 @@ function filesystem(files, dirs, broken, stat) {
 		readfile: function(p, size) {
 			if (p == '/proc/self/stat')
 				return stat;
+			if (match(p, /^\/proc\/[0-9]+\/stat$/))
+				return procs?.[split(p, '/')[2]];
 			return (p in keys(files)) ? substr(files[p].data, 0, size) : null;
 		},
 		lsdir: function(d) {
@@ -261,6 +265,51 @@ describe('state.open', () => {
 
 		assert.match([ want.a || null, want.b || null ], map([ 'a', 'b' ], (n) => st.read(n) == null ? null : +st.read(n)));
 		assert.match(null, fs.held);
+	});
+});
+
+describe('state, a scrape\'s progress', () => {
+	const ID = '7-100';
+
+	function opened(files, procs) {
+		let fs = filesystem(files ?? {}, { [DIR]: 0o700 }, [], stat_of(42, 'uhttpd', 555), procs);
+
+		return { fs, st: state.open(fs, DIR, ID) };
+	}
+
+	it('appends a line for each collector it starts, and removes the file once the reply is written', () => {
+		let o = opened();
+		let p = o.st.progress();
+
+		p.start('cpu');
+		p.start('nat_traffic');
+		assert.match("start cpu\nstart nat_traffic\n", o.fs.files[`${DIR}/${ID}.p42_555`].data);
+		p.collected();
+		p.finish();
+		assert.match([], keys(o.fs.files));
+	});
+
+	it('finds the progress of a scrape process that is gone, and the collector it was running', () => {
+		let o = opened({
+			[`${DIR}/${ID}.p50_600`]: { data: 'start cpu\nstart oom\n' },
+			[`${DIR}/${ID}.p51_601`]: { data: 'start cpu\ncollected\n' },
+			[`${DIR}/${ID}.p52_602`]: { data: 'start cpu\n' },
+			[`${DIR}/${ID}.scrape`]: { data: '{}' },
+		}, { '52': stat_of(52, 'uhttpd', 602), '50': stat_of(50, 'uhttpd', 999) });
+
+		assert.match([ { file: `${ID}.p50_600`, running: 'oom' }, { file: `${ID}.p51_601`, running: null } ], o.st.dead());
+	});
+
+	it('lets one scrape claim a dead one\'s file', () => {
+		let o = opened({ [`${DIR}/${ID}.p50_600`]: { data: 'start oom\n' } });
+
+		assert.match([ true, false, false ], [ o.st.claim(`${ID}.p50_600`), o.st.claim(`${ID}.p50_600`), o.st.claim('9-9.p1_1') ]);
+	});
+
+	it('removes another instance\'s progress with its state', () => {
+		let o = opened({ [`${DIR}/1-1.p50_600`]: { data: 'start oom\n' } });
+
+		assert.match([ [], [] ], [ keys(o.fs.files), o.st.dead() ]);
 	});
 });
 

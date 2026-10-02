@@ -230,5 +230,9 @@ export const errors = {
 	SCRAPE_DEADLINE: 'The scrape\'s time was nearly spent: the collector was not run, or a program it ran was killed at the deadline, so that the scrape answers before the scraper gives up. The scrape logs every such collector in one line. See [About deadlines and circuit breakers](../explanation/deadlines-and-breakers.md).',
 	COLLECTOR_QUARANTINED: 'The collector\'s circuit breaker is open: it was not run in this scrape, even if the query named it. The detail says what tripped the breaker and when the collector is tried again; a restart of the service tries it at once.',
 	COLLECTOR_OVERRUN: 'What tripped a breaker: the collector took longer than its `budget`. The detail is how long it took and its budget. The run itself counts as it went; its breaker trips.',
+	COLLECTOR_CANCELLED: 'The collector was still running at the end of its `budget`, and was stopped with the process it ran in: a loop that never ends, or a system call that never returns. None of its samples are served, and its breaker trips. See [Collector contract](collector-contract.md).',
+	COLLECTOR_KILLED: 'The process the collector ran in ended while it ran: it went past the memory limit, a native module crashed, or it called `exit()`; or the scrape process itself died while it ran, which the next scrape finds. None of its samples are served, and its breaker trips.',
+	SAMPLE_LIMIT: 'The collector wrote more samples than its `max_samples`, and was stopped there. The detail says how many and in which family. None of its samples are served.',
+	FAMILY_CONFLICT: 'The collector wrote a family that another collector of the reply wrote first, or one the exporter keeps for itself (`node_scrape_collector_*`, `ucode_prometheus_exporter_*`). The detail names it. None of its samples are served.',
 	EXPOSITION_INVALID: 'Text that is not valid Prometheus exposition format: a `*.prom` file of textfile, which the collector then leaves out. The detail names the line.',
 };

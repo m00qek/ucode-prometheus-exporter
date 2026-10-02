@@ -5,8 +5,8 @@
 // exporter: where it listens, and how many collectors it serves.
 
 import * as deps from 'prometheus_exporter.deps';
-import * as loader from 'prometheus_exporter.loader';
 import * as config from 'prometheus_exporter.config';
+import { load } from 'prometheus_exporter.app';
 import * as check from 'prometheus_exporter.check';
 import * as Result from 'prometheus_exporter.result';
 
@@ -22,6 +22,6 @@ if (!res.ok) {
 }
 
 const instances = check.exporters(values(res.data?.[config.NAME]?.instances ?? {}));
-const collectors = loader.load(mods.fs, loader.DIR, loader.import_module, () => null);
+const collectors = load(mods, null, () => null);
 
 print(check.status(instances[0]?.command ?? [], collectors, mods.uci.cursor()), '\n');

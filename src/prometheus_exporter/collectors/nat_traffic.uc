@@ -18,6 +18,15 @@ export const meta = {
 	title: 'Traffic per address pair',
 	help: 'Bytes per source and destination address, from /proc/net/nf_conntrack.',
 	needs: [ 'fs' ],
+	// The connection table, which on a busy router holds tens of thousands:
+	// a 500-MIPS router takes seconds over 20,000 of them. Before the ledger
+	// times it, it runs after the others, so that a first scrape after a
+	// restart does not spend their time on it.
+	cost: 'heavy',
+	// A sample for each pair of addresses in the table, of which there are
+	// at most as many as connections: OpenWrt keeps 16,384 by default
+	// (net.netfilter.nf_conntrack_max), and a busy router is given 65,536.
+	max_samples: 65536,
 };
 
 const CONNTRACK = '/proc/net/nf_conntrack';

@@ -35,17 +35,55 @@ export function ubus_status(message) {
 	return i < 0 ? message : substr(message, 0, i);
 };
 
+// The seconds a ubus call waits for its reply when nothing limits it: ucode's
+// own default.
+export const UBUS_TIMEOUT = 30;
+
 // A ubus connection opened on first use, so a scrape that needs no ubus makes
 // none. A null reply is not a failure by itself: only error() tells a method
 // without data from a failed call, whose data is { status } (ubus_status).
-export function ubus_channel(connect_fn) {
+//
+// limit(t): the calls after it wait for no reply past `t` (monotonic seconds,
+// clock_fn's), null for UBUS_TIMEOUT: a collector's ubus calls end by the time
+// it is stopped, so a service that does not answer fails the call, saying so,
+// rather than the collector. ucode's ubus takes one timeout per connection, in
+// whole seconds, set when it connects: a call that needs a shorter one than
+// its connection's connects again, which happens at most once a second, as a
+// scrape's time runs down, and so does the first call under a new limit that
+// allows a longer one; a call never waits less than a second.
+export function ubus_channel(connect_fn, clock_fn) {
 	let conn = null;
 	let tried = false;
+	let limit = null;
+	let timeout = null;
+	let connected_for = null;
+
+	clock_fn ??= () => clock(true);
+
+	function seconds_left() {
+		if (limit == null)
+			return UBUS_TIMEOUT;
+
+		let t = clock_fn();
+		let left = limit - (t[0] + t[1] / 1000000000.0);
+
+		return min(UBUS_TIMEOUT, max(1, int(left + 0.999)));
+	}
 
 	function get() {
+		let want = seconds_left();
+
+		if (tried && conn && (want < timeout || (want > timeout && limit != connected_for))) {
+			conn.disconnect();
+			conn = null;
+			tried = false;
+		}
+
 		if (!tried) {
 			tried = true;
-			conn = connect_fn();
+			timeout = want;
+			connected_for = limit;
+			conn = connect_fn(null, want);
 		}
 
 		return conn;
@@ -79,6 +117,10 @@ export function ubus_channel(connect_fn) {
 			return names == null
 				? Result.err(errors.UBUS_CALL_FAILED, `list: ${c.error()}`)
 				: Result.ok(names);
+		},
+
+		limit: function(t) {
+			limit = t;
 		},
 
 		close: function() {
@@ -333,8 +375,9 @@ export const SYSTEM_FILES = [ '/proc/stat', '/proc/self/auxv' ];
 //   counters()     ledger.counters of its scrapes, this one's so far
 //                  included, or null where there is no ledger
 //   samples()      { collector: samples } of this scrape's collectors so far
-// `view` is the scrape's: { pid, counters(), samples() }; without it, the
-// process is this one and there are no counters.
+// `view` is the scrape's, as data that crosses a process's pipe: { pid,
+// counters, samples }; without it, the process is this one and there are no
+// counters.
 export function exporter_channel(fs, view) {
 	let base = `/proc/${view?.pid ?? 'self'}`;
 
@@ -346,8 +389,8 @@ export function exporter_channel(fs, view) {
 			return (entries == null) ? null : length(entries);
 		},
 		system: (file) => (file in SYSTEM_FILES) ? fs.readfile(file) : null,
-		counters: () => view?.counters ? view.counters() : null,
-		samples: () => view?.samples ? view.samples() : {},
+		counters: () => view?.counters ?? null,
+		samples: () => view?.samples ?? {},
 	};
 };
 
@@ -414,7 +457,7 @@ export function uci_handles(cursor_fn, configs) {
 // what a collector that succeeds still has to say is something it could not
 // read.
 export function session(mods) {
-	let ubus = ubus_channel(mods.ubus.connect);
+	let ubus = ubus_channel(mods.ubus.connect, mods.clock);
 	let uci = null;
 	let fs = {};
 
@@ -449,9 +492,12 @@ export function session(mods) {
 		// packages). settings: what its config says (config.settings): exec's
 		// programs get settings.timeout seconds, else meta.timeout's, and
 		// never run past `cutoff` (exec_channel). `view`: the scrape's, for
-		// exporter (exporter_channel).
-		for: function(meta, settings, cutoff, view) {
+		// exporter (exporter_channel). `limit`: when the collector is
+		// stopped, which its ubus calls wait no longer than (ubus_channel).
+		for: function(meta, settings, cutoff, view, limit) {
 			let deps = {};
+
+			ubus.limit(limit);
 
 			for (let need in meta.needs) {
 				let cap = capability(need, meta, settings, cutoff, view);

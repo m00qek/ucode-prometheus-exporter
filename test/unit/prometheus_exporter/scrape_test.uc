@@ -180,6 +180,49 @@ describe('scrape.run_one', () => {
 		assert.match([ false, 'CONFIG_INVALID (timeout: expected an integer from 1 to 30, got 31)' ], [ called, Result.describe(r.result) ]);
 	});
 
+	it('stops a collector at its max_samples, keeps none of its samples, and says how far it got', () => {
+		let wrote = 0;
+		let c = collector('runaway', function(d, out) {
+			let g = out.gauge('runaway_value');
+
+			for (let i = 0; i < 1000000; i++, wrote++)
+				g({ i }, i);
+			return Result.ok();
+		});
+		let r = run(c, { options: { max_samples: '100' } });
+
+		assert.match([ 100, 0, [] ], [ wrote, r.samples, r.families ]);
+		assert.match('SAMPLE_LIMIT (more than its max_samples of 100: stopped at 101 samples, in runaway_value)', Result.describe(r.result));
+		assert.match([ "collector 'runaway': SAMPLE_LIMIT (more than its max_samples of 100: stopped at 101 samples, in runaway_value)" ], r.logs);
+	});
+
+	it('fails a collector over its max_samples though it caught what stopped it, and counts what parse() adds', () => {
+		let stubborn = collector('stubborn', function(d, out) {
+			let g = out.gauge('x');
+
+			for (let i = 0; i < 20; i++)
+				try { g({ i }, i); } catch (e) { }
+			return Result.ok();
+		}, { max_samples: 10 });
+		let parsed = collector('parsed', (d, out) => out.parse('a 1\nb 2\nc 3\n'), { max_samples: 2 });
+
+		assert.match('SAMPLE_LIMIT', run(stubborn).result.error);
+		assert.match('SAMPLE_LIMIT (more than its max_samples of 2: stopped at 3 samples, in c)', Result.describe(run(parsed).result));
+	});
+
+	prop('keeps every sample of a collector at or under its max_samples, and none over',
+		gen.tuple(gen.int(0, 40), gen.int(1, 30)), (t) => {
+			let r = run(collector('n', function(d, out) {
+				let g = out.gauge('n_value');
+
+				for (let i = 0; i < t[0]; i++)
+					g({ i }, i);
+				return Result.ok();
+			}, { max_samples: t[1] }));
+
+			assert.match(t[0] <= t[1] ? [ true, t[0] ] : [ false, 0 ], [ r.result.ok, r.samples ]);
+		});
+
 	it('logs a family declared with two types', () => {
 		let r = run(collector('mixed', (d, out) => { out.gauge('m')(null, 1); out.counter('m')(null, 2); return Result.ok(); }));
 		assert.match(contains([ "collector 'mixed': 'm' declared with two types; later samples dropped" ]), r.logs);
@@ -373,14 +416,66 @@ describe('scrape.scrape', () => {
 				lines(scrape_with([ A ], q).body), q);
 	});
 
-	it('merges a family two collectors share', () => {
-		let r = scrape_with([ collector('x', gauge_of('shared', 1)), collector('y', (d, out) => {
+	it('gives a family to the first collector of the reply that writes it, and fails the next that does, alone', () => {
+		let y = collector('y', (d, out) => {
+			out.gauge('y_value')(null, 7);
 			out.gauge('shared')({ by: 'y' }, 2);
 			return Result.ok();
-		}) ], 'collect[]=x&collect[]=y');
+		});
+		let r = scrape_with([ collector('x', gauge_of('shared', 1)), y, C ], '');
 
-		assert.match(contains([ '# TYPE shared gauge\nshared 1\nshared{by="y"} 2\n' ]), [ substr(r.body, 0, index(r.body, '# HELP')) ]);
+		assert.match(contains([ '# TYPE shared gauge', 'shared 1', 'c_value 3',
+			'node_scrape_collector_success{collector="x"} 1', 'node_scrape_collector_success{collector="y"} 0',
+			'node_scrape_collector_success{collector="c"} 1' ]), lines(r.body));
+		assert.match([ -1, -1 ], [ index(r.body, 'by="y"'), index(r.body, 'y_value') ]);
+		assert.match([ "collector 'y': FAMILY_CONFLICT (shared belongs to collector x, which wrote it first)" ], r.logs);
 	});
+
+	it('gives it by the order of the reply, not the order they ran in', () => {
+		let st = memory_state(ledger_of({ x: 3, y: 0.1 }));
+		let r = scrape_with([ collector('x', gauge_of('shared', 1)), collector('y', gauge_of('shared', 2)) ], '', {}, { state: st });
+
+		assert.match(contains([ 'shared 1', 'node_scrape_collector_success{collector="y"} 0' ]), lines(r.body));
+		r = scrape_with([ collector('x', gauge_of('shared', 1)), collector('y', gauge_of('shared', 2)) ], 'collect[]=y&collect[]=x');
+		assert.match(contains([ 'shared 2', 'node_scrape_collector_success{collector="x"} 0' ]), lines(r.body));
+	});
+
+	it('keeps the scrape\'s own families and the exporter\'s to themselves', () => {
+		let r = scrape_with([ A, collector('mimic', (d, out) => {
+			out.gauge('node_scrape_collector_success')({ collector: 'a' }, 0);
+			return Result.ok();
+		}), collector('self', gauge_of('ucode_prometheus_exporter_scrapes_total', 9)) ], '');
+
+		assert.match(contains([ 'node_scrape_collector_success{collector="a"} 1', 'node_scrape_collector_success{collector="mimic"} 0',
+			'node_scrape_collector_success{collector="self"} 0' ]), lines(r.body));
+		assert.match([
+			"collector 'mimic': FAMILY_CONFLICT (node_scrape_collector_success belongs to the scrape itself)",
+			"collector 'self': FAMILY_CONFLICT (ucode_prometheus_exporter_scrapes_total belongs to the exporter itself)",
+		], r.logs);
+		assert.match(-1, index(r.body, 'ucode_prometheus_exporter_scrapes_total'));
+	});
+
+	it('lets a collector that describes the exporter write the exporter\'s families', () => {
+		let r = scrape_with([ collector('self', gauge_of('ucode_prometheus_exporter_scrapes_total', 9), { needs: [ 'exporter' ] }) ], '');
+
+		assert.match(contains([ 'ucode_prometheus_exporter_scrapes_total 9', 'node_scrape_collector_success{collector="self"} 1' ]), lines(r.body));
+	});
+
+	prop('serves each family once, from one collector, whatever they write',
+		gen.array(gen.elements('f1', 'f2', 'f3'), { min_len: 1, max_len: 6 }), (writes) => {
+			let made = map(writes, (f, i) => collector(`w${i}`, gauge_of(f, i)));
+			let r = scrape_with(made, '');
+			let parsed = exposition.parse(r.body);
+			let first = {};
+
+			assert.match(true, parsed.ok, r.body);
+			for (let i, f in writes) {
+				first[f] ??= i;
+				assert.match(first[f] == i, `node_scrape_collector_success{collector="w${i}"} 1` in lines(r.body), f);
+			}
+			for (let f in uniq(writes))
+				assert.match(1, length(filter(parsed.data, (x) => x.name == f)[0].samples), f);
+		});
 
 	it('answers 400 for an unknown collector', () => {
 		let r = scrape_with([ A ], 'collect[]=nope');
@@ -563,6 +658,28 @@ describe('scrape.scrape, with circuit breakers', () => {
 			assert.match(contains([ 'node_scrape_collector_success{collector="a"} 1' ]), lines(r.body));
 			assert.match([ "collector 'a' quarantined for 1 scrape: COLLECTOR_OVERRUN (took 1.25 s, over its budget of 1 s)" ], logs);
 		});
+	});
+
+	it('quarantines the collector a dead scrape process was running, says so, and runs the others', () => {
+		let ran = [];
+		let st = memory_state();
+		let claimed = [];
+
+		st.dead = () => [ { file: '1-1.p9_9', running: 'f' }, { file: '1-1.p8_8', running: null } ];
+		st.claim = function(f) {
+			if (f in claimed)
+				return false;
+			push(claimed, f);
+			return true;
+		};
+
+		let rs = scrapes([ A, flaky('f', [ true ], ran) ], 2, '', st);
+
+		assert.match([ [ 'f' ], [ '1-1.p9_9', '1-1.p8_8' ] ], [ ran, claimed ], 'run once: the second scrape is its trial');
+		assert.match([ true, false ], [ quarantined(rs[0], 'f'), quarantined(rs[1], 'f') ]);
+		assert.match([ "collector 'f' was running when a scrape process died",
+			"collector 'f' quarantined for 1 scrape: COLLECTOR_KILLED (its scrape process died while it ran: out of memory, a crash, or killed)" ], rs[0].logs);
+		assert.match([ "collector 'f' served again: its trial succeeded" ], rs[1].logs);
 	});
 
 	prop('never runs a quarantined collector, and always answers every selected one, in order',

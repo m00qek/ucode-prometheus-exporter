@@ -474,9 +474,26 @@ export function parse(text) {
 // A family it records is { name, type, help, lines, values }: each sample as
 // the line the format writes, and for a counter the values, which render()'s
 // omit_zero_counters reads.
-export function recorder() {
+//
+// It takes at most `max` samples (none: no limit). The sample past them is not
+// recorded, and stops the collector: it throws, and so does every sample after
+// it, should the collector catch that. over() is then { family, samples }: the
+// family it was writing and the samples it had written with that one, or null
+// while it is under. A runaway costs neither the time nor the memory of what it
+// would have gone on writing.
+export const OVER_LIMIT = 'prometheus_exporter: over the sample limit';
+
+export function recorder(max) {
 	let set = family_set();
 	let conflicts = [];
+	let count = 0;
+	let cap = max ?? Infinity;
+	let over = null;
+
+	function stop(name) {
+		over ??= { family: name, samples: count };
+		die(OVER_LIMIT);
+	}
 
 	// As add_family() would add an empty family, without making it first:
 	// netstat and ethtool make hundreds of families.
@@ -503,6 +520,8 @@ export function recorder() {
 			let v = type(value) == 'int' ? '' + value : format_value(value);
 
 			if (target && v != null) {
+				if (++count > cap)
+					stop(name);
 				push(lines, name + (type(labels) == 'string' ? labels : label_text(labels)) + ' ' + v);
 				if (values)
 					push(values, v);
@@ -515,9 +534,13 @@ export function recorder() {
 	}
 
 	function add(families) {
-		for (let fam in families)
+		for (let fam in families) {
+			count += length(fam.samples);
+			if (count > cap)
+				stop(fam.name);
 			if (!add_family(set, as_lines(fam)))
 				push(conflicts, fam.name);
+		}
 	}
 
 	return {
@@ -541,7 +564,42 @@ export function recorder() {
 
 		families: () => families_of(set),
 		conflicts: () => uniq(conflicts),
+		over: () => over,
 	};
+};
+
+// Families as a recorder keeps them, packed to cross a process's pipe: each
+// family's samples as one block of text, and with `omit` (omit_zero_values)
+// without the counter samples whose value is 0, as render() would leave them
+// out. render() takes them as they are; a family left without samples is not
+// kept.
+export function pack(families, omit) {
+	let out = [];
+
+	for (let fam in families) {
+		if (fam.packed) {
+			push(out, fam);
+			continue;
+		}
+
+		let lines = fam.lines ?? map(fam.samples, sample_line);
+
+		if (omit && fam.type == 'counter' && !fam.packed) {
+			let values = fam.values ?? map(fam.samples, (s) => s.value);
+			let kept = [];
+
+			for (let i, line in lines)
+				if (+values[i] != 0)
+					push(kept, line);
+
+			lines = kept;
+		}
+
+		if (length(lines))
+			push(out, { name: fam.name, type: fam.type, help: fam.help, lines: [ join('\n', lines) ], values: [], packed: true });
+	}
+
+	return out;
 };
 
 // The families of several recorders as one list, merged by name in the order
@@ -576,7 +634,7 @@ export function merge(lists) {
 			if (!copied[name]) {
 				let have = set.list[i];
 
-				set.by_name[name] = set.list[i] = { name, type: have.type, help: have.help, lines: [ ...have.lines ], values: [ ...have.values ] };
+				set.by_name[name] = set.list[i] = { name, type: have.type, help: have.help, lines: [ ...have.lines ], values: [ ...have.values ], packed: have.packed };
 				copied[name] = true;
 			}
 
@@ -587,10 +645,11 @@ export function merge(lists) {
 	return { families: set.list, conflicts: uniq(conflicts) };
 };
 
-// The text of families as a recorder or merge() keeps them, or as parse()
-// gives them. opts.omit_zero_counters leaves out counter samples whose value is
-// 0 (the lua exporter's omit_zero_values). A family left without samples is
-// not written.
+// The text of families as a recorder or merge() keeps them, as pack() makes
+// them, or as parse() gives them. opts.omit_zero_counters leaves out counter
+// samples whose value is 0 (the lua exporter's omit_zero_values), but for a
+// packed family, whose pack() did. A family left without samples is not
+// written.
 export function render(families, opts) {
 	let parts = [];
 	let omit = opts?.omit_zero_counters;
@@ -598,7 +657,7 @@ export function render(families, opts) {
 	for (let fam in families) {
 		let lines = fam.lines ?? map(fam.samples, sample_line);
 
-		if (omit && fam.type == 'counter') {
+		if (omit && fam.type == 'counter' && !fam.packed) {
 			let values = fam.values ?? map(fam.samples, (s) => s.value);
 			let kept = [];
 

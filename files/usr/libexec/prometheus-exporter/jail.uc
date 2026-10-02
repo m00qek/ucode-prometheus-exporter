@@ -13,9 +13,9 @@
 
 import { mkdir, chmod, error } from 'fs';
 import * as deps from 'prometheus_exporter.deps';
-import * as loader from 'prometheus_exporter.loader';
 import * as jail from 'prometheus_exporter.jail';
 import * as state from 'prometheus_exporter.state';
+import { load } from 'prometheus_exporter.app';
 
 const mode = ARGV[0];
 
@@ -28,7 +28,7 @@ const mods = deps.modules();
 const log = (msg) => warn(`${msg}\n`);
 const quiet = () => null;
 // The handler logs a collector that does not load; here it is only left out.
-const collectors = loader.load(mods.fs, loader.DIR, loader.import_module, quiet);
+const collectors = load(mods, null, quiet);
 const res = jail.mounts(collectors, { uci: mods.uci.cursor(), fs: mods.fs, path: jail.PATH });
 
 if (mode == '--missing') {

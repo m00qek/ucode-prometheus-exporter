@@ -88,8 +88,8 @@ function with_sys(own, cfg, cb) {
 			skipped: cfg.skipped ?? [],
 			env: {
 				session: () => deps.session({ ...mods, log: quiet }),
-				// Each run takes 5 ms.
-				clock: () => [ 0, (tick++ % 2) * 5000000 ],
+				// 5 ms a reading: a run reads it twice in a row.
+				clock: () => [ 0, (tick++) * 5000000 ],
 				log: quiet,
 			},
 			ubus: deps.ubus_channel(mods.ubus.connect),

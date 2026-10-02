@@ -5,7 +5,7 @@
 // back must pass.
 
 import { describe, it, assert } from 'utest';
-import { lsdir } from 'fs';
+import { lsdir, readfile } from 'fs';
 import * as rpc from 'prometheus_exporter.rpc';
 import * as loader from 'prometheus_exporter.loader';
 import * as deps from 'prometheus_exporter.deps';
@@ -14,7 +14,7 @@ import * as jail from 'prometheus_exporter.jail';
 import { with_mods } from 'context';
 
 const SOURCES = 'src/prometheus_exporter/collectors';
-const COLLECTORS = loader.load({ lsdir }, SOURCES, loader.import_module, (msg) => die(msg));
+const COLLECTORS = loader.load({ lsdir, readfile }, SOURCES, loader.import_module, (level, msg) => die(msg));
 
 // uci's spelling of a typed value.
 function as_uci(v) {

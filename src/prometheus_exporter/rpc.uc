@@ -73,12 +73,14 @@ import * as check from 'prometheus_exporter.check';
 import * as auth from 'prometheus_exporter.auth';
 import * as state from 'prometheus_exporter.state';
 import * as ledger from 'prometheus_exporter.ledger';
+import { scrape_env } from 'prometheus_exporter.app';
 
 // The service's names follow from config.NAME, its packages' from config.PACKAGE.
 export const NAME = config.NAME;
 export const PACKAGE = config.PACKAGE;
 export const OBJECT = NAME;
 export const STATUS_HELPER = `/usr/libexec/${NAME}/rpc-status.uc`;
+export const PROBE_HELPER = `/usr/libexec/${NAME}/probe.uc`;
 
 export const APK_LISTS = '/lib/apk/packages';
 export const RC_DIR = '/etc/rc.d';
@@ -387,14 +389,11 @@ export function interfaces(sys) {
 // One scrape of the enabled collectors: how each did, whether it had
 // something to observe (and why not), and what the jail gives it.
 export function scrape_report(sys) {
-	let session = sys.env.session();
+	let chosen = filter(sys.collectors, (c) => config.enabled(sys.uci, c.id));
 	let runs = {};
 
-	for (let c in sys.collectors)
-		if (config.enabled(sys.uci, c.id))
-			runs[c.id] = scrape.run_one(sys.env, session, c);
-
-	session.close();
+	for (let r in scrape.trial(sys.env, sys.uci, sys.ledger, chosen, sys.collectors))
+		runs[r.id] = r;
 
 	return map(sys.collectors, function(c) {
 		let r = runs[c.id];
@@ -466,6 +465,58 @@ export function deferred_json(req, io, command) {
 	return req.defer();
 };
 
+// A probe for loader.load in rpcd (prometheus_exporter.runner's probe), which
+// rpcd itself must not run: a collector module whose top level never returns
+// would hang rpcd, and every LuCI page with it, and rpcd's own event loop is
+// not one to run another inside. So `helper` (PROBE_HELPER) probes the modules
+// in a process of its own, which prints what runner.probe found as JSON, and
+// rpcd waits for it, a module's LOAD_TIMEOUT at most; and it does so once for
+// each version of a module, by its inode, size and change time in `dir`
+// (loader.DIR): a reload of rpcd forgets them all. fs: { stat, popen }.
+export function cached_probe(fs, dir, helper) {
+	let known = {};
+
+	return function(ids) {
+		let out = {};
+		let need = [];
+		let sigs = {};
+
+		for (let id in ids) {
+			let st = fs.stat(`${dir}/${id}.uc`);
+
+			sigs[id] = st ? `${st.inode}:${st.size}:${st.mtime}` : null;
+			if (sigs[id] != null && known[id]?.sig == sigs[id])
+				out[id] = known[id].res;
+			else
+				push(need, id);
+		}
+
+		if (!length(need))
+			return out;
+
+		let p = fs.popen(`${helper} ${join(' ', need)} 2>/dev/null`, 'r');
+		let text = p?.read('all');
+		let found = null;
+
+		p?.close();
+		try {
+			found = json(text);
+		} catch (e) {
+			found = null;
+		}
+
+		for (let id in need) {
+			let res = found?.[id] ?? { ok: false, hung: false, error: `${helper} said nothing of it` };
+
+			out[id] = res;
+			if (found?.[id] != null)
+				known[id] = { sig: sigs[id], res };
+		}
+
+		return out;
+	};
+};
+
 // The methods rpcd serves. make_sys(opts) gives a fresh sys per call: rpcd
 // outlives any number of commits and package changes; opts.collectors false
 // leaves the collectors unloaded. io as deferred_json's.
@@ -501,7 +552,9 @@ export function methods(make_sys, io) {
 };
 
 // sys on the real system. Its committed configuration only, as the exporter
-// reads it. opts.collectors false leaves the collectors unloaded.
+// reads it. opts.collectors false leaves the collectors unloaded; opts.probe
+// is loader.load's (cached_probe's in rpcd). Its scrapes run each collector
+// in a process of its own (scrape.trial).
 export function system(opts) {
 	let mods = deps.modules();
 	let skipped = [];
@@ -515,13 +568,9 @@ export function system(opts) {
 		path: jail.PATH,
 		dir: loader.DIR,
 		apk: APK_LISTS,
-		collectors: load ? loader.load(mods.fs, loader.DIR, loader.import_module, (msg) => push(skipped, msg)) : [],
+		collectors: load ? loader.load(mods.fs, loader.DIR, loader.import_module, (level, msg) => push(skipped, msg), opts?.probe) : [],
 		skipped,
-		env: {
-			session: () => deps.session({ ...mods, log: quiet }),
-			clock: () => clock(true),
-			log: quiet,
-		},
+		env: scrape_env(mods, quiet),
 		ubus: deps.ubus_channel(mods.ubus.connect),
 		ledger: st ? ledger.parse(st.read(ledger.NAME)) : null,
 		random: function(n) {

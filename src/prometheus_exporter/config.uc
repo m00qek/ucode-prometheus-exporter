@@ -52,6 +52,22 @@ export const COLLECTOR_BUDGET = 5;
 
 const SECONDS_RANGE = `range(1,${SCRIPT_TIMEOUT})`;
 
+// The samples a collector may write in a scrape, unless it says otherwise
+// (meta.max_samples, or its section's max_samples): one that writes more fails
+// with SAMPLE_LIMIT, and the scrape keeps none of them. The most any collector
+// writes on the benchmark's large world, a router busier than most, is 3,650
+// (snmp6 on 50 devices; ethtool writes 1,980 on 17 ports, wifi 2,502 for 100
+// stations), and some 0.5 kB of memory each while a scrape holds them: 20,000
+// leaves five times that, and bounds what a runaway holds to some 10 MB.
+// nat_traffic, whose samples are the connection table's address pairs, says
+// more.
+export const MAX_SAMPLES = 20000;
+
+// The most max_samples may be: some 50 MB of samples in one scrape.
+export const MAX_SAMPLES_MAX = 100000;
+
+const SAMPLES_RANGE = `range(1,${MAX_SAMPLES_MAX})`;
+
 // The main section's options the exporter itself reads; the others are the
 // init script's (SERVICE_OPTIONS).
 export const MAIN_OPTIONS = {
@@ -67,7 +83,11 @@ export const MAIN_OPTIONS = {
 	},
 	collector_budget: {
 		default: COLLECTOR_BUDGET, datatype: SECONDS_RANGE,
-		help: 'Seconds a collector may take in a scrape, unless it says otherwise; one that takes longer is quarantined for a few scrapes.',
+		help: 'Seconds a collector may take in a scrape, unless it says otherwise; one still running then is stopped, and quarantined for a few scrapes.',
+	},
+	max_samples: {
+		default: MAX_SAMPLES, datatype: SAMPLES_RANGE,
+		help: 'Samples a collector may write in a scrape, unless it says otherwise; one that writes more fails, and none of its samples are served.',
 	},
 };
 
@@ -87,23 +107,33 @@ export const TIMEOUT = {
 // timeout and a second more when that is longer (default_budget).
 export const BUDGET = {
 	datatype: SECONDS_RANGE,
-	help: 'Seconds this collector may take in a scrape; one that takes longer is quarantined for a few scrapes.',
+	help: 'Seconds this collector may take in a scrape; one still running then is stopped, and quarantined for a few scrapes.',
+};
+
+// The core's option of every collector, without its default, which is its
+// meta.max_samples or else the main section's max_samples
+// (default_max_samples).
+export const SAMPLES = {
+	datatype: SAMPLES_RANGE,
+	help: 'Samples this collector may write in a scrape; one that writes more fails, and none of its samples are served.',
 };
 
 // The option names the core keeps for itself: no collector declares them.
 // `timeout` is only an exec collector's; the others ignore it.
-export const RESERVED = [ 'enabled', 'timeout', 'budget' ];
+export const RESERVED = [ 'enabled', 'timeout', 'budget', 'max_samples' ];
 
 // The core's options of a collector with this meta, by name: enabled;
-// timeout, whose default is `seconds`, when it runs programs; and budget,
-// whose default is `budget` (COLLECTOR_BUDGET without one).
-export function core(meta, seconds, budget) {
+// timeout, whose default is `seconds`, when it runs programs; budget, whose
+// default is `budget` (COLLECTOR_BUDGET without one); and max_samples, whose
+// default is `samples` (MAX_SAMPLES without one).
+export function core(meta, seconds, budget, samples) {
 	let out = { enabled: ENABLED };
 
 	if ('exec' in (meta?.needs ?? []))
 		out.timeout = { default: seconds, ...TIMEOUT };
 
 	out.budget = { default: budget ?? COLLECTOR_BUDGET, ...BUDGET };
+	out.max_samples = { default: samples ?? MAX_SAMPLES, ...SAMPLES };
 
 	return out;
 };
@@ -336,6 +366,18 @@ export function default_budget(uci, timeout) {
 	return (timeout != null) ? max(budget, timeout + 1) : budget;
 };
 
+// The samples a collector may write when its section sets no max_samples:
+// its meta.max_samples, or else the main section's max_samples (its default
+// while the main section is not valid).
+export function default_max_samples(uci, meta) {
+	if (meta?.max_samples != null)
+		return meta.max_samples;
+
+	let res = main(uci);
+
+	return res.ok ? res.data.max_samples : MAX_SAMPLES;
+};
+
 // Where a collector's budget comes from: its section's `budget`, the main
 // section's `collector_budget`, or its `timeout`.
 export function budget_source(uci, id, timeout) {
@@ -369,24 +411,25 @@ export function timeout_source(uci, id, meta) {
 // cannot hold the '-' of ltq-dsl.
 //
 // Every setting of the collector with this meta, as a Result of { enabled,
-// timeout, budget, options }: the core's options (enabled; timeout when it
-// runs programs, null otherwise; budget) are checked like its own, which
-// `options` holds. So timeout's precedence: the section's, then meta.timeout,
-// then the main section's exec_timeout; budget's: the section's, then
-// default_budget's.
+// timeout, budget, max_samples, options }: the core's options (enabled;
+// timeout when it runs programs, null otherwise; budget; max_samples) are
+// checked like its own, which `options` holds. So timeout's precedence: the
+// section's, then meta.timeout, then the main section's exec_timeout;
+// budget's: the section's, then default_budget's; max_samples': the
+// section's, then meta.max_samples, then the main section's.
 export function settings(uci, id, meta) {
 	let exec = ('exec' in (meta?.needs ?? []));
 	let seconds = exec ? default_timeout(uci, meta) : null;
 	let timeout_res = exec ? section(uci, id, 'collector', { timeout: { default: seconds, ...TIMEOUT } }) : null;
 	let timeout = (timeout_res?.ok) ? timeout_res.data.timeout : seconds;
-	let core_specs = core(meta, seconds, default_budget(uci, timeout));
+	let core_specs = core(meta, seconds, default_budget(uci, timeout), default_max_samples(uci, meta));
 	let res = section(uci, id, 'collector', { ...(meta?.options ?? {}), ...core_specs });
 
 	if (!res.ok)
 		return res;
 
 	let options = res.data;
-	let out = { enabled: options.enabled, timeout: options.timeout ?? null, budget: options.budget };
+	let out = { enabled: options.enabled, timeout: options.timeout ?? null, budget: options.budget, max_samples: options.max_samples };
 
 	for (let name in RESERVED)
 		delete options[name];
