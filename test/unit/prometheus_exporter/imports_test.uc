@@ -167,4 +167,22 @@ describe('what the collectors import', () => {
 		assert.match([], problems);
 		assert.match(true, length(files_under('src/prometheus_exporter/collectors', [])) >= length(loader.OWN));
 	});
+
+	// The collectors the checks install (the browser's sampler, runner and
+	// hostile) are loaded as any other: one the loader refuses is missing from
+	// the pages the tests look at, and every test of it fails for that alone.
+	it('is the collector API alone, in strict mode, for each collector the checks install', () => {
+		let problems = [];
+		let paths = files_under('test/fixtures/luci/collectors', []);
+
+		for (let path in paths) {
+			let why = loader.refusal(readfile(path));
+
+			if (why != null)
+				push(problems, `${path}: ${why}`);
+		}
+
+		assert.match([], problems);
+		assert.match(true, length(paths) > 0);
+	});
 });
