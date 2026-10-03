@@ -13,7 +13,7 @@
 // read, nor in the jail: rpcd's uci object hands over the interface's peer
 // sections alone, and all but each one's public key and description is let go.
 
-import { Result, errors } from 'prometheus_exporter.api';
+import { Result, errors, services } from 'prometheus_exporter.api';
 
 export const meta = {
 	name: 'wireguard',
@@ -60,6 +60,10 @@ export function allowed_ips(list) {
 export function collect(deps, out, options) {
 	let res = deps.ubus.call('wireguard', 'status');
 
+	// rpcd's wireguard object comes with rpcd-mod-wireguard, which a device
+	// that uses WireGuard has (luci-proto-wireguard depends on it).
+	if (services.object_missing(res))
+		return Result.none('rpcd has no wireguard object: rpcd-mod-wireguard is not installed');
 	if (!res.ok)
 		return res;
 	if (type(res.data) != 'object')

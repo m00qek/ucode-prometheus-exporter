@@ -16,6 +16,8 @@ export const meta = {
 	help: 'Signal quality and strength of cellular modems, from mmcli.',
 	needs: [ 'exec', 'ubus' ],
 	commands: [ 'mmcli' ],
+	// ModemManager is what it watches, not what it needs: without it, nothing to observe.
+	optional_commands: [ 'mmcli' ],
 	paths: [ DBUS_DIR ],
 };
 

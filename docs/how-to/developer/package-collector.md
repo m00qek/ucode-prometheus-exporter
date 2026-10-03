@@ -27,7 +27,7 @@ Every collector is in the base package or in a package of its own, `ucode-promet
     | `<module>` | The module's file name, without `.uc`: `ltq_dsl`. |
     | `<name>` | `meta.name`, the package's suffix: `ltq-dsl`. |
     | `<what it collects>` | A few words, added to the package's title: `Lantiq DSL line`. No commas. |
-    | `<dependencies>` | `+package` for each package its `needs` and `commands` call for, space-separated: `+ucode-mod-nl80211` for `nl80211`, `+ucode-mod-socket` for `socket`, the package of each program it runs. Empty for none. |
+    | `<dependencies>` | `+package` for what the collector reads with, space-separated: `+ucode-mod-nl80211` for `nl80211`, `+ucode-mod-socket` for `socket`, the package of a program it runs on any device (`+tc`, `+ethtool`). Never what it watches: installing a collector must not install and start mwan3 or chrony. A program that comes with what it watches (`chronyc`, `mmcli`) goes in `meta.optional_commands` instead, and where it is missing the collector has nothing to observe. Empty for none; `make test` checks it. |
 
     The macro makes a package that installs the module, depends on the base package of the same version, and reloads an enabled service when it is installed or removed.
 

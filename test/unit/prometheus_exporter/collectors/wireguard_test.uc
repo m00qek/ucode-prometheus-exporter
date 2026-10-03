@@ -155,11 +155,20 @@ describe('collectors.wireguard', () => {
 		});
 	});
 
-	it('passes on the ubus error when rpcd has no wireguard object', () => {
+	// The package does not depend on rpcd-mod-wireguard: a device without it
+	// has no WireGuard to watch.
+	it('has nothing to observe when rpcd has no wireguard object', () => {
 		with_collector(wireguard, { ubus: { errors: { 'wireguard:status': 'Not found' } } }, (r) => {
-			assert.match({ ok: false, error: 'UBUS_CALL_FAILED', details: 'wireguard status: Not found' },
-				{ ok: r.result.ok, error: r.result.error, details: r.result.details });
+			assert.match({ ok: true, none: 'rpcd has no wireguard object: rpcd-mod-wireguard is not installed' },
+				{ ok: r.result.ok, none: r.result.none });
 			assert.match([], r.lines);
+		});
+	});
+
+	it('passes on any other ubus error', () => {
+		with_collector(wireguard, { ubus: { errors: { 'wireguard:status': 'Permission denied' } } }, (r) => {
+			assert.match({ ok: false, error: 'UBUS_CALL_FAILED', details: 'wireguard status: Permission denied' },
+				{ ok: r.result.ok, error: r.result.error, details: r.result.details });
 		});
 	});
 

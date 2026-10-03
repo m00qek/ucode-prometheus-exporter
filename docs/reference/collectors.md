@@ -87,9 +87,10 @@ These collectors can have nothing to observe: they succeed without samples, and 
 | [`realtek-poe`](#realtek-poe) | No `poe` object. | `no PoE switch (no poe on ubus)` | A `poe` object that does not answer. |
 | [`snmp6`](#snmp6) | No `/proc/net/dev_snmp6` (IPv6 disabled). | `no IPv6 (no /proc/net/dev_snmp6)` | The directory there and unreadable. |
 | [`timesync`](#timesync) | Neither busybox ntpd nor chronyd runs, as procd's instances say: sysntpd runs ntpd only while `/etc/config/system` turns NTP on. With one running, it observes that one. | `neither ntpd nor chronyd runs` | chronyd enabled and not running, or `chronyc` failing; busybox ntpd's event file unreadable. |
-| [`ubnt-manager`](#ubnt-manager) | `ubnt-manager -l` lists no radio. | `ubnt-manager lists no radios` | A radio that fails or does not answer. |
+| [`ubnt-manager`](#ubnt-manager) | ubnt-manager not installed, or `ubnt-manager -l` lists no radio. | `ubnt-manager is not installed`, `ubnt-manager lists no radios` | A radio that fails or does not answer. |
 | [`unbound`](#unbound) | unbound disabled, or not installed. | `unbound is disabled`, `unbound is not installed` | unbound enabled, and its control socket not answering. |
 | [`wifi`](#wifi) | No `network.wireless` object, or one without radios. | `no wireless radios` | Another failed call; an interface nl80211 cannot answer for. |
+| [`wireguard`](#wireguard) | rpcd has no `wireguard` object: rpcd-mod-wireguard not installed. | `rpcd has no wireguard object: rpcd-mod-wireguard is not installed` | Any other failure of `wireguard status`. |
 
 ## `bmx7` {#bmx7}
 
@@ -113,11 +114,10 @@ chronyd's tracking and sources, and its server statistics where it serves time, 
 
 - **Title:** chrony NTP daemon
 - **Package:** `ucode-prometheus-exporter-chrony`
-- **Depends on:** `chrony`
 - **Section:** `config collector 'chrony'`
 - **Needs:** `ubus`, `uci`, `fs`, `exec`
 - **Reads the configs:** `/etc/config/chrony`
-- **Runs:** `chronyc`, with `/bin/sh`
+- **Runs:** `chronyc` (only where it is installed), with `/bin/sh`
 - **Seconds for its programs:** The main section's `exec_timeout`, unless its section sets `timeout`
 - **Nothing to observe:** chronyd disabled, or not installed. See [Nothing to observe](#nothing-to-observe).
 - **Metrics:** [chrony](metrics.md#chrony)
@@ -397,10 +397,9 @@ Signal quality and strength of cellular modems, from mmcli.
 
 - **Title:** Cellular modems
 - **Package:** `ucode-prometheus-exporter-modemmanager`
-- **Depends on:** `modemmanager`
 - **Section:** `config collector 'modemmanager'`
 - **Needs:** `exec`, `ubus`
-- **Runs:** `mmcli`, with `/bin/sh`
+- **Runs:** `mmcli` (only where it is installed), with `/bin/sh`
 - **Jail paths:** `/var/run/dbus`
 - **Seconds for its programs:** The main section's `exec_timeout`, unless its section sets `timeout`
 - **Nothing to observe:** ModemManager disabled or not installed, or it lists no modem. See [Nothing to observe](#nothing-to-observe).
@@ -417,7 +416,6 @@ mwan3 interface tracking, from ubus mwan3 status.
 
 - **Title:** mwan3 multi-WAN
 - **Package:** `ucode-prometheus-exporter-mwan3`
-- **Depends on:** `mwan3`
 - **Section:** `config collector 'mwan3'`
 - **Needs:** `ubus`
 - **Nothing to observe:** mwan3 disabled, or not installed. See [Nothing to observe](#nothing-to-observe).
@@ -700,13 +698,12 @@ Ubiquiti airOS radios, from their status as ubnt-manager reads it over ssh.
 
 - **Title:** Ubiquiti airOS radios
 - **Package:** `ucode-prometheus-exporter-ubnt-manager`
-- **Depends on:** `ubnt-manager`
 - **Section:** `config collector 'ubnt_manager'`
 - **Needs:** `exec`
-- **Runs:** `ubnt-manager`, with `/bin/sh`
+- **Runs:** `ubnt-manager` (only where it is installed), with `/bin/sh`
 - **Jail paths:** `/etc/config/ubnt-manager`; `/lib/functions.sh`; `/lib/config/uci.sh`; `/sbin/uci`; `/usr/share/libubox/jshn.sh`; `/usr/bin/jshn`; `/usr/bin/ssh`; `/bin/sed`
 - **Seconds for its programs:** The main section's `exec_timeout`, unless its section sets `timeout`
-- **Nothing to observe:** `ubnt-manager -l` lists no radio. See [Nothing to observe](#nothing-to-observe).
+- **Nothing to observe:** ubnt-manager not installed, or `ubnt-manager -l` lists no radio. See [Nothing to observe](#nothing-to-observe).
 - **Metrics:** [ubnt-manager](metrics.md#ubnt-manager)
 
 | Option | Type | Default | Datatype | Description |
@@ -802,9 +799,9 @@ WireGuard interfaces and peers, from ubus wireguard status.
 - **Title:** WireGuard
 - **Package:** `ucode-prometheus-exporter-wireguard`
 - **In the groups:** `ucode-prometheus-exporter-full`
-- **Depends on:** `rpcd-mod-wireguard`
 - **Section:** `config collector 'wireguard'`
 - **Needs:** `ubus`
+- **Nothing to observe:** rpcd has no `wireguard` object: rpcd-mod-wireguard not installed. See [Nothing to observe](#nothing-to-observe).
 - **Metrics:** [wireguard](metrics.md#wireguard)
 
 | Option | Type | Default | Datatype | Description |

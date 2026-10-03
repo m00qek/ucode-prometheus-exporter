@@ -55,12 +55,16 @@ package:
 				-o -name "luci-app-prometheus-exporter-$(PKG_FULLVERSION).apk" \) -exec cp {} /artifacts/ \;'
 
 # Keyed by its inputs, the Dockerfile and the packages it installs, as IMAGE_TAG is.
-INPUTS_OF       = $(shell { cat $(1); devenv/scripts/package-info.sh feed-depends; devenv/scripts/package-info.sh app-depends; } | sha256sum | cut -c1-12)
+# What collectors watch, which their packages do not depend on (a monitoring
+# package must not change what the router does): the images install them, so
+# the checks still read them.
+WATCHED         := mwan3 modemmanager chrony ubnt-manager rpcd-mod-wireguard
+INPUTS_OF       = $(shell { cat $(1); devenv/scripts/package-info.sh feed-depends; devenv/scripts/package-info.sh app-depends; echo $(WATCHED); } | sha256sum | cut -c1-12)
 PKGCHECK_IMAGE := ucode-prometheus-exporter-pkgcheck:$(OPENWRT_ARCH)-$(OPENWRT_VERSION)-$(call INPUTS_OF,devenv/services/pkgcheck/Dockerfile)
 
 pkgcheck-image:
 	docker build -q -t $(PKGCHECK_IMAGE) --build-arg OPENWRT_ARCH --build-arg OPENWRT_VERSION \
-		--build-arg FEED_DEPENDS="$$(devenv/scripts/package-info.sh feed-depends) $$(devenv/scripts/package-info.sh app-depends) quickjs unbound-daemon" \
+		--build-arg FEED_DEPENDS="$$(devenv/scripts/package-info.sh feed-depends) $$(devenv/scripts/package-info.sh app-depends) $(WATCHED) quickjs unbound-daemon" \
 		devenv/services/pkgcheck >/dev/null
 
 # No network: the image carries the dependencies.
@@ -97,7 +101,7 @@ LAB_IMAGE        := ucode-prometheus-exporter-lab:$(OPENWRT_ARCH)-$(OPENWRT_VERS
 
 lab: package
 	docker build -q -t $(LAB_IMAGE) --build-arg OPENWRT_ARCH --build-arg OPENWRT_VERSION \
-		--build-arg FEED_DEPENDS="$$(devenv/scripts/package-info.sh feed-depends) $$(devenv/scripts/package-info.sh app-depends) unbound-daemon" \
+		--build-arg FEED_DEPENDS="$$(devenv/scripts/package-info.sh feed-depends) $$(devenv/scripts/package-info.sh app-depends) $(WATCHED) unbound-daemon" \
 		devenv/services/luci >/dev/null
 	@LAB_NAME=$(LAB_NAME) LAB_IMAGE=$(LAB_IMAGE) LAB_ADDRESS=$(LAB_ADDRESS) LAB_LUCI_PORT=$(LAB_LUCI_PORT) \
 		LAB_METRICS_PORT=$(LAB_METRICS_PORT) PKG_FULLVERSION=$(PKG_FULLVERSION) devenv/scripts/lab.sh up
@@ -178,7 +182,7 @@ BROWSER_COLLECTORS := dhcp_leases diskstats ltq-dsl textfile unbound wifi wiregu
 # The LuCI pages against the built packages and a stand-in for procd; see devenv/scripts/browser.sh.
 browser: package
 	docker build -q -t $(LUCI_IMAGE) --build-arg OPENWRT_ARCH --build-arg OPENWRT_VERSION \
-		--build-arg FEED_DEPENDS="$$(devenv/scripts/package-info.sh feed-depends) $$(devenv/scripts/package-info.sh app-depends)" \
+		--build-arg FEED_DEPENDS="$$(devenv/scripts/package-info.sh feed-depends) $$(devenv/scripts/package-info.sh app-depends) $(WATCHED)" \
 		devenv/services/luci >/dev/null
 	docker build -q -t $(BROWSER_IMAGE) devenv/services/browser >/dev/null
 	@LUCI_IMAGE=$(LUCI_IMAGE) BROWSER_IMAGE=$(BROWSER_IMAGE) PKG_FULLVERSION=$(PKG_FULLVERSION) \

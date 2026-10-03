@@ -21,6 +21,8 @@ export const meta = {
 	help: 'Ubiquiti airOS radios, from their status as ubnt-manager reads it over ssh.',
 	needs: [ 'exec' ],
 	commands: [ 'ubnt-manager' ],
+	// ubnt-manager is what it watches, not what it needs: without it, nothing to observe.
+	optional_commands: [ 'ubnt-manager' ],
 	paths: SCRIPT_NEEDS,
 };
 
@@ -130,11 +132,15 @@ function status(exec, device) {
 	}
 }
 
-// ubnt-manager without a radio in its config has nothing to observe.
+// The shell's status for a program it cannot find.
+const NOT_FOUND = 127;
+
+// ubnt-manager not installed, or without a radio in its config, has nothing to
+// observe.
 export function collect(deps, out) {
 	let res = deps.exec.run([ 'ubnt-manager', '-l' ]);
 	if (!res.ok)
-		return res;
+		return (res.data?.status == NOT_FOUND) ? Result.none('ubnt-manager is not installed') : res;
 
 	let devices = filter(split(trim(res.data ?? ''), /\s+/), (d) => d != '');
 	if (!length(devices))

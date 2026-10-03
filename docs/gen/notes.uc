@@ -39,8 +39,12 @@ export const nothing_to_observe = {
 		failure: '`mmcli` failing or running out of time with ModemManager enabled.',
 	},
 	'ubnt-manager': {
-		when: '`ubnt-manager -l` lists no radio.',
+		when: 'ubnt-manager not installed, or `ubnt-manager -l` lists no radio.',
 		failure: 'A radio that fails or does not answer.',
+	},
+	'wireguard': {
+		when: 'rpcd has no `wireguard` object: rpcd-mod-wireguard not installed.',
+		failure: 'Any other failure of `wireguard status`.',
 	},
 	'conntrack': {
 		when: 'nf_conntrack not loaded: none of its files in `/proc/sys/net/netfilter`.',

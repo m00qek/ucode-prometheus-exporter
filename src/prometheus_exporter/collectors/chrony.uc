@@ -36,6 +36,8 @@ export const meta = {
 	needs: [ 'ubus', 'uci', 'fs', 'exec' ],
 	configs: [ 'chrony' ],
 	commands: [ 'chronyc' ],
+	// chrony is what it watches, not what it needs: without it, nothing to observe.
+	optional_commands: [ 'chronyc' ],
 };
 
 // The reference of chronyd's own clock, as chrony_exporter knows it, and the

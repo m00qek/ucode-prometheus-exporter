@@ -177,6 +177,15 @@ describe('collectors.ubnt_manager', () => {
 		});
 	});
 
+	// The package does not depend on ubnt-manager: where it is not installed,
+	// the shell cannot find it (127), and there is no radio to watch.
+	it('has nothing to observe when ubnt-manager is not installed', () => {
+		run({ [LIST]: { out: '', status: 127 } }, (r) => {
+			assert.match({ ok: true, none: 'ubnt-manager is not installed' }, { ok: r.result.ok, none: r.result.none });
+			assert.match([], r.lines);
+		});
+	});
+
 	it('fails with COMMAND_FAILED when ubnt-manager cannot list the devices', () => {
 		run({ [LIST]: { out: '', status: 1 } }, (r) => {
 			assert.match({ ok: false, error: 'COMMAND_FAILED' }, { ok: r.result.ok, error: r.result.error });

@@ -14,7 +14,12 @@ const REFERENCE = readfile('docs/reference/collectors.md');
 
 // The package each need or command calls for; `null` for what the base package has.
 const NEED_PACKAGES = { fs: null, ubus: null, uci: null, rtnl: null, time: null, exec: null, log: null, nl80211: '+ucode-mod-nl80211', socket: '+ucode-mod-socket' };
-const COMMAND_PACKAGES = { nft: '+nftables-json', mmcli: '+modemmanager', 'ubnt-manager': '+ubnt-manager', ethtool: '+ethtool', tc: '+tc', chronyc: '+chrony' };
+const COMMAND_PACKAGES = { nft: '+nftables-json', ethtool: '+ethtool', tc: '+tc' };
+
+// What a collector reads its data through, beyond its needs and commands: a
+// provider, not what it watches. filesystem's mount points come from luci's
+// ubus object, and a LuCI image has luci-base.
+const PROVIDER_PACKAGES = { filesystem: [ '+luci-base' ] };
 
 const IDS = sort(map(filter(lsdir(SOURCES), (f) => match(f, /\.uc$/)), (f) => substr(f, 0, -3)));
 
@@ -67,10 +72,13 @@ function checks(id) {
 				assert.match(mod.meta.name, sub.name);
 		});
 
-		// A subpackage may depend on more: the package of a ubus service it reads.
-		it('depends on the packages its needs and commands call for', () => {
+		// A collector package depends on what it reads with (a library, a program,
+		// a provider), never on what it watches: installing it must not install
+		// and start mwan3 or chrony. What it watches not being there is nothing
+		// to observe, and a program that comes with it is an optional command.
+		it('depends on what it reads with, and on nothing it watches', () => {
 			let sub = subpackage(id);
-			let wanted = [];
+			let wanted = [ ...(PROVIDER_PACKAGES[id] ?? []) ];
 
 			for (let need in mod.meta.needs)
 				if (NEED_PACKAGES[need])
@@ -82,8 +90,12 @@ function checks(id) {
 
 			if (!sub)
 				assert.match([], wanted, `${id} is a base collector, so it can need nothing more than the base package`);
-			else
+			else {
 				assert.match([], filter(wanted, (p) => !(p in sub.depends)), `${id}: missing from its DEPENDS`);
+				assert.match([], filter(sub.depends, (p) => !(p in wanted)),
+					`${id}: DEPENDS on what it does not read with; if it is what the collector watches, drop it ` +
+					'(its absence is nothing to observe, and a program of it is an optional command)');
+			}
 		});
 	});
 }
