@@ -1,9 +1,13 @@
-'use strict';
+/**
+ * The command line, /usr/bin/prometheus-exporter. USAGE is its interface:
+ * docopt (the ucode-docopt package) parses the arguments by it, and the
+ * reference page is written from it (make docs-gen). Only the command line
+ * loads docopt: neither the handler nor rpcd ever does.
+ *
+ * @module prometheus_exporter_cli
+ */
 
-// The command line, /usr/bin/prometheus-exporter. USAGE is its interface:
-// docopt (the ucode-docopt package) parses the arguments by it, and the
-// reference page is written from it (make docs-gen). Only the command line
-// loads docopt: neither the handler nor rpcd ever does.
+'use strict';
 
 import { docopt } from 'docopt';
 import * as Result from 'prometheus_exporter.result';
@@ -21,6 +25,27 @@ import * as ledger from 'prometheus_exporter.ledger';
 import * as jail from 'prometheus_exporter.jail';
 import * as jailed from 'prometheus_exporter.jailed';
 
+/**
+ * What run() takes of the system, as its comment says.
+ *
+ * @typedef {{
+ *   out: function(string): void,
+ *   err: function(string): void,
+ *   clock: () => int[],
+ *   create: function(Log, ?string): App,
+ *   jailed_scrape: ?function(string): ?{ status: string, body: string, logs: ?string[][] },
+ *   check: function(?{ config_only: ?boolean }): { ok: boolean, report: string },
+ *   conform: function(string): { ok: boolean, report: string },
+ *   read_password: function(): ?string,
+ *   random: function(int): ?string
+ * }} CliSys
+ */
+
+/**
+ * The command line's usage, as docopt parses it and -h prints it.
+ *
+ * @type {string}
+ */
 export const USAGE = `prometheus-exporter: metrics of OpenWrt for Prometheus.
 
 Usage:
@@ -61,8 +86,15 @@ function urlencode(s) {
 	return replace(s, /[^A-Za-z0-9_.~-]/g, (c) => sprintf('%%%02X', ord(c)));
 }
 
-// The parsed arguments, by docopt: it prints the help or the version, or the
-// usage on standard error for arguments it does not take, and exits itself.
+/**
+ * The parsed arguments, by docopt: it prints the help or the version, or the
+ * usage on standard error for arguments it does not take, and exits itself.
+ *
+ * @param {string[]} argv the arguments.
+ * @param {string} version the exporter's version, which --version prints.
+ * @returns {Object} the arguments, by docopt's names: commands and options
+ *   as keys ('scrape', '--dir', '<collector>').
+ */
 export function parse(argv, version) {
 	return docopt(USAGE, argv, true, `prometheus-exporter ${version}`);
 };
@@ -130,15 +162,21 @@ function hash_cmd(sys) {
 	return 0;
 }
 
-// The exit status of a command, for args as parse() gives them. sys: {
-//   out(text), err(text), clock(),
-//   create(log, dir): prometheus_exporter.app's create,
-//   jailed_scrape(query) -> { status, body, logs }, the scrape in the
-//     service's jail, or null where it cannot be had (optional),
-//   check({ config_only }) -> check.run's { ok, report },
-//   conform(path) -> conform.run's { ok, report },
-//   read_password() -> the password read, or null,
-//   random(n): n random bytes }
+/**
+ * The exit status of a command, for args as parse() gives them. sys: {
+ *   out(text), err(text), clock(),
+ *   create(log, dir): prometheus_exporter.app's create,
+ *   jailed_scrape(query) -> { status, body, logs }, the scrape in the
+ *     service's jail, or null where it cannot be had (optional),
+ *   check({ config_only }) -> check.run's { ok, report },
+ *   conform(path) -> conform.run's { ok, report },
+ *   read_password() -> the password read, or null,
+ *   random(n): n random bytes }
+ *
+ * @param {Object} args the arguments, as parse() gives them.
+ * @param {CliSys} sys the system.
+ * @returns {int} the exit status.
+ */
 export function run(args, sys) {
 	if (args.scrape)
 		return scrape_cmd(args, sys);
@@ -181,7 +219,11 @@ function import_path(path) {
 	return loadstring(sprintf('import * as c from %J;\nreturn c;', path), { raw_mode: true })();
 }
 
-// sys on the real system, for run().
+/**
+ * sys on the real system, for run().
+ *
+ * @returns {CliSys} the system.
+ */
 export function system() {
 	let mods = deps.modules();
 	let quiet = () => null;

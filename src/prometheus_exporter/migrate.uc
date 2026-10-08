@@ -1,45 +1,86 @@
-'use strict';
+/**
+ * Takes over the settings of the feed's exporters this one replaces, once: what
+ * /etc/config/prometheus-node-exporter-ucode or, without it,
+ * /etc/config/prometheus-node-exporter-lua configures goes into
+ * /etc/config/prometheus-exporter. The package's uci-defaults script runs it
+ * when the package is installed (or an image that has it first boots).
+ *
+ * It changes this exporter's config only while that is as the package ships
+ * it: on the first install, not over what someone has set since. The old
+ * configs are left as they are. apk keeps a feed exporter's config when it is
+ * removed only if it was changed, so what is there to import is what someone
+ * set.
+ *
+ * From the main section: listen_interface, listen_port, http_keepalive, cert,
+ * key and omit_zero_values, each only if this exporter takes its value. A port
+ * that is the old exporter's default (9101 for the ucode one) is left at this
+ * one's, 9100: only a port someone chose is kept. From the ucode exporter, each
+ * named `config collector` section too (wifi's stations, say), option for
+ * option.
+ *
+ * uci: a uci cursor that can write and commit.
+ *
+ * @module prometheus_exporter_migrate
+ */
 
-// Takes over the settings of the feed's exporters this one replaces, once: what
-// /etc/config/prometheus-node-exporter-ucode or, without it,
-// /etc/config/prometheus-node-exporter-lua configures goes into
-// /etc/config/prometheus-exporter. The package's uci-defaults script runs it
-// when the package is installed (or an image that has it first boots).
-//
-// It changes this exporter's config only while that is as the package ships
-// it: on the first install, not over what someone has set since. The old
-// configs are left as they are. apk keeps a feed exporter's config when it is
-// removed only if it was changed, so what is there to import is what someone
-// set.
-//
-// From the main section: listen_interface, listen_port, http_keepalive, cert,
-// key and omit_zero_values, each only if this exporter takes its value. A port
-// that is the old exporter's default (9101 for the ucode one) is left at this
-// one's, 9100: only a port someone chose is kept. From the ucode exporter, each
-// named `config collector` section too (wifi's stations, say), option for
-// option.
-//
-// uci: a uci cursor that can write and commit.
+'use strict';
 
 import * as config from 'prometheus_exporter.config';
 
-// The feed's exporters, the ucode one first: its config, the port it listens
-// on by default, and whether it has `config collector` sections.
+/**
+ * A feed exporter a config is taken over from (SOURCES): its config's name,
+ * the port it listens on by default, and whether it has `config collector`
+ * sections.
+ *
+ * @typedef {{ name: string, port: string, collectors: boolean }} MigrationSource
+ */
+
+/**
+ * What plan() would bring, as its comment says: from which config, the main
+ * section's options, each collector section's, and what is left out, and why.
+ * Values are as uci holds them.
+ *
+ * @typedef {{
+ *   from: string,
+ *   main: Object<string, string>,
+ *   collectors: Object<string, Object<string, (string|string[])>>,
+ *   skipped: string[]
+ * }} MigrationPlan
+ */
+
+/**
+ * The feed's exporters, the ucode one first: its config, the port it listens
+ * on by default, and whether it has `config collector` sections.
+ *
+ * @type {MigrationSource[]}
+ */
 export const SOURCES = [
 	{ name: 'prometheus-node-exporter-ucode', port: '9101', collectors: true },
 	{ name: 'prometheus-node-exporter-lua', port: '9100', collectors: false },
 ];
 
-// The collectors the feed's exporters had that this one has not, by module:
-// a section of one is not taken over, and the log says what does its job.
+/**
+ * The collectors the feed's exporters had that this one has not, by module:
+ * a section of one is not taken over, and the log says what does its job.
+ *
+ * @type {Object<string, string>}
+ */
 export const GONE = {
 	wifi_stations: 'wifi writes the stations, with its option stations, on by default',
 };
 
-// The main section's options taken over, as this exporter declares them.
+/**
+ * The main section's options taken over, as this exporter declares them.
+ *
+ * @type {string[]}
+ */
 export const OPTIONS = [ 'listen_interface', 'listen_port', 'http_keepalive', 'cert', 'key', 'omit_zero_values' ];
 
-// The main section as the package ships it (files/etc/config/prometheus-exporter).
+/**
+ * The main section as the package ships it (files/etc/config/prometheus-exporter).
+ *
+ * @type {Object<string, string>}
+ */
 export const SHIPPED = {
 	enabled: '1', listen_interface: 'loopback', listen_port: '9100', http_keepalive: '70', omit_zero_values: '0', exec_timeout: '5',
 	scrape_timeout: '10', collector_budget: '5', max_samples: '20000', compress: '1',
@@ -82,9 +123,14 @@ function sections(uci, name) {
 	return all;
 }
 
-// Whether this exporter's config is as the package ships it: its main section
-// alone, with the shipped values. A missing config is not: there is nothing to
-// write into.
+/**
+ * Whether this exporter's config is as the package ships it: its main section
+ * alone, with the shipped values. A missing config is not: there is nothing to
+ * write into.
+ *
+ * @param {UciCursor} uci the cursor.
+ * @returns {boolean} whether it is.
+ */
 export function pristine(uci) {
 	let all = sections(uci, config.NAME);
 
@@ -96,10 +142,17 @@ export function pristine(uci) {
 	return s['.name'] == 'main' && s['.type'] == config.NAME && !s['.anonymous'] && same(options_of(s), SHIPPED);
 };
 
-// What to import from the main section `main` of `source`: { set: { option:
-// value }, skipped: [ why ] }. A value this exporter would refuse is skipped,
-// saying why; one it already ships, and the old exporter's default port, are
-// left out.
+/**
+ * What to import from the main section `main` of `source`: { set: { option:
+ * value }, skipped: [ why ] }. A value this exporter would refuse is skipped,
+ * saying why; one it already ships, and the old exporter's default port, are
+ * left out.
+ *
+ * @param {MigrationSource} source the feed exporter.
+ * @param {?Object} main its main section's options, as uci holds them.
+ * @returns {{ set: Object<string, string>, skipped: string[] }} what to set,
+ *   and what is skipped, and why.
+ */
 export function main_options(source, main) {
 	let set = {};
 	let skipped = [];
@@ -124,8 +177,13 @@ export function main_options(source, main) {
 	return { set, skipped };
 };
 
-// { from, main: { option: value }, collectors: { id: { option: value } }, skipped }
-// of what the first source that has a config would bring, or null when none has.
+/**
+ * { from, main: { option: value }, collectors: { id: { option: value } }, skipped }
+ * of what the first source that has a config would bring, or null when none has.
+ *
+ * @param {UciCursor} uci the cursor.
+ * @returns {?MigrationPlan} the plan.
+ */
 export function plan(uci) {
 	for (let source in SOURCES) {
 		let all = sections(uci, source.name);
@@ -153,7 +211,12 @@ export function plan(uci) {
 	return null;
 };
 
-// Writes plan `p` into this exporter's config, and commits it.
+/**
+ * Writes plan `p` into this exporter's config, and commits it.
+ *
+ * @param {UciCursor} uci a cursor that can write and commit.
+ * @param {MigrationPlan} p the plan.
+ */
 export function apply(uci, p) {
 	for (let name, value in p.main)
 		uci.set(config.NAME, 'main', name, value);
@@ -176,9 +239,15 @@ function describe(p) {
 	return length(parts) ? join(', ', parts) : 'nothing it changed from the defaults';
 }
 
-// Imports what a feed exporter's config holds, if this exporter's config is as
-// shipped. Returns { imported, lines }: whether it wrote anything, and what to
-// log.
+/**
+ * Imports what a feed exporter's config holds, if this exporter's config is as
+ * shipped. Returns { imported, lines }: whether it wrote anything, and what to
+ * log.
+ *
+ * @param {UciCursor} uci a cursor that can write and commit.
+ * @returns {{ imported: boolean, lines: string[] }} whether it wrote
+ *   anything, and what to log.
+ */
 export function run(uci) {
 	let p = plan(uci);
 
