@@ -64,6 +64,27 @@ A boolean takes `1`, `yes`, `on`, `true`, `enabled` for true and `0`, `no`, `off
 
 `directory` and `file` check the path's form, not that it exists. A value an option does not take is `CONFIG_INVALID`: in the main section it stops start and reload, and in a collector's section that collector fails in each scrape. See [Error codes](error-codes.md).
 
+### What is wrong with a value {#problems}
+
+What the exporter finds wrong with a value, or with options that go together, has a code of its own, from `src/prometheus_exporter/config/problems.uc`, and arguments. The ubus object's `validate` answers the code and its arguments, for a client to say in its own words, as LuCI does, and the English below as `message` (see [ubus object](ubus.md#validate)). The details of a `CONFIG_INVALID`, in the log, `check` and the command line, are that English after the option's name: `listen_port: expected an integer from 1 to 65535, got 0`. `value` is what the exporter read, but for a secret option's (`auth_password`).
+
+| Code | Arguments | English |
+| :--- | :--- | :--- |
+| `BOOLEAN` | `value` | expected a boolean, got `value` |
+| `INTEGER` | `value` | expected an integer, got `value` |
+| `SINGLE` | `value` | expected a single value, got `value` |
+| `RANGE` | `min`, `max`, `value` | expected an integer from `min` to `max`, got `value` |
+| `UINTEGER` | `value` | expected an integer of 0 or more, got `value` |
+| `ABSOLUTE_PATH` | `value` | expected an absolute path, got `value` |
+| `REGEX` | `value` | expected a regular expression, got `value` |
+| `USERNAME` | `value` | expected a user of 1 to 64 characters, without ":", spaces or control characters, got `value` |
+| `CRYPT` | `value` | expected a crypt hash: $1$ (uhttpd -m), $5$ or $6$, got `value` |
+| `CRYPT_ROUNDS` | `max`, `value` | expected a hash of at most `max` rounds, which a scrape computes to check the password (hash\_password makes one of 1000; one without rounds= has 5000), got `value` |
+| `INTERFACE` | `value` | expected an interface name or \*, got `value` |
+| `AUTH_NEEDS_PASSWORD` | — | basic auth needs the hash of a password along with auth\_user |
+| `AUTH_NEEDS_USER` | — | basic auth needs a user along with auth\_password |
+| `AUTH_NEEDS_TLS` | — | basic auth needs HTTPS: set cert and key, or the password crosses the network in the clear |
+
 ## Example {#example}
 
 ```

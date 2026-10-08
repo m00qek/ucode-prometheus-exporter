@@ -166,7 +166,7 @@ export function main_options(source, main) {
 		let res = config.convert(name, value, SPECS[name]);
 
 		if (res.ok && name == 'listen_interface' && value == '')
-			res = { ok: false, details: 'listen_interface: expected an interface name or *, got ""' };
+			res = config.invalid(name, config.problem('INTERFACE'), value, SPECS[name]);
 
 		if (res.ok)
 			set[name] = value;

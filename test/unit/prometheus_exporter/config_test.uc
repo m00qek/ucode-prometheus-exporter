@@ -471,19 +471,39 @@ describe('config.service, basic auth', () => {
 });
 
 describe('config.together', () => {
-	it('names the option each problem is with', () => {
+	it('names the option each problem is with, by its code', () => {
 		assert.match([
 			{},
 			{},
-			{ auth_password: 'basic auth needs the hash of a password along with auth_user' },
-			{ auth_user: 'basic auth needs a user along with auth_password',
-			  auth_password: 'basic auth needs HTTPS: set cert and key, or the password crosses the network in the clear' },
+			{ auth_password: { code: 'AUTH_NEEDS_PASSWORD' } },
+			{ auth_user: { code: 'AUTH_NEEDS_USER' }, auth_password: { code: 'AUTH_NEEDS_TLS' } },
 		], [
 			config.together({}),
 			config.together({ auth_user: 'u', auth_password: MD5, ...TLS }),
 			config.together({ auth_user: 'u', ...TLS }),
 			config.together({ auth_password: MD5 }),
 		]);
+	});
+
+	it('says each in English, as the init script and check do', () => {
+		assert.match([
+			'basic auth needs the hash of a password along with auth_user',
+			'basic auth needs a user along with auth_password',
+			'basic auth needs HTTPS: set cert and key, or the password crosses the network in the clear',
+		], map([ config.together({ auth_user: 'u', ...TLS }).auth_password, ...values(config.together({ auth_password: MD5 })) ], config.english));
+	});
+});
+
+describe('config.invalid', () => {
+	it('holds the problem of a value an option does not take, with the value but for a secret\'s', () => {
+		let res = config.invalid('listen_port', config.problem('RANGE', { min: 1, max: 65535 }), 0, config.SERVICE_OPTIONS.listen_port);
+		let secret = config.invalid('auth_password', config.problem('CRYPT'), 'hunter2', config.SERVICE_OPTIONS.auth_password);
+
+		assert.match({ ok: false, error: 'CONFIG_INVALID', details: 'listen_port: expected an integer from 1 to 65535, got 0',
+			data: { option: 'listen_port', problem: { code: 'RANGE', min: 1, max: 65535, value: 0 } } }, res);
+		assert.match([ 'auth_password: expected a crypt hash: $1$ (uhttpd -m), $5$ or $6$', { option: 'auth_password', problem: { code: 'CRYPT' } } ],
+			[ secret.details, secret.data ]);
+		assert.match(-1, index(sprintf('%J', secret), 'hunter2'));
 	});
 });
 

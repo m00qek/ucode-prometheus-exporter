@@ -11,15 +11,24 @@
 import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
 import * as crypt from 'prometheus_exporter.crypt';
+import * as problems from 'prometheus_exporter.config.problems';
 import { is_user, is_hash, ROUNDS_MAX } from 'prometheus_exporter.auth';
 
 /**
- * A datatype the core enforces: the value types it takes, what it calls a
- * valid value, whether a value is one, and, for some, what it expected of a
- * value it does not take instead of `expected`. check() and why() take the
- * option's value, typed: a boolean, an integer or a string.
+ * A datatype the core enforces: the value types it takes, the problem of a
+ * value it does not take (prometheus_exporter.config.problems), what it calls
+ * a valid value (that problem's `expected`), whether a value is one, and, for
+ * some, a problem of a value it does not take instead of `problem`. check()
+ * and why() take the option's value, typed: a boolean, an integer or a
+ * string.
  *
- * @typedef {{ types: string[], expected: string, check: function((boolean|int|string)): boolean, why: ?function((boolean|int|string)): ?string }} Datatype
+ * @typedef {{
+ *   types: string[],
+ *   problem: Problem,
+ *   expected: string,
+ *   check: function((boolean|int|string)): boolean,
+ *   why: ?function((boolean|int|string)): ?Problem
+ * }} Datatype
  */
 
 // The spellings of a boolean uci value, as uci's own tools take them.
@@ -42,46 +51,45 @@ function absolute_path(v) {
 	return substr(v, 0, 1) == '/' && !match(v, /[[:cntrl:]]/);
 }
 
+// A datatype of these types whose values check() takes, and the problem of
+// one it does not; why(), when given, a problem of it instead.
+function datatype_of(types, code, args, check, why) {
+	let p = problems.problem(code, args);
+
+	return { types, problem: p, expected: problems.expected(p), check, why };
+}
+
 /**
  * The datatypes the core enforces, by LuCI's names: what value type each
- * takes, what it calls a valid value, and whether a value is one. Syntactic
- * only: a directory or file is an absolute path, not one that exists. Besides
- * LuCI's, regex, and username and crypt, basic auth's user and hash. A
- * datatype's `why`, when it has one, says what it expected of a value it does
- * not take, instead of `expected`: crypt's, of a hash of too many rounds.
+ * takes, the problem of a value it does not take and what it calls a valid
+ * value, and whether a value is one. Syntactic only: a directory or file is
+ * an absolute path, not one that exists. Besides LuCI's, regex, and username
+ * and crypt, basic auth's user and hash. A datatype's `why`, when it has one,
+ * gives the problem of a value it does not take, instead of `problem`:
+ * crypt's, of a hash of too many rounds.
  *
  * @type {Object<string, Datatype>}
  */
 export const DATATYPES = {
-	username: { types: [ 'string' ], expected: 'a user of 1 to 64 characters, without ":", spaces or control characters', check: is_user },
-	crypt: {
-		types: [ 'string' ],
-		expected: 'a crypt hash: $1$ (uhttpd -m), $5$ or $6$',
-		check: is_hash,
-		why: (v) => crypt.is_hash(v)
-			? `a hash of at most ${ROUNDS_MAX} rounds, which a scrape computes to check the password (hash_password makes one of 1000; one without rounds= has 5000)`
-			: null,
-	},
-	uinteger: { types: [ 'int' ], expected: 'an integer of 0 or more', check: (v) => v >= 0 },
-	directory: { types: [ 'string' ], expected: 'an absolute path', check: absolute_path },
-	file: { types: [ 'string' ], expected: 'an absolute path', check: absolute_path },
-	regex: {
-		types: [ 'string' ],
-		expected: 'a regular expression',
-		check: function(v) {
-			try {
-				regexp(v);
-				return true;
-			} catch (e) {
-				return false;
-			}
-		},
-	},
+	username: datatype_of([ 'string' ], problems.USERNAME, null, is_user),
+	crypt: datatype_of([ 'string' ], problems.CRYPT, null, is_hash,
+		(v) => crypt.is_hash(v) ? problems.problem(problems.CRYPT_ROUNDS, { max: ROUNDS_MAX }) : null),
+	uinteger: datatype_of([ 'int' ], problems.UINTEGER, null, (v) => v >= 0),
+	directory: datatype_of([ 'string' ], problems.ABSOLUTE_PATH, null, absolute_path),
+	file: datatype_of([ 'string' ], problems.ABSOLUTE_PATH, null, absolute_path),
+	regex: datatype_of([ 'string' ], problems.REGEX, null, function(v) {
+		try {
+			regexp(v);
+			return true;
+		} catch (e) {
+			return false;
+		}
+	}),
 };
 
 /**
- * { types, expected, check } of a datatype name, or null for one the core does
- * not know. range(min,max) takes the integers from min to max.
+ * { types, problem, expected, check } of a datatype name, or null for one the
+ * core does not know. range(min,max) takes the integers from min to max.
  *
  * @param {*} name the datatype's name; anything but a string is none.
  * @returns {?Datatype} the datatype, or null.
@@ -92,25 +100,28 @@ export function datatype(name) {
 	if (m) {
 		let lo = int(m[1]), hi = int(m[2]);
 
-		return lo <= hi ? { types: [ 'int' ], expected: `an integer from ${lo} to ${hi}`, check: (v) => v >= lo && v <= hi } : null;
+		return lo <= hi ? datatype_of([ 'int' ], problems.RANGE, { min: lo, max: hi }, (v) => v >= lo && v <= hi) : null;
 	}
 
 	return (type(name) == 'string') ? DATATYPES[name] : null;
 };
 
 /**
- * What option `spec` expected of a value it does not take: and what it got,
- * unless the option is a secret.
+ * The CONFIG_INVALID of a value option `spec` does not take: its problem, with
+ * the value unless the option is a secret, in English in the details, and as
+ * it is in the data, { option, problem }, for what says it otherwise (the
+ * ubus object's validate).
  *
  * @param {string} name the option's name.
- * @param {string} expected what it expected.
+ * @param {Problem} problem what is wrong with the value, without it.
  * @param {*} value what it got: a uci value, or one typed already.
  * @param {?OptionSpec} spec the option; its `secret` keeps the value out.
  * @returns {Result} CONFIG_INVALID.
  */
-export function invalid(name, expected, value, spec) {
-	return Result.err(errors.CONFIG_INVALID,
-		`${name}: expected ${expected}` + (spec?.secret ? '' : `, got ${sprintf('%J', value)}`));
+export function invalid(name, problem, value, spec) {
+	let p = spec?.secret ? problem : { ...problem, value };
+
+	return Result.err(errors.CONFIG_INVALID, problems.message(name, p), { option: name, problem: p });
 };
 
 // A uci value as the type of the option's default.
@@ -121,17 +132,17 @@ function typed(name, value, spec) {
 			return Result.ok(true);
 		if (value in FALSE)
 			return Result.ok(false);
-		return invalid(name, 'a boolean', value, spec);
+		return invalid(name, problems.problem(problems.BOOLEAN), value, spec);
 
 	case 'int':
 		if (type(value) == 'string' && match(value, /^-?[0-9]+$/))
 			return Result.ok(int(value));
-		return invalid(name, 'an integer', value, spec);
+		return invalid(name, problems.problem(problems.INTEGER), value, spec);
 
 	case 'string':
 		if (type(value) == 'string')
 			return Result.ok(value);
-		return invalid(name, 'a single value', value, spec);
+		return invalid(name, problems.problem(problems.SINGLE), value, spec);
 	}
 
 	die(`option ${name}: unsupported default ${sprintf('%J', spec.default)}`);
@@ -151,7 +162,7 @@ export function convert(name, value, spec) {
 	let dt = (res.ok && spec.datatype != null) ? datatype(spec.datatype) : null;
 
 	if (dt && !dt.check(res.data))
-		return invalid(name, (dt.why ? dt.why(res.data) : null) ?? dt.expected, res.data, spec);
+		return invalid(name, (dt.why ? dt.why(res.data) : null) ?? dt.problem, res.data, spec);
 
 	return res;
 };

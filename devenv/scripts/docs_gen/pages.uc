@@ -490,9 +490,9 @@ export function uci_page(ctx) {
 	let no_tls = config.together({ auth_user: 'u', auth_password: 'h' });
 
 	push(blocks, join('\n', [
-		`- \`auth_user\` without \`auth_password\`: ${md.text(together.auth_password)}.`,
-		`- \`auth_password\` without \`auth_user\`: ${md.text(alone.auth_user)}.`,
-		`- Either without \`cert\` and \`key\`: ${md.text(no_tls.auth_user)}.`,
+		`- \`auth_user\` without \`auth_password\`: ${md.text(config.english(together.auth_password))}.`,
+		`- \`auth_password\` without \`auth_user\`: ${md.text(config.english(alone.auth_user))}.`,
+		`- Either without \`cert\` and \`key\`: ${md.text(config.english(no_tls.auth_user))}.`,
 	]));
 
 	push(blocks, md.heading(2, 'Collector sections', 'collector-sections'));
@@ -553,6 +553,31 @@ export function uci_page(ctx) {
 		'`directory` and `file` check the path\'s form, not that it exists. A value an option does not take ' +
 		'is `CONFIG_INVALID`: in the main section it stops start and reload, and in a collector\'s section that ' +
 		'collector fails in each scrape. See [Error codes](error-codes.md).');
+
+	push(blocks, md.heading(3, 'What is wrong with a value', 'problems'));
+	push(blocks,
+		'What the exporter finds wrong with a value, or with options that go together, has a code of its own, ' +
+		'from `src/prometheus_exporter/config/problems.uc`, and arguments. The ubus object\'s `validate` answers ' +
+		'the code and its arguments, for a client to say in its own words, as LuCI does, and the English below as ' +
+		'`message` (see [ubus object](ubus.md#validate)). The details of a `CONFIG_INVALID`, in the log, `check` and ' +
+		'the command line, are that English after the option\'s name: ' +
+		`${md.code('listen_port: ' + config.english(config.problem('RANGE', { min: 1, max: 65535, value: 0 })))}. ` +
+		'`value` is what the exporter read, but for a secret option\'s (`auth_password`).');
+
+	let problem_rows = [];
+
+	for (let code, c in config.PROBLEMS) {
+		let args = {};
+
+		for (let a in c.args)
+			args[a] = md.code(a);
+
+		let english = config.english(config.problem(code, args)) + (c.value ? ', got `value`' : '');
+
+		push(problem_rows, [ md.code(code), md.codes([ ...c.args, ...(c.value ? [ 'value' ] : []) ]), md.text(english) ]);
+	}
+
+	push(blocks, md.table([ 'Code', 'Arguments', 'English' ], problem_rows));
 
 	push(blocks, md.heading(2, 'Example', 'example'));
 	push(blocks, '```\n' + `config ${config.NAME} 'main'\n` +

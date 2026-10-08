@@ -21,7 +21,7 @@
 import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
 import * as types from 'prometheus_exporter.config.types';
-import { invalid } from 'prometheus_exporter.config.types';
+import * as problems from 'prometheus_exporter.config.problems';
 
 /**
  * An option as it is declared: its default, which sets its type (a boolean,
@@ -71,6 +71,15 @@ export const FALSE = types.FALSE;
 export const DATATYPES = types.DATATYPES;
 export const datatype = types.datatype;
 export const convert = types.convert;
+
+// What is wrong with an option's value, as a code and its arguments
+// (prometheus_exporter.config.problems): every code, with what it takes and
+// says; a problem of one; its English; and the CONFIG_INVALID of a value an
+// option does not take, which holds it.
+export const PROBLEMS = problems.CODES;
+export const problem = problems.problem;
+export const english = problems.english;
+export const invalid = types.invalid;
 
 /**
  * The service's name: its uci config (and the main section's type), its init
@@ -393,7 +402,7 @@ export function service_values(uci) {
 	let res = section(uci, 'main', NAME, SERVICE_OPTIONS);
 
 	if (res.ok && res.data.listen_interface == '')
-		return invalid('listen_interface', 'an interface name or *', '');
+		return invalid('listen_interface', problems.problem(problems.INTERFACE), '');
 
 	return res;
 };
@@ -404,20 +413,21 @@ export function service_values(uci) {
  * and key, as Basic sends the password in the clear.
  *
  * @param {ServiceSettings} options the init script's options, typed.
- * @returns {Object<string, string>} what is wrong, by option; {} when
- *   nothing is.
+ * @returns {Object<string, Problem>} what is wrong, by option: problems of
+ *   AUTH_NEEDS_PASSWORD, AUTH_NEEDS_USER and AUTH_NEEDS_TLS; {} when nothing
+ *   is.
  */
 export function together(options) {
 	let out = {};
 	let user = (options.auth_user ?? '') != '', hash = (options.auth_password ?? '') != '';
 
 	if (user && !hash)
-		out.auth_password = 'basic auth needs the hash of a password along with auth_user';
+		out.auth_password = problems.problem(problems.AUTH_NEEDS_PASSWORD);
 	else if (hash && !user)
-		out.auth_user = 'basic auth needs a user along with auth_password';
+		out.auth_user = problems.problem(problems.AUTH_NEEDS_USER);
 
 	if ((user || hash) && ((options.cert ?? '') == '' || (options.key ?? '') == ''))
-		out[user ? 'auth_user' : 'auth_password'] ??= 'basic auth needs HTTPS: set cert and key, or the password crosses the network in the clear';
+		out[user ? 'auth_user' : 'auth_password'] ??= problems.problem(problems.AUTH_NEEDS_TLS);
 
 	return out;
 };
@@ -435,8 +445,8 @@ export function service(uci) {
 	if (!res.ok)
 		return res;
 
-	for (let name, msg in together(res.data))
-		return Result.err(errors.CONFIG_INVALID, `${name}: ${msg}`);
+	for (let name, p in together(res.data))
+		return Result.err(errors.CONFIG_INVALID, problems.message(name, p), { option: name, problem: p });
 
 	return res;
 };

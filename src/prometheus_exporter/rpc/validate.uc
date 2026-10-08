@@ -174,8 +174,8 @@ export function validate(sys, args) {
 			errors.main[name] = message(name, res);
 	}
 
-	for (let name, msg in config.together(typed))
-		errors.main[name] ??= msg;
+	for (let name, problem in config.together(typed))
+		errors.main[name] ??= config.english(problem);
 
 	for (let c in sys.collectors)
 		by_id[c.id] = c;
