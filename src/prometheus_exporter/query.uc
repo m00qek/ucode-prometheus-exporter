@@ -1,13 +1,23 @@
-'use strict';
+/**
+ * The collectors a scrape's query string asks for: node_exporter's collect[]=
+ * and exclude[]=, and the plain collect= of the earlier ucode exporter.
+ *
+ * @module prometheus_exporter_query
+ */
 
-// The collectors a scrape's query string asks for: node_exporter's collect[]=
-// and exclude[]=, and the plain collect= of the earlier ucode exporter.
+'use strict';
 
 function urldecode(s) {
 	return replace(replace(s, '+', ' '), /%([0-9A-Fa-f]{2})/g, (m, h) => chr(hex(h)));
 }
 
-// { collect, exclude }: names in order, without repeats.
+/**
+ * { collect, exclude }: names in order, without repeats.
+ *
+ * @param {?string} query the query string, without its '?'; null for none.
+ * @returns {{ collect: string[], exclude: string[] }} the collectors named
+ *   with collect[]= (or collect=) and with exclude[]=, URL-decoded.
+ */
 export function parse(query) {
 	let collect = [], exclude = [];
 
