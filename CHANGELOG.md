@@ -72,5 +72,6 @@ The first release: a rewrite of the packages feed's `prometheus-node-exporter-uc
 - A ubus object, `prometheus-exporter`, which the LuCI app, `luci-app-prometheus-exporter`, uses for its settings and status pages.
 - The documentation site, in the Diátaxis structure, published per minor version.
 
+[Unreleased]: https://github.com/m00qek/ucode-prometheus-exporter/compare/v0.2.0...HEAD
 [0.2.0]: https://github.com/m00qek/ucode-prometheus-exporter/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/m00qek/ucode-prometheus-exporter/releases/tag/v0.1.0
