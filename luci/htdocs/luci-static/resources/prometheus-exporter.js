@@ -173,6 +173,7 @@ const PROBLEMS = {
 	SINGLE: (p, title) => say(_('%s must be a single value'), title),
 	RANGE: (p, title) => say(_('%s must be an integer from %s to %s'), title, p.min, p.max),
 	UINTEGER: (p, title) => say(_('%s must be an integer of 0 or more'), title),
+	ZERO_OR_MIN: (p, title) => say(_('%s must be 0, or an integer of %s or more'), title, p.min),
 	ABSOLUTE_PATH: (p, title) => say(_('%s must be an absolute path'), title),
 	OWNED_DIRECTORY: (p, title) => say(_('%s must be a directory under /var, /tmp or /etc/prometheus-exporter'), title),
 	REGEX: (p, title) => say(_('%s must be a regular expression'), title),

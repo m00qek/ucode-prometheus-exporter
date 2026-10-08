@@ -18,7 +18,7 @@ The exporter's configuration is `/etc/config/prometheus-exporter`. The file is o
 | `key` | string | unset | — | The private key of cert. | init script |
 | `auth_user` | string | unset | `username` | The user a scrape logs in as (basic auth), with auth\_password; HTTPS only. | init script |
 | `auth_password` | string | unset | `crypt` | The crypt hash of the password of auth\_user: $1$ (uhttpd -m), $5$ or $6$, as the ubus object's hash\_password makes it. | init script |
-| `memory_limit` | integer | `0` | `uinteger` | MB of memory each of the exporter's processes may take (its data, RLIMIT\_DATA): a collector that takes more fails alone. 0 for a quarter of the RAM, at most 64 MB. | init script |
+| `memory_limit` | integer | `0` | `zero_or_min(8)` | MB of memory each of the exporter's processes may take (its data, RLIMIT\_DATA), 8 or more: a collector that takes more fails alone. 0 for a quarter of the RAM, at most 64 MB. | init script |
 | `omit_zero_values` | boolean | `0` | — | Leave out counters that are 0, most of which never move on a router. | exporter |
 | `compress` | boolean | `1` | — | Send a scrape gzip-compressed when the scraper asks for it (Accept-Encoding: gzip); 0 never does. | exporter |
 | `exec_timeout` | integer | `5` | `range(1,30)` | Seconds the programs a collector runs get in all in each scrape, unless the collector says otherwise; one still running then is killed. | exporter |
@@ -61,6 +61,7 @@ A boolean takes `1`, `yes`, `on`, `true`, `enabled` for true and `0`, `no`, `off
 | `regex` | a regular expression |
 | `uinteger` | an integer of 0 or more |
 | `username` | a user of 1 to 64 characters, without ":", spaces or control characters |
+| `zero_or_min(8)` | 0, or an integer of 8 or more |
 
 `directory` and `file` check the path's form, not that it exists. A value an option does not take is `CONFIG_INVALID`: in the main section it stops start and reload, and in a collector's section that collector fails in each scrape. See [Error codes](error-codes.md).
 
@@ -75,6 +76,7 @@ What the exporter finds wrong with a value, or with options that go together, ha
 | `SINGLE` | `value` | expected a single value, got `value` |
 | `RANGE` | `min`, `max`, `value` | expected an integer from `min` to `max`, got `value` |
 | `UINTEGER` | `value` | expected an integer of 0 or more, got `value` |
+| `ZERO_OR_MIN` | `min`, `value` | expected 0, or an integer of `min` or more, got `value` |
 | `ABSOLUTE_PATH` | `value` | expected an absolute path, got `value` |
 | `OWNED_DIRECTORY` | `value` | expected a directory under /var, /tmp or /etc/prometheus-exporter, which the service makes and mounts, got `value` |
 | `REGEX` | `value` | expected a regular expression, got `value` |

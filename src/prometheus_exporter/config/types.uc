@@ -122,9 +122,10 @@ export const DATATYPES = {
 	}),
 };
 
-// The range(min,max) datatypes made so far, by name: making one writes its
-// problem's English, which costs a scrape more than checking every value it
-// reads. At most RANGES_MAX, the few the core and the collectors declare.
+// The range(min,max) and zero_or_min(min) datatypes made so far, by name:
+// making one writes its problem's English, which costs a scrape more than
+// checking every value it reads. At most RANGES_MAX, the few the core and the
+// collectors declare.
 const RANGES = {};
 const RANGES_MAX = 256;
 
@@ -132,9 +133,15 @@ function range_of(lo, hi) {
 	return datatype_of([ 'int' ], problems.RANGE, { min: lo, max: hi }, (v) => v >= lo && v <= hi);
 }
 
+function zero_or_min_of(lo) {
+	return datatype_of([ 'int' ], problems.ZERO_OR_MIN, { min: lo }, (v) => v == 0 || v >= lo);
+}
+
 /**
  * { types, problem, expected, check } of a datatype name, or null for one the
- * core does not know. range(min,max) takes the integers from min to max.
+ * core does not know. range(min,max) takes the integers from min to max,
+ * zero_or_min(min) 0 and the integers from min up: an option whose 0 means
+ * a default worked out, and whose least other value is min.
  *
  * @param {*} name the datatype's name; anything but a string is none.
  * @returns {?Datatype} the datatype, or null.
@@ -147,6 +154,15 @@ export function datatype(name) {
 
 	if (known)
 		return known;
+
+	let z = match(name, /^zero_or_min\(([1-9][0-9]*)\)$/);
+
+	if (z) {
+		if (length(RANGES) < RANGES_MAX)
+			RANGES[name] = zero_or_min_of(int(z[1]));
+
+		return RANGES[name] ?? zero_or_min_of(int(z[1]));
+	}
 
 	let m = match(name, /^range\((-?[0-9]+),(-?[0-9]+)\)$/);
 

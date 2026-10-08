@@ -357,6 +357,19 @@ describe('config.service', () => {
 		]);
 	});
 
+	prop('takes a memory_limit of 0, or of the least the handler loads in and more', gen.int(-4, 70), (n) => {
+		let res = service({ memory_limit: '' + n });
+		let ok = n == 0 || n >= config.MEMORY_LIMIT_MIN;
+
+		assert.match(ok ? n : `CONFIG_INVALID: memory_limit: expected 0, or an integer of ${config.MEMORY_LIMIT_MIN} or more, got ${n}`,
+			ok ? res.memory_limit : res, n);
+	});
+
+	it('refuses a memory_limit of 1 to 7 MB, in which uhttpd cannot load the handler', () => {
+		assert.match(8, config.MEMORY_LIMIT_MIN);
+		assert.match('CONFIG_INVALID: memory_limit: expected 0, or an integer of 8 or more, got 2', service({ memory_limit: '2' }));
+	});
+
 	prop('takes any port from 1 to 65535', gen.int(1, 65535), (n) => {
 		assert.match(n, service({ listen_port: '' + n }).listen_port);
 	});

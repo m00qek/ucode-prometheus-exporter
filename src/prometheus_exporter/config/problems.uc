@@ -19,7 +19,8 @@
 
 /**
  * A problem with an option's value: its code, one of CODES, the arguments
- * the code takes (`min` and `max` of RANGE, `max` of CRYPT_ROUNDS), and
+ * the code takes (`min` and `max` of RANGE, `min` of ZERO_OR_MIN, `max` of
+ * CRYPT_ROUNDS), and
  * `value`, what the exporter read: a string, an integer (RANGE's and
  * UINTEGER's) or a list (SINGLE's, or a list where a boolean or an integer
  * was expected). A secret option's problem has no value, nor has one of
@@ -74,6 +75,14 @@ export const RANGE = 'RANGE';
  * @type {string}
  */
 export const UINTEGER = 'UINTEGER';
+
+/**
+ * An integer that is neither 0 nor `min` or more: the datatype
+ * zero_or_min(min).
+ *
+ * @type {string}
+ */
+export const ZERO_OR_MIN = 'ZERO_OR_MIN';
 
 /**
  * Not an absolute path: the datatypes directory and file.
@@ -162,6 +171,7 @@ export const CODES = {
 	[SINGLE]: { args: [], value: true, text: () => 'a single value' },
 	[RANGE]: { args: [ 'min', 'max' ], value: true, text: (p) => `an integer from ${p.min} to ${p.max}` },
 	[UINTEGER]: { args: [], value: true, text: () => 'an integer of 0 or more' },
+	[ZERO_OR_MIN]: { args: [ 'min' ], value: true, text: (p) => `0, or an integer of ${p.min} or more` },
 	[ABSOLUTE_PATH]: { args: [], value: true, text: () => 'an absolute path' },
 	[OWNED_DIRECTORY]: {
 		args: [], value: true,

@@ -733,6 +733,24 @@ check "check says why" says 'FAIL main: CONFIG_INVALID (listen_port: expected an
 check "the reload logged why, at err" says "daemon.err $NAME: invalid configuration, keeping the running instance" logread
 set_config "$NAME.main.listen_port=9100"
 
+# memory_limit: under 8 MB uhttpd cannot load the handler, and would
+# crash-loop; at 8 it loads every collector installed here.
+before=$(pid)
+set_config "$NAME.main.memory_limit=2"
+sleep 3
+check "a memory_limit the handler cannot load in keeps the running instance" test "$(pid)" = "$before"
+check "check says why" says 'FAIL main: CONFIG_INVALID (memory_limit: expected 0, or an integer of 8 or more, got 2)' "$INIT" check
+set_config "$NAME.main.memory_limit=8"
+eventually "memory_limit 8 restarts the instance" restarted_from "$before"
+eventually "which answers for every installed collector" all_answer
+check "and loaded them all" says "serving $(installed) collectors" sh -c "logread | grep 'daemon.info $NAME\[' | tail -1"
+check "each of its processes may take 8 MB of data" grep -q '^Max data size *8388608 *8388608 *bytes' /proc/$(uhttpd_of)/limits
+before=$(pid)
+uci delete "$NAME.main.memory_limit"
+set_config
+eventually "unset, a quarter of the RAM again restarts it" restarted_from "$before"
+eventually "which serves" served loadavg
+
 # --- gzip
 check "a scrape asked for gzip is gzipped, and says so" gzip_reply
 check "one not asked for it is plain" plain_reply ''

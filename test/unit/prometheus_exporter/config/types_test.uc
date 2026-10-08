@@ -113,6 +113,14 @@ describe('config.types.datatype', () => {
 		assert.match(compiles, check('regex', s) === true, s);
 	});
 
+	it('zero_or_min(n) takes 0 and n up, and says so of anything else', () => {
+		assert.match([ true, false, false, true, true ], map([ 0, 1, 7, 8, 4096 ], (n) => types.datatype('zero_or_min(8)').check(n)));
+		assert.match([ true, 'o: expected 0, or an integer of 8 or more, got 3', 'o: expected 0, or an integer of 8 or more, got -1' ],
+			[ check('zero_or_min(8)', '0'), check('zero_or_min(8)', '3'), check('zero_or_min(8)', '-1') ]);
+		assert.match([ null, null, null ], map([ 'zero_or_min(0)', 'zero_or_min(-1)', 'zero_or_min()' ], types.datatype));
+		assert.match(true, types.datatype('zero_or_min(8)') === types.datatype('zero_or_min(8)'));
+	});
+
 	it('owned_directory takes a directory under /var, /tmp or /etc/prometheus-exporter, and no other', () => {
 		assert.match([ true, true, true, true ], map([ '/var/prometheus', '/tmp/a/b/', '/etc/prometheus-exporter/m', '/var/lib/metrics' ], (d) => check('owned_directory', d)));
 		assert.match('o: expected a directory under /var, /tmp or /etc/prometheus-exporter, which the service makes and mounts, got "/srv/prom"',

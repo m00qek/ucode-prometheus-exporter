@@ -341,6 +341,19 @@ export function main(uci) {
 };
 
 /**
+ * The least memory_limit but 0, in MB: under it uhttpd cannot load the
+ * handler, and so crash-loops, though the configuration is valid. Loading it
+ * with every collector of the exporter's packages, 45, takes 6 MB of data
+ * (RLIMIT_DATA) on x86_64, the base package's 16 take 4 MB, and a 32-bit
+ * MIPS router less; 8 leaves 2 MB more for a scrape's own child processes
+ * of the base collectors, and past that a collector that takes more fails
+ * alone.
+ *
+ * @type {int}
+ */
+export const MEMORY_LIMIT_MIN = 8;
+
+/**
  * The main section's options the init script reads, with its defaults: whether
  * the service runs, where uhttpd listens, its TLS files ('' for none), and the
  * user and password hash of basic auth ('' for none).
@@ -360,8 +373,8 @@ export const SERVICE_OPTIONS = {
 		help: 'The crypt hash of the password of auth_user: $1$ (uhttpd -m), $5$ or $6$, as the ubus object\'s hash_password makes it.',
 	},
 	memory_limit: {
-		default: 0, datatype: 'uinteger',
-		help: 'MB of memory each of the exporter\'s processes may take (its data, RLIMIT_DATA): a collector that takes more fails alone. 0 for a quarter of the RAM, at most 64 MB.',
+		default: 0, datatype: `zero_or_min(${MEMORY_LIMIT_MIN})`,
+		help: `MB of memory each of the exporter's processes may take (its data, RLIMIT_DATA), ${MEMORY_LIMIT_MIN} or more: a collector that takes more fails alone. 0 for a quarter of the RAM, at most 64 MB.`,
 	},
 };
 
