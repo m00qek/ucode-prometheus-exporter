@@ -35,7 +35,7 @@ conntrack, entropy, filefd, loadavg, time and uname already had node_exporter's 
 
 | Before | After | Type | Why |
 |---|---|---|---|
-| `node_netstat_<Section>_<Field>` (from `/proc/net/netstat` and `/proc/net/snmp`) | `node_netstat_<Section>_<Field>` | gauge → untyped | node_exporter's type, and its help text `Statistic <Section><Field>.` |
+| `node_netstat_<Section>_<Field>` (from `/proc/net/netstat` and `/proc/net/snmp`) | `node_netstat_<Section>_<Field>` | gauge → untyped | node_exporter's type, and its help text `Statistic <Section><Field>.` By default only the fields node_exporter's `--collector.netstat.fields` keeps, some 40 of about 400; the option `fields`, a regular expression, takes others (`.*` for every one). |
 | `snmp6_<Name>{device="all"}` (from `/proc/net/snmp6`) | `node_netstat_<Protocol>_<Field>` (`node_netstat_Ip6_InReceives`, `node_netstat_Icmp6_*`, `node_netstat_Udp6_*`, `node_netstat_UdpLite6_*`) | counter → untyped | node_exporter's netstat collector reads `/proc/net/snmp6`; written by the netstat collector, not snmp6. |
 | `snmp6_<Name>{device}` (from `/proc/net/dev_snmp6/<device>`) | `node_snmp6_<Protocol>_<Field>_total{device}` | counter | node_exporter has no per-device IPv6 statistics: the `node_` namespace, the name split as netstat splits it, and `_total` on a counter. |
 | `snmp6_ifIndex{device}` | `node_snmp6_ifindex{device}` | counter → gauge | An interface index is not a count. |

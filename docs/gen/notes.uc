@@ -140,7 +140,7 @@ export const metric_patterns = {
 	} ],
 	'netstat': [ {
 		name: 'node_netstat_<Protocol>_<Field>',
-		help: 'Statistic <Protocol><Field>: each of `/proc/net/netstat`, `/proc/net/snmp` and `/proc/net/snmp6`.',
+		help: 'Statistic <Protocol><Field>: each field of `/proc/net/netstat`, `/proc/net/snmp` and `/proc/net/snmp6` the `fields` option matches, by default node_exporter\'s.',
 		match: (n) => match(n, /^node_netstat_/),
 	} ],
 	'snmp6': [ {

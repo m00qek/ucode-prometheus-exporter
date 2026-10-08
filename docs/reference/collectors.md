@@ -484,6 +484,7 @@ Protocol statistics from /proc/net/netstat, /proc/net/snmp and /proc/net/snmp6.
 
 | Option | Title | Type | Default | Datatype | Description |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| `fields` | Exported fields | string | `^(.*_(InErrors|InErrs)|Ip_Forwarding|Ip(6|Ext)_(InOctets|OutOctets)|Icmp6?_(InMsgs|OutMsgs)|TcpExt_(Listen.*|Syncookies.*|TCPSynRetrans|TCPTimeouts|TCPOFOQueue|TCPRcvQDrop)|Tcp_(ActiveOpens|InSegs|OutSegs|OutRsts|PassiveOpens|RetransSegs|CurrEstab)|Udp6?_(InDatagrams|OutDatagrams|NoPorts|RcvbufErrors|SndbufErrors))$` | `regex` | A regular expression of the &lt;section&gt;\_&lt;name&gt; fields to export (node\_exporter's by default; .\* for every one). |
 | `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
 ## `nft-counters` {#nft-counters}

@@ -10,6 +10,7 @@ What each release changes, for those who run the exporter and those who write co
 
 ### Changed
 
+- **BREAKING: netstat exports node_exporter's default fields only**, those its `--collector.netstat.fields` keeps: the errors, IP forwarding and octets, ICMP messages, TCP's connections, segments, retransmissions, listen queue and SYN cookies, and UDP's datagrams and buffer errors, 42 series on a router where it wrote about 400. The new option `fields`, a regular expression of `<Section>_<Field>` as vmstat's `fields` is, takes others: `option fields '.*'` exports every one, as before.
 - **BREAKING: hostapd_stations labels each station's series by `vif` and `station` alone.** `ssid`, `bssid`, `encryption`, `frequency` and `channel` moved off every `hostapd_station_*` series to the new `hostapd_station_info{vif,station,ssid,bssid,encryption,frequency,channel}`, one per station: a channel change (DFS, ACS) started a new series of every station's counters. A query that selected by them joins the info metric: `hostapd_station_signal_dbm * on (vif, station) group_left (ssid) hostapd_station_info`.
 
 ### Fixed

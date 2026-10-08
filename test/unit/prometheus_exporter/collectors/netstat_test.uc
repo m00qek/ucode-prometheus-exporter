@@ -14,6 +14,11 @@ function section(text, name) {
 	return join('', map(filter(split(text, '\n'), (l) => index(l, name + ': ') == 0), (l) => l + '\n'));
 }
 
+// The collector's config: every field exported, over these files.
+function every(data) {
+	return { fs: { data }, options: { fields: '.*' } };
+}
+
 // The samples in exposition lines.
 function samples(lines) {
 	return filter(lines, (l) => substr(l, 0, 1) != '#');
@@ -39,7 +44,7 @@ describe('collectors.netstat', () => {
 	it("exports a section of the caju router's /proc/net/snmp", () => {
 		let snmp = section(ROUTER['/proc/net/snmp'], 'IcmpMsg') + section(ROUTER['/proc/net/snmp'], 'Udp');
 
-		with_collector(netstat, { fs: { data: { '/proc/net/netstat': null, '/proc/net/snmp': snmp, '/proc/net/snmp6': null } } }, (r) => {
+		with_collector(netstat, every({ '/proc/net/netstat': null, '/proc/net/snmp': snmp, '/proc/net/snmp6': null }), (r) => {
 			assert.match(true, r.result.ok);
 			assert.match([
 				'# HELP node_netstat_IcmpMsg_InType3 Statistic IcmpMsgInType3.',
@@ -89,7 +94,7 @@ describe('collectors.netstat', () => {
 	});
 
 	it('exports every value of the three files of the caju router', () => {
-		with_collector(netstat, { fs: { data: ROUTER } }, (r) => {
+		with_collector(netstat, every(ROUTER), (r) => {
 			assert.match(true, r.result.ok);
 			assert.match(values_of(ROUTER['/proc/net/netstat']) + values_of(ROUTER['/proc/net/snmp'])
 				+ snmp6_values_of(ROUTER['/proc/net/snmp6']), length(samples(r.lines)));
@@ -111,15 +116,90 @@ describe('collectors.netstat', () => {
 	});
 
 	it('exports every value of the three files of the caju AP', () => {
-		with_collector(netstat, { fs: { data: AP } }, (r) => {
+		with_collector(netstat, every(AP), (r) => {
 			assert.match(true, r.result.ok);
 			assert.match(values_of(AP['/proc/net/netstat']) + values_of(AP['/proc/net/snmp'])
 				+ snmp6_values_of(AP['/proc/net/snmp6']), length(samples(r.lines)));
 		});
 	});
 
+	it("exports node_exporter's default fields of the caju router, and no other", () => {
+		with_collector(netstat, { fs: { data: ROUTER } }, (r) => {
+			assert.match(true, r.result.ok);
+			assert.match([
+				'node_netstat_TcpExt_SyncookiesSent 0',
+				'node_netstat_TcpExt_SyncookiesRecv 0',
+				'node_netstat_TcpExt_SyncookiesFailed 0',
+				'node_netstat_TcpExt_ListenOverflows 0',
+				'node_netstat_TcpExt_ListenDrops 0',
+				'node_netstat_TcpExt_TCPTimeouts 0',
+				'node_netstat_TcpExt_TCPOFOQueue 4',
+				'node_netstat_TcpExt_TCPSynRetrans 0',
+				'node_netstat_TcpExt_TCPRcvQDrop 0',
+				'node_netstat_IpExt_InOctets 810852736',
+				'node_netstat_IpExt_OutOctets 839505286',
+				'node_netstat_Ip_Forwarding 1',
+				'node_netstat_Icmp_InMsgs 1270',
+				'node_netstat_Icmp_InErrors 0',
+				'node_netstat_Icmp_OutMsgs 1699',
+				'node_netstat_Tcp_ActiveOpens 1848',
+				'node_netstat_Tcp_PassiveOpens 818',
+				'node_netstat_Tcp_CurrEstab 18',
+				'node_netstat_Tcp_InSegs 189038',
+				'node_netstat_Tcp_OutSegs 197681',
+				'node_netstat_Tcp_RetransSegs 218',
+				'node_netstat_Tcp_InErrs 0',
+				'node_netstat_Tcp_OutRsts 44',
+				'node_netstat_Udp_InDatagrams 42597',
+				'node_netstat_Udp_NoPorts 81',
+				'node_netstat_Udp_InErrors 0',
+				'node_netstat_Udp_OutDatagrams 11803',
+				'node_netstat_Udp_RcvbufErrors 0',
+				'node_netstat_Udp_SndbufErrors 0',
+				'node_netstat_UdpLite_InErrors 0',
+				'node_netstat_Ip6_InOctets 3647028',
+				'node_netstat_Ip6_OutOctets 243691',
+				'node_netstat_Icmp6_InMsgs 647',
+				'node_netstat_Icmp6_InErrors 0',
+				'node_netstat_Icmp6_OutMsgs 478',
+				'node_netstat_Udp6_InDatagrams 201',
+				'node_netstat_Udp6_NoPorts 146',
+				'node_netstat_Udp6_InErrors 0',
+				'node_netstat_Udp6_OutDatagrams 260',
+				'node_netstat_Udp6_RcvbufErrors 0',
+				'node_netstat_Udp6_SndbufErrors 0',
+				'node_netstat_UdpLite6_InErrors 0',
+			], samples(r.lines));
+		});
+	});
+
+	it('exports the fields its own pattern matches', () => {
+		with_collector(netstat, { fs: { data: ROUTER }, options: { fields: '^Tcp_(InSegs|OutSegs)$' } }, (r) => {
+			assert.match(true, r.result.ok);
+			assert.match([ 'node_netstat_Tcp_InSegs 189038', 'node_netstat_Tcp_OutSegs 197681' ], samples(r.lines));
+		});
+	});
+
+	it('fails with CONFIG_INVALID for a fields option that is no regular expression', () => {
+		with_collector(netstat, { fs: { data: ROUTER }, options: { fields: '(Tcp' } }, (r) => {
+			assert.match({ ok: false, error: 'CONFIG_INVALID' }, { ok: r.result.ok, error: r.result.error });
+			assert.match(true, index(r.result.details, 'fields: ') == 0);
+			assert.match([], r.lines);
+		});
+	});
+
+	it('still fails a malformed section the pattern matches nothing of', () => {
+		let snmp = 'Ip: Forwarding\nIp: 1\nUdp: InDatagrams NoPorts\nUdp: 5\n';
+
+		with_collector(netstat, { fs: { data: { '/proc/net/netstat': null, '/proc/net/snmp': snmp, '/proc/net/snmp6': null } }, options: { fields: '^Ip_' } }, (r) => {
+			assert.match({ ok: false, error: 'SOURCE_INVALID', details: '/proc/net/snmp: Udp:' },
+				{ ok: r.result.ok, error: r.result.error, details: r.result.details });
+			assert.match([ 'node_netstat_Ip_Forwarding 1' ], samples(r.lines));
+		});
+	});
+
 	it('exports one file when the others cannot be read, as upstream', () => {
-		with_collector(netstat, { fs: { data: { '/proc/net/netstat': ROUTER['/proc/net/netstat'], '/proc/net/snmp': null, '/proc/net/snmp6': null } } }, (r) => {
+		with_collector(netstat, every({ '/proc/net/netstat': ROUTER['/proc/net/netstat'], '/proc/net/snmp': null, '/proc/net/snmp6': null }), (r) => {
 			assert.match(true, r.result.ok);
 			assert.match(values_of(ROUTER['/proc/net/netstat']), length(samples(r.lines)));
 		});
@@ -128,7 +208,7 @@ describe('collectors.netstat', () => {
 	it('exports /proc/net/snmp6 alone, by protocol, and leaves out lines of no protocol or without a value', () => {
 		let snmp6 = 'Ip6InReceives 7\nIcmp6OutMsgs\t3\nUdpLite6NoPorts 2\nUdp6NoPorts 1\nifIndex 4\nIp6Lonely\n';
 
-		with_collector(netstat, { fs: { data: { '/proc/net/netstat': null, '/proc/net/snmp': null, '/proc/net/snmp6': snmp6 } } }, (r) => {
+		with_collector(netstat, every({ '/proc/net/netstat': null, '/proc/net/snmp': null, '/proc/net/snmp6': snmp6 }), (r) => {
 			assert.match(true, r.result.ok);
 			assert.match([
 				'# HELP node_netstat_Ip6_InReceives Statistic Ip6InReceives.',
@@ -148,7 +228,7 @@ describe('collectors.netstat', () => {
 	});
 
 	it('fails with SOURCE_UNREADABLE when no file can be read', () => {
-		with_collector(netstat, { fs: { data: { '/proc/net/netstat': null, '/proc/net/snmp': null, '/proc/net/snmp6': null } } }, (r) => {
+		with_collector(netstat, every({ '/proc/net/netstat': null, '/proc/net/snmp': null, '/proc/net/snmp6': null }), (r) => {
 			assert.match({ ok: false, error: 'SOURCE_UNREADABLE', details: '/proc/net/netstat, /proc/net/snmp, /proc/net/snmp6' },
 				{ ok: r.result.ok, error: r.result.error, details: r.result.details });
 			assert.match([], r.lines);
@@ -161,7 +241,7 @@ describe('collectors.netstat', () => {
 			'Tcp: RtoMin\nIcmp: 200\n' +
 			'Icmp: InMsgs\n';
 
-		with_collector(netstat, { fs: { data: { '/proc/net/netstat': null, '/proc/net/snmp': snmp, '/proc/net/snmp6': null } } }, (r) => {
+		with_collector(netstat, every({ '/proc/net/netstat': null, '/proc/net/snmp': snmp, '/proc/net/snmp6': null }), (r) => {
 			assert.match({ ok: false, error: 'SOURCE_INVALID', details: '/proc/net/snmp: Udp: Tcp: Icmp:' },
 				{ ok: r.result.ok, error: r.result.error, details: r.result.details });
 			assert.match([ 'node_netstat_Ip_Forwarding 1', 'node_netstat_Ip_DefaultTTL 64' ], samples(r.lines));
@@ -189,7 +269,7 @@ describe('collectors.netstat', () => {
 				}
 			}
 
-			with_collector(netstat, { fs: { data: { '/proc/net/netstat': text, '/proc/net/snmp': null, '/proc/net/snmp6': null } } }, (r) => {
+			with_collector(netstat, every({ '/proc/net/netstat': text, '/proc/net/snmp': null, '/proc/net/snmp6': null }), (r) => {
 				assert.match(true, r.result.ok);
 				assert.match(sort(map(keys(want), (k) => `${k} ${want[k]}`)), sort(samples(r.lines)));
 				assert.match(n, length(samples(r.lines)));
@@ -202,7 +282,7 @@ describe('collectors.netstat', () => {
 			let text = join('', map(rows, (r, i) => sprintf('%sX%s%d\t%d\n', r[0], r[1], i, r[2])));
 			let want = map(rows, (r, i) => sprintf('node_netstat_%s_X%s%d %d', r[0], r[1], i, r[2]));
 
-			with_collector(netstat, { fs: { data: { '/proc/net/netstat': null, '/proc/net/snmp': null, '/proc/net/snmp6': text } } }, (r) => {
+			with_collector(netstat, every({ '/proc/net/netstat': null, '/proc/net/snmp': null, '/proc/net/snmp6': text }), (r) => {
 				assert.match(true, r.result.ok);
 				assert.match(want, samples(r.lines));
 			});

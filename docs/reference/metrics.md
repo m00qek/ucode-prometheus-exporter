@@ -36,7 +36,7 @@ The labels are those seen on the captures; a collector leaves out a label it has
 | [`nat_traffic`](#nat_traffic) | 1 | a router | — |
 | [`netclass`](#netclass) | 19 | an access point, a router | — |
 | [`netdev`](#netdev) | 17 | an access point, a router | — |
-| [`netstat`](#netstat) | 402 | an access point, a router | — |
+| [`netstat`](#netstat) | 42 | an access point, a router | — |
 | [`nft-counters`](#nft-counters) | 2 | a router, made-up captures | — |
 | [`openwrt`](#openwrt) | 3 | an access point, a router | — |
 | [`openwrt_interfaces`](#openwrt_interfaces) | 10 | an access point, a router, made-up captures | — |
@@ -495,7 +495,7 @@ Protocol statistics. [Collector](collectors.md#netstat).
 
 | Family | Type | Labels | Help | Notes |
 | :--- | :--- | :--- | :--- | :--- |
-| `node_netstat_<Protocol>_<Field>` | untyped | — | Statistic &lt;Protocol&gt;&lt;Field&gt;: each of `/proc/net/netstat`, `/proc/net/snmp` and `/proc/net/snmp6`. | 402 on the captures |
+| `node_netstat_<Protocol>_<Field>` | untyped | — | Statistic &lt;Protocol&gt;&lt;Field&gt;: each field of `/proc/net/netstat`, `/proc/net/snmp` and `/proc/net/snmp6` the `fields` option matches, by default node\_exporter's. | 42 on the captures |
 
 ## `nft-counters` {#nft-counters}
 
