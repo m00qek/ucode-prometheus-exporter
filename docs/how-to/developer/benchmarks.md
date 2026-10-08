@@ -57,9 +57,12 @@ The sources, the benchmark and the worlds are copied to the device's `/tmp`, run
 ```bash
 make bench-qemu
 make bench-qemu QEMU_SHIFT=2
+make bench-qemu QEMU_ENDIAN=be
 ```
 
-OpenWrt's malta target in qemu-system-mipsel: a MIPS 24Kc, `mipsel_24kc` packages as MT7621-class routers have, with the built packages installed from the release's feed. `QEMU_SHIFT=1` runs it at 500 MIPS, `2` at 250. It downloads the release's images and packages the first time, into `bin/qemu/`, and it is slow: narrow it with `FILTER=`.
+OpenWrt's malta target in qemu-system-mipsel: a MIPS 24Kc, `mipsel_24kc` packages as MT7621-class routers have, with the built packages installed from the release's feed. `QEMU_ENDIAN=be` runs malta's big-endian image in qemu-system-mips instead, with the `mips_24kc` packages of ath79-class routers, the most common small ones; its result is `bin/bench/qemu-malta-be-shift<N>.json`. `QEMU_SHIFT=1` runs it at 500 MIPS, `2` at 250.
+
+Before the bench, the guest checks, on the installed exporter, what reads data in the CPU's own byte order: the auxiliary vector's page size and clock tick, sockstat's bytes against its pages, and basic auth's hashes. Each check is a `check:` line of the output, and one that fails fails the target. It downloads the release's images and packages the first time, into `bin/qemu/`, and it is slow: narrow it with `FILTER=`.
 
 ---
 
