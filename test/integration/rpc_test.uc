@@ -66,7 +66,7 @@ describe('the LuCI plugin over the real collectors', () => {
 
 			let main = {};
 			for (let name in rpc.MAIN_OPTIONS)
-				main[name] = as_uci({ ...config.SERVICE_OPTIONS, ...config.MAIN_OPTIONS }[name].default);
+				main[name] = as_uci({ ...config.SERVICE_OPTIONS, ...config.AUTH_OPTIONS, ...config.MAIN_OPTIONS }[name].default);
 
 			assert.match({ ok: true, errors: { main: {}, collectors: {} } }, rpc.validate(sys, { main, collectors: given }));
 		});
@@ -80,7 +80,7 @@ describe('the rpcd plugin', () => {
 		let plugin = loadfile('files/usr/share/rpcd/ucode/prometheus-exporter.uc')();
 		let methods = plugin['prometheus-exporter'];
 
-		assert.match([ 'collectors', 'hash_password', 'interfaces', 'status', 'validate' ], sort(keys(methods)));
+		assert.match([ 'collectors', 'hash_password', 'interfaces', 'password', 'set_password', 'status', 'validate' ], sort(keys(methods)));
 		assert.match({ collectors: [], skipped: [] }, methods.collectors.call({}));
 		assert.match({ ok: true, errors: { main: {}, collectors: {} } }, methods.validate.call({ args: {} }));
 	});

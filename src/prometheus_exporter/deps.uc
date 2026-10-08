@@ -260,6 +260,17 @@ export function urandom(fs) {
 const UCI_NO_DELTAS = '/var/run/prometheus-exporter/no-uci-deltas';
 
 /**
+ * A uci cursor that writes and commits, over the staged changes uci keeps as
+ * its own tools do: the ubus object's, for set_password alone, which commits
+ * the hash's config (config.AUTH_CONFIG). What reads takes modules()'s.
+ *
+ * @returns {UciCursor} the cursor.
+ */
+export function writable_cursor() {
+	return cursor();
+};
+
+/**
  * The real fs, ubus, uci, rtnl, nl80211 and socket (these two when
  * installed), time and a monotonic clock. Of fs, writefile, rename, unlink and
  * chmod are the handler's, for its state, mkstemp the runner's and stdin the

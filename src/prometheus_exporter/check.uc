@@ -95,6 +95,10 @@ function check_main(sys, add) {
 	let main = config.main(sys.uci);
 	let svc = config.service(sys.uci);
 
+	// Where 0.2.0 kept the hash, which the package's upgrade moves.
+	if (sys.uci.get(config.NAME, 'main', 'auth_password') != null)
+		add('warn', `main: auth_password is read from /etc/config/${config.AUTH_CONFIG}; the main section's is ignored`);
+
 	if (!svc.ok)
 		add('fail', `main: ${Result.describe(svc)}`);
 	if (!main.ok)

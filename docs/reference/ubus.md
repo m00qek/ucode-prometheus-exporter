@@ -2,7 +2,7 @@
 
 The ubus object `prometheus-exporter` belongs to the base package. rpcd serves it, from the ucode plugin `/usr/share/rpcd/ucode/prometheus-exporter.uc`, over `src/prometheus_exporter/rpc.uc` and its modules `rpc/describe.uc` and `rpc/validate.uc`, whether or not the service runs. rpcd loads it when it starts or reloads; the package reloads rpcd when it is installed, upgraded or removed.
 
-The object reads with the exporter's own modules and writes nothing. Each call reads the committed configuration and the installed collectors afresh.
+The object reads with the exporter's own modules, and writes nothing but the hash of basic auth's password, through `set_password`. Each call reads the committed configuration and the installed collectors afresh.
 
 ```
 $ ubus -v list prometheus-exporter
@@ -12,6 +12,8 @@ $ ubus -v list prometheus-exporter
 	"status":{}
 	"interfaces":{}
 	"hash_password":{"password":"String"}
+	"password":{}
+	"set_password":{"password":"String"}
 ```
 
 ---
@@ -25,6 +27,8 @@ $ ubus -v list prometheus-exporter
 | [`status`](#status) | none | `{ service: { enabled, boot, running, error, auth, compress }, listen: [ url ], collectors: [ result ], jailed }` |
 | [`interfaces`](#interfaces) | none | `{ interfaces: [ { name, proto } ] }` |
 | [`hash_password`](#hash_password) | `{ password }` | `{ hash }` |
+| [`password`](#password) | none | `{ saved }` |
+| [`set_password`](#set_password) | `{ password }` | `{ saved }` |
 
 A call with malformed arguments, and one that fails, is answered `{ error, message }`. See [Errors](#errors).
 
@@ -105,7 +109,7 @@ A client that does not know a code shows `message`.
 
 - Each value is checked alone. An empty value is unset, and takes the default.
 - Options nobody declared, and collectors that are not installed, are ignored, as the exporter ignores them.
-- The main section's options that go together, basic auth's user and hash and the `cert` and `key` they need, are checked as if the values given were the whole section.
+- The main section's options that go together, basic auth's user and the hash and the `cert` and `key` it needs, are checked as if the values given were the whole section. `auth_password`, the hash, is taken among `main`'s though it is saved apart (see [`set_password`](#set_password)): without it, a user given is checked with the saved hash, which is never answered.
 - A collector section takes `enabled`, `timeout` for a collector that runs programs, `budget`, and the collector's own options.
 - No refusal holds the value of `auth_password`.
 
@@ -178,20 +182,38 @@ $ ubus call prometheus-exporter hash_password '{"password":"…"}'
 
 The password is 1 to 256 bytes, without control characters. rpcd runs the method, unjailed, and logs neither the password nor the hash.
 
+## `password`
+
+Whether a hash of basic auth's password is saved, in `/etc/config/prometheus-exporter-auth`: `{ "saved": true }`. Never the hash.
+
+## `set_password`
+
+Hashes `password` as `hash_password` does, saves the hash in `/etc/config/prometheus-exporter-auth`, commits it, and sends procd the `config.change` event of that config, which reloads the service as `reload_config` would: `{ "saved": true }`. An empty `password` removes the saved hash: `{ "saved": false }`. The reply never holds the hash.
+
+```
+$ ubus call prometheus-exporter set_password '{"password":"…"}'
+{
+	"saved": true
+}
+```
+
+Basic auth is on while the main section's `auth_user` is set: a hash saved without one is unused. This is how LuCI saves a password: its ACL grants this method, and never reading the hash's config.
+
 ## Errors
 
 | `error` | `message` | When |
 | :--- | :--- | :--- |
 | `ARGS_INVALID` | `main and collectors must be objects`, `collectors.<module> must be an object` | `validate` was given something else. |
-| `ARGS_INVALID` | `password: expected a password`, `password: expected a password of at most 256 bytes`, `password: expected a password without control characters` | `hash_password` was given a password it does not take. |
+| `ARGS_INVALID` | `password: expected a password`, `password: expected a password of at most 256 bytes`, `password: expected a password without control characters` | `hash_password` or `set_password` was given a password it does not take. |
+| `FILE_UNWRITABLE` | `FILE_UNWRITABLE (cannot write /etc/config/prometheus-exporter-auth: ...)` | `set_password` could not save the hash. |
 | `STATUS_FAILED` | `cannot run /usr/libexec/prometheus-exporter/rpc-status.uc`, `... printed no reply` | `status` could not run its scrape, or the scrape printed no reply (or was killed at 60 s). |
-| A [code](error-codes.md) | `CODE (detail)` | `interfaces` could not ask netifd; `hash_password` had no random bytes. |
+| A [code](error-codes.md) | `CODE (detail)` | `interfaces` could not ask netifd; `hash_password` or `set_password` had no random bytes. |
 
 ubus itself refuses arguments of the wrong type, as a string for `main`, with `Invalid argument`.
 
 ## Access
 
-Over HTTP, through uhttpd-mod-ubus, a session needs the methods in its ACL. The LuCI app's ACL, `luci-app-prometheus-exporter`, grants `collectors`, `interfaces`, `status` and `validate` to read, and `hash_password` to write. See [LuCI app](luci.md#acl).
+Over HTTP, through uhttpd-mod-ubus, a session needs the methods in its ACL. The LuCI app's ACL, `luci-app-prometheus-exporter`, grants `collectors`, `interfaces`, `password`, `status` and `validate` to read, and `set_password` to write. See [LuCI app](luci.md#acl).
 
 ## See also
 

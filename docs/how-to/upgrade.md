@@ -28,6 +28,17 @@ apk add --allow-untrusted /tmp/ucode-prometheus-exporter-*$version.apk /tmp/luci
 
 Adding the base package alone fails: the installed collectors still want the old version. A dependency the new version adds comes from the feeds the device has: `ucode-docopt`, which 0.2 added, from the exporter's feed.
 
+## From 0.2.0 to 0.2.1
+
+0.2.1 changes what 0.2.0 did in these ways:
+
+- **Basic auth's hash has a config of its own.** `auth_password` is read from `/etc/config/prometheus-exporter-auth`, which the package installs, mode 0600, and no longer from the main section of `/etc/config/prometheus-exporter`, which LuCI's ACL lets a login read. The upgrade moves a hash it finds in the main section, and logs `auth_password moved from /etc/config/prometheus-exporter to /etc/config/prometheus-exporter-auth`. A script that sets the hash sets `prometheus-exporter-auth.main.auth_password`, or calls the ubus object's `set_password`; `check` warns of a hash left in the main section, which is ignored. See [How to serve HTTPS with basic auth](https-basic-auth.md).
+- **A hash without a user is no basic auth**, rather than an invalid configuration: `validate` no longer answers `AUTH_NEEDS_USER`. Basic auth is on while `auth_user` is set.
+- **LuCI's ACL grants `password` and `set_password`**, and no longer `hash_password`, which LuCI does not call: a login given the app's ACL reads whether a hash is saved, never the hash.
+- **textfile's `directory` must be under `/var`, `/tmp` or `/etc/prometheus-exporter`.** The service makes and mounts no other: move one elsewhere, as under `/srv`, before upgrading, or the configuration is refused (`OWNED_DIRECTORY`).
+- **`memory_limit` takes 0, or 8 MB and more.** 1 to 7 passed `check`, and uhttpd crash-looped; they are refused now (`ZERO_OR_MIN`).
+- **The jail has the ubus socket only while an enabled collector needs ubus.** A collector of another package whose programs call ubus, without `ubus` in its `meta.needs`, finds no ubus when every other collector that needs it is disabled: declare it.
+
 ## From 0.1 to 0.2
 
 0.2.0 changes what 0.1 did in these ways:

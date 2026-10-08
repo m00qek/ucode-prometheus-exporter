@@ -58,12 +58,15 @@ Logged by uhttpd's handler, with the pid of the uhttpd process.
 
 ## Installation
 
-The uci-defaults script that takes over a feed exporter's settings logs at `info`, once, when the package is installed:
+The uci-defaults script that takes over a feed exporter's settings, and moves basic auth's hash out of 0.2.0's place, logs at `info`, once, when the package is installed or upgraded:
 
 | Message | When |
 | :--- | :--- |
 | `imported from /etc/config/<old>: <option>=<value>, ..., collector <module>` | It took these. `nothing it changed from the defaults` when there was nothing to take. |
 | `<old>: option <option>: expected <what>, got <value>; left at the default` | A value this exporter does not take. |
 | `/etc/config/prometheus-exporter is not as the package ships it: nothing imported from /etc/config/<old>` | The config had been changed already. |
+| `auth_password moved from /etc/config/prometheus-exporter to /etc/config/prometheus-exporter-auth` | An upgrade from 0.2.0 found the hash of basic auth's password where 0.2.0 kept it, and moved it where the exporter reads it now. |
+| `auth_password removed from /etc/config/prometheus-exporter: /etc/config/prometheus-exporter-auth has one already, which is kept` | The same, with a hash saved apart already. |
+| `/etc/config/prometheus-exporter-auth is not there: auth_password left in /etc/config/prometheus-exporter, where it is not read; set it again` | The hash's config was removed: save the password again (`set_password`). |
 
 See [How to move from the feed's exporters](../how-to/migrate-from-feed.md).

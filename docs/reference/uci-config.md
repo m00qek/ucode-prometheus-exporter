@@ -2,7 +2,7 @@
 
 # UCI Configuration
 
-The exporter's configuration is `/etc/config/prometheus-exporter`. The file is optional: every option has a default, an unset option takes it, and an option the exporter does not know is ignored. Changes apply on `reload_config` or `service prometheus-exporter reload`.
+The exporter's configuration is `/etc/config/prometheus-exporter`, and the hash of basic auth's password is apart, in `/etc/config/prometheus-exporter-auth` ([below](#auth)). The files are optional: every option has a default, an unset option takes it, and an option the exporter does not know is ignored. Changes apply on `reload_config` or `service prometheus-exporter reload`.
 
 ## The main section {#main}
 
@@ -17,7 +17,6 @@ The exporter's configuration is `/etc/config/prometheus-exporter`. The file is o
 | `cert` | string | unset | — | The certificate to serve HTTPS with, along with key. | init script |
 | `key` | string | unset | — | The private key of cert. | init script |
 | `auth_user` | string | unset | `username` | The user a scrape logs in as (basic auth), with auth\_password; HTTPS only. | init script |
-| `auth_password` | string | unset | `crypt` | The crypt hash of the password of auth\_user: $1$ (uhttpd -m), $5$ or $6$, as the ubus object's hash\_password makes it. | init script |
 | `memory_limit` | integer | `0` | `zero_or_min(8)` | MB of memory each of the exporter's processes may take (its data, RLIMIT\_DATA), 8 or more: a collector that takes more fails alone. 0 for a quarter of the RAM, at most 64 MB. | init script |
 | `omit_zero_values` | boolean | `0` | — | Leave out counters that are 0, most of which never move on a router. | exporter |
 | `compress` | boolean | `1` | — | Send a scrape gzip-compressed when the scraper asks for it (Accept-Encoding: gzip); 0 never does. | exporter |
@@ -29,8 +28,16 @@ The exporter's configuration is `/etc/config/prometheus-exporter`. The file is o
 Options that go together, checked wherever the configuration is checked (start, reload, `check`, the ubus object's `validate` and LuCI):
 
 - `auth_user` without `auth_password`: basic auth needs the hash of a password along with auth\_user.
-- `auth_password` without `auth_user`: basic auth needs a user along with auth\_password.
-- Either without `cert` and `key`: basic auth needs HTTPS: set cert and key, or the password crosses the network in the clear.
+- `auth_user` without `cert` and `key`: basic auth needs HTTPS: set cert and key, or the password crosses the network in the clear.
+- `auth_password` without `auth_user` is no basic auth: the hash stays saved, unused.
+
+## Basic auth's hash {#auth}
+
+`config auth 'main'` in `/etc/config/prometheus-exporter-auth`, which the package installs, mode 0600. It is apart so that LuCI's ACL, which grants reading the exporter's config, never grants the hash: the ubus object's `set_password` writes it, and `password` says whether one is saved. The init script reads it, and the jail does not mount it. A change reloads the service, as one of the main section does.
+
+| Option | Type | Default | Datatype | Description | Read by |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `auth_password` | string | unset | `crypt` | The crypt hash of the password of auth\_user: $1$ (uhttpd -m), $5$ or $6$, as the ubus object's hash\_password makes it. | init script |
 
 ## Collector sections {#collector-sections}
 
@@ -85,7 +92,6 @@ What the exporter finds wrong with a value, or with options that go together, ha
 | `CRYPT_ROUNDS` | `max`, `value` | expected a hash of at most `max` rounds, which a scrape computes to check the password (hash\_password makes one of 1000; one without rounds= has 5000), got `value` |
 | `INTERFACE` | `value` | expected an interface name or \*, got `value` |
 | `AUTH_NEEDS_PASSWORD` | — | basic auth needs the hash of a password along with auth\_user |
-| `AUTH_NEEDS_USER` | — | basic auth needs a user along with auth\_password |
 | `AUTH_NEEDS_TLS` | — | basic auth needs HTTPS: set cert and key, or the password crosses the network in the clear |
 
 ## Example {#example}
@@ -107,4 +113,11 @@ config prometheus-exporter 'main'
 config collector 'textfile'
 	option enabled '1'
 	option directory '/var/prometheus'
+```
+
+With basic auth, `auth_user` in the main section above, and in `/etc/config/prometheus-exporter-auth`:
+
+```
+config auth 'main'
+	option auth_password '$6$rounds=1000$...'
 ```

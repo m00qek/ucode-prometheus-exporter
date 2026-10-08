@@ -459,7 +459,8 @@ export function uci_page(ctx) {
 	};
 
 	push(blocks,
-		'The exporter\'s configuration is `/etc/config/prometheus-exporter`. The file is optional: every option ' +
+		'The exporter\'s configuration is `/etc/config/prometheus-exporter`, and the hash of basic auth\'s password ' +
+		`is apart, in \`/etc/config/${config.AUTH_CONFIG}\` ([below](#auth)). The files are optional: every option ` +
 		'has a default, an unset option takes it, and an option the exporter does not know is ignored. ' +
 		'Changes apply on `reload_config` or `service prometheus-exporter reload`.');
 
@@ -486,14 +487,29 @@ export function uci_page(ctx) {
 		'the ubus object\'s `validate` and LuCI):');
 
 	let together = config.together({ auth_user: 'u' });
-	let alone = config.together({ auth_password: 'h' });
 	let no_tls = config.together({ auth_user: 'u', auth_password: 'h' });
 
 	push(blocks, join('\n', [
 		`- \`auth_user\` without \`auth_password\`: ${md.text(config.english(together.auth_password))}.`,
-		`- \`auth_password\` without \`auth_user\`: ${md.text(config.english(alone.auth_user))}.`,
-		`- Either without \`cert\` and \`key\`: ${md.text(config.english(no_tls.auth_user))}.`,
+		`- \`auth_user\` without \`cert\` and \`key\`: ${md.text(config.english(no_tls.auth_user))}.`,
+		'- `auth_password` without `auth_user` is no basic auth: the hash stays saved, unused.',
 	]));
+
+	push(blocks, md.heading(2, 'Basic auth\'s hash', 'auth'));
+	push(blocks,
+		`\`config ${config.AUTH_TYPE} '${config.AUTH_SECTION}'\` in \`/etc/config/${config.AUTH_CONFIG}\`, which the package ` +
+		'installs, mode 0600. It is apart so that LuCI\'s ACL, which grants reading the exporter\'s config, never grants ' +
+		'the hash: the ubus object\'s `set_password` writes it, and `password` says whether one is saved. The init ' +
+		'script reads it, and the jail does not mount it. A change reloads the service, as one of the main section does.');
+
+	let auth_rows = [];
+
+	for (let name, spec in config.AUTH_OPTIONS) {
+		note_type(spec);
+		push(auth_rows, [ ...option_row(name, spec), 'init script' ]);
+	}
+
+	push(blocks, md.table([ 'Option', 'Type', 'Default', 'Datatype', 'Description', 'Read by' ], auth_rows));
 
 	push(blocks, md.heading(2, 'Collector sections', 'collector-sections'));
 	push(blocks,
@@ -587,6 +603,8 @@ export function uci_page(ctx) {
 		})) +
 		join('', map(keys(config.MAIN_OPTIONS), (k) => `\toption ${k} '${uci_value(config.MAIN_OPTIONS[k].default)}'\n`)) +
 		'\nconfig collector \'textfile\'\n\toption enabled \'1\'\n\toption directory \'/var/prometheus\'\n```');
+	push(blocks, `With basic auth, \`auth_user\` in the main section above, and in \`/etc/config/${config.AUTH_CONFIG}\`:`);
+	push(blocks, '```\n' + `config ${config.AUTH_TYPE} '${config.AUTH_SECTION}'\n\toption auth_password '$6$rounds=1000$...'\n` + '```');
 
 	return { text: md.page(blocks), problems: [] };
 };

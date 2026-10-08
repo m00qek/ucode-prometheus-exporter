@@ -4,7 +4,8 @@
  * runs per request, and publishes nothing itself. It reads with the exporter's
  * own modules (loader, config, jail, scrape, check), so whoever asks (LuCI,
  * `ubus call` on the router, a script) sees what the exporter sees, and writes
- * nothing: settings are saved through uci.
+ * nothing but the hash of basic auth's password (set_password): settings are
+ * saved through uci.
  *
  *   collectors {} -> { collectors: [ collector ], skipped: [ message ] }
  *   validate { main?, collectors? }
@@ -14,6 +15,8 @@
  *                                      duration, error, mounts, service } ], jailed }
  *   interfaces {} -> { interfaces: [ { name, proto } ] }
  *   hash_password { password } -> { hash }
+ *   password {}   -> { saved }
+ *   set_password { password } -> { saved }
  *
  * A collector and its options are as prometheus_exporter.rpc.describe
  * describes them, and validate checks values as prometheus_exporter.rpc.validate
@@ -48,11 +51,20 @@
  * password it does not take is answered { error: ARGS_INVALID, message }. No
  * method's reply holds the hash of the config.
  *
+ * The hash is saved apart from the exporter's config, in config.AUTH_CONFIG,
+ * which LuCI's ACL does not grant: password says whether one is saved, and
+ * set_password hashes a password as hash_password does and saves the hash
+ * there, or with '' removes it, commits it, and asks procd for the reload
+ * that a commit of the config by uci's own tools would bring
+ * (CONFIG_CHANGE). So a login may change the password without reading
+ * the hash, and the service takes it at once.
+ *
  * sys: { uci: a cursor, fs: { stat, glob, readfile }, path: the PATH commands are
  *        found on, dir: the collectors' directory, apk: apk's per-package file
  *        lists, collectors: the loaded ones, skipped: what the loader logged,
  *        env: a scrape env (prometheus_exporter.scrape), ubus: a ubus channel,
- *        random(n): n random bytes, ledger: the service's ledger, or null }
+ *        random(n): n random bytes, ledger: the service's ledger, or null,
+ *        uci_writer(): a cursor that commits }
  *
  * @module prometheus_exporter_rpc
  */
@@ -60,6 +72,7 @@
 'use strict';
 
 import * as Result from 'prometheus_exporter.result';
+import * as errors from 'prometheus_exporter.errors';
 import * as config from 'prometheus_exporter.config';
 import * as deps from 'prometheus_exporter.deps';
 import * as loader from 'prometheus_exporter.loader';
@@ -93,6 +106,7 @@ import { invalid_args } from 'prometheus_exporter.rpc.validate';
  *   ubus: UbusCapability,
  *   ledger: ?Ledger,
  *   random: function(int): ?string,
+ *   uci_writer: ?function(): UciCursor,
  *   trial: ?function(Collector[], function(): Run[]): Trial
  * }} RpcSys
  */
@@ -346,6 +360,94 @@ export function hash_password(sys, args) {
 };
 
 /**
+ * The event procd's reload triggers take of a changed config, as uci's
+ * reload_config sends it.
+ *
+ * @type {string}
+ */
+export const CONFIG_CHANGE = 'config.change';
+
+/**
+ * The file of the hash's config.
+ *
+ * @type {string}
+ */
+export const AUTH_FILE = `/etc/config/${config.AUTH_CONFIG}`;
+
+/**
+ * { saved }: whether a hash of basic auth's password is saved
+ * (config.AUTH_CONFIG), valid or not; never the hash.
+ *
+ * @param {RpcSys} sys the system: its uci.
+ * @returns {{ saved: boolean }} whether one is.
+ */
+export function password(sys) {
+	let hash = sys.uci.get(config.AUTH_CONFIG, config.AUTH_SECTION, 'auth_password');
+
+	return { saved: hash != null && hash != '' };
+};
+
+/**
+ * Writes `hash` as the saved one, '' removing it, and commits: a Result.
+ * The package installs the config; one removed since is written again,
+ * mode 0600, with its section.
+ *
+ * @param {RpcSys} sys the system: its fs and uci_writer.
+ * @param {string} hash the hash, or ''.
+ * @returns {Result<boolean>} whether a hash is saved now, or FILE_UNWRITABLE.
+ */
+export function save_hash(sys, hash) {
+	let failed = (why) => Result.err(errors.FILE_UNWRITABLE, `cannot write ${AUTH_FILE}: ${why}`);
+
+	if (sys.fs.stat(AUTH_FILE) == null &&
+	    (sys.fs.writefile(AUTH_FILE, `config ${config.AUTH_TYPE} '${config.AUTH_SECTION}'\n`) == null || !sys.fs.chmod(AUTH_FILE, 0o600)))
+		return failed(sys.fs.error?.() ?? 'unknown error');
+
+	let uci = sys.uci_writer();
+	let ok = uci.set(config.AUTH_CONFIG, config.AUTH_SECTION, config.AUTH_TYPE);
+
+	if (ok && hash != '')
+		ok = uci.set(config.AUTH_CONFIG, config.AUTH_SECTION, 'auth_password', hash);
+	else if (ok && uci.get(config.AUTH_CONFIG, config.AUTH_SECTION, 'auth_password') != null)
+		ok = uci.delete(config.AUTH_CONFIG, config.AUTH_SECTION, 'auth_password');
+
+	if (!ok || !uci.commit(config.AUTH_CONFIG))
+		return failed(uci.error() ?? 'unknown error');
+
+	return Result.ok(hash != '');
+};
+
+/**
+ * { saved } of set_password: args.password hashed and saved, or with ''
+ * the saved hash removed; then procd is asked for the reload (CONFIG_CHANGE).
+ *
+ * @param {RpcSys} sys the system: its random, fs, uci_writer and ubus.
+ * @param {?Object} args the method's arguments: { password }.
+ * @returns {Object} { saved }, or { error, message }.
+ */
+export function set_password(sys, args) {
+	let password = args?.password;
+	let hash = '';
+
+	if (password !== '') {
+		let res = hash_password(sys, args);
+
+		if (res.error)
+			return res;
+		hash = res.hash;
+	}
+
+	let res = save_hash(sys, hash);
+
+	if (!res.ok)
+		return { error: res.error, message: Result.describe(res) };
+
+	sys.ubus.call('service', 'event', { type: CONFIG_CHANGE, data: { package: config.AUTH_CONFIG } });
+
+	return { saved: res.data };
+};
+
+/**
  * Runs `command` without blocking rpcd, and replies with the JSON object it
  * prints. io: { popen(command) -> a handle, or null; watch(handle, cb): calls
  * cb once the handle can be read }. The reply is { error: STATUS_FAILED,
@@ -488,6 +590,20 @@ export function methods(make_sys, io) {
 			args: { password: '' },
 			call: (req) => hash_password(make_sys({ collectors: false }), req.args),
 		},
+		password: {
+			args: {},
+			call: () => password(make_sys({ collectors: false })),
+		},
+		set_password: {
+			args: { password: '' },
+			call: function(req) {
+				let sys = make_sys({ collectors: false });
+				let out = set_password(sys, req.args);
+
+				sys.ubus.close();
+				return out;
+			},
+		},
 	};
 };
 
@@ -520,6 +636,7 @@ export function system(opts) {
 		ubus: deps.ubus_channel(mods.ubus.connect),
 		ledger: st ? ledger.parse(st.read(ledger.NAME)) : null,
 		random: deps.urandom(mods.fs),
+		uci_writer: deps.writable_cursor,
 	};
 
 	// In the service's jail, where it can be had (check.trial).

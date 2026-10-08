@@ -1,6 +1,6 @@
 'use strict';
 
-import { describe, it, assert } from 'utest';
+import { describe, it, assert, mock } from 'utest';
 import * as rpc from 'prometheus_exporter.rpc';
 import * as config from 'prometheus_exporter.config';
 import * as Result from 'prometheus_exporter.result';
@@ -54,14 +54,102 @@ describe('rpc.hash_password', () => {
 	});
 });
 
+describe('rpc.password and rpc.set_password', () => {
+	const HASH = '$1$$ysVNzQc4CTMkp5daOdZ.3/';
+
+	// A sys whose uci holds `hash` in the hash's config (none when null, and no
+	// config at all when `file` is false), whose fs records what it writes, and
+	// whose ubus records the events sent.
+	function with_hash_sys(hash, file, cb) {
+		let data = (file === false) ? {} : { [config.AUTH_CONFIG]: (hash != null) ? { main: { '.type': config.AUTH_TYPE, auth_password: hash } } : {} };
+		let seen = { written: [], events: [] };
+
+		mock.inject('uci', { data }, (uci) => {
+			let writer = uci.cursor();
+			let sys = {
+				uci: uci.cursor(),
+				uci_writer: () => writer,
+				random: (n) => substr('abcdefghijklmnopqrstuvwxyz', 0, n),
+				fs: {
+					stat: (p) => (p == rpc.AUTH_FILE && file !== false) ? { type: 'file' } : null,
+					writefile: function(p, text) { push(seen.written, [ p, text ]); return length(text); },
+					chmod: function(p, mode) { push(seen.written, [ p, mode ]); return true; },
+				},
+				ubus: { call: function(obj, method, args) { push(seen.events, [ obj, method, args ]); return Result.ok(null); } },
+			};
+
+			cb(sys, seen, () => writer.get(config.AUTH_CONFIG, config.AUTH_SECTION, 'auth_password'));
+		});
+	}
+
+	it('says whether a hash is saved, and never which', () => {
+		for (let t in [ [ HASH, true ], [ null, false ], [ '', false ] ])
+			with_hash_sys(t[0], true, (sys) => {
+				let res = rpc.password(sys);
+
+				assert.match({ saved: t[1] }, res, t[0]);
+				assert.match(-1, index(sprintf('%J', res), HASH));
+			});
+	});
+
+	it('hashes a password, saves the hash apart, and asks procd for the reload a commit of it brings', () => {
+		with_hash_sys(HASH, true, (sys, seen, saved) => {
+			let res = rpc.set_password(sys, { password: 'secret' });
+
+			assert.match({ saved: true }, res);
+			assert.match([ true, true ], [ crypt.verify('secret', saved()), saved() != HASH ]);
+			assert.match([ [ 'service', 'event', { type: rpc.CONFIG_CHANGE, data: { package: config.AUTH_CONFIG } } ] ], seen.events);
+			assert.match([], seen.written);
+		});
+	});
+
+	it('removes the saved hash for an empty password', () => {
+		with_hash_sys(HASH, true, (sys, seen, saved) => {
+			assert.match([ { saved: false }, null ], [ rpc.set_password(sys, { password: '' }), saved() ]);
+			assert.match(1, length(seen.events));
+		});
+	});
+
+	it('refuses a password it does not take, saving nothing and asking for no reload', () => {
+		with_hash_sys(HASH, true, (sys, seen, saved) => {
+			assert.match([
+				{ error: rpc.ARGS_INVALID, message: 'password: expected a password' },
+				{ error: rpc.ARGS_INVALID, message: 'password: expected a password without control characters' },
+			], [ rpc.set_password(sys, {}), rpc.set_password(sys, { password: 'a\tb' }) ]);
+			assert.match([ HASH, [] ], [ saved(), seen.events ]);
+		});
+	});
+
+	it('writes the config again, mode 0600, when it is gone', () => {
+		with_hash_sys(null, false, (sys, seen) => {
+			rpc.set_password(sys, { password: 'secret' });
+
+			assert.match([ [ rpc.AUTH_FILE, `config ${config.AUTH_TYPE} '${config.AUTH_SECTION}'\n` ], [ rpc.AUTH_FILE, 0o600 ] ], seen.written);
+		});
+	});
+
+	it('is served, reading on a sys without collectors, and closes its ubus channel', () => {
+		let opts = [];
+		let closed = 0;
+		let m = rpc.methods(function(o) {
+			push(opts, o);
+			return { uci: { get: () => HASH }, ubus: { close: () => closed++ } };
+		}, null);
+
+		assert.match([ { saved: true }, [ { collectors: false } ] ], [ m.password.call({ args: {} }), opts ]);
+		assert.match({ error: rpc.ARGS_INVALID, message: 'password: expected a password' }, m.set_password.call({ args: {} }));
+		assert.match(1, closed);
+	});
+});
+
 describe('rpc.service', () => {
 	const RUNNING = { [NAME]: { instances: { instance1: { running: true,
 		command: [ '/usr/sbin/uhttpd', '-f', '-p', '192.168.1.1:9100', '-p', '[fd00::1]:9100' ] } } } };
 
-	function service(own, ubus, links) {
+	function service(own, ubus, links, hash) {
 		let out;
 
-		with_sys(own, { ubus, links }, (sys) => {
+		with_sys(own, { ubus, links, hash }, (sys) => {
 			out = rpc.service(sys);
 		});
 
@@ -103,8 +191,8 @@ describe('rpc.service', () => {
 
 	it('says whether a scrape logs in and is compressed, and never the hash', () => {
 		let hash = '$1$$ysVNzQc4CTMkp5daOdZ.3/';
-		let res = service({ main: { '.type': NAME, auth_user: 'prom', auth_password: hash, cert: '/c', key: '/k', compress: '0' } },
-			{ data: { 'service:list': {} } }, []);
+		let res = service({ main: { '.type': NAME, auth_user: 'prom', cert: '/c', key: '/k', compress: '0' } },
+			{ data: { 'service:list': {} } }, [], hash);
 
 		assert.match([ true, false ], [ res.service.auth, res.service.compress ]);
 		assert.match(-1, index(sprintf('%J', res), hash));
@@ -361,7 +449,7 @@ describe('rpc.methods', () => {
 			watch: () => null,
 		});
 
-		assert.match([ 'collectors', 'hash_password', 'interfaces', 'status', 'validate' ], sort(keys(m)));
+		assert.match([ 'collectors', 'hash_password', 'interfaces', 'password', 'set_password', 'status', 'validate' ], sort(keys(m)));
 		assert.match({ collectors: [], skipped: [] }, m.collectors.call({ args: {} }));
 		assert.match({ ok: true, errors: { main: {}, collectors: {} } }, m.validate.call({ args: { main: { listen_port: '80' } } }));
 		assert.match(2, made);

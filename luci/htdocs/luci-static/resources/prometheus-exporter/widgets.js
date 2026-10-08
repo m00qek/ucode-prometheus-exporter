@@ -114,10 +114,13 @@ const ListenSelect = form.ListValue.extend({
 	}
 });
 
-// Basic auth's password. The field holds what is typed, never the saved hash; Save hashes
-// it through the object's hash_password and writes the hash. Left empty, the saved hash
-// stays; without a user, there is no basic auth and the hash goes. `user` is the option of
-// basic auth's user.
+// Basic auth's password. The field holds what is typed, never the saved hash, which is
+// saved apart from the exporter's config, where the page may not read it: `hashSaved`
+// says whether one is, as the object's `password` answered when the page loaded. Save
+// hands what is typed to the object's set_password, which hashes it, saves the hash and
+// has the service reload; the page writes nothing of it to uci. Left empty, the saved
+// hash stays; without a user there is no basic auth, and a saved hash stays unused.
+// `user` is the option of basic auth's user.
 const PasswordValue = form.Value.extend({
 	__name__: 'CBI.PrometheusExporterPassword',
 
@@ -125,25 +128,22 @@ const PasswordValue = form.Value.extend({
 		return null;
 	},
 
-	// The hash saved, as uci holds it with staged changes.
+	// Whether a hash is saved.
 	saved(section_id) {
-		return uci.get(CONFIG, section_id, 'auth_password');
+		return this.hashSaved === true;
 	},
 
 	renderWidget(section_id, option_index, cfgvalue) {
-		this.placeholder = blank(this.saved(section_id)) ? '' : _('Unchanged');
+		this.placeholder = this.saved(section_id) ? _('Unchanged') : '';
 		return this.super('renderWidget', [ section_id, option_index, cfgvalue ]);
 	},
 
-	// Writes nothing of what is typed: the hash of it, or nothing.
+	// Writes nothing to uci: the object saves the hash of what is typed, or nothing is.
 	parse(section_id) {
 		const typed = this.formvalue(section_id);
 
-		if (blank(this.user.formvalue(section_id))) {
-			if (this.saved(section_id) != null)
-				uci.unset(CONFIG, section_id, 'auth_password');
+		if (blank(this.user.formvalue(section_id)))
 			return Promise.resolve();
-		}
 
 		if (!this.isValid(section_id))
 			return Promise.reject(new TypeError(_('Basic auth password:') + ' ' + this.getValidationError(section_id)));
@@ -151,13 +151,13 @@ const PasswordValue = form.Value.extend({
 		if (blank(typed))
 			return Promise.resolve();
 
-		const failed = (why) => new Error(_('The password could not be hashed:') + ' ' + why);
+		const failed = (why) => new Error(_('The password could not be saved:') + ' ' + why);
 
-		return exporter.hashPassword(typed).then((res) => {
-			if (!L.isObject(res) || typeof(res.hash) !== 'string')
+		return exporter.setPassword(typed).then((res) => {
+			if (!L.isObject(res) || res.saved !== true)
 				throw failed(exporter.describeError(res));
 
-			uci.set(CONFIG, section_id, 'auth_password', res.hash);
+			this.hashSaved = true;
 		}, (err) => {
 			throw failed(exporter.describeError(err));
 		});

@@ -1,0 +1,9 @@
+# The hash of basic auth's password, apart from /etc/config/prometheus-exporter,
+# which LuCI's settings page may read: no login reads this file through LuCI.
+# The ubus object's set_password writes it, as LuCI does; by hand, the crypt
+# hash ($1$, $5$ or $6$) that `prometheus-exporter hash-password` prints,
+# never the password itself:
+#   uci set prometheus-exporter-auth.main.auth_password='$6$rounds=1000$...'
+# Basic auth is on while the main section of /etc/config/prometheus-exporter
+# sets auth_user.
+config auth 'main'

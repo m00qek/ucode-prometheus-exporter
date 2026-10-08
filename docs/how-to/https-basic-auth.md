@@ -17,36 +17,40 @@ Have every scrape log in with a user and password, over TLS. The exporter takes 
 
 ---
 
-## 1. Hash the password
+## 1. Save the password's hash
 
-Use a long random password, as a scraper's can be. Have the ubus object hash it, so the password is on no command line of the device:
+Use a long random password, as a scraper's can be. The configuration holds its crypt hash, never the password, in a config of its own, `/etc/config/prometheus-exporter-auth`, apart from the rest, which LuCI's settings page may read. Have the ubus object hash the password and save the hash there, so the password is on no command line of the device:
 
 ```sh
-ubus call prometheus-exporter hash_password '{"password":"…"}'
+ubus call prometheus-exporter set_password '{"password":"…"}'
 ```
 
 ```
 {
-	"hash": "$6$rounds=1000$IgztncwtDxRNxtVD$emPK…"
+	"saved": true
 }
 ```
 
-To use a hash made elsewhere, it must be `$1$` (as `uhttpd -m <password>` prints), or `$5$` or `$6$` of at most 2000 rounds, as `mkpasswd -m sha-512 -R 1000` makes. `openssl passwd -6` makes hashes of 5000 rounds, which are refused. Why: [Performance on small routers](../explanation/performance.md#basic-auth).
+Or save a hash yourself, from `prometheus-exporter hash-password`, which reads the password without echoing it:
 
-## 2. Set it
+```sh
+uci set prometheus-exporter-auth.main.auth_password="$(prometheus-exporter hash-password)"
+uci commit prometheus-exporter-auth
+```
+
+A hash made elsewhere must be `$1$` (as `uhttpd -m <password>` prints), or `$5$` or `$6$` of at most 2000 rounds, as `mkpasswd -m sha-512 -R 1000` makes. `openssl passwd -6` makes hashes of 5000 rounds, which are refused. Why: [Performance on small routers](../explanation/performance.md#basic-auth). Set one by hand in single quotes: the shell would read its `$` otherwise.
+
+## 2. Set the user, and HTTPS
 
 ```sh
 uci set prometheus-exporter.main.auth_user='prometheus'
-uci set prometheus-exporter.main.auth_password='$6$rounds=1000$IgztncwtDxRNxtVD$emPK…'
 uci set prometheus-exporter.main.cert='/etc/prometheus-exporter.crt'
 uci set prometheus-exporter.main.key='/etc/prometheus-exporter.key'
 uci commit prometheus-exporter
 service prometheus-exporter reload
 ```
 
-Keep the single quotes around the hash: the shell would read its `$` otherwise.
-
-If the reload refuses the configuration, `logread -e prometheus-exporter` says why: a user without a hash, a hash it does not take, or no `cert` and `key`.
+Basic auth is on while `auth_user` is set. If the reload refuses the configuration, `logread -e prometheus-exporter` says why: a user without a saved hash, a hash it does not take, or no `cert` and `key`.
 
 ## 3. Check it
 
@@ -105,10 +109,12 @@ A tool that renews certificates on its own, as acme does, runs that from its hoo
 
 ```sh
 uci delete prometheus-exporter.main.auth_user
-uci delete prometheus-exporter.main.auth_password
 uci commit prometheus-exporter
+ubus call prometheus-exporter set_password '{"password":""}'
 service prometheus-exporter reload
 ```
+
+The empty password removes the saved hash; without a user it would be unused all the same.
 
 With `cert` and `key` left, it serves HTTPS without a login; delete them too for HTTP.
 

@@ -11,6 +11,9 @@
  * removed only if it was changed, so what is there to import is what someone
  * set.
  *
+ * It also moves basic auth's hash out of the exporter's own main section, where
+ * 0.2.0 kept it, into its config apart (config.AUTH_CONFIG): move_hash().
+ *
  * From the main section: listen_interface, listen_port, http_keepalive, cert,
  * key and omit_zero_values, each only if this exporter takes its value. A port
  * that is the old exporter's default (9101 for the ucode one) is left at this
@@ -266,4 +269,44 @@ export function run(uci) {
 	push(lines, `imported from /etc/config/${p.from}: ${describe(p)}`);
 
 	return { imported, lines };
+};
+
+/**
+ * Moves the main section's auth_password, where 0.2.0 kept the hash of basic
+ * auth's password, into config.AUTH_CONFIG, which the package installs, and
+ * commits both: the exporter reads it there alone. A hash saved there already
+ * is kept, and the main section's is dropped all the same. Returns { moved,
+ * lines }: whether it changed anything, and what to log, which never holds
+ * the hash.
+ *
+ * @param {UciCursor} uci a cursor that can write and commit.
+ * @returns {{ moved: boolean, lines: string[] }} whether it moved one, and
+ *   what to log.
+ */
+export function move_hash(uci) {
+	let hash = uci.get(config.NAME, 'main', 'auth_password');
+
+	if (hash == null)
+		return { moved: false, lines: [] };
+
+	let from = `/etc/config/${config.NAME}`, to = `/etc/config/${config.AUTH_CONFIG}`;
+
+	if (!uci.load(config.AUTH_CONFIG))
+		return { moved: false, lines: [ `${to} is not there: auth_password left in ${from}, where it is not read; set it again` ] };
+
+	let saved = uci.get(config.AUTH_CONFIG, config.AUTH_SECTION, 'auth_password');
+	let keep = saved != null && saved != '';
+
+	if (!keep) {
+		uci.set(config.AUTH_CONFIG, config.AUTH_SECTION, config.AUTH_TYPE);
+		uci.set(config.AUTH_CONFIG, config.AUTH_SECTION, 'auth_password', hash);
+		uci.commit(config.AUTH_CONFIG);
+	}
+
+	uci.delete(config.NAME, 'main', 'auth_password');
+	uci.commit(config.NAME);
+
+	return { moved: true, lines: [ keep
+		? `auth_password removed from ${from}: ${to} has one already, which is kept`
+		: `auth_password moved from ${from} to ${to}` ] };
 };

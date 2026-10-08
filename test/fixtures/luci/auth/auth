@@ -1,0 +1,2 @@
+config auth 'main'
+	option auth_password '$1$$ysVNzQc4CTMkp5daOdZ.3/'

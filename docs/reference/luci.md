@@ -37,7 +37,7 @@ The tab's description says basic auth needs HTTPS: the certificate and key first
 | TLS certificate | `cert` | No placeholder; the description names uhttpd's own files, `/etc/uhttpd.crt` and `/etc/uhttpd.key`. |
 | TLS key | `key` | |
 | Basic auth user | `auth_user` | |
-| Basic auth password | `auth_password` | Never filled in. A password typed here is sent to `hash_password` on Save, and the hash it answers is saved; the password itself is never stored. Empty, the saved hash stays. |
+| Basic auth password | `auth_password`, in `/etc/config/prometheus-exporter-auth` | Never filled in, and the page never reads the hash: the ubus object's `password` says whether one is saved, for the placeholder `Unchanged`. A password typed here is sent to `set_password` on Save, which saves its hash and reloads the service at once; the password itself is never stored. Empty, the saved hash stays; with the user emptied, it stays unused. |
 
 The basic auth fields show without the TLS files too: LuCI unsets a field it hides, which would drop the user and the hash on Save.
 
@@ -136,10 +136,10 @@ Without the ubus object, the page says so, as the settings page does.
 
 | Access | ubus methods of `prometheus-exporter` | uci |
 | :--- | :--- | :--- |
-| read | `collectors`, `interfaces`, `status`, `validate` | `prometheus-exporter` |
-| write | `hash_password` | `prometheus-exporter` |
+| read | `collectors`, `interfaces`, `password`, `status`, `validate` | `prometheus-exporter` |
+| write | `set_password` | `prometheus-exporter` |
 
-Nothing else.
+Nothing else: not `/etc/config/prometheus-exporter-auth`, which holds the hash.
 
 ## Files
 

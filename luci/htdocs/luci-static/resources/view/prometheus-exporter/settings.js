@@ -18,9 +18,11 @@
 //
 // What is saved states every setting: the main section's fields write their values even
 // at the defaults (but for the TLS files and basic auth, which are unset without them).
-// Basic auth's password is never saved, nor shown: Save hashes a password typed in its
-// field through the object's hash_password, and saves the hash; an empty field keeps the
-// saved one, and a user emptied takes basic auth away, hash and all. A collector's
+// Basic auth's password is never saved, nor shown, nor its hash, which is saved apart from
+// the exporter's config, where the app's ACL does not reach: Save hands a password typed
+// in its field to the object's set_password, which saves its hash and has the service
+// reload; an empty field keeps the saved one, and a user emptied takes basic auth away,
+// the saved hash left unused. A collector's
 // `config collector '<module>'` section is there only while something differs from the
 // defaults, its switch included, or a timeout is set; while it is, it holds the switch
 // and every option the collector declares, each written out. timeout is written only
@@ -51,7 +53,7 @@ const blank = widgets.blank;
 const CHECK_DELAY = widgets.CHECK_DELAY;
 
 // What the object's validate is given for a password typed and not yet hashed: a hash of
-// the form hash_password makes (1000 rounds, which auth_password takes; one that names
+// the form set_password makes (1000 rounds, which auth_password takes; one that names
 // none has 5000, which it refuses), so that the options that go with it are checked.
 const PENDING_HASH = '$6$rounds=1000$$' + '.'.repeat(86);
 
@@ -66,11 +68,12 @@ return view.extend({
 		return Promise.all([
 			exporter.collectors().catch(failure),
 			exporter.interfaces().catch(failure),
-			uci.load(CONFIG)
+			uci.load(CONFIG),
+			exporter.password().catch(failure)
 		]);
 	},
 
-	render([ data, ifaces ]) {
+	render([ data, ifaces, , password ]) {
 		// The form edits the main section: a config without one gets it, as the exporter
 		// reads a missing one, every option at its default.
 		if (uci.get(CONFIG, 'main') == null)
@@ -107,6 +110,7 @@ return view.extend({
 			_('Untick a collector to stop serving its metrics; Edit changes its options; Save & Apply applies them.'));
 
 		this.renderMain(s, (L.isObject(ifaces) && Array.isArray(ifaces.interfaces)) ? ifaces.interfaces : []);
+		this.mainOptions.auth_password.hashSaved = L.isObject(password) && password.saved === true;
 
 		this.table = s.taboption('collectors', widgets.CollectorTable, '_collectors', '');
 		this.table.collectors = Array.isArray(data?.collectors) ? data.collectors : [];
@@ -273,8 +277,8 @@ return view.extend({
 	},
 
 	// The form's values as the object's validate takes them: empty fields left out, as unset.
-	// Basic auth's password is the saved hash, or a stand-in for one when a password is
-	// typed; it is none without a user.
+	// Basic auth's password is a stand-in for a hash when a password is typed; otherwise it
+	// is left out, and the object checks the saved hash, which the page may not read.
 	candidate() {
 		const main = {};
 
@@ -284,13 +288,9 @@ return view.extend({
 				main[name] = String(value);
 		}
 
-		const saved = this.mainOptions.auth_password.saved('main');
-
 		delete main.auth_password;
 		if (main.auth_user != null && !blank(this.mainOptions.auth_password.formvalue('main')))
 			main.auth_password = PENDING_HASH;
-		else if (main.auth_user != null && !blank(saved))
-			main.auth_password = saved;
 
 		return { main: main, collectors: this.table.candidate() };
 	},

@@ -791,12 +791,13 @@ unauthorized() { [ "$(status_of "$@")" = 'HTTP error 401' ]; }
 logs_in() { https --user=prom --password=e2e-secret | grep -q '^node_load1 '; }
 https_gzip() { https --user=prom --password=e2e-secret --header='Accept-Encoding: gzip' | gzip -dc | grep -q '^node_load1 '; }
 no_hash_in() { ! "$@" 2>&1 | grep -qF "$HASH"; }
-secret_free() { rpc status; rpc collectors; "$INIT" check; "$INIT" status; logread; }
+secret_free() { rpc status; rpc collectors; rpc password; "$INIT" check; "$INIT" status; logread; }
+AUTH_CONFIG=/etc/config/$NAME-auth
 auth_true() { rpc status | jsonfilter -e '@.service.auth' | grep -qx true; }
 private() { ls -l "$AUTH_FILE" | grep -q '^-rw------- ' && ls -ld "/var/run/$NAME" | grep -q '^drwx------ '; }
 
 before=$(pid)
-set_config "$NAME.main.auth_user=prom" "$NAME.main.auth_password=$HASH"
+set_config "$NAME.main.auth_user=prom" "$NAME-auth.main.auth_password=$HASH"
 sleep 3
 check "basic auth without cert and key keeps the running instance" test "$(pid)" = "$before"
 check "which still serves HTTP, without basic auth" served loadavg
@@ -837,6 +838,11 @@ check "check says basic auth is on, and for whom" says 'ok   main: HTTPS on inte
 check "status says it" says '^listening on https://127.0.0.1:9100/metrics, basic auth, gzip when asked, serving' "$INIT" status
 check "so does the ubus object's status" auth_true
 check "the hash is in no reply of the ubus object, nor in check, status or the log" no_hash_in secret_free
+# The hash, apart from the exporter's config, which LuCI's ACL lets a login read.
+check "the hash is in its own config, mode 0600" sh -c "grep -qF '$HASH' $AUTH_CONFIG && ls -l $AUTH_CONFIG | grep -q '^-rw------- '"
+check "and not in the exporter's" fails grep -qF "$HASH" "/etc/config/$NAME"
+check "which the jail does not mount" not_mounted "$AUTH_CONFIG"
+check "the ubus object says one is saved" says '"saved": true' rpc password
 
 # Basic auth's file gone under a running instance, and uhttpd ended: procd
 # starts it again as it was, and the jail has no file to mount. The handler
@@ -889,7 +895,7 @@ check "which it removed" test ! -e "$before_cache"
 CAP=$(ucode -e "import { ROUNDS_MAX } from 'prometheus_exporter.auth'; print(ROUNDS_MAX);")
 CAP_HASH=$(ucode -e "import { hash } from 'prometheus_exporter.crypt'; print(hash('e2e-secret', 'e2e-salt-e2e', $CAP));")
 before=$(pid)
-set_config "$NAME.main.auth_password=$CAP_HASH"
+set_config "$NAME-auth.main.auth_password=$CAP_HASH"
 eventually "a new hash restarts the instance" restarted_from "$before"
 eventually "a hash of $CAP rounds takes its password" logs_in
 CREDENTIALS=$(ucode -e 'print(b64enc("prom:e2e-secret"))')
@@ -902,15 +908,18 @@ cap_inode=$(inode)
 check "validate refuses a hash of a round more, saying why" says "expected a hash of at most $CAP rounds" \
 	rpc validate "{\"main\":{\"auth_user\":\"prom\",\"auth_password\":\"$(ucode -e "import { hash } from 'prometheus_exporter.crypt'; print(hash('x', 'e2e-salt-e2e', $CAP + 1));")\",\"cert\":\"$CERT\",\"key\":\"$KEY\"}}"
 # A changed password invalidates the cache: the new hash restarts the instance,
-# and the old password's entry lets nothing in, even were it kept.
-NEW_HASH=$(rpc hash_password '{"password":"e2e-changed"}' | jsonfilter -e '@.hash')
-set_config "$NAME.main.auth_password=$NEW_HASH"
+# and the old password's entry lets nothing in, even were it kept. As LuCI
+# changes it: set_password saves the hash, and has procd reload the service,
+# with no uci command of ours.
+before=$(pid)
+check "set_password saves the hash of a new password" says '"saved": true' rpc set_password '{"password":"e2e-changed"}'
 changed_logs_in() { https --user=prom --password=e2e-changed | grep -q '^node_load1 '; }
+eventually "which restarts the instance" restarted_from "$before"
 eventually "a changed password takes the new one" changed_logs_in
 check "and no longer the old one" unauthorized --user=prom --password=e2e-secret
 check "the old password's entry is gone" fails test "$(inode)" = "$cap_inode"
 # What uhttpd -m prints, an unsalted MD5-crypt hash, works too.
-set_config "$NAME.main.auth_password=$(uhttpd -m e2e-md5)"
+set_config "$NAME-auth.main.auth_password=$(uhttpd -m e2e-md5)"
 md5_logs_in() { https --user=prom --password=e2e-md5 | grep -q '^node_load1 '; }
 eventually "a hash of uhttpd -m takes its password" md5_logs_in
 check "and no other" unauthorized --user=prom --password=e2e-secret
@@ -919,16 +928,25 @@ check "and no other" unauthorized --user=prom --password=e2e-secret
 # first let in by the cache), then without basic auth.
 # The credentials go with the request, as Prometheus sends them: --user waits
 # for a 401 first.
-set_config "$NAME.main.auth_password=$HASH"
+set_config "$NAME-auth.main.auth_password=$HASH"
 eventually "back to the hash hash_password made" logs_in
 CREDENTIALS=$(ucode -e 'print(b64enc("prom:e2e-secret"))')
 auth_ms=$(scrape_ms "uclient-fetch -q -O - --no-check-certificate --header='Authorization: Basic $CREDENTIALS' $HTTPS?collect[]=loadavg" | cut -d' ' -f2)
-uci delete "$NAME.main.auth_user" && uci delete "$NAME.main.auth_password"
+uci delete "$NAME.main.auth_user" && uci delete "$NAME-auth.main.auth_password"
 set_config
 https_open() { https | grep -q '^node_load1 '; }
 eventually "without basic auth it serves without credentials, still over HTTPS" https_open
 check "and removes basic auth's file" test ! -e "$AUTH_FILE"
 check "nor gives uhttpd one" says ' -c /dev/null ' command_line
+check "the ubus object says no hash is saved" says '"saved": false' rpc password
+# 0.2.0 kept the hash in the main section: the package's uci-defaults script
+# moves it, as an upgrade runs it.
+uci set "$NAME.main.auth_password=$HASH" && uci commit "$NAME"
+check "check warns of a hash left in the main section" says "^warn main: auth_password is read from $AUTH_CONFIG; the main section's is ignored" "$INIT" check
+"$LIBEXEC/import.uc" | logger -t "$NAME" -p daemon.info
+check "the upgrade moves it to its own config" sh -c "grep -qF '$HASH' $AUTH_CONFIG && ! grep -qF '$HASH' /etc/config/$NAME"
+check "and logs it, without the hash" says "daemon.info $NAME: auth_password moved from /etc/config/$NAME to $AUTH_CONFIG$" logread
+uci delete "$NAME-auth.main.auth_password" && uci commit "$NAME-auth"
 plain_ms=$(scrape_ms "uclient-fetch -q -O - --no-check-certificate $HTTPS?collect[]=loadavg" | cut -d' ' -f2)
 echo "info a scrape of loadavg over HTTPS, mean of $RUNS: $plain_ms ms, $auth_ms ms with basic auth"
 # The check alone, in ucode, by the hash: what each format costs a scrape.

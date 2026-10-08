@@ -73,10 +73,13 @@ export function filesystem(files, links) {
 	};
 };
 
-// A sys over the mocks: `own` is the exporter's config, cfg.ubus the ubus mock's,
-// cfg.files and cfg.links what the filesystem has.
+// A sys over the mocks: `own` is the exporter's config, cfg.hash the hash
+// saved apart (config.AUTH_CONFIG), cfg.ubus the ubus mock's, cfg.files and
+// cfg.links what the filesystem has.
 export function with_sys(own, cfg, cb) {
-	with_mods({ uci: { data: { [NAME]: own, network: {} } }, ubus: cfg.ubus ?? {} }, function(mods) {
+	let hash = (cfg.hash != null) ? { main: { '.type': config.AUTH_TYPE, auth_password: cfg.hash } } : {};
+
+	with_mods({ uci: { data: { [NAME]: own, [config.AUTH_CONFIG]: hash, network: {} } }, ubus: cfg.ubus ?? {} }, function(mods) {
 		let quiet = () => null;
 		let tick = 0;
 		let sys = {

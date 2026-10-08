@@ -19,6 +19,7 @@ It conflicts with `prometheus-node-exporter-ucode` and `prometheus-node-exporter
 | Path | Content |
 | :--- | :--- |
 | `/etc/config/prometheus-exporter` | The configuration. A conffile: an upgrade keeps it when it was changed. See [UCI configuration](uci-config.md). |
+| `/etc/config/prometheus-exporter-auth` | The hash of basic auth's password, mode 0600, apart from the configuration LuCI may read. A conffile too. See [UCI configuration](uci-config.md#auth). |
 | `/etc/init.d/prometheus-exporter` | The service. See [Service commands](service-commands.md). |
 | `/etc/uci-defaults/prometheus-exporter-import` | Takes over a feed exporter's settings, once. See [How to move from the feed's exporters](../how-to/migrate-from-feed.md). |
 | `/etc/hotplug.d/ntp/90-prometheus-exporter` | Keeps busybox ntpd's last event for timesync. |

@@ -1,0 +1,2 @@
+config auth 'main'
+	option auth_password '$6$rounds=2001$saltsalt$nNEbd373Z0DGjjhqlxU/BOlyhmWWPgHM9nBiH1vwR3AgeZ7isOol0w//Pj2bJRNKe0WtAnrAOoT9n5sJhXpfb.'

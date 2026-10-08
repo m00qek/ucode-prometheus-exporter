@@ -210,12 +210,12 @@ reload_service() {
 	start
 }
 
-# Its own config, and those its collectors read.
+# Its own config, basic auth's hash's, and those its collectors read.
 service_triggers() {
 	local interface configs
 
 	configs=$("$LIBEXEC/jail.uc" 2>/dev/null | sed -n "s|^/etc/config/||p" | grep -vx "$NAME")
-	procd_add_reload_trigger "$NAME" $configs
+	procd_add_reload_trigger "$NAME" "$NAME-auth" $configs
 	# From the watch instance, when a missing path is there.
 	procd_add_raw_trigger "$NAME.path" 1000 "/etc/init.d/$NAME" reload
 

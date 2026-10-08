@@ -73,9 +73,8 @@ describe('config.problems.english', () => {
 	it('says the whole of what is wrong with options that go together', () => {
 		assert.match([
 			'basic auth needs the hash of a password along with auth_user',
-			'basic auth needs a user along with auth_password',
 			'basic auth needs HTTPS: set cert and key, or the password crosses the network in the clear',
-		], map([ problems.AUTH_NEEDS_PASSWORD, problems.AUTH_NEEDS_USER, problems.AUTH_NEEDS_TLS ],
+		], map([ problems.AUTH_NEEDS_PASSWORD, problems.AUTH_NEEDS_TLS ],
 			(code) => problems.english(problems.problem(code))));
 	});
 

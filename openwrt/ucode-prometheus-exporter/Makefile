@@ -52,6 +52,7 @@ endef
 
 define Package/$(PKG_NAME)/conffiles
 /etc/config/$(SERVICE)
+/etc/config/$(SERVICE)-auth
 endef
 
 # The exporter's code stays loaded while it runs: after an upgrade, a running
@@ -94,6 +95,8 @@ define Package/$(PKG_NAME)/install
 	$(INSTALL_BIN) ./files/usr/bin/$(SERVICE) $(1)/usr/bin/
 	$(INSTALL_DIR) $(1)/etc/config
 	$(INSTALL_CONF) ./files/etc/config/$(SERVICE) $(1)/etc/config/
+	# Basic auth's hash, apart: LuCI's ACL grants the config above alone (mode 0600).
+	$(INSTALL_CONF) ./files/etc/config/$(SERVICE)-auth $(1)/etc/config/
 	$(INSTALL_DIR) $(1)/etc/init.d
 	$(INSTALL_BIN) ./files/etc/init.d/$(SERVICE) $(1)/etc/init.d/
 	# busybox ntpd's last event, for timesync; procd runs it on hotplug.ntp.

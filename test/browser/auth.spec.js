@@ -2,10 +2,11 @@ const { test, expect } = require('@playwright/test');
 const h = require('./helpers');
 
 // Basic auth, on the HTTPS & login tab of Services → Prometheus exporter, and compress,
-// on its General tab. The password is typed, hashed on Save by the ubus object's
-// hash_password, and only the hash is saved; basic auth takes the TLS certificate and key.
+// on its General tab. The password is typed, and handed on Save to the ubus object's
+// set_password, which saves its hash apart, in prometheus-exporter-auth, which the page
+// never reads; basic auth takes the TLS certificate and key.
 
-// `uhttpd -m secret`, as test/fixtures/luci/config/auth has it.
+// `uhttpd -m secret`, as test/fixtures/luci/auth/auth has it.
 const SAVED_HASH = '$1$$ysVNzQc4CTMkp5daOdZ.3/';
 const PASSWORD = 'browser-secret';
 
@@ -39,6 +40,11 @@ async function applied(page) {
 
 async function savedMain(request) {
   return h.sections(await h.readConfig(request)).main;
+}
+
+// The hash saved apart, or undefined.
+async function savedHash(request) {
+  return h.sections(await h.readAuth(request)).main?.auth_password;
 }
 
 // The calls of the ubus object's methods the page makes, by method.
@@ -89,10 +95,11 @@ test.describe('Services → Prometheus exporter: basic auth and compress', () =>
       'HTTPS & login → Basic auth user: Basic auth user needs HTTPS: set TLS certificate and TLS key, or the password crosses the network in the clear',
     ]);
     expect(await h.readConfig(request)).toBe(before);
-    expect(calls.filter((c) => c.method === 'hash_password')).toEqual([]);
+    expect(calls.filter((c) => c.method === 'set_password')).toEqual([]);
+    expect(await savedHash(request)).toBeUndefined();
   });
 
-  test('hashes the password through the ubus object, and saves the hash, never the password', async ({ page, request }) => {
+  test('has the ubus object save the hash apart, never the password, and never reads the hash', async ({ page, request }) => {
     const calls = ubusCalls(page);
     await h.openSettings(page);
     await h.showTab(page, 'https');
@@ -104,10 +111,13 @@ test.describe('Services → Prometheus exporter: basic auth and compress', () =>
     await applied(page);
 
     const main = await savedMain(request);
-    expect(main.auth_user).toBe('prom');
-    expect(main.auth_password).toMatch(/^\$6\$rounds=1000\$[./0-9A-Za-z]{16}\$[./0-9A-Za-z]{86}$/);
+    const hash = await savedHash(request);
+    expect([ main.auth_user, main.auth_password ]).toEqual([ 'prom', undefined ]);
+    expect(hash).toMatch(/^\$6\$rounds=1000\$[./0-9A-Za-z]{16}\$[./0-9A-Za-z]{86}$/);
     expect(await h.readConfig(request)).not.toContain(PASSWORD);
-    expect(calls.filter((c) => c.method === 'hash_password')).toEqual([ { method: 'hash_password', params: { password: PASSWORD } } ]);
+    expect(await h.readAuth(request)).not.toContain(PASSWORD);
+    expect(calls.filter((c) => c.method === 'set_password')).toEqual([ { method: 'set_password', params: { password: PASSWORD } } ]);
+    expect(calls.filter((c) => c.method === 'hash_password')).toEqual([]);
     // What the page sent validate stood in for the password: it never saw it.
     expect(JSON.stringify(calls.filter((c) => c.method === 'validate'))).not.toContain(PASSWORD);
 
@@ -115,7 +125,7 @@ test.describe('Services → Prometheus exporter: basic auth and compress', () =>
     await h.showTab(page, 'https');
     await expect(field(page, 'auth_password')).toHaveValue('');
     await expect(field(page, 'auth_password')).toHaveAttribute('placeholder', 'Unchanged');
-    expect(await page.content()).not.toContain(main.auth_password);
+    expect(await page.content()).not.toContain(hash);
     await h.screenshot(page, 'settings-auth-saved');
   });
 
@@ -130,8 +140,10 @@ test.describe('Services → Prometheus exporter: basic auth and compress', () =>
     await applied(page);
 
     const main = await savedMain(request);
-    expect([ main.listen_port, main.auth_user, main.auth_password ]).toEqual([ '9101', 'prom', SAVED_HASH ]);
-    expect(calls.filter((c) => c.method === 'hash_password')).toEqual([]);
+    expect([ main.listen_port, main.auth_user, await savedHash(request) ]).toEqual([ '9101', 'prom', SAVED_HASH ]);
+    expect(calls.filter((c) => c.method === 'set_password')).toEqual([]);
+    // validate was given no hash: it checked the saved one, which the page never had.
+    expect(JSON.stringify(calls.filter((c) => c.method === 'validate'))).not.toContain(SAVED_HASH);
   });
 
   test('a new password replaces the saved hash', async ({ page, request }) => {
@@ -142,12 +154,12 @@ test.describe('Services → Prometheus exporter: basic auth and compress', () =>
     await saveAndApply(page);
     await applied(page);
 
-    const main = await savedMain(request);
-    expect(main.auth_password).toMatch(/^\$6\$rounds=1000\$/);
-    expect(main.auth_password).not.toBe(SAVED_HASH);
+    const hash = await savedHash(request);
+    expect(hash).toMatch(/^\$6\$rounds=1000\$/);
+    expect(hash).not.toBe(SAVED_HASH);
   });
 
-  test('emptying the user takes basic auth away, hash and all', async ({ page, request }) => {
+  test('emptying the user takes basic auth away, the saved hash left unused', async ({ page, request }) => {
     await h.useConfig(request, 'auth');
     await h.openSettings(page);
     await h.showTab(page, 'https');
@@ -156,7 +168,7 @@ test.describe('Services → Prometheus exporter: basic auth and compress', () =>
     await applied(page);
 
     const main = await savedMain(request);
-    expect([ main.auth_user, main.auth_password, main.cert ]).toEqual([ undefined, undefined, '/etc/uhttpd.crt' ]);
+    expect([ main.auth_user, main.auth_password, main.cert, await savedHash(request) ]).toEqual([ undefined, undefined, '/etc/uhttpd.crt', SAVED_HASH ]);
   });
 
   test('refuses a user without a password', async ({ page, request }) => {
@@ -174,7 +186,7 @@ test.describe('Services → Prometheus exporter: basic auth and compress', () =>
     expect(await h.readConfig(request)).toBe(before);
   });
 
-  // A saved hash of a round more than the exporter computes (2000), as test/fixtures/luci/config/auth-rounds has it.
+  // A saved hash of a round more than the exporter computes (2000), as test/fixtures/luci/auth/auth-rounds has it.
   test('refuses a saved hash of more rounds than basic auth takes, saying why but not the hash', async ({ page, request }) => {
     await h.useConfig(request, 'auth-rounds');
     const before = await h.readConfig(request);
@@ -192,7 +204,7 @@ test.describe('Services → Prometheus exporter: basic auth and compress', () =>
     await field(page, 'auth_password').fill(PASSWORD);
     await saveAndApply(page);
     await applied(page);
-    expect((await savedMain(request)).auth_password).toMatch(/^\$6\$rounds=1000\$/);
+    expect(await savedHash(request)).toMatch(/^\$6\$rounds=1000\$/);
   });
 
   test('refuses a user basic auth cannot send, with a ":"', async ({ page, request }) => {
@@ -221,21 +233,46 @@ test.describe('Services → Prometheus exporter: basic auth and compress', () =>
   });
 });
 
-test.describe('hash_password, over rpcd', () => {
-  test('is granted to a login with the app\'s ACL, and answers a hash', async ({ request }) => {
-    const res = await h.ubus(request, h.CONFIG, 'hash_password', { password: PASSWORD }, h.APP_USER);
-    expect(Object.keys(res)).toEqual([ 'hash' ]);
-    expect(res.hash).toMatch(/^\$6\$rounds=1000\$/);
+test.describe('The hash, over rpcd', () => {
+  test.afterEach(async ({ request }) => {
+    await h.useConfig(request, 'default');
   });
 
-  test('refuses a password it does not take, without saying it', async ({ request }) => {
-    const res = await h.ubus(request, h.CONFIG, 'hash_password', { password: 'a\tb' });
+  test('a login with the app\'s ACL saves a password by set_password, and reads whether one is saved, never the hash', async ({ request }) => {
+    expect(await h.ubus(request, h.CONFIG, 'password', {}, h.APP_USER)).toEqual({ saved: false });
+    expect(await h.ubus(request, h.CONFIG, 'set_password', { password: PASSWORD }, h.APP_USER)).toEqual({ saved: true });
+    expect(await h.ubus(request, h.CONFIG, 'password', {}, h.APP_USER)).toEqual({ saved: true });
+    expect(await savedHash(request)).toMatch(/^\$6\$rounds=1000\$/);
+    expect(await h.ubus(request, h.CONFIG, 'set_password', { password: '' }, h.APP_USER)).toEqual({ saved: false });
+    expect(await savedHash(request)).toBeUndefined();
+  });
+
+  test('a login with the app\'s ACL cannot read the hash\'s config, nor hash_password', async ({ request }) => {
+    await h.useConfig(request, 'auth');
+    const sid = await h.sessionOf(request, h.APP_USER);
+    const read = await h.rawCall(request, sid, 'uci', 'get', { config: 'prometheus-exporter-auth' });
+    expect(h.denied(read), JSON.stringify(read)).toBe(true);
+    expect(JSON.stringify(read)).not.toContain(SAVED_HASH);
+    expect(h.denied(await h.rawCall(request, sid, h.CONFIG, 'hash_password', { password: PASSWORD }))).toBe(true);
+    // The exporter's own config it reads, without the hash.
+    const own = await h.ubus(request, 'uci', 'get', { config: h.CONFIG }, h.APP_USER);
+    expect(JSON.stringify(own)).not.toContain(SAVED_HASH);
+  });
+
+  test('a login that may only read cannot save a password', async ({ request }) => {
+    const sid = await h.sessionOf(request, h.VIEWER);
+    expect(await h.ubus(request, h.CONFIG, 'password', {}, h.VIEWER)).toEqual({ saved: false });
+    expect(h.denied(await h.rawCall(request, sid, h.CONFIG, 'set_password', { password: PASSWORD }))).toBe(true);
+    expect(await savedHash(request)).toBeUndefined();
+  });
+
+  test('set_password refuses a password it does not take, without saying it', async ({ request }) => {
+    const res = await h.ubus(request, h.CONFIG, 'set_password', { password: 'a\tb' });
     expect(res).toEqual({ error: 'ARGS_INVALID', message: 'password: expected a password without control characters' });
   });
 
-  test('salts each hash afresh', async ({ request }) => {
-    const a = await h.ubus(request, h.CONFIG, 'hash_password', { password: PASSWORD });
-    const b = await h.ubus(request, h.CONFIG, 'hash_password', { password: PASSWORD });
-    expect(a.hash).not.toBe(b.hash);
+  test('hash_password is in no ACL of LuCI\'s: rpcd refuses it over HTTP, even to root', async ({ request }) => {
+    const sid = await h.sessionOf(request, { username: 'root', password: 'admin' });
+    expect(h.denied(await h.rawCall(request, sid, h.CONFIG, 'hash_password', { password: PASSWORD }))).toBe(true);
   });
 });

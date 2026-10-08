@@ -46,11 +46,19 @@ const callStatus = rpc.declare({
 	reject: true
 });
 
-// The crypt hash of a password, which auth_password holds: the password never reaches
-// the config.
-const callHashPassword = rpc.declare({
+// Whether a hash of basic auth's password is saved: never the hash, which is saved apart
+// from the exporter's config, where the app's ACL does not reach.
+const callPassword = rpc.declare({
 	object: CONFIG,
-	method: 'hash_password',
+	method: 'password',
+	reject: true
+});
+
+// Hashes a password and saves the hash, and has the service reload: the password never
+// reaches a config, nor the hash the page.
+const callSetPassword = rpc.declare({
+	object: CONFIG,
+	method: 'set_password',
 	params: [ 'password' ],
 	reject: true
 });
@@ -182,7 +190,6 @@ const PROBLEMS = {
 	CRYPT_ROUNDS: (p, title) => say(_('%s must be a hash of at most %s rounds, which a scrape computes to check the password'), title, p.max),
 	INTERFACE: (p, title) => say(_('%s must be an interface name, or * for every address'), title),
 	AUTH_NEEDS_PASSWORD: (p, title, titleOf) => say(_('%s must be set along with %s'), title, titleOf('auth_user')),
-	AUTH_NEEDS_USER: (p, title, titleOf) => say(_('%s must be set along with %s'), title, titleOf('auth_password')),
 	AUTH_NEEDS_TLS: (p, title, titleOf) =>
 		say(_('%s needs HTTPS: set %s and %s, or the password crosses the network in the clear'), title, titleOf('cert'), titleOf('key'))
 };
@@ -245,8 +252,12 @@ return baseclass.extend({
 		return callInterfaces();
 	},
 
-	hashPassword(password) {
-		return callHashPassword(password);
+	password() {
+		return callPassword();
+	},
+
+	setPassword(password) {
+		return callSetPassword(password);
 	},
 
 	// A collector's title, with its name when that differs.

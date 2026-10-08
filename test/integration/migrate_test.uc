@@ -11,6 +11,14 @@ import * as migrate from 'prometheus_exporter.migrate';
 import * as config from 'prometheus_exporter.config';
 
 const SHIPPED = readfile(`files/etc/config/${config.NAME}`);
+const SHIPPED_AUTH = readfile(`files/etc/config/${config.AUTH_CONFIG}`);
+const HASH = '$1$$ysVNzQc4CTMkp5daOdZ.3/';
+// 0.2.0's main section with basic auth, the hash in it.
+const WITH_HASH = `config ${config.NAME} 'main'
+	option listen_port '9100'
+	option auth_user 'prom'
+	option auth_password '${HASH}'
+`;
 
 // The feed packages' configs (utils/prometheus-node-exporter-{ucode,lua}/files/config).
 const FEED_UCODE = `config prometheus-node-exporter-ucode 'main'
@@ -101,5 +109,47 @@ describe('migrate, on uci', () => {
 		let again = migrate.run(cursor(c.dir, '/tmp/migrate-none'));
 
 		assert.match([ false, first ], [ again.imported, readfile(`${c.dir}/${config.NAME}`) ]);
+	});
+
+	it('moves 0.2.0\'s hash into the config the package installs, where the exporter reads it', () => {
+		let c = confdir({ [config.NAME]: WITH_HASH, [config.AUTH_CONFIG]: SHIPPED_AUTH });
+		let res = migrate.move_hash(c.uci);
+
+		assert.match({ moved: true, lines: [ `auth_password moved from /etc/config/${config.NAME} to /etc/config/${config.AUTH_CONFIG}` ] }, res);
+		assert.match({ main: { type: config.NAME, listen_port: '9100', auth_user: 'prom' } }, read_back(c.dir));
+
+		let fresh = cursor(c.dir, '/tmp/migrate-none');
+
+		assert.match({ ok: true, data: { auth_password: HASH } }, { ...config.auth_values(fresh) });
+		assert.match(-1, index(sprintf('%J', res), HASH));
+	});
+
+	it('keeps a hash saved apart already, and drops the main section\'s', () => {
+		let other = '$1$$other';
+		let c = confdir({ [config.NAME]: WITH_HASH, [config.AUTH_CONFIG]: `config auth 'main'\n\toption auth_password '${other}'\n` });
+
+		assert.match([ `auth_password removed from /etc/config/${config.NAME}: /etc/config/${config.AUTH_CONFIG} has one already, which is kept` ],
+			migrate.move_hash(c.uci).lines);
+		assert.match([ null, other ], [ cursor(c.dir, '/tmp/migrate-none').get(config.NAME, 'main', 'auth_password'),
+			cursor(c.dir, '/tmp/migrate-none').get(config.AUTH_CONFIG, 'main', 'auth_password') ]);
+	});
+
+	it('does nothing without a hash in the main section, and says so when the hash\'s config is gone', () => {
+		let c = confdir({ [config.NAME]: SHIPPED, [config.AUTH_CONFIG]: SHIPPED_AUTH });
+
+		assert.match({ moved: false, lines: [] }, migrate.move_hash(c.uci));
+		assert.match([ SHIPPED, SHIPPED_AUTH ], [ readfile(`${c.dir}/${config.NAME}`), readfile(`${c.dir}/${config.AUTH_CONFIG}`) ]);
+
+		let gone = confdir({ [config.NAME]: WITH_HASH });
+
+		assert.match({ moved: false, lines: [ `/etc/config/${config.AUTH_CONFIG} is not there: auth_password left in /etc/config/${config.NAME}, where it is not read; set it again` ] },
+			migrate.move_hash(gone.uci));
+		assert.match(WITH_HASH, readfile(`${gone.dir}/${config.NAME}`));
+	});
+
+	it('the shipped hash\'s config has its section, and no hash', () => {
+		let uci = cursor('files/etc/config', '/tmp/migrate-none');
+
+		assert.match([ config.AUTH_TYPE, null ], [ uci.get(config.AUTH_CONFIG, config.AUTH_SECTION), uci.get(config.AUTH_CONFIG, config.AUTH_SECTION, 'auth_password') ]);
 	});
 });

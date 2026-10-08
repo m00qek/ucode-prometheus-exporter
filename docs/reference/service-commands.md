@@ -123,10 +123,10 @@ Both are respawned by procd. The uhttpd instance runs in a jail: see [The jail](
 
 | Trigger | Action |
 | :--- | :--- |
-| A change of `/etc/config/prometheus-exporter`, or of a config an enabled collector reads (`meta.configs`), applied by `reload_config` | `reload` |
+| A change of `/etc/config/prometheus-exporter`, of `/etc/config/prometheus-exporter-auth` (the ubus object's `set_password` sends its event itself), or of a config an enabled collector reads (`meta.configs`), applied by `reload_config` | `reload` |
 | The listen interface going up or down, unless `listen_interface` is `*` | `reload` |
 | The event `prometheus-exporter.path`, which the `watch` instance sends | `reload` |
-| A change of a file procd watches for the instance: the configs it mounts, every collector module, basic auth's file | procd restarts the instance on `reload` |
+| A change of a file procd watches for the instance: the configs it mounts, every collector module, basic auth's file, the TLS certificate and key | procd restarts the instance on `reload` |
 
 ### Package scripts
 

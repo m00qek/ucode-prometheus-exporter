@@ -5,8 +5,19 @@ import * as config from 'prometheus_exporter.config';
 import * as crypt from 'prometheus_exporter.crypt';
 import * as auth_mod from 'prometheus_exporter.auth';
 
+// The exporter's config of these sections, and the hash's config: the main
+// section's auth_password is put there, where the exporter reads it.
 function with_uci(sections, cb) {
-	mock.inject('uci', { strict: true, data: { [config.NAME]: sections } }, (uci) => cb(uci.cursor()));
+	let own = { ...sections };
+	let hash = {};
+
+	if (own.main?.auth_password != null) {
+		hash.main = { '.type': config.AUTH_TYPE, auth_password: own.main.auth_password };
+		own.main = { ...own.main };
+		delete own.main.auth_password;
+	}
+
+	mock.inject('uci', { strict: true, data: { [config.NAME]: own, [config.AUTH_CONFIG]: hash } }, (uci) => cb(uci.cursor()));
 }
 
 // Options declared with these defaults.
@@ -331,7 +342,7 @@ describe('config.service', () => {
 	}
 
 	it('gives the init script\'s defaults for a missing section', () => {
-		assert.match(config.defaults(config.SERVICE_OPTIONS), service(null));
+		assert.match({ ...config.defaults(config.SERVICE_OPTIONS), ...config.defaults(config.AUTH_OPTIONS) }, service(null));
 		assert.match({ enabled: true, listen_interface: 'loopback', listen_port: 9100, http_keepalive: 70, cert: '', key: '', auth_user: '', auth_password: '',
 			memory_limit: 0 }, service(null));
 	});
@@ -428,14 +439,37 @@ describe('config.service, basic auth', () => {
 		]);
 	});
 
-	it('refuses half of it: a user without a hash, or a hash without a user', () => {
-		assert.match([
-			'CONFIG_INVALID: auth_password: basic auth needs the hash of a password along with auth_user',
-			'CONFIG_INVALID: auth_user: basic auth needs a user along with auth_password',
-		], [
-			service({ auth_user: 'prom', ...TLS }),
-			service({ auth_password: MD5, ...TLS }),
-		]);
+	it('refuses a user without a hash, and takes a hash without a user as no basic auth', () => {
+		assert.match('CONFIG_INVALID: auth_password: basic auth needs the hash of a password along with auth_user', service({ auth_user: 'prom', ...TLS }));
+		assert.match([ null, '' ], [ auth({ auth_password: MD5 }), service({ auth_password: MD5 }).auth_password ]);
+	});
+
+	it('reads the hash from its own config, and not the main section\'s', () => {
+		let out;
+
+		mock.inject('uci', { strict: true, data: {
+			[config.NAME]: { main: { '.type': config.NAME, auth_user: 'prom', auth_password: SHA512, ...TLS } },
+			[config.AUTH_CONFIG]: { main: { '.type': config.AUTH_TYPE, auth_password: MD5 } },
+		} }, (uci) => { out = config.auth(uci.cursor()); });
+
+		assert.match({ user: 'prom', hash: MD5 }, out.data);
+	});
+
+	it('takes the hash\'s config without its section, or of another type, as no hash', () => {
+		for (let hash in [ {}, { main: { '.type': 'other', auth_password: MD5 } } ]) {
+			let out;
+
+			mock.inject('uci', { strict: true, data: {
+				[config.NAME]: { main: { '.type': config.NAME, auth_user: 'prom', ...TLS } },
+				[config.AUTH_CONFIG]: hash,
+			} }, (uci) => { out = config.service(uci.cursor()); });
+
+			assert.match('CONFIG_INVALID: auth_password: basic auth needs the hash of a password along with auth_user', err_details(out));
+		}
+	});
+
+	it('never reads the hash without a user: a hash it would refuse stops nothing then', () => {
+		assert.match('', service({ auth_password: 'not a hash' }).auth_password);
 	});
 
 	it('refuses a password that is not a crypt hash, without saying it', () => {
@@ -522,28 +556,31 @@ describe('config.together', () => {
 			{},
 			{},
 			{ auth_password: { code: 'AUTH_NEEDS_PASSWORD' } },
-			{ auth_user: { code: 'AUTH_NEEDS_USER' }, auth_password: { code: 'AUTH_NEEDS_TLS' } },
+			{},
+			{ auth_user: { code: 'AUTH_NEEDS_TLS' } },
+			{ auth_password: { code: 'AUTH_NEEDS_PASSWORD' }, auth_user: { code: 'AUTH_NEEDS_TLS' } },
 		], [
 			config.together({}),
 			config.together({ auth_user: 'u', auth_password: MD5, ...TLS }),
 			config.together({ auth_user: 'u', ...TLS }),
 			config.together({ auth_password: MD5 }),
+			config.together({ auth_user: 'u', auth_password: MD5 }),
+			config.together({ auth_user: 'u' }),
 		]);
 	});
 
 	it('says each in English, as the init script and check do', () => {
 		assert.match([
 			'basic auth needs the hash of a password along with auth_user',
-			'basic auth needs a user along with auth_password',
 			'basic auth needs HTTPS: set cert and key, or the password crosses the network in the clear',
-		], map([ config.together({ auth_user: 'u', ...TLS }).auth_password, ...values(config.together({ auth_password: MD5 })) ], config.english));
+		], map([ config.together({ auth_user: 'u', ...TLS }).auth_password, config.together({ auth_user: 'u', auth_password: MD5 }).auth_user ], config.english));
 	});
 });
 
 describe('config.invalid', () => {
 	it('holds the problem of a value an option does not take, with the value but for a secret\'s', () => {
 		let res = config.invalid('listen_port', config.problem('RANGE', { min: 1, max: 65535 }), 0, config.SERVICE_OPTIONS.listen_port);
-		let secret = config.invalid('auth_password', config.problem('CRYPT'), 'hunter2', config.SERVICE_OPTIONS.auth_password);
+		let secret = config.invalid('auth_password', config.problem('CRYPT'), 'hunter2', config.AUTH_OPTIONS.auth_password);
 
 		assert.match({ ok: false, error: 'CONFIG_INVALID', details: 'listen_port: expected an integer from 1 to 65535, got 0',
 			data: { option: 'listen_port', problem: { code: 'RANGE', min: 1, max: 65535, value: 0 } } }, res);

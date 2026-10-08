@@ -83,6 +83,11 @@ async function readConfig(request) {
   return (await ubus(request, 'exporter.fixture', 'read', {})).data;
 }
 
+// The config of basic auth's hash as it is on disk.
+async function readAuth(request) {
+  return (await ubus(request, 'exporter.fixture', 'read', {})).auth;
+}
+
 // The sections of a uci file as { name: { '.type', option: value } }.
 function sections(file) {
   const out = {};
@@ -218,6 +223,6 @@ async function screenshot(page, name) {
 }
 
 module.exports = {
-  CONFIG, PACKAGE, APP_USER, VIEWER, HOSTILE, ubus, rawCall, denied, sessionOf, useService, useConfig, useState, readConfig, sections, open, openSettings,
+  CONFIG, PACKAGE, APP_USER, VIEWER, HOSTILE, ubus, rawCall, denied, sessionOf, useService, useConfig, useState, readConfig, readAuth, sections, open, openSettings,
   showTab, modal, saveError, withoutObject, rewriteValidate, editCollector, staged, openStatus, section, collectorRow, text, screenshot,
 };

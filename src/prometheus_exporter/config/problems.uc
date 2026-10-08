@@ -146,13 +146,6 @@ export const INTERFACE = 'INTERFACE';
 export const AUTH_NEEDS_PASSWORD = 'AUTH_NEEDS_PASSWORD';
 
 /**
- * auth_password without auth_user.
- *
- * @type {string}
- */
-export const AUTH_NEEDS_USER = 'AUTH_NEEDS_USER';
-
-/**
  * Basic auth without cert and key: Basic sends the password in the clear.
  *
  * @type {string}
@@ -187,7 +180,6 @@ export const CODES = {
 	},
 	[INTERFACE]: { args: [], value: true, text: () => 'an interface name or *' },
 	[AUTH_NEEDS_PASSWORD]: { args: [], value: false, text: () => 'basic auth needs the hash of a password along with auth_user' },
-	[AUTH_NEEDS_USER]: { args: [], value: false, text: () => 'basic auth needs a user along with auth_password' },
 	[AUTH_NEEDS_TLS]: {
 		args: [], value: false,
 		text: () => 'basic auth needs HTTPS: set cert and key, or the password crosses the network in the clear',

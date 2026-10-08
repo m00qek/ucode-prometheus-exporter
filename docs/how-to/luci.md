@@ -17,7 +17,7 @@
 2. Change the fields. A value the exporter would not take is marked as you type, with why; a tab with such a field shows how many on its title.
 3. **Save & Apply**. If the exporter would refuse a value, nothing is saved: a **Save error** dialog lists what and why, each field by its tab. Press a field's name to go to it, fix it, and save again.
 
-To serve the LAN, pick its interface in **Listen on**, on **General**. Basic auth needs HTTPS: on **HTTPS & login**, fill in **TLS certificate** and **TLS key** first, then **Basic auth user** and **Basic auth password**. The password is saved as a hash on Save; the password itself is never stored. To keep the saved password, leave the field empty; to take basic auth away, empty the user.
+To serve the LAN, pick its interface in **Listen on**, on **General**. Basic auth needs HTTPS: on **HTTPS & login**, fill in **TLS certificate** and **TLS key** first, then **Basic auth user** and **Basic auth password**. The password is saved as a hash on Save, apart from the rest of the settings, and the service takes it at once; the password itself is never stored. To keep the saved password, leave the field empty; to take basic auth away, empty the user.
 
 ## Switch a collector off or on
 

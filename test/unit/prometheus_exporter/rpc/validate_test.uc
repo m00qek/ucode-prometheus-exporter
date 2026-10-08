@@ -173,14 +173,45 @@ describe('rpc_validate.validate.validate, basic auth', () => {
 		}, collectors: {} } }, validate({ auth_user: 'prom', auth_password: HASH, cert: TLS.cert }));
 	});
 
-	it('refuses half of it, on the field that is missing', () => {
+	it('refuses a user without a hash given or saved, on the password\'s field; takes a hash without a user as no basic auth', () => {
 		assert.match([
 			{ auth_password: { code: 'AUTH_NEEDS_PASSWORD', message: 'basic auth needs the hash of a password along with auth_user' } },
-			{ auth_user: { code: 'AUTH_NEEDS_USER', message: 'basic auth needs a user along with auth_password' } },
+			{},
 		], [
 			validate({ auth_user: 'prom', ...TLS }).errors.main,
 			validate({ auth_password: HASH, ...TLS }).errors.main,
 		]);
+	});
+
+	// The hash saved apart, which a client such as LuCI may not read.
+	function validate_saved(main, hash) {
+		let out;
+
+		with_sys({}, { collectors: ALL, hash }, (sys) => {
+			out = rpc_validate.validate(sys, { main });
+		});
+
+		return out;
+	}
+
+	it('checks a user given without a hash against the saved hash, and never answers it', () => {
+		let over = crypt.sha_crypt('6', 'secret', 'saltsalt', auth.ROUNDS_MAX + 1);
+		let refused = validate_saved({ auth_user: 'prom', ...TLS }, over);
+
+		assert.match({ ok: true, errors: { main: {}, collectors: {} } }, validate_saved({ auth_user: 'prom', ...TLS }, HASH));
+		assert.match({ auth_password: { code: 'CRYPT_ROUNDS', max: auth.ROUNDS_MAX } }, codes(refused.errors.main));
+		assert.match([ -1, -1 ], [ index(sprintf('%J', refused), substr(over, -86)), index(sprintf('%J', validate_saved({ auth_user: 'prom', ...TLS }, HASH)), HASH) ]);
+	});
+
+	it('checks a hash given, a new one, in place of the saved one', () => {
+		let over = crypt.sha_crypt('6', 'secret', 'saltsalt', auth.ROUNDS_MAX + 1);
+
+		assert.match(true, validate_saved({ auth_user: 'prom', auth_password: HASH, ...TLS }, over).ok);
+		assert.match(false, validate_saved({ auth_user: 'prom', auth_password: 'hunter2', ...TLS }, HASH).ok);
+	});
+
+	it('reads no saved hash without a user', () => {
+		assert.match(true, validate_saved({ ...TLS }, 'not a hash').ok);
 	});
 
 	it('refuses a password that is not a crypt hash, and never says it', () => {

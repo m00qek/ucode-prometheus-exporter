@@ -9,8 +9,9 @@
 //
 // `exporter.fixture` lets the tests switch that fixture (`service {name}`; the name
 // `none` withdraws `service`, as when procd cannot be asked), lay out the exporter's
-// config from $FIXTURES/config/<name> (`config {name}`; `default` puts back the one
-// the container started with) and read it back as it is on disk (`read`). `state {name}`
+// config from $FIXTURES/config/<name> and the hash's config from $FIXTURES/auth/<name>
+// (`config {name}`; `default`, or a name without an auth fixture, puts back the ones
+// the container started with) and read both back as they are on disk (`read`). `state {name}`
 // lays out $FIXTURES/state/<name>.json as the ledger of a running instance of the
 // exporter (prometheus_exporter.ledger), in its state directory, as its scrapes would
 // leave it; `none` removes it.
@@ -21,6 +22,7 @@ import { readfile, writefile, mkdir, unlink, lsdir } from 'fs';
 
 const DIR = getenv('FIXTURES') ?? '/fixtures';
 const CONFIG = '/etc/config/prometheus-exporter';
+const AUTH = '/etc/config/prometheus-exporter-auth';
 const MB = 1024 * 1024;
 // The exporter's state directory (prometheus_exporter.state), and an instance's id in it.
 const STATE_DIRS = [ '/var/run/prometheus-exporter', '/var/run/prometheus-exporter/state' ];
@@ -45,6 +47,7 @@ const BOARD = {
 uloop.init();
 const conn = ubus.connect();
 const at_start = readfile(CONFIG);
+const auth_at_start = readfile(AUTH);
 let reply = null;
 let service = null;
 
@@ -79,7 +82,9 @@ function lay_out(name) {
 		return false;
 
 	let data = (name == 'default') ? at_start : readfile(`${DIR}/config/${name}`);
-	return data != null && writefile(CONFIG, data) != null;
+	let auth = ((name == 'default') ? null : readfile(`${DIR}/auth/${name}`)) ?? auth_at_start;
+
+	return data != null && writefile(CONFIG, data) != null && writefile(AUTH, auth) != null;
 }
 
 function use_state(name) {
@@ -141,7 +146,7 @@ conn.publish('network.interface', {
 conn.publish('exporter.fixture', {
 	service: { args: { ubus_rpc_session: '', name: '' }, call: (req) => ({ ok: use_service(req.args.name) }) },
 	config: { args: { ubus_rpc_session: '', name: '' }, call: (req) => ({ ok: lay_out(req.args.name) }) },
-	read: { args: { ubus_rpc_session: '' }, call: () => ({ data: readfile(CONFIG) }) },
+	read: { args: { ubus_rpc_session: '' }, call: () => ({ data: readfile(CONFIG), auth: readfile(AUTH) }) },
 	state: { args: { ubus_rpc_session: '', name: '' }, call: (req) => ({ ok: use_state(req.args.name) }) },
 });
 

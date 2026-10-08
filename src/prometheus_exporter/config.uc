@@ -298,18 +298,20 @@ export function defaults(specs) {
 };
 
 /**
- * The options of section `name`, of section type `stype`, as `specs` declare them.
+ * The options of section `name`, of section type `stype`, as `specs` declare
+ * them, in the exporter's config, or in config `pkg`.
  *
  * @param {UciCursor} uci the cursor.
  * @param {string} name the section's name.
  * @param {string} stype the type the section must be of; any other reads
  *   as unset.
  * @param {Object<string, OptionSpec>} specs the options.
+ * @param {?string} pkg the config; NAME when null.
  * @returns {Result<Object>} each option's value, typed, by name, or the first
  *   invalid one's CONFIG_INVALID.
  */
-export function section(uci, name, stype, specs) {
-	let s = uci.get_all(NAME, name);
+export function section(uci, name, stype, specs, pkg) {
+	let s = uci.get_all(pkg ?? NAME, name);
 	let options = {};
 
 	if (type(s) != 'object' || s['.type'] != stype)
@@ -355,8 +357,9 @@ export const MEMORY_LIMIT_MIN = 8;
 
 /**
  * The main section's options the init script reads, with its defaults: whether
- * the service runs, where uhttpd listens, its TLS files ('' for none), and the
- * user and password hash of basic auth ('' for none).
+ * the service runs, where uhttpd listens, its TLS files ('' for none), the
+ * user of basic auth ('' for none) and the memory limit. The hash of basic
+ * auth's password is in a config of its own (AUTH_CONFIG).
  *
  * @type {Object<string, OptionSpec>}
  */
@@ -368,14 +371,59 @@ export const SERVICE_OPTIONS = {
 	cert: { default: '', help: 'The certificate to serve HTTPS with, along with key.' },
 	key: { default: '', help: 'The private key of cert.' },
 	auth_user: { default: '', datatype: 'username', help: 'The user a scrape logs in as (basic auth), with auth_password; HTTPS only.' },
-	auth_password: {
-		default: '', datatype: 'crypt', secret: true,
-		help: 'The crypt hash of the password of auth_user: $1$ (uhttpd -m), $5$ or $6$, as the ubus object\'s hash_password makes it.',
-	},
 	memory_limit: {
 		default: 0, datatype: `zero_or_min(${MEMORY_LIMIT_MIN})`,
 		help: `MB of memory each of the exporter's processes may take (its data, RLIMIT_DATA), ${MEMORY_LIMIT_MIN} or more: a collector that takes more fails alone. 0 for a quarter of the RAM, at most 64 MB.`,
 	},
+};
+
+/**
+ * The config of basic auth's hash, apart from the exporter's own: LuCI's
+ * read ACL grants the exporter's config, and the hash is none of what a login
+ * that reads the settings may read. The ubus object's set_password writes it,
+ * and the init script reads it, both as root; the jail does not mount it.
+ * The package installs it, mode 0600, with its one section.
+ *
+ * @type {string}
+ */
+export const AUTH_CONFIG = `${NAME}-auth`;
+
+/**
+ * Its section: `config auth 'main'`.
+ *
+ * @type {string}
+ */
+export const AUTH_SECTION = 'main';
+
+/**
+ * The type of its section.
+ *
+ * @type {string}
+ */
+export const AUTH_TYPE = 'auth';
+
+/**
+ * The options of AUTH_CONFIG's section, which the init script reads with
+ * SERVICE_OPTIONS: the hash of basic auth's password ('' for none).
+ *
+ * @type {Object<string, OptionSpec>}
+ */
+export const AUTH_OPTIONS = {
+	auth_password: {
+		default: '', datatype: 'crypt', secret: true,
+		help: 'The crypt hash of the password of auth_user: $1$ (uhttpd -m), $5$ or $6$, as the ubus object\'s hash_password makes it.',
+	},
+};
+
+/**
+ * The hash of basic auth's password as AUTH_CONFIG holds it, checked.
+ *
+ * @param {UciCursor} uci the cursor.
+ * @returns {Result<{ auth_password: string }>} it, '' for none; or
+ *   CONFIG_INVALID, which never holds it.
+ */
+export function auth_values(uci) {
+	return section(uci, AUTH_SECTION, AUTH_TYPE, AUTH_OPTIONS, AUTH_CONFIG);
 };
 
 /**
@@ -411,7 +459,9 @@ export function memory_limit_mb(mb, total_kb) {
 };
 
 /**
- * The init script's options, each alone: what it would misread.
+ * The init script's options, each alone: what it would misread. The hash
+ * (AUTH_OPTIONS) is AUTH_CONFIG's, read while the main section sets
+ * auth_user, '' otherwise.
  *
  * @param {UciCursor} uci the cursor.
  * @returns {Result<ServiceSettings>} them, or CONFIG_INVALID.
@@ -421,19 +471,25 @@ export function service_values(uci) {
 
 	if (res.ok && res.data.listen_interface == '')
 		return invalid('listen_interface', problems.problem(problems.INTERFACE), '');
+	if (!res.ok)
+		return res;
 
-	return res;
+	// The hash is read only for a user: without one it is no basic auth.
+	let hash = (res.data.auth_user != '') ? auth_values(uci) : Result.ok(defaults(AUTH_OPTIONS));
+
+	return hash.ok ? Result.ok({ ...res.data, ...hash.data }) : hash;
 };
 
 /**
  * What is wrong of the init script's options that go together (`options`, typed),
- * by option: basic auth's user and hash need each other, and both need cert
- * and key, as Basic sends the password in the clear.
+ * by option: basic auth's user, which turns it on, needs the hash of a
+ * password, and cert and key, as Basic sends the password in the clear. A
+ * hash without a user is no basic auth: it is kept apart (AUTH_CONFIG), and
+ * saved before the user it goes with is applied.
  *
  * @param {ServiceSettings} options the init script's options, typed.
  * @returns {Object<string, Problem>} what is wrong, by option: problems of
- *   AUTH_NEEDS_PASSWORD, AUTH_NEEDS_USER and AUTH_NEEDS_TLS; {} when nothing
- *   is.
+ *   AUTH_NEEDS_PASSWORD and AUTH_NEEDS_TLS; {} when nothing is.
  */
 export function together(options) {
 	let out = {};
@@ -441,11 +497,9 @@ export function together(options) {
 
 	if (user && !hash)
 		out.auth_password = problems.problem(problems.AUTH_NEEDS_PASSWORD);
-	else if (hash && !user)
-		out.auth_user = problems.problem(problems.AUTH_NEEDS_USER);
 
-	if ((user || hash) && ((options.cert ?? '') == '' || (options.key ?? '') == ''))
-		out[user ? 'auth_user' : 'auth_password'] ??= problems.problem(problems.AUTH_NEEDS_TLS);
+	if (user && ((options.cert ?? '') == '' || (options.key ?? '') == ''))
+		out.auth_user ??= problems.problem(problems.AUTH_NEEDS_TLS);
 
 	return out;
 };
@@ -470,8 +524,8 @@ export function service(uci) {
 };
 
 /**
- * Basic auth as the main section sets it: a Result of { user, hash }, or of
- * null when it sets none; an error when the init script's options are not valid.
+ * Basic auth as the main section's auth_user and AUTH_CONFIG's hash set it: a
+ * Result of { user, hash }, or of null when the main section sets no user; an error when the init script's options are not valid.
  *
  * @param {UciCursor} uci the cursor.
  * @returns {Result<?BasicAuth>} basic auth, or null for none; or

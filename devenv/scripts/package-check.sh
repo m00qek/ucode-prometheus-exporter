@@ -62,6 +62,7 @@ done <<EOF
 $(/exporter/devenv/scripts/package-info.sh groups)
 EOF
 check "keeps its config as a conffile" test -f /etc/config/$NAME
+check "and basic auth's hash's apart, mode 0600" sh -c "test -f /etc/config/$NAME-auth && ls -l /etc/config/$NAME-auth | grep -q '^-rw------- '"
 check "runs its uci-defaults script once" test ! -e /etc/uci-defaults/$NAME-import
 check "the init script parses" sh -n /etc/init.d/$NAME
 
@@ -207,21 +208,21 @@ VIEWS=/www/luci-static/resources/view/$NAME
 ACL=/usr/share/rpcd/acl.d/luci-app-$NAME.json
 APP_FILES="/usr/share/luci/menu.d/luci-app-$NAME.json $ACL
 	/www/luci-static/resources/$NAME.js /www/luci-static/resources/$NAME/widgets.js $VIEWS/settings.js $VIEWS/status.js"
-APP_METHODS="'collectors', 'interfaces', 'status', 'validate'"
+APP_METHODS="'collectors', 'interfaces', 'password', 'status', 'validate'"
 
 pins_exporter() { apk adbdump "$APP" | grep -qx "    - $PKG=$PKG_FULLVERSION"; }
 seed_luci_caches() { mkdir -p /tmp/luci-modulecache && touch /tmp/luci-indexcache.test.json /tmp/luci-modulecache/test; }
 luci_caches_cleared() { [ ! -e /tmp/luci-indexcache.test.json ] && [ ! -e /tmp/luci-modulecache ]; }
 # luci-base and the exporter, and the libc every package depends on.
 app_depends() { [ "$(depends_of "luci-app-$NAME")" = "libc luci-base $PKG " ]; }
-# The ACL grants the object's methods (hash_password to a login that may save),
-# and the exporter's config to read and write: nothing else.
+# The ACL grants the object's methods (set_password to a login that may save),
+# and the exporter's config to read and write: nothing else, not the hash's.
 acl_is_ours() {
 	ucode -e "let acl = json(require('fs').readfile(ARGV[0]));
 		let want = { 'luci-app-$NAME': {
 			description: acl['luci-app-$NAME']?.description,
 			read: { ubus: { '$NAME': [ $APP_METHODS ] }, uci: [ '$NAME' ] },
-			write: { ubus: { '$NAME': [ 'hash_password' ] }, uci: [ '$NAME' ] } } };
+			write: { ubus: { '$NAME': [ 'set_password' ] }, uci: [ '$NAME' ] } } };
 		exit(sprintf('%J', acl) == sprintf('%J', want) ? 0 : 1);" "$ACL"
 }
 plugin_kept() { for f in $PLUGIN $RPC_MODULE $STATUS_HELPER; do [ -f "$f" ] || return 1; done; }

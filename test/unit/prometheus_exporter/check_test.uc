@@ -28,12 +28,20 @@ const IDLE = collector('dnsmasq', () => Result.none('dnsmasq is disabled'), { ne
 // `uhttpd -m secret`.
 const HASH = '$1$$ysVNzQc4CTMkp5daOdZ.3/';
 
-// check.run over the mocks: `own` is the exporter's config, `files` the regular
-// files stat finds.
+// check.run over the mocks: `own` is the exporter's config, whose main
+// section's `hash` is the hash saved apart (config.AUTH_CONFIG), and `files`
+// the regular files stat finds.
 function run(own, collectors, opts, files, skipped, l) {
 	let out;
+	let hash = {};
 
-	with_mods({ uci: { data: { [config.NAME]: own } } }, (mods) => {
+	if (own.main?.hash != null) {
+		hash.main = { '.type': config.AUTH_TYPE, auth_password: own.main.hash };
+		own = { ...own, main: { ...own.main } };
+		delete own.main.hash;
+	}
+
+	with_mods({ uci: { data: { [config.NAME]: own, [config.AUTH_CONFIG]: hash } } }, (mods) => {
 		let quiet = () => null;
 
 		out = check.run({
@@ -110,7 +118,7 @@ describe('check.run --config', () => {
 	});
 
 	it('says basic auth is on, with its user and never its hash, and compress off', () => {
-		let main = { '.type': config.NAME, cert: '/etc/x.crt', key: '/etc/x.key', auth_user: 'prom', auth_password: HASH, compress: '0' };
+		let main = { '.type': config.NAME, cert: '/etc/x.crt', key: '/etc/x.key', auth_user: 'prom', hash: HASH, compress: '0' };
 		let r = run({ main }, [], { config_only: true }, [ '/etc/x.crt', '/etc/x.key' ]);
 
 		assert.match(true, r.ok);
@@ -120,7 +128,7 @@ describe('check.run --config', () => {
 	});
 
 	it('fails basic auth without cert and key, and with one that is missing: it would serve HTTP', () => {
-		let main = { '.type': config.NAME, auth_user: 'prom', auth_password: HASH };
+		let main = { '.type': config.NAME, auth_user: 'prom', hash: HASH };
 		let without = run({ main }, [], { config_only: true });
 		let missing = run({ main: { ...main, cert: '/etc/x.crt', key: '/etc/x.key' } }, [], { config_only: true }, [ '/etc/x.crt' ]);
 
@@ -140,8 +148,20 @@ describe('check.run --config', () => {
 			'FAIL main: CONFIG_INVALID (auth_password: expected a crypt hash: $1$ (uhttpd -m), $5$ or $6$)',
 		], [
 			run({ main: { ...tls, auth_user: 'prom' } }, [], { config_only: true }, files).lines[0],
-			run({ main: { ...tls, auth_user: 'prom', auth_password: 'hunter2' } }, [], { config_only: true }, files).lines[0],
+			run({ main: { ...tls, auth_user: 'prom', hash: 'hunter2' } }, [], { config_only: true }, files).lines[0],
 		]);
+	});
+
+	it('warns of a hash left in the main section, where 0.2.0 kept it, which it ignores, and never says it', () => {
+		let tls = { '.type': config.NAME, cert: '/etc/x.crt', key: '/etc/x.key' };
+		let r = run({ main: { ...tls, auth_user: 'prom', auth_password: HASH } }, [], { config_only: true }, [ '/etc/x.crt', '/etc/x.key' ]);
+
+		assert.match(false, r.ok);
+		assert.match([
+			`warn main: auth_password is read from /etc/config/${config.AUTH_CONFIG}; the main section's is ignored`,
+			'FAIL main: CONFIG_INVALID (auth_password: basic auth needs the hash of a password along with auth_user)',
+		], slice(r.lines, 0, 2));
+		assert.match(-1, index(join('\n', r.lines), HASH));
 	});
 
 	it('says when the service is disabled', () => {
