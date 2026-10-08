@@ -4,9 +4,13 @@ on:
   push:
   pull_request:
 
+# Each job's timeout-minutes is a few times what it takes with its images
+# built and cached (test 1.5 min, bench 0.5, e2e 6, browser 3), so a hang
+# fails the job instead of holding the runner for GitHub's 6 hours.
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -16,7 +20,7 @@ jobs:
       CI: 1
       OPENWRT_VERSION: ${{ matrix.openwrt }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - run: make lint
       - run: make test
       - run: make package-check
@@ -25,12 +29,13 @@ jobs:
   # of test/bench/budgets.uc: scaling, memory, and generous times.
   bench:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     env:
       CI: 1
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - run: make bench
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: bench
@@ -39,6 +44,7 @@ jobs:
   # The packages under procd in a privileged container; GitHub's runners allow it.
   e2e:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -47,19 +53,20 @@ jobs:
       CI: 1
       OPENWRT_VERSION: ${{ matrix.openwrt }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - run: make e2e
 
   # ---- luci-app-prometheus-exporter ----
   # The LuCI pages in a browser, against the built packages and the plugin in a real rpcd.
   browser:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     env:
       CI: 1
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - run: make browser
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: browser

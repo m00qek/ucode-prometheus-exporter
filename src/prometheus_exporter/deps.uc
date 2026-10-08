@@ -80,12 +80,13 @@ import * as log_module from 'prometheus_exporter.deps.log';
 
 /**
  * One scrape's capabilities, as session() makes them: its uci cursor, the
- * deps of a collector (`for`, a Result of Deps, or NEED_MISSING), and
- * close(), once the scrape is over.
+ * deps of a collector (`for`, a Result of Deps, or NEED_MISSING), done(),
+ * once that collector's run is over, and close(), once the scrape is.
  *
  * @typedef {{
  *   uci: () => UciCursor,
  *   for: (meta: Meta, settings: ?Settings, cutoff: ?float, view: ?ExporterView, limit: ?float) => Result<Deps>,
+ *   done: () => void,
  *   close: () => void
  * }} Session
  */
@@ -126,8 +127,9 @@ export const load_socket = socket_module.load_socket;
 
 // exec: a collector's programs under the watchdog, the script that runs
 // one, how an argument is quoted, the seconds they get and how a killed one
-// closes.
+// closes; and how a process is killed with every process under it.
 export const exec_channel = exec_module.exec_channel;
+export const kill_tree = exec_module.kill_tree;
 export const exec_script = exec_module.exec_script;
 export const shell_quote = exec_module.shell_quote;
 export const EXEC_SECONDS = exec_module.EXEC_SECONDS;
@@ -141,8 +143,11 @@ export const SYSTEM_FILES = exporter_module.SYSTEM_FILES;
 // uci: read-only handles over the configs a collector declares.
 export const uci_handles = uci_module.uci_handles;
 
-// log: the exporter's log, syslog at each level's priority.
+// log: the exporter's log, syslog at each level's priority, and what a
+// collector's run may log of it.
 export const LEVELS = log_module.LEVELS;
+export const LOG_LINES = log_module.LOG_LINES;
+export const LOG_BYTES = log_module.LOG_BYTES;
 export const syslog_channel = log_module.syslog_channel;
 export const system_log = log_module.system_log;
 
@@ -166,7 +171,8 @@ export const FS_API = [ 'readfile', 'open', 'lsdir', 'glob', 'stat', 'realpath' 
  * collectors, and closed once it is over. mods.log, the exporter's log(level,
  * msg), takes what collectors log, each line naming its collector, at warning:
  * what a collector that succeeds still has to say is something it could not
- * read.
+ * read. A run's log takes LOG_LINES lines of LOG_BYTES at most; done(), once
+ * the run is over, says how many more it left out.
  *
  * @param {Modules} mods the modules: modules()'s, or utest's proxies.
  * @returns {Session} the session.
@@ -175,6 +181,9 @@ export function session(mods) {
 	let ubus = ubus_channel(mods.ubus.connect, mods.clock);
 	let uci = null;
 	let fs = {};
+	// The log of the run for() last made deps for: its collector's name, the
+	// lines it logged, and those it left out.
+	let run_log = null;
 
 	for (let name in FS_API)
 		fs[name] = mods.fs[name];
@@ -184,17 +193,37 @@ export function session(mods) {
 		return uci;
 	}
 
+	function log_of(name) {
+		let st = run_log = { name, lines: 0, left_out: 0 };
+
+		return function(msg) {
+			if (st.lines >= LOG_LINES) {
+				st.left_out++;
+				return;
+			}
+
+			msg = '' + msg;
+			if (length(msg) > LOG_BYTES)
+				msg = substr(msg, 0, LOG_BYTES) + '...';
+
+			st.lines++;
+			mods.log('warning', `collector '${name}': ${msg}`);
+		};
+	}
+
 	function capability(need, meta, settings, cutoff, view) {
 		switch (need) {
-		case 'fs':      return fs;
-		case 'ubus':    return ubus;
+		// Copies: a collector that wrote over one of their functions would
+		// change it for the collectors after it, as the others are made anew.
+		case 'fs':      return { ...fs };
+		case 'ubus':    return { ...ubus };
 		case 'uci':     return uci_handles(uci_cursor, meta.configs ?? []);
 		case 'rtnl':    return mods.rtnl ? rtnl_channel(mods.rtnl) : null;
 		case 'nl80211': return mods.nl80211 ? nl80211_channel(mods.nl80211) : null;
 		case 'socket':  return mods.socket ? socket_channel(mods.socket) : null;
 		case 'exec':    return exec_channel(mods.fs.popen, meta.commands ?? [], settings?.timeout ?? meta.timeout, mods.clock, cutoff);
 		case 'time':    return { now: mods.time };
-		case 'log':     return mods.log ? (msg) => mods.log('warning', `collector '${meta.name}': ${msg}`) : null;
+		case 'log':     return mods.log ? log_of(meta.name) : null;
 		case 'exporter': return exporter_channel(mods.fs, view);
 		}
 	}
@@ -204,7 +233,8 @@ export function session(mods) {
 
 		// The deps object for a collector with this meta, or NEED_MISSING when
 		// the system lacks one of its needs (nl80211 and socket are separate
-		// packages). settings: what its config says (config.settings): exec's
+		// packages). Each call's is its own, each capability with it: what one
+		// collector does to its deps no other sees. settings: what its config says (config.settings): exec's
 		// programs get settings.timeout seconds, else meta.timeout's, and
 		// never run past `cutoff` (exec_channel). `view`: the scrape's, for
 		// exporter (exporter_channel). `limit`: when the collector is
@@ -224,6 +254,15 @@ export function session(mods) {
 			}
 
 			return Result.ok(deps);
+		},
+
+		// Once a run is over: how many lines its log left out, in one line.
+		done: function() {
+			let st = run_log;
+
+			run_log = null;
+			if (st?.left_out)
+				mods.log('warning', `collector '${st.name}': ${st.left_out} more line${st.left_out == 1 ? '' : 's'} of its log left out`);
 		},
 
 		close: () => ubus.close(),

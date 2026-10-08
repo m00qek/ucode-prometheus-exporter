@@ -1,9 +1,11 @@
 /**
  * The Prometheus text exposition format, version 0.0.4, as it is spelled: a
  * name made valid (sanitize), a value (format_value), a label set and HELP
- * text escaped, a sample's line and a family's header. And the ordered set of
- * families by name that a recorder, merge() and parse() add families to
- * (prometheus_exporter.exposition, prometheus_exporter.exposition.parse).
+ * text escaped, a sample's line and a family's header; and what Prometheus
+ * would refuse a scrape for, which no collector's text may hold (utf8_valid,
+ * label_problem). And the ordered set of families by name that a recorder
+ * and parse() add families to (prometheus_exporter.exposition,
+ * prometheus_exporter.exposition.parse).
  *
  * @module prometheus_exporter_exposition_format
  */
@@ -42,6 +44,10 @@ const HEX = /^0[xX][0-9a-fA-F]+$/;
 const NOT_METRIC = /[^a-zA-Z0-9_:]/g;
 const NOT_LABEL = /[^a-zA-Z0-9_]/g;
 const LEADING_DIGIT = /^[0-9]/;
+// A byte past ASCII, and that or what a label value escapes: a backslash or a
+// newline. In a bracket a backslash is itself; ucode's C locale reads bytes.
+const HIGH = regexp('[\x80-\xff]');
+const SPECIAL = regexp('[\\\n\x80-\xff]');
 
 // sanitize()'s answers, [ metric names, label names ]: a scrape asks for the
 // same names again and again (a label name in every sample). uhttpd runs each
@@ -94,7 +100,8 @@ export function sanitize(name, is_label) {
 
 /**
  * The value as the format spells it, or null for what is not a number: an empty
- * string, a word, an object. Strings are procfs and sysfs readings, so the
+ * string, a word, an object. A double is written so that it reads back as
+ * itself. Strings are procfs and sysfs readings, so the
  * surrounding whitespace goes and hex (as in sysfs flags) is read.
  *
  * @param {*} value anything: a number, a boolean, a string as procfs or
@@ -113,7 +120,16 @@ export function format_value(value) {
 			return '+Inf';
 		if (value == -Infinity)
 			return '-Inf';
-		return '' + value;
+
+		// ucode writes 14 significant digits, which most doubles read back
+		// as: a counter of bytes as a double past 10^14, or a third, does
+		// not, and is written with the fewest more that do; 17 always do.
+		let s = '' + value;
+
+		for (let digits = 15; digits <= 17 && +s != value; digits++)
+			s = sprintf(`%.${digits}g`, value);
+
+		return s;
 
 	case 'bool':
 		return value ? '1' : '0';
@@ -136,6 +152,64 @@ export function format_value(value) {
 	}
 
 	return null;
+};
+
+// The bytes a UTF-8 sequence that starts with byte `b` has after it, and the
+// range of the first of them: one past 0xC2-0xF4 rules out overlong forms,
+// surrogates (0xED 0xA0-0xBF) and code points past U+10FFFF, as Go's
+// utf8.ValidString, which Prometheus reads a scrape with, does. Null for a
+// byte that starts none.
+function sequence(b) {
+	if (b >= 0xc2 && b <= 0xdf)
+		return [ 1, 0x80, 0xbf ];
+	if (b >= 0xe0 && b <= 0xef)
+		return [ 2, (b == 0xe0) ? 0xa0 : 0x80, (b == 0xed) ? 0x9f : 0xbf ];
+	if (b >= 0xf0 && b <= 0xf4)
+		return [ 3, (b == 0xf0) ? 0x90 : 0x80, (b == 0xf4) ? 0x8f : 0xbf ];
+
+	return null;
+}
+
+/**
+ * Whether `text` is valid UTF-8, as Prometheus wants a label value and HELP
+ * text: a scrape with one that is not is refused whole. Text of ASCII alone,
+ * as nearly every one is, takes one match; only text with a byte past it is
+ * read a byte at a time.
+ *
+ * @param {string} text the text.
+ * @returns {boolean} whether it is valid UTF-8.
+ */
+export function utf8_valid(text) {
+	if (!match(text, HIGH))
+		return true;
+
+	let n = length(text);
+
+	for (let i = 0; i < n; i++) {
+		let b = ord(text, i);
+
+		if (b < 0x80)
+			continue;
+
+		let s = sequence(b);
+
+		if (s == null || i + s[0] >= n)
+			return false;
+
+		let c = ord(text, i + 1);
+
+		if (c < s[1] || c > s[2])
+			return false;
+		for (let k = 2; k <= s[0]; k++) {
+			c = ord(text, i + k);
+			if (c < 0x80 || c > 0xbf)
+				return false;
+		}
+
+		i += s[0];
+	}
+
+	return true;
 };
 
 /**
@@ -188,8 +262,9 @@ export function format_labels(pairs) {
 	return s + '}';
 };
 
-// A collector's labels as [ name, value ] pairs. A null label is left out,
-// which is what Prometheus makes of an empty one anyway.
+// A collector's labels as [ name, value ] pairs, and after them the name as
+// the collector wrote it. A null label is left out, which is what Prometheus
+// makes of an empty one anyway.
 function label_pairs(labels) {
 	let pairs = [];
 
@@ -202,24 +277,46 @@ function label_pairs(labels) {
 			value = format_value(value);
 		}
 
-		push(pairs, [ LABEL_NAMES[name] ?? sanitize(name, true), value ]);
+		push(pairs, [ LABEL_NAMES[name] ?? sanitize(name, true), value, name ]);
 	}
 
 	return pairs;
 }
 
+// The first name of `labels` that is another's once sanitized, as [ the
+// name, the other, what both are ]; null when there is none.
+function clash(labels) {
+	let seen = {};
+
+	for (let p in label_pairs(labels)) {
+		let had = seen[p[0]];
+
+		if (had != null)
+			return [ p[2], had, p[0] ];
+		seen[p[0]] = p[2];
+	}
+
+	return null;
+}
+
 /**
  * A collector's labels as the format writes them, '' for none: what
- * format_labels(label_pairs(labels)) gives.
+ * format_labels(label_pairs(labels)) gives. Null for a set Prometheus would
+ * refuse the scrape for: two names that are one once sanitized ('if-name'
+ * and 'if_name'), or a value that is not valid UTF-8; label_problem() says
+ * which.
  *
  * In one pass, and with the values written as they are: the set is written
  * again with each value escaped only when one needs it, when the text holds a
  * backslash or a newline, or more quotes than its own (sanitized names hold
- * neither). One check for the set is cheaper than one for each value.
+ * neither). One check for the set is cheaper than one for each value, and
+ * the same match finds a byte past ASCII, the only text whose UTF-8 is read.
+ * Names can only clash when one was sanitized: the others are an object's
+ * keys, each once.
  *
  * @param {?Object} labels { name: value }; a value that is not a string,
  *   a number or a boolean is left out.
- * @returns {string} '{name="value",...}', or '' for none.
+ * @returns {?string} '{name="value",...}', '' for none, or null.
  */
 export function label_text(labels) {
 	if (labels == null)
@@ -227,6 +324,7 @@ export function label_text(labels) {
 
 	let text = '';
 	let n = 0;
+	let renamed = false;
 
 	for (let name, value in labels) {
 		let t = type(value);
@@ -237,16 +335,48 @@ export function label_text(labels) {
 			value = format_value(value);
 		}
 
-		text += `,${LABEL_NAMES[name] ?? sanitize(name, true)}="${value}"`;
+		let s = LABEL_NAMES[name] ?? sanitize(name, true);
+
+		if (s != name)
+			renamed = true;
+		text += `,${s}="${value}"`;
 		n++;
 	}
 
 	if (!n)
 		return '';
-	if (index(text, '\\') >= 0 || index(text, '\n') >= 0 || length(split(text, '"')) != 2 * n + 1)
-		return format_labels(label_pairs(labels));
+	if (renamed && clash(labels) != null)
+		return null;
+	if (match(text, SPECIAL) || length(split(text, '"')) != 2 * n + 1)
+		return utf8_valid(text) ? format_labels(label_pairs(labels)) : null;
 
 	return '{' + substr(text, 1) + '}';
+};
+
+/**
+ * What makes `labels` a set the format cannot write, for a collector's
+ * failure: the label it is about, and why; null for a valid set. A set is
+ * an object, null for none, or what a recorder's labels() made.
+ *
+ * @param {*} labels what a collector passed where the labels go.
+ * @returns {?{ label: ?string, why: string }} the problem, or null.
+ */
+export function label_problem(labels) {
+	let t = type(labels);
+
+	if (labels != null && t != 'object')
+		return { label: null, why: `labels must be an object, or what out.labels() made, not ${t == 'string' ? 'a string of its own' : t}` };
+
+	let c = clash(labels ?? {});
+
+	if (c != null)
+		return { label: c[2], why: `labels '${c[1]}' and '${c[0]}' are both '${c[2]}' once sanitized` };
+
+	for (let p in label_pairs(labels ?? {}))
+		if (!utf8_valid(p[1]))
+			return { label: p[0], why: 'its value is not valid UTF-8' };
+
+	return null;
 };
 
 /**

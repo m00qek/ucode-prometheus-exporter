@@ -28,8 +28,8 @@ describe('collectors.dawn', () => {
 			assert.match([
 				'# HELP dawn_ap_channel_utilization_ratio Channel utilization of the access point, from 0 to 1.',
 				'# TYPE dawn_ap_channel_utilization_ratio gauge',
-				`dawn_ap_channel_utilization_ratio{${HOME}} 0.066666666666667`,
-				`dawn_ap_channel_utilization_ratio{${IOT}} 0.66274509803922`,
+				`dawn_ap_channel_utilization_ratio{${HOME}} 0.06666666666666667`,
+				`dawn_ap_channel_utilization_ratio{${IOT}} 0.6627450980392157`,
 				'# HELP dawn_ap_stations Stations associated with the access point.',
 				'# TYPE dawn_ap_stations gauge',
 				`dawn_ap_stations{${HOME}} 2`,

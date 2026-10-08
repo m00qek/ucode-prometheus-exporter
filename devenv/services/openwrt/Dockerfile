@@ -3,10 +3,12 @@ ARG OPENWRT_VERSION=25.12.5
 FROM ghcr.io/openwrt/rootfs:${OPENWRT_ARCH}-${OPENWRT_VERSION}
 
 ARG OPENWRT_VERSION
-ARG UTEST_VERSION=1.5.1
-# The command line's parser, a dependency of the base package, from the same
-# feed: pinned, as the package Makefile builds it (DOCOPT_VERSION there).
-ARG DOCOPT_VERSION=1.0.2
+# utest and the command line's parser, a dependency of the base package, come
+# from their author's feed, pinned to a version and release: apk installs that
+# one or fails, so a newer one in the feed changes nothing here until the pin
+# is moved. The luci and pkgcheck images pin ucode-docopt to the same.
+ARG UTEST_VERSION=1.5.1-r1
+ARG DOCOPT_VERSION=1.0.2-r1
 ARG UTEST_FEED=https://m00qek.github.io/packages.ucode.dev
 
 # ucode-mod-nl80211 and ucode-mod-socket are optional on a router, but installed
@@ -19,11 +21,10 @@ RUN mkdir -p /var/lock /etc/apk/keys /etc/apk/repositories.d && \
     wget -qO /etc/apk/keys/packages.ucode.dev.pem "$feed/feed.pub.pem" && \
     echo "$feed" > /etc/apk/repositories.d/ucode-dev.list && \
     apk update && \
-    apk add --no-cache ucode ucode-mod-fs ucode-mod-ubus ucode-mod-uci ucode-mod-rtnl ucode-mod-log ucode-mod-nl80211 \
-      ucode-mod-socket ucode-mod-zlib ucode-mod-digest ucode-mod-uloop ucode-docopt ucode-utest inotifywait quickjs && \
-    apk list -I 2>/dev/null | grep -q "^ucode-utest-$UTEST_VERSION-" || \
-      { echo "expected ucode-utest $UTEST_VERSION" >&2; exit 1; } && \
-    apk list -I 2>/dev/null | grep -q "^ucode-docopt-$DOCOPT_VERSION-" || \
-      { echo "expected ucode-docopt $DOCOPT_VERSION" >&2; exit 1; }
+    { apk add --no-cache ucode ucode-mod-fs ucode-mod-ubus ucode-mod-uci ucode-mod-rtnl ucode-mod-log ucode-mod-nl80211 \
+        ucode-mod-socket ucode-mod-zlib ucode-mod-digest ucode-mod-uloop inotifywait quickjs \
+        "ucode-docopt=$DOCOPT_VERSION" "ucode-utest=$UTEST_VERSION" || \
+      { echo "pinned: ucode-utest $UTEST_VERSION, ucode-docopt $DOCOPT_VERSION; the feed has:" >&2; \
+        apk search -a -x ucode-utest ucode-docopt >&2; exit 1; }; }
 
 WORKDIR /exporter

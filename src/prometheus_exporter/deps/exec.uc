@@ -45,6 +45,25 @@ export const EXEC_SECONDS = EXEC_TIMEOUT;
  */
 export const EXEC_KILLED = -9;
 
+// Stops process $pid, stopped already, and every process under it, found by
+// their parent in /proc/<pid>/stat, until it finds no more (a stopped process
+// starts no other): their pids in $all. Only ash's builtins: the jail has no
+// kill nor pkill program.
+const WALK = [
+	'all=$pid new=$pid',
+	'while [ -n "$new" ]; do',
+	'	parents=" $new " new=',
+	'	for f in /proc/[0-9]*/stat; do',
+	'		read -r s <"$f" || continue',
+	'		set -- ${s##*) }',
+	'		case $parents in *" $2 "*)',
+	'			p=${f#/proc/} p=${p%/stat}',
+	'			kill -STOP "$p" && new="$new $p" all="$all $p";;',
+	'		esac',
+	'	done',
+	'done',
+];
+
 // The shell script popen runs for a program, after a first line that sets $1 to
 // the seconds it may take and the rest to its argv (exec_script). Only ash's
 // builtins, as procd's jail has /bin/sh and the collectors' programs alone (no
@@ -68,18 +87,7 @@ const WATCHDOG = join('\n', [
 	'	read -r pid',
 	'	if read -r -t "$t" st; then exit "$st"; fi',
 	'	kill -STOP "$pid"',
-	'	all=$pid new=$pid',
-	'	while [ -n "$new" ]; do',
-	'		parents=" $new " new=',
-	'		for f in /proc/[0-9]*/stat; do',
-	'			read -r s <"$f" || continue',
-	'			set -- ${s##*) }',
-	'			case $parents in *" $2 "*)',
-	'				p=${f#/proc/} p=${p%/stat}',
-	'				kill -STOP "$p" && new="$new $p" all="$all $p";;',
-	'			esac',
-	'		done',
-	'	done',
+	...map(WALK, (l) => '\t' + l),
 	'	kill -KILL $all',
 	'	kill -KILL $$',
 	'}',
@@ -96,6 +104,23 @@ const WATCHDOG = join('\n', [
  */
 export function exec_script(argv, seconds) {
 	return `set -- ${seconds} ${join(' ', map(argv, shell_quote))}\n${WATCHDOG}`;
+};
+
+/**
+ * Kills process `pid` and every process under it, as the watchdog kills a
+ * program: stopped first, then each found by its parent in /proc, and then
+ * all of them. A collector's child process a scrape kills (its budget's end,
+ * the deadline) may have started a program that would otherwise run on, its
+ * parent gone. Nothing when there is no such process.
+ *
+ * @param {function(string, string): ?FsProc} popen_fn fs's popen, or a test's.
+ * @param {int} pid the process.
+ */
+export function kill_tree(popen_fn, pid) {
+	let p = popen_fn(join('\n', [ `pid=${int(pid)}`, 'kill -STOP "$pid" 2>/dev/null || exit 0', ...WALK, 'kill -KILL $all', '' ]), 'r');
+
+	p?.read('all');
+	p?.close();
 };
 
 function milliseconds(t) {

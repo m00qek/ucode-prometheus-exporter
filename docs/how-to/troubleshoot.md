@@ -68,6 +68,7 @@ The log says `collector '<name>': ` and one of these, and the collector fails al
 | `COLLECTOR_CANCELLED` | It was still running at the end of its budget, and was stopped with its process: a loop that never ends, or a read that never returns (a FIFO, a socket). | If it is only slow, raise its `budget`; otherwise it is a bug of the collector. |
 | `COLLECTOR_KILLED` | Its process ended under it: past the memory limit, a crash, `exit()`; or its scrape process died while it ran, `collector '<name>' was running when a scrape process died`. | Raise `memory_limit` if it is only large; otherwise it is a bug. |
 | `SAMPLE_LIMIT` | It wrote more than its `max_samples`: the detail says how many, and in which family. | If its output is that large on this device, raise its `max_samples`. |
+| `EXPOSITION_INVALID` | It wrote what Prometheus would refuse the whole scrape for: a label value or HELP text that is not valid UTF-8 (a Latin-1 SSID or hostname), or two label names that are one once sanitized. The detail names the family and the label. | A bug of the collector, which should make the value valid or leave it out. |
 | `FAMILY_CONFLICT` | It wrote a family another collector writes, or one the exporter keeps for itself: the detail names it. | Disable one of the two, or fix the collector's names. |
 | `hung at load` (at `err`) | Its module's top level did not return in 5 s: it is left out until the service restarts. | A bug of the module. |
 

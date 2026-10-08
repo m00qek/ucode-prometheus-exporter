@@ -34,7 +34,8 @@ export const SOURCE_INVALID       = 'SOURCE_INVALID';
 export const COLLECTOR_CRASHED    = 'COLLECTOR_CRASHED';
 
 /**
- * The collector returned something other than a Result.
+ * The collector returned something other than a Result, or a failure without
+ * an error code.
  *
  * @type {string}
  */
@@ -173,6 +174,15 @@ export const COLLECTOR_CANCELLED  = 'COLLECTOR_CANCELLED';
  * @type {string}
  */
 export const COLLECTOR_KILLED     = 'COLLECTOR_KILLED';
+
+/**
+ * The collector was not run: the processes the scrape forked to run the
+ * collectors in ended twice in a row before running one. Not its doing: its
+ * breaker is as it was.
+ *
+ * @type {string}
+ */
+export const COLLECTOR_NOT_RUN    = 'COLLECTOR_NOT_RUN';
 
 /**
  * The collector wrote more samples than its max_samples, and was stopped there.

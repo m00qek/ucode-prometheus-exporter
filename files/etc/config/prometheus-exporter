@@ -21,6 +21,9 @@ config prometheus-exporter 'main'
 	# Samples a collector may write in a scrape (1-100000): one that writes
 	# more fails, and none of its samples are served, unless it says otherwise.
 	option max_samples '20000'
+	# Samples the collectors of a scrape may write in all (1-1000000): a
+	# collector whose samples would go past it fails, and none of its are served.
+	option max_scrape_samples '200000'
 	# '0': never gzip a scrape; otherwise it is, when the scraper asks for it.
 	option compress '1'
 	# Serve HTTPS: both files must exist, and uhttpd needs a TLS library.

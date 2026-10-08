@@ -64,7 +64,7 @@ describe('collectors.timesync', () => {
 				'node_timesync_offset_seconds{daemon="chronyd"} 0.000418361',
 				'# HELP node_timesync_last_update_timestamp_seconds When the daemon last updated the clock (chronyd) or reported on it (busybox ntpd).',
 				'# TYPE node_timesync_last_update_timestamp_seconds gauge',
-				'node_timesync_last_update_timestamp_seconds{daemon="chronyd"} 1790874600.3103',
+				'node_timesync_last_update_timestamp_seconds{daemon="chronyd"} 1790874600.3102953',
 			], r.lines);
 		});
 	});

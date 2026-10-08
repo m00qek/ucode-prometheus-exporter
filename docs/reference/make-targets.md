@@ -68,6 +68,7 @@ Every target runs in Docker, but `feed-makefile`, a shell script with `curl`; no
 | `FILTER` | — | tests, `browser`, `bench`, `bench-device`, `bench-qemu` | Tests: only those whose name matches. Benchmark: a regex of `world/case`. |
 | `VERBOSE` | — | tests, `package` | Tests: one line per test. `package`: the SDK's `V=s`. |
 | `MODULES` | — | tests | Only these test files or directories. |
+| `TEST_TIMEOUT` | `300` | tests | Seconds the whole run may take; past them it is stopped, and the test file it was in is named. |
 | `CI` | — | all | Runs containers without a TTY. |
 | `HOST` | — | `fixtures`, `bench-device` | An ssh destination. |
 | `NAME` | — | `fixtures` | The fixture set to write, `test/fixtures/NAME/`. |
@@ -104,8 +105,9 @@ make bench FILTER='typical/scrape' BENCH_CPUS=0.35 BENCH_CPUSET=0
 | `build` | Builds the site into `bin/site/` with `mkdocs build --strict`. |
 | `build-mike` | The same with the versioned config, `mkdocs.mike.yml`: the mike plugin, the version selector and the outdated-version banner. |
 | `test` | Runs `test/docs/`'s shell and Node tests: the docs version, guard, publish and link-check scripts, with a full mike publish to a throwaway local repository, and the `gh-pages` 404 redirect. No network. |
+| `publish` | Publishes release `REF` (`vX.Y.Z`, or a `docs/X.Y` branch) to `gh-pages` with `devenv/scripts/docs-publish.sh`, in the image `build-mike` builds in, with the network and the checkout's git credentials. See [Docs publishing](docs-publishing.md). |
 | `serve` | Serves the site with live reload on `http://localhost:8000`, or the port in `DOCS_PORT`. `dev` is the same. |
 | `clean` | Removes `bin/site/`. |
 | `help` | Lists the targets. The default. |
 
-`build` and `serve` run the pinned `squidfunk/mkdocs-material:9.5.17` image as the invoking user. `build-mike` and `test` run `ucode-prometheus-exporter-docs:9.5.17`, the same image with the pinned mike of `devenv/services/docs/requirements.txt`, git and Node, built on first use from `devenv/services/docs/Dockerfile`.
+`build` and `serve` run the pinned `squidfunk/mkdocs-material:9.5.17` image as the invoking user. `build-mike`, `test` and `publish` run `ucode-prometheus-exporter-docs:9.5.17`, the same image with the pinned mike of `devenv/services/docs/requirements.txt`, git and Node, built on first use from `devenv/services/docs/Dockerfile`.

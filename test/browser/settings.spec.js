@@ -133,7 +133,7 @@ test.describe('Services → Prometheus exporter', () => {
     await h.openSettings(page);
     expect(await paneOptions(page, 'general')).toEqual([ 'enabled', 'listen_interface', 'listen_port', 'http_keepalive', 'compress', 'omit_zero_values' ]);
     expect(await paneOptions(page, 'https')).toEqual([ 'cert', 'key', 'auth_user', 'auth_password' ]);
-    expect(await paneOptions(page, 'limits')).toEqual([ 'scrape_timeout', 'collector_budget', 'exec_timeout', 'max_samples' ]);
+    expect(await paneOptions(page, 'limits')).toEqual([ 'scrape_timeout', 'collector_budget', 'exec_timeout', 'max_samples', 'max_scrape_samples' ]);
     expect(await paneOptions(page, 'collectors')).toEqual([ '_collectors' ]);
 
     await expect(pane(page, 'general').locator('.cbi-tab-descr')).toHaveCount(0);
@@ -151,7 +151,7 @@ test.describe('Services → Prometheus exporter', () => {
       await expect(field(page, name)).toBeVisible();
     await h.screenshot(page, 'settings-https');
     await h.showTab(page, 'limits');
-    for (const name of [ 'exec_timeout', 'scrape_timeout', 'collector_budget', 'max_samples' ])
+    for (const name of [ 'exec_timeout', 'scrape_timeout', 'collector_budget', 'max_samples', 'max_scrape_samples' ])
       await expect(field(page, name)).toBeVisible();
     await h.screenshot(page, 'settings-limits');
   });
@@ -226,7 +226,7 @@ test.describe('Services → Prometheus exporter', () => {
     await applied(page);
     expect((await savedSections(request)).main).toEqual({
       '.type': h.CONFIG, enabled: '1', listen_interface: 'vpn', listen_port: '9100', http_keepalive: '70', compress: '1',
-      omit_zero_values: '0', exec_timeout: '5', scrape_timeout: '10', collector_budget: '5', max_samples: '20000',
+      omit_zero_values: '0', exec_timeout: '5', scrape_timeout: '10', collector_budget: '5', max_samples: '20000', max_scrape_samples: '200000',
     });
   });
 
@@ -541,7 +541,7 @@ test.describe('Services → Prometheus exporter', () => {
     expect(saved.wifi).toEqual({ '.type': 'collector', stations: '0' });
     expect(saved.main).toEqual({
       '.type': h.CONFIG, enabled: '1', listen_interface: '*', listen_port: '9102', http_keepalive: '0', compress: '1', omit_zero_values: '1',
-      exec_timeout: '8', scrape_timeout: '10', collector_budget: '5', max_samples: '20000',
+      exec_timeout: '8', scrape_timeout: '10', collector_budget: '5', max_samples: '20000', max_scrape_samples: '200000',
     });
   });
 

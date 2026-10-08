@@ -51,6 +51,7 @@ The tab's description says the limits keep a slow or broken collector from costi
 | Collector budget | `collector_budget` | |
 | Program timeout | `exec_timeout` | |
 | Sample limit | `max_samples` | |
+| Reply sample limit | `max_scrape_samples` | |
 
 ### Main section
 
