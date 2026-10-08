@@ -571,7 +571,7 @@ PoE budget, consumption and port states of realtek-poe switches, from ubus poe i
 
 ## `selinux` {#selinux}
 
-Whether SELinux is enabled and enforcing, from /sys/fs/selinux/enforce.
+Whether SELinux is enabled and enforcing, from /sys/fs/selinux/enforce and /proc/filesystems.
 
 - **Title:** SELinux
 - **Package:** `ucode-prometheus-exporter` (base)

@@ -42,7 +42,7 @@ The labels are those seen on the captures; a collector leaves out a label it has
 | [`openwrt_interfaces`](#openwrt_interfaces) | 10 | an access point, a router, made-up captures | — |
 | [`qdisc`](#qdisc) | 23 | a router, a second router, made-up captures | — |
 | [`realtek-poe`](#realtek-poe) | 7 | made-up captures | — |
-| [`selinux`](#selinux) | 2 | an access point, a router, a second router, made-up captures | — |
+| [`selinux`](#selinux) | 2 | made-up captures | — |
 | [`snmp6`](#snmp6) | 80 | an access point, a router | — |
 | [`sockstat`](#sockstat) | 20 | an access point, a second router | — |
 | [`softnet`](#softnet) | 7 | an access point, a router | — |

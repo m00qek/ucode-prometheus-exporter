@@ -598,6 +598,8 @@ function generate(dir, profile) {
 	                'sys/kernel/arch', 'sys/kernel/domainname', 'sys/kernel/hostname', 'sys/kernel/osrelease',
 	                'sys/kernel/ostype', 'sys/kernel/version' ])
 		put(root, `/proc/${f}`, fixture(`caju-ap/proc/${f}`));
+	// A kernel without SELinux, as OpenWrt's: selinux reads it, as enforce is not there.
+	put(root, '/proc/filesystems', 'nodev\tsysfs\nnodev\ttmpfs\nnodev\tproc\n\tsquashfs\nnodev\toverlay\n\tf2fs\n');
 	put(root, '/proc/net/softnet_stat', join('\n', hex_rows(p.cpus, 13, rand, (r) => r)) + '\n');
 	put(root, '/proc/sys/net/netfilter/nf_conntrack_count', `${p.conntrack}\n`);
 	put(root, '/proc/sys/net/netfilter/nf_conntrack_max', '65536\n');
