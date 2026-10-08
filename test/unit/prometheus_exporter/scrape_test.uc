@@ -363,6 +363,30 @@ describe('scrape.scrape', () => {
 		assert.match([ 'scrape deadline: 1 collector not served in its 0.8 s: slow' ], r.logs);
 	});
 
+	// A clock that stands still: no collector's run uses up the time, so
+	// what leaves one out is the ledger's estimate alone.
+	function still(collectors, deadline, durations) {
+		let out;
+
+		with_mods({}, (mods) => {
+			let logs = [];
+			let env = { ...env_for(mods, logs), clock: () => [ 0, 0 ] };
+
+			out = { ...scrape.scrape(env, collectors, '', { deadline, budget: deadline, state: memory_state(ledger_of(durations)) }), logs };
+		});
+
+		return out;
+	}
+
+	it('leaves out a collector whose estimate does not fit the time left, and runs one whose does, on the estimate alone', () => {
+		let ran = [];
+		let r = still([ noting('slow', ran), noting('quick', ran), noting('fits', ran) ], 1.0, { slow: 1.5, quick: 0.1, fits: 0.9 });
+
+		assert.match([ 'quick', 'fits' ], ran);
+		assert.match([ 'scrape deadline: 1 collector not served in its 1.0 s: slow' ], r.logs);
+		assert.match(contains([ 'node_scrape_collector_success{collector="slow"} 0' ]), lines(r.body));
+	});
+
 	it('keeps back the time the reply is expected to take to write, by the samples', () => {
 		let ran = [];
 		let l = ledger.record(ledger.empty(), [ { id: 'big', duration: 0.1, samples: 1000, result: Result.ok() } ],

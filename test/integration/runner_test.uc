@@ -10,8 +10,10 @@ import * as loader from 'prometheus_exporter.loader';
 import * as deps from 'prometheus_exporter.deps';
 import * as Result from 'prometheus_exporter.result';
 import * as exposition from 'prometheus_exporter.exposition';
+import * as ledger from 'prometheus_exporter.ledger';
 import { seconds } from 'prometheus_exporter.deadline';
 import * as fs from 'fs';
+import { with_mods } from 'context';
 
 function collector(name, collect, meta) {
 	return loader.validate(loader.id_of(name), { meta: { name, title: 'Test', help: 'Test.', needs: [], ...(meta ?? {}) }, collect }).data;
@@ -195,6 +197,26 @@ describe('runner.forked', () => {
 
 			assert.match(map(kinds, (k, i) => [ `k${i}`, want[k] ]), map(r.runs, summary));
 		}, { runs: 8 });
+});
+
+describe('scrape.collect, forked', () => {
+	// The limit a collector is stopped at is its budget's end (5 s by
+	// default), or the deadline when that comes first.
+	it('stops a collector at the deadline, when it comes before its budget\'s end, as SCRAPE_DEADLINE', () => {
+		let runs;
+		let t = now();
+
+		with_mods({}, (mods) => {
+			let env = { ...env_of([]), session: (to) => deps.session({ ...mods, log: to }), fork: true };
+
+			runs = scrape.collect(env, mods.uci.cursor(), ledger.empty(), [ LOOP ], { deadline: now() + 0.4 });
+		});
+
+		let took = now() - t;
+
+		assert.match('SCRAPE_DEADLINE', runs.loop.result.error);
+		assert.match(true, took < 2, `took ${took} s`);
+	});
 });
 
 describe('textfile, on a real directory', () => {
