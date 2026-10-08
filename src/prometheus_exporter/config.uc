@@ -1,21 +1,64 @@
-'use strict';
+/**
+ * Options from /etc/config/prometheus-exporter. Each is declared as
+ * { default, help, datatype, secret }: the default sets its type (a boolean
+ * takes uci's boolean spellings, an integer an integer, a string any single
+ * value), help is a sentence saying what it does, and the optional datatype,
+ * one of LuCI's names (and `regex`, `username` and `crypt`), narrows the values
+ * it takes as LuCI would (prometheus_exporter.config.types). A secret option's
+ * value is never part of a message. Unset options take the default; options
+ * nobody declared are ignored, so an older config never breaks a scrape.
+ *
+ * It is the facade of config/: what others take of the modules there it
+ * exports, under the names below.
+ *
+ * @module prometheus_exporter_config
+ */
 
-// Options from /etc/config/prometheus-exporter. Each is declared as
-// { default, help, datatype, secret }: the default sets its type (a boolean
-// takes uci's boolean spellings, an integer an integer, a string any single
-// value), help is a sentence saying what it does, and the optional datatype,
-// one of LuCI's names (and `regex`, `username` and `crypt`), narrows the values
-// it takes as LuCI would (prometheus_exporter.config.types). A secret option's
-// value is never part of a message. Unset options take the default; options
-// nobody declared are ignored, so an older config never breaks a scrape.
-//
-// It is the facade of config/: what others take of the modules there it
-// exports, under the names below.
+'use strict';
 
 import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
 import * as types from 'prometheus_exporter.config.types';
 import { invalid } from 'prometheus_exporter.config.types';
+
+/**
+ * An option as it is declared: its default, which sets its type (a boolean,
+ * an integer or a string; absent from the core's TIMEOUT, BUDGET and
+ * SAMPLES, whose defaults are worked out), the sentence of its help, its
+ * datatype, and whether its value is a secret.
+ *
+ * @typedef {{ default: ?(boolean|int|string), help: string, datatype: ?string, secret: ?boolean }} OptionSpec
+ */
+
+/**
+ * Every setting of a collector, as settings() gives them: the core's, and
+ * its own options, typed, as collect() gets them. timeout is null for a
+ * collector that runs no programs.
+ *
+ * @typedef {{ enabled: boolean, timeout: ?int, budget: int, max_samples: int, options: Object }} Settings
+ */
+
+/**
+ * The main section's options the exporter reads (MAIN_OPTIONS), typed.
+ *
+ * @typedef {{ omit_zero_values: boolean, compress: boolean, exec_timeout: int, scrape_timeout: int, collector_budget: int, max_samples: int }} MainSettings
+ */
+
+/**
+ * The main section's options the init script reads (SERVICE_OPTIONS), typed.
+ *
+ * @typedef {{
+ *   enabled: boolean,
+ *   listen_interface: string,
+ *   listen_port: int,
+ *   http_keepalive: int,
+ *   cert: string,
+ *   key: string,
+ *   auth_user: string,
+ *   auth_password: string,
+ *   memory_limit: int
+ * }} ServiceSettings
+ */
 
 // uci's spellings of a boolean, the datatypes the core enforces, and a uci
 // value as an option takes it.
@@ -25,62 +68,102 @@ export const DATATYPES = types.DATATYPES;
 export const datatype = types.datatype;
 export const convert = types.convert;
 
-// The service's name: its uci config (and the main section's type), its init
-// script, its command, its libexec directory and its ubus object.
+/**
+ * The service's name: its uci config (and the main section's type), its init
+ * script, its command, its libexec directory and its ubus object.
+ *
+ * @type {string}
+ */
 export const NAME = 'prometheus-exporter';
 
-// The apk package of the exporter; each collector package is PACKAGE-<name>.
+/**
+ * The apk package of the exporter; each collector package is PACKAGE-<name>.
+ *
+ * @type {string}
+ */
 export const PACKAGE = 'ucode-prometheus-exporter';
 
-// The seconds the programs a collector runs (exec) get in all in each scrape,
-// unless it says otherwise. Prometheus gives a scrape 10 s by default
-// (scrape_timeout): a collector whose program hangs for all of its 5 s still
-// leaves the rest of the scrape, well under a second, time to answer. The
-// programs collectors run answer in milliseconds (nft, ethtool, mmcli over
-// D-Bus) or in a second or so (an ssh login to a radio).
+/**
+ * The seconds the programs a collector runs (exec) get in all in each scrape,
+ * unless it says otherwise. Prometheus gives a scrape 10 s by default
+ * (scrape_timeout): a collector whose program hangs for all of its 5 s still
+ * leaves the rest of the scrape, well under a second, time to answer. The
+ * programs collectors run answer in milliseconds (nft, ethtool, mmcli over
+ * D-Bus) or in a second or so (an ssh login to a radio).
+ *
+ * @type {int}
+ */
 export const EXEC_TIMEOUT = 5;
 
-// The seconds uhttpd gives the handler to answer a request (its -t, which
-// the init script sets), after which it kills the request, answering nothing.
+/**
+ * The seconds uhttpd gives the handler to answer a request (its -t, which
+ * the init script sets), after which it kills the request, answering nothing.
+ *
+ * @type {int}
+ */
 export const SCRIPT_TIMEOUT = 60;
 
-// The most seconds they may get: half of what uhttpd gives a scrape.
+/**
+ * The most seconds they may get: half of what uhttpd gives a scrape.
+ *
+ * @type {int}
+ */
 export const EXEC_TIMEOUT_MAX = SCRIPT_TIMEOUT / 2;
 
 const EXEC_TIMEOUT_RANGE = `range(1,${EXEC_TIMEOUT_MAX})`;
 
-// The seconds a scrape has when the scraper does not say
-// (X-Prometheus-Scrape-Timeout-Seconds, which Prometheus and vmagent send):
-// Prometheus's own default scrape_timeout, and vmagent's.
+/**
+ * The seconds a scrape has when the scraper does not say
+ * (X-Prometheus-Scrape-Timeout-Seconds, which Prometheus and vmagent send):
+ * Prometheus's own default scrape_timeout, and vmagent's.
+ *
+ * @type {int}
+ */
 export const SCRAPE_TIMEOUT = 10;
 
-// The seconds a collector may take in a scrape before its breaker trips
-// (prometheus_exporter.breaker), unless it says otherwise: half of
-// Prometheus's default timeout. Every collector takes a small part of it on
-// a router: a typical full scrape takes a 500-MIPS MIPS router 2 seconds in
-// all; only nat_traffic on a table of tens of thousands goes past it.
+/**
+ * The seconds a collector may take in a scrape before its breaker trips
+ * (prometheus_exporter.breaker), unless it says otherwise: half of
+ * Prometheus's default timeout. Every collector takes a small part of it on
+ * a router: a typical full scrape takes a 500-MIPS MIPS router 2 seconds in
+ * all; only nat_traffic on a table of tens of thousands goes past it.
+ *
+ * @type {int}
+ */
 export const COLLECTOR_BUDGET = 5;
 
 const SECONDS_RANGE = `range(1,${SCRIPT_TIMEOUT})`;
 
-// The samples a collector may write in a scrape, unless it says otherwise
-// (meta.max_samples, or its section's max_samples): one that writes more fails
-// with SAMPLE_LIMIT, and the scrape keeps none of them. The most any collector
-// writes on the benchmark's large world, a router busier than most, is 3,650
-// (snmp6 on 50 devices; ethtool writes 1,980 on 17 ports, wifi 2,502 for 100
-// stations), and some 0.5 kB of memory each while a scrape holds them: 20,000
-// leaves five times that, and bounds what a runaway holds to some 10 MB.
-// nat_traffic, whose samples are the connection table's address pairs, says
-// more.
+/**
+ * The samples a collector may write in a scrape, unless it says otherwise
+ * (meta.max_samples, or its section's max_samples): one that writes more fails
+ * with SAMPLE_LIMIT, and the scrape keeps none of them. The most any collector
+ * writes on the benchmark's large world, a router busier than most, is 3,650
+ * (snmp6 on 50 devices; ethtool writes 1,980 on 17 ports, wifi 2,502 for 100
+ * stations), and some 0.5 kB of memory each while a scrape holds them: 20,000
+ * leaves five times that, and bounds what a runaway holds to some 10 MB.
+ * nat_traffic, whose samples are the connection table's address pairs, says
+ * more.
+ *
+ * @type {int}
+ */
 export const MAX_SAMPLES = 20000;
 
-// The most max_samples may be: some 50 MB of samples in one scrape.
+/**
+ * The most max_samples may be: some 50 MB of samples in one scrape.
+ *
+ * @type {int}
+ */
 export const MAX_SAMPLES_MAX = 100000;
 
 const SAMPLES_RANGE = `range(1,${MAX_SAMPLES_MAX})`;
 
-// The main section's options the exporter itself reads; the others are the
-// init script's (SERVICE_OPTIONS).
+/**
+ * The main section's options the exporter itself reads; the others are the
+ * init script's (SERVICE_OPTIONS).
+ *
+ * @type {Object<string, OptionSpec>}
+ */
 export const MAIN_OPTIONS = {
 	omit_zero_values: { default: false, help: 'Leave out counters that are 0, most of which never move on a router.' },
 	compress: { default: true, help: 'Send a scrape gzip-compressed when the scraper asks for it (Accept-Encoding: gzip); 0 never does.' },
@@ -102,41 +185,70 @@ export const MAIN_OPTIONS = {
 	},
 };
 
-// What every collector has besides its own options: the core's.
+/**
+ * What every collector has besides its own options: the core's.
+ *
+ * @type {OptionSpec}
+ */
 export const ENABLED = { default: true, help: 'Serve this collector; 0 leaves it out, and naming it in a query is a 400.' };
 
-// The core's option of a collector that runs programs (exec in meta.needs),
-// without its default, which is the collector's meta.timeout or else the main
-// section's exec_timeout (default_timeout).
+/**
+ * The core's option of a collector that runs programs (exec in meta.needs),
+ * without its default, which is the collector's meta.timeout or else the main
+ * section's exec_timeout (default_timeout).
+ *
+ * @type {OptionSpec}
+ */
 export const TIMEOUT = {
 	datatype: EXEC_TIMEOUT_RANGE,
 	help: 'Seconds the programs of this collector get in all in each scrape; one still running then is killed.',
 };
 
-// The core's option of every collector, without its default, which is the
-// main section's collector_budget, or for a collector that runs programs its
-// timeout and a second more when that is longer (default_budget).
+/**
+ * The core's option of every collector, without its default, which is the
+ * main section's collector_budget, or for a collector that runs programs its
+ * timeout and a second more when that is longer (default_budget).
+ *
+ * @type {OptionSpec}
+ */
 export const BUDGET = {
 	datatype: SECONDS_RANGE,
 	help: 'Seconds this collector may take in a scrape; one still running then is stopped, and quarantined for a few scrapes.',
 };
 
-// The core's option of every collector, without its default, which is its
-// meta.max_samples or else the main section's max_samples
-// (default_max_samples).
+/**
+ * The core's option of every collector, without its default, which is its
+ * meta.max_samples or else the main section's max_samples
+ * (default_max_samples).
+ *
+ * @type {OptionSpec}
+ */
 export const SAMPLES = {
 	datatype: SAMPLES_RANGE,
 	help: 'Samples this collector may write in a scrape; one that writes more fails, and none of its samples are served.',
 };
 
-// The option names the core keeps for itself: no collector declares them.
-// `timeout` is only an exec collector's; the others ignore it.
+/**
+ * The option names the core keeps for itself: no collector declares them.
+ * `timeout` is only an exec collector's; the others ignore it.
+ *
+ * @type {string[]}
+ */
 export const RESERVED = [ 'enabled', 'timeout', 'budget', 'max_samples' ];
 
-// The core's options of a collector with this meta, by name: enabled;
-// timeout, whose default is `seconds`, when it runs programs; budget, whose
-// default is `budget` (COLLECTOR_BUDGET without one); and max_samples, whose
-// default is `samples` (MAX_SAMPLES without one).
+/**
+ * The core's options of a collector with this meta, by name: enabled;
+ * timeout, whose default is `seconds`, when it runs programs; budget, whose
+ * default is `budget` (COLLECTOR_BUDGET without one); and max_samples, whose
+ * default is `samples` (MAX_SAMPLES without one).
+ *
+ * @param {?Meta} meta the collector's meta.
+ * @param {?int} seconds the default of timeout.
+ * @param {?int} budget the default of budget.
+ * @param {?int} samples the default of max_samples.
+ * @returns {Object<string, OptionSpec>} enabled, timeout when it runs
+ *   programs, budget and max_samples.
+ */
 export function core(meta, seconds, budget, samples) {
 	let out = { enabled: ENABLED };
 
@@ -149,7 +261,12 @@ export function core(meta, seconds, budget, samples) {
 	return out;
 };
 
-// The defaults of options declared as { default, ... }.
+/**
+ * The defaults of options declared as { default, ... }.
+ *
+ * @param {Object<string, OptionSpec>} specs the options.
+ * @returns {Object} each option's default, by name.
+ */
 export function defaults(specs) {
 	let out = {};
 
@@ -159,7 +276,17 @@ export function defaults(specs) {
 	return out;
 };
 
-// The options of section `name`, of section type `stype`, as `specs` declare them.
+/**
+ * The options of section `name`, of section type `stype`, as `specs` declare them.
+ *
+ * @param {UciCursor} uci the cursor.
+ * @param {string} name the section's name.
+ * @param {string} stype the type the section must be of; any other reads
+ *   as unset.
+ * @param {Object<string, OptionSpec>} specs the options.
+ * @returns {Result<Object>} each option's value, typed, by name, or the first
+ *   invalid one's CONFIG_INVALID.
+ */
 export function section(uci, name, stype, specs) {
 	let s = uci.get_all(NAME, name);
 	let options = {};
@@ -182,13 +309,23 @@ export function section(uci, name, stype, specs) {
 	return Result.ok(options);
 };
 
+/**
+ * The main section's options the exporter reads (MAIN_OPTIONS).
+ *
+ * @param {UciCursor} uci the cursor.
+ * @returns {Result<MainSettings>} them, or CONFIG_INVALID.
+ */
 export function main(uci) {
 	return section(uci, 'main', NAME, MAIN_OPTIONS);
 };
 
-// The main section's options the init script reads, with its defaults: whether
-// the service runs, where uhttpd listens, its TLS files ('' for none), and the
-// user and password hash of basic auth ('' for none).
+/**
+ * The main section's options the init script reads, with its defaults: whether
+ * the service runs, where uhttpd listens, its TLS files ('' for none), and the
+ * user and password hash of basic auth ('' for none).
+ *
+ * @type {Object<string, OptionSpec>}
+ */
 export const SERVICE_OPTIONS = {
 	enabled: { default: true, help: 'Run the service; 0 stops it.' },
 	listen_interface: { default: 'loopback', help: 'The logical interface uhttpd listens on, or * for every address.' },
@@ -207,22 +344,44 @@ export const SERVICE_OPTIONS = {
 	},
 };
 
-// memory_limit when it is 0: a quarter of the RAM, at most MEMORY_LIMIT_MAX MB,
-// which the init script works out (memory_limit_mb()). Measured as the peak
-// resident memory of a scrape's child process (make bench): a typical
-// router's full scrape 9 MB on a 64-bit CPU and 7 MB on a 32-bit MIPS one
-// (QEMU), the benchmark's large world, a router busier than most, with every
-// collector, 30 MB on 64 bits and 22 MB on the MIPS one. 64 MB leaves more than twice the largest, and
-// a router with less RAM than 256 MB a quarter of what it has.
+/**
+ * memory_limit when it is 0: a quarter of the RAM, at most MEMORY_LIMIT_MAX MB,
+ * which the init script works out (memory_limit_mb()). Measured as the peak
+ * resident memory of a scrape's child process (make bench): a typical
+ * router's full scrape 9 MB on a 64-bit CPU and 7 MB on a 32-bit MIPS one
+ * (QEMU), the benchmark's large world, a router busier than most, with every
+ * collector, 30 MB on 64 bits and 22 MB on the MIPS one. 64 MB leaves more than twice the largest, and
+ * a router with less RAM than 256 MB a quarter of what it has.
+ *
+ * @type {int}
+ */
 export const MEMORY_LIMIT_MAX = 64;
+
+/**
+ * The share of the RAM memory_limit 0 takes: a quarter (see
+ * MEMORY_LIMIT_MAX).
+ *
+ * @type {int}
+ */
 export const MEMORY_LIMIT_SHARE = 4;
 
-// The MB memory_limit `mb` makes on a device of `total_kb` kB of RAM.
+/**
+ * The MB memory_limit `mb` makes on a device of `total_kb` kB of RAM.
+ *
+ * @param {int} mb memory_limit.
+ * @param {int} total_kb the device's RAM, in kB.
+ * @returns {int} the limit, in MB.
+ */
 export function memory_limit_mb(mb, total_kb) {
 	return (mb > 0) ? mb : min(MEMORY_LIMIT_MAX, int(total_kb / 1024 / MEMORY_LIMIT_SHARE));
 };
 
-// The init script's options, each alone: what it would misread.
+/**
+ * The init script's options, each alone: what it would misread.
+ *
+ * @param {UciCursor} uci the cursor.
+ * @returns {Result<ServiceSettings>} them, or CONFIG_INVALID.
+ */
 export function service_values(uci) {
 	let res = section(uci, 'main', NAME, SERVICE_OPTIONS);
 
@@ -232,9 +391,15 @@ export function service_values(uci) {
 	return res;
 };
 
-// What is wrong of the init script's options that go together (`o`, typed),
-// by option: basic auth's user and hash need each other, and both need cert
-// and key, as Basic sends the password in the clear.
+/**
+ * What is wrong of the init script's options that go together (`o`, typed),
+ * by option: basic auth's user and hash need each other, and both need cert
+ * and key, as Basic sends the password in the clear.
+ *
+ * @param {ServiceSettings} o the init script's options, typed.
+ * @returns {Object<string, string>} what is wrong, by option; {} when
+ *   nothing is.
+ */
 export function together(o) {
 	let out = {};
 	let user = (o.auth_user ?? '') != '', hash = (o.auth_password ?? '') != '';
@@ -250,8 +415,13 @@ export function together(o) {
 	return out;
 };
 
-// The init script's options, checked so that start refuses what it would
-// misread, or serve without what it is told to (basic auth over HTTP).
+/**
+ * The init script's options, checked so that start refuses what it would
+ * misread, or serve without what it is told to (basic auth over HTTP).
+ *
+ * @param {UciCursor} uci the cursor.
+ * @returns {Result<ServiceSettings>} them, or CONFIG_INVALID.
+ */
 export function service(uci) {
 	let res = service_values(uci);
 
@@ -264,8 +434,14 @@ export function service(uci) {
 	return res;
 };
 
-// Basic auth as the main section sets it: a Result of { user, hash }, or of
-// null when it sets none; an error when the init script's options are not valid.
+/**
+ * Basic auth as the main section sets it: a Result of { user, hash }, or of
+ * null when it sets none; an error when the init script's options are not valid.
+ *
+ * @param {UciCursor} uci the cursor.
+ * @returns {Result<?BasicAuth>} basic auth, or null for none; or
+ *   CONFIG_INVALID.
+ */
 export function auth(uci) {
 	let res = service(uci);
 
@@ -275,9 +451,15 @@ export function auth(uci) {
 	return Result.ok(res.data.auth_user != '' ? { user: res.data.auth_user, hash: res.data.auth_password } : null);
 };
 
-// The seconds a collector's programs get when its section sets no timeout:
-// its meta.timeout, or else the main section's exec_timeout (its default while
-// the main section is not valid, which check and the init script refuse).
+/**
+ * The seconds a collector's programs get when its section sets no timeout:
+ * its meta.timeout, or else the main section's exec_timeout (its default while
+ * the main section is not valid, which check and the init script refuse).
+ *
+ * @param {UciCursor} uci the cursor.
+ * @param {?Meta} meta the collector's meta.
+ * @returns {int} the seconds.
+ */
 export function default_timeout(uci, meta) {
 	if (meta?.timeout != null)
 		return meta.timeout;
@@ -287,11 +469,18 @@ export function default_timeout(uci, meta) {
 	return res.ok ? res.data.exec_timeout : EXEC_TIMEOUT;
 };
 
-// The seconds a collector may take when its section sets no budget: the main
-// section's collector_budget (its default while the main section is not
-// valid); for a collector whose programs get `timeout` seconds, that and a
-// second more when it is longer, as the watchdog counts whole seconds: a
-// budget never quarantines what a timeout allows.
+/**
+ * The seconds a collector may take when its section sets no budget: the main
+ * section's collector_budget (its default while the main section is not
+ * valid); for a collector whose programs get `timeout` seconds, that and a
+ * second more when it is longer, as the watchdog counts whole seconds: a
+ * budget never quarantines what a timeout allows.
+ *
+ * @param {UciCursor} uci the cursor.
+ * @param {?int} timeout the seconds of its programs, or null for a collector
+ *   that runs none.
+ * @returns {int} the seconds.
+ */
 export function default_budget(uci, timeout) {
 	let res = main(uci);
 	let budget = res.ok ? res.data.collector_budget : COLLECTOR_BUDGET;
@@ -299,9 +488,15 @@ export function default_budget(uci, timeout) {
 	return (timeout != null) ? max(budget, timeout + 1) : budget;
 };
 
-// The samples a collector may write when its section sets no max_samples:
-// its meta.max_samples, or else the main section's max_samples (its default
-// while the main section is not valid).
+/**
+ * The samples a collector may write when its section sets no max_samples:
+ * its meta.max_samples, or else the main section's max_samples (its default
+ * while the main section is not valid).
+ *
+ * @param {UciCursor} uci the cursor.
+ * @param {?Meta} meta the collector's meta.
+ * @returns {int} the samples.
+ */
 export function default_max_samples(uci, meta) {
 	if (meta?.max_samples != null)
 		return meta.max_samples;
@@ -311,8 +506,15 @@ export function default_max_samples(uci, meta) {
 	return res.ok ? res.data.max_samples : MAX_SAMPLES;
 };
 
-// Where a collector's budget comes from: its section's `budget`, the main
-// section's `collector_budget`, or its `timeout`.
+/**
+ * Where a collector's budget comes from: its section's `budget`, the main
+ * section's `collector_budget`, or its `timeout`.
+ *
+ * @param {UciCursor} uci the cursor.
+ * @param {string} id the collector's module name, its section's name.
+ * @param {?int} timeout the seconds of its programs, or null.
+ * @returns {string} 'budget', 'collector_budget' or 'timeout'.
+ */
 export function budget_source(uci, id, timeout) {
 	let s = uci.get_all(NAME, id);
 
@@ -325,9 +527,16 @@ export function budget_source(uci, id, timeout) {
 	return (timeout != null && timeout + 1 > budget) ? 'timeout' : 'collector_budget';
 };
 
-// Where a collector's seconds come from: its section's `timeout`, its
-// `meta.timeout` or the main section's `exec_timeout`; null for a collector
-// that runs no programs.
+/**
+ * Where a collector's seconds come from: its section's `timeout`, its
+ * `meta.timeout` or the main section's `exec_timeout`; null for a collector
+ * that runs no programs.
+ *
+ * @param {UciCursor} uci the cursor.
+ * @param {string} id the collector's module name, its section's name.
+ * @param {?Meta} meta the collector's meta.
+ * @returns {?string} 'timeout', 'meta.timeout' or 'exec_timeout', or null.
+ */
 export function timeout_source(uci, id, meta) {
 	if (!('exec' in (meta?.needs ?? [])))
 		return null;
@@ -340,16 +549,23 @@ export function timeout_source(uci, id, meta) {
 	return (meta.timeout != null) ? 'meta.timeout' : 'exec_timeout';
 };
 
-// `config collector '<id>'`: the collector's module name, as a uci section name
-// cannot hold the '-' of ltq-dsl.
-//
-// Every setting of the collector with this meta, as a Result of { enabled,
-// timeout, budget, max_samples, options }: the core's options (enabled;
-// timeout when it runs programs, null otherwise; budget; max_samples) are
-// checked like its own, which `options` holds. So timeout's precedence: the
-// section's, then meta.timeout, then the main section's exec_timeout;
-// budget's: the section's, then default_budget's; max_samples': the
-// section's, then meta.max_samples, then the main section's.
+/**
+ * `config collector '<id>'`: the collector's module name, as a uci section name
+ * cannot hold the '-' of ltq-dsl.
+ *
+ * Every setting of the collector with this meta, as a Result of { enabled,
+ * timeout, budget, max_samples, options }: the core's options (enabled;
+ * timeout when it runs programs, null otherwise; budget; max_samples) are
+ * checked like its own, which `options` holds. So timeout's precedence: the
+ * section's, then meta.timeout, then the main section's exec_timeout;
+ * budget's: the section's, then default_budget's; max_samples': the
+ * section's, then meta.max_samples, then the main section's.
+ *
+ * @param {UciCursor} uci the cursor.
+ * @param {string} id the collector's module name, its section's name.
+ * @param {?Meta} meta the collector's meta.
+ * @returns {Result<Settings>} its settings, or CONFIG_INVALID.
+ */
 export function settings(uci, id, meta) {
 	let exec = ('exec' in (meta?.needs ?? []));
 	let seconds = exec ? default_timeout(uci, meta) : null;
@@ -370,17 +586,30 @@ export function settings(uci, id, meta) {
 	return Result.ok({ ...out, options });
 };
 
-// The collector's own options, as a Result: what `collect` gets. The core's are
-// checked too, and left out.
+/**
+ * The collector's own options, as a Result: what `collect` gets. The core's are
+ * checked too, and left out.
+ *
+ * @param {UciCursor} uci the cursor.
+ * @param {string} id the collector's module name, its section's name.
+ * @param {?Meta} meta the collector's meta.
+ * @returns {Result<Object>} its options, typed, by name.
+ */
 export function collector(uci, id, meta) {
 	let res = settings(uci, id, meta);
 
 	return res.ok ? Result.ok(res.data.options) : res;
 };
 
-// Whether a collector is enabled: true unless its section says otherwise. A
-// value that is not a boolean counts as enabled, so the collector runs and
-// fails with CONFIG_INVALID, saying what is wrong.
+/**
+ * Whether a collector is enabled: true unless its section says otherwise. A
+ * value that is not a boolean counts as enabled, so the collector runs and
+ * fails with CONFIG_INVALID, saying what is wrong.
+ *
+ * @param {UciCursor} uci the cursor.
+ * @param {string} id the collector's module name, its section's name.
+ * @returns {boolean} whether it is enabled.
+ */
 export function enabled(uci, id) {
 	let res = section(uci, id, 'collector', { enabled: ENABLED });
 

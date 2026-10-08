@@ -1,28 +1,57 @@
-'use strict';
+/**
+ * The types of options (prometheus_exporter.config): a uci value as the type
+ * of the option's default, and the datatypes the core enforces, LuCI's names
+ * and its own.
+ *
+ * @module prometheus_exporter_config_types
+ */
 
-// The types of options (prometheus_exporter.config): a uci value as the type
-// of the option's default, and the datatypes the core enforces, LuCI's names
-// and its own.
+'use strict';
 
 import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
 import * as crypt from 'prometheus_exporter.crypt';
 import { is_user, is_hash, ROUNDS_MAX } from 'prometheus_exporter.auth';
 
+/**
+ * A datatype the core enforces: the value types it takes, what it calls a
+ * valid value, whether a value is one, and, for some, what it expected of a
+ * value it does not take instead of `expected`. check() and why() take the
+ * option's value, typed: a boolean, an integer or a string.
+ *
+ * @typedef {{ types: string[], expected: string, check: function((boolean|int|string)): boolean, why: ?function((boolean|int|string)): ?string }} Datatype
+ */
+
 // The spellings of a boolean uci value, as uci's own tools take them.
+
+/**
+ * The spellings of true.
+ *
+ * @type {string[]}
+ */
 export const TRUE = [ '1', 'yes', 'on', 'true', 'enabled' ];
+
+/**
+ * The spellings of false.
+ *
+ * @type {string[]}
+ */
 export const FALSE = [ '0', 'no', 'off', 'false', 'disabled' ];
 
 function absolute_path(v) {
 	return substr(v, 0, 1) == '/' && !match(v, /[[:cntrl:]]/);
 }
 
-// The datatypes the core enforces, by LuCI's names: what value type each
-// takes, what it calls a valid value, and whether a value is one. Syntactic
-// only: a directory or file is an absolute path, not one that exists. Besides
-// LuCI's, regex, and username and crypt, basic auth's user and hash. A
-// datatype's `why`, when it has one, says what it expected of a value it does
-// not take, instead of `expected`: crypt's, of a hash of too many rounds.
+/**
+ * The datatypes the core enforces, by LuCI's names: what value type each
+ * takes, what it calls a valid value, and whether a value is one. Syntactic
+ * only: a directory or file is an absolute path, not one that exists. Besides
+ * LuCI's, regex, and username and crypt, basic auth's user and hash. A
+ * datatype's `why`, when it has one, says what it expected of a value it does
+ * not take, instead of `expected`: crypt's, of a hash of too many rounds.
+ *
+ * @type {Object<string, Datatype>}
+ */
 export const DATATYPES = {
 	username: { types: [ 'string' ], expected: 'a user of 1 to 64 characters, without ":", spaces or control characters', check: is_user },
 	crypt: {
@@ -50,8 +79,13 @@ export const DATATYPES = {
 	},
 };
 
-// { types, expected, check } of a datatype name, or null for one the core does
-// not know. range(min,max) takes the integers from min to max.
+/**
+ * { types, expected, check } of a datatype name, or null for one the core does
+ * not know. range(min,max) takes the integers from min to max.
+ *
+ * @param {*} name the datatype's name; anything but a string is none.
+ * @returns {?Datatype} the datatype, or null.
+ */
 export function datatype(name) {
 	let m = (type(name) == 'string') ? match(name, /^range\((-?[0-9]+),(-?[0-9]+)\)$/) : null;
 
@@ -64,8 +98,16 @@ export function datatype(name) {
 	return (type(name) == 'string') ? DATATYPES[name] : null;
 };
 
-// What option `spec` expected of a value it does not take: and what it got,
-// unless the option is a secret.
+/**
+ * What option `spec` expected of a value it does not take: and what it got,
+ * unless the option is a secret.
+ *
+ * @param {string} name the option's name.
+ * @param {string} expected what it expected.
+ * @param {*} value what it got: a uci value, or one typed already.
+ * @param {?OptionSpec} spec the option; its `secret` keeps the value out.
+ * @returns {Result} CONFIG_INVALID.
+ */
 export function invalid(name, expected, value, spec) {
 	return Result.err(errors.CONFIG_INVALID,
 		`${name}: expected ${expected}` + (spec?.secret ? '' : `, got ${sprintf('%J', value)}`));
@@ -95,7 +137,15 @@ function typed(name, value, spec) {
 	die(`option ${name}: unsupported default ${sprintf('%J', spec.default)}`);
 }
 
-// A uci value as option `spec` ({ default, datatype, secret }) takes it.
+/**
+ * A uci value as option `spec` ({ default, datatype, secret }) takes it.
+ *
+ * @param {string} name the option's name.
+ * @param {?(string|string[])} value the uci value.
+ * @param {OptionSpec} spec the option.
+ * @returns {Result<(boolean|int|string)>} the value, typed, or
+ *   CONFIG_INVALID.
+ */
 export function convert(name, value, spec) {
 	let res = typed(name, value, spec);
 	let dt = (res.ok && spec.datatype != null) ? datatype(spec.datatype) : null;
