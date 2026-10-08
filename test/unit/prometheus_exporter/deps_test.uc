@@ -100,6 +100,24 @@ describe('deps.session', () => {
 		});
 	});
 
+	// One collector that writes over a capability's function must not change
+	// what the next gets: they share a session, and a child process.
+	it('gives each collector its own deps, so one that writes over them changes no other\'s', () => {
+		with_mods({ fs: { behavior: { readfile: () => 'real' } } }, (mods) => {
+			let s = deps.session(mods);
+			let meta = { name: 'c', needs: [ 'fs', 'ubus', 'time' ] };
+			let first = s.for(meta).data;
+
+			first.fs.readfile = () => 'forged';
+			first.ubus.call = () => 'forged';
+			first.time.now = () => 0;
+
+			let next = s.for(meta).data;
+
+			assert.match([ 'real', false, true ], [ next.fs.readfile('/proc/x'), next.ubus.call == first.ubus.call, next.time.now != first.time.now ]);
+		});
+	});
+
 	it('names the collector in what it logs, and has no log without the exporter\'s', () => {
 		with_mods({}, (mods) => {
 			let seen = [];

@@ -186,8 +186,10 @@ export function session(mods) {
 
 	function capability(need, meta, settings, cutoff, view) {
 		switch (need) {
-		case 'fs':      return fs;
-		case 'ubus':    return ubus;
+		// Copies: a collector that wrote over one of their functions would
+		// change it for the collectors after it, as the others are made anew.
+		case 'fs':      return { ...fs };
+		case 'ubus':    return { ...ubus };
 		case 'uci':     return uci_handles(uci_cursor, meta.configs ?? []);
 		case 'rtnl':    return mods.rtnl ? rtnl_channel(mods.rtnl) : null;
 		case 'nl80211': return mods.nl80211 ? nl80211_channel(mods.nl80211) : null;
@@ -204,7 +206,8 @@ export function session(mods) {
 
 		// The deps object for a collector with this meta, or NEED_MISSING when
 		// the system lacks one of its needs (nl80211 and socket are separate
-		// packages). settings: what its config says (config.settings): exec's
+		// packages). Each call's is its own, each capability with it: what one
+		// collector does to its deps no other sees. settings: what its config says (config.settings): exec's
 		// programs get settings.timeout seconds, else meta.timeout's, and
 		// never run past `cutoff` (exec_channel). `view`: the scrape's, for
 		// exporter (exporter_channel). `limit`: when the collector is
