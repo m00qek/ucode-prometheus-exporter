@@ -10,7 +10,7 @@
 
 import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
-import { TYPES, METRIC_NAME, format_value, format_labels, add_family, family_set, families_of } from 'prometheus_exporter.exposition.format';
+import { TYPES, METRIC_NAME, format_value, format_labels, utf8_valid, add_family, family_set, families_of } from 'prometheus_exporter.exposition.format';
 
 // Constants, as format.uc's are: ucode compiles a regex literal each time it
 // is evaluated.
@@ -60,8 +60,8 @@ function scan_value(s) {
 }
 
 // { pairs, rest } for the label set that starts `s` (after its '{'), or a string
-// saying what is wrong with it.
-function scan_labels(s) {
+// saying what is wrong with it. `utf8`: whether its values are to be checked.
+function scan_labels(s, utf8) {
 	let pairs = [];
 	let seen = {};
 
@@ -83,6 +83,8 @@ function scan_labels(s) {
 		s = scanned[1];
 		if (seen[name])
 			return `duplicate label '${name}'`;
+		if (utf8 && !utf8_valid(scanned[0]))
+			return `label '${name}': its value is not valid UTF-8`;
 		seen[name] = true;
 		push(pairs, [ name, scanned[0] ]);
 
@@ -114,7 +116,8 @@ function series_key(name, pairs) {
  * The families in exposition text, or EXPOSITION_INVALID naming the first line
  * that breaks the format: a malformed line, a TYPE or HELP given twice or after
  * the family's samples, a family whose lines are not all together, a value that
- * is not a number, or the same series twice.
+ * is not a number, the same series twice, or a label value or HELP text that
+ * is not valid UTF-8 (Prometheus refuses a scrape with one).
  *
  * @param {?string} text exposition text; null reads as none.
  * @returns {Result<Family[]>} its families, in the order they first appear,
@@ -127,6 +130,9 @@ export function parse(text) {
 	let series = {};
 	let current = null;
 	let n = 0;
+	// Only text that is not valid UTF-8 as a whole has a value or HELP that
+	// is not, and nearly none has a byte past ASCII at all.
+	let utf8 = !utf8_valid(text ?? '');
 
 	function fail(msg) {
 		return Result.err(errors.EXPOSITION_INVALID, `line ${n}: ${msg}`);
@@ -186,6 +192,8 @@ export function parse(text) {
 			} else {
 				if (declared[name].help != null)
 					return fail(`second HELP for '${name}'`);
+				if (utf8 && !utf8_valid(arg))
+					return fail(`HELP for '${name}' is not valid UTF-8`);
 				declared[name].help = unescape_help(arg);
 				if (set.by_name[name])
 					set.by_name[name].help = declared[name].help;
@@ -203,7 +211,7 @@ export function parse(text) {
 		let pairs = [];
 
 		if (substr(rest, 0, 1) == '{') {
-			let scanned = scan_labels(substr(rest, 1));
+			let scanned = scan_labels(substr(rest, 1), utf8);
 
 			if (type(scanned) == 'string')
 				return fail(scanned);

@@ -11,7 +11,7 @@ A failure carries an uppercase code, from `src/prometheus_exporter/errors.uc`, a
 | `SOURCE_UNREADABLE` | A file the collector reads is not there or cannot be read. The detail names it. | the collectors `bmx7`, `conntrack`, `cpu`, `dhcp_leases`, `diskstats`, `entropy`, `exporter`, `filefd`, `filesystem`, `loadavg`, `meminfo`, `nat_traffic`, `netstat`, `snmp6`, `sockstat`, `softnet`, `timesync`, `uci_dhcp_host`, `uname`, `vmstat` |
 | `SOURCE_INVALID` | What the collector read is not what it expects: a file, a ubus reply or a program's output it cannot parse. The detail says where. | `services.uc`; the collectors `bmx7`, `chrony`, `conntrack`, `cpu`, `dawn`, `dhcp_leases`, `diskstats`, `dnsmasq`, `entropy`, `filefd`, `filesystem`, `hostapd_stations`, `loadavg`, `ltq-dsl`, `meminfo`, `modemmanager`, `mwan3`, `netclass`, `netdev`, `netstat`, `nft-counters`, `openwrt`, `openwrt_interfaces`, `qdisc`, `realtek-poe`, `selinux`, `sockstat`, `softnet`, `time`, `timesync`, `ubnt-manager`, `unbound`, `vmstat`, `wifi`, `wireguard` |
 | `COLLECTOR_CRASHED` | The collector died with an exception. The detail is the exception's first line. | `conform.uc`, `scrape.uc` |
-| `COLLECTOR_NO_RESULT` | The collector returned something other than a Result. The detail says what. | `conform.uc`, `scrape.uc` |
+| `COLLECTOR_NO_RESULT` | The collector returned something other than a Result, or a failure without an error code (a code the collector API does not export is null). The detail says what. | `conform.uc`, `runner.uc`, `scrape.uc` |
 | `COLLECTOR_INVALID` | A collector module that cannot be loaded as one (its `meta` or `collect`), which the exporter leaves out; or a query that names a collector that is not installed, or one that is disabled, which is answered 400. | `loader.uc`, `scrape.uc` |
 
 ## Configuration
@@ -49,11 +49,12 @@ A failure carries an uppercase code, from `src/prometheus_exporter/errors.uc`, a
 | :--- | :--- | :--- |
 | `COLLECTOR_CANCELLED` | The collector was still running at the end of its `budget`, and was stopped with the process it ran in: a loop that never ends, or a system call that never returns. None of its samples are served, and its breaker trips. See [Collector contract](collector-contract.md). | `conform.uc`, `ledger.uc`, `runner.uc` |
 | `COLLECTOR_KILLED` | The process the collector ran in ended while it ran: it went past the memory limit, a native module crashed, or it called `exit()`; or the scrape process itself died while it ran, which the next scrape finds. None of its samples are served, and its breaker trips. | `conform.uc`, `ledger.uc`, `runner.uc` |
-| `SAMPLE_LIMIT` | The collector wrote more samples than its `max_samples`, and was stopped there. The detail says how many and in which family. None of its samples are served. | `conform.uc`, `scrape.uc` |
+| `COLLECTOR_NOT_RUN` | The collector was not run: the processes the scrape forked to run the collectors in ended twice in a row before they ran one, logged once for all of them. Not the collector's doing: its breaker is as it was. | `runner.uc` |
+| `SAMPLE_LIMIT` | The collector wrote more samples than its `max_samples`, and was stopped there; or more than were left of the reply's `max_scrape_samples`, or none were left when it would have started, which leaves its breaker as it was. The detail says how many and in which family. None of its samples are served. | `conform.uc`, `ledger.uc`, `scrape.uc` |
 | `FAMILY_CONFLICT` | The collector wrote a family that another collector of the reply wrote first, or one the exporter keeps for itself (`node_scrape_collector_*`, `ucode_prometheus_exporter_*`). The detail names it. None of its samples are served. | `conform.uc`, `ownership.uc` |
 
 ## Exposition text
 
 | Code | Meaning | Raised by |
 | :--- | :--- | :--- |
-| `EXPOSITION_INVALID` | Text that is not valid Prometheus exposition format: a `*.prom` file of textfile, which the collector then leaves out. The detail names the line. | `exposition/parse.uc` |
+| `EXPOSITION_INVALID` | Text that is not valid Prometheus exposition format: a `*.prom` file of textfile, which the collector then leaves out, and the detail names the line; or what a collector wrote that Prometheus would refuse the whole scrape for, a label value or HELP text that is not valid UTF-8, two label names that are one once sanitized (`if-name` and `if_name`), or labels that are neither an object nor what `out.labels()` made. The recorder stops the collector there, and the detail names the family and the label. None of its samples are served. | `exposition/parse.uc`, `scrape.uc` |

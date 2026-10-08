@@ -33,9 +33,10 @@
  * in a child process of the scrape's, stopped at its limit (its budget's end,
  * or the deadline) with the process, and a collector whose process dies under
  * it fails alone; without, in this process, as the tests run it. It writes at
- * most its max_samples (prometheus_exporter.exposition's recorder), and a
- * family belongs to the first collector of the reply that writes it: another
- * that writes it fails with FAMILY_CONFLICT (prometheus_exporter.ownership).
+ * most its max_samples, and nothing Prometheus would refuse the whole reply
+ * for (prometheus_exporter.exposition's recorder), and a family belongs to
+ * the first collector of the reply that writes it: another that writes it
+ * fails with FAMILY_CONFLICT (prometheus_exporter.ownership).
  * A collector that breaks one of these rules, or is stopped, fails, and none
  * of its samples are served.
  *
@@ -62,15 +63,16 @@ import { seconds as now_of, budget as deadline_budget } from 'prometheus_exporte
 import * as ledger from 'prometheus_exporter.ledger';
 import * as runner from 'prometheus_exporter.runner';
 import * as loader from 'prometheus_exporter.loader';
-import { pid_of } from 'prometheus_exporter.state';
+import { pid_of, SIZE_MAX } from 'prometheus_exporter.state';
 import { own } from 'prometheus_exporter.ownership';
 import { bury, log_breakers } from 'prometheus_exporter.progress';
 
 /**
  * The env a scrape runs collectors in, as the module's top comment says
  * (app.scrape_env makes it): mkstemp and readfile are fs's, which the forked
- * runner takes; kill(pid) kills a collector's child process a scrape left
- * behind (prometheus_exporter.progress).
+ * runner takes; kill(pid) kills a collector's child process, with every
+ * process under it: one the runner stops, or one a scrape left behind
+ * (prometheus_exporter.progress).
  *
  * @typedef {{
  *   session: (log: ?Log) => Session,
@@ -209,15 +211,39 @@ function over_limit(over, max) {
 		sprintf('more than its max_samples of %d: stopped at %d samples, in %s', max, over.samples, over.family));
 }
 
+// What a collector that wrote more than the `left` samples of the reply's
+// max_scrape_samples fails with: neither a failure nor a success of its own,
+// to its breaker (ledger.outcome_of).
+function over_reply(over, left) {
+	return Result.err(errors.SAMPLE_LIMIT,
+		sprintf('more than the %d samples left of the reply\'s max_scrape_samples: stopped at %d samples, in %s', left, over.samples, over.family),
+		{ scrape: true });
+}
+
+// What a collector that wrote what Prometheus refuses fails with: what, and
+// where (the recorder's invalid()).
+function refused(bad) {
+	let where = (bad.family != null) ? `in ${bad.family}` : 'in out.labels()';
+
+	if (bad.label != null)
+		where += `, label '${bad.label}'`;
+
+	return Result.err(errors.EXPOSITION_INVALID, `${where}: ${bad.why}`);
+}
+
 /**
  * Runs one collector: { name, id, result, families, samples, duration,
  * budget }, budget the seconds it may take (config.settings). What it
  * recorded is kept even when it fails, as upstream exporters do; nothing is
  * when it has nothing to observe, nor when it wrote more than its
- * max_samples, which it fails with SAMPLE_LIMIT. job (prometheus_exporter.
+ * max_samples, which it fails with SAMPLE_LIMIT, nor when it wrote what
+ * Prometheus would refuse the whole scrape for (the recorder's invalid()),
+ * which it fails with EXPOSITION_INVALID. job (prometheus_exporter.
  * runner's), when given: its programs never run past job.cutoff (monotonic
  * seconds), its ubus calls past job.limit; job.settings are its settings,
- * read already; job.view is the exporter collector's.
+ * read already; job.view is the exporter collector's; it writes at most the
+ * job.left samples left of the reply's max_scrape_samples, past which it fails
+ * with SAMPLE_LIMIT too.
  *
  * @param {ScrapeEnv} env the scrape's env.
  * @param {Session} session the scrape's session.
@@ -230,7 +256,9 @@ export function run_one(env, session, collector, job) {
 	let res = job?.settings ? Result.ok(job.settings) : config.settings(session.uci(), collector.id, collector.meta);
 	let budget = res.ok ? res.data.budget : null;
 	let max = res.ok ? res.data.max_samples : null;
-	let rec = exposition.recorder(max);
+	let left = job?.left;
+	let reply_cap = (left != null && (max == null || left < max));
+	let rec = exposition.recorder(reply_cap ? left : max);
 
 	if (res.ok) {
 		let settings = res.data;
@@ -243,15 +271,27 @@ export function run_one(env, session, collector, job) {
 			} catch (e) {
 				res = Result.err(errors.COLLECTOR_CRASHED, split(e.message, '\n')[0]);
 			}
+
+			session.done?.();
+
+			// A code the API does not export (errors.COLLECTOR_CRASHED) is
+			// null: a failure without one is not a Result as the contract
+			// says, here or in the child, whatever crosses the pipe.
+			if (!res.ok && (type(res.error) != 'string' || res.error == ''))
+				res = Result.err(errors.COLLECTOR_NO_RESULT,
+					'failed without an error code' + ((res.details != null) ? `: ${res.details}` : ''), res.data);
 		}
 	}
 
 	let duration = seconds(t1, env.clock());
 	let over = rec.over();
+	let bad = rec.invalid();
 
 	// However it ended: it may have caught what stopped it.
 	if (over)
-		res = over_limit(over, max);
+		res = reply_cap ? over_reply(over, left) : over_limit(over, max);
+	else if (bad)
+		res = refused(bad);
 
 	// One cut at the deadline is in the scrape's line of them.
 	if (!res.ok && res.error != errors.SCRAPE_DEADLINE)
@@ -259,7 +299,7 @@ export function run_one(env, session, collector, job) {
 	for (let name in rec.conflicts())
 		env.log('warning', `collector '${collector.meta.name}': '${name}' declared with two types; later samples dropped`);
 
-	let families = (Result.is_none(res) || over) ? [] : rec.families();
+	let families = (Result.is_none(res) || over || bad) ? [] : rec.families();
 	let samples = 0;
 
 	for (let f in families)
@@ -274,7 +314,8 @@ export function run_one(env, session, collector, job) {
  *
  * @param {Collector} collector the collector.
  * @param {Result} res what it fails with.
- * @param {string} why 'quarantine' or 'deadline'.
+ * @param {string} why 'quarantine', 'deadline', or 'samples': the reply has
+ *   its max_scrape_samples already.
  * @returns {Run} the run.
  */
 export function not_run(collector, res, why) {
@@ -343,7 +384,10 @@ function runner_of(env, chosen, omit) {
 
 /**
  * Runs the `chosen` collectors, fastest first by the ledger `l`: each one's
- * run, by id. With `quarantine`, one whose breaker is open does not run. With
+ * run, by id. With `quarantine`, one whose breaker is open does not run. The
+ * collectors write at most the main section's max_scrape_samples in all: one
+ * whose samples would go past it fails with SAMPLE_LIMIT, and one that would
+ * start once they are written is not run. With
  * a deadline, a collector runs only if the ledger expects it done in time to
  * write the reply, its own samples included; its programs never run past that,
  * and it is stopped there. Without one, or before it, it is stopped at its
@@ -376,6 +420,7 @@ export function collect(env, uci, l, chosen, opts) {
 	let next = 0;
 	// Read once: every collector's settings default to it.
 	let main = opts?.main ?? config.main(uci);
+	let reply_max = main.ok ? main.data.max_scrape_samples : config.MAX_SCRAPE_SAMPLES;
 
 	function view() {
 		let counters = null;
@@ -423,6 +468,17 @@ export function collect(env, uci, l, chosen, opts) {
 					}
 				}
 
+				let left = reply_max - collected;
+
+				if (left <= 0) {
+					let full = Result.err(errors.SAMPLE_LIMIT,
+						sprintf('not run: the reply has its max_scrape_samples of %d', reply_max), { scrape: true });
+
+					env.log('warning', `collector '${c.meta.name}': ${Result.describe(full)}`);
+					by_id[c.id] = not_run(c, full, 'samples');
+					continue;
+				}
+
 				let s = config.settings(uci, c.id, c.meta, main);
 				let budget = s.ok ? s.data.budget : null;
 				let limit = (budget != null) ? now + budget : null;
@@ -436,7 +492,7 @@ export function collect(env, uci, l, chosen, opts) {
 				opts?.progress?.start(c.id, pid);
 
 				return {
-					c, cutoff, limit, at_deadline: held, budget,
+					c, cutoff, limit, at_deadline: held, budget, left,
 					settings: s.ok ? s.data : null,
 					view: ('exporter' in c.meta.needs) ? view() : null,
 				};
@@ -588,10 +644,14 @@ export function scrape(env, collectors, query_string, opts) {
 
 		let events = [];
 
-		st.update(ledger.NAME, function(text) {
+		let recorded = st.update(ledger.NAME, function(text) {
 			events = [];
-			return ledger.serialize(ledger.record(ledger.parse(text), runs, written, ids, events));
+			return ledger.serialize(ledger.record(ledger.parse(text), runs, written, ids, events), SIZE_MAX);
 		});
+
+		// The next scrape then orders, times and quarantines by an old one.
+		if (!recorded)
+			env.log('warning', 'the scrape could not be recorded in the instance\'s state: its ledger is as the last scrape left it');
 		log_breakers(env, events);
 	}
 

@@ -5,6 +5,7 @@ import { with_collector, jail_of, outcome } from 'context';
 import * as fixtures from 'lib.fixtures';
 import * as commands from 'lib.commands';
 import * as ubnt_manager from 'prometheus_exporter.collectors.ubnt_manager';
+import { format_value } from 'prometheus_exporter.exposition';
 
 // No Ubiquiti radio here. ubnt-manager (feeds/packages utils/ubnt-manager) lists
 // the devices of /etc/config/ubnt-manager with -l, and with -j -t prints what
@@ -207,7 +208,7 @@ describe('collectors.ubnt_manager', () => {
 
 			run({ [LIST]: { out: 'litebeam\n' }, [status('litebeam')]: { out: sprintf('%J', doc) } }, (r) => {
 				assert.match(contains([
-					`ubnt_cpu_load_ratio{device="litebeam"} ${x[2] * 0.01}`,
+					`ubnt_cpu_load_ratio{device="litebeam"} ${format_value(x[2] * 0.01)}`,
 					`ubnt_frequency_hertz{device="litebeam"} ${x[0] * 1000000}`,
 					`ubnt_transmit_throughput_bits_per_second{device="litebeam"} ${x[1] * 1000}`,
 				]), r.lines);

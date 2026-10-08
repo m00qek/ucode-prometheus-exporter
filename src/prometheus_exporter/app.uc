@@ -117,15 +117,11 @@ export function scrape_env(mods, log, opts) {
 		tmp: opts?.tmp,
 		mkstemp: mods.fs.mkstemp,
 		readfile: mods.fs.readfile,
-		// A collector's child process its scrape left behind
-		// (prometheus_exporter.progress's bury): ash's kill, as the jail
-		// has no kill program.
-		kill: function(pid) {
-			let p = mods.fs.popen(`kill -KILL ${int(pid)} 2>/dev/null`, 'r');
-
-			p?.read('all');
-			p?.close();
-		},
+		// A collector's child process, with every process under it: one
+		// the runner stops, or one its scrape left behind
+		// (prometheus_exporter.progress's bury). ash's kill, as the jail has
+		// no kill program (deps.kill_tree).
+		kill: (pid) => deps.kill_tree(mods.fs.popen, pid),
 	};
 };
 

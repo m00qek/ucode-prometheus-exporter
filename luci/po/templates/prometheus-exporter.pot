@@ -89,8 +89,8 @@ msgstr ""
 msgid "%s option of the %s collector"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:390
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:417
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:397
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:424
 msgid "%s → %s"
 msgstr ""
 
@@ -161,7 +161,7 @@ msgid "Compression"
 msgstr ""
 
 #: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter/widgets.js:332
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:445
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:452
 msgid "Dismiss"
 msgstr ""
 
@@ -328,11 +328,11 @@ msgstr ""
 msgid "Nothing to observe"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:456
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:463
 msgid "Nothing was saved."
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:425
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:432
 msgid "Nothing was saved: the exporter would refuse these values."
 msgstr ""
 
@@ -384,6 +384,10 @@ msgstr ""
 msgid "Refresh"
 msgstr ""
 
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:274
+msgid "Reply sample limit"
+msgstr ""
+
 #: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/status.js:311
 msgid "Running"
 msgstr ""
@@ -407,11 +411,18 @@ msgid ""
 "more fails, and none of its samples are served."
 msgstr ""
 
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:275
+msgid ""
+"Samples, 1 to 1000000, the collectors of a scrape may write in all. A "
+"collector whose samples would go past it fails, and none of its samples are "
+"served; one left when it is reached is not run."
+msgstr ""
+
 #: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter/widgets.js:338
 msgid "Save"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:443
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:450
 msgid "Save error"
 msgstr ""
 
@@ -592,7 +603,7 @@ msgstr ""
 msgid "The settings are under %s."
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:360
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:367
 msgid "The settings could not be checked:"
 msgstr ""
 

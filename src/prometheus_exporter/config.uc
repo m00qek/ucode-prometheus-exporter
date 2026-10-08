@@ -45,7 +45,15 @@ import * as problems from 'prometheus_exporter.config.problems';
 /**
  * The main section's options the exporter reads (MAIN_OPTIONS), typed.
  *
- * @typedef {{ omit_zero_values: boolean, compress: boolean, exec_timeout: int, scrape_timeout: int, collector_budget: int, max_samples: int }} MainSettings
+ * @typedef {{
+ *   omit_zero_values: boolean,
+ *   compress: boolean,
+ *   exec_timeout: int,
+ *   scrape_timeout: int,
+ *   collector_budget: int,
+ *   max_samples: int,
+ *   max_scrape_samples: int
+ * }} MainSettings
  */
 
 /**
@@ -172,6 +180,26 @@ export const MAX_SAMPLES_MAX = 100000;
 const SAMPLES_RANGE = `range(1,${MAX_SAMPLES_MAX})`;
 
 /**
+ * The samples the collectors of one reply may write in all: a collector whose
+ * samples would go past it fails with SAMPLE_LIMIT, and one started once it is
+ * reached is not run. The benchmark's large world, a router busier than most,
+ * writes 33,600; the scrape process holds some 0.2 kB of each, its text and
+ * the reply's, so 200,000 is some 40 MB, under the memory limit's 64 MB at
+ * most, where a reply without one could run the scrape out of memory and have
+ * the next blame the collector that happened to be running.
+ *
+ * @type {int}
+ */
+export const MAX_SCRAPE_SAMPLES = 200000;
+
+/**
+ * The most max_scrape_samples may be.
+ *
+ * @type {int}
+ */
+export const MAX_SCRAPE_SAMPLES_MAX = 1000000;
+
+/**
  * The main section's options the exporter itself reads; the others are the
  * init script's (SERVICE_OPTIONS).
  *
@@ -195,6 +223,10 @@ export const MAIN_OPTIONS = {
 	max_samples: {
 		default: MAX_SAMPLES, datatype: SAMPLES_RANGE,
 		help: 'Samples a collector may write in a scrape, unless it says otherwise; one that writes more fails, and none of its samples are served.',
+	},
+	max_scrape_samples: {
+		default: MAX_SCRAPE_SAMPLES, datatype: `range(1,${MAX_SCRAPE_SAMPLES_MAX})`, title: 'Reply sample limit',
+		help: 'Samples the collectors of a scrape may write in all; a collector whose samples would go past it fails, and none of its samples are served.',
 	},
 };
 

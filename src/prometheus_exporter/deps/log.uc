@@ -29,6 +29,25 @@ import { openlog, syslog, LOG_PID, LOG_DAEMON, LOG_ERR, LOG_WARNING, LOG_NOTICE,
 export const LEVELS = { err: 'LOG_ERR', warning: 'LOG_WARNING', notice: 'LOG_NOTICE', info: 'LOG_INFO' };
 
 /**
+ * The lines a collector's log capability takes in one run: past them it
+ * leaves its lines out, and says how many in one line once the run is over
+ * (deps' session). A collector that logs once a device in a loop, or once a
+ * line of a file it cannot read, would otherwise flush logd's ring of every
+ * other daemon's lines.
+ *
+ * @type {int}
+ */
+export const LOG_LINES = 10;
+
+/**
+ * The bytes of a collector's line the log takes; the rest is cut, and '...'
+ * says so.
+ *
+ * @type {int}
+ */
+export const LOG_BYTES = 512;
+
+/**
  * log(level, msg) over a syslog module (the `log` module's openlog, syslog and
  * LOG_*): each message to syslog as the daemon `ident`, with its pid, at its
  * level's priority. procd's log of a service's stderr has one priority for

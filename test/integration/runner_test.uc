@@ -9,9 +9,12 @@ import * as scrape from 'prometheus_exporter.scrape';
 import * as loader from 'prometheus_exporter.loader';
 import * as deps from 'prometheus_exporter.deps';
 import * as Result from 'prometheus_exporter.result';
+import * as api from 'prometheus_exporter.api';
 import * as exposition from 'prometheus_exporter.exposition';
+import * as ledger from 'prometheus_exporter.ledger';
 import { seconds } from 'prometheus_exporter.deadline';
 import * as fs from 'fs';
+import { with_mods } from 'context';
 
 function collector(name, collect, meta) {
 	return loader.validate(loader.id_of(name), { meta: { name, title: 'Test', help: 'Test.', needs: [], ...(meta ?? {}) }, collect }).data;
@@ -125,6 +128,17 @@ describe('runner.forked', () => {
 		assert.match([ 'ok', 20000 ], [ summary(r.runs[0])[1], length(filter(split(r.runs[0].text, '\n'), (l) => index(l, 'huge_value{') == 0)) ]);
 	});
 
+	it('logs at most LOG_LINES lines of a collector\'s run, then how many more it left out', () => {
+		let chatty = collector('chatty', function(d) {
+			for (let i = 0; i < 1000; i++)
+				d.log(`line ${i}`);
+			return Result.ok();
+		}, { needs: [ 'log' ] });
+		let r = run_forked([ chatty, gauge('after', 1) ], 5);
+
+		assert.match([ deps.LOG_LINES + 1, [ 'warning', "collector 'chatty': 990 more lines of its log left out" ] ], [ length(r.logs), r.logs[-1] ]);
+	});
+
 	it('logs what a collector logged in its child, here', () => {
 		let failing = collector('failing', () => Result.err('SOURCE_INVALID', 'garbled'));
 		let r = run_forked([ failing ], 5);
@@ -171,6 +185,138 @@ describe('runner.forked', () => {
 		assert.match([ [ 'warning', `collector 'quitter': ${Result.describe(r.runs[0].result)}` ] ], r.logs);
 	});
 
+	// A child that dies before it asks for a collector: its session
+	// (env.session) ends it, at the calls `dying` names, counted in a file
+	// as the children cannot count in this process.
+	function dying_env(logs, dying) {
+		let count = fs.mkstemp('/tmp/runner-sessions.XXXXXX');
+		let env = env_of(logs);
+
+		return {
+			...env,
+			session: function(to) {
+				count.write('x');
+				count.flush();
+				count.seek(0);
+				if (length(count.read('all')) in dying)
+					exit(1);
+				return env.session(to);
+			},
+		};
+	}
+
+	function run_with(env, collectors, budget, stats) {
+		let runs = [];
+		let queue = [ ...collectors ];
+		let plan = {
+			next: function() {
+				let c = shift(queue);
+
+				return (c == null) ? null
+					: { c, cutoff: null, limit: now() + budget, at_deadline: false, budget, settings: { budget, max_samples: 1000, options: {} } };
+			},
+			done: (job, r) => push(runs, r),
+		};
+
+		runner.forked(env, scrape.run_one, { collectors, stats }).run(plan);
+		return runs;
+	}
+
+	it('gives up after two children in a row die before asking for a collector, and leaves the rest not run, their breakers as they were', () => {
+		let logs = [];
+		let stats = {};
+		let runs = run_with(dying_env(logs, [ 1, 2, 3, 4, 5, 6, 7, 8 ]), [ gauge('a', 1), gauge('b', 2) ], 5, stats);
+
+		assert.match([ [ 'a', 'COLLECTOR_NOT_RUN' ], [ 'b', 'COLLECTOR_NOT_RUN' ] ], map(runs, summary));
+		assert.match(2, stats.children, 'two children, not one more');
+		assert.match([ 'neutral', 'neutral' ], map(runs, (r) => ledger.outcome_of(r)[0]));
+		assert.match([ [ 'warning', 'the processes forked to run the collectors in ended twice before running one; not run: a, b' ] ], logs);
+	});
+
+	it('counts the children that die before asking anew once one ran a collector', () => {
+		let runs = run_with(dying_env([], [ 1, 3 ]), [ gauge('a', 1), LOOP, gauge('c', 3) ], 0.3, {});
+
+		assert.match([ [ 'a', 'ok' ], [ 'loop', 'COLLECTOR_CANCELLED' ], [ 'c', 'ok' ] ], map(runs, summary));
+	});
+
+	// The in-process runner the tests use, and the forked one the service
+	// does: a failure without a code once was COLLECTOR_KILLED across the
+	// pipe, which quarantines at once, and null here.
+	it('gives a failure without an error code the same code forked and inline: COLLECTOR_NO_RESULT, never COLLECTOR_KILLED', () => {
+		let codeless = collector('codeless', () => Result.err(null, 'garbled'));
+		let unknown = collector('unknown', () => Result.err(api.errors.COLLECTOR_CRASHED));
+		let forked = run_forked([ codeless, unknown ], 5).runs;
+		let inline = [];
+
+		runner.inline(env_of([]), scrape.run_one).run({
+			queue: [ codeless, unknown ],
+			next: function() {
+				let c = shift(this.queue);
+
+				return c ? { c, settings: { budget: 5, max_samples: 10, options: {} } } : null;
+			},
+			done: (job, r) => push(inline, r),
+		});
+
+		assert.match([ [ 'codeless', 'COLLECTOR_NO_RESULT' ], [ 'unknown', 'COLLECTOR_NO_RESULT' ] ], map(forked, summary));
+		assert.match(map(forked, (r) => Result.describe(r.result)), map(inline, (r) => Result.describe(r.result)));
+		assert.match('COLLECTOR_NO_RESULT (failed without an error code: garbled)', Result.describe(forked[0].result));
+	});
+
+	it('unpacks a run packed with a failure without a code as COLLECTOR_NO_RESULT', () => {
+		let packed = sprintf('%J\n', { name: 'x', id: 'x', samples: 0, duration: 0, logs: [], families: [], result: { ok: false } });
+
+		assert.match('COLLECTOR_NO_RESULT', runner.unpack(packed).run.result.error);
+	});
+
+	// Each fallback says why: a full tmpfs once logged that it could not fork.
+	it('runs the collectors in this process when the file their runs cross by cannot be made, and says that, not that it cannot fork', () => {
+		let logs = [];
+		let queue = [ gauge('a', 1), gauge('b', 2) ];
+		let runs = [];
+		let plan = {
+			next: function() {
+				let c = shift(queue);
+
+				return c ? { c, cutoff: null, limit: null, at_deadline: false, budget: 5, settings: { budget: 5, max_samples: 10, options: {} } } : null;
+			},
+			done: (job, r) => push(runs, r),
+		};
+
+		runner.forked({ ...env_of(logs), mkstemp: () => null }, scrape.run_one, { tmp: '/nowhere' }).run(plan);
+
+		assert.match([ [ 'a', 'ok' ], [ 'b', 'ok' ] ], map(runs, summary));
+		assert.match([ [ 'warning', "cannot make the file the collectors' runs cross by, in /nowhere; running the collectors in the scrape's own process" ] ], logs);
+	});
+
+	// A program a collector started, killed with its child, would run on: three
+	// scrapes once left three sleeps. system() is refused by the loader; a
+	// native module's process, or one started any other way, is not.
+	it('kills what a collector it stops started, with its child', () => {
+		let starter = collector('starter', function() {
+			// Its descriptors closed, so that one left running holds no
+			// pipe of the scrape's open: it shows, rather than hangs it.
+			system('for fd in 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19; do eval "exec $fd>&-"; done; exec sleep 3083 </dev/null >/dev/null 2>&1');
+			return Result.ok();
+		});
+		let queue = [ starter ];
+		let runs = [];
+		let plan = {
+			next: function() {
+				let c = shift(queue);
+
+				return c ? { c, cutoff: null, limit: now() + 0.5, at_deadline: false, budget: 0, settings: { budget: 0, max_samples: 10, options: {} } } : null;
+			},
+			done: (job, r) => push(runs, r),
+		};
+
+		runner.forked({ ...env_of([]), kill: (pid) => deps.kill_tree(fs.popen, pid) }, scrape.run_one, { collectors: [ starter ] }).run(plan);
+
+		let sleeping = filter(fs.glob('/proc/[0-9]*/cmdline'), (f) => fs.readfile(f) == 'sleep\u00003083\u0000');
+
+		assert.match([ [ [ 'starter', 'COLLECTOR_CANCELLED' ] ], [] ], [ map(runs, summary), sleeping ]);
+	});
+
 	it('leaves no child behind', () => {
 		run_forked([ LOOP, QUITTER, gauge('a', 1) ], 0.2);
 
@@ -195,6 +341,26 @@ describe('runner.forked', () => {
 
 			assert.match(map(kinds, (k, i) => [ `k${i}`, want[k] ]), map(r.runs, summary));
 		}, { runs: 8 });
+});
+
+describe('scrape.collect, forked', () => {
+	// The limit a collector is stopped at is its budget's end (5 s by
+	// default), or the deadline when that comes first.
+	it('stops a collector at the deadline, when it comes before its budget\'s end, as SCRAPE_DEADLINE', () => {
+		let runs;
+		let t = now();
+
+		with_mods({}, (mods) => {
+			let env = { ...env_of([]), session: (to) => deps.session({ ...mods, log: to }), fork: true };
+
+			runs = scrape.collect(env, mods.uci.cursor(), ledger.empty(), [ LOOP ], { deadline: now() + 0.4 });
+		});
+
+		let took = now() - t;
+
+		assert.match('SCRAPE_DEADLINE', runs.loop.result.error);
+		assert.match(true, took < 2, `took ${took} s`);
+	});
 });
 
 describe('textfile, on a real directory', () => {

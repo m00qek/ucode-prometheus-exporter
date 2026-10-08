@@ -3,11 +3,13 @@
  *
  * A family is { name, type, help, samples }; a sample is { name, labels, value, ts }
  * with labels as [ name, value ] pairs in order and value and ts already spelled
- * as the format wants them. Collectors record families (recorder), the scrape
- * merges them by name (merge) and writes them once (render). parse() reads the
- * format back, strictly (prometheus_exporter.exposition.parse): textfile uses
- * it for *.prom files, the tests for every scrape they make. How names, values
- * and labels are spelled is prometheus_exporter.exposition.format's.
+ * as the format wants them. A collector records its families (recorder), and
+ * its run carries their text (pack, render): a family is one collector's
+ * (prometheus_exporter.ownership), so the reply is each collector's text one
+ * after the other, with nothing to merge. parse() reads the format back,
+ * strictly (prometheus_exporter.exposition.parse): textfile uses it for *.prom
+ * files, the tests for every scrape they make. How names, values and labels
+ * are spelled is prometheus_exporter.exposition.format's.
  *
  * It is the format's module for every other: the modules of exposition/
  * are its own, and what others take of them it exports (TYPES, sanitize,
@@ -28,7 +30,7 @@
 import * as Result from 'prometheus_exporter.result';
 import * as format from 'prometheus_exporter.exposition.format';
 import * as parser from 'prometheus_exporter.exposition.parse';
-import { METRIC_NAMES, label_text, sample_line, header, add_family, family_set, families_of } from 'prometheus_exporter.exposition.format';
+import { METRIC_NAMES, label_text, label_problem, utf8_valid, sample_line, header, add_family, family_set, families_of } from 'prometheus_exporter.exposition.format';
 
 /**
  * A sample as parse() reads it: its name, its labels as [ name, value ]
@@ -73,7 +75,8 @@ import { METRIC_NAMES, label_text, sample_line, header, add_family, family_set, 
  *   add: (families: Family[]) => void,
  *   families: () => RecordedFamily[],
  *   conflicts: () => string[],
- *   over: () => ?{ family: string, samples: int }
+ *   over: () => ?{ family: string, samples: int },
+ *   invalid: () => ?{ family: string, label: ?string, why: string }
  * }} Recorder
  */
 
@@ -103,6 +106,13 @@ function as_lines(fam) {
 export const OVER_LIMIT = 'prometheus_exporter: over the sample limit';
 
 /**
+ * What a recorder dies with at text Prometheus would refuse (see recorder).
+ *
+ * @type {string}
+ */
+export const INVALID = 'prometheus_exporter: text Prometheus refuses';
+
+/**
  * What a collector writes to. counter/gauge/untyped(name, help) returns
  * (labels, value) => itself, so samples chain; a value that is not a number is
  * skipped. labels(labels) is the labels for several samples (a station's,
@@ -121,6 +131,14 @@ export const OVER_LIMIT = 'prometheus_exporter: over the sample limit';
  * while it is under. A runaway costs neither the time nor the memory of what it
  * would have gone on writing.
  *
+ * It takes nothing that would have Prometheus refuse the whole scrape, every
+ * collector's samples with it: a label value or HELP text that is not valid
+ * UTF-8, two label names that are one once sanitized, or labels that are
+ * neither an object nor what labels() made (a string of the collector's own
+ * would be written as it is, a line of whatever it holds). That stops the
+ * collector as the sample past `max` does, and invalid() is then { family,
+ * label, why }, or null while there is none.
+ *
  * @param {?int} max the most samples it takes; null for no limit.
  * @returns {Recorder} the recorder.
  */
@@ -130,10 +148,35 @@ export function recorder(max) {
 	let count = 0;
 	let cap = max ?? Infinity;
 	let over = null;
+	let bad = null;
+	// The label sets labels() made, each its own text: the only strings taken
+	// where labels go.
+	let made = { '': '' };
 
 	function stop(name) {
-		over ??= { family: name, samples: count };
-		die(OVER_LIMIT);
+		if (bad == null)
+			over ??= { family: name, samples: count };
+		die(bad ? INVALID : OVER_LIMIT);
+	}
+
+	// Stops the collector at text Prometheus refuses; every sample after it
+	// stops it again (stop()), should it catch that.
+	function refuse(name, label, why) {
+		bad ??= { family: name, label, why };
+		cap = -1;
+		die(INVALID);
+	}
+
+	function refuse_labels(name, labels) {
+		let p = label_problem(labels);
+
+		refuse(name, p?.label, p?.why ?? 'labels the format cannot write');
+	}
+
+	function help_of(name, help) {
+		if (type(help) == 'string' && !utf8_valid(help))
+			refuse(name, null, 'its HELP text is not valid UTF-8');
+		return help;
 	}
 
 	// As add_family() would add an empty family, without making it first:
@@ -144,13 +187,13 @@ export function recorder(max) {
 		let target = set.by_name[name];
 
 		if (!target) {
-			target = set.by_name[name] = { name, type: mtype, help, lines: [], values: [] };
+			target = set.by_name[name] = { name, type: mtype, help: help_of(name, help), lines: [], values: [] };
 			push(set.list, target);
 		} else if (target.type != mtype) {
 			push(conflicts, name);
 			target = null;
-		} else {
-			target.help ??= help;
+		} else if (target.help == null && help != null) {
+			target.help = help_of(name, help);
 		}
 
 		let lines = target?.lines;
@@ -163,7 +206,13 @@ export function recorder(max) {
 			if (target && v != null) {
 				if (++count > cap)
 					stop(name);
-				push(lines, name + (type(labels) == 'string' ? labels : label_text(labels)) + ' ' + v);
+
+				let t = type(labels);
+				let text = (t == 'string') ? made[labels] : (t == 'object' || labels == null) ? label_text(labels) : null;
+
+				if (text == null)
+					refuse_labels(name, labels);
+				push(lines, name + text + ' ' + v);
 				if (values)
 					push(values, v);
 			}
@@ -188,7 +237,14 @@ export function recorder(max) {
 		counter: (name, help) => family(name, 'counter', help),
 		gauge: (name, help) => family(name, 'gauge', help),
 		untyped: (name, help) => family(name, 'untyped', help),
-		labels: label_text,
+		labels: function(labels) {
+			let text = (type(labels) == 'object' || labels == null) ? label_text(labels) : null;
+
+			if (text == null)
+				refuse_labels(null, labels);
+			made[text] = text;
+			return text;
+		},
 
 		parse: function(text) {
 			let res = parse(text);
@@ -206,61 +262,12 @@ export function recorder(max) {
 		families: () => families_of(set),
 		conflicts: () => uniq(conflicts),
 		over: () => over,
+		invalid: () => bad,
 	};
 };
 
 /**
- * The families of several recorders as one list, merged by name in the order
- * they first appear. { families, conflicts }: the names declared with two types.
- *
- * A family only one list has (most) is taken as it is, not copied; it is
- * copied when a second list has it too, so no list's family is changed.
- *
- * @param {(RecordedFamily|Family)[][]} lists the lists of families.
- * @returns {{ families: RecordedFamily[], conflicts: string[] }} the
- *   families, merged, and the names declared with two types.
- */
-export function merge(lists) {
-	let set = family_set();
-	// By name: where its family is in set.list, and whether that is a copy.
-	let at = {}, copied = {};
-	let conflicts = [];
-
-	for (let list in lists)
-		for (let fam in list) {
-			let name = fam.name;
-			let i = at[name];
-
-			if (i == null) {
-				// A family of parse() is made a recorder's, which is a copy.
-				if (fam.lines == null) {
-					fam = as_lines(fam);
-					copied[name] = true;
-				}
-
-				at[name] = length(set.list);
-				set.by_name[name] = fam;
-				push(set.list, fam);
-				continue;
-			}
-
-			if (!copied[name]) {
-				let have = set.list[i];
-
-				set.by_name[name] = set.list[i] = { name, type: have.type, help: have.help, lines: [ ...have.lines ], values: [ ...have.values ] };
-				copied[name] = true;
-			}
-
-			if (!add_family(set, fam.lines == null ? as_lines(fam) : fam))
-				push(conflicts, name);
-		}
-
-	return { families: set.list, conflicts: uniq(conflicts) };
-};
-
-/**
- * The text of families as a recorder or merge() keeps them, or as parse()
- * gives them. opts.omit_zero_counters leaves out counter samples whose value
+ * The text of families as a recorder keeps them, or as parse() gives them. opts.omit_zero_counters leaves out counter samples whose value
  * is 0 (the lua exporter's omit_zero_values). A family left without samples
  * is not written.
  *

@@ -211,7 +211,7 @@ export const errors = {
 	SOURCE_UNREADABLE: 'A file the collector reads is not there or cannot be read. The detail names it.',
 	SOURCE_INVALID: 'What the collector read is not what it expects: a file, a ubus reply or a program\'s output it cannot parse. The detail says where.',
 	COLLECTOR_CRASHED: 'The collector died with an exception. The detail is the exception\'s first line.',
-	COLLECTOR_NO_RESULT: 'The collector returned something other than a Result. The detail says what.',
+	COLLECTOR_NO_RESULT: 'The collector returned something other than a Result, or a failure without an error code (a code the collector API does not export is null). The detail says what.',
 	COLLECTOR_INVALID: 'A collector module that cannot be loaded as one (its `meta` or `collect`), which the exporter leaves out; or a query that names a collector that is not installed, or one that is disabled, which is answered 400.',
 	CONFIG_INVALID: 'An option has a value the exporter does not take, or options that go together are not set together. The detail is `<option>: expected <what>, got <value>` (never the value of `auth_password`), or what is missing.',
 	FILE_UNWRITABLE: 'The init script could not write or remove uhttpd\'s basic auth file, `/var/run/prometheus-exporter/uhttpd.conf`.',
@@ -229,9 +229,10 @@ export const errors = {
 	COLLECTOR_OVERRUN: 'What tripped a breaker: the collector took longer than its `budget`. The detail is how long it took and its budget. The run itself counts as it went; its breaker trips.',
 	COLLECTOR_CANCELLED: 'The collector was still running at the end of its `budget`, and was stopped with the process it ran in: a loop that never ends, or a system call that never returns. None of its samples are served, and its breaker trips. See [Collector contract](collector-contract.md).',
 	COLLECTOR_KILLED: 'The process the collector ran in ended while it ran: it went past the memory limit, a native module crashed, or it called `exit()`; or the scrape process itself died while it ran, which the next scrape finds. None of its samples are served, and its breaker trips.',
-	SAMPLE_LIMIT: 'The collector wrote more samples than its `max_samples`, and was stopped there. The detail says how many and in which family. None of its samples are served.',
+	COLLECTOR_NOT_RUN: 'The collector was not run: the processes the scrape forked to run the collectors in ended twice in a row before they ran one, logged once for all of them. Not the collector\'s doing: its breaker is as it was.',
+	SAMPLE_LIMIT: 'The collector wrote more samples than its `max_samples`, and was stopped there; or more than were left of the reply\'s `max_scrape_samples`, or none were left when it would have started, which leaves its breaker as it was. The detail says how many and in which family. None of its samples are served.',
 	FAMILY_CONFLICT: 'The collector wrote a family that another collector of the reply wrote first, or one the exporter keeps for itself (`node_scrape_collector_*`, `ucode_prometheus_exporter_*`). The detail names it. None of its samples are served.',
-	EXPOSITION_INVALID: 'Text that is not valid Prometheus exposition format: a `*.prom` file of textfile, which the collector then leaves out. The detail names the line.',
+	EXPOSITION_INVALID: 'Text that is not valid Prometheus exposition format: a `*.prom` file of textfile, which the collector then leaves out, and the detail names the line; or what a collector wrote that Prometheus would refuse the whole scrape for, a label value or HELP text that is not valid UTF-8, two label names that are one once sanitized (`if-name` and `if_name`), or labels that are neither an object nor what `out.labels()` made. The recorder stops the collector there, and the detail names the family and the label. None of its samples are served.',
 };
 
 // The command line's reference page: its usage is cli.uc's USAGE, as docopt
@@ -265,7 +266,7 @@ export const command = {
 		'collector check': {
 			does: 'Checks a collector module before it is installed, on the device it is meant for: whether it keeps the [collector contract](collector-contract.md). It reads `<path>`, which must be `<module>.uc`, and its text for strict mode and its imports, loads it under the load timer (5 s), validates its `meta`, and runs it as the service would, in a process of its own, at most its budget and its `max_samples`. It says how long it took to load and to run, the samples it wrote and its families, and then whether its text is valid exposition, each series once, and whether a family is one an installed collector or the exporter writes.',
 			notes: [
-				'A line starts `ok`, `warn` or `FAIL`. A rule broken is `FAIL`: not in strict mode; importing a module other than `prometheus_exporter.api`, or calling `require`, `loadfile` or `loadstring`, with the text the loader logs (`FAIL imports fs (line 3): a collector reads files through deps.fs, with \'fs\' in meta.needs`); not loading, or not in time; a `meta` that is not valid; stopped at its budget or at the deadline, killed, over its `max_samples`, crashing, or not returning a Result; text that is not valid; a family another writes.',
+				'A line starts `ok`, `warn` or `FAIL`. A rule broken is `FAIL`: not in strict mode; importing a module other than `prometheus_exporter.api`, or calling `require`, `loadfile`, `loadstring`, `include` or `system`, with the text the loader logs (`FAIL imports fs (line 3): a collector reads files through deps.fs, with \'fs\' in meta.needs`); not loading, or not in time; a `meta` that is not valid; stopped at its budget or at the deadline, killed, over its `max_samples`, crashing, or not returning a Result; text that is not valid; a family another writes.',
 				'A failure that is the device\'s (`SOURCE_*`, `UBUS_*`, `COMMAND_FAILED`, `NEED_MISSING`) is `warn`, and so is nothing to observe: it may do its job on another device.',
 				'A module of the same name already installed is left out of the families it is compared with: a new version of a collector can be checked beside the old.',
 			],

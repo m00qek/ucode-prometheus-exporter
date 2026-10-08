@@ -86,16 +86,6 @@ function read(fs) {
 	return totals;
 }
 
-// A pair's labels as the format writes them, as out.labels() would: written
-// at once, and escaped (by out.labels()) only when the text holds a backslash
-// or more quotes than its own. An address is a field of a line, so it holds
-// no newline. A table of tens of thousands of pairs is that many label sets.
-function pair_labels(out, src, dst) {
-	let text = `{src="${src}",dst="${dst}"}`;
-
-	return (index(text, '\\') < 0 && length(split(text, '"')) == 5) ? text : out.labels({ src, dst });
-}
-
 // The labels are src and dst, as the ucode exporter's nat_traffic has them
 // (the Lua one's are src and dest). /proc/net/nf_conntrack is there only
 // while nf_conntrack is loaded: an access point without a firewall has none,
@@ -112,7 +102,7 @@ export function collect(deps, out) {
 	let traffic = out.gauge('node_nat_traffic_bytes', 'Bytes of the connections from src to dst, both directions.');
 	for (let src, dsts in totals)
 		for (let dst, bytes in dsts)
-			traffic(pair_labels(out, src, dst), bytes);
+			traffic({ src, dst }, bytes);
 
 	return Result.ok();
 };

@@ -100,6 +100,24 @@ describe('deps.session', () => {
 		});
 	});
 
+	// One collector that writes over a capability's function must not change
+	// what the next gets: they share a session, and a child process.
+	it('gives each collector its own deps, so one that writes over them changes no other\'s', () => {
+		with_mods({ fs: { behavior: { readfile: () => 'real' } } }, (mods) => {
+			let s = deps.session(mods);
+			let meta = { name: 'c', needs: [ 'fs', 'ubus', 'time' ] };
+			let first = s.for(meta).data;
+
+			first.fs.readfile = () => 'forged';
+			first.ubus.call = () => 'forged';
+			first.time.now = () => 0;
+
+			let next = s.for(meta).data;
+
+			assert.match([ 'real', false, true ], [ next.fs.readfile('/proc/x'), next.ubus.call == first.ubus.call, next.time.now != first.time.now ]);
+		});
+	});
+
 	it('names the collector in what it logs, and has no log without the exporter\'s', () => {
 		with_mods({}, (mods) => {
 			let seen = [];
@@ -107,6 +125,30 @@ describe('deps.session', () => {
 
 			assert.match([ [ 'warning', "collector 'textfile': skipped a.prom" ] ], seen);
 			assert.match('NEED_MISSING', deps.session(mods).for({ name: 'textfile', needs: [ 'log' ] }).error);
+		});
+	});
+
+	// 5000 lines of one run once flushed logd's ring of every other daemon's.
+	it('takes LOG_LINES lines of a run, of LOG_BYTES each, and says how many more it left out once the run is done', () => {
+		with_mods({}, (mods) => {
+			let seen = [];
+			let s = deps.session({ ...mods, log: (level, m) => push(seen, m) });
+			let log = s.for({ name: 'chatty', needs: [ 'log' ] }).data.log;
+
+			for (let i = 0; i < 5000; i++)
+				log(`line ${i}`);
+			s.done();
+
+			let quiet = s.for({ name: 'quiet', needs: [ 'log' ] }).data.log;
+
+			quiet(sprintf('%2000s', 'long'));
+			s.done();
+			s.done();
+
+			assert.match([ 10, 2, 12 ], [ deps.LOG_LINES, length(filter(seen, (m) => index(m, "collector 'quiet'") == 0 || index(m, '4990 more') > 0)), length(seen) ]);
+			assert.match([ "collector 'chatty': line 0", "collector 'chatty': line 9", "collector 'chatty': 4990 more lines of its log left out" ],
+				[ seen[0], seen[9], seen[10] ]);
+			assert.match([ length("collector 'quiet': ") + deps.LOG_BYTES + 3, '...' ], [ length(seen[11]), substr(seen[11], -3) ]);
 		});
 	});
 
