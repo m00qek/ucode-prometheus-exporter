@@ -173,7 +173,7 @@ test.describe('Services → Prometheus exporter', () => {
     await saveAndApply(page);
     const dialog = h.saveError(page);
     await expect(dialog.locator('.exporter-line')).toHaveText([
-      'HTTPS & login → Basic auth user: basic auth needs HTTPS: set cert and key, or the password crosses the network in the clear',
+      'HTTPS & login → Basic auth user: Basic auth user needs HTTPS: set TLS certificate and TLS key, or the password crosses the network in the clear',
     ]);
     await h.screenshot(page, 'settings-refused-tab');
     // The link shows the tab, and the field.
@@ -511,8 +511,8 @@ test.describe('Services → Prometheus exporter', () => {
     await field(page, 'exec_timeout').fill('31');
     await expect(field(page, 'exec_timeout')).toHaveClass(/cbi-input-invalid/);
     await saveAndApply(page);
-    await refused(page, [ 'Limits → Program timeout: expected an integer from 1 to 30, got 31' ]);
-    await expect(page.locator('#view .alert-message.error .exporter-line')).toHaveText([ 'Limits → Program timeout: expected an integer from 1 to 30, got 31' ]);
+    await refused(page, [ 'Limits → Program timeout: Program timeout must be an integer from 1 to 30, not 31' ]);
+    await expect(page.locator('#view .alert-message.error .exporter-line')).toHaveText([ 'Limits → Program timeout: Program timeout must be an integer from 1 to 30, not 31' ]);
     expect(await h.readConfig(request)).toBe(before);
     await field(page, 'exec_timeout').fill('5');
 
@@ -520,7 +520,7 @@ test.describe('Services → Prometheus exporter', () => {
     await option(page, 'runner', 'timeout').fill('0');
     await expect(option(page, 'runner', 'timeout')).toHaveClass(/cbi-input-invalid/);
     await h.modal(page).getByRole('button', { name: 'Save', exact: true }).click();
-    await expect(h.modal(page).locator('.alert-message.error .exporter-line')).toHaveText([ 'Program timeout: expected an integer from 1 to 30, got 0' ]);
+    await expect(h.modal(page).locator('.alert-message.error .exporter-line')).toHaveText([ 'Program timeout must be an integer from 1 to 30, not 0' ]);
     await dismissDialog(page);
     expect(await h.staged(page)).toEqual({});
     expect(await h.readConfig(request)).toBe(before);
@@ -553,7 +553,7 @@ test.describe('Services → Prometheus exporter', () => {
     await expect(option(page, 'sampler', 'retries')).toHaveClass(/cbi-input-invalid/);
     await expect(option(page, 'sampler', 'retries')).toHaveAttribute('data-tooltip', 'Expecting: valid integer value');
     await h.modal(page).getByRole('button', { name: 'Save', exact: true }).click();
-    await expect(h.modal(page).locator('.alert-message.error .exporter-line')).toHaveText([ 'Retries: expected an integer, got "many"' ]);
+    await expect(h.modal(page).locator('.alert-message.error .exporter-line')).toHaveText([ 'Retries must be an integer, not "many"' ]);
     await expect(h.modal(page)).toBeVisible();
     await dismissDialog(page);
 
@@ -561,7 +561,7 @@ test.describe('Services → Prometheus exporter', () => {
     await h.editCollector(page, 'textfile');
     await option(page, 'textfile', 'directory').fill('srv/prom');
     await expect(option(page, 'textfile', 'directory')).toHaveClass(/cbi-input-invalid/);
-    await expect(option(page, 'textfile', 'directory')).toHaveAttribute('data-tooltip', 'expected an absolute path, got "srv/prom"');
+    await expect(option(page, 'textfile', 'directory')).toHaveAttribute('data-tooltip', 'Metrics directory must be an absolute path, not "srv/prom"');
     await h.modal(page).getByRole('button', { name: 'Save', exact: true }).click();
     await expect(h.modal(page).locator('.alert-message.error')).toContainText('Nothing was staged: the exporter would refuse these values.');
     await h.screenshot(page, 'settings-dialog-refused');
@@ -609,14 +609,14 @@ test.describe('Services → Prometheus exporter', () => {
     // LuCI's port datatype takes 0; the exporter does not.
     await field(page, 'listen_port').fill('0');
     await expect(field(page, 'listen_port')).toHaveClass(/cbi-input-invalid/);
-    await expect(field(page, 'listen_port')).toHaveAttribute('data-tooltip', 'expected an integer from 1 to 65535, got 0');
+    await expect(field(page, 'listen_port')).toHaveAttribute('data-tooltip', 'Port must be an integer from 1 to 65535, not 0');
     await saveAndApply(page);
     await expect(h.saveError(page)).toBeVisible();
     await h.screenshot(page, 'settings-refused-dialog');
-    await refused(page, [ 'General → Port: expected an integer from 1 to 65535, got 0' ]);
+    await refused(page, [ 'General → Port: Port must be an integer from 1 to 65535, not 0' ]);
     // And above the form, until it is fixed.
     await expect(page.locator('#view .alert-message.error')).toContainText('Nothing was saved: the exporter would refuse these values.');
-    await expect(page.locator('#view .alert-message.error .exporter-line')).toHaveText([ 'General → Port: expected an integer from 1 to 65535, got 0' ]);
+    await expect(page.locator('#view .alert-message.error .exporter-line')).toHaveText([ 'General → Port: Port must be an integer from 1 to 65535, not 0' ]);
     expect(await h.readConfig(request)).toBe(before);
     await h.screenshot(page, 'settings-refused');
 
@@ -625,6 +625,41 @@ test.describe('Services → Prometheus exporter', () => {
     await saveAndApply(page);
     await applied(page);
     expect((await savedSections(request)).main.listen_port).toBe('9105');
+  });
+
+  test('says what the exporter refuses in LuCI\'s words, by its code, naming the field by its title; a code it does not know, in the exporter\'s English', async ({ page, request }) => {
+    const before = await h.readConfig(request);
+    // The exporter's English of the port is not what the page shows; the codes of the
+    // timeouts are of no version the page knows.
+    await h.rewriteValidate(page, (reply) => {
+      const main = reply.errors?.main ?? {};
+      const sampler = reply.errors?.collectors?.sampler ?? {};
+      if (main.listen_port)
+        main.listen_port.message = 'not the page\'s words';
+      for (const refusal of [ main.exec_timeout, sampler.retries ])
+        if (refusal)
+          refusal.code = 'FROM_A_NEWER_EXPORTER';
+    });
+    await h.openSettings(page);
+    await field(page, 'listen_port').fill('0');
+    await expect(field(page, 'listen_port')).toHaveAttribute('data-tooltip', 'Port must be an integer from 1 to 65535, not 0');
+    await h.showTab(page, 'limits');
+    await field(page, 'exec_timeout').fill('31');
+    await saveAndApply(page);
+    await refused(page, [
+      'General → Port: Port must be an integer from 1 to 65535, not 0',
+      'Limits → Program timeout: expected an integer from 1 to 30, got 31',
+    ]);
+    expect(await h.readConfig(request)).toBe(before);
+
+    // In a collector's dialog, the exporter's English follows the option's title.
+    await h.editCollector(page, 'sampler');
+    await option(page, 'sampler', 'retries').fill('many');
+    await expect(option(page, 'sampler', 'retries')).toHaveAttribute('data-tooltip', 'Expecting: valid integer value');
+    await h.modal(page).getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(h.modal(page).locator('.alert-message.error .exporter-line')).toHaveText([ 'Retries: expected an integer, got "many"' ]);
+    await dismissDialog(page);
+    expect(await h.staged(page)).toEqual({});
   });
 
   test('says a saved collector section is not valid, as the exporter reads it, and saves nothing until it is fixed', async ({ page, request }) => {
@@ -636,7 +671,7 @@ test.describe('Services → Prometheus exporter', () => {
     await expect(note).toHaveText('The saved settings are not valid: CONFIG_INVALID (retries: expected an integer, got "many")');
 
     await saveAndApply(page);
-    await refused(page, [ 'Collectors → Sampler → Retries: expected an integer, got "many"' ]);
+    await refused(page, [ 'Collectors → Sampler → Retries: Retries must be an integer, not "many"' ]);
     expect(await h.readConfig(request)).toBe(before);
 
     // Above the form, its link shows the collector's row, from another tab too.
@@ -674,7 +709,7 @@ test.describe('Services → Prometheus exporter: what the user sees where they a
     await expect(dialog).toBeVisible();
     await expect(dialog).toBeInViewport();
     await page.waitForTimeout(300);
-    await expect(dialog.locator('.exporter-line')).toHaveText([ 'General → Port: expected an integer from 1 to 65535, got 0' ]);
+    await expect(dialog.locator('.exporter-line')).toHaveText([ 'General → Port: Port must be an integer from 1 to 65535, not 0' ]);
     await page.screenshot({ path: `${__dirname}/../results/screenshots/settings-refused-from-collectors.png` });
     // Escape dismisses it, as Dismiss does.
     await page.keyboard.press('Escape');

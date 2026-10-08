@@ -29,10 +29,11 @@
 //
 // The object's `validate` checks values as the exporter reads them: the main section's
 // while they are typed and again before Save, a dialog's while they are typed and again
-// before it stages them. Nothing the exporter would refuse is saved: a Save it refuses says
-// why in a dialog, as LuCI's own Save error does, and above the form until it is fixed,
-// each field by its tab, with a link that shows it; LuCI marks a tab that holds an invalid
-// field with how many. Without the object (rpcd reloading, the package upgraded), the page
+// before it stages them. It answers what it refuses by a code and its arguments, which the
+// page says in the user's language, naming the field by its title. Nothing the exporter
+// would refuse is saved: a Save it refuses says why in a dialog, as LuCI's own Save error
+// does, and above the form until it is fixed, each field by its tab, with a link that
+// shows it; LuCI marks a tab that holds an invalid field with how many. Without the object (rpcd reloading, the package upgraded), the page
 // is read-only.
 //
 // Collector names and help, package names, interfaces and paths come from the router: they
@@ -327,6 +328,16 @@ return view.extend({
 		});
 	},
 
+	// The title of a field of the main section, by its option's name.
+	titleOf(name) {
+		return String(lookup(this.mainOptions, name)?.title ?? name);
+	},
+
+	// What the object refuses of a field of the main section, as the page says it.
+	refusalOf(name, refusal) {
+		return exporter.problemText(refusal, this.titleOf(name), (n) => this.titleOf(n));
+	},
+
 	mark(candidate, errors) {
 		this.marks = {};
 
@@ -334,7 +345,7 @@ return view.extend({
 			this.marks[name] = {
 				// The password's field holds what is typed, not what was checked.
 				value: (name === 'auth_password') ? (this.mainOptions.auth_password.formvalue('main') ?? '') : (candidate.main[name] ?? ''),
-				message: String(errors.main[name])
+				message: this.refusalOf(name, errors.main[name])
 			};
 
 		for (const name in this.mainOptions)
@@ -393,7 +404,7 @@ return view.extend({
 					`.cbi-value[data-name="${CSS.escape(name)}"] :is(input:not([type="hidden"]), select, textarea, .cbi-dropdown)`,
 					[ o.title ]) : name;
 
-				out.push(line([ where, ': ', String(errors.main[name]) ]));
+				out.push(line([ where, ': ', this.refusalOf(name, errors.main[name]) ]));
 			}
 
 			for (const id in (errors.collectors ?? {}))
@@ -404,7 +415,7 @@ return view.extend({
 
 					out.push(line([
 						this.revealLink('collectors', target, fill(_('%s → %s'), String(c?.title || c?.name || id), exporter.optionTitle(c, name))),
-						': ', String(errors.collectors[id][name])
+						': ', exporter.problemText(errors.collectors[id][name], exporter.optionTitle(c, name), (n) => exporter.optionTitle(c, n))
 					]));
 				}
 

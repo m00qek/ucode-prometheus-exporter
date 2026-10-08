@@ -80,6 +80,8 @@ A collector has a `config collector` section only while something differs from i
 
 Values are checked with the ubus object's `validate`, as the exporter reads them: the main section's while they are typed and again before Save, a dialog's while they are typed and again before it stages them. Nothing the exporter would refuse is saved or staged.
 
+`validate` answers what it refuses by a [code](uci-config.md#problems) and its arguments, and the page says each in a sentence of its own, in the user's language, that names the field by its title, not its option: **Port must be an integer from 1 to 65535, not 0**, **Basic auth user needs HTTPS: set TLS certificate and TLS key, or the password crosses the network in the clear**. A collector's option is named by the title the collector gives it, untranslated. A code the page does not know, of a newer exporter, is shown by the exporter's English, `message`, after the field's title.
+
 A tab with a field the exporter or LuCI would refuse shows how many on its title, LuCI's own badge, while another tab is shown.
 
 A Save the exporter would refuse opens LuCI's **Save error** dialog, which lists each refused field and why, wherever the page is scrolled; the same list stays above the form until the values are fixed. Each field is named by its tab, as **HTTPS & login → Basic auth user**, and a collector's option by the collector's title and the option's, as **Collectors → Disk I/O → Excluded devices**. The name is a link: it closes the dialog, shows the tab, and gives the field the focus, or the collector's **Edit**. A refused dialog says why inside the dialog.

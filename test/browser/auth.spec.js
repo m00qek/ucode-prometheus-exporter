@@ -86,7 +86,7 @@ test.describe('Services → Prometheus exporter: basic auth and compress', () =>
     await expect(field(page, 'auth_user')).toHaveClass(/cbi-input-invalid/);
     await saveAndApply(page);
     await refused(page, [
-      'HTTPS & login → Basic auth user: basic auth needs HTTPS: set cert and key, or the password crosses the network in the clear',
+      'HTTPS & login → Basic auth user: Basic auth user needs HTTPS: set TLS certificate and TLS key, or the password crosses the network in the clear',
     ]);
     expect(await h.readConfig(request)).toBe(before);
     expect(calls.filter((c) => c.method === 'hash_password')).toEqual([]);
@@ -168,7 +168,7 @@ test.describe('Services → Prometheus exporter: basic auth and compress', () =>
     await field(page, 'auth_user').fill('prom');
     await saveAndApply(page);
     await refused(page, [
-      'HTTPS & login → Basic auth password: basic auth needs the hash of a password along with auth_user',
+      'HTTPS & login → Basic auth password: Basic auth password must be set along with Basic auth user',
     ]);
     await expect(field(page, 'auth_password')).toHaveClass(/cbi-input-invalid/);
     expect(await h.readConfig(request)).toBe(before);
@@ -182,7 +182,7 @@ test.describe('Services → Prometheus exporter: basic auth and compress', () =>
     await field(page, 'listen_port').fill('9101');
     await saveAndApply(page);
     await refused(page, [
-      /^HTTPS & login → Basic auth password: expected a hash of at most 2000 rounds, which a scrape computes to check the password/,
+      'HTTPS & login → Basic auth password: Basic auth password must be a hash of at most 2000 rounds, which a scrape computes to check the password',
     ]);
     expect(await h.readConfig(request)).toBe(before);
     expect(await page.content()).not.toContain('nNEbd373Z0DGjjhqlxU');
@@ -201,7 +201,7 @@ test.describe('Services → Prometheus exporter: basic auth and compress', () =>
     await h.showTab(page, 'https');
     await field(page, 'auth_user').fill('pr:om');
     await saveAndApply(page);
-    await refused(page, [ /^HTTPS & login → Basic auth user: expected a user of 1 to 64 characters/ ]);
+    await refused(page, [ 'HTTPS & login → Basic auth user: Basic auth user must be 1 to 64 characters, without ":", spaces or control characters, not "pr:om"' ]);
     expect((await savedMain(request)).auth_user).toBe('prom');
   });
 

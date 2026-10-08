@@ -157,6 +157,24 @@ async function withoutObject(page) {
   });
 }
 
+// Passes each reply of the object's validate through `rewrite(reply)`, which changes it in
+// place, as an exporter of another version might answer. Other calls go through.
+async function rewriteValidate(page, rewrite) {
+  await page.route(/\/ubus\//, async (route) => {
+    const body = JSON.parse(route.request().postData() ?? 'null');
+    const calls = [].concat(body ?? []);
+    const ours = (c) => c?.method === 'call' && c.params?.[1] === CONFIG && c.params?.[2] === 'validate';
+    if (!calls.some(ours))
+      return route.continue();
+    const res = await route.fetch();
+    const replies = [].concat(await res.json());
+    for (const r of replies)
+      if (calls.some((c) => c.id === r.id && ours(c)) && r.result?.[1] != null)
+        rewrite(r.result[1]);
+    await route.fulfill({ response: res, json: Array.isArray(body) ? replies : replies[0] });
+  });
+}
+
 // Opens the dialog of a collector's options from its row on the Collectors tab.
 async function editCollector(page, id) {
   await showTab(page, 'collectors');
@@ -201,5 +219,5 @@ async function screenshot(page, name) {
 
 module.exports = {
   CONFIG, PACKAGE, APP_USER, VIEWER, HOSTILE, ubus, rawCall, denied, sessionOf, useService, useConfig, useState, readConfig, sections, open, openSettings,
-  showTab, modal, saveError, withoutObject, editCollector, staged, openStatus, section, collectorRow, text, screenshot,
+  showTab, modal, saveError, withoutObject, rewriteValidate, editCollector, staged, openStatus, section, collectorRow, text, screenshot,
 };

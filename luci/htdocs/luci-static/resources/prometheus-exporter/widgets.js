@@ -419,8 +419,9 @@ const CollectorTable = form.Value.extend({
 		editor.timer = window.setTimeout(() => this.checkEditor(editor), CHECK_DELAY);
 	},
 
-	// Resolves to { ok, errors } of the dialog's values, or to null when there is no answer;
-	// an answer to an earlier check than the last is dropped.
+	// Resolves to { ok, errors } of the dialog's values, errors what the object refuses of
+	// each as the page says it, or to null when there is no answer; an answer to an earlier
+	// check than the last is dropped.
 	checkEditor(editor) {
 		const seq = ++editor.seq;
 		const id = editor.row.c.id;
@@ -442,11 +443,16 @@ const CollectorTable = form.Value.extend({
 				return null;
 			}
 
-			const errors = L.isObject(res.errors.collectors) ? (lookup(res.errors.collectors, id) ?? {}) : {};
+			const refusals = L.isObject(res.errors.collectors) ? (lookup(res.errors.collectors, id) ?? {}) : {};
+			const c = editor.row.c;
+			const errors = {};
 
 			editor.marks = {};
-			for (const name in errors)
-				editor.marks[name] = { value: values[name] ?? '', message: String(errors[name]) };
+			for (const name in refusals) {
+				errors[name] = { said: exporter.problemText(refusals[name], exporter.optionTitle(c, name), (n) => exporter.optionTitle(c, n)),
+					named: exporter.knowsProblem(refusals[name]) };
+				editor.marks[name] = { value: values[name] ?? '', message: errors[name].said };
+			}
 
 			for (const f of editor.fields)
 				if (f.option.type !== 'bool')
@@ -489,12 +495,16 @@ const CollectorTable = form.Value.extend({
 
 			const refused = [];
 
+			// The page's sentence of what the exporter refuses names the field; anything else
+			// follows its title.
 			for (const f of editor.fields) {
 				const name = f.option.name;
-				const message = lookup(res.errors, name) ?? (f.widget.isValid() ? null : f.widget.getValidationError());
+				const error = lookup(res.errors, name);
 
-				if (message != null)
-					refused.push(line([ exporter.optionTitle(c, name), ': ', String(message) ]));
+				if (error?.named)
+					refused.push(line([ error.said ]));
+				else if (error != null || !f.widget.isValid())
+					refused.push(line([ exporter.optionTitle(c, name), ': ', String(error?.said ?? f.widget.getValidationError()) ]));
 			}
 
 			if (refused.length) {

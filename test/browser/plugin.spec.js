@@ -6,14 +6,20 @@ const h = require('./helpers');
 // which the installed collectors do not use yet.
 
 test.describe('The ubus object, over rpcd', () => {
-  test('validates collector options as the exporter reads them', async ({ request }) => {
+  test('validates collector options as the exporter reads them, answering what is wrong by its code', async ({ request }) => {
     const res = await h.ubus(request, h.CONFIG, 'validate', {
-      main: { http_keepalive: '-1', listen_interface: '*' },
+      main: { http_keepalive: '-1', listen_interface: '*', auth_user: 'prom', auth_password: '$1$$ysVNzQc4CTMkp5daOdZ.3/' },
       collectors: { sampler: { retries: '1.5', verbose: 'maybe', label: 'x' }, wifi: { stations: 'off' } },
     });
     expect(res).toEqual({ ok: false, errors: {
-      main: { http_keepalive: 'expected an integer of 0 or more, got -1' },
-      collectors: { sampler: { retries: 'expected an integer, got "1.5"', verbose: 'expected a boolean, got "maybe"' } },
+      main: {
+        http_keepalive: { code: 'UINTEGER', value: -1, message: 'expected an integer of 0 or more, got -1' },
+        auth_user: { code: 'AUTH_NEEDS_TLS', message: 'basic auth needs HTTPS: set cert and key, or the password crosses the network in the clear' },
+      },
+      collectors: { sampler: {
+        retries: { code: 'INTEGER', value: '1.5', message: 'expected an integer, got "1.5"' },
+        verbose: { code: 'BOOLEAN', value: 'maybe', message: 'expected a boolean, got "maybe"' },
+      } },
     } });
   });
 

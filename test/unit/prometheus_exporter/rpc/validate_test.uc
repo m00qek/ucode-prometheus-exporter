@@ -7,6 +7,33 @@ import * as crypt from 'prometheus_exporter.crypt';
 import * as auth from 'prometheus_exporter.auth';
 import { collector, ALL, with_sys } from 'lib.rpc';
 
+// The refusals of a reply by field, as their English alone.
+function messages(errors) {
+	let out = {};
+
+	for (let name, r in errors)
+		out[name] = r.message;
+
+	return out;
+}
+
+// The refusals of a reply by field, without their English.
+function codes(errors) {
+	let out = {};
+
+	for (let name, r in errors) {
+		out[name] = { ...r };
+		delete out[name].message;
+	}
+
+	return out;
+}
+
+// Every option name validate takes, of the main section and of the test collectors.
+function validate_names() {
+	return uniq([ ...rpc_validate.MAIN_OPTIONS, ...config.RESERVED, 'retries', 'verbose', 'label' ]);
+}
+
 describe('rpc_validate.validate.validate', () => {
 	function validate(args, collectors) {
 		let out;
@@ -25,30 +52,37 @@ describe('rpc_validate.validate.validate', () => {
 		}));
 	});
 
-	it('says what the exporter would refuse of the main section, field by field', () => {
+	it('says what the exporter would refuse of the main section, field by field, by its code and arguments', () => {
 		assert.match({ ok: false, errors: { main: {
-			listen_port: 'expected an integer from 1 to 65535, got 0',
-			http_keepalive: 'expected an integer of 0 or more, got -1',
-			omit_zero_values: 'expected a boolean, got "maybe"',
-			enabled: 'expected a boolean, got "2"',
+			listen_port: { code: 'RANGE', min: 1, max: 65535, value: 0, message: 'expected an integer from 1 to 65535, got 0' },
+			http_keepalive: { code: 'UINTEGER', value: -1, message: 'expected an integer of 0 or more, got -1' },
+			omit_zero_values: { code: 'BOOLEAN', value: 'maybe', message: 'expected a boolean, got "maybe"' },
+			enabled: { code: 'BOOLEAN', value: '2', message: 'expected a boolean, got "2"' },
 		}, collectors: {} } }, validate({
 			main: { listen_port: '0', http_keepalive: '-1', omit_zero_values: 'maybe', enabled: '2', listen_interface: 'lan' },
 		}));
 	});
 
 	it('says what the exporter would refuse of a collector\'s options and its enabled switch', () => {
-		assert.match({ ok: false, errors: { main: {}, collectors: {
-			wifi: { enabled: 'expected a boolean, got "maybe"', stations: 'expected a boolean, got "x"' },
-			sampler: { retries: 'expected an integer, got "1.5"', label: 'expected a single value, got [ "a", "b" ]' },
-		} } }, validate({
+		let res = validate({
 			collectors: { wifi: { enabled: 'maybe', stations: 'x' }, sampler: { retries: '1.5', label: [ 'a', 'b' ], verbose: '1' } },
-		}));
+		});
+
+		assert.match([ false, {}, [ 'wifi', 'sampler' ] ], [ res.ok, res.errors.main, keys(res.errors.collectors) ]);
+		assert.match([
+			{ enabled: { code: 'BOOLEAN', value: 'maybe' }, stations: { code: 'BOOLEAN', value: 'x' } },
+			{ retries: { code: 'INTEGER', value: '1.5' }, label: { code: 'SINGLE', value: [ 'a', 'b' ] } },
+		], [ codes(res.errors.collectors.wifi), codes(res.errors.collectors.sampler) ]);
+		assert.match([
+			{ enabled: 'expected a boolean, got "maybe"', stations: 'expected a boolean, got "x"' },
+			{ retries: 'expected an integer, got "1.5"', label: 'expected a single value, got [ "a", "b" ]' },
+		], [ messages(res.errors.collectors.wifi), messages(res.errors.collectors.sampler) ]);
 	});
 
 	it('checks exec_timeout, and the timeout of collectors that run programs, which the others ignore', () => {
 		assert.match({ ok: false, errors: {
-			main: { exec_timeout: 'expected an integer from 1 to 30, got 0' },
-			collectors: { nft_counters: { timeout: 'expected an integer, got "5s"' } },
+			main: { exec_timeout: { code: 'RANGE', min: 1, max: 30, value: 0, message: 'expected an integer from 1 to 30, got 0' } },
+			collectors: { nft_counters: { timeout: { code: 'INTEGER', value: '5s', message: 'expected an integer, got "5s"' } } },
 		} }, validate({ main: { exec_timeout: '0' }, collectors: { nft_counters: { timeout: '5s' }, wifi: { timeout: 'whatever' } } }));
 		assert.match(true, validate({ main: { exec_timeout: '30' }, collectors: { nft_counters: { timeout: '1' } } }).ok);
 	});
@@ -88,6 +122,24 @@ describe('rpc_validate.validate.validate', () => {
 			assert.match(!config.convert('stations', s, { default: true }).ok, res.errors.collectors.wifi?.stations != null);
 		});
 
+	prop('refuses every value with a code it knows, its arguments, and the English of them',
+		gen.tuple(
+			gen.elements(...validate_names()),
+			gen.oneof(gen.string({ charset: '-019azy/.(*', min_len: 1, max_len: 6 }), gen.array(gen.elements('a', '1'), { min_len: 2, max_len: 2 }))), (t) => {
+			let res = validate({ main: { [t[0]]: t[1] }, collectors: { sampler: { [t[0]]: t[1] }, nft_counters: { [t[0]]: t[1] } } });
+			let refusals = [ ...values(res.errors.main), ...values(res.errors.collectors.sampler ?? {}), ...values(res.errors.collectors.nft_counters ?? {}) ];
+
+			for (let r in refusals) {
+				let c = config.PROBLEMS[r.code];
+				let problem = { ...r };
+
+				delete problem.message;
+				assert.match(true, c != null, r.code);
+				assert.match([], filter(keys(problem), (k) => k != 'code' && k != 'value' && !(k in c.args)), r.code);
+				assert.match(config.english(problem), r.message);
+			}
+		});
+
 	prop('refuses a port exactly when the init script would',
 		gen.string({ charset: '-0123456789x', min_len: 1, max_len: 6 }), (s) => {
 			let n = match(s, /^-?[0-9]+$/) ? int(s) : null;
@@ -117,14 +169,14 @@ describe('rpc_validate.validate.validate, basic auth', () => {
 
 	it('refuses them without cert and key, on the user\'s field', () => {
 		assert.match({ ok: false, errors: { main: {
-			auth_user: 'basic auth needs HTTPS: set cert and key, or the password crosses the network in the clear',
+			auth_user: { code: 'AUTH_NEEDS_TLS', message: 'basic auth needs HTTPS: set cert and key, or the password crosses the network in the clear' },
 		}, collectors: {} } }, validate({ auth_user: 'prom', auth_password: HASH, cert: TLS.cert }));
 	});
 
 	it('refuses half of it, on the field that is missing', () => {
 		assert.match([
-			{ auth_password: 'basic auth needs the hash of a password along with auth_user' },
-			{ auth_user: 'basic auth needs a user along with auth_password' },
+			{ auth_password: { code: 'AUTH_NEEDS_PASSWORD', message: 'basic auth needs the hash of a password along with auth_user' } },
+			{ auth_user: { code: 'AUTH_NEEDS_USER', message: 'basic auth needs a user along with auth_password' } },
 		], [
 			validate({ auth_user: 'prom', ...TLS }).errors.main,
 			validate({ auth_password: HASH, ...TLS }).errors.main,
@@ -134,7 +186,8 @@ describe('rpc_validate.validate.validate, basic auth', () => {
 	it('refuses a password that is not a crypt hash, and never says it', () => {
 		let res = validate({ auth_user: 'prom', auth_password: 'hunter2', ...TLS });
 
-		assert.match({ auth_password: 'expected a crypt hash: $1$ (uhttpd -m), $5$ or $6$' }, res.errors.main);
+		assert.match({ auth_password: { code: 'CRYPT', message: 'expected a crypt hash: $1$ (uhttpd -m), $5$ or $6$' } }, res.errors.main);
+		assert.match(false, 'value' in res.errors.main.auth_password);
 		assert.match(-1, index(sprintf('%J', res), 'hunter2'));
 	});
 
@@ -143,7 +196,8 @@ describe('rpc_validate.validate.validate, basic auth', () => {
 		let res = validate({ auth_user: 'prom', auth_password: over, ...TLS });
 
 		assert.match([ true, false ], [ validate({ auth_user: 'prom', auth_password: crypt.sha_crypt('6', 'secret', 'saltsalt', auth.ROUNDS_MAX), ...TLS }).ok, res.ok ]);
-		assert.match(true, index(res.errors.main.auth_password, `expected a hash of at most ${auth.ROUNDS_MAX} rounds`) == 0);
+		assert.match({ auth_password: { code: 'CRYPT_ROUNDS', max: auth.ROUNDS_MAX } }, codes(res.errors.main));
+		assert.match(true, index(res.errors.main.auth_password.message, `expected a hash of at most ${auth.ROUNDS_MAX} rounds`) == 0);
 		assert.match(-1, index(sprintf('%J', res), substr(over, -86)));
 	});
 

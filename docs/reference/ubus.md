@@ -21,7 +21,7 @@ $ ubus -v list prometheus-exporter
 | Method | Arguments | Reply |
 | :--- | :--- | :--- |
 | [`collectors`](#collectors) | none | `{ collectors: [ collector ], skipped: [ message ] }` |
-| [`validate`](#validate) | `{ main?, collectors? }` | `{ ok, errors: { main: { <option>: message }, collectors: { <module>: { <option>: message } } } }` |
+| [`validate`](#validate) | `{ main?, collectors? }` | `{ ok, errors: { main: { <option>: refusal }, collectors: { <module>: { <option>: refusal } } } }` |
 | [`status`](#status) | none | `{ service: { enabled, boot, running, error, auth, compress }, listen: [ url ], collectors: [ result ], jailed }` |
 | [`interfaces`](#interfaces) | none | `{ interfaces: [ { name, proto } ] }` |
 | [`hash_password`](#hash_password) | `{ password }` | `{ hash }` |
@@ -69,9 +69,21 @@ $ ubus call prometheus-exporter validate '{"main":{"listen_port":"0","auth_user"
 	"ok": false,
 	"errors": {
 		"main": {
-			"listen_port": "expected an integer from 1 to 65535, got 0",
-			"auth_password": "basic auth needs the hash of a password along with auth_user",
-			"auth_user": "basic auth needs HTTPS: set cert and key, or the password crosses the network in the clear"
+			"listen_port": {
+				"code": "RANGE",
+				"min": 1,
+				"max": 65535,
+				"value": 0,
+				"message": "expected an integer from 1 to 65535, got 0"
+			},
+			"auth_password": {
+				"code": "AUTH_NEEDS_PASSWORD",
+				"message": "basic auth needs the hash of a password along with auth_user"
+			},
+			"auth_user": {
+				"code": "AUTH_NEEDS_TLS",
+				"message": "basic auth needs HTTPS: set cert and key, or the password crosses the network in the clear"
+			}
 		},
 		"collectors": {
 
@@ -80,11 +92,22 @@ $ ubus call prometheus-exporter validate '{"main":{"listen_port":"0","auth_user"
 }
 ```
 
+Each value it refuses is answered as a refusal: what is wrong with it, by a code a client can say in its own words, as LuCI does, and the exporter's English of it.
+
+| Field of a refusal | Type | Content |
+| :--- | :--- | :--- |
+| `code` | string | What is wrong: one of the closed set in [UCI configuration](uci-config.md#problems), as `RANGE` or `AUTH_NEEDS_TLS`. |
+| `min`, `max` | integer | The arguments of the codes that take them: `RANGE`'s bounds, `CRYPT_ROUNDS`' most rounds. |
+| `value` | any | What the exporter read: an integer for `RANGE` and `UINTEGER`, a list where it got one, a string otherwise. Absent from `auth_password`'s, and from the codes of options that go together. |
+| `message` | string | The exporter's English of it, without the option's name, as `check` and the log say it. |
+
+A client that does not know a code shows `message`.
+
 - Each value is checked alone. An empty value is unset, and takes the default.
 - Options nobody declared, and collectors that are not installed, are ignored, as the exporter ignores them.
 - The main section's options that go together, basic auth's user and hash and the `cert` and `key` they need, are checked as if the values given were the whole section.
 - A collector section takes `enabled`, `timeout` for a collector that runs programs, `budget`, and the collector's own options.
-- No message holds the value of `auth_password`.
+- No refusal holds the value of `auth_password`.
 
 ## `status`
 

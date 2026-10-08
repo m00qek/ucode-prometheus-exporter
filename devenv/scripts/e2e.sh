@@ -191,6 +191,8 @@ check "interfaces lists netifd's interfaces, by name and protocol" rpc_interface
 check "status says it runs, where it listens, and scrapes every base collector" rpc_status_running
 check "validate refuses what the init script would" says 'expected an integer from 1 to 65535, got 0' \
 	rpc validate '{"main":{"listen_port":"0"}}'
+check "validate says what is wrong by its code" says '"code": "RANGE"' \
+	rpc validate '{"main":{"listen_port":"0"}}'
 
 # --- every collector package
 before=$(pid)

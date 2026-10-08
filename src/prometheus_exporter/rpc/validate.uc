@@ -7,8 +7,11 @@
  * declared, and collectors that are not installed, are ignored, as the exporter
  * ignores them. The main section's options that go together (basic auth's user
  * and hash, which need cert and key) are checked as if the values given were the
- * whole section. A message never holds auth_password's value. Malformed
- * arguments are answered { error: ARGS_INVALID, message }.
+ * whole section. Each value it refuses is answered as what is wrong with it,
+ * a Refusal: a code of prometheus_exporter.config.problems and its
+ * arguments, for a client to say in its own words, and `message`, the
+ * exporter's English of it. A refusal never holds auth_password's value.
+ * Malformed arguments are answered { error: ARGS_INVALID, message }.
  *
  * @module prometheus_exporter_rpc_validate
  */
@@ -18,6 +21,14 @@
 import * as Result from 'prometheus_exporter.result';
 import * as config from 'prometheus_exporter.config';
 import { NAME } from 'prometheus_exporter.config';
+
+/**
+ * What validate answers of a value it refuses: the Problem
+ * (prometheus_exporter.config.problems), { code, ...args }, and its English,
+ * without the option's name: 'expected an integer from 1 to 65535, got 0'.
+ *
+ * @typedef {{ code: string, min: ?int, max: ?int, value: ?(int|string|string[]), message: string }} Refusal
+ */
 
 /**
  * What malformed arguments are answered with.
@@ -71,6 +82,16 @@ export function message(name, res) {
 	let prefix = `${name}: `;
 
 	return (substr(d, 0, length(prefix)) == prefix) ? substr(d, length(prefix)) : d;
+};
+
+/**
+ * What validate answers of a problem: it, and its English as `message`.
+ *
+ * @param {Problem} problem what is wrong with the value.
+ * @returns {Refusal} { code, ...args, message }.
+ */
+export function refusal(problem) {
+	return { ...problem, message: config.english(problem) };
 };
 
 /**
@@ -149,8 +170,8 @@ export function invalid_args(msg) {
  *
  * @param {RpcSys} sys the system: its collectors.
  * @param {?Object} args the method's arguments: { main, collectors }.
- * @returns {Object} { ok, errors: { main: { option: message }, collectors:
- *   { id: { option: message } } } }, or { error: ARGS_INVALID, message }.
+ * @returns {Object} { ok, errors: { main: { option: Refusal }, collectors:
+ *   { id: { option: Refusal } } } }, or { error: ARGS_INVALID, message }.
  */
 export function validate(sys, args) {
 	let main = args?.main ?? {};
@@ -171,11 +192,11 @@ export function validate(sys, args) {
 		if (res.ok)
 			typed[name] = res.data;
 		else
-			errors.main[name] = message(name, res);
+			errors.main[name] = refusal(res.data.problem);
 	}
 
 	for (let name, problem in config.together(typed))
-		errors.main[name] ??= config.english(problem);
+		errors.main[name] ??= refusal(problem);
 
 	for (let c in sys.collectors)
 		by_id[c.id] = c;
@@ -197,7 +218,7 @@ export function validate(sys, args) {
 			let res = collector_value(c, name, value);
 			if (!res.ok) {
 				errors.collectors[id] ??= {};
-				errors.collectors[id][name] = message(name, res);
+				errors.collectors[id][name] = refusal(res.data.problem);
 			}
 		}
 	}

@@ -155,6 +155,54 @@ function optionTitle(c, name) {
 	return String(option?.title || name);
 }
 
+// A translated template with each `%s` filled by text, as a string, for a tooltip or a text
+// node: not .format(), whose `%s` would put text where markup may go, and whose `%h` would
+// show the escapes of text that stays text.
+function say(template, ...args) {
+	return fill(template, ...args.map((a) => String(a))).join('');
+}
+
+// What the object's validate refuses of a value, by the code of what is wrong, in the
+// user's language: a sentence of the field's title and the code's arguments. The exporter
+// says the same in English (src/prometheus_exporter/config/problems.uc), which the reply
+// holds as `message`; a test holds the two to the same codes. `titleOf(name)` gives the
+// title of another field a sentence names.
+const PROBLEMS = {
+	BOOLEAN: (p, title) => say(_('%s must be a boolean (1 or 0)'), title),
+	INTEGER: (p, title) => say(_('%s must be an integer'), title),
+	SINGLE: (p, title) => say(_('%s must be a single value'), title),
+	RANGE: (p, title) => say(_('%s must be an integer from %s to %s'), title, p.min, p.max),
+	UINTEGER: (p, title) => say(_('%s must be an integer of 0 or more'), title),
+	ABSOLUTE_PATH: (p, title) => say(_('%s must be an absolute path'), title),
+	REGEX: (p, title) => say(_('%s must be a regular expression'), title),
+	USERNAME: (p, title) => say(_('%s must be 1 to 64 characters, without ":", spaces or control characters'), title),
+	CRYPT: (p, title) => say(_('%s must be a crypt hash: $1$ (uhttpd -m), $5$ or $6$'), title),
+	CRYPT_ROUNDS: (p, title) => say(_('%s must be a hash of at most %s rounds, which a scrape computes to check the password'), title, p.max),
+	INTERFACE: (p, title) => say(_('%s must be an interface name, or * for every address'), title),
+	AUTH_NEEDS_PASSWORD: (p, title, titleOf) => say(_('%s must be set along with %s'), title, titleOf('auth_user')),
+	AUTH_NEEDS_USER: (p, title, titleOf) => say(_('%s must be set along with %s'), title, titleOf('auth_password')),
+	AUTH_NEEDS_TLS: (p, title, titleOf) =>
+		say(_('%s needs HTTPS: set %s and %s, or the password crosses the network in the clear'), title, titleOf('cert'), titleOf('key'))
+};
+
+// Whether the page says a refusal of the object's validate in its own words: one of a code
+// it knows. The sentence names the field; the English of a code it does not know does not.
+function knowsProblem(refusal) {
+	return L.isObject(refusal) && lookup(PROBLEMS, String(refusal.code)) != null;
+}
+
+// A refusal of the object's validate, { code, ...args, message }, as the page says it: its
+// code's sentence, with the field's title, and the value refused when the reply holds it; a
+// code the page does not know by the exporter's English, `message`.
+function problemText(refusal, title, titleOf) {
+	if (!knowsProblem(refusal))
+		return String(L.isObject(refusal) ? (refusal.message ?? refusal.code ?? '') : (refusal ?? ''));
+
+	const sentence = PROBLEMS[refusal.code](refusal, String(title), (name) => String(titleOf?.(name) ?? name));
+
+	return ('value' in refusal) ? say(_('%s, not %s'), sentence, JSON.stringify(refusal.value)) : sentence;
+}
+
 // uci's boolean spellings, as the exporter reads them.
 function isTrue(value) {
 	return [ '1', 'yes', 'on', 'true', 'enabled' ].includes(String(value));
@@ -173,6 +221,9 @@ return baseclass.extend({
 	describeError: describeError,
 	datatypeOf: datatypeOf,
 	optionTitle: optionTitle,
+	PROBLEMS: PROBLEMS,
+	knowsProblem: knowsProblem,
+	problemText: problemText,
 	isTrue: isTrue,
 	isFalse: isFalse,
 

@@ -8,7 +8,7 @@
  *
  *   collectors {} -> { collectors: [ collector ], skipped: [ message ] }
  *   validate { main?, collectors? }
- *                 -> { ok, errors: { main: { option: message }, collectors: { id: { option: message } } } }
+ *                 -> { ok, errors: { main: { option: refusal }, collectors: { id: { option: refusal } } } }
  *   status {}     -> { service: { enabled, boot, running, error, auth, compress }, listen: [ url ],
  *                      collectors: [ { name, id, title, enabled, success, observing, reason,
  *                                      duration, error, mounts, service } ], jailed }
@@ -17,8 +17,10 @@
  *
  * A collector and its options are as prometheus_exporter.rpc.describe
  * describes them, and validate checks values as prometheus_exporter.rpc.validate
- * says. This module is the facade of rpc/: what others take of those it
- * exports, under the names below.
+ * says: a refusal is the code of what is wrong (prometheus_exporter.config's
+ * PROBLEMS), its arguments, and its English as `message`. This module is the
+ * facade of rpc/: what others take of those it exports, under the names
+ * below.
  *
  * status runs one scrape of the enabled collectors, as `service
  * prometheus-exporter check` does: in the service's own jail where it can be
@@ -141,12 +143,14 @@ export const owners = describer.owners;
 export const APK_LISTS = describer.APK_LISTS;
 
 // `validate`, what the exporter makes of a value of the main section or of a
-// collector's, the options a collector's section takes, the main section's,
-// and what malformed arguments are answered.
+// collector's, the options a collector's section takes, what it answers of a
+// value it refuses, the main section's, and what malformed arguments are
+// answered.
 export const validate = validator.validate;
 export const main_value = validator.main_value;
 export const collector_value = validator.collector_value;
 export const option_names = validator.option_names;
+export const refusal = validator.refusal;
 export const MAIN_OPTIONS = validator.MAIN_OPTIONS;
 export const ARGS_INVALID = validator.ARGS_INVALID;
 
