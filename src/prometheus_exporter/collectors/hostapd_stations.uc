@@ -12,6 +12,9 @@
 // hostapd_station_info per station, so a channel change (DFS, ACS) starts no
 // new series of its counters.
 //
+// A counter get_clients does not give a station is left out, not written as a
+// 0, which a dashboard would take for a reset.
+//
 // get_clients has no connected time, inactive time, SAE group or short
 // preamble flag, so hostapd_station_connected_seconds_total,
 // hostapd_station_inactive_seconds, hostapd_station_sae_group and
@@ -52,12 +55,13 @@ function metrics(out) {
 }
 
 // hostapd sends the packet counts with blobmsg_add_u32() (src/ap/ubus.c),
-// which ucode's ubus gives signed (u32); the byte counts are 64-bit.
+// which ucode's ubus gives signed (u32); the byte counts are 64-bit. A count
+// it does not send is null, which writes no sample.
 function station(m, labels, c) {
-	m.rx_packets(labels, u32(c.packets?.rx) ?? 0);
-	m.rx_bytes(labels, c.bytes?.rx ?? 0);
-	m.tx_packets(labels, u32(c.packets?.tx) ?? 0);
-	m.tx_bytes(labels, c.bytes?.tx ?? 0);
+	m.rx_packets(labels, u32(c.packets?.rx));
+	m.rx_bytes(labels, c.bytes?.rx);
+	m.tx_packets(labels, u32(c.packets?.tx));
+	m.tx_bytes(labels, c.bytes?.tx);
 	m.signal(labels, c.signal);
 
 	m.flag_auth(labels, !!c.auth);

@@ -152,14 +152,19 @@ describe('collectors.hostapd_stations', () => {
 		});
 	});
 
-	it('writes 0 for counters a client lacks, and no signal', () => {
-		with_collector(hostapd_stations, ap({ 'hostapd.phy0-ap0:get_clients': { freq: 2462, clients: { '02:00:00:00:00:09': { auth: true } } }, 'hostapd.phy1-ap1:get_clients': { clients: {} } }), (r) => {
+	// A 0 would read as a counter reset.
+	it('leaves out the counters and the signal a client lacks', () => {
+		let client = { auth: true, packets: { rx: 7 }, bytes: { tx: 9 } };
+
+		with_collector(hostapd_stations, ap({ 'hostapd.phy0-ap0:get_clients': { freq: 2462, clients: { '02:00:00:00:00:09': client } }, 'hostapd.phy1-ap1:get_clients': { clients: {} } }), (r) => {
 			let station = `{${AP0},station="02:00:00:00:00:09"}`;
 
 			assert.match(true, r.result.ok);
+			assert.match([
+				`hostapd_station_receive_packets_total${station} 7`,
+				`hostapd_station_transmit_bytes_total${station} 9`,
+			], filter(r.lines, (l) => match(l, /^hostapd_station_[a-z_]+_total\{/)));
 			assert.match(contains([
-				`hostapd_station_receive_packets_total${station} 0`,
-				`hostapd_station_transmit_bytes_total${station} 0`,
 				`hostapd_station_flag_auth${station} 1`,
 				`hostapd_station_flag_assoc${station} 0`,
 			]), r.lines);
