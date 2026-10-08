@@ -150,7 +150,7 @@ $(eval $(call Collector,dhcp_leases,dhcp_leases,active DHCP leases of dnsmasq an
 $(eval $(call Collector,diskstats,diskstats,disk I/O statistics,))
 $(eval $(call Collector,dnsmasq,dnsmasq,dnsmasq DNS and DHCP metrics,))
 $(eval $(call Collector,ethtool,ethtool,network driver statistics,+ethtool))
-$(eval $(call Collector,filesystem,filesystem,filesystem sizes,+luci-base))
+$(eval $(call Collector,filesystem,filesystem,filesystem sizes,+luci-base +rpcd-mod-file))
 $(eval $(call Collector,hostapd_stations,hostapd_stations,hostapd stations,))
 $(eval $(call Collector,hostapd_ubus_stations,hostapd_ubus_stations,hostapd station radio measurement capabilities,))
 $(eval $(call Collector,hwmon,hwmon,hardware monitor sensors,))

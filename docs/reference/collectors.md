@@ -287,14 +287,14 @@ File descriptors allocated and the most there may be, from /proc/sys/fs/file-nr.
 
 ## `filesystem` {#filesystem}
 
-Filesystem sizes and read-only flags, from luci getMountPoints and /proc/self/mounts.
+Filesystem sizes and read-only flags, from luci getMountPoints and the host's /proc/mounts (rpcd's file read).
 
 - **Title:** Filesystems
 - **Package:** `ucode-prometheus-exporter-filesystem`
 - **In the groups:** `ucode-prometheus-exporter-hardware`, `ucode-prometheus-exporter-full`
-- **Depends on:** `luci-base`
+- **Depends on:** `luci-base`, `rpcd-mod-file`
 - **Section:** `config collector 'filesystem'`
-- **Needs:** `fs`, `ubus`
+- **Needs:** `ubus`
 - **Metrics:** [filesystem](metrics.md#filesystem)
 
 | Option | Title | Type | Default | Datatype | Description |

@@ -57,7 +57,7 @@ file /sys/class/thermal/thermal_zone*/policy
 file /sys/class/thermal/thermal_zone*/temp
 file /sys/class/thermal/thermal_zone*/mode
 file /sys/class/thermal/thermal_zone*/passive
-file /proc/self/mounts
+ubus file read {"path":"/proc/mounts"}
 ubus luci getMountPoints
 link /sys/class/hwmon/*/device
 uci dhcp

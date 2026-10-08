@@ -12,19 +12,28 @@
 // `ubus call luci getMountPoints`, which statvfs()es every mount in /proc/mounts
 // that has blocks. That call reports no inode counts, so node_filesystem_files
 // and node_filesystem_files_free, which the Lua collector has, are left out.
+//
 // The file system type and the read-only flag (the "ro" mount option, where the
-// Lua collector read statvfs's ST_RDONLY) come from /proc/self/mounts.
+// Lua collector read statvfs's ST_RDONLY) come from the host's mount table,
+// which rpcd reads for it (`ubus call file read`, rpcd-mod-file, which
+// luci-base depends on). Not from /proc/self/mounts: the service's jail has its
+// own mount namespace, and its own PID namespace, so every mount table it can
+// read is the jail's, which shares a mount or two with the host's at most, and
+// has read-only flags of its own. rpcd reads a file that reports no size, as
+// /proc/mounts does, in one read of at most 4 KiB, which the kernel ends at a
+// whole line: on a system of more than about 60 mounts, those past it are left
+// out.
 
 import { Result, errors, proc } from 'prometheus_exporter.api';
 
 export const meta = {
 	name: 'filesystem',
 	title: 'Filesystems',
-	help: 'Filesystem sizes and read-only flags, from luci getMountPoints and /proc/self/mounts.',
-	needs: [ 'fs', 'ubus' ],
+	help: 'Filesystem sizes and read-only flags, from luci getMountPoints and the host\'s /proc/mounts (rpcd\'s file read).',
+	needs: [ 'ubus' ],
 };
 
-const MOUNTS = '/proc/self/mounts';
+const MOUNTS = '/proc/mounts';
 
 // node_exporter's defaults (collector/filesystem_linux.go), as the Lua collector has them.
 const EXCLUDED_MOUNT_POINTS = /^\/(dev|proc|run\/credentials|sys|var\/lib\/docker|var\/lib\/containers\/storage)(\/|$)/;
@@ -49,11 +58,24 @@ function key(device, mount_point) {
 	return device + '\n' + mount_point;
 }
 
-export function collect(deps, out) {
-	let mounts = proc.lines(deps.fs, MOUNTS);
+// The host's mount table, as rpcd reads it: its lines, or the failed Result.
+function host_mounts(ubus) {
+	let res = ubus.call('file', 'read', { path: MOUNTS });
 
-	if (mounts == null)
-		return Result.err(errors.SOURCE_UNREADABLE, MOUNTS);
+	if (!res.ok)
+		return res;
+
+	let data = res.data?.data;
+	if (type(data) != 'string')
+		return Result.err(errors.SOURCE_INVALID, `file read ${MOUNTS}: no data`);
+
+	return Result.ok(split(data, '\n'));
+}
+
+export function collect(deps, out) {
+	let mounts = host_mounts(deps.ubus);
+	if (!mounts.ok)
+		return mounts;
 
 	let res = deps.ubus.call('luci', 'getMountPoints');
 	if (!res.ok)
@@ -74,7 +96,7 @@ export function collect(deps, out) {
 	let readonly = out.gauge('node_filesystem_readonly', 'Filesystem read-only status.');
 	let seen = {};
 
-	for (let line in mounts) {
+	for (let line in mounts.data) {
 		let f = proc.fields(line);
 
 		if (length(f) < 4)
