@@ -15,6 +15,7 @@ What each release changes, for those who run the exporter and those who write co
 
 ### Fixed
 
+- wifi's option `stations` off also left out `node_wifi_stations`, how many stations each interface has, which is no per-station series; it is written either way.
 - **selinux reported SELinux off in the service wherever it was on.** The jail's sysfs is a fresh one, without selinuxfs mounted under it, so `/sys/fs/selinux/enforce` was never there. Without it, selinux asks `/proc/filesystems`, which lists selinuxfs only where SELinux is enabled: `node_selinux_enabled` is 1 there, without `node_selinux_current_mode`, which only enforce tells; 0 only where the kernel has no SELinux.
 - hostapd_stations wrote 0 for a byte or packet count hostapd did not give a station, which Prometheus takes for a counter reset; it leaves the sample out.
 - **A failed netlink request said nothing of why**: on a real access point, `collector 'netdev': RTNL_FAILED`, `collector 'wifi': NL80211_FAILED (phy0-ap0: null)` and `collector 'netclass': SOURCE_INVALID (RTM_GETLINK: false)`. ucode's rtnl and nl80211 clear their error as `error()` reads it, and the capability read it twice; a request the kernel refused, which they answer with `false`, was taken for a reply. The capability reads the error once and fails a `false` reply too, so the log says why, as `RTNL_FAILED (Operation not permitted)`.

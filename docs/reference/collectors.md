@@ -790,7 +790,7 @@ Wi-Fi radios, networks and stations, from ubus network.wireless and nl80211.
 
 | Option | Title | Type | Default | Datatype | Description |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| `stations` | Station metrics | boolean | `1` | — | Per-station metrics: signal, rates and traffic of each client. |
+| `stations` | Station metrics | boolean | `1` | — | Per-station metrics: signal, rates and traffic of each client. The count of stations of each interface is written either way. |
 | `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
 ## `wireguard` {#wireguard}

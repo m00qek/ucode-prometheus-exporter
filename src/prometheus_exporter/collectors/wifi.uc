@@ -13,7 +13,8 @@
 //
 // With option `stations` (on by default) it also writes one sample per station
 // to the node_wifi_station_* families: what the Lua exporter's wifi_stations
-// collector did, which this exporter has no more of.
+// collector did, which this exporter has no more of. node_wifi_stations, how
+// many stations each interface has, is written either way.
 //
 // An interface nl80211 cannot answer for is left out and fails the collector
 // once the other interfaces are written. A driver without a channel survey
@@ -27,7 +28,7 @@ export const meta = {
 	help: 'Wi-Fi radios, networks and stations, from ubus network.wireless and nl80211.',
 	needs: [ 'ubus', 'nl80211' ],
 	options: {
-		stations: { default: true, title: 'Station metrics', help: 'Per-station metrics: signal, rates and traffic of each client.' },
+		stations: { default: true, title: 'Station metrics', help: 'Per-station metrics: signal, rates and traffic of each client. The count of stations of each interface is written either way.' },
 	},
 };
 
@@ -224,10 +225,11 @@ function network(nl, m, radio, iface, with_stations) {
 	if (res.ok)
 		channel_times(m, labels, res.data, wif.wiphy_freq);
 
+	m.stations(labels, length(stations));
+
 	if (!with_stations)
 		return null;
 
-	m.stations(labels, length(stations));
 	for (let sta in stations)
 		station(m, radio, ifname, sta);
 

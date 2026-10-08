@@ -91,12 +91,17 @@ function sta(dev, mac) {
 	return `{radio="${dev == 'phy0-ap0' ? 'radio_2G' : 'radio_5G'}",device="${dev}",mac_address="02:00:00:00:00:${mac}"}`;
 }
 
-const STATIONS = [
+// How many stations each interface has, with the option stations on or off.
+const COUNTS = [
 	'# HELP node_wifi_stations Stations associated with the interface.',
 	'# TYPE node_wifi_stations gauge',
 	'node_wifi_stations{radio="radio_2G",device="phy0-ap0"} 1',
 	'node_wifi_stations{radio="radio_5G",device="phy1-ap0"} 0',
 	'node_wifi_stations{radio="radio_5G",device="phy1-ap1"} 4',
+];
+
+const STATIONS = [
+	...COUNTS,
 	'# HELP node_wifi_station_connected_seconds_total The total number of seconds a station has been connected to an access point.',
 	'# TYPE node_wifi_station_connected_seconds_total counter',
 	'node_wifi_station_connected_seconds_total' + sta('phy0-ap0', '01') + ' 12053',
@@ -237,10 +242,10 @@ describe('collectors.wifi', () => {
 		});
 	});
 
-	it('leaves the stations out with option stations off', () => {
+	it('leaves each station out with option stations off, and still counts them', () => {
 		with_collector(wifi, ap({ options: { stations: '0' } }), (r) => {
 			assert.match(true, r.result.ok);
-			assert.match([ ...NETWORKS, ...CHANNEL ], r.lines);
+			assert.match([ ...NETWORKS, ...COUNTS, ...CHANNEL ], r.lines);
 		});
 	});
 
