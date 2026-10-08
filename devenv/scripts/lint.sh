@@ -36,18 +36,20 @@ ucode -e "import { md5 } from 'digest'; exit(md5('') == 'd41d8cd98f00b204e980099
 
 # Tests import utest's mocks, which exist only while utest runs: compile them.
 importer=$(mktemp)
-for f in $(find test -name '*.uc' ! -name utest.config.uc ! -path 'test/proxies/*'); do
+for f in $(find test -name '*.uc' ! -name utest.config.uc ! -path 'test/proxies/*' ! -path test/bench/handler.uc); do
 	echo "import * as _ from '$PWD/$f';" >"$importer"
 	ucode -L "$src" -L "$PWD/test" -L "$scripts" -c -o /dev/null "$importer" || fail "$f"
 done
 rm -f "$importer"
 
-# Programs: the utest config and proxies return at top level; the handler is a template.
+# Programs: the utest config and proxies return at top level; the handlers are templates.
 for f in test/utest.config.uc test/proxies/*.uc devenv/scripts/*.uc; do
 	ucode -L "$src" -L "$scripts" -c -o /dev/null "$f" || fail "$f"
 done
 ucode -L "$src" -T -c -o /dev/null files/usr/libexec/prometheus-exporter/handler.uc ||
 	fail files/usr/libexec/prometheus-exporter/handler.uc
+# The bench's, too (test/bench/run.uc's handler: cases).
+ucode -T -c -o /dev/null test/bench/handler.uc || fail test/bench/handler.uc
 for f in files/usr/libexec/prometheus-exporter/*.uc; do
 	[ "$f" = files/usr/libexec/prometheus-exporter/handler.uc ] ||
 		ucode -L "$src" -c -o /dev/null "$f" || fail "$f"

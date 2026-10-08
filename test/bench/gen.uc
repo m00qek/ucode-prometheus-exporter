@@ -20,6 +20,8 @@
 import { readfile, writefile, mkdir, symlink, stat } from 'fs';
 
 const FIXTURES = 'test/fixtures';
+// The exporter's config, as the package installs it.
+const CONFIG = 'files/etc/config/prometheus-exporter';
 
 // Sizes. `typical` is a home router with an access point on it; `large` a busy
 // one: 50 links, a 20k-entry conntrack table, 200 stations, 1000 leases, and
@@ -675,10 +677,17 @@ function generate(dir, profile) {
 	// The bench measures what a scrape costs, not where its guards stop it:
 	// no collector is stopped at its budget, which nat_traffic on 20,000
 	// connections passes on a slow router. The deadline cases still have
-	// their deadline.
-	put(root, '/etc/config/prometheus-exporter',
-		"config prometheus-exporter 'main'\n\toption enabled '1'\n\toption collector_budget '60'\n\n" +
-		"config collector 'dhcp_leases'\n\toption leases '1'\n\n" +
+	// their deadline. The rest is the config the package installs, every
+	// option of the main section set, as on a router: a scrape reads each of
+	// them, and once read them for every collector.
+	let installed = readfile(CONFIG) ?? die(`no ${CONFIG}`);
+	let config = replace(installed, /option collector_budget '[0-9]+'/, "option collector_budget '60'");
+
+	if (config == installed)
+		die(`${CONFIG} sets no collector_budget`);
+
+	put(root, '/etc/config/prometheus-exporter', config +
+		"\nconfig collector 'dhcp_leases'\n\toption leases '1'\n\n" +
 		"config collector 'wireguard'\n\toption peer_names '1'\n\n");
 
 	// ubus

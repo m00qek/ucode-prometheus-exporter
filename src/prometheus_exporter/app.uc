@@ -96,16 +96,20 @@ export function refusal(credentials, env, instance) {
  * The env a scrape runs collectors in (prometheus_exporter.scrape), over the
  * modules `mods` and log(level, msg): each collector in a process of its own
  * (prometheus_exporter.runner), unless opts.fork is false; opts.tmp is the
- * directory of the file their runs cross by (/tmp).
+ * directory of the file their runs cross by (/tmp). opts.observed replaces
+ * `mods` for what the collectors read (deps.session), and for that alone: the
+ * benchmark's worlds.
  *
  * @param {Modules} mods the modules.
  * @param {Log} log the exporter's log.
- * @param {?{ fork: ?boolean, tmp: ?string }} opts the options.
+ * @param {?{ fork: ?boolean, tmp: ?string, observed: ?Modules }} opts the options.
  * @returns {ScrapeEnv} the env.
  */
 export function scrape_env(mods, log, opts) {
+	let observed = opts?.observed ?? mods;
+
 	return {
-		session: (to) => deps.session({ ...mods, log: to ?? log }),
+		session: (to) => deps.session({ ...observed, log: to ?? log }),
 		clock: () => clock(true),
 		log,
 		version: version(),
@@ -155,7 +159,8 @@ export function load(mods, dir, log, opts) {
  *
  * @param {Log} log the exporter's log.
  * @param {?string} dir the collectors' directory; loader.DIR when null.
- * @param {?{ fork: ?boolean, tmp: ?string }} opts the options.
+ * @param {?{ fork: ?boolean, tmp: ?string, observed: ?Modules }} opts the
+ *   options: scrape_env()'s.
  * @returns {App} the exporter.
  */
 export function create(log, dir, opts) {
@@ -185,7 +190,7 @@ export function create(log, dir, opts) {
  * @param {Log} log the exporter's log.
  * @param {?string} dir the collectors' directory; loader.DIR when null.
  * @param {?string} state_dir the state's directory; state.DIR when null.
- * @param {?{ fork: ?boolean }} opts the options.
+ * @param {?{ fork: ?boolean, observed: ?Modules }} opts the options: create()'s.
  * @returns {Handler} the handler.
  */
 export function handler(log, dir, state_dir, opts) {

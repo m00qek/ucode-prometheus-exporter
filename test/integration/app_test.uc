@@ -61,6 +61,17 @@ describe('app', () => {
 	});
 
 	// A source tree's version: the package Makefile writes the package's in.
+	it('has the collectors read what opts.observed gives them, and that alone', () => {
+		patch(ROUTER.files, { data: { 'system:board': ROUTER.board } });
+
+		let real = deps.modules();
+		let observed = { ...real, fs: { ...real.fs, readfile: (p, n) => (p == '/proc/loadavg') ? '9.50 0.10 0.05 1/2 3\n' : real.fs.readfile(p, n) } };
+		let app = create(() => null, SOURCES, { fork: false, observed });
+
+		assert.match(contains([ 'node_load1 9.5' ]), split(app.scrape('collect[]=loadavg').body, '\n'));
+		assert.match(contains([ 'node_load1 0.75' ]), split(create(() => null, SOURCES, { fork: false }).scrape('collect[]=loadavg').body, '\n'));
+	});
+
 	it('labels the build with its version', () => {
 		patch(ROUTER.files, {});
 		assert.match(contains([ 'ucode_prometheus_exporter_build_info{version="dev"} 1' ]),

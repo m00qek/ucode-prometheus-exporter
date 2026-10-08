@@ -13,6 +13,8 @@
 //   load:<set>                compile and validate the set's collectors
 //   probe:<set>               the same, each module loaded in a child process first, as uhttpd does
 //                             when it starts (prometheus_exporter.probe)
+//   handler:<set>             a scrape of the set as Prometheus gets it: uhttpd running the
+//                             service's handler (handler.uc, on the world), asked by wget
 //   collector:<name>[@<n>]    one collector's run and its rendering; @n reads the n-entry conntrack table
 //   scrape:<set>              a whole scrape of the set, as uhttpd answers /metrics: each collector
 //                             in a child process (prometheus_exporter.runner's forked)
@@ -47,6 +49,7 @@ import * as deadline from 'prometheus_exporter.deadline';
 import * as runner from 'prometheus_exporter.runner';
 import { probe as probe_modules } from 'prometheus_exporter.probe';
 import * as bench_world from 'bench.world';
+import * as uhttpd from 'bench.server';
 
 const STATUS = /^(VmHWM|VmRSS|VmData):\s+([0-9]+) kB/;
 const DURATION = /^node_scrape_collector_duration_seconds\{collector="([^"]+)"\} (.*)$/;
@@ -102,7 +105,9 @@ const COLLECTORS = fs.realpath(`${fs.dirname(sourcepath())}/../../src/prometheus
 
 // The collectors of a set, loaded as the exporter loads them: each module's
 // text read and checked first (loader.refusal); with `probe`, each loaded in
-// a child process first, as uhttpd loads them.
+// a child process first, as uhttpd loads them; then all of them as one
+// program (loader.import_modules), or each alone with a revision of the
+// exporter that has no import_modules (BENCH_REV).
 function load_set(set, probe) {
 	let names = sets[set] ?? die(`no set ${set}`);
 	let out = [];
@@ -114,15 +119,17 @@ function load_set(set, probe) {
 			die(`${n}: ${why}`);
 	}
 
-	let probed = probe ? probe_modules(map(names, loader.id_of), loader.import_module) : {};
+	let ids = map(names, loader.id_of);
+	let probed = probe ? probe_modules(ids, loader.import_module) : {};
 
-	for (let n in names) {
-		let id = loader.id_of(n);
-
+	for (let id in ids)
 		if (probe && !probed[id]?.ok)
 			die(`${id} did not load: ${probed[id]?.error}`);
 
-		let res = loader.validate(id, loader.import_module(id));
+	let together = loader.import_modules ? loader.import_modules(ids) : null;
+
+	for (let id in ids) {
+		let res = loader.validate(id, together ? together[id] : loader.import_module(id));
 
 		if (!res.ok)
 			die(Result.describe(res));
@@ -160,11 +167,17 @@ if (kind == 'calibrate') {
 	result.exec_ms = (now() - t) * 1000 / n;
 	result.time = result.loop_us / 1000000;
 } else if (kind == 'load' || kind == 'probe') {
+	let fds = length(fs.lsdir('/proc/self/fd') ?? []);
+
 	mem_before = reset_peak();
 
 	let t = now();
 	result.collectors = length(load_set(arg, kind == 'probe'));
 	result.time = now() - t;
+	// The descriptors loading left open: ucode keeps the source of every
+	// module it compiled open while the module lives.
+	result.fds = length(fs.lsdir('/proc/self/fd') ?? []) - fds;
+	result.rss_kb = memory().VmRSS;
 } else if (kind == 'collector') {
 	let parts = split(arg, '@');
 	let entries = parts[1] != null ? +parts[1] : null;
@@ -249,6 +262,85 @@ if (kind == 'calibrate') {
 	result.child_hwm_kb = stats.child?.VmHWM;
 	result.child_data_kb = stats.child?.VmData;
 	result.data_kb = memory().VmData;
+} else if (kind == 'handler') {
+	// The scrape as Prometheus gets it from the service: uhttpd running the
+	// handler (handler.uc here, the service's with the world), which loads
+	// the set's collectors when it starts; a request answered in a process
+	// uhttpd forks, with the ledger, the progress file and the deadline; the
+	// reply read back by wget. The first request fills the ledger, as the
+	// first after a restart does; the second is timed.
+	let names = sets[arg] ?? die(`no set ${arg}`);
+	let base = `${world_dir}/../handler-${arg}`;
+	let dir = `${base}/collectors`, state_dir = `${base}/state`;
+
+	system(sprintf("rm -rf '%s' && mkdir -p '%s' '%s' && chmod 700 '%s'", base, dir, state_dir, state_dir));
+	for (let n in names)
+		fs.symlink(`${COLLECTORS}/${loader.id_of(n)}.uc`, `${dir}/${loader.id_of(n)}.uc`);
+
+	let src = fs.realpath(`${fs.dirname(sourcepath())}/../../src`);
+	let test = fs.realpath(`${fs.dirname(sourcepath())}/..`);
+	let cfg = `${base}/handler.json`;
+
+	fs.writefile(cfg, sprintf('%J', {
+		search: [ `${test}/*.uc`, ...(src ? [ `${src}/*.uc` ] : []), '/usr/share/ucode/*.uc', '/usr/lib/ucode/*.so' ],
+		world: world_dir, collectors: dir, state: state_dir,
+	}));
+
+	let started = now();
+	let server = uhttpd.start(`${test}/bench/handler.uc`, cfg, `${base}/uhttpd.pid`);
+
+	result.load = now() - started;
+	if (!server.ok)
+		die(server.error);
+
+	let first = uhttpd.get(server.port, `${base}/reply`);
+
+	if (first.status != '200 OK')
+		die(`the first scrape answered ${first.status}`);
+
+	let held = uhttpd.server(server.pid);
+
+	// What asking costs, wget and the connection, which uhttpd answers itself
+	// for a path no handler has: not what the service adds.
+	let t = now();
+	uhttpd.get(server.port, `${base}/reply`, '/none');
+	result.client = now() - t;
+
+	mem_before = reset_peak();
+
+	t = now();
+	let res = uhttpd.get(server.port, `${base}/reply`);
+	result.time = now() - t;
+
+	uhttpd.stop(server.pid);
+
+	let collecting = 0, failed = [];
+
+	result.durations = {};
+	for (let line in split(res.body, '\n')) {
+		let m = match(line, DURATION);
+		if (m) {
+			collecting += +m[2];
+			result.durations[m[1]] = +m[2];
+		}
+		m = match(line, FAILED);
+		if (m)
+			push(failed, m[1]);
+	}
+
+	result.set = arg;
+	result.collectors = length(names);
+	result.ok = res.status == '200 OK' && !length(failed);
+	result.error = (res.status != '200 OK') ? `answered ${res.status}` : (length(failed) ? `failed: ${join(' ', failed)}` : null);
+	// What Prometheus waits for besides the collectors: uhttpd, the
+	// request's process, the scrape's and its children's work; not wget.
+	result.collecting = collecting;
+	result.outside = result.time - collecting - result.client;
+	result.samples = samples(res.body);
+	result.bytes = length(res.body);
+	// The process uhttpd answers from, which holds every collector loaded.
+	result.server_rss_kb = held.rss_kb;
+	result.server_fds = held.fds;
 } else if (kind == 'progress') {
 	let names = sets[arg] ?? die(`no set ${arg}`);
 	let dir = `${world_dir}/../state-progress`;

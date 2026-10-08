@@ -21,6 +21,9 @@
 //   scrape:base, scrape:full      whole scrapes, on the typical and the large world, as the service
 //                                 makes them: each collector in a child process
 //   inline:base, inline:full      the same scrapes, every collector in the scrape's own process
+//   handler:base, handler:full    the typical world's scrapes as Prometheus gets them: through uhttpd
+//                                 and the service's handler, the ledger, the progress file and the
+//                                 deadline; where uhttpd and its ucode plugin are, and find this exporter
 //   progress:full                 a scrape's progress file in the state
 //   auth:<hash>, auth:cached      basic auth's check of a password, by each hash and by the cache
 //   ledger:full                   what the ledger in the state adds to a full scrape
@@ -29,6 +32,7 @@
 import * as fs from 'fs';
 import * as budgets from 'bench.budgets';
 import * as auth from 'prometheus_exporter.auth';
+import * as uhttpd from 'bench.server';
 
 function usage() {
 	warn('usage: bench.uc -w WORLDS -o OUT.json [-l LABEL] [-f REGEX] [-t MIN_SECONDS] [-r MIN_REPS] [-c [-a]]\n');
@@ -78,6 +82,15 @@ for (let n in json(fs.readfile(`${args.worlds}/large/world.json`)).sizes.conntra
 for (let w in [ 'typical', 'large' ])
 	for (let s in [ 'base', 'full' ])
 		push(cases, [ w, `scrape:${s}` ], [ w, `inline:${s}` ]);
+
+// Through uhttpd, where the exporter it would load is this one.
+let no_handler = uhttpd.missing(src);
+
+if (no_handler)
+	warn(`no handler: cases: ${no_handler}\n`);
+else
+	for (let s in [ 'base', 'full' ])
+		push(cases, [ 'typical', `handler:${s}` ]);
 push(cases, [ 'typical', 'progress:full' ]);
 // Basic auth's check of a password: MD5-crypt, SHA-512-crypt at the rounds
 // hash_password makes, SHA-crypt at the most auth_password takes, and a
@@ -198,6 +211,11 @@ for (let c in cases) {
 		note = sprintf('%d collectors, %d bytes', r.collectors, r.bytes);
 	if (r.kind == 'auth' && r.ok !== false)
 		note = r.cached ? 'by the cache' : sprintf('%d rounds', r.rounds);
+	if (r.kind == 'load' || r.kind == 'probe')
+		note = sprintf('%d collectors, %d fds, RSS %d kB', r.collectors, r.fds, r.rss_kb);
+	if (r.kind == 'handler' && r.time)
+		note = sprintf('collectors %s ms, outside %s ms, uhttpd %d fds, RSS %d kB %s', ms(r.collecting), ms(r.outside),
+			r.server_fds, r.server_rss_kb, note);
 	if (r.kind == 'scrape' || r.kind == 'inline') {
 		let top = slice(sort(keys(r.durations ?? {}), (a, b) => r.durations[b] - r.durations[a]), 0, 4);
 		note = sprintf('collectors %s ms (%s), outside %s ms, load %s ms%s %s', ms(r.collecting),

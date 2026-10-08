@@ -64,9 +64,30 @@ const CONTAINMENT_SHARE = 0.25;
 const PROGRESS_SHARE = 0.02;
 
 // How much loading every collector first in a child process (probe:) may
-// take of loading them alone (load:): it compiles each twice. Measured 2.2
-// times in the devenv.
-const PROBE_FACTOR = 3.0;
+// take of loading them alone (load:): it compiles each module, and all it
+// imports, alone in the child, and then all of them once, as one program.
+// Measured 3.6 times in the devenv (45 ms against 12.5 ms), and 2.2 times
+// when the load compiled each alone too.
+const PROBE_FACTOR = 5.0;
+
+// The descriptors loading may leave open, per collector (load:full):
+// ucode keeps the source of each module it compiled open while the module
+// lives, so one per collector and one per module they share, compiled once
+// (36 collectors, 41 descriptors). Compiled a program a collector, each
+// kept its own copy of the collector API and the four modules behind it:
+// 216, which would reach the 1024 a process may open at some 160
+// collectors.
+const LOAD_FDS_PER_COLLECTOR = 2;
+
+// How much of what its collectors take a typical full scrape may add, as
+// Prometheus waits for it through uhttpd (handler:full): forking the
+// request's process and the collectors', reading the config and the
+// ledger, handing each run back, rendering and owning every family.
+// Measured 0.41 in the devenv (31 ms besides 75 ms of collectors) and 0.33
+// on QEMU's 500-MIPS 24Kc (658 ms besides 1984 ms). 0.2.0 added 0.53 and
+// 0.48, reading the main section three times for each collector among
+// others: its scrapes on the R3S took 0.35 s besides 0.47 s of collectors.
+const HANDLER_SHARE = 0.47;
 
 // [ world/case, kB, what ]: how far a run's peak memory may rise, about three
 // times what was measured on x86_64 (a 32-bit router's is less), which a
@@ -140,6 +161,18 @@ export function check(results, absolute) {
 	if (load?.time && probe?.time && probe.time.median > load.time.median * PROBE_FACTOR)
 		push(over, sprintf('probe:full: %.1f ms, over %.1f times load:full\'s %.1f ms', probe.time.median * 1000,
 			PROBE_FACTOR, load.time.median * 1000));
+
+	let loaded = r['large/load:full'];
+
+	if (loaded?.fds != null && loaded.fds > LOAD_FDS_PER_COLLECTOR * loaded.collectors)
+		push(over, sprintf('load:full: %d descriptors left open for %d collectors, over %d each', loaded.fds,
+			loaded.collectors, LOAD_FDS_PER_COLLECTOR));
+
+	let served = r['typical/handler:full'];
+
+	if (served?.time && served.collecting > 0 && served.outside > served.collecting * HANDLER_SHARE)
+		push(over, sprintf('handler:full: %.1f ms besides its collectors\' %.1f ms, over %d%% of them', served.outside * 1000,
+			served.collecting * 1000, HANDLER_SHARE * 100));
 
 	for (let b in MEMORY)
 		if (r[b[0]]?.growth_kb > b[1])

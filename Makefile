@@ -134,7 +134,7 @@ bench-src:
 
 bench: pkgcheck-image bench-src
 	@mkdir -p bin/bench && chmod a+rwx bin bin/bench
-	@docker run --rm --network none $(BENCH_LIMITS) -v $(CURDIR):/exporter:ro -v $(CURDIR)/bin:/artifacts \
+	@docker run --rm --network none $(BENCH_LIMITS) -e BENCH_LINK_EXPORTER=1 -v $(CURDIR):/exporter:ro -v $(CURDIR)/bin:/artifacts \
 		$(if $(BENCH_REV),-v $(CURDIR)/$(BENCH_SRC)/src:/exporter/src:ro) \
 		$(PKGCHECK_IMAGE) /exporter/devenv/scripts/bench.sh run /tmp/bench-worlds /artifacts/bench/$(BENCH_LABEL).json \
 		$(BENCH_LABEL) -c $(if $(BENCH_LIMITS)$(BENCH_REV),,-a) $(if $(FILTER),-f '$(FILTER)') $(BENCH_ARGS)
