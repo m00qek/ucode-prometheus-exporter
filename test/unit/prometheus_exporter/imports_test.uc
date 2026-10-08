@@ -42,6 +42,17 @@ describe('what the programs load', () => {
 		assert.match(true, 'docopt' in loaded_by('files/usr/bin/prometheus-exporter'));
 	});
 
+	// ucode makes a closure in a step for each function its program compiled
+	// before the closure's own, and the recorder makes closures for each
+	// collector a scrape runs and each family it writes: its module is the
+	// handler's program's first, by app's first import.
+	it('compiles the recorder\'s module first in the handler\'s program', () => {
+		assert.match([ 'prometheus_exporter.app', 'prometheus_exporter.exposition' ], [
+			imports_of(readfile('files/usr/libexec/prometheus-exporter/handler.uc'))[0],
+			imports_of(readfile('src/prometheus_exporter/app.uc'))[0],
+		]);
+	});
+
 	it('never loads docopt in the handler, rpcd or the helpers rpcd runs', () => {
 		for (let path in [
 			'files/usr/libexec/prometheus-exporter/handler.uc',

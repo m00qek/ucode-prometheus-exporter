@@ -7,6 +7,14 @@
 
 'use strict';
 
+// First, so that its functions are the program's first: ucode finds the
+// function a closure is made of by walking the program's functions from the
+// first it compiled, so a closure of a module compiled after the rest costs
+// a step for each function before it. The recorder makes closures for each
+// collector a scrape runs, and for each family it writes: imported after
+// the others, it took a scrape 16 us more a collector in the devenv, a
+// tenth more than now, and each family more again.
+import * as exposition from 'prometheus_exporter.exposition';
 import * as deps from 'prometheus_exporter.deps';
 import * as loader from 'prometheus_exporter.loader';
 import * as scrape from 'prometheus_exporter.scrape';

@@ -41,11 +41,15 @@
 //
 // A set is one named in WORLD/../sets.json: base, full (base and the -full group).
 
+// The recorder's module first, as the handler's program has it (app.uc):
+// ucode makes a closure in a step for each function compiled before its own,
+// so the order a program compiles its modules in is part of what a scrape
+// costs.
+import * as exposition from 'prometheus_exporter.exposition';
 import * as fs from 'fs';
 import * as deps from 'prometheus_exporter.deps';
 import * as loader from 'prometheus_exporter.loader';
 import * as scrape from 'prometheus_exporter.scrape';
-import * as exposition from 'prometheus_exporter.exposition';
 import * as Result from 'prometheus_exporter.result';
 import * as auth from 'prometheus_exporter.auth';
 import * as crypt from 'prometheus_exporter.crypt';
