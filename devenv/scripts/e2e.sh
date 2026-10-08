@@ -142,6 +142,37 @@ check "its mounts are what jail.uc prints" mounts_match_jail
 check "the jail has its own config and no other" test "$(jail_configs)" = "$NAME"
 check "no /etc/config/network in its mounts" not_mounted /etc/config/network
 
+# --- what a scrape costs besides its collectors, as Prometheus gets it
+# The collectors are compiled as one program: what they share, the collector
+# API and the modules behind it, once, and ucode keeps a source open per
+# module. A program a collector kept six each: for 16 collectors, 80 more.
+served_count() { fetch | grep -c '^node_scrape_collector_success'; }
+fds_of() { ls /proc/$(uhttpd_of)/fd | wc -l; }
+check "its uhttpd keeps a descriptor per collector, and about 60 more" test "$(fds_of)" -le $(($(served_count) + 64))
+# The median of five scrapes, less what their collectors took: some 15 ms
+# here. A scrape that waited on a poll (the runner's, of 100 ms) on its way,
+# or did per collector what it may do once, would pass 100 ms.
+outside_ms() {
+	ucode -e '
+		import { readfile } from "fs";
+		let outside = [];
+		for (let i = 0; i < 5; i++) {
+			let t0 = clock(true);
+			system("wget -q -O /tmp/scrape http://127.0.0.1:9100/metrics");
+			let t1 = clock(true), took = (t1[0] - t0[0]) * 1000 + (t1[1] - t0[1]) / 1000000.0;
+			for (let l in split(readfile("/tmp/scrape") ?? "", "\n")) {
+				let m = match(l, /^node_scrape_collector_duration_seconds\{[^}]*\} (.*)$/);
+				if (m)
+					took -= +m[1] * 1000;
+			}
+			push(outside, took);
+		}
+		print(int(sort(outside, (a, b) => a - b)[2]), "\n");'
+}
+outside=$(outside_ms)
+echo "     a scrape of the base collectors: ${outside} ms besides its collectors"
+check "a scrape takes less than 100 ms besides its collectors" test "$outside" -lt 100
+
 # --- timesync: busybox ntpd's events, kept by the base package's hotplug script
 # ntpd runs here, unsynchronized (no network), and reports every 11 minutes:
 # its events are made as it makes them, by its own hotplug script, with the
