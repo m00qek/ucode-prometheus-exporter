@@ -1,26 +1,30 @@
-'use strict';
+/**
+ * `prometheus-exporter collector check <path>`: whether a collector module,
+ * one not installed yet, keeps the collector contract, checked as the
+ * exporter would load and run it on this device. For whoever writes one.
+ *
+ * It reads the module's text as the loader does: strict mode, and that it
+ * imports the collector API alone (loader.import_problem). It loads the module
+ * under the load timer (probe.probe, LOAD_TIMEOUT), validates its meta, and runs it under the guards a scrape runs it under: in
+ * a process of its own, stopped at its budget, at most its max_samples
+ * (scrape.trial); then it checks what it wrote is valid exposition text, each
+ * series once, and that no family is one an installed collector writes, nor
+ * one the exporter keeps for itself. It says how long it took to load and to
+ * run, how many samples it wrote, and in which families.
+ *
+ * A rule broken fails it (FAIL); a collector that fails on this device for
+ * what the device has or lacks (a file, a service, a program: SOURCE_*,
+ * UBUS_*, COMMAND_*, NEED_MISSING) only warns, as it may do its job on
+ * another; so does one with nothing to observe here.
+ *
+ * sys: { fs: { readfile, realpath }, uci: a cursor, env: a scrape env (app.scrape_env),
+ *        import_path(path) -> the module's exports, probe(id, import_fn) -> probe.probe's
+ *        entry for it, installed: the loaded collectors, clock() -> [ s, ns ] }
+ *
+ * @module prometheus_exporter_conform
+ */
 
-// `prometheus-exporter collector check <path>`: whether a collector module,
-// one not installed yet, keeps the collector contract, checked as the
-// exporter would load and run it on this device. For whoever writes one.
-//
-// It reads the module's text as the loader does: strict mode, and that it
-// imports the collector API alone (loader.import_problem). It loads the module
-// under the load timer (probe.probe, LOAD_TIMEOUT), validates its meta, and runs it under the guards a scrape runs it under: in
-// a process of its own, stopped at its budget, at most its max_samples
-// (scrape.trial); then it checks what it wrote is valid exposition text, each
-// series once, and that no family is one an installed collector writes, nor
-// one the exporter keeps for itself. It says how long it took to load and to
-// run, how many samples it wrote, and in which families.
-//
-// A rule broken fails it (FAIL); a collector that fails on this device for
-// what the device has or lacks (a file, a service, a program: SOURCE_*,
-// UBUS_*, COMMAND_*, NEED_MISSING) only warns, as it may do its job on
-// another; so does one with nothing to observe here.
-//
-// sys: { fs: { readfile, realpath }, uci: a cursor, env: a scrape env (app.scrape_env),
-//        import_path(path) -> the module's exports, probe(id, import_fn) -> probe.probe's
-//        entry for it, installed: the loaded collectors, clock() -> [ s, ns ] }
+'use strict';
 
 import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
@@ -29,20 +33,44 @@ import * as config from 'prometheus_exporter.config';
 import * as scrape from 'prometheus_exporter.scrape';
 import * as exposition from 'prometheus_exporter.exposition';
 
+/**
+ * What `collector check` takes of the system, as the module's top comment
+ * says.
+ *
+ * @typedef {{
+ *   fs: module:fs,
+ *   uci: UciCursor,
+ *   env: ScrapeEnv,
+ *   import_path: function(string): CollectorModule,
+ *   probe: function(string, function(string): CollectorModule): ProbeOutcome,
+ *   installed: Collector[],
+ *   clock: () => int[]
+ * }} ConformSys
+ */
+
 const LABELS = { ok: 'ok  ', warn: 'warn', fail: 'FAIL' };
 
 // The families the report names, at most: a line, not a page.
 const FAMILIES_SHOWN = 8;
 
-// What a run fails with that breaks the contract, whatever the device: the
-// exporter stopped it, or it did not answer as a collector does.
+/**
+ * What a run fails with that breaks the contract, whatever the device: the
+ * exporter stopped it, or it did not answer as a collector does.
+ *
+ * @type {string[]}
+ */
 export const BROKEN = [
 	errors.COLLECTOR_CANCELLED, errors.COLLECTOR_KILLED, errors.SAMPLE_LIMIT, errors.FAMILY_CONFLICT,
 	errors.COLLECTOR_CRASHED, errors.COLLECTOR_NO_RESULT, errors.SCRAPE_DEADLINE, errors.CONFIG_INVALID,
 	errors.COMMAND_NOT_ALLOWED,
 ];
 
-// A module's file's name, less .uc: its module name, which meta.name follows.
+/**
+ * A module's file's name, less .uc: its module name, which meta.name follows.
+ *
+ * @param {?string} path the module's file.
+ * @returns {?string} the module name, or null for what is not a .uc file.
+ */
 export function id_of_path(path) {
 	let m = match(path ?? '', /(^|\/)([^\/]+)\.uc$/);
 
@@ -61,7 +89,14 @@ function writers(runs) {
 	return out;
 }
 
-// { ok, report }: ok unless a rule is broken.
+/**
+ * { ok, report }: ok unless a rule is broken.
+ *
+ * @param {ConformSys} sys the system.
+ * @param {string} path the module's file.
+ * @returns {{ ok: boolean, report: string }} whether it keeps the contract,
+ *   and the report, a line each.
+ */
 export function run(sys, path) {
 	let lines = [];
 	let ok = true;

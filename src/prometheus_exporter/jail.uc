@@ -1,48 +1,97 @@
-'use strict';
+/**
+ * What procd's jail mounts for the exporter: what its installed and enabled
+ * collectors declare they need from the filesystem, and nothing more. procfs,
+ * sysfs, /dev/log and the ubus socket come with the jail's options, and the
+ * exporter's code and libraries with the init script's own mounts.
+ *
+ * A collector gets /etc/config/<c> for each of its meta.configs, the paths of
+ * meta.paths, and with exec, /bin/sh (popen's shell) and each of its commands
+ * as found on PATH; a command missing there is a problem, unless it is one of
+ * meta.optional_commands. ujail mounts a binary's shared libraries along with
+ * it. It cannot mount a socket itself (it opens what it mounts), so a
+ * collector declares a socket's directory.
+ *
+ * A path of meta.paths that is not there is left out of the mounts (ujail
+ * would leave it out too), and is `missing`: once it is there, the mounts
+ * differ, and a reload restarts the exporter with it. The init script runs a
+ * watcher while a path is missing (unbound's socket directory, which unbound
+ * makes when it starts, after the exporter at boot), which asks for that reload.
+ *
+ * A path declared { path, owned: true } is the exporter's own: a directory no
+ * other service makes (textfile's), which the init script makes, before it
+ * mounts it, when it is not there (make()). Never another service's.
+ *
+ * sys: { uci: a uci cursor, fs: { stat }, path: the PATH commands are found on }
+ *
+ * @module prometheus_exporter_jail
+ */
 
-// What procd's jail mounts for the exporter: what its installed and enabled
-// collectors declare they need from the filesystem, and nothing more. procfs,
-// sysfs, /dev/log and the ubus socket come with the jail's options, and the
-// exporter's code and libraries with the init script's own mounts.
-//
-// A collector gets /etc/config/<c> for each of its meta.configs, the paths of
-// meta.paths, and with exec, /bin/sh (popen's shell) and each of its commands
-// as found on PATH; a command missing there is a problem, unless it is one of
-// meta.optional_commands. ujail mounts a binary's shared libraries along with
-// it. It cannot mount a socket itself (it opens what it mounts), so a
-// collector declares a socket's directory.
-//
-// A path of meta.paths that is not there is left out of the mounts (ujail
-// would leave it out too), and is `missing`: once it is there, the mounts
-// differ, and a reload restarts the exporter with it. The init script runs a
-// watcher while a path is missing (unbound's socket directory, which unbound
-// makes when it starts, after the exporter at boot), which asks for that reload.
-//
-// A path declared { path, owned: true } is the exporter's own: a directory no
-// other service makes (textfile's), which the init script makes, before it
-// mounts it, when it is not there (make()). Never another service's.
-//
-// sys: { uci: a uci cursor, fs: { stat }, path: the PATH commands are found on }
+'use strict';
 
 import * as Result from 'prometheus_exporter.result';
 import * as config from 'prometheus_exporter.config';
 import { uci_handles } from 'prometheus_exporter.deps';
 import { DIR as STATE_DIR } from 'prometheus_exporter.state';
 
+/**
+ * What the jail's functions take of the system, as the module's top comment
+ * says: a uci cursor, fs (its stat; jailed's also glob, readfile and popen)
+ * and the PATH commands are found on (PATH when null).
+ *
+ * @typedef {{ uci: UciCursor, fs: module:fs, path: ?string }} JailSys
+ */
+
+/**
+ * What one collector gets in the jail, as collector() gives it.
+ *
+ * @typedef {{
+ *   enabled: boolean,
+ *   options: Result<Object>,
+ *   configs: string[],
+ *   paths: string[],
+ *   owned: string[],
+ *   commands: Object<string, ?string>,
+ *   mounts: string[],
+ *   problems: string[],
+ *   missing: string[]
+ * }} CollectorJail
+ */
+
+/**
+ * Where uci's configs are.
+ *
+ * @type {string}
+ */
 export const CONFIG_DIR = '/etc/config';
+
+/**
+ * The exporter's own config, which every jail has.
+ *
+ * @type {string}
+ */
 export const OWN_CONFIG = `${CONFIG_DIR}/${config.NAME}`;
+
+/**
+ * popen's shell, which a collector that runs programs gets.
+ *
+ * @type {string}
+ */
 export const SHELL = '/bin/sh';
 
-// What every jail of the service has, whatever its collectors declare: what
-// procd's jail options give (procfs, sysfs, the log's socket and ubus's) and
-// ujail itself (its devices and resolv.conf), and the init script's own
-// mounts (the exporter's code, ucode's modules and the libraries they load,
-// the handler, the shell, the exporter's config and its state). A path that
-// ends in '*' is every file whose path starts with the rest. Nothing else is
-// there but what the enabled collectors declare: a collector reads these
-// without declaring them, though only procfs and sysfs are meant for it.
-// test/context.uc runs a collector's tests in a filesystem of these and its
-// own mounts, and a test holds the init script to this list.
+/**
+ * What every jail of the service has, whatever its collectors declare: what
+ * procd's jail options give (procfs, sysfs, the log's socket and ubus's) and
+ * ujail itself (its devices and resolv.conf), and the init script's own
+ * mounts (the exporter's code, ucode's modules and the libraries they load,
+ * the handler, the shell, the exporter's config and its state). A path that
+ * ends in '*' is every file whose path starts with the rest. Nothing else is
+ * there but what the enabled collectors declare: a collector reads these
+ * without declaring them, though only procfs and sysfs are meant for it.
+ * test/context.uc runs a collector's tests in a filesystem of these and its
+ * own mounts, and a test holds the init script to this list.
+ *
+ * @type {string[]}
+ */
 export const COMMON = [
 	'/proc', '/sys', '/dev/log', '/var/run/ubus/ubus.sock',
 	'/dev/null', '/dev/zero', '/dev/full', '/dev/random', '/dev/urandom', '/etc/resolv.conf',
@@ -51,11 +100,19 @@ export const COMMON = [
 	SHELL, OWN_CONFIG, STATE_DIR,
 ];
 
-// procd's PATH, which the jailed uhttpd and so popen's shell have.
+/**
+ * procd's PATH, which the jailed uhttpd and so popen's shell have.
+ *
+ * @type {string}
+ */
 export const PATH = '/usr/sbin:/usr/bin:/sbin:/bin';
 
-// Directories that hold what belongs to every service: never mounted whole for
-// one collector.
+/**
+ * Directories that hold what belongs to every service: never mounted whole for
+ * one collector.
+ *
+ * @type {string[]}
+ */
 export const BROAD = [
 	'/', '/bin', '/dev', '/etc', '/etc/config', '/lib', '/proc', '/run', '/sbin', '/sys', '/tmp', '/tmp/run',
 	'/usr', '/usr/bin', '/usr/lib', '/usr/sbin', '/usr/share', '/var', '/var/run',
@@ -64,8 +121,13 @@ export const BROAD = [
 // `{option}` in a path of meta.paths: the value of a string option.
 const PLACEHOLDER = /\{([a-z][a-z0-9_]*)\}/g;
 
-// Why `p` cannot be a mount, or null. The init script hands procd the mounts
-// unquoted, so a space or a glob character would be read as the shell does.
+/**
+ * Why `p` cannot be a mount, or null. The init script hands procd the mounts
+ * unquoted, so a space or a glob character would be read as the shell does.
+ *
+ * @param {*} p the path; anything but an absolute path string is a problem.
+ * @returns {?string} why, or null.
+ */
 export function path_problem(p) {
 	if (type(p) != 'string' || substr(p, 0, 1) != '/')
 		return `${sprintf('%J', p)} is not an absolute path`;
@@ -79,13 +141,24 @@ export function path_problem(p) {
 	return null;
 };
 
-// The option names a path of meta.paths holds as {name}.
+/**
+ * The option names a path of meta.paths holds as {name}.
+ *
+ * @param {string} template a path of meta.paths.
+ * @returns {string[]} the names, in order.
+ */
 export function placeholders(template) {
 	return map(match(template, PLACEHOLDER) ?? [], (m) => m[1]);
 };
 
-// A path of meta.paths with its {option}s filled in, or null when one of them
-// is not a string.
+/**
+ * A path of meta.paths with its {option}s filled in, or null when one of them
+ * is not a string.
+ *
+ * @param {string} template a path of meta.paths.
+ * @param {?Object} options the collector's options, typed.
+ * @returns {?string} the path.
+ */
 export function fill(template, options) {
 	let missing = false;
 	let p = replace(template, PLACEHOLDER, function(m, name) {
@@ -102,7 +175,14 @@ export function fill(template, options) {
 	return missing ? null : p;
 };
 
-// Where the shell finds `cmd` on `search` (a PATH), or null.
+/**
+ * Where the shell finds `cmd` on `search` (a PATH), or null.
+ *
+ * @param {module:fs} fs what looks: an object of fs's stat.
+ * @param {string} search a PATH: directories, separated by ':'.
+ * @param {string} cmd the command: a name, or a path when it holds a '/'.
+ * @returns {?string} the command's path.
+ */
 export function which(fs, search, cmd) {
 	if (index(cmd, '/') >= 0)
 		return fs.stat(cmd)?.type == 'file' ? cmd : null;
@@ -130,8 +210,16 @@ function call_paths(fn, options, handles) {
 	return { paths: got };
 }
 
-// { paths, owned, problems } of meta.paths for these typed options and uci
-// handles; `owned` are the paths declared { path, owned: true }.
+/**
+ * { paths, owned, problems } of meta.paths for these typed options and uci
+ * handles; `owned` are the paths declared { path, owned: true }.
+ *
+ * @param {Meta} meta the collector's meta.
+ * @param {Object} options its options, typed.
+ * @param {Object<string, UciHandle>} handles uci handles over its configs.
+ * @returns {{ paths: string[], owned: string[], problems: string[] }} the
+ *   paths, sorted and once each, the owned ones, and what went wrong.
+ */
 export function resolve_paths(meta, options, handles) {
 	let paths = [];
 	let owned = [];
@@ -183,10 +271,16 @@ export function resolve_paths(meta, options, handles) {
 	return { paths: sort(uniq(paths)), owned: sort(uniq(owned)), problems };
 };
 
-// What one collector gets in the jail: { enabled, options (a Result), configs,
-// paths, owned, commands ({ name: path or null }), mounts, problems, missing }.
-// `missing` are the paths not there now, which the mounts leave out; not the
-// owned ones, which the service makes before it mounts them.
+/**
+ * What one collector gets in the jail: { enabled, options (a Result), configs,
+ * paths, owned, commands ({ name: path or null }), mounts, problems, missing }.
+ * `missing` are the paths not there now, which the mounts leave out; not the
+ * owned ones, which the service makes before it mounts them.
+ *
+ * @param {Collector} c the collector.
+ * @param {JailSys} sys the system.
+ * @returns {CollectorJail} what it gets.
+ */
 export function collector(c, sys) {
 	let meta = c.meta;
 	let options = config.collector(sys.uci, c.id, meta);
@@ -231,10 +325,17 @@ export function collector(c, sys) {
 	};
 };
 
-// { mounts, problems, missing, owned } of the jail for these installed
-// collectors: the exporter's config, and what each enabled one gets, sorted and
-// once each; the paths of the enabled ones that are not there, and those the
-// exporter makes. A problem names its collector.
+/**
+ * { mounts, problems, missing, owned } of the jail for these installed
+ * collectors: the exporter's config, and what each enabled one gets, sorted and
+ * once each; the paths of the enabled ones that are not there, and those the
+ * exporter makes. A problem names its collector.
+ *
+ * @param {Collector[]} collectors the installed collectors.
+ * @param {JailSys} sys the system.
+ * @returns {{ mounts: string[], problems: string[], missing: string[], owned: string[] }}
+ *   the jail's.
+ */
 export function mounts(collectors, sys) {
 	let all = [ OWN_CONFIG ];
 	let problems = [];
@@ -257,8 +358,16 @@ export function mounts(collectors, sys) {
 	return { mounts: sort(uniq(all)), problems, missing: sort(uniq(missing)), owned: sort(uniq(owned)) };
 };
 
-// Makes the directories of `paths` that are not there, and their parents:
-// { made: [ path ], problems: [ why ] }. fs: { stat, mkdir, error }.
+/**
+ * Makes the directories of `paths` that are not there, and their parents:
+ * { made: [ path ], problems: [ why ] }. fs: { stat, mkdir, error }.
+ *
+ * @param {module:fs} fs the fs module, or an object of its stat, mkdir and
+ *   error.
+ * @param {string[]} paths the directories.
+ * @returns {{ made: string[], problems: string[] }} what it made, and why it
+ *   could not.
+ */
 export function make(fs, paths) {
 	let made = [];
 	let problems = [];

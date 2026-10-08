@@ -1,35 +1,54 @@
-'use strict';
+/**
+ * `prometheus-exporter check`, which `service prometheus-exporter check` runs:
+ * the configuration, checked as the exporter and the init script read it;
+ * every installed collector, with its section, options, needs and what the
+ * jail gives it; and one scrape, in the service's own jail where it can be had
+ * (prometheus_exporter.jailed), else here, each collector in a process of its
+ * own and stopped at its limit, as the service's scrapes run them
+ * (scrape.trial), with each collector that fails and why, and each that has
+ * nothing to observe and why (a success: 'dnsmasq is disabled'). With
+ * config_only (check --config, which start and reload run) it stops after
+ * the configuration. Only an invalid configuration makes it fail.
+ *
+ * It also says what the service's own scrapes found, from the ledger of its
+ * running instance (prometheus_exporter.ledger): each collector quarantined,
+ * why and when it is tried again, and each the deadline left out lately.
+ * Its own scrape runs every enabled collector all the same, quarantined or
+ * not: it is there to see what each does.
+ *
+ * sys: { uci: a uci cursor, fs: { stat, readfile }, path: the PATH commands are found on,
+ *        collectors: the loaded ones, skipped: what the loader logged,
+ *        env: a scrape env (prometheus_exporter.scrape, app.scrape_env),
+ *        trial(chosen, here) -> { jailed, runs }: the run of `chosen` in the
+ *        service's jail (prometheus_exporter.jailed), here() where it cannot
+ *        be had; without it, here,
+ *        ledger: the service's ledger, or null when it has none }
+ *
+ * @module prometheus_exporter_check
+ */
 
-// `prometheus-exporter check`, which `service prometheus-exporter check` runs:
-// the configuration, checked as the exporter and the init script read it;
-// every installed collector, with its section, options, needs and what the
-// jail gives it; and one scrape, in the service's own jail where it can be had
-// (prometheus_exporter.jailed), else here, each collector in a process of its
-// own and stopped at its limit, as the service's scrapes run them
-// (scrape.trial), with each collector that fails and why, and each that has
-// nothing to observe and why (a success: 'dnsmasq is disabled'). With
-// config_only (check --config, which start and reload run) it stops after
-// the configuration. Only an invalid configuration makes it fail.
-//
-// It also says what the service's own scrapes found, from the ledger of its
-// running instance (prometheus_exporter.ledger): each collector quarantined,
-// why and when it is tried again, and each the deadline left out lately.
-// Its own scrape runs every enabled collector all the same, quarantined or
-// not: it is there to see what each does.
-//
-// sys: { uci: a uci cursor, fs: { stat, readfile }, path: the PATH commands are found on,
-//        collectors: the loaded ones, skipped: what the loader logged,
-//        env: a scrape env (prometheus_exporter.scrape, app.scrape_env),
-//        trial(chosen, here) -> { jailed, runs }: the run of `chosen` in the
-//        service's jail (prometheus_exporter.jailed), here() where it cannot
-//        be had; without it, here,
-//        ledger: the service's ledger, or null when it has none }
+'use strict';
 
 import * as Result from 'prometheus_exporter.result';
 import * as config from 'prometheus_exporter.config';
 import * as jail from 'prometheus_exporter.jail';
 import * as scrape from 'prometheus_exporter.scrape';
 import * as ledger from 'prometheus_exporter.ledger';
+
+/**
+ * What check takes of the system, as the module's top comment says.
+ *
+ * @typedef {{
+ *   uci: UciCursor,
+ *   fs: module:fs,
+ *   path: ?string,
+ *   collectors: Collector[],
+ *   skipped: ?string[],
+ *   env: ScrapeEnv,
+ *   trial: ?function(Collector[], function(): Run[]): Trial,
+ *   ledger: ?Ledger
+ * }} CheckSys
+ */
 
 const LABELS = { ok: 'ok  ', warn: 'warn', fail: 'FAIL' };
 
@@ -184,9 +203,15 @@ function describe_collectors(sys, add_line, add) {
 	return enabled;
 }
 
-// A run of each of `chosen`: sys.trial's, in the service's jail where it can
-// be had ({ jailed, runs }), or else here, guarded as the service's are
-// (scrape.trial).
+/**
+ * A run of each of `chosen`: sys.trial's, in the service's jail where it can
+ * be had ({ jailed, runs }), or else here, guarded as the service's are
+ * (scrape.trial).
+ *
+ * @param {CheckSys} sys the system.
+ * @param {Collector[]} chosen the collectors to run.
+ * @returns {Trial} the runs.
+ */
 export function trial(sys, chosen) {
 	let here = () => scrape.trial(sys.env, sys.uci, sys.ledger, chosen, sys.collectors);
 
@@ -230,7 +255,14 @@ function check_service(sys, add) {
 	}
 }
 
-// { ok, report }: ok unless the configuration is invalid.
+/**
+ * { ok, report }: ok unless the configuration is invalid.
+ *
+ * @param {CheckSys} sys the system.
+ * @param {?{ config_only: ?boolean }} opts config_only: check --config.
+ * @returns {{ ok: boolean, report: string }} whether the configuration is
+ *   valid, and the report, a line each.
+ */
 export function run(sys, opts) {
 	let lines = [];
 	let ok = true;
@@ -257,16 +289,31 @@ export function run(sys, opts) {
 	return { ok, report: join('\n', lines) };
 };
 
+/**
+ * uhttpd, the program a serving instance runs.
+ *
+ * @type {string}
+ */
 export const UHTTPD = '/usr/sbin/uhttpd';
 
-// The service's instances that serve /metrics, of all procd lists for it: not
-// the watch instance, which runs beside uhttpd while a path is missing.
+/**
+ * The service's instances that serve /metrics, of all procd lists for it: not
+ * the watch instance, which runs beside uhttpd while a path is missing.
+ *
+ * @param {?Object[]} instances procd's instances of the service.
+ * @returns {Object[]} those whose command runs UHTTPD.
+ */
 export function exporters(instances) {
 	return filter(instances ?? [], (i) => i?.command?.[0] == UHTTPD);
 };
 
-// The addresses of uhttpd's command line, as URLs: what follows each -p (HTTP)
-// and -s (HTTPS).
+/**
+ * The addresses of uhttpd's command line, as URLs: what follows each -p (HTTP)
+ * and -s (HTTPS).
+ *
+ * @param {string[]} command uhttpd's command line.
+ * @returns {string[]} the URLs of /metrics.
+ */
 export function listening(command) {
 	let urls = [];
 
@@ -281,8 +328,13 @@ export function listening(command) {
 	return urls;
 };
 
-// Whether uhttpd's command line has it check basic auth: a config file (-c)
-// other than /dev/null.
+/**
+ * Whether uhttpd's command line has it check basic auth: a config file (-c)
+ * other than /dev/null.
+ *
+ * @param {string[]} command uhttpd's command line.
+ * @returns {boolean} whether it does.
+ */
 export function logs_in(command) {
 	for (let i = 0; i < length(command) - 1; i++)
 		if (command[i] == '-c' && command[i + 1] != '/dev/null')
@@ -291,9 +343,16 @@ export function logs_in(command) {
 	return false;
 };
 
-// What status prints of a running exporter: where it listens, whether a scrape
-// logs in (basic auth), whether it is compressed when asked (compress, as
-// configured), and how many collectors it serves (the installed and enabled).
+/**
+ * What status prints of a running exporter: where it listens, whether a scrape
+ * logs in (basic auth), whether it is compressed when asked (compress, as
+ * configured), and how many collectors it serves (the installed and enabled).
+ *
+ * @param {string[]} command uhttpd's command line.
+ * @param {Collector[]} collectors the installed collectors.
+ * @param {UciCursor} uci the cursor.
+ * @returns {string} the line.
+ */
 export function status(command, collectors, uci) {
 	let serving = length(filter(collectors, (c) => config.enabled(uci, c.id)));
 	let main = config.main(uci);
