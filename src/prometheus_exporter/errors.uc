@@ -34,7 +34,8 @@ export const SOURCE_INVALID       = 'SOURCE_INVALID';
 export const COLLECTOR_CRASHED    = 'COLLECTOR_CRASHED';
 
 /**
- * The collector returned something other than a Result.
+ * The collector returned something other than a Result, or a failure without
+ * an error code.
  *
  * @type {string}
  */

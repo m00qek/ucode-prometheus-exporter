@@ -9,6 +9,7 @@ import * as scrape from 'prometheus_exporter.scrape';
 import * as loader from 'prometheus_exporter.loader';
 import * as deps from 'prometheus_exporter.deps';
 import * as Result from 'prometheus_exporter.result';
+import * as api from 'prometheus_exporter.api';
 import * as exposition from 'prometheus_exporter.exposition';
 import * as ledger from 'prometheus_exporter.ledger';
 import { seconds } from 'prometheus_exporter.deadline';
@@ -225,6 +226,36 @@ describe('runner.forked', () => {
 		let runs = run_with(dying_env([], [ 1, 3 ]), [ gauge('a', 1), LOOP, gauge('c', 3) ], 0.3, {});
 
 		assert.match([ [ 'a', 'ok' ], [ 'loop', 'COLLECTOR_CANCELLED' ], [ 'c', 'ok' ] ], map(runs, summary));
+	});
+
+	// The in-process runner the tests use, and the forked one the service
+	// does: a failure without a code once was COLLECTOR_KILLED across the
+	// pipe, which quarantines at once, and null here.
+	it('gives a failure without an error code the same code forked and inline: COLLECTOR_NO_RESULT, never COLLECTOR_KILLED', () => {
+		let codeless = collector('codeless', () => Result.err(null, 'garbled'));
+		let unknown = collector('unknown', () => Result.err(api.errors.COLLECTOR_CRASHED));
+		let forked = run_forked([ codeless, unknown ], 5).runs;
+		let inline = [];
+
+		runner.inline(env_of([]), scrape.run_one).run({
+			queue: [ codeless, unknown ],
+			next: function() {
+				let c = shift(this.queue);
+
+				return c ? { c, settings: { budget: 5, max_samples: 10, options: {} } } : null;
+			},
+			done: (job, r) => push(inline, r),
+		});
+
+		assert.match([ [ 'codeless', 'COLLECTOR_NO_RESULT' ], [ 'unknown', 'COLLECTOR_NO_RESULT' ] ], map(forked, summary));
+		assert.match(map(forked, (r) => Result.describe(r.result)), map(inline, (r) => Result.describe(r.result)));
+		assert.match('COLLECTOR_NO_RESULT (failed without an error code: garbled)', Result.describe(forked[0].result));
+	});
+
+	it('unpacks a run packed with a failure without a code as COLLECTOR_NO_RESULT', () => {
+		let packed = sprintf('%J\n', { name: 'x', id: 'x', samples: 0, duration: 0, logs: [], families: [], result: { ok: false } });
+
+		assert.match('COLLECTOR_NO_RESULT', runner.unpack(packed).run.result.error);
 	});
 
 	it('leaves no child behind', () => {

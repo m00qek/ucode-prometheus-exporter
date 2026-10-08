@@ -270,6 +270,13 @@ export function run_one(env, session, collector, job) {
 			} catch (e) {
 				res = Result.err(errors.COLLECTOR_CRASHED, split(e.message, '\n')[0]);
 			}
+
+			// A code the API does not export (errors.COLLECTOR_CRASHED) is
+			// null: a failure without one is not a Result as the contract
+			// says, here or in the child, whatever crosses the pipe.
+			if (!res.ok && (type(res.error) != 'string' || res.error == ''))
+				res = Result.err(errors.COLLECTOR_NO_RESULT,
+					'failed without an error code' + ((res.details != null) ? `: ${res.details}` : ''), res.data);
 		}
 	}
 

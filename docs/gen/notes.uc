@@ -211,7 +211,7 @@ export const errors = {
 	SOURCE_UNREADABLE: 'A file the collector reads is not there or cannot be read. The detail names it.',
 	SOURCE_INVALID: 'What the collector read is not what it expects: a file, a ubus reply or a program\'s output it cannot parse. The detail says where.',
 	COLLECTOR_CRASHED: 'The collector died with an exception. The detail is the exception\'s first line.',
-	COLLECTOR_NO_RESULT: 'The collector returned something other than a Result. The detail says what.',
+	COLLECTOR_NO_RESULT: 'The collector returned something other than a Result, or a failure without an error code (a code the collector API does not export is null). The detail says what.',
 	COLLECTOR_INVALID: 'A collector module that cannot be loaded as one (its `meta` or `collect`), which the exporter leaves out; or a query that names a collector that is not installed, or one that is disabled, which is answered 400.',
 	CONFIG_INVALID: 'An option has a value the exporter does not take, or options that go together are not set together. The detail is `<option>: expected <what>, got <value>` (never the value of `auth_password`), or what is missing.',
 	FILE_UNWRITABLE: 'The init script could not write or remove uhttpd\'s basic auth file, `/var/run/prometheus-exporter/uhttpd.conf`.',

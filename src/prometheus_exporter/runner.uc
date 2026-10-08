@@ -177,9 +177,11 @@ export function unpack(text) {
 	let res = head.result ?? {};
 	let families = head.families ?? [];
 
+	// run_one gives every failure its code: none is a run packed some other
+	// way, never one the collector was killed in.
 	let result = res.ok
 		? ((res.none != null) ? Result.none(res.none) : Result.ok(res.data))
-		: Result.err(res.error ?? errors.COLLECTOR_KILLED, res.details, res.data);
+		: Result.err(res.error ?? errors.COLLECTOR_NO_RESULT, res.details, res.data);
 
 	return {
 		run: {
