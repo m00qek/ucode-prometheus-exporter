@@ -1,8 +1,12 @@
-'use strict';
+/**
+ * The Prometheus text exposition format, version 0.0.4, read back, strictly:
+ * textfile reads its *.prom files with parse(), a recorder's parse() the text
+ * a collector adds, and the tests every scrape they make.
+ *
+ * @module prometheus_exporter_exposition_parse
+ */
 
-// The Prometheus text exposition format, version 0.0.4, read back, strictly:
-// textfile reads its *.prom files with parse(), a recorder's parse() the text
-// a collector adds, and the tests every scrape they make.
+'use strict';
 
 import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
@@ -106,10 +110,16 @@ function series_key(name, pairs) {
 	return name + format_labels(sort([ ...pairs ], (a, b) => a[0] < b[0] ? -1 : 1));
 }
 
-// The families in exposition text, or EXPOSITION_INVALID naming the first line
-// that breaks the format: a malformed line, a TYPE or HELP given twice or after
-// the family's samples, a family whose lines are not all together, a value that
-// is not a number, or the same series twice.
+/**
+ * The families in exposition text, or EXPOSITION_INVALID naming the first line
+ * that breaks the format: a malformed line, a TYPE or HELP given twice or after
+ * the family's samples, a family whose lines are not all together, a value that
+ * is not a number, or the same series twice.
+ *
+ * @param {?string} text exposition text; null reads as none.
+ * @returns {Result<Family[]>} its families, in the order they first appear,
+ *   each { name, type, help, samples }.
+ */
 export function parse(text) {
 	let set = family_set();
 	let declared = {};

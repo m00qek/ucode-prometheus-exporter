@@ -1,30 +1,81 @@
-'use strict';
+/**
+ * The Prometheus text exposition format, version 0.0.4.
+ *
+ * A family is { name, type, help, samples }; a sample is { name, labels, value, ts }
+ * with labels as [ name, value ] pairs in order and value and ts already spelled
+ * as the format wants them. Collectors record families (recorder), the scrape
+ * merges them by name (merge) and writes them once (render). parse() reads the
+ * format back, strictly (prometheus_exporter.exposition.parse): textfile uses
+ * it for *.prom files, the tests for every scrape they make. How names, values
+ * and labels are spelled is prometheus_exporter.exposition.format's.
+ *
+ * It is the format's module for every other: the modules of exposition/
+ * are its own, and what others take of them it exports (TYPES, sanitize,
+ * format_value, escape_label, parse).
+ *
+ * A recorded sample also has its `line`, written when it is recorded: every
+ * operation of ucode's VM costs about a microsecond on a router's CPU, and a
+ * scrape writes thousands of samples, so a sample costs as few as can be. A
+ * collector that writes several families of the same labels (a device's
+ * statistics, a station's) makes them once with labels() and passes that:
+ * they are then checked and written once, not once per family.
+ *
+ * @module prometheus_exporter_exposition
+ */
 
-// The Prometheus text exposition format, version 0.0.4.
-//
-// A family is { name, type, help, samples }; a sample is { name, labels, value, ts }
-// with labels as [ name, value ] pairs in order and value and ts already spelled
-// as the format wants them. Collectors record families (recorder), the scrape
-// merges them by name (merge) and writes them once (render). parse() reads the
-// format back, strictly (prometheus_exporter.exposition.parse): textfile uses
-// it for *.prom files, the tests for every scrape they make. How names, values
-// and labels are spelled is prometheus_exporter.exposition.format's.
-//
-// It is the format's module for every other: the modules of exposition/
-// are its own, and what others take of them it exports (TYPES, sanitize,
-// format_value, escape_label, parse).
-//
-// A recorded sample also has its `line`, written when it is recorded: every
-// operation of ucode's VM costs about a microsecond on a router's CPU, and a
-// scrape writes thousands of samples, so a sample costs as few as can be. A
-// collector that writes several families of the same labels (a device's
-// statistics, a station's) makes them once with labels() and passes that:
-// they are then checked and written once, not once per family.
+'use strict';
 
 import * as Result from 'prometheus_exporter.result';
 import * as format from 'prometheus_exporter.exposition.format';
 import * as parser from 'prometheus_exporter.exposition.parse';
 import { METRIC_NAMES, label_text, sample_line, header, add_family, family_set, families_of } from 'prometheus_exporter.exposition.format';
+
+/**
+ * A sample as parse() reads it: its name, its labels as [ name, value ]
+ * pairs in order, and its value and timestamp as the format spells them.
+ *
+ * @typedef {{ name: string, labels: string[][], value: string, ts: ?string }} Sample
+ */
+
+/**
+ * A family as parse() reads it: { name, type, help, samples }, type one of
+ * TYPES.
+ *
+ * @typedef {{ name: string, type: string, help: ?string, samples: Sample[] }} Family
+ */
+
+/**
+ * A family as a recorder keeps it: each sample as the line the format writes,
+ * and for a counter the values, which render()'s omit_zero_counters reads.
+ *
+ * @typedef {{ name: string, type: string, help: ?string, lines: string[], values: string[] }} RecordedFamily
+ */
+
+/**
+ * What counter(), gauge() and untyped() return: (labels, value) records a
+ * sample and returns itself, so samples chain. `labels` is an object, or
+ * what labels() made of one, or null for none; `value` is anything, and is
+ * skipped when it is not a number (format_value).
+ *
+ * @typedef {(labels: ?(Object|string), value: *) => SampleWriter} SampleWriter
+ */
+
+/**
+ * What a collector writes to, as recorder() makes it: what collect() gets as
+ * `out`.
+ *
+ * @typedef {{
+ *   counter: (name: string, help: ?string) => SampleWriter,
+ *   gauge: (name: string, help: ?string) => SampleWriter,
+ *   untyped: (name: string, help: ?string) => SampleWriter,
+ *   labels: (labels: ?Object) => string,
+ *   parse: (text: string) => Result<null>,
+ *   add: (families: Family[]) => void,
+ *   families: () => RecordedFamily[],
+ *   conflicts: () => string[],
+ *   over: () => ?{ family: string, samples: int }
+ * }} Recorder
+ */
 
 // The format's types, a name made valid, a value as the format spells it, a
 // label value escaped, and exposition text read back.
@@ -44,25 +95,35 @@ function as_lines(fam) {
 	};
 }
 
-// What a collector writes to. counter/gauge/untyped(name, help) returns
-// (labels, value) => itself, so samples chain; a value that is not a number is
-// skipped. labels(labels) is the labels for several samples (a station's,
-// a device's), written once: pass it where the labels go. parse(text) adds
-// exposition text, which must be valid as a whole; add(families) adds what
-// parse() gave.
-//
-// A family it records is { name, type, help, lines, values }: each sample as
-// the line the format writes, and for a counter the values, which render()'s
-// omit_zero_counters reads.
-//
-// It takes at most `max` samples (none: no limit). The sample past them is not
-// recorded, and stops the collector: it throws, and so does every sample after
-// it, should the collector catch that. over() is then { family, samples }: the
-// family it was writing and the samples it had written with that one, or null
-// while it is under. A runaway costs neither the time nor the memory of what it
-// would have gone on writing.
+/**
+ * What a recorder dies with at the sample past its `max` (see recorder).
+ *
+ * @type {string}
+ */
 export const OVER_LIMIT = 'prometheus_exporter: over the sample limit';
 
+/**
+ * What a collector writes to. counter/gauge/untyped(name, help) returns
+ * (labels, value) => itself, so samples chain; a value that is not a number is
+ * skipped. labels(labels) is the labels for several samples (a station's,
+ * a device's), written once: pass it where the labels go. parse(text) adds
+ * exposition text, which must be valid as a whole; add(families) adds what
+ * parse() gave.
+ *
+ * A family it records is { name, type, help, lines, values }: each sample as
+ * the line the format writes, and for a counter the values, which render()'s
+ * omit_zero_counters reads.
+ *
+ * It takes at most `max` samples (none: no limit). The sample past them is not
+ * recorded, and stops the collector: it throws, and so does every sample after
+ * it, should the collector catch that. over() is then { family, samples }: the
+ * family it was writing and the samples it had written with that one, or null
+ * while it is under. A runaway costs neither the time nor the memory of what it
+ * would have gone on writing.
+ *
+ * @param {?int} max the most samples it takes; null for no limit.
+ * @returns {Recorder} the recorder.
+ */
 export function recorder(max) {
 	let set = family_set();
 	let conflicts = [];
@@ -148,11 +209,17 @@ export function recorder(max) {
 	};
 };
 
-// The families of several recorders as one list, merged by name in the order
-// they first appear. { families, conflicts }: the names declared with two types.
-//
-// A family only one list has (most) is taken as it is, not copied; it is
-// copied when a second list has it too, so no list's family is changed.
+/**
+ * The families of several recorders as one list, merged by name in the order
+ * they first appear. { families, conflicts }: the names declared with two types.
+ *
+ * A family only one list has (most) is taken as it is, not copied; it is
+ * copied when a second list has it too, so no list's family is changed.
+ *
+ * @param {(RecordedFamily|Family)[][]} lists the lists of families.
+ * @returns {{ families: RecordedFamily[], conflicts: string[] }} the
+ *   families, merged, and the names declared with two types.
+ */
 export function merge(lists) {
 	let set = family_set();
 	// By name: where its family is in set.list, and whether that is a copy.
@@ -191,10 +258,16 @@ export function merge(lists) {
 	return { families: set.list, conflicts: uniq(conflicts) };
 };
 
-// The text of families as a recorder or merge() keeps them, or as parse()
-// gives them. opts.omit_zero_counters leaves out counter samples whose value
-// is 0 (the lua exporter's omit_zero_values). A family left without samples
-// is not written.
+/**
+ * The text of families as a recorder or merge() keeps them, or as parse()
+ * gives them. opts.omit_zero_counters leaves out counter samples whose value
+ * is 0 (the lua exporter's omit_zero_values). A family left without samples
+ * is not written.
+ *
+ * @param {(RecordedFamily|Family)[]} families the families.
+ * @param {?{ omit_zero_counters: ?boolean }} opts the options; null for none.
+ * @returns {string} the text, each line ended by a newline; '' for none.
+ */
 export function render(families, opts) {
 	let parts = [];
 	let omit = opts?.omit_zero_counters;
@@ -220,12 +293,19 @@ export function render(families, opts) {
 	return length(parts) ? join('\n', parts) + '\n' : '';
 };
 
-// A collector's families as a scrape keeps its run: { families, text }, the
-// families' names and types, which a scrape needs to say whose each family
-// is (prometheus_exporter.ownership), and the text render() writes of them,
-// with `omit` (omit_zero_values). The reply is the text of each collector,
-// one after the other: a family is one collector's, so the reply has it once
-// without a merge.
+/**
+ * A collector's families as a scrape keeps its run: { families, text }, the
+ * families' names and types, which a scrape needs to say whose each family
+ * is (prometheus_exporter.ownership), and the text render() writes of them,
+ * with `omit` (omit_zero_values). The reply is the text of each collector,
+ * one after the other: a family is one collector's, so the reply has it once
+ * without a merge.
+ *
+ * @param {RecordedFamily[]} families the collector's families.
+ * @param {?boolean} omit omit_zero_values.
+ * @returns {{ families: { name: string, type: string }[], text: string }} its
+ *   families' names and types, and their text.
+ */
 export function pack(families, omit) {
 	return {
 		families: map(families, (f) => ({ name: f.name, type: f.type })),
