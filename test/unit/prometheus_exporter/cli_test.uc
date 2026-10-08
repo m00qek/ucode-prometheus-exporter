@@ -5,6 +5,7 @@ import * as cli from 'prometheus_exporter.cli';
 import * as config from 'prometheus_exporter.config';
 import * as crypt from 'prometheus_exporter.crypt';
 import { with_mods } from 'context';
+import { shell_quote } from 'prometheus_exporter.deps';
 
 const COMMAND = 'files/usr/bin/prometheus-exporter';
 // ucode takes a module path that is absolute.
@@ -126,6 +127,54 @@ describe('cli.run hash-password', () => {
 			assert.match([ 1, '' ], [ r.status, r.out ], password);
 			assert.match(0, index(r.err, 'password: '), r.err);
 		}
+	});
+});
+
+describe('cli.read_password', () => {
+	const quiet = () => null;
+
+	// fs with a terminal, or not, on standard input: the terminal's line is
+	// what READ_PASSWORD prints, `line` either way.
+	function fs_of(tty, line) {
+		let ran = [];
+		let fs = {
+			stdin: { isatty: () => tty, read: (what) => (what == 'line') ? line : null },
+			popen: function(cmd) {
+				push(ran, cmd);
+				return { read: () => (line == null) ? null : rtrim(line, '\n'), close: () => true };
+			},
+		};
+
+		return { fs, ran };
+	}
+
+	it('reads the terminal by a shell read that keeps the spaces', () => {
+		let t = fs_of(true, '  two words  \n');
+
+		assert.match('  two words  ', cli.read_password(t.fs, quiet));
+		assert.match([ cli.READ_PASSWORD ], t.ran);
+		assert.match(0, index(cli.READ_PASSWORD, 'IFS= read -rs p'));
+	});
+
+	prop('the terminal and standard input agree: only the CRs and LFs that end the line go',
+		gen.elements('  lead', 'trail  ', ' both ', 'tab\tin', 'cr\r', 'crlf\r\n', ''), (password) => {
+			let line = password + '\n';
+			let want = rtrim(password, '\r\n');
+
+			want = (want == '') ? null : want;
+			assert.match([ want, want ], [ cli.read_password(fs_of(true, line).fs, quiet), cli.read_password(fs_of(false, line).fs, quiet) ], password);
+		});
+
+	it('the shell keeps the spaces of the line it reads', () => {
+		let p = require('fs').popen(`printf '  two words  \\n' | sh -c ${shell_quote(cli.READ_PASSWORD)}`, 'r');
+		let out = p.read('all');
+
+		p.close();
+		assert.match('  two words  ', out);
+	});
+
+	it('gives null for nothing read', () => {
+		assert.match([ null, null ], [ cli.read_password(fs_of(true, null).fs, quiet), cli.read_password(fs_of(false, null).fs, quiet) ]);
 	});
 });
 

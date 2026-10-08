@@ -193,25 +193,53 @@ export function run(args, sys) {
 	return 1;
 };
 
-// A password from the terminal, which `read -s` of the shell keeps from
-// echoing (OpenWrt has no stty), or else a line of standard input. Never on
-// a command line, where ps would show it.
-function read_password(fs) {
-	if (fs.stdin.isatty()) {
-		warn('Password: ');
+/**
+ * The shell command that reads a password from the terminal: `read -s` of
+ * the shell keeps it from echoing (OpenWrt has no stty), and an empty IFS
+ * keeps the spaces it starts or ends with, which are the password's.
+ *
+ * @type {string}
+ */
+export const READ_PASSWORD = "IFS= read -rs p && printf '%s' \"$p\"";
 
-		let p = fs.popen("read -rs p && printf '%s' \"$p\"", 'r');
-		let password = p?.read('all');
+/**
+ * A password as a line read gives it: the line less the CRs and LFs that
+ * end it, and nothing else; null for an empty one.
+ *
+ * @param {?string} line the line read, or null.
+ * @returns {?string} the password, or null.
+ */
+export function password_of(line) {
+	let password = (type(line) == 'string') ? rtrim(line, '\r\n') : null;
+
+	return (password == null || password == '') ? null : password;
+};
+
+/**
+ * A password from the terminal (READ_PASSWORD), or else a line of standard
+ * input, either as password_of gives it. Never on a command line, where ps
+ * would show it.
+ *
+ * @param {module:fs} fs what reads: an object of fs's stdin and popen.
+ * @param {?function(string): void} prompt what asks for it on the terminal;
+ *   warn, to standard error, when null.
+ * @returns {?string} the password, or null.
+ */
+export function read_password(fs, prompt) {
+	if (fs.stdin.isatty()) {
+		prompt ??= warn;
+		prompt('Password: ');
+
+		let p = fs.popen(READ_PASSWORD, 'r');
+		let line = p?.read('all');
 
 		p?.close();
-		warn('\n');
-		return password;
+		prompt('\n');
+		return password_of(line);
 	}
 
-	let line = fs.stdin.read('line');
-
-	return (line == null || line == '') ? null : rtrim(line, '\r\n');
-}
+	return password_of(fs.stdin.read('line'));
+};
 
 // A collector module's exports, by its path: an import by path, as the
 // loader imports one by name.

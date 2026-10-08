@@ -10,6 +10,7 @@ What each release changes, for those who run the exporter and those who write co
 - **uhttpd kept six descriptors open for each collector.** Each collector was compiled as a program of its own, with its own copy of the collector API and the modules behind it, whose source files ucode keeps open: 268 descriptors for 37 collectors on the R3S, toward the limit of 1024. The collectors are compiled as one program, once each has loaded in a child process of its own: one descriptor each, and the API's once. Loading them takes 0.37 s on the 24Kc where it took 0.93 s, and uhttpd holds 3.5 MB where it held 5.2 MB. A collector that writes over what the API exports would now write over it for the others; none has a reason to.
 
 - **The install guide left out the feed.** The base package depends on `ucode-docopt`, which OpenWrt's feeds do not have, so its `apk add` failed on a device without the exporter's feed. [How to install the exporter](docs/how-to/install.md) adds the feed and its key first, as the README and the tutorial do, and its `.apk` example names `ucode-docopt` and no stale version.
+- **`hash-password` at a terminal dropped the spaces a password starts or ends with**, so the hash took another password than the one typed. It keeps them now, as it did from standard input: either way only the CR and LF that end the line go.
 
 ## [0.2.0] - 2026-10-08
 
