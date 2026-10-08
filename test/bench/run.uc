@@ -32,6 +32,12 @@
 //   ledger:<set>              what the ledger adds to a scrape of the set: reading and
 //                             parsing it, ordering the collectors, and recording the
 //                             scrape under the state's lock, with every collector in it
+//   noop:<n>                  a scrape of n collectors that write nothing, each in a child
+//                             process: what a scrape costs for each collector besides it
+//   record:<shape>            samples of one shape recorded and their text written: labels
+//                             (two, of an object each), double (the same, a double value),
+//                             made (one labels() set), 20,000 of each; family (a family each),
+//                             2,000
 //
 // A set is one named in WORLD/../sets.json: base, full (base and the -full group).
 
@@ -341,6 +347,88 @@ if (kind == 'calibrate') {
 	// The process uhttpd answers from, which holds every collector loaded.
 	result.server_rss_kb = held.rss_kb;
 	result.server_fds = held.fds;
+} else if (kind == 'noop') {
+	// What a scrape costs for each collector it runs, besides the collector:
+	// n collectors that write nothing, each in the child process as the
+	// service runs them: its settings, the round trip to the child and back,
+	// its four samples of the scrape's own. noop:1 less noop:<n> is that, n - 1
+	// times over (bench.uc's per_collector).
+	let n = +arg;
+	let collectors = [];
+
+	for (let i = 0; i < n; i++) {
+		let id = `noop${i}`;
+		let c = loader.validate(id, {
+			meta: { name: id, title: 'Nothing', help: 'Writes nothing.', needs: [] },
+			collect: () => Result.ok(),
+		});
+
+		if (!c.ok)
+			die(Result.describe(c));
+		push(collectors, c.data);
+	}
+
+	let mods = bench_world.modules(world, [], { lazy: true });
+	let env = {
+		session: (to) => deps.session({ ...mods, log: to ?? log }), clock: () => clock(true), log, version: 'bench',
+		fork: true, mkstemp: fs.mkstemp, readfile: fs.readfile,
+	};
+
+	mem_before = reset_peak();
+
+	let t = now();
+	let res = scrape.scrape(env, collectors, '');
+	result.time = now() - t;
+	result.collectors = n;
+	result.ok = res.status == '200 OK' && !match(res.body, /_success\{[^}]*\} 0/);
+	result.samples = samples(res.body);
+} else if (kind == 'record') {
+	// A collector's samples as the recorder takes them, and their text, as
+	// collectors write them. `labels`: two labels of an object made for each
+	// sample, an int (nat_traffic's); `double`: the same, a double (cpu's
+	// seconds); `made`: one label set labels() made, shared (a device's
+	// statistics); `family`: a family for each sample, without labels
+	// (meminfo's, netstat's), fewer, as a collector writes hundreds.
+	const RECORD_SAMPLES = 20000, RECORD_FAMILIES = 2000;
+	let n = (arg == 'family') ? RECORD_FAMILIES : RECORD_SAMPLES;
+	let pairs = [];
+
+	for (let i = 0; i < n; i++)
+		push(pairs, [ `192.168.${i % 250}.${i % 7 + 2}`, `198.51.${i % 211}.${i % 13 + 1}`, 1000 + i * 7919 ]);
+
+	mem_before = reset_peak();
+
+	let t = now();
+	let rec = exposition.recorder(n);
+
+	if (arg == 'labels') {
+		let g = rec.gauge('node_nat_traffic_bytes', 'Bytes of the connections from src to dst, both directions.');
+
+		for (let p in pairs)
+			g({ src: p[0], dst: p[1] }, p[2]);
+	} else if (arg == 'double') {
+		let g = rec.counter('node_cpu_seconds_total', 'Seconds the CPUs spent in each mode.');
+
+		for (let i, p in pairs)
+			g({ cpu: '' + (i % 4), mode: p[0] }, p[2] / 100.0);
+	} else if (arg == 'family') {
+		for (let i, p in pairs)
+			rec.gauge(`node_memory_F${i}_bytes`, `Memory information field F${i}.`)(null, p[2]);
+	} else if (arg == 'made') {
+		let l = rec.labels({ device: 'eth0' });
+		let g = rec.counter('node_network_receive_bytes_total', 'Network device statistic receive_bytes.');
+
+		for (let p in pairs)
+			g(l, p[2]);
+	} else {
+		die(`unknown record:${arg}`);
+	}
+
+	let text = exposition.pack(rec.families(), false).text;
+
+	result.time = now() - t;
+	result.ok = rec.invalid() == null && rec.over() == null;
+	result.samples = samples(text);
 } else if (kind == 'progress') {
 	let names = sets[arg] ?? die(`no set ${arg}`);
 	let dir = `${world_dir}/../state-progress`;

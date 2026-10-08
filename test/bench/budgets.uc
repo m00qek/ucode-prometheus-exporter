@@ -104,6 +104,19 @@ const MEMORY = [
 	[ 'large/collector:nat_traffic@20000', 16 * 1024, 'nat_traffic on 20k entries' ],
 ];
 
+// The noop: cases, scrapes of that many collectors that write nothing: the
+// difference is what a scrape costs per collector besides it.
+export const NOOP = [ 1, 41 ];
+
+// What a scrape costs per collector besides the collector, from the noop:
+// cases' results `one` and `many`; null without both.
+export function per_collector(one, many) {
+	if (!one?.time || !many?.time || many.collectors <= one.collectors)
+		return null;
+
+	return (many.time.median - one.time.median) / (many.collectors - one.collectors);
+};
+
 function by_case(results) {
 	let out = {};
 

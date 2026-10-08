@@ -28,6 +28,9 @@
 //   auth:<hash>, auth:cached      basic auth's check of a password, by each hash and by the cache
 //   ledger:full                   what the ledger in the state adds to a full scrape
 //   deadline:full@<n>             a full scrape for a 10 s timeout, nat_traffic on the n-entry table
+//   noop:<n>                      a scrape of n collectors that write nothing: noop:1 and noop:41
+//                                 give what a scrape costs for each collector besides it
+//   record:<shape>                the recorder's cost per sample, for each shape of sample
 
 import * as fs from 'fs';
 import * as budgets from 'bench.budgets';
@@ -98,6 +101,10 @@ push(cases, [ 'typical', 'progress:full' ]);
 for (let c in [ 'md5', `sha512@${auth.HASH_ROUNDS}`, `sha256@${auth.ROUNDS_MAX}`, `sha512@${auth.ROUNDS_MAX}`, 'cached' ])
 	push(cases, [ 'typical', `auth:${c}` ]);
 push(cases, [ 'typical', 'ledger:full' ]);
+for (let n in budgets.NOOP)
+	push(cases, [ 'typical', `noop:${n}` ]);
+for (let shape in [ 'labels', 'double', 'family', 'made' ])
+	push(cases, [ 'typical', `record:${shape}` ]);
 push(cases, [ 'large', `deadline:full@${max(...json(fs.readfile(`${args.worlds}/large/world.json`)).sizes.conntrack_scaling)}` ]);
 
 if (args.filter)
@@ -211,6 +218,14 @@ for (let c in cases) {
 		note = sprintf('%d collectors, %d bytes', r.collectors, r.bytes);
 	if (r.kind == 'auth' && r.ok !== false)
 		note = r.cached ? 'by the cache' : sprintf('%d rounds', r.rounds);
+	if (r.kind == 'noop' && r.ok !== false) {
+		let one = filter(results, (x) => x.case == `noop:${budgets.NOOP[0]}`)[0];
+
+		r.per_collector = budgets.per_collector(one, r);
+		note = sprintf('%d collectors%s', r.collectors, (r.per_collector != null) ? sprintf(', %.3f ms each', r.per_collector * 1000) : '');
+	}
+	if (r.kind == 'record' && r.ok !== false)
+		note = sprintf('%.3f us a sample', r.time.median / r.samples * 1000000);
 	if (r.kind == 'load' || r.kind == 'probe')
 		note = sprintf('%d collectors, %d fds, RSS %d kB', r.collectors, r.fds, r.rss_kb);
 	if (r.kind == 'handler' && r.time)
