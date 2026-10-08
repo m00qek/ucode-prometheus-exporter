@@ -508,6 +508,34 @@ describe('scrape.scrape', () => {
 		assert.match([ '400 Bad Request', "COLLECTOR_INVALID (unknown collector 'nope')\n" ], [ r.status, r.body ]);
 	});
 
+	// Each collector's settings default to the main section's: read for each,
+	// as 0.2.0 did, it cost a scrape a sixth of its time on QEMU's 24Kc.
+	it('reads the main section as often for many collectors as for one', () => {
+		function reads(collectors) {
+			let n = 0;
+
+			with_mods({ main: { collector_budget: '7', max_samples: '500', exec_timeout: '3' } }, (mods) => {
+				let counted = { ...mods, uci: { cursor: function() {
+					let c = mods.uci.cursor();
+
+					return proto({ get_all: function(name, section) {
+						if (section == 'main')
+							n++;
+						return c.get_all(name, section);
+					} }, c);
+				} } };
+
+				assert.match('200 OK', scrape.scrape(env_for(counted, []), collectors, '').status);
+			});
+
+			return n;
+		}
+
+		let many = map([ 'm0', 'm1', 'm2', 'm3', 'm4', 'm5', 'm6', 'm7' ], (n) => collector(n, gauge_of(`${n}_value`, 1), { needs: [ 'exec' ], commands: [ 'true' ] }));
+
+		assert.match(reads([ A ]), reads(many));
+	});
+
 	it('leaves out a collector its section disables, and answers 400 when the query names it', () => {
 		let cfg = { uci: { data: { 'prometheus-exporter': { b_two: { '.type': 'collector', enabled: '0' } } } } };
 		let all = scrape_with([ A, B, C ], '', cfg);

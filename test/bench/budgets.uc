@@ -79,15 +79,17 @@ const PROBE_FACTOR = 5.0;
 // collectors.
 const LOAD_FDS_PER_COLLECTOR = 2;
 
-// How much of what its collectors take a typical full scrape may add, as
-// Prometheus waits for it through uhttpd (handler:full): forking the
-// request's process and the collectors', reading the config and the
-// ledger, handing each run back, rendering and owning every family.
-// Measured 0.41 in the devenv (31 ms besides 75 ms of collectors) and 0.33
-// on QEMU's 500-MIPS 24Kc (658 ms besides 1984 ms). 0.2.0 added 0.53 and
-// 0.48, reading the main section three times for each collector among
-// others: its scrapes on the R3S took 0.35 s besides 0.47 s of collectors.
-const HANDLER_SHARE = 0.47;
+// How much of what its collectors take a typical scrape may add, as
+// Prometheus waits for it through uhttpd (handler:): forking the request's
+// process and the collectors', reading the config and the ledger, handing
+// each run back, rendering and owning every family. By the base
+// collectors, light ones, it is mostly what is done once a scrape and once
+// a collector: measured 0.8 to 1.05 in the devenv (some 10 ms besides
+// 10 ms), where 0.2.0, which read the main section for each collector,
+// took 1.6. By every collector it is mostly rendering: measured 0.41 to
+// 0.48 in the devenv, 0.33 on QEMU's 24Kc, and 0.53 and 0.48 with 0.2.0,
+// whose scrapes on the R3S took 0.35 s besides 0.47 s of collectors.
+const HANDLER_SHARE = { 'typical/handler:base': 1.3, 'typical/handler:full': 0.6 };
 
 // [ world/case, kB, what ]: how far a run's peak memory may rise, about three
 // times what was measured on x86_64 (a 32-bit router's is less), which a
@@ -168,11 +170,13 @@ export function check(results, absolute) {
 		push(over, sprintf('load:full: %d descriptors left open for %d collectors, over %d each', loaded.fds,
 			loaded.collectors, LOAD_FDS_PER_COLLECTOR));
 
-	let served = r['typical/handler:full'];
+	for (let name, share in HANDLER_SHARE) {
+		let served = r[name];
 
-	if (served?.time && served.collecting > 0 && served.outside > served.collecting * HANDLER_SHARE)
-		push(over, sprintf('handler:full: %.1f ms besides its collectors\' %.1f ms, over %d%% of them', served.outside * 1000,
-			served.collecting * 1000, HANDLER_SHARE * 100));
+		if (served?.time && served.collecting > 0 && served.outside > served.collecting * share)
+			push(over, sprintf('%s: %.1f ms besides its collectors\' %.1f ms, over %d%% of them', name, served.outside * 1000,
+				served.collecting * 1000, share * 100));
+	}
 
 	for (let b in MEMORY)
 		if (r[b[0]]?.growth_kb > b[1])

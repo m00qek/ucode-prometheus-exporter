@@ -76,7 +76,7 @@ Through uhttpd, as Prometheus waits for it, a scrape of the same collectors on t
 | QEMU's 24Kc, the `-full` group (35, 36 collectors) | 0.87 s, 0.35 s besides them | 1.44 s, 0.87 s besides them | 1.16 s, 0.59 s besides them |
 | devenv's procd container, every collector (44) | 67 ms, 15 ms besides them | 98 ms, 44 ms besides them | 82 ms, 28 ms besides them |
 
-The benchmark measures that path too, so that it cannot grow unseen: its `handler:` cases start uhttpd with the service's handler, the collectors reading the benchmark's world, and time a scrape as wget gets it. What a typical full scrape takes besides its collectors is 0.41 of what they take in the devenv and 0.33 on QEMU, where 0.2.0 took 0.53 and 0.48; a budget holds it under 0.47.
+The benchmark measures that path too, so that it cannot grow unseen: its `handler:` cases start uhttpd with the service's handler, the collectors reading the benchmark's world, and time a scrape as wget gets it. By the base collectors, light ones, a typical scrape takes about as long again besides them in the devenv, 0.8 to 1.05 of what they take, where 0.2.0 took 1.6, and a budget holds it under 1.3; by every collector, it takes 0.41 to 0.48 of what they take in the devenv and 0.33 on QEMU, where 0.2.0 took 0.53 and 0.48, and a budget holds it under 0.6. A unit test holds a scrape to reading the main section as often for many collectors as for one.
 
 Over HTTPS, a scrape that opens a connection of its own pays a TLS handshake too, whatever it asks for: 128 ms in the devenv's container with uclient-fetch, for a path that is not there as much as for a scrape, through the exporter's uhttpd or LuCI's. Prometheus keeps its connection open between scrapes (`http_keepalive`), and pays it once.
 
