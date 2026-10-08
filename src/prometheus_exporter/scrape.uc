@@ -210,6 +210,15 @@ function over_limit(over, max) {
 		sprintf('more than its max_samples of %d: stopped at %d samples, in %s', max, over.samples, over.family));
 }
 
+// What a collector that wrote more than the `left` samples of the reply's
+// max_scrape_samples fails with: neither a failure nor a success of its own,
+// to its breaker (ledger.outcome_of).
+function over_reply(over, left) {
+	return Result.err(errors.SAMPLE_LIMIT,
+		sprintf('more than the %d samples left of the reply\'s max_scrape_samples: stopped at %d samples, in %s', left, over.samples, over.family),
+		{ scrape: true });
+}
+
 // What a collector that wrote what Prometheus refuses fails with: what, and
 // where (the recorder's invalid()).
 function refused(bad) {
@@ -231,7 +240,9 @@ function refused(bad) {
  * which it fails with EXPOSITION_INVALID. job (prometheus_exporter.
  * runner's), when given: its programs never run past job.cutoff (monotonic
  * seconds), its ubus calls past job.limit; job.settings are its settings,
- * read already; job.view is the exporter collector's.
+ * read already; job.view is the exporter collector's; it writes at most the
+ * job.left samples left of the reply's max_scrape_samples, past which it fails
+ * with SAMPLE_LIMIT too.
  *
  * @param {ScrapeEnv} env the scrape's env.
  * @param {Session} session the scrape's session.
@@ -244,7 +255,9 @@ export function run_one(env, session, collector, job) {
 	let res = job?.settings ? Result.ok(job.settings) : config.settings(session.uci(), collector.id, collector.meta);
 	let budget = res.ok ? res.data.budget : null;
 	let max = res.ok ? res.data.max_samples : null;
-	let rec = exposition.recorder(max);
+	let left = job?.left;
+	let reply_cap = (left != null && (max == null || left < max));
+	let rec = exposition.recorder(reply_cap ? left : max);
 
 	if (res.ok) {
 		let settings = res.data;
@@ -266,7 +279,7 @@ export function run_one(env, session, collector, job) {
 
 	// However it ended: it may have caught what stopped it.
 	if (over)
-		res = over_limit(over, max);
+		res = reply_cap ? over_reply(over, left) : over_limit(over, max);
 	else if (bad)
 		res = refused(bad);
 
@@ -291,7 +304,8 @@ export function run_one(env, session, collector, job) {
  *
  * @param {Collector} collector the collector.
  * @param {Result} res what it fails with.
- * @param {string} why 'quarantine' or 'deadline'.
+ * @param {string} why 'quarantine', 'deadline', or 'samples': the reply has
+ *   its max_scrape_samples already.
  * @returns {Run} the run.
  */
 export function not_run(collector, res, why) {
@@ -360,7 +374,10 @@ function runner_of(env, chosen, omit) {
 
 /**
  * Runs the `chosen` collectors, fastest first by the ledger `l`: each one's
- * run, by id. With `quarantine`, one whose breaker is open does not run. With
+ * run, by id. With `quarantine`, one whose breaker is open does not run. The
+ * collectors write at most the main section's max_scrape_samples in all: one
+ * whose samples would go past it fails with SAMPLE_LIMIT, and one that would
+ * start once they are written is not run. With
  * a deadline, a collector runs only if the ledger expects it done in time to
  * write the reply, its own samples included; its programs never run past that,
  * and it is stopped there. Without one, or before it, it is stopped at its
@@ -393,6 +410,7 @@ export function collect(env, uci, l, chosen, opts) {
 	let next = 0;
 	// Read once: every collector's settings default to it.
 	let main = opts?.main ?? config.main(uci);
+	let reply_max = main.ok ? main.data.max_scrape_samples : config.MAX_SCRAPE_SAMPLES;
 
 	function view() {
 		let counters = null;
@@ -440,6 +458,17 @@ export function collect(env, uci, l, chosen, opts) {
 					}
 				}
 
+				let left = reply_max - collected;
+
+				if (left <= 0) {
+					let full = Result.err(errors.SAMPLE_LIMIT,
+						sprintf('not run: the reply has its max_scrape_samples of %d', reply_max), { scrape: true });
+
+					env.log('warning', `collector '${c.meta.name}': ${Result.describe(full)}`);
+					by_id[c.id] = not_run(c, full, 'samples');
+					continue;
+				}
+
 				let s = config.settings(uci, c.id, c.meta, main);
 				let budget = s.ok ? s.data.budget : null;
 				let limit = (budget != null) ? now + budget : null;
@@ -453,7 +482,7 @@ export function collect(env, uci, l, chosen, opts) {
 				opts?.progress?.start(c.id, pid);
 
 				return {
-					c, cutoff, limit, at_deadline: held, budget,
+					c, cutoff, limit, at_deadline: held, budget, left,
 					settings: s.ok ? s.data : null,
 					view: ('exporter' in c.meta.needs) ? view() : null,
 				};

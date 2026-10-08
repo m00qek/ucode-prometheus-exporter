@@ -4,6 +4,10 @@ What each release changes, for those who run the exporter and those who write co
 
 ## [Unreleased]
 
+### Added
+
+- **A cap on the samples of a whole reply**, the new main option `max_scrape_samples`, 200,000 by default: a collector whose samples would go past it fails with `SAMPLE_LIMIT`, and one left once it is reached is not run; neither counts against its breaker. Only each collector's `max_samples` bounded a reply before, so a reply could run the scrape out of memory, and the next scrape blamed the collector that happened to be running. LuCI's Limits tab has it as **Reply sample limit**.
+
 ### Fixed
 
 - **A collector the deadline left out was never measured again.** It was not run, so not timed, and one slow run could keep it out for the instance's life. Each scrape that leaves it out now makes its estimate three quarters of itself, so it is tried, and timed, again after a few: see [About deadlines and circuit breakers](docs/explanation/deadlines-and-breakers.md#trade-offs).

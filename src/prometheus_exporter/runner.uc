@@ -23,13 +23,14 @@
  * each time a collector can start, with the pid of the process it would run
  * in: it returns the next to run, or null when there is none, and leaves out
  * (and hands done) any it does not run. A job is
- * { c, cutoff, limit, at_deadline, budget, settings, view }:
+ * { c, cutoff, limit, at_deadline, budget, left, settings, view }:
  *   c            the collector
  *   cutoff       when its programs must be done by (monotonic seconds), or null
  *   limit        when it is stopped (monotonic seconds), or null for never:
  *                its budget's end, or the cutoff when that comes first
  *   at_deadline  whether the limit is the cutoff
  *   budget       the seconds it may take (config.settings)
+ *   left         the samples left of the reply's max_scrape_samples, or null
  *   settings     config.settings' data, or null to read them in the run
  *   view         the exporter collector's data (deps.exporter_channel)
  * A run is scrape.run_one's: { name, id, result, families, samples, duration,
@@ -61,6 +62,7 @@ import { POLL_MS } from 'prometheus_exporter.probe';
  *   limit: ?float,
  *   at_deadline: boolean,
  *   budget: ?int,
+ *   left: ?int,
  *   settings: ?Settings,
  *   view: ?ExporterView
  * }} Job
@@ -345,7 +347,7 @@ export function forked(env, run_fn, opts) {
 				st.started = now(st.env);
 				arm();
 
-				return { id: job.c.id, cutoff: job.cutoff, limit: job.limit, settings: job.settings, view: job.view };
+				return { id: job.c.id, cutoff: job.cutoff, limit: job.limit, left: job.left, settings: job.settings, view: job.view };
 			}
 
 			function on_output(g, msg) {

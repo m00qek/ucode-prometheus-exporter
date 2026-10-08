@@ -443,6 +443,21 @@ describe('scrape.scrape', () => {
 				lines(scrape_with([ A ], q).body), q);
 	});
 
+	it('holds the collectors of a reply to max_scrape_samples in all: past it one fails with SAMPLE_LIMIT, and none starts once it is reached', () => {
+		let two = collector('two', (d, out) => { out.gauge('two_value')({ i: '1' }, 1)({ i: '2' }, 2); return Result.ok(); });
+		let st = memory_state(null);
+		let over = scrape_with([ A, two, C ], '', { main: { max_scrape_samples: '2' } }, { state: st });
+		let full = scrape_with([ A, two, C ], '', { main: { max_scrape_samples: '3' } });
+
+		assert.match(contains([ 'a_value 1', 'c_value 3', 'node_scrape_collector_success{collector="two"} 0' ]), lines(over.body));
+		assert.match([ -1 ], [ index(over.body, 'two_value') ]);
+		assert.match([ "collector 'two': SAMPLE_LIMIT (more than the 1 samples left of the reply's max_scrape_samples: stopped at 2 samples, in two_value)" ], over.logs);
+		assert.match([ null, { SAMPLE_LIMIT: 1 } ], [ ledger.parse(st.text).c.two.f, ledger.parse(st.text).c.two.fails ], 'neither a failure of its own nor a success');
+
+		assert.match(contains([ 'a_value 1', 'two_value{i="2"} 2', 'node_scrape_collector_success{collector="c"} 0' ]), lines(full.body));
+		assert.match([ -1, [ "collector 'c': SAMPLE_LIMIT (not run: the reply has its max_scrape_samples of 3)" ] ], [ index(full.body, 'c_value'), full.logs ]);
+	});
+
 	it('serves the others when one collector writes what Prometheus refuses, and the reply stays valid', () => {
 		let bad = collector('bad', (d, out) => { out.gauge('bad_value')({ 'if-name': 'a', if_name: 'b' }, 1); return Result.ok(); });
 		let r = scrape_with([ A, bad, C ], '');

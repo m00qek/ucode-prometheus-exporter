@@ -309,7 +309,8 @@ export function outcome_of(run) {
 		return [ 'trip', sprintf('%s (took %.2f s, over its budget of %d s)', errors.COLLECTOR_OVERRUN, run.duration, run.budget) ];
 	if (res?.error == errors.COMMAND_TIMEOUT)
 		return [ 'trip', Result.describe(res) ];
-	if (res?.error == errors.SCRAPE_DEADLINE)
+	// The scrape's time, or the reply's samples, were spent: not its own doing.
+	if (res?.error == errors.SCRAPE_DEADLINE || (res?.error == errors.SAMPLE_LIMIT && res?.data?.scrape))
 		return [ 'neutral', null ];
 	if (!res?.ok)
 		return [ 'failed', Result.describe(res) ];
