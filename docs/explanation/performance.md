@@ -50,14 +50,49 @@ Each scrape runs its collectors in a child process, so that one that never retur
 
 | Scrape | devenv | QEMU's 500-MIPS 24Kc |
 | :--- | :--- | :--- |
-| typical, base collectors (16) | 24.1 ms, 6.7 ms more | 431 ms, 66 ms more (+18%) |
-| typical, every collector (36) | 156 ms, 20 ms more (+15%) | 2.79 s, 294 ms more (+12%) |
-| large, base collectors | 50.6 ms, 7 ms more | 925 ms, 68 ms more (+8%) |
-| large, every collector | 685 ms, 61 ms more (+10%) | 16.6 s, 0.98 s more (+6%) |
+| typical, base collectors (16) | 16.9 ms, 4.4 ms more | 393 ms, 62 ms more (+19%) |
+| typical, every collector (36) | 104 ms, 14 ms more (+15%) | 2.72 s, 279 ms more (+11%) |
+| large, base collectors | 35.9 ms, 4.8 ms more | 887 ms, 62 ms more (+8%) |
+| large, every collector | 481 ms, 35 ms more (+8%) | 16.1 s, 0.87 s more (+6%) |
 
-On the router, that is about a twentieth of a second for the fork and some 7 ms a collector: the round trip between the scrape and its child, and the pages the child copies from the scrape's as it writes them (copy-on-write). Loading every collector first in a child process costs uhttpd's start as much again as loading them: 0.88 s rather than 0.45 s on the 24Kc, once per start. The progress file costs a scrape 3.6 ms there, a tenth of a percent.
+On the 24Kc, that is some 4 to 8 ms a collector: the round trip between the scrape and its child, and the pages the child copies from the scrape's as it writes them (copy-on-write). The progress file costs a scrape 3.6 ms there, a tenth of a percent.
 
 So a scrape on a slow router costs a tenth to a fifth more than it would if its collectors could not stop it. That is the trade: a collector that loops, waits on a FIFO or runs out of memory then costs its own budget and nothing more, where it would hold every later scrape, or end the request with nothing answered.
+
+## Besides the collectors {#besides-the-collectors}
+
+A scrape is more than its collectors' runs. uhttpd forks the request's process; the scrape reads the config and the ledger, hands each collector to the child and reads its run back, owns and renders every family, and writes the ledger and the progress file. In 0.2.0 that cost far more than it had to: on the NanoPi R3S a scrape of 37 collectors took 0.79 to 0.89 s through uhttpd, while its collectors' durations added up to 0.47 s, which was 0.1.0's whole scrape.
+
+It was work, not waiting. Traced step by step through uhttpd under procd, in a container and on QEMU's 24Kc, no step of a scrape waits on a timer: the scrape hands a collector to its child and reads its run back over a pipe, which uloop wakes it for, and its timer, which looks every 100 ms, fires only while a collector runs that long, to stop it at its limit or to see its child died. What took the time was the scrape's own work, much of it done for each collector, or each family, that needed doing once. On QEMU, a scrape of the guest's own system by the 36 collectors of the `-full` group spent 0.87 s besides its collectors':
+
+- 248 ms on the collectors' settings: each read the main section of the config two or three times over, and each value of a `range()` option made its datatype anew, writing the English of what it takes. A scrape now reads the main section once for all its collectors, and a range is made once.
+- 81 ms deciding whose each family is, which now checks each family in one pass; 42 ms rendering the scrape's own families, whose label each collector's four samples now share; and the run of each collector read back with a function call for each of its families, on both sides of the pipe.
+- The rest is the containment above, the ledger, the progress file, and rendering each collector's samples, which every scrape must.
+
+Through uhttpd, as Prometheus waits for it, a scrape of the same collectors on the same system:
+
+| Scrape | 0.1.0 | 0.2.0 | Now |
+| :--- | :--- | :--- | :--- |
+| QEMU's 24Kc, the `-full` group (35, 36 collectors) | 0.87 s, 0.35 s besides them | 1.44 s, 0.87 s besides them | 1.16 s, 0.59 s besides them |
+| devenv's procd container, every collector (44) | 67 ms, 15 ms besides them | 98 ms, 44 ms besides them | 82 ms, 28 ms besides them |
+
+The benchmark measures that path too, so that it cannot grow unseen: its `handler:` cases start uhttpd with the service's handler, the collectors reading the benchmark's world, and time a scrape as wget gets it. What a typical full scrape takes besides its collectors is 0.41 of what they take in the devenv and 0.33 on QEMU, where 0.2.0 took 0.53 and 0.48; a budget holds it under 0.47.
+
+Over HTTPS, a scrape that opens a connection of its own pays a TLS handshake too, whatever it asks for: 128 ms in the devenv's container with uclient-fetch, for a path that is not there as much as for a scrape, through the exporter's uhttpd or LuCI's. Prometheus keeps its connection open between scrapes (`http_keepalive`), and pays it once.
+
+## Loading {#loading}
+
+uhttpd loads the collectors when it starts, in the process every request is forked from, and holds them as long as it runs. A collector imports the collector API, which imports four modules of the core; ucode compiles a module once in a program, and keeps its source file open while the program lives. 0.2.0 compiled a program for each collector, so each had its own copy of those five modules, and six descriptors with its own: 37 collectors kept 268 open in the R3S's uhttpd, where a process may open 1024, which some 160 collectors would reach. The collectors are now compiled as one program, once each has loaded in a child process of its own (the probe, which still compiles each alone):
+
+| Loading every collector | 0.2.0 | Now |
+| :--- | :--- | :--- |
+| devenv, the benchmark's 36 (`load:full`) | 34 ms; 216 descriptors, 6.1 MB | 12.5 ms; 41 descriptors, 3.9 MB |
+| QEMU's 24Kc, the same | 0.93 s; 216 descriptors, 4.8 MB | 0.37 s; 41 descriptors, 3.1 MB |
+| QEMU's 24Kc, probed first (`probe:full`), as uhttpd does | 1.78 s | 1.21 s |
+| the service's uhttpd, devenv's procd container, 45 collectors | 315 descriptors, 7.3 MB | 95 descriptors, 4.5 MB |
+| the service's uhttpd, QEMU, 36 collectors | 263 descriptors, 5.2 MB | 86 descriptors, 3.5 MB |
+
+A request's process and the collectors' child are forked from that uhttpd, so they start smaller too. Should the collectors not load as one program, which the probe makes unlikely, each is loaded alone, as before.
 
 ## The ledger
 
