@@ -1,14 +1,18 @@
-'use strict';
+/**
+ * Finds the installed collectors: every module in the collectors directory that
+ * exports a valid `meta` and a `collect`. One that does not load or is not valid
+ * is logged and left out, so a broken subpackage costs only its own collector.
+ * So is one that is not in strict mode, or imports anything but the collector
+ * API, which its text tells before it is loaded, and, given a probe
+ * (prometheus_exporter.probe's), one that does not load within its time.
+ *
+ * It is the facade of loader/: the modules there are its own, and what others
+ * take of them it exports.
+ *
+ * @module prometheus_exporter_loader
+ */
 
-// Finds the installed collectors: every module in the collectors directory that
-// exports a valid `meta` and a `collect`. One that does not load or is not valid
-// is logged and left out, so a broken subpackage costs only its own collector.
-// So is one that is not in strict mode, or imports anything but the collector
-// API, which its text tells before it is loaded, and, given a probe
-// (prometheus_exporter.probe's), one that does not load within its time.
-//
-// It is the facade of loader/: the modules there are its own, and what others
-// take of them it exports.
+'use strict';
 
 import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
@@ -17,23 +21,48 @@ import * as jail from 'prometheus_exporter.jail';
 import * as config from 'prometheus_exporter.config';
 import * as scan from 'prometheus_exporter.loader.imports';
 
+/**
+ * A collector as the loader takes it (validate's): its module's name, its
+ * meta, with options {} when it declares none, and its collect. What a
+ * scrape, its runner and check run.
+ *
+ * @typedef {{ id: string, meta: Meta, collect: Collect }} Collector
+ */
+
+/**
+ * The installed collectors' directory, as the packages install them.
+ *
+ * @type {string}
+ */
 export const DIR = '/usr/share/ucode/prometheus_exporter/collectors';
 
 const NAME = /^[a-z0-9][a-z0-9_-]*$/;
 const OPTION_TYPES = [ 'bool', 'int', 'string' ];
 const OPTION_KEYS = [ 'default', 'help', 'datatype' ];
 
-// A collector's title, as a list or a form shows it.
+/**
+ * A collector's title, as a list or a form shows it.
+ *
+ * @type {int}
+ */
 export const TITLE_MAX = 40;
 
-// The most seconds meta.timeout may give a collector's commands.
+/**
+ * The most seconds meta.timeout may give a collector's commands.
+ *
+ * @type {int}
+ */
 export const TIMEOUT_MAX = config.EXEC_TIMEOUT_MAX;
 
-// The collectors of the exporter's own packages, by module: those of
-// src/prometheus_exporter/collectors, as a test keeps it. A family one of
-// them writes is its own in a scrape before any other collector's
-// (prometheus_exporter.ownership): a collector of another package never takes
-// one of theirs, whatever its name.
+/**
+ * The collectors of the exporter's own packages, by module: those of
+ * src/prometheus_exporter/collectors, as a test keeps it. A family one of
+ * them writes is its own in a scrape before any other collector's
+ * (prometheus_exporter.ownership): a collector of another package never takes
+ * one of theirs, whatever its name.
+ *
+ * @type {string[]}
+ */
 export const OWN = [
 	'bmx7', 'chrony', 'conntrack', 'cpu', 'dawn', 'dhcp_leases', 'diskstats', 'dnsmasq', 'entropy', 'ethtool',
 	'exporter', 'filefd', 'filesystem', 'hostapd_stations', 'hostapd_ubus_stations', 'hwmon', 'loadavg', 'ltq_dsl',
@@ -42,17 +71,31 @@ export const OWN = [
 	'time', 'timesync', 'ubnt_manager', 'uci_dhcp_host', 'uname', 'unbound', 'vmstat', 'wifi', 'wireguard',
 ];
 
-// What meta.cost takes: how much a run of the collector costs, roughly, before
-// the ledger has timed it (prometheus_exporter.ledger's order).
+/**
+ * What meta.cost takes: how much a run of the collector costs, roughly, before
+ * the ledger has timed it (prometheus_exporter.ledger's order).
+ *
+ * @type {string[]}
+ */
 export const COSTS = [ 'light', 'heavy' ];
 
-// The module a collector's name lives in: a module name cannot hold '-'.
+/**
+ * The module a collector's name lives in: a module name cannot hold '-'.
+ *
+ * @param {string} name a collector's name (meta.name).
+ * @returns {string} its module's name: name with _ for -.
+ */
 export function id_of(name) {
 	return replace(name, '-', '_');
 };
 
-// A module's exports, by name. require() cannot load an ES module, but a
-// script that imports one can.
+/**
+ * A module's exports, by name. require() cannot load an ES module, but a
+ * script that imports one can.
+ *
+ * @param {string} id the module's name, in the collectors' directory.
+ * @returns {CollectorModule} its exports; it throws what loading it throws.
+ */
 export function import_module(id) {
 	return loadstring(sprintf('import * as c from %J;\nreturn c;', 'prometheus_exporter.collectors.' + id),
 		{ raw_mode: true })();
@@ -132,7 +175,14 @@ function validate_paths(id, meta) {
 	return Result.ok();
 }
 
-// { id, meta, collect } for a module's exports, or COLLECTOR_INVALID.
+/**
+ * { id, meta, collect } for a module's exports, or COLLECTOR_INVALID.
+ *
+ * @param {string} id the module's name.
+ * @param {?CollectorModule} mod its exports, as import_module gives them.
+ * @returns {Result<Collector>} the collector, or COLLECTOR_INVALID saying
+ *   what is wrong.
+ */
 export function validate(id, mod) {
 	let meta = mod?.meta;
 
@@ -219,7 +269,13 @@ export function validate(id, mod) {
 	return Result.ok({ id, meta: { options: {}, ...meta }, collect: mod.collect });
 };
 
-// The module names in `dir`, sorted.
+/**
+ * The module names in `dir`, sorted.
+ *
+ * @param {module:fs} fs what lists the directory: an object of fs's lsdir.
+ * @param {string} dir the directory.
+ * @returns {string[]} the names of its [a-z0-9_]+.uc files, without .uc.
+ */
 export function discover(fs, dir) {
 	let files = filter(fs.lsdir(dir) ?? [], (f) => match(f, /^[a-z0-9_]+\.uc$/));
 
@@ -250,11 +306,16 @@ function leading(text) {
 	return m;
 }
 
-// Whether the text of a module is in strict mode: its first statement is the
-// 'use strict' directive. ucode honours the directive there alone, after only
-// what LEADING skips: anywhere else it is a string that does nothing. Strict
-// mode makes a variable that was never declared an error rather than a
-// global that every later collector of the scrape would see.
+/**
+ * Whether the text of a module is in strict mode: its first statement is the
+ * 'use strict' directive. ucode honours the directive there alone, after only
+ * what LEADING skips: anywhere else it is a string that does nothing. Strict
+ * mode makes a variable that was never declared an error rather than a
+ * global that every later collector of the scrape would see.
+ *
+ * @param {*} text the module's text; anything but a string is not.
+ * @returns {boolean} whether its first statement is 'use strict'.
+ */
 export function is_strict(text) {
 	if (type(text) != 'string')
 		return false;
@@ -276,7 +337,11 @@ export function is_strict(text) {
 	return rest == '' || substr(rest, 0, 1) in [ ';', '\n' ];
 };
 
-// The one module a collector imports: the collector API.
+/**
+ * The one module a collector imports: the collector API.
+ *
+ * @type {string}
+ */
 export const API = 'prometheus_exporter.api';
 
 // What a module's text imports and loads, without compiling it
@@ -316,12 +381,17 @@ function instead(module) {
 	return `a collector imports ${API} alone`;
 }
 
-// Why a collector module's text loads what a collector may not, or null: it
-// imports a module other than the collector API, or calls require, loadfile
-// or loadstring, which load code past its imports. A collector takes the
-// system through the capabilities collect() gets in deps, and what it uses of
-// the exporter from the API. The loader logs the same text, `collector check`
-// fails with it, and the tests hold our collectors to it.
+/**
+ * Why a collector module's text loads what a collector may not, or null: it
+ * imports a module other than the collector API, or calls require, loadfile
+ * or loadstring, which load code past its imports. A collector takes the
+ * system through the capabilities collect() gets in deps, and what it uses of
+ * the exporter from the API. The loader logs the same text, `collector check`
+ * fails with it, and the tests hold our collectors to it.
+ *
+ * @param {string} text the collector module's text.
+ * @returns {?string} the problems, joined by '; ', or null.
+ */
 export function import_problem(text) {
 	let found = imports(text);
 	let problems = [];
@@ -336,9 +406,14 @@ export function import_problem(text) {
 	return length(problems) ? join('; ', problems) : null;
 };
 
-// Why the loader leaves a module out by its text alone, before it loads it,
-// or null: it is not in strict mode (is_strict), or it loads what a collector
-// may not (import_problem).
+/**
+ * Why the loader leaves a module out by its text alone, before it loads it,
+ * or null: it is not in strict mode (is_strict), or it loads what a collector
+ * may not (import_problem).
+ *
+ * @param {?string} text the module's text, null when it cannot be read.
+ * @returns {?string} why, or null.
+ */
 export function refusal(text) {
 	if (!is_strict(text))
 		return "not in strict mode: its first statement must be 'use strict'";
@@ -346,12 +421,25 @@ export function refusal(text) {
 	return import_problem(text);
 };
 
-// The valid collectors in `dir`, sorted by name; log(level, msg) takes, at err,
-// each that is left out and why. A module must be in strict mode and import
-// the collector API alone (refusal), which its text tells before it is
-// loaded. probe(ids), when given, loads them elsewhere first
-// (prometheus_exporter.probe): { <id>: { ok, error, hung } }, and only those
-// that loaded there are loaded here.
+/**
+ * The valid collectors in `dir`, sorted by name; log(level, msg) takes, at err,
+ * each that is left out and why. A module must be in strict mode and import
+ * the collector API alone (refusal), which its text tells before it is
+ * loaded. probe(ids), when given, loads them elsewhere first
+ * (prometheus_exporter.probe): { <id>: { ok, error, hung } }, and only those
+ * that loaded there are loaded here.
+ *
+ * @param {module:fs} fs what reads the directory: an object of fs's lsdir
+ *   and readfile.
+ * @param {string} dir the collectors' directory (DIR).
+ * @param {function(string): CollectorModule} import_fn what loads a module by
+ *   its name: import_module, or a test's.
+ * @param {Log} log the exporter's log.
+ * @param {?function(string[]): Object<string, ProbeOutcome>} probe what
+ *   loads the modules elsewhere first (prometheus_exporter.probe's), by
+ *   name; null loads them here alone.
+ * @returns {Collector[]} the valid collectors, sorted by name.
+ */
 export function load(fs, dir, import_fn, log, probe) {
 	let collectors = [];
 	let ids = [];

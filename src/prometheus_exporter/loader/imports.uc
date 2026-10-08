@@ -1,27 +1,31 @@
-'use strict';
+/**
+ * What a module's text loads, read without compiling it: the loader refuses a
+ * collector that imports anything but the collector API, before it loads it
+ * (prometheus_exporter.loader's import_problem).
+ *
+ * imports(text): { imports: [ { module, line } ], loads: [ { fn, module, line } ] }
+ *   imports  each import statement's module, in order, and the line the
+ *            statement starts on
+ *   loads    each call of require, loadfile or loadstring, which load code
+ *            past the imports; `module`, require's module or loadfile's
+ *            path when it is a string literal on the call's line, else null
+ *
+ * Comments, strings, templates and regular expression literals are passed
+ * over as the compiler passes over them, so an import in a comment or a
+ * string is none. A string or a template that goes on past the end of its
+ * line is taken to end there; ucode allows that, and the rest of it may be
+ * read as code, which can only find an import that is not there.
+ *
+ * It is read when uhttpd starts, every module, and every operation of ucode's
+ * VM costs: so it reads only the lines that hold one of the words or open a
+ * block comment, which split() and index() find without reading the others,
+ * and an import statement or a comment line by one match. Only the rest are
+ * read a character at a time: a module has few such lines, often none.
+ *
+ * @module prometheus_exporter_loader_imports
+ */
 
-// What a module's text loads, read without compiling it: the loader refuses a
-// collector that imports anything but the collector API, before it loads it
-// (prometheus_exporter.loader's import_problem).
-//
-// imports(text): { imports: [ { module, line } ], loads: [ { fn, module, line } ] }
-//   imports  each import statement's module, in order, and the line the
-//            statement starts on
-//   loads    each call of require, loadfile or loadstring, which load code
-//            past the imports; `module`, require's module or loadfile's
-//            path when it is a string literal on the call's line, else null
-//
-// Comments, strings, templates and regular expression literals are passed
-// over as the compiler passes over them, so an import in a comment or a
-// string is none. A string or a template that goes on past the end of its
-// line is taken to end there; ucode allows that, and the rest of it may be
-// read as code, which can only find an import that is not there.
-//
-// It is read when uhttpd starts, every module, and every operation of ucode's
-// VM costs: so it reads only the lines that hold one of the words or open a
-// block comment, which split() and index() find without reading the others,
-// and an import statement or a comment line by one match. Only the rest are
-// read a character at a time: a module has few such lines, often none.
+'use strict';
 
 const KEYWORDS = [ 'import', 'require', 'loadfile', 'loadstring' ];
 const CALLS = [ 'require', 'loadfile', 'loadstring' ];
@@ -206,6 +210,16 @@ function number(text, found) {
 	}
 }
 
+/**
+ * What a module's text imports and loads, read without compiling it: each
+ * import statement's module and the line it starts on, and each call of
+ * require, loadfile or loadstring, with its module or path when it is a
+ * string literal on the call's line.
+ *
+ * @param {*} text the module's text; anything but a string holds nothing.
+ * @returns {{ imports: { module: string, line: int }[], loads: { fn: string, module: ?string, line: int }[] }}
+ *   the imports and the loads, in the order of the text.
+ */
 export function imports(text) {
 	let found = [];
 
