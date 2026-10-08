@@ -30,14 +30,28 @@ Adding the base package alone fails: the installed collectors still want the old
 
 ## From 0.2.0 to 0.2.1
 
-0.2.1 changes what 0.2.0 did in these ways:
+0.2.1 changes what 0.2.0 did in these ways, each marked **BREAKING** in the [CHANGELOG](https://github.com/m00qek/ucode-prometheus-exporter/blob/main/CHANGELOG.md):
 
-- **Basic auth's hash has a config of its own.** `auth_password` is read from `/etc/config/prometheus-exporter-auth`, which the package installs, mode 0600, and no longer from the main section of `/etc/config/prometheus-exporter`, which LuCI's ACL lets a login read. The upgrade moves a hash it finds in the main section, and logs `auth_password moved from /etc/config/prometheus-exporter to /etc/config/prometheus-exporter-auth`. A script that sets the hash sets `prometheus-exporter-auth.main.auth_password`, or calls the ubus object's `set_password`; `check` warns of a hash left in the main section, which is ignored. See [How to serve HTTPS with basic auth](https-basic-auth.md).
-- **A hash without a user is no basic auth**, rather than an invalid configuration: `validate` no longer answers `AUTH_NEEDS_USER`. Basic auth is on while `auth_user` is set.
-- **LuCI's ACL grants `password` and `set_password`**, and no longer `hash_password`, which LuCI does not call: a login given the app's ACL reads whether a hash is saved, never the hash.
+- **Basic auth's hash has a config of its own.** `auth_password` is read from `/etc/config/prometheus-exporter-auth`, which the package installs, mode 0600, and no longer from the main section of `/etc/config/prometheus-exporter`, which LuCI's ACL lets a login read. The upgrade moves a hash it finds in the main section, and logs `auth_password moved from /etc/config/prometheus-exporter to /etc/config/prometheus-exporter-auth`. A script that sets the hash sets `prometheus-exporter-auth.main.auth_password`, or calls the ubus object's `set_password`; `check` warns of a hash left in the main section, which is ignored. A hash without a user is no basic auth now, rather than an invalid configuration, and `validate` no longer answers `AUTH_NEEDS_USER`. LuCI's ACL grants `password` and `set_password`, and no longer `hash_password`. See [How to serve HTTPS with basic auth](https-basic-auth.md).
 - **textfile's `directory` must be under `/var`, `/tmp` or `/etc/prometheus-exporter`.** The service makes and mounts no other: move one elsewhere, as under `/srv`, before upgrading, or the configuration is refused (`OWNED_DIRECTORY`).
 - **`memory_limit` takes 0, or 8 MB and more.** 1 to 7 passed `check`, and uhttpd crash-looped; they are refused now (`ZERO_OR_MIN`).
-- **The jail has the ubus socket only while an enabled collector needs ubus.** A collector of another package whose programs call ubus, without `ubus` in its `meta.needs`, finds no ubus when every other collector that needs it is disabled: declare it.
+- **hostapd_stations labels each station's series by `vif` and `station` alone.** `ssid`, `bssid`, `encryption`, `frequency` and `channel` are on the new `hostapd_station_info` alone, one series per station. A query that selected by them joins it: `hostapd_station_signal_dbm * on (vif, station) group_left (ssid) hostapd_station_info`.
+- **netstat exports node_exporter's default fields only**, some 40 series where it wrote about 400. Its new option `fields`, a regular expression of `<Section>_<Field>`, takes others; `.*` exports every one, as 0.2.0 did:
+
+    ```sh
+    uci set prometheus-exporter.netstat=collector
+    uci set prometheus-exporter.netstat.fields='.*'
+    uci commit prometheus-exporter
+    ```
+
+- **nat_traffic labels an IPv6 address compressed**, `2001:db8:0:1::e157` where it had `2001:0db8:0000:0001:0000:0000:0000:e157`, as every other collector labels it. A query or recording rule that matched the long form matches the short one now; the series start anew at the upgrade.
+- **A collector passes its labels as an object, null, or what `out.labels()` made.** A string of labels spliced by hand, which was written as it was, now fails the collector with `EXPOSITION_INVALID`, as a label value that is not UTF-8 and two label names that are one once sanitized do. Every collector of the exporter's packages does already; check one of another package with `prometheus-exporter collector check`.
+- **The loader refuses a collector that calls `system()` or `include()`**, as it refuses `require`: run programs through `deps.exec`. See [Collector contract](../reference/collector-contract.md#what-a-collector-may-import).
+
+These change what 0.2.0 did without breaking a configuration:
+
+- **The jail has the ubus socket only while an enabled collector needs ubus.** A collector of another package whose programs call ubus, without `ubus` in its `meta.needs`, finds no ubus when every collector that needs it is disabled: declare it.
+- **uhttpd runs 3 requests at once over 10 connections at most**, where it took its defaults of 3 and 100: a client past them waits. One or two Prometheus servers need no more; see [HTTP endpoint](../reference/http.md#connections).
 
 ## From 0.1 to 0.2
 
