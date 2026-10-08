@@ -698,6 +698,17 @@ export function settings(uci, id, meta, main_res) {
 
 	let exec = ('exec' in (meta?.needs ?? []));
 	let seconds = exec ? default_timeout(uci, meta, main_res) : null;
+	let own = uci.get_all(NAME, id);
+
+	// Without a section of its own, as most collectors are: every setting is
+	// its default, which needs no spec to check a value against. A scrape
+	// reads the settings of each collector it runs.
+	if (type(own) != 'object' || own['.type'] != 'collector')
+		return Result.ok({
+			enabled: ENABLED.default, timeout: seconds, budget: default_budget(uci, seconds, main_res),
+			max_samples: default_max_samples(uci, meta, main_res), options: defaults(meta?.options ?? {}),
+		});
+
 	let timeout_res = exec ? section(uci, id, 'collector', { timeout: { default: seconds, ...TIMEOUT } }) : null;
 	let timeout = (timeout_res?.ok) ? timeout_res.data.timeout : seconds;
 	let core_specs = core(meta, seconds, default_budget(uci, timeout, main_res), default_max_samples(uci, meta, main_res));

@@ -133,6 +133,22 @@ describe('config.settings', () => {
 		assert.match([], filter(reads, (s) => s == 'main'));
 	});
 
+	// A collector without a section of its own is given the defaults without
+	// the specs its section's values are checked against: the same settings
+	// as an empty section of its own gives.
+	prop('gives a collector without a section what an empty section of its own gives',
+		gen.tuple(gen.bool(), gen.optional(gen.int(1, 30)), gen.optional(gen.int(1, 1000)), gen.optional(gen.int(1, 30)), gen.bool()),
+		(t) => {
+			let m = meta(t[4] ? { stations: true, n: 3 } : {}, t[0] ? [ 'exec' ] : [ 'fs' ],
+				{ ...((t[0] && t[1] != null) ? { timeout: t[1] } : {}), ...((t[2] != null) ? { max_samples: t[2] } : {}) });
+			let main = (t[3] != null) ? { main: { '.type': config.NAME, exec_timeout: '' + t[3], collector_budget: '' + t[3] } } : {};
+			let without, empty;
+
+			with_uci(main, (uci) => without = config.settings(uci, 'c', m));
+			with_uci({ ...main, c: { '.type': 'collector' } }, (uci) => empty = config.settings(uci, 'c', m));
+			assert.match(empty, without);
+		});
+
 	it('gives enabled, the timeout and the options apart', () => {
 		with_uci({ c: { '.type': 'collector', enabled: '0', stations: '0', timeout: '7' } }, (uci) => {
 			assert.match({ enabled: false, timeout: 7, budget: 8, max_samples: config.MAX_SAMPLES, options: { stations: false } }, config.settings(uci, 'c', EXEC).data);
