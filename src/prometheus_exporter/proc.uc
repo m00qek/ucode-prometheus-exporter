@@ -1,15 +1,32 @@
+/**
+ * Reading procfs and sysfs through a collector's fs capability.
+ *
+ * @module prometheus_exporter_proc
+ */
+
 'use strict';
 
-// Reading procfs and sysfs through a collector's fs capability.
-
-// The first line, without its newline; null when the file cannot be read.
+/**
+ * The first line, without its newline; null when the file cannot be read.
+ *
+ * @param {FsCapability} fs the collector's deps.fs.
+ * @param {string} path the file.
+ * @returns {?string} its first line.
+ */
 export function first_line(fs, path) {
 	let s = fs.readfile(path);
 
 	return s == null ? null : split(s, '\n')[0];
 };
 
-// Every line, without newlines; null when the file cannot be read.
+/**
+ * Every line, without newlines; null when the file cannot be read.
+ *
+ * @param {FsCapability} fs the collector's deps.fs.
+ * @param {string} path the file.
+ * @returns {?string[]} its lines; a last empty one, after the last newline,
+ *   is left out.
+ */
 export function lines(fs, path) {
 	let s = fs.readfile(path);
 
@@ -23,8 +40,15 @@ export function lines(fs, path) {
 	return l;
 };
 
-// cb(line) for each line, read one at a time, for files as long as the
-// conntrack table. False when the file cannot be read.
+/**
+ * cb(line) for each line, read one at a time, for files as long as the
+ * conntrack table. False when the file cannot be read.
+ *
+ * @param {FsCapability} fs the collector's deps.fs.
+ * @param {string} path the file.
+ * @param {function(string)} cb called with each line, without its newline.
+ * @returns {boolean} whether the file could be read.
+ */
 export function each_line(fs, path, cb) {
 	let f = fs.open(path, 'r');
 
@@ -42,7 +66,20 @@ export function each_line(fs, path, cb) {
 // The auxiliary vector's types (linux/auxvec.h): the vector ends with AT_NULL,
 // and no type the kernel defines is as large as AT_MAX.
 const AT_NULL = 0;
+
+/**
+ * The auxiliary vector's type of the page size, in bytes.
+ *
+ * @type {int}
+ */
 export const AT_PAGESZ = 6;
+
+/**
+ * The auxiliary vector's type of the clock tick, in ticks a second
+ * (USER_HZ).
+ *
+ * @type {int}
+ */
 export const AT_CLKTCK = 17;
 const AT_MAX = 64;
 
@@ -58,12 +95,17 @@ function word(s, at, size, le) {
 	return v;
 }
 
-// An auxiliary vector as /proc/self/auxv gives it, { type: value }: pairs of
-// words (a type, a value) in the process's own word size and byte order,
-// which nothing says, ending with AT_NULL. The layout is the one by which
-// every type is one the kernel could define, the vector ends at AT_NULL and
-// AT_PAGESZ is a power of two; any other reads a value or an address as a
-// type, and stops at its first. Null when none fits.
+/**
+ * An auxiliary vector as /proc/self/auxv gives it, { type: value }: pairs of
+ * words (a type, a value) in the process's own word size and byte order,
+ * which nothing says, ending with AT_NULL. The layout is the one by which
+ * every type is one the kernel could define, the vector ends at AT_NULL and
+ * AT_PAGESZ is a power of two; any other reads a value or an address as a
+ * type, and stops at its first. Null when none fits.
+ *
+ * @param {?string} s the bytes of /proc/self/auxv (exporter's system()).
+ * @returns {?Object<string, int>} each value by its type.
+ */
 export function auxv(s) {
 	let n = length(s ?? '');
 
@@ -96,13 +138,18 @@ export function auxv(s) {
 const SPACE_RUN = /\s+/;
 const RARE_SPACE = /[\n\v\f\r]/;
 
-// The whitespace-separated fields of a line; [] for none or for null.
-//
-// What split(line, /\s+/) gives. A line whose fields are separated by single
-// spaces (most of /proc: stat, netstat, the conntrack table) is split on ' ',
-// several times cheaper than musl's regexec on a long line; any other takes
-// the regex, which is then cheaper than dropping the empty strings a split on
-// ' ' would leave between padding spaces (meminfo, dev_snmp6).
+/**
+ * The whitespace-separated fields of a line; [] for none or for null.
+ *
+ * What split(line, /\s+/) gives. A line whose fields are separated by single
+ * spaces (most of /proc: stat, netstat, the conntrack table) is split on ' ',
+ * several times cheaper than musl's regexec on a long line; any other takes
+ * the regex, which is then cheaper than dropping the empty strings a split on
+ * ' ' would leave between padding spaces (meminfo, dev_snmp6).
+ *
+ * @param {?string} line the line.
+ * @returns {string[]} its fields.
+ */
 export function fields(line) {
 	line = trim(line ?? '');
 
