@@ -110,19 +110,28 @@ export function collect(deps, out) {
 
 	let traffic = out.gauge('node_nat_traffic_bytes', 'Bytes of the connections from src to dst, both directions.');
 	let seen = {};
+	// One object for every sample's labels, its dst set for each: the
+	// recorder writes them as it takes the sample, and keeps nothing of the
+	// object, so none is made for each of tens of thousands.
+	let labels = { src: null, dst: null };
 
 	// A connection's addresses are of one family: the destinations of an IPv4
 	// source, most of a table, are taken as they are, without a call each.
 	for (let src, dsts in totals) {
 		if (index(src, ':') < 0) {
-			for (let dst, bytes in dsts)
-				traffic({ src, dst }, bytes);
+			labels.src = src;
+			for (let dst, bytes in dsts) {
+				labels.dst = dst;
+				traffic(labels, bytes);
+			}
 			continue;
 		}
 
-		src = address(seen, src);
-		for (let dst, bytes in dsts)
-			traffic({ src, dst: address(seen, dst) }, bytes);
+		labels.src = address(seen, src);
+		for (let dst, bytes in dsts) {
+			labels.dst = address(seen, dst);
+			traffic(labels, bytes);
+		}
 	}
 
 	return Result.ok();
