@@ -132,6 +132,29 @@ function datatypeOf(option) {
 	return (option.type === 'int') ? 'integer' : null;
 }
 
+// The core's options of a collector by their titles, as the Limits tab has them. The
+// collector's own come with the titles it gives them, which LuCI cannot translate: they
+// come from the router, as its name and help do, and are shown as they are.
+const CORE_TITLES = {
+	enabled: _('Enabled'),
+	timeout: _('Program timeout'),
+	budget: _('Budget'),
+	max_samples: _('Sample limit')
+};
+
+// The title of option `name` of collector `c`: the core's, translated; the collector's
+// own as the ubus object's `collectors` gives it; its name when there is neither.
+function optionTitle(c, name) {
+	const core = lookup(CORE_TITLES, name);
+
+	if (core != null)
+		return core;
+
+	const option = (Array.isArray(c?.options) ? c.options : []).find((o) => o?.name === name);
+
+	return String(option?.title || name);
+}
+
 // uci's boolean spellings, as the exporter reads them.
 function isTrue(value) {
 	return [ '1', 'yes', 'on', 'true', 'enabled' ].includes(String(value));
@@ -149,6 +172,7 @@ return baseclass.extend({
 	isUnavailable: isUnavailable,
 	describeError: describeError,
 	datatypeOf: datatypeOf,
+	optionTitle: optionTitle,
 	isTrue: isTrue,
 	isFalse: isFalse,
 

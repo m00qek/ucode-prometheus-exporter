@@ -381,7 +381,8 @@ return view.extend({
 
 	// What the object found, in a list above the form, which stays until it is fixed, and
 	// in a dialog, which the user sees wherever the page is scrolled. Each field is named
-	// by its tab, as a link that shows it.
+	// by its tab and its title, a collector's option by its collector's title too, as a
+	// link that shows it.
 	showRefused(errors) {
 		const items = () => {
 			const out = [];
@@ -397,11 +398,12 @@ return view.extend({
 
 			for (const id in (errors.collectors ?? {}))
 				for (const name in errors.collectors[id]) {
+					const c = this.table.collectors.find((c) => c?.id === id);
 					const row = `tr[data-collector="${CSS.escape(id)}"]`;
 					const target = (name === 'enabled') ? `${row} input[type="checkbox"]` : `${row} .cbi-button-edit`;
 
 					out.push(line([
-						this.revealLink('collectors', target, [ E('code', {}, [ id ]), ' ', E('code', {}, [ name ]) ]),
+						this.revealLink('collectors', target, fill(_('%s → %s'), String(c?.title || c?.name || id), exporter.optionTitle(c, name))),
 						': ', String(errors.collectors[id][name])
 					]));
 				}

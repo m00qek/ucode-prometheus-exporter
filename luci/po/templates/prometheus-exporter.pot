@@ -27,11 +27,12 @@ msgid_plural "%s collectors failed in the test run: %s."
 msgstr[0] ""
 msgstr[1] ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter/widgets.js:382
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter/widgets.js:384
 msgid "%s option of the %s collector"
 msgstr ""
 
 #: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:379
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:406
 msgid "%s → %s"
 msgstr ""
 
@@ -71,6 +72,10 @@ msgstr ""
 msgid "Basic auth user"
 msgstr ""
 
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter.js:141
+msgid "Budget"
+msgstr ""
+
 #: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter/widgets.js:205
 #: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/status.js:333
 msgid "Collector"
@@ -93,8 +98,8 @@ msgstr ""
 msgid "Compression"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter/widgets.js:331
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:432
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter/widgets.js:332
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:434
 msgid "Dismiss"
 msgstr ""
 
@@ -118,6 +123,7 @@ msgstr ""
 msgid "Enable the %s collector"
 msgstr ""
 
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter.js:139
 #: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter/widgets.js:205
 msgid "Enabled"
 msgstr ""
@@ -260,15 +266,15 @@ msgstr ""
 msgid "Nothing to observe"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:443
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:445
 msgid "Nothing was saved."
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:412
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:414
 msgid "Nothing was saved: the exporter would refuse these values."
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter/widgets.js:500
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter/widgets.js:502
 msgid "Nothing was staged: the exporter would refuse these values."
 msgstr ""
 
@@ -292,6 +298,7 @@ msgstr ""
 msgid "Port"
 msgstr ""
 
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter.js:140
 #: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:259
 msgid "Program timeout"
 msgstr ""
@@ -327,6 +334,7 @@ msgstr ""
 msgid "Runs the exporter."
 msgstr ""
 
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter.js:142
 #: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:266
 msgid "Sample limit"
 msgstr ""
@@ -337,11 +345,11 @@ msgid ""
 "more fails, and none of its samples are served."
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter/widgets.js:337
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter/widgets.js:338
 msgid "Save"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:430
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:432
 msgid "Save error"
 msgstr ""
 
@@ -439,7 +447,7 @@ msgstr ""
 msgid "The collectors could not be read."
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter/widgets.js:510
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter/widgets.js:512
 msgid ""
 "The configuration has a section %s of another type, which the exporter "
 "ignores: nothing was staged."
@@ -471,12 +479,12 @@ msgid ""
 "loopback, only programs on the router can scrape it."
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter/widgets.js:439
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter/widgets.js:457
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter/widgets.js:441
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter/widgets.js:459
 msgid "The options could not be checked:"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter/widgets.js:519
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter/widgets.js:521
 msgid "The options could not be staged:"
 msgstr ""
 

@@ -340,13 +340,17 @@ test.describe('Services → Prometheus exporter', () => {
     expect(saved.wifi).toBeUndefined();
   });
 
-  test('Edit opens a dialog with a field per option, by its type, with its help, and what the collector reads', async ({ page }) => {
+  test('Edit opens a dialog with a field per option, by its type, with its title and help, and what the collector reads', async ({ page }) => {
     await h.openSettings(page);
     let dialog = await h.editCollector(page, 'sampler');
     await expect(dialog.locator('h4')).toHaveText('Sampler sampler');
     await expect(dialog.locator('.exporter-editor > p').first()).toHaveText('Samples nothing, with an option of each type.');
     const fields = await dialog.locator('.cbi-value[data-option]').evaluateAll((els) => els.map((el) => el.getAttribute('data-option')));
     expect(fields).toEqual([ 'retries', 'verbose', 'label' ]);
+    // Each field by the title the collector gives its option, never by the option's name.
+    await expect(dialog.locator('.cbi-value[data-option] > .cbi-value-title')).toHaveText([ 'Retries', 'Verbose', 'Label' ]);
+    await expect(option(page, 'sampler', 'retries')).toHaveAttribute('aria-label', 'Retries option of the sampler collector');
+    await expect(dialog.getByRole('textbox', { name: 'Label option of the sampler collector' })).toBeVisible();
     await expect(option(page, 'sampler', 'retries')).toHaveValue('');
     await expect(option(page, 'sampler', 'retries')).toHaveAttribute('placeholder', '3');
     await expect(option(page, 'sampler', 'label')).toHaveAttribute('placeholder', 'node');
@@ -454,6 +458,8 @@ test.describe('Services → Prometheus exporter', () => {
     const dialog = await h.editCollector(page, 'runner');
     const fields = await dialog.locator('.cbi-value[data-option]').evaluateAll((els) => els.map((el) => el.getAttribute('data-option')));
     expect(fields).toEqual([ 'timeout' ]);
+    // The core's title, as the Limits tab has it.
+    await expect(dialog.locator('.cbi-value[data-option="timeout"] > .cbi-value-title')).toHaveText('Program timeout');
     await expect(option(page, 'runner', 'timeout')).toHaveValue('');
     await expect(option(page, 'runner', 'timeout')).toHaveAttribute('placeholder', '5');
     await expect(dialog.locator('.cbi-value[data-option="timeout"] .cbi-value-description')).toContainText('Seconds the programs of this collector get');
@@ -514,7 +520,7 @@ test.describe('Services → Prometheus exporter', () => {
     await option(page, 'runner', 'timeout').fill('0');
     await expect(option(page, 'runner', 'timeout')).toHaveClass(/cbi-input-invalid/);
     await h.modal(page).getByRole('button', { name: 'Save', exact: true }).click();
-    await expect(h.modal(page).locator('.alert-message.error .exporter-line')).toHaveText([ 'timeout: expected an integer from 1 to 30, got 0' ]);
+    await expect(h.modal(page).locator('.alert-message.error .exporter-line')).toHaveText([ 'Program timeout: expected an integer from 1 to 30, got 0' ]);
     await dismissDialog(page);
     expect(await h.staged(page)).toEqual({});
     expect(await h.readConfig(request)).toBe(before);
@@ -547,7 +553,7 @@ test.describe('Services → Prometheus exporter', () => {
     await expect(option(page, 'sampler', 'retries')).toHaveClass(/cbi-input-invalid/);
     await expect(option(page, 'sampler', 'retries')).toHaveAttribute('data-tooltip', 'Expecting: valid integer value');
     await h.modal(page).getByRole('button', { name: 'Save', exact: true }).click();
-    await expect(h.modal(page).locator('.alert-message.error .exporter-line')).toHaveText([ 'retries: expected an integer, got "many"' ]);
+    await expect(h.modal(page).locator('.alert-message.error .exporter-line')).toHaveText([ 'Retries: expected an integer, got "many"' ]);
     await expect(h.modal(page)).toBeVisible();
     await dismissDialog(page);
 
@@ -578,6 +584,8 @@ test.describe('Services → Prometheus exporter', () => {
     const dialog = await h.editCollector(page, 'diskstats');
     const fields = await dialog.locator('.cbi-value[data-option]').evaluateAll((els) => els.map((el) => el.getAttribute('data-option')));
     expect(fields).toEqual([ 'device_exclude' ]);
+    expect(exclude.title).toBe('Excluded devices');
+    await expect(dialog.locator('.cbi-value[data-option="device_exclude"] > .cbi-value-title')).toHaveText('Excluded devices');
     await expect(option(page, 'diskstats', 'device_exclude')).toHaveValue('');
     await expect(option(page, 'diskstats', 'device_exclude')).toHaveAttribute('placeholder', exclude.default);
     await expect(dialog.locator('.cbi-value[data-option="device_exclude"] .cbi-value-description')).toHaveText(exclude.help);
@@ -628,12 +636,12 @@ test.describe('Services → Prometheus exporter', () => {
     await expect(note).toHaveText('The saved settings are not valid: CONFIG_INVALID (retries: expected an integer, got "many")');
 
     await saveAndApply(page);
-    await refused(page, [ 'Collectors → sampler retries: expected an integer, got "many"' ]);
+    await refused(page, [ 'Collectors → Sampler → Retries: expected an integer, got "many"' ]);
     expect(await h.readConfig(request)).toBe(before);
 
     // Above the form, its link shows the collector's row, from another tab too.
     await h.showTab(page, 'general');
-    await page.locator('#view .alert-message.error .exporter-line').getByRole('link', { name: 'Collectors → sampler retries' }).click();
+    await page.locator('#view .alert-message.error .exporter-line').getByRole('link', { name: 'Collectors → Sampler → Retries' }).click();
     await expect(tab(page, 'collectors')).toHaveClass('cbi-tab');
     await expect(editButton(page, 'sampler')).toBeFocused();
 

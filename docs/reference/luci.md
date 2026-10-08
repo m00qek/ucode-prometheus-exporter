@@ -64,9 +64,11 @@ One row per collector the ubus object's `collectors` lists, sorted by title: its
 
 **Edit** opens a dialog with:
 
-- a field per option of the collector, by its type, with its help and datatype;
-- for a collector that runs programs, a field for the core's `timeout`, whose placeholder is the seconds it gets while it is empty: its own default, or `exec_timeout` as the Limits tab has it;
+- a field per option of the collector, by its type, labelled by the option's title, with its help and datatype;
+- for a collector that runs programs, a field for the core's `timeout`, labelled **Program timeout**, whose placeholder is the seconds it gets while it is empty: its own default, or `exec_timeout` as the Limits tab has it;
 - read-only rows: **Reads** (the configs it reads), **Runs** (the programs it runs), **Jail mounts** (what the jail mounts for it) and, when there are any, **Jail problems**.
+
+An option's title is the collector's `title` of it, shown as the collector gives it: it comes from the router, as the collector's own title and help do, so LuCI cannot translate it. The core's options are labelled by LuCI, in its language: **Enabled**, **Program timeout**, **Budget** and **Sample limit**. A field's accessible name is its title and the collector's name, as **Excluded devices option of the diskstats collector**.
 
 The first field has the focus when the dialog opens. The dialog's **Save** stages its values in uci, where they show among the unsaved changes; **Dismiss**, or Escape, drops them. Either way the focus goes back to the row's **Edit**. The page's **Save & Apply** applies them with the rest.
 
@@ -80,7 +82,7 @@ Values are checked with the ubus object's `validate`, as the exporter reads them
 
 A tab with a field the exporter or LuCI would refuse shows how many on its title, LuCI's own badge, while another tab is shown.
 
-A Save the exporter would refuse opens LuCI's **Save error** dialog, which lists each refused field and why, wherever the page is scrolled; the same list stays above the form until the values are fixed. Each field is named by its tab, as **HTTPS & login → Basic auth user**, and a collector's option as **Collectors → sampler retries**. The name is a link: it closes the dialog, shows the tab, and gives the field the focus, or the collector's **Edit**. A refused dialog says why inside the dialog.
+A Save the exporter would refuse opens LuCI's **Save error** dialog, which lists each refused field and why, wherever the page is scrolled; the same list stays above the form until the values are fixed. Each field is named by its tab, as **HTTPS & login → Basic auth user**, and a collector's option by the collector's title and the option's, as **Collectors → Disk I/O → Excluded devices**. The name is a link: it closes the dialog, shows the tab, and gives the field the focus, or the collector's **Edit**. A refused dialog says why inside the dialog.
 
 ### Without the ubus object
 

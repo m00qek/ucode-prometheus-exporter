@@ -309,8 +309,9 @@ const CollectorTable = form.Value.extend({
 		return rows;
 	},
 
-	// The dialog of a collector's options: a field per option, by its type, with its help,
-	// which the object's validate checks as it is typed; and what the collector reads.
+	// The dialog of a collector's options: a field per option, by its type, labelled by its
+	// title, with its help, which the object's validate checks as it is typed; and what the
+	// collector reads.
 	openEditor(row) {
 		const c = row.c;
 		const section = this.sectionOf(c.id);
@@ -354,6 +355,7 @@ const CollectorTable = form.Value.extend({
 		const c = editor.row.c;
 		const raw = (section != null) ? section[o.name] : null;
 		const id = `cbid.${CONFIG}.${c.id}.${o.name}`;
+		const title = exporter.optionTitle(c, o.name);
 		let widget;
 
 		if (o.type === 'bool') {
@@ -379,12 +381,12 @@ const CollectorTable = form.Value.extend({
 		const input = node.querySelector('input:not([type="hidden"])');
 
 		if (input)
-			input.setAttribute('aria-label', fill(_('%s option of the %s collector'), o.name, c.name).join(''));
+			input.setAttribute('aria-label', fill(_('%s option of the %s collector'), title, c.name).join(''));
 
 		editor.fields.push({ option: o, widget: widget });
 
 		return E('div', { 'class': 'cbi-value', 'data-option': o.name }, [
-			E('label', { 'class': 'cbi-value-title', 'for': input?.id ?? null }, [ o.name ]),
+			E('label', { 'class': 'cbi-value-title', 'for': input?.id ?? null }, [ title ]),
 			E('div', { 'class': 'cbi-value-field' }, [ node ].concat(o.help
 				? [ E('div', { 'class': 'cbi-value-description' }, [ String(o.help) ]) ] : []))
 		]);
@@ -492,7 +494,7 @@ const CollectorTable = form.Value.extend({
 				const message = lookup(res.errors, name) ?? (f.widget.isValid() ? null : f.widget.getValidationError());
 
 				if (message != null)
-					refused.push(line([ E('code', {}, [ name ]), ': ', String(message) ]));
+					refused.push(line([ exporter.optionTitle(c, name), ': ', String(message) ]));
 			}
 
 			if (refused.length) {

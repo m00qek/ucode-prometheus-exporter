@@ -26,6 +26,9 @@ test.describe('Data from the router is shown as text, never markup', () => {
     await expect(dialog.locator('.exporter-editor > p').first()).toHaveText(h.HOSTILE);
     await expect(dialog.locator(`[id="widget.cbid.${h.CONFIG}.hostile.note"]`)).toHaveAttribute('placeholder', h.HOSTILE);
     await expect(dialog.locator('.cbi-value[data-option="note"] .cbi-value-description')).toHaveText(h.HOSTILE);
+    // The option's title, as its label and in its field's name.
+    await expect(dialog.locator('.cbi-value[data-option="note"] .cbi-value-title')).toHaveText(h.HOSTILE);
+    await expect(dialog.locator(`[id="widget.cbid.${h.CONFIG}.hostile.note"]`)).toHaveAttribute('aria-label', `${h.HOSTILE} option of the hostile collector`);
   });
 
   test('on the status page', async ({ page }) => {
@@ -42,7 +45,7 @@ test.describe('Data from the router is shown as text, never markup', () => {
     const dialog = await h.editCollector(page, 'sampler');
     await dialog.locator(`[id="widget.cbid.${h.CONFIG}.sampler.retries"]`).fill(h.HOSTILE);
     await dialog.getByRole('button', { name: 'Save', exact: true }).click();
-    await expect(dialog.locator('.alert-message.error .exporter-line')).toHaveText([ `retries: expected an integer, got "${h.HOSTILE}"` ]);
+    await expect(dialog.locator('.alert-message.error .exporter-line')).toHaveText([ `Retries: expected an integer, got "${h.HOSTILE}"` ]);
     await expectInert(page);
     await dialog.getByRole('button', { name: 'Dismiss', exact: true }).click();
 
