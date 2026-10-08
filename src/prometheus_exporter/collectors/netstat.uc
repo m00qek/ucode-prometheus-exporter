@@ -52,9 +52,9 @@ const SNMP6_NAME = /^(Ip6|Icmp6|UdpLite6|Udp6)(.+)$/;
 // of them, or starts with TcpExt_Listen or TcpExt_Syncookies, or ends with
 // _InErrors or _InErrs (default_field). A scrape checks each of the kernel's
 // 400 or so fields, and musl's regexec takes 14 us in the devenv to match one
-// against the pattern, a third of a millisecond on a 500-MIPS 24Kc: the
-// default, which nearly every router has, is checked with lookups instead,
-// and any other pattern is matched.
+// against the pattern, as long as forty lookups: the default, which nearly
+// every router has, is checked with lookups instead, and any other pattern
+// is matched.
 const DEFAULT_WHOLE = {
 	Ip_Forwarding: true, Ip6_InOctets: true, Ip6_OutOctets: true, IpExt_InOctets: true, IpExt_OutOctets: true,
 	Icmp_InMsgs: true, Icmp_OutMsgs: true, Icmp6_InMsgs: true, Icmp6_OutMsgs: true,

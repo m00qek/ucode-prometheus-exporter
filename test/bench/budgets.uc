@@ -25,8 +25,10 @@ const TIME = [
 	[ 'typical/scrape:full', 1.0, 'a typical router\'s full scrape' ],
 	// Measured 0.67 s; 12.7 s before.
 	[ 'large/scrape:full', 5.0, 'a busy router\'s full scrape' ],
-	// Measured 0.41 s; 9.2 s before.
-	[ 'large/collector:nat_traffic@20000', 3.0, 'nat_traffic on 20k entries' ],
+	// Measured 0.21 s; 0.25 s with a call to check each sample's labels, 9.2 s before.
+	[ 'large/collector:nat_traffic@20000', 0.6, 'nat_traffic on 20k entries' ],
+	// Measured 2.4 ms; 6.8 ms matching each of 400 fields against the default pattern.
+	[ 'large/collector:netstat', 0.006, 'netstat on the kernel\'s 400 fields' ],
 	// Measured 0.07 s; 3.8 s before.
 	[ 'large/collector:ethtool', 1.0, 'ethtool on 17 ports' ],
 	// Measured 0.035 s; 0.32 s before.
@@ -90,6 +92,23 @@ const LOAD_FDS_PER_COLLECTOR = 2;
 // 0.48 in the devenv, 0.33 on QEMU's 24Kc, and 0.53 and 0.48 with 0.2.0,
 // whose scrapes on the R3S took 0.35 s besides 0.47 s of collectors.
 const HANDLER_SHARE = { 'typical/handler:base': 1.3, 'typical/handler:full': 0.6 };
+
+// How much a sample of each shape may cost the recorder (record:), as a
+// multiple of a sample of a labels() set (record:made), which is a lookup
+// and a line: a ratio of the VM's own work, which holds on any machine.
+// Two labels of an object each, checked and written a lookup and a
+// concatenation a label, an int value: measured 2.4 (5.2 us against 2.2 in
+// the devenv). The same with a double, written as ucode's 14 digits when
+// they read back as it: 3.3. With a call of label_text() and a split of its
+// text for each sample, and a double checked for NaN and the infinities
+// first, they were 3.6 and 4.5 in the devenv, 3.4 and 4.3 on QEMU's 24Kc.
+const RECORD_FACTOR = { 'typical/record:labels': 3.0, 'typical/record:double': 3.9 };
+
+// What a scrape may cost for each collector besides it (noop:), in seconds:
+// its settings, the round trip to the child process it runs in, and its
+// four samples of the scrape's own. Measured 0.13 ms in the devenv; a
+// scrape that forked a process for each collector would pass it.
+const PER_COLLECTOR = 0.0005;
 
 // [ world/case, kB, what ]: how far a run's peak memory may rise, about three
 // times what was measured on x86_64 (a 32-bit router's is less), which a
@@ -190,6 +209,21 @@ export function check(results, absolute) {
 			push(over, sprintf('%s: %.1f ms besides its collectors\' %.1f ms, over %d%% of them', name, served.outside * 1000,
 				served.collecting * 1000, share * 100));
 	}
+
+	let made = r['typical/record:made'];
+
+	for (let name, factor in RECORD_FACTOR) {
+		let rec = r[name];
+
+		if (rec?.time && made?.time && rec.time.median > made.time.median * factor)
+			push(over, sprintf('%s: %.2f us a sample, over %.1f times record:made\'s %.2f us', name,
+				rec.time.median / rec.samples * 1000000, factor, made.time.median / made.samples * 1000000));
+	}
+
+	let each = per_collector(r[`typical/noop:${NOOP[0]}`], r[`typical/noop:${NOOP[1]}`]);
+
+	if (absolute && each != null && each > PER_COLLECTOR)
+		push(over, sprintf('noop: %.3f ms a collector besides it, over %.3f ms', each * 1000, PER_COLLECTOR * 1000));
 
 	for (let b in MEMORY)
 		if (r[b[0]]?.growth_kb > b[1])
