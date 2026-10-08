@@ -56,6 +56,22 @@ describe('config.types.datatype', () => {
 		assert.match([ null, null, null, null ], map([ 'ipaddr', 'range(9,1)', 'range(1)', 7 ], types.datatype));
 	});
 
+	it('makes a range once, and checks by it every time', () => {
+		let a = types.datatype('range(1,60)');
+
+		assert.match(true, a === types.datatype('range(1,60)'), 'the same range');
+		assert.match([ true, false, false ], [ a.check(60), a.check(61), a.check(0) ]);
+		assert.match([ true, 'o: expected an integer from 1 to 60, got 61' ], [ check('range(1,60)', '60'), check('range(1,60)', '61') ]);
+	});
+
+	prop('checks a range as its bounds say, made or remembered',
+		gen.tuple(gen.int(-50, 50), gen.int(0, 50), gen.int(-120, 120)), (t) => {
+			let lo = t[0], hi = t[0] + t[1];
+
+			for (let i = 0; i < 2; i++)
+				assert.match(t[2] >= lo && t[2] <= hi, types.datatype(`range(${lo},${hi})`).check(t[2]));
+		});
+
 	it('says what a value of each should be', () => {
 		assert.match([
 			'o: expected an integer of 0 or more, got -1',

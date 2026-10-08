@@ -87,6 +87,16 @@ export const DATATYPES = {
 	}),
 };
 
+// The range(min,max) datatypes made so far, by name: making one writes its
+// problem's English, which costs a scrape more than checking every value it
+// reads. At most RANGES_MAX, the few the core and the collectors declare.
+const RANGES = {};
+const RANGES_MAX = 256;
+
+function range_of(lo, hi) {
+	return datatype_of([ 'int' ], problems.RANGE, { min: lo, max: hi }, (v) => v >= lo && v <= hi);
+}
+
 /**
  * { types, problem, expected, check } of a datatype name, or null for one the
  * core does not know. range(min,max) takes the integers from min to max.
@@ -95,15 +105,29 @@ export const DATATYPES = {
  * @returns {?Datatype} the datatype, or null.
  */
 export function datatype(name) {
-	let m = (type(name) == 'string') ? match(name, /^range\((-?[0-9]+),(-?[0-9]+)\)$/) : null;
+	if (type(name) != 'string')
+		return null;
 
-	if (m) {
-		let lo = int(m[1]), hi = int(m[2]);
+	let known = DATATYPES[name] ?? RANGES[name];
 
-		return lo <= hi ? datatype_of([ 'int' ], problems.RANGE, { min: lo, max: hi }, (v) => v >= lo && v <= hi) : null;
-	}
+	if (known)
+		return known;
 
-	return (type(name) == 'string') ? DATATYPES[name] : null;
+	let m = match(name, /^range\((-?[0-9]+),(-?[0-9]+)\)$/);
+
+	if (!m)
+		return null;
+
+	let lo = int(m[1]), hi = int(m[2]);
+
+	if (lo > hi)
+		return null;
+
+	// A scrape checks every collector's budget and max_samples by theirs.
+	if (length(RANGES) < RANGES_MAX)
+		RANGES[name] = range_of(lo, hi);
+
+	return RANGES[name] ?? range_of(lo, hi);
 };
 
 /**

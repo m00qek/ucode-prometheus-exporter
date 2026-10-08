@@ -475,13 +475,14 @@ export function auth(uci) {
  *
  * @param {UciCursor} uci the cursor.
  * @param {?Meta} meta the collector's meta.
+ * @param {?Result<MainSettings>} main_res main(uci), when read already.
  * @returns {int} the seconds.
  */
-export function default_timeout(uci, meta) {
+export function default_timeout(uci, meta, main_res) {
 	if (meta?.timeout != null)
 		return meta.timeout;
 
-	let res = main(uci);
+	let res = main_res ?? main(uci);
 
 	return res.ok ? res.data.exec_timeout : EXEC_TIMEOUT;
 };
@@ -496,10 +497,11 @@ export function default_timeout(uci, meta) {
  * @param {UciCursor} uci the cursor.
  * @param {?int} timeout the seconds of its programs, or null for a collector
  *   that runs none.
+ * @param {?Result<MainSettings>} main_res main(uci), when read already.
  * @returns {int} the seconds.
  */
-export function default_budget(uci, timeout) {
-	let res = main(uci);
+export function default_budget(uci, timeout, main_res) {
+	let res = main_res ?? main(uci);
 	let budget = res.ok ? res.data.collector_budget : COLLECTOR_BUDGET;
 
 	return (timeout != null) ? max(budget, timeout + 1) : budget;
@@ -512,13 +514,14 @@ export function default_budget(uci, timeout) {
  *
  * @param {UciCursor} uci the cursor.
  * @param {?Meta} meta the collector's meta.
+ * @param {?Result<MainSettings>} main_res main(uci), when read already.
  * @returns {int} the samples.
  */
-export function default_max_samples(uci, meta) {
+export function default_max_samples(uci, meta, main_res) {
 	if (meta?.max_samples != null)
 		return meta.max_samples;
 
-	let res = main(uci);
+	let res = main_res ?? main(uci);
 
 	return res.ok ? res.data.max_samples : MAX_SAMPLES;
 };
@@ -576,19 +579,24 @@ export function timeout_source(uci, id, meta) {
  * checked like its own, which `options` holds. So timeout's precedence: the
  * section's, then meta.timeout, then the main section's exec_timeout;
  * budget's: the section's, then default_budget's; max_samples': the
- * section's, then meta.max_samples, then the main section's.
+ * section's, then meta.max_samples, then the main section's. `main_res`, the
+ * main section's as main(uci) reads it, is read here when not given: a scrape
+ * reads it once for all its collectors.
  *
  * @param {UciCursor} uci the cursor.
  * @param {string} id the collector's module name, its section's name.
  * @param {?Meta} meta the collector's meta.
+ * @param {?Result<MainSettings>} main_res main(uci), when read already.
  * @returns {Result<Settings>} its settings, or CONFIG_INVALID.
  */
-export function settings(uci, id, meta) {
+export function settings(uci, id, meta, main_res) {
+	main_res ??= main(uci);
+
 	let exec = ('exec' in (meta?.needs ?? []));
-	let seconds = exec ? default_timeout(uci, meta) : null;
+	let seconds = exec ? default_timeout(uci, meta, main_res) : null;
 	let timeout_res = exec ? section(uci, id, 'collector', { timeout: { default: seconds, ...TIMEOUT } }) : null;
 	let timeout = (timeout_res?.ok) ? timeout_res.data.timeout : seconds;
-	let core_specs = core(meta, seconds, default_budget(uci, timeout), default_max_samples(uci, meta));
+	let core_specs = core(meta, seconds, default_budget(uci, timeout, main_res), default_max_samples(uci, meta, main_res));
 	let res = section(uci, id, 'collector', { ...(meta?.options ?? {}), ...core_specs });
 
 	if (!res.ok)

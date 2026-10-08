@@ -130,7 +130,8 @@ import { bury, log_breakers } from 'prometheus_exporter.progress';
  *   pid: ?int,
  *   kept: ?boolean,
  *   progress: ?ProgressFile,
- *   omit: ?boolean
+ *   omit: ?boolean,
+ *   main: ?Result<MainSettings>
  * }} CollectOptions
  */
 
@@ -353,7 +354,8 @@ function runner_of(env, chosen, omit) {
  * samples (deps.exporter_channel). opts: { deadline, quarantine,
  * collectors: the installed ones, pid: the serving process's, null for this
  * one, kept: whether the ledger is the instance's, progress: the scrape's
- * (prometheus_exporter.state), omit: omit_zero_values }. The counters name
+ * (prometheus_exporter.state), omit: omit_zero_values, main: the main
+ * section, config.main's, read here when not given }. The counters name
  * collectors by their names.
  *
  * @param {ScrapeEnv} env the scrape's env.
@@ -372,6 +374,8 @@ export function collect(env, uci, l, chosen, opts) {
 	let deadline = opts?.deadline;
 	let queue = ledger.order(l, chosen, (c) => 'exporter' in c.meta.needs, untimed_rank);
 	let next = 0;
+	// Read once: every collector's settings default to it.
+	let main = opts?.main ?? config.main(uci);
 
 	function view() {
 		let counters = null;
@@ -419,7 +423,7 @@ export function collect(env, uci, l, chosen, opts) {
 					}
 				}
 
-				let s = config.settings(uci, c.id, c.meta);
+				let s = config.settings(uci, c.id, c.meta, main);
 				let budget = s.ok ? s.data.budget : null;
 				let limit = (budget != null) ? now + budget : null;
 				let held = false;
@@ -479,7 +483,7 @@ export function trial(env, uci, l, chosen, installed) {
 	let main = config.main(uci);
 	let timeout = main.ok ? main.data.scrape_timeout : config.SCRAPE_TIMEOUT;
 	let by_id = collect(env, uci, l ?? ledger.empty(), chosen, {
-		deadline: now_of(env.clock()) + deadline_budget(timeout), collectors: installed ?? chosen,
+		deadline: now_of(env.clock()) + deadline_budget(timeout), collectors: installed ?? chosen, main,
 	});
 
 	return map(chosen, (c) => by_id[c.id]);
@@ -513,6 +517,7 @@ export function scrape(env, collectors, query_string, opts) {
 	}
 
 	let main = config.main(uci);
+	let main_read = main;
 
 	if (!main.ok) {
 		env.log('err', `main: ${Result.describe(main)}`);

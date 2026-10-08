@@ -89,6 +89,39 @@ describe('config.settings', () => {
 		return out;
 	}
 
+	it('takes the main section read already, as a scrape reads it once for all its collectors', () => {
+		let main = { '.type': config.NAME, exec_timeout: '9', collector_budget: '7', max_samples: '300' };
+
+		with_uci({ main, c: { '.type': 'collector', stations: '0' } }, (uci) => {
+			let read = config.main(uci);
+
+			assert.match(config.settings(uci, 'c', EXEC), config.settings(uci, 'c', EXEC, read));
+			assert.match({ enabled: true, timeout: 9, budget: 10, max_samples: 300, options: { stations: false } }, config.settings(uci, 'c', EXEC, read).data);
+		});
+
+		// What was read is what counts: a main section that is not valid
+		// gives the defaults, as it does read here.
+		with_uci({ main: { ...main, exec_timeout: 'x' } }, (uci) => {
+			assert.match(config.settings(uci, 'c', EXEC), config.settings(uci, 'c', EXEC, config.main(uci)));
+			assert.match(config.EXEC_TIMEOUT, config.settings(uci, 'c', EXEC, config.main(uci)).data.timeout);
+		});
+	});
+
+	it('reads the main section once, or not at all when given it: a scrape reads it once for every collector', () => {
+		let reads = [];
+		let sections = { main: { '.type': config.NAME, collector_budget: '7' }, c: { '.type': 'collector' } };
+		let uci = { get_all: function(name, section) { push(reads, section); return sections[section]; } };
+
+		config.settings(uci, 'c', EXEC);
+		assert.match(1, length(filter(reads, (s) => s == 'main')));
+
+		let main = config.main(uci);
+
+		reads = [];
+		assert.match(7, config.settings(uci, 'c', EXEC, main).data.budget);
+		assert.match([], filter(reads, (s) => s == 'main'));
+	});
+
 	it('gives enabled, the timeout and the options apart', () => {
 		with_uci({ c: { '.type': 'collector', enabled: '0', stations: '0', timeout: '7' } }, (uci) => {
 			assert.match({ enabled: false, timeout: 7, budget: 8, max_samples: config.MAX_SAMPLES, options: { stations: false } }, config.settings(uci, 'c', EXEC).data);
