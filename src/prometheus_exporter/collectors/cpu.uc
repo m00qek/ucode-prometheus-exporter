@@ -6,7 +6,9 @@
 import { Result, errors, proc } from 'prometheus_exporter.api';
 
 // Regexes are constants: ucode compiles a regex literal each time it is evaluated.
-const COUNT = /^[0-9]+$/;
+// COUNTS is a line's times joined by spaces, each a count: one match for
+// the line, where one for each of its ten times cost ten.
+const COUNTS = /^[0-9]+( [0-9]+)*$/;
 const CPU_LINE = /^cpu[0-9]+$/;
 
 export const meta = {
@@ -38,10 +40,6 @@ const SCALARS = {
 // USER_HZ, the unit of the times: 100 on every architecture OpenWrt runs on.
 const USER_HZ = 100.0;
 
-function is_count(s) {
-	return match(s, COUNT) != null;
-}
-
 export function collect(deps, out) {
 	let l = proc.lines(deps.fs, PATH);
 
@@ -58,7 +56,7 @@ export function collect(deps, out) {
 		if (match(x[0], CPU_LINE)) {
 			let times = slice(x, 1, 1 + length(MODES));
 
-			if (!length(times) || length(filter(times, is_count)) != length(times))
+			if (!length(times) || !match(join(' ', times), COUNTS))
 				return Result.err(errors.SOURCE_INVALID, `${PATH}: ${sprintf('%J', line)}`);
 
 			push(cpus, [ substr(x[0], 3), times ]);
@@ -70,16 +68,26 @@ export function collect(deps, out) {
 	if (!length(cpus))
 		return Result.err(errors.SOURCE_INVALID, `${PATH}: no cpu lines`);
 
-	// The cpu label is the CPU's number, as node_exporter's.
+	// The cpu label is the CPU's number, as node_exporter's. One object for
+	// every sample's labels: the recorder writes them as it takes the sample.
+	let labels = { cpu: null, mode: null };
 	let seconds = out.counter('node_cpu_seconds_total', 'Seconds the CPUs spent in each mode.');
-	for (let cpu in cpus)
-		for (let i = 0; i < GUEST && i < length(cpu[1]); i++)
-			seconds({ cpu: cpu[0], mode: MODES[i] }, cpu[1][i] / USER_HZ);
+	for (let cpu in cpus) {
+		labels.cpu = cpu[0];
+		for (let i = 0; i < GUEST && i < length(cpu[1]); i++) {
+			labels.mode = MODES[i];
+			seconds(labels, cpu[1][i] / USER_HZ);
+		}
+	}
 
 	let guest = out.counter('node_cpu_guest_seconds_total', 'Seconds the CPUs spent in guests (VMs) for each mode.');
-	for (let cpu in cpus)
-		for (let i = GUEST; i < length(cpu[1]); i++)
-			guest({ cpu: cpu[0], mode: MODES[i] }, cpu[1][i] / USER_HZ);
+	for (let cpu in cpus) {
+		labels.cpu = cpu[0];
+		for (let i = GUEST; i < length(cpu[1]); i++) {
+			labels.mode = MODES[i];
+			guest(labels, cpu[1][i] / USER_HZ);
+		}
+	}
 
 	for (let x in scalars) {
 		let s = SCALARS[x[0]];
