@@ -79,15 +79,15 @@ export const FILE = `${DIR}/uhttpd.conf`;
 export const PASSWORD_MAX = crypt.KEY_MAX;
 
 /**
- * Whether `s` is a user basic auth takes: 1 to 64 bytes, without ':', which
+ * Whether `user` is a user basic auth takes: 1 to 64 bytes, without ':', which
  * ends the user in the credentials and in uhttpd's file, white space or
  * control characters.
  *
- * @param {*} s anything; only a string is a user.
+ * @param {*} user anything; only a string is a user.
  * @returns {boolean} whether it is one.
  */
-export function is_user(s) {
-	return type(s) == 'string' && match(s, /^[^:[:space:][:cntrl:]]{1,64}$/) != null;
+export function is_user(user) {
+	return type(user) == 'string' && match(user, /^[^:[:space:][:cntrl:]]{1,64}$/) != null;
 };
 
 /**
@@ -107,14 +107,14 @@ export function is_user(s) {
 export const ROUNDS_MAX = 2000;
 
 /**
- * Whether `s` is a hash basic auth takes: of crypt's formats, and of at most
+ * Whether `value` is a hash basic auth takes: of crypt's formats, and of at most
  * ROUNDS_MAX rounds.
  *
- * @param {*} s anything; only a string is a hash.
+ * @param {*} value anything; only a string is a hash.
  * @returns {boolean} whether it is one.
  */
-export function is_hash(s) {
-	let n = crypt.rounds(s);
+export function is_hash(value) {
+	let n = crypt.rounds(value);
 
 	return n != null && n <= ROUNDS_MAX;
 };
@@ -131,21 +131,21 @@ export function conf(user, hash) {
 };
 
 /**
- * Writes uhttpd's config file for `a` ({ user, hash }) whole, mode 0600 in DIR
+ * Writes uhttpd's config file for `auth` ({ user, hash }) whole, mode 0600 in DIR
  * of mode 0700, and puts it in place by a rename, so the jail of a running
- * instance keeps the file it mounted; with `a` null, removes it. A Result of
+ * instance keeps the file it mounted; with `auth` null, removes it. A Result of
  * the path written, or of null. fs: { stat, mkdir, chmod, open, rename,
  * unlink, error }, as the fs module has them.
  *
  * @param {module:fs} fs the fs module, or an object of the functions named.
- * @param {?BasicAuth} a basic auth, or null for none.
+ * @param {?BasicAuth} auth basic auth, or null for none.
  * @returns {Result<?string>} FILE, or null when it removed it; or
  *   FILE_UNWRITABLE.
  */
-export function write_conf(fs, a) {
+export function write_conf(fs, auth) {
 	let failed = (what) => Result.err(errors.FILE_UNWRITABLE, `cannot ${what} ${FILE}: ${fs.error()}`);
 
-	if (a == null)
+	if (auth == null)
 		return (fs.stat(FILE) == null || fs.unlink(FILE)) ? Result.ok(null) : failed('remove');
 
 	let tmp = `${FILE}.new`;
@@ -156,7 +156,7 @@ export function write_conf(fs, a) {
 	fs.unlink(tmp);
 
 	let f = fs.open(tmp, 'w', 0o600);
-	let ok = f != null && f.write(conf(a.user, a.hash)) != null;
+	let ok = f != null && f.write(conf(auth.user, auth.hash)) != null;
 
 	ok = (f?.close() ?? false) && ok && fs.chmod(tmp, 0o600) && fs.rename(tmp, FILE);
 
@@ -212,37 +212,37 @@ export function credentials(value) {
 export const CACHE = 'auth';
 
 /**
- * The digest the cache keeps of an Authorization header let in by `a`
+ * The digest the cache keeps of an Authorization header let in by `auth`
  * ({ user, hash }): SHA-256 of the header, the user and the hash, each ended
  * by a NUL, which none of them holds. Bound to the user and hash, an entry
  * lets nothing in once either changes. It is no secret beyond the hash's: it
  * lives in a directory as closed as uhttpd's file, and finding a header that
  * gives it is guessing the password, as with the hash.
  *
- * @param {BasicAuth} a the basic auth it let the header in by.
+ * @param {BasicAuth} auth the basic auth it let the header in by.
  * @param {string} value the header's value.
  * @returns {string} the digest, as hex.
  */
-export function digest(a, value) {
-	return sha256(`${value}\0${a.user}\0${a.hash}\0`);
+export function digest(auth, value) {
+	return sha256(`${value}\0${auth.user}\0${auth.hash}\0`);
 };
 
 /**
- * Whether an Authorization header carries the user and password of `a`
+ * Whether an Authorization header carries the user and password of `auth`
  * ({ user, hash }). The hash is computed for any user, so a wrong user takes
- * as long as a wrong password. With `st`, the instance's state (state.open),
+ * as long as a wrong password. With `instance`, the instance's state (state.open),
  * the header the cache holds, compared in constant time, is let in without
  * computing the hash; one that is let in otherwise replaces it.
  *
- * @param {BasicAuth} a basic auth.
+ * @param {BasicAuth} auth basic auth.
  * @param {?string} value the Authorization header's value, or null.
- * @param {?State} st the instance's state, for the cache; null for none.
+ * @param {?State} instance the instance's state, for the cache; null for none.
  * @returns {boolean} whether the request is let in.
  */
-export function allowed(a, value, st) {
-	let d = (st != null && type(value) == 'string') ? digest(a, value) : null;
+export function allowed(auth, value, instance) {
+	let d = (instance != null && type(value) == 'string') ? digest(auth, value) : null;
 
-	if (d != null && crypt.same(st.read(CACHE), d))
+	if (d != null && crypt.same(instance.read(CACHE), d))
 		return true;
 
 	let c = credentials(value);
@@ -250,11 +250,11 @@ export function allowed(a, value, st) {
 	if (c == null)
 		return false;
 
-	let password = crypt.verify(c.password, a.hash);
-	let ok = crypt.same(c.user, a.user) && password;
+	let password = crypt.verify(c.password, auth.hash);
+	let ok = crypt.same(c.user, auth.user) && password;
 
 	if (ok && d != null)
-		st.write(CACHE, d);
+		instance.write(CACHE, d);
 
 	return ok;
 };

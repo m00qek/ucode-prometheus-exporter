@@ -66,26 +66,26 @@ export function load_auth(fs) {
 /**
  * What the handler sends instead of a scrape, or null for a request it serves.
  * Basic auth answers 403 to a request over HTTP, which the init script never
- * listens on with it, and 401 to one without the user and password. `st`, the
+ * listens on with it, and 401 to one without the user and password. `instance`, the
  * instance's state, holds basic auth's cache (auth.allowed).
  *
- * @param {?(BasicAuth|{ broken: boolean })} a basic auth, as load_auth gives
+ * @param {?(BasicAuth|{ broken: boolean })} credentials basic auth, as load_auth gives
  *   it.
  * @param {?Object} env uhttpd-mod-ucode's env of the request.
- * @param {?State} st the instance's state.
+ * @param {?State} instance the instance's state.
  * @returns {?HttpReply} the reply, or null.
  */
-export function refusal(a, env, st) {
-	if (a == null)
+export function refusal(credentials, env, instance) {
+	if (credentials == null)
 		return null;
 
-	if (a.broken)
+	if (credentials.broken)
 		return http.text_reply('500 Internal Server Error', 'Basic auth is not configured as it should be; see the log.\n');
 
 	if (env?.HTTPS != 'on')
 		return http.text_reply('403 Forbidden', 'Basic auth takes HTTPS only.\n');
 
-	if (!auth.allowed(a, http.header(env, 'authorization'), st))
+	if (!auth.allowed(credentials, http.header(env, 'authorization'), instance))
 		return http.text_reply('401 Unauthorized', 'Unauthorized.\n',
 			[ [ 'WWW-Authenticate', `Basic realm="${auth.REALM}"` ] ]);
 
@@ -193,31 +193,31 @@ export function handler(log, dir, state_dir, opts) {
 	let main = config.main(app.mods.uci.cursor());
 	let compress = main.ok ? main.data.compress : config.MAIN_OPTIONS.compress.default;
 	let scrape_timeout = main.ok ? main.data.scrape_timeout : config.SCRAPE_TIMEOUT;
-	let a = load_auth(app.mods.fs);
-	let st = state.open(app.mods.fs, state_dir ?? state.DIR, state.instance_id(app.mods.fs));
+	let credentials = load_auth(app.mods.fs);
+	let instance = state.open(app.mods.fs, state_dir ?? state.DIR, state.instance_id(app.mods.fs));
 
-	if (a?.broken)
+	if (credentials?.broken)
 		log('err', `${auth.FILE} is not one line of a user and a hash for ${auth.PATH}: every request is denied`);
 
 	return {
 		collectors: app.collectors,
-		auth: a,
+		auth: credentials,
 		compress,
 		scrape_timeout,
 		handle: function(req) {
 			let start = deadline.seconds(clock(true));
-			let refused = refusal(a, req, st);
+			let refused = refusal(credentials, req, instance);
 
 			// Counted for the exporter's own collector: a 401 is a request
 			// whose credentials basic auth refused.
 			if (refused?.status == '401 Unauthorized')
-				st.update(ledger.NAME, (text) => ledger.serialize(ledger.auth_failure(ledger.parse(text))));
+				instance.update(ledger.NAME, (text) => ledger.serialize(ledger.auth_failure(ledger.parse(text))));
 
 			if (refused)
 				return refused;
 
 			let budget = deadline.budget(deadline.timeout(http.header(req, deadline.HEADER), scrape_timeout));
-			let res = app.scrape(req?.QUERY_STRING, { deadline: start + budget, budget, state: st });
+			let res = app.scrape(req?.QUERY_STRING, { deadline: start + budget, budget, state: instance });
 
 			return http.scrape_reply(res, http.header(req, 'accept-encoding'), compress);
 		},
