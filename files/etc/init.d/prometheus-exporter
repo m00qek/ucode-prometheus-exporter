@@ -163,8 +163,9 @@ start_service() {
 
 	# The jail binds files, which keep their old contents when a new file
 	# replaces them, as uci commit does: so a reload restarts the instance
-	# when a config it reads, a collector or basic auth's file changes.
-	procd_set_param file $(echo "$mounts" | grep '^/etc/config/') "$COLLECTORS"/*.uc $auth
+	# when a config it reads, a collector, basic auth's file or the TLS
+	# files change (a renewed certificate), or the TLS files come to be.
+	procd_set_param file $(echo "$mounts" | grep '^/etc/config/') "$COLLECTORS"/*.uc $auth ${cert:+"$cert"} ${key:+"$key"}
 
 	procd_set_param stdout 1
 	procd_set_param stderr 1

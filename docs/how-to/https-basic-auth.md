@@ -91,6 +91,16 @@ Copy the router's certificate (`/etc/prometheus-exporter.crt`), not its key, to 
 
 ---
 
+## Renew the certificate
+
+The service's jail holds the certificate and key it started with. After writing new ones at the same paths, reload the service, which restarts it with them:
+
+```sh
+service prometheus-exporter reload
+```
+
+A tool that renews certificates on its own, as acme does, runs that from its hook. Until then the old certificate is served.
+
 ## Turn it off
 
 ```sh

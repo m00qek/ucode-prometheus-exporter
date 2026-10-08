@@ -11,6 +11,7 @@ What each release changes, for those who run the exporter and those who write co
 
 - **The install guide left out the feed.** The base package depends on `ucode-docopt`, which OpenWrt's feeds do not have, so its `apk add` failed on a device without the exporter's feed. [How to install the exporter](docs/how-to/install.md) adds the feed and its key first, as the README and the tutorial do, and its `.apk` example names `ucode-docopt` and no stale version.
 - **`hash-password` at a terminal dropped the spaces a password starts or ends with**, so the hash took another password than the one typed. It keeps them now, as it did from standard input: either way only the CR and LF that end the line go.
+- **A renewed certificate was not picked up.** The jail kept the certificate and key the service started with, and a reload left the instance running, as their paths had not changed. A reload now restarts it when either file changed: see [How to serve HTTPS with basic auth](docs/how-to/https-basic-auth.md#renew-the-certificate).
 
 ## [0.2.0] - 2026-10-08
 

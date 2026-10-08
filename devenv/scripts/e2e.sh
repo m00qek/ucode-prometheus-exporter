@@ -766,6 +766,14 @@ check "and with a wrong user" unauthorized --user=other --password=e2e-secret
 check "and with the hash as the password" unauthorized --user=prom "--password=$HASH"
 check "the right ones scrape" logs_in
 check "gzipped too, when asked" https_gzip
+# A renewed certificate, as acme writes one: new files at the same paths. The
+# jail holds the old ones until the instance restarts.
+before=$(pid)
+px5g selfsigned -days 60 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -keyout $KEY.new -out $CERT.new -subj /CN=127.0.0.1 >/dev/null 2>&1 &&
+	mv $KEY.new $KEY && mv $CERT.new $CERT
+"$INIT" reload
+eventually "a reload after the certificate is renewed restarts the instance" restarted_from "$before"
+eventually "which serves with it" logs_in
 check "plain HTTP is not served" fails wget -q -O /dev/null "$URL"
 check "check says basic auth is on, and for whom" says 'ok   main: HTTPS on interface loopback, port 9100, .*basic auth as user "prom"' "$INIT" check
 check "status says it" says '^listening on https://127.0.0.1:9100/metrics, basic auth, gzip when asked, serving' "$INIT" status
