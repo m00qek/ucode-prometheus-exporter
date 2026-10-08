@@ -73,6 +73,22 @@ function sysfs_view(host, links) {
 	return lines;
 }
 
+
+// A request refused as ucode's netlink modules refuse one: false, and an
+// error that error() clears as it reads it.
+function refused(why) {
+	let error = why;
+
+	return {
+		request: () => false,
+		error: function() {
+			let e = error;
+			error = null;
+			return e;
+		},
+	};
+}
+
 describe('collectors.netclass', () => {
 	it('exports every property of the caju router\'s eth0 and wg_mesh', () => {
 		with_collector(netclass, cfg_of(ROUTER_TWO), (r) => {
@@ -230,6 +246,14 @@ describe('collectors.netclass', () => {
 
 	it('passes a failed link dump on as the collector result', () => {
 		with_collector(netclass, { rtnl: { errors: { RTM_GETLINK: 'Operation not permitted' } } }, (r) => {
+			assert.match({ ok: false, error: 'RTNL_FAILED', details: 'Operation not permitted' },
+				{ ok: r.result.ok, error: r.result.error, details: r.result.details });
+			assert.match([], r.lines);
+		});
+	});
+
+	it('says why the kernel refused the link dump, not that it is not a list', () => {
+		with_collector(netclass, { rtnl: { behavior: refused('Operation not permitted') } }, (r) => {
 			assert.match({ ok: false, error: 'RTNL_FAILED', details: 'Operation not permitted' },
 				{ ok: r.result.ok, error: r.result.error, details: r.result.details });
 			assert.match([], r.lines);

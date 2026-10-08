@@ -12,8 +12,12 @@
 // with peer_names. That file holds the interfaces' private keys, so it is not
 // read, nor in the jail: rpcd's uci object hands over the interface's peer
 // sections alone, and all but each one's public key and description is let go.
+//
+// rpcd-mod-wireguard sends the listen port and the keepalive interval with
+// blobmsg_add_u16(), and the fwmark with blobmsg_add_u32() (src/api.c), which
+// ucode's ubus gives signed: u16() and u32() undo it.
 
-import { Result, errors, services } from 'prometheus_exporter.api';
+import { Result, errors, services, u16, u32 } from 'prometheus_exporter.api';
 
 export const meta = {
 	name: 'wireguard',
@@ -28,12 +32,6 @@ export const meta = {
 		},
 	},
 };
-
-// ubus hands 16- and 32-bit integers on as signed ones: a listen port of 51820
-// arrives as -13716.
-function unsigned(v, bits) {
-	return type(v) == 'int' && v < 0 ? v + (1 << bits) : v;
-}
 
 // { public key: description } of an interface's peers in /etc/config/network,
 // as rpcd's uci object gives its `wireguard_<iface>` sections. Without them
@@ -84,8 +82,8 @@ export function collect(deps, out, options) {
 		iface_info({
 			interface: iface,
 			public_key: wc.public_key,
-			listen_port: unsigned(wc.listen_port, 16),
-			fwmark: unsigned(wc.fwmark, 32) || null,
+			listen_port: u16(wc.listen_port),
+			fwmark: u32(wc.fwmark) || null,
 		}, 1);
 
 		let desc = options.peer_names ? descriptions(deps.ubus, iface) : {};
@@ -99,7 +97,7 @@ export function collect(deps, out, options) {
 				public_key: key,
 				friendly_name: desc[key],
 				endpoint: pc.endpoint,
-				persistent_keepalive_interval: unsigned(pc.persistent_keepalive_interval, 16) || null,
+				persistent_keepalive_interval: u16(pc.persistent_keepalive_interval) || null,
 			}, 1);
 
 			let labels = {

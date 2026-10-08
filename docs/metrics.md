@@ -35,7 +35,7 @@ conntrack, entropy, filefd, loadavg, time and uname already had node_exporter's 
 
 | Before | After | Type | Why |
 |---|---|---|---|
-| `node_netstat_<Section>_<Field>` (from `/proc/net/netstat` and `/proc/net/snmp`) | `node_netstat_<Section>_<Field>` | gauge → untyped | node_exporter's type, and its help text `Statistic <Section><Field>.` |
+| `node_netstat_<Section>_<Field>` (from `/proc/net/netstat` and `/proc/net/snmp`) | `node_netstat_<Section>_<Field>` | gauge → untyped | node_exporter's type, and its help text `Statistic <Section><Field>.` By default only the fields node_exporter's `--collector.netstat.fields` keeps, some 40 of about 400; the option `fields`, a regular expression, takes others (`.*` for every one). |
 | `snmp6_<Name>{device="all"}` (from `/proc/net/snmp6`) | `node_netstat_<Protocol>_<Field>` (`node_netstat_Ip6_InReceives`, `node_netstat_Icmp6_*`, `node_netstat_Udp6_*`, `node_netstat_UdpLite6_*`) | counter → untyped | node_exporter's netstat collector reads `/proc/net/snmp6`; written by the netstat collector, not snmp6. |
 | `snmp6_<Name>{device}` (from `/proc/net/dev_snmp6/<device>`) | `node_snmp6_<Protocol>_<Field>_total{device}` | counter | node_exporter has no per-device IPv6 statistics: the `node_` namespace, the name split as netstat splits it, and `_total` on a counter. |
 | `snmp6_ifIndex{device}` | `node_snmp6_ifindex{device}` | counter → gauge | An interface index is not a count. |
@@ -72,8 +72,10 @@ wifi writes node_exporter's wifi collector families, with its help texts and its
 | `wifi_station_receive_packets_total` | `node_wifi_station_received_packets_total` | counter | node_exporter's name. |
 | `wifi_station_expected_throughput_kilobits_per_second` | `node_wifi_station_expected_throughput_bits_per_second` | gauge | Base unit, `node_wifi_` namespace. |
 | `dawn_ap_stations_total` | `dawn_ap_stations` | gauge | A gauge has no `_total`. |
+| `hostapd_station_*{vif,ssid,bssid,encryption,frequency,channel,station}` | `hostapd_station_*{vif,station}` | unchanged | The network's labels are on the info metric below: a channel change (DFS, ACS) no longer starts a new series of every station's counters. |
+| — (labels of `hostapd_station_*`) | `hostapd_station_info{vif,station,ssid,bssid,encryption,frequency,channel}` | gauge | The station's network, as an info metric, one per station. |
 
-The hostapd_stations and hostapd_ubus_stations families already followed the conventions and are unchanged.
+The hostapd_ubus_stations families already followed the conventions and are unchanged.
 
 ## Hardware and system collectors
 
@@ -247,7 +249,7 @@ Neither upstream exporter had these. Where node_exporter has the metric, the nam
 
 ## Unchanged collectors
 
-conntrack (beyond the statistics above), entropy, filefd, filesystem, hostapd_stations, hostapd_ubus_stations, loadavg, realtek-poe, textfile, time and uname write the families they wrote before.
+conntrack (beyond the statistics above), entropy, filefd, filesystem, hostapd_ubus_stations, loadavg, realtek-poe, textfile, time and uname write the families they wrote before.
 
 ## Standalone exporters
 

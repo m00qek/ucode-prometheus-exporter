@@ -48,6 +48,7 @@ file /sys/class/net/*/speed
 file /sys/class/net/*/tx_queue_len
 file /sys/class/net/*/type
 file /sys/fs/selinux/enforce
+file /proc/filesystems
 file /sys/class/hwmon/*/name
 file /sys/class/hwmon/*/*_label
 file /sys/class/hwmon/*/temp*_input
@@ -57,7 +58,7 @@ file /sys/class/thermal/thermal_zone*/policy
 file /sys/class/thermal/thermal_zone*/temp
 file /sys/class/thermal/thermal_zone*/mode
 file /sys/class/thermal/thermal_zone*/passive
-file /proc/self/mounts
+ubus file read {"path":"/proc/mounts"}
 ubus luci getMountPoints
 link /sys/class/hwmon/*/device
 uci dhcp

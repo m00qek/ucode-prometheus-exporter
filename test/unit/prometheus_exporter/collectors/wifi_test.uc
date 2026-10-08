@@ -40,7 +40,7 @@ const NETWORKS = [
 	'node_wifi_network_info{radio="radio_2G",device="phy0-ap0",ssid="iot",bssid="02:00:00:00:a0:01",mode="Master"} 1',
 	'node_wifi_network_info{radio="radio_5G",device="phy1-ap0",ssid="guest",bssid="02:00:00:00:a0:02",mode="Master"} 1',
 	'node_wifi_network_info{radio="radio_5G",device="phy1-ap1",ssid="home",bssid="02:00:00:00:a0:03",mode="Master"} 1',
-	'# HELP node_wifi_network_quality_ratio Signal quality of the network\'s stations, from 0 (-110 dBm) to 1 (-40 dBm).',
+	'# HELP node_wifi_network_quality_ratio Signal quality of the network\'s stations, from 0 (-110 dBm or weaker) to 1 (-40 dBm or stronger).',
 	'# TYPE node_wifi_network_quality_ratio gauge',
 	'node_wifi_network_quality_ratio{radio="radio_2G",device="phy0-ap0"} 0.6714285714285714',
 	'node_wifi_network_quality_ratio{radio="radio_5G",device="phy1-ap0"} NaN',
@@ -91,12 +91,17 @@ function sta(dev, mac) {
 	return `{radio="${dev == 'phy0-ap0' ? 'radio_2G' : 'radio_5G'}",device="${dev}",mac_address="02:00:00:00:00:${mac}"}`;
 }
 
-const STATIONS = [
+// How many stations each interface has, with the option stations on or off.
+const COUNTS = [
 	'# HELP node_wifi_stations Stations associated with the interface.',
 	'# TYPE node_wifi_stations gauge',
 	'node_wifi_stations{radio="radio_2G",device="phy0-ap0"} 1',
 	'node_wifi_stations{radio="radio_5G",device="phy1-ap0"} 0',
 	'node_wifi_stations{radio="radio_5G",device="phy1-ap1"} 4',
+];
+
+const STATIONS = [
+	...COUNTS,
 	'# HELP node_wifi_station_connected_seconds_total The total number of seconds a station has been connected to an access point.',
 	'# TYPE node_wifi_station_connected_seconds_total counter',
 	'node_wifi_station_connected_seconds_total' + sta('phy0-ap0', '01') + ' 12053',
@@ -213,6 +218,22 @@ function sample(lines, name) {
 	return null;
 }
 
+
+// A request refused as ucode's netlink modules refuse one: false, and an
+// error that error() clears as it reads it.
+function refused(why) {
+	let error = why;
+
+	return {
+		request: () => false,
+		error: function() {
+			let e = error;
+			error = null;
+			return e;
+		},
+	};
+}
+
 describe('collectors.wifi', () => {
 	it('exports the radios, networks and stations of the caju AP', () => {
 		with_collector(wifi, ap(), (r) => {
@@ -221,10 +242,10 @@ describe('collectors.wifi', () => {
 		});
 	});
 
-	it('leaves the stations out with option stations off', () => {
+	it('leaves each station out with option stations off, and still counts them', () => {
 		with_collector(wifi, ap({ options: { stations: '0' } }), (r) => {
 			assert.match(true, r.result.ok);
-			assert.match([ ...NETWORKS, ...CHANNEL ], r.lines);
+			assert.match([ ...NETWORKS, ...COUNTS, ...CHANNEL ], r.lines);
 		});
 	});
 
@@ -276,6 +297,16 @@ describe('collectors.wifi', () => {
 				'node_wifi_interface_frequency_hertz{radio="radio_5G",device="phy1-ap1"} 5745000000',
 				'node_wifi_network_info{radio="radio_5G",device="phy1-ap1",ssid="home",bssid="02:00:00:00:a0:03",mode="Master"} 1',
 			], filter(r.lines, (l) => index(l, 'device="phy1-ap1"') >= 0));
+		});
+	});
+
+	it('says why nl80211 refused a request', () => {
+		let cfg = ap();
+		cfg.nl80211.behavior = refused('No such device');
+
+		with_collector(wifi, cfg, (r) => {
+			assert.match({ ok: false, error: 'NL80211_FAILED', details: 'phy0-ap0: No such device' },
+				{ ok: r.result.ok, error: r.result.error, details: r.result.details });
 		});
 	});
 
@@ -362,7 +393,7 @@ describe('collectors.wifi', () => {
 				assert.match(length(stations), sample(r.lines, 'node_wifi_stations'));
 				assert.match(true, signal >= min(...signals) && signal <= max(...signals), `${signal}`);
 				assert.match(true, bitrate >= min(...bitrates) * 100000 && bitrate <= max(...bitrates) * 100000, `${bitrate}`);
-				let error = quality - (signal + 110) / 70.0;
+				let error = quality - min(1, max(0, (signal + 110) / 70.0));
 
 				assert.match(true, error > -1e-6 && error < 1e-6, `${quality}`);
 			});
@@ -383,6 +414,12 @@ describe('collectors.wifi', () => {
 
 	it('gives the quality as a ratio: 0 at -110 dBm, 1 at -40 dBm', () => {
 		assert.match([ 0.0, 0.5, 1.0 ], [ wifi.quality(-110), wifi.quality(-75), wifi.quality(-40) ]);
+	});
+
+	it('keeps the quality from 0 to 1 past those signals, and NaN for no signal', () => {
+		assert.match([ 1.0, 1.0, 0.0, 0.0 ], [ wifi.quality(-39), wifi.quality(-20), wifi.quality(-111), wifi.quality(-150) ]);
+		let nan = wifi.quality(NaN);
+		assert.match(true, nan != nan);
 	});
 
 	prop('converts a station\'s times to seconds and its rates to bits per second',

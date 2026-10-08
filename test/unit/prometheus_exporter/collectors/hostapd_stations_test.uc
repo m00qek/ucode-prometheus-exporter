@@ -17,8 +17,11 @@ function ap(data, errors) {
 	return { ubus: { data: { ...UBUS, ...(data ?? {}) }, errors: errors ?? {} } };
 }
 
-const AP0 = 'vif="phy0-ap0",ssid="iot",bssid="02:00:00:00:a0:01",encryption="psk2",frequency="2462",channel="11"';
-const AP1 = 'vif="phy1-ap1",ssid="home",bssid="02:00:00:00:a0:03",encryption="psk2",frequency="5745",channel="149"';
+// The labels of a station's series, and of its info, the network's after it.
+const AP0 = 'vif="phy0-ap0"';
+const AP1 = 'vif="phy1-ap1"';
+const NET0 = 'ssid="iot",bssid="02:00:00:00:a0:01",encryption="psk2",frequency="2462",channel="11"';
+const NET1 = 'ssid="home",bssid="02:00:00:00:a0:03",encryption="psk2",frequency="5745",channel="149"';
 
 // The clients of phy1-ap1, in get_clients' order.
 const CLIENTS1 = [ '05', '04', '02', '03' ];
@@ -33,6 +36,10 @@ function family(name, help, type, ap0, ap1) {
 }
 
 const EXPECTED = [
+	'# HELP hostapd_station_info A station of an access point, and the network it is on: its SSID, BSSID, encryption, frequency and channel.',
+	'# TYPE hostapd_station_info gauge',
+	`hostapd_station_info{${AP0},station="02:00:00:00:00:01",${NET0}} 1`,
+	...map(CLIENTS1, (mac) => `hostapd_station_info{${AP1},station="02:00:00:00:00:${mac}",${NET1}} 1`),
 	...family('hostapd_station_receive_packets_total', 'Packets received from the station.', 'counter',
 		354546, [ 10924, 16535, 153553, 15846 ]),
 	...family('hostapd_station_receive_bytes_total', 'Bytes received from the station.', 'counter',
@@ -145,18 +152,52 @@ describe('collectors.hostapd_stations', () => {
 		});
 	});
 
-	it('writes 0 for counters a client lacks, and no signal', () => {
-		with_collector(hostapd_stations, ap({ 'hostapd.phy0-ap0:get_clients': { freq: 2462, clients: { '02:00:00:00:00:09': { auth: true } } }, 'hostapd.phy1-ap1:get_clients': { clients: {} } }), (r) => {
+	// A 0 would read as a counter reset.
+	it('leaves out the counters and the signal a client lacks', () => {
+		let client = { auth: true, packets: { rx: 7 }, bytes: { tx: 9 } };
+
+		with_collector(hostapd_stations, ap({ 'hostapd.phy0-ap0:get_clients': { freq: 2462, clients: { '02:00:00:00:00:09': client } }, 'hostapd.phy1-ap1:get_clients': { clients: {} } }), (r) => {
 			let station = `{${AP0},station="02:00:00:00:00:09"}`;
 
 			assert.match(true, r.result.ok);
+			assert.match([
+				`hostapd_station_receive_packets_total${station} 7`,
+				`hostapd_station_transmit_bytes_total${station} 9`,
+			], filter(r.lines, (l) => match(l, /^hostapd_station_[a-z_]+_total\{/)));
 			assert.match(contains([
-				`hostapd_station_receive_packets_total${station} 0`,
-				`hostapd_station_transmit_bytes_total${station} 0`,
 				`hostapd_station_flag_auth${station} 1`,
 				`hostapd_station_flag_assoc${station} 0`,
 			]), r.lines);
 			assert.match([], filter(r.lines, (l) => index(l, 'hostapd_station_signal_dbm{') == 0));
+		});
+	});
+
+	// hostapd sends the packet counts with blobmsg_add_u32(), which ucode's ubus gives signed.
+	it('reads packet counts past 2^31 unsigned, as hostapd sent them', () => {
+		let client = { auth: true, packets: { rx: -1, tx: -2147483648 }, bytes: { rx: 5000000000, tx: 1 } };
+
+		with_collector(hostapd_stations, ap({ 'hostapd.phy0-ap0:get_clients': { clients: { '02:00:00:00:00:09': client } }, 'hostapd.phy1-ap1:get_clients': { clients: {} } }), (r) => {
+			let station = `{${AP0},station="02:00:00:00:00:09"}`;
+
+			assert.match(contains([
+				`hostapd_station_receive_packets_total${station} 4294967295`,
+				`hostapd_station_receive_bytes_total${station} 5000000000`,
+				`hostapd_station_transmit_packets_total${station} 2147483648`,
+			]), r.lines);
+		});
+	});
+
+	it('labels a station\'s series by its interface and MAC alone, so a channel change starts none anew', () => {
+		let moved = { ...UBUS['hostapd.phy1-ap1:get_status'], freq: 5260, channel: 52 };
+
+		with_collector(hostapd_stations, ap({ 'hostapd.phy1-ap1:get_status': moved }), (r) => {
+			let station = `{${AP1},station="02:00:00:00:00:05"}`;
+
+			assert.match(contains([
+				`hostapd_station_info{${AP1},station="02:00:00:00:00:05",ssid="home",bssid="02:00:00:00:a0:03",encryption="psk2",frequency="5260",channel="52"} 1`,
+				`hostapd_station_receive_bytes_total${station} 2422352`,
+			]), r.lines);
+			assert.match([], filter(r.lines, (l) => index(l, 'channel=') >= 0 && index(l, 'hostapd_station_info{') != 0));
 		});
 	});
 

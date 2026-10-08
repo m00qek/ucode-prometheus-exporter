@@ -270,6 +270,37 @@ eventually "textfile reads its directory in the jail" metric 'e2e_textfile_value
 check "nft-counters runs nft in the jail" served nft-counters
 check "and reads the counters" metric 'nft_counter_packets_total{.*name="e2e_hits"'
 
+# Every collector that succeeds, observing something, writes samples: one
+# that read the jail's view of what is the host's would succeed with
+# nothing, as filesystem did with the jail's own mount table. Those that
+# observe and have nothing here: dnsmasq has given no lease, no device backs
+# a link (ethtool), no link has a queue yet but noqueue (qdisc), and no
+# WireGuard interface is set up. The exporter's own samples are counted
+# after it, not in what it writes.
+MAY_BE_EMPTY="dhcp_leases ethtool qdisc wireguard exporter"
+# The collectors that succeed, observing, and wrote no sample, in this scrape.
+silent() {
+	fetch | ucode -e '
+		let by = {};
+		for (let l in split(require("fs").stdin.read("all"), "\n")) {
+			let m = match(l, /^(node_scrape_collector_success|node_scrape_collector_observing|ucode_prometheus_exporter_collector_samples)\{collector="([^"]+)"\} ([0-9.]+)$/);
+			if (m) {
+				let c = by[m[2]] ??= {};
+				c[m[1]] = +m[3];
+			}
+		}
+		for (let name, c in by)
+			if (c.node_scrape_collector_success == 1 && c.node_scrape_collector_observing == 1 &&
+			    !c.ucode_prometheus_exporter_collector_samples && !(name in split(ARGV[0], " ")))
+				print(name, "\n");' "$MAY_BE_EMPTY"
+}
+silent_now=$(silent | tr '\n' ' ')
+check "every collector that observes something here writes samples, in the jail (silent: ${silent_now:-none})" test -z "$silent_now"
+# /exporter is the container's bind mount, which the jail does not have: in
+# the jail's own mount table, filesystem found a docker bind mount
+# or two to size, and none of the host's own.
+check "filesystem sizes the host's mounts, not the jail's" metric 'node_filesystem_size_bytes{.*mountpoint="/exporter"}'
+
 # What exec's watchdog costs a program: the mean milliseconds of a program's
 # run by a plain popen (itself a shell running it) and through the watchdog
 # (deps.exec_script); for nft, and for ethtool failing on a link with no

@@ -11,15 +11,39 @@ const ENFORCE = '/sys/fs/selinux/enforce';
 // enforcing one is made up: selinuxfs's enforce is the mode as a bare "%d".
 const ENFORCING = fixtures.files('synthetic', [ ENFORCE ]);
 
+// /proc/filesystems of an OpenWrt kernel without SELinux, and of one with it
+// enabled at boot, which registers selinuxfs: made up, in the kernel's format
+// ("nodev\t<name>" for a filesystem without a device, "\t<name>" for one with).
+const FILESYSTEMS = '/proc/filesystems';
+const WITHOUT = 'nodev\tsysfs\nnodev\ttmpfs\nnodev\tbdev\nnodev\tproc\nnodev\tdebugfs\nnodev\tsockfs\n' +
+	'nodev\tbpf\nnodev\tpipefs\nnodev\tdevpts\n\tsquashfs\nnodev\tjffs2\nnodev\toverlay\n\tf2fs\n';
+const WITH = WITHOUT + 'nodev\tselinuxfs\n';
+
 describe('collectors.selinux', () => {
-	it('reports SELinux disabled where there is no selinuxfs, as on the caju devices', () => {
-		with_collector(selinux, { fs: { data: { [ENFORCE]: null } } }, (r) => {
+	it('reports SELinux disabled where the kernel has no selinuxfs', () => {
+		with_collector(selinux, { fs: { data: { [ENFORCE]: null, [FILESYSTEMS]: WITHOUT } } }, (r) => {
 			assert.match(true, r.result.ok);
 			assert.match([
 				'# HELP node_selinux_enabled SELinux is enabled, 1 is true, 0 is false',
 				'# TYPE node_selinux_enabled gauge',
 				'node_selinux_enabled 0',
 			], r.lines);
+		});
+	});
+
+	// The jail's sysfs never has selinuxfs mounted under it: no false 0.
+	it('reports SELinux enabled, without a mode, where the kernel has selinuxfs and its enforce cannot be read', () => {
+		with_collector(selinux, { fs: { data: { [ENFORCE]: null, [FILESYSTEMS]: WITH } } }, (r) => {
+			assert.match(true, r.result.ok);
+			assert.match([ 'node_selinux_enabled 1' ], filter(r.lines, (l) => substr(l, 0, 1) != '#'));
+		});
+	});
+
+	it('fails with SOURCE_UNREADABLE when neither enforce nor /proc/filesystems can be read', () => {
+		with_collector(selinux, { fs: { data: { [ENFORCE]: null, [FILESYSTEMS]: null } } }, (r) => {
+			assert.match({ ok: false, error: 'SOURCE_UNREADABLE', details: FILESYSTEMS },
+				{ ok: r.result.ok, error: r.result.error, details: r.result.details });
+			assert.match([], filter(r.lines, (l) => substr(l, 0, 1) != '#'));
 		});
 	});
 

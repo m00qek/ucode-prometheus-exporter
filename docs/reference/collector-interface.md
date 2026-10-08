@@ -110,7 +110,7 @@ The collector API's, for a collector to tell nothing to observe from a failure, 
 
 ## The collector API
 
-`prometheus_exporter.api`, the one module a collector imports, exports five objects, each of exactly these names. What it exports is what a major version protects; see [Collector contract](collector-contract.md#what-a-collector-may-import).
+`prometheus_exporter.api`, the one module a collector imports, exports five objects, each of exactly these names, and two functions. What it exports is what a major version protects; see [Collector contract](collector-contract.md#what-a-collector-may-import).
 
 | Export | Name | Is |
 | :--- | :--- | :--- |
@@ -126,6 +126,8 @@ The collector API's, for a collector to tell nothing to observe from a failure, 
 | `exposition` | `parse(text)` | Exposition text read strictly, as a Result of its families (`EXPOSITION_INVALID`). |
 | | `format_value(v)` | A value as the format spells it, or null for one that is not a number. |
 | | `sanitize(name)` | A metric name made valid: every character the format does not allow an underscore. |
+| `u32` | `u32(v)` | A ubus integer a daemon sent as unsigned 32 bits (`blobmsg_add_u32`), unsigned: ucode's ubus gives it signed, so 4294967295 arrives as -1. Anything but a negative 32-bit integer is given back as it is. |
+| `u16` | `u16(v)` | The same, for 16 bits (`blobmsg_add_u16`): a port of 51820 arrives as -13716. |
 
 `fs` is the collector's `deps.fs`. `exposition`'s functions load the exposition format the first time one is called.
 

@@ -18,7 +18,8 @@ const COMMAND_PACKAGES = { nft: '+nftables-json', ethtool: '+ethtool', tc: '+tc'
 
 // What a collector reads its data through, beyond its needs and commands: a
 // provider, not what it watches. filesystem's mount points come from luci's
-// ubus object, and a LuCI image has luci-base.
+// ubus object, and a LuCI image has luci-base; the host's mount table from
+// rpcd's file object, rpcd-mod-file, which luci-base depends on.
 const PROVIDER_PACKAGES = { filesystem: [ '+luci-base' ] };
 
 const IDS = sort(map(filter(lsdir(SOURCES), (f) => match(f, /\.uc$/)), (f) => substr(f, 0, -3)));

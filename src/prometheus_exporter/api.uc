@@ -15,9 +15,11 @@
  *   proc        reading procfs and sysfs through deps.fs
  *               (prometheus_exporter.proc)
  *   exposition  the exposition format's parse, format_value and sanitize
+ *   u16, u32    a ubus integer as the unsigned one its sender meant
  *
- * Each is an object of exactly the names below, so what a collector may use
- * is listed here, not whatever the modules behind it happen to export.
+ * Each of the first five is an object of exactly the names below, so what a
+ * collector may use is listed here, not whatever the modules behind it happen
+ * to export.
  *
  * Every collector is compiled with its own copy of each module it imports,
  * this one and what it imports: so this one imports only what is small.
@@ -177,4 +179,39 @@ export const exposition = {
 	parse: exposition_fn('parse'),
 	format_value: exposition_fn('format_value'),
 	sanitize: exposition_fn('sanitize'),
+};
+
+// ucode's ubus gives a blobmsg INT16 or INT32 as a signed integer (lib/ubus.c),
+// whatever its sender meant: a daemon's blobmsg_add_u32() of 4294967295 is -1.
+function unsigned(v, bits) {
+	return (type(v) == 'int' && v < 0 && v >= -(1 << (bits - 1))) ? v + (1 << bits) : v;
+}
+
+/**
+ * A ubus INT16 as the unsigned integer its sender meant (blobmsg_add_u16()):
+ * ucode's ubus gives it signed, so a port of 51820 arrives as -13716. Anything
+ * that is not a negative 16-bit integer is given back as it is, null and the
+ * other types included, for the collector to check as it would have.
+ *
+ * @param {*} v anything a ubus reply holds; only a negative 16-bit integer
+ *   changes.
+ * @returns {*} v, unsigned when it is a negative 16-bit integer.
+ */
+export function u16(v) {
+	return unsigned(v, 16);
+};
+
+/**
+ * A ubus INT32 as the unsigned integer its sender meant (blobmsg_add_u32()):
+ * ucode's ubus gives it signed, so a counter past 2147483647 arrives negative,
+ * and a (uint32_t)-1 as -1. Anything that is not a negative 32-bit integer is
+ * given back as it is, null and the other types included, for the collector
+ * to check as it would have.
+ *
+ * @param {*} v anything a ubus reply holds; only a negative 32-bit integer
+ *   changes.
+ * @returns {*} v, unsigned when it is a negative 32-bit integer.
+ */
+export function u32(v) {
+	return unsigned(v, 32);
 };

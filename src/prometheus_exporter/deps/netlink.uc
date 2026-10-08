@@ -30,16 +30,26 @@ import * as errors from 'prometheus_exporter.errors';
  */
 
 // request() of a netlink module (rtnl, nl80211) with its failures as Results,
-// `code` naming them; `const` passes through.
+// `code` naming them, and what error() says of each; `const` passes through.
+// A request fails with null, before it is sent, or with false, when the kernel
+// refused it (lib/rtnl.c and lib/nl80211.c, STATE_ERROR); a dump of nothing is
+// a null without an error. error() clears the error as it reads it, so it is
+// read once.
 function netlink_channel(mod, code) {
 	return {
 		const: mod.const,
 		request: function(cmd, flags, attrs) {
 			let reply = mod.request(cmd, flags, attrs);
 
-			return reply === null && mod.error()
-				? Result.err(code, mod.error())
-				: Result.ok(reply);
+			if (reply !== null && reply !== false)
+				return Result.ok(reply);
+
+			let why = mod.error();
+
+			if (why == null && reply === null)
+				return Result.ok(null);
+
+			return Result.err(code, why ?? 'request failed, without a reason');
 		},
 	};
 }

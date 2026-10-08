@@ -39,6 +39,15 @@ describe('collectors.loadavg', () => {
 		});
 	});
 
+	it('fails with SOURCE_INVALID, writing none of them, for an average that is not a number', () => {
+		for (let line in [ '0.10 x 0.30 1/100 4242\n', '0.10 0.20 -1 1/100 4242\n', 'garbage in the file\n' ])
+			with_collector(loadavg, { fs: { data: { '/proc/loadavg': line } } }, (r) => {
+				assert.match({ ok: false, error: 'SOURCE_INVALID', details: `/proc/loadavg: ${sprintf('%J', rtrim(line, '\n'))}` },
+					{ ok: r.result.ok, error: r.result.error, details: r.result.details });
+				assert.match([], r.lines);
+			});
+	});
+
 	prop('exports whatever three non-negative averages the kernel reports',
 		gen.tuple(gen.float(0, 64), gen.float(0, 64), gen.float(0, 64)), (avg) => {
 			let line = sprintf('%.2f %.2f %.2f 1/100 4242\n', ...avg);

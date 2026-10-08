@@ -53,7 +53,8 @@
 #   odhcpd serving DHCPv4 (odhcpd, not the default odhcpd-ipv6only) and DHCPv6
 #   on the dump's lan: an IA_NA with an address in each prefix and an IA_PD.
 #   Layout: handle_dhcpv4_leases() and handle_dhcpv6_leases() in odhcpd's
-#   src/ubus.c (5d7be43f, OpenWrt 25.12's odhcpd); (uint32_t)-1 is "infinite".
+#   src/ubus.c (5d7be43f, OpenWrt 25.12's odhcpd); (uint32_t)-1 is "infinite",
+#   which ucode's ubus gives as -1, as it gives every blobmsg_add_u32() signed.
 # commands/tc_s_j_qdisc_show.json
 #   `tc -s -j qdisc show` (iproute2 6.18, OpenWrt 25.12's tc-tiny) on a PPPoE
 #   router with what neither device has: SQM's layer_cake (a diffserv4 CAKE on

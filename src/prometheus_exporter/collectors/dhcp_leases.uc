@@ -36,7 +36,7 @@
 // observe. One enabled that is not there (no lease file, odhcpd not on ubus)
 // fails the collector, once the other's leases are written.
 
-import { Result, errors, services, proc } from 'prometheus_exporter.api';
+import { Result, errors, services, proc, u32 } from 'prometheus_exporter.api';
 
 export const DEFAULT_LEASEFILE = '/tmp/dhcp.leases';
 
@@ -65,7 +65,8 @@ export const meta = {
 	paths: [ (options, uci) => leasefiles(uci.dhcp) ],
 };
 
-// odhcpd's valid time of a lease that does not expire: (uint32_t)-1.
+// odhcpd's valid time of a lease that does not expire: (uint32_t)-1, which
+// ucode's ubus gives as -1, u32() as this.
 const INFINITE = 4294967295;
 
 const DIGITS = /^[0-9]+$/;
@@ -260,7 +261,8 @@ function dnsmasq(deps, nets, now, book) {
 
 // The leases of one odhcpd method: { device: { <l3 device>: { leases: [...] } } }
 // as handle_dhcpv4_leases() and handle_dhcpv6_leases() (src/ubus.c) reply;
-// `valid` is the seconds left. False when odhcpd lacks the method: ipv4leases
+// `valid` is the seconds left; it and `iaid` are blobmsg_add_u32()'s, which
+// ucode's ubus gives signed (u32). False when odhcpd lacks the method: ipv4leases
 // is not there in odhcpd-ipv6only, OpenWrt's default. ucode's ubus puts
 // libubus's status text first in a failure's message.
 function odhcpd(deps, method, family, nets, now, book) {
@@ -286,10 +288,11 @@ function odhcpd(deps, method, family, nets, now, book) {
 			if (type(l) != 'object')
 				continue;
 
-			let expiry = (type(l.valid) == 'int' && l.valid != INFINITE) ? now + l.valid : null;
+			let valid = u32(l.valid);
+			let expiry = (type(valid) == 'int' && valid != INFINITE) ? now + valid : null;
 			let common = {
 				server: 'odhcpd', interface: iface, family,
-				mac: mac(l.mac), duid: nonempty(l.duid), iaid: l.iaid, hostname: nonempty(l.hostname), expiry,
+				mac: mac(l.mac), duid: nonempty(l.duid), iaid: u32(l.iaid), hostname: nonempty(l.hostname), expiry,
 			};
 
 			if (family == 'ipv4') {

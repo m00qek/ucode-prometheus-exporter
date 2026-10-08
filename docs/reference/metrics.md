@@ -25,7 +25,7 @@ The labels are those seen on the captures; a collector leaves out a label it has
 | [`exporter`](#exporter) | 0 | none | `process_cpu_seconds_total`, `process_virtual_memory_bytes`, `process_resident_memory_bytes`, `process_start_time_seconds`, `process_open_fds`, `process_max_fds`, `ucode_prometheus_exporter_scrapes_total`, `ucode_prometheus_exporter_auth_failures_total`, `ucode_prometheus_exporter_collector_failures_total`, `ucode_prometheus_exporter_program_timeouts_total`, `ucode_prometheus_exporter_quarantines_total`, `ucode_prometheus_exporter_deadline_skips_total`, `ucode_prometheus_exporter_collector_samples` |
 | [`filefd`](#filefd) | 2 | an access point, a router | — |
 | [`filesystem`](#filesystem) | 4 | an access point, a router | — |
-| [`hostapd_stations`](#hostapd_stations) | 14 | an access point | — |
+| [`hostapd_stations`](#hostapd_stations) | 15 | an access point | — |
 | [`hostapd_ubus_stations`](#hostapd_ubus_stations) | 7 | an access point | — |
 | [`hwmon`](#hwmon) | 13 | an access point, a router, made-up captures | — |
 | [`loadavg`](#loadavg) | 3 | an access point, a router | — |
@@ -36,13 +36,13 @@ The labels are those seen on the captures; a collector leaves out a label it has
 | [`nat_traffic`](#nat_traffic) | 1 | a router | — |
 | [`netclass`](#netclass) | 19 | an access point, a router | — |
 | [`netdev`](#netdev) | 17 | an access point, a router | — |
-| [`netstat`](#netstat) | 402 | an access point, a router | — |
+| [`netstat`](#netstat) | 42 | an access point, a router | — |
 | [`nft-counters`](#nft-counters) | 2 | a router, made-up captures | — |
 | [`openwrt`](#openwrt) | 3 | an access point, a router | — |
 | [`openwrt_interfaces`](#openwrt_interfaces) | 10 | an access point, a router, made-up captures | — |
 | [`qdisc`](#qdisc) | 23 | a router, a second router, made-up captures | — |
 | [`realtek-poe`](#realtek-poe) | 7 | made-up captures | — |
-| [`selinux`](#selinux) | 2 | an access point, a router, a second router, made-up captures | — |
+| [`selinux`](#selinux) | 2 | made-up captures | — |
 | [`snmp6`](#snmp6) | 80 | an access point, a router | — |
 | [`sockstat`](#sockstat) | 20 | an access point, a second router | — |
 | [`softnet`](#softnet) | 7 | an access point, a router | — |
@@ -313,20 +313,21 @@ hostapd stations. [Collector](collectors.md#hostapd_stations).
 
 | Family | Type | Labels | Help | Notes |
 | :--- | :--- | :--- | :--- | :--- |
-| `hostapd_station_receive_packets_total` | counter | `vif`, `ssid`, `bssid`, `encryption`, `frequency`, `channel`, `station` | Packets received from the station. | — |
-| `hostapd_station_receive_bytes_total` | counter | `vif`, `ssid`, `bssid`, `encryption`, `frequency`, `channel`, `station` | Bytes received from the station. | — |
-| `hostapd_station_transmit_packets_total` | counter | `vif`, `ssid`, `bssid`, `encryption`, `frequency`, `channel`, `station` | Packets transmitted to the station. | — |
-| `hostapd_station_transmit_bytes_total` | counter | `vif`, `ssid`, `bssid`, `encryption`, `frequency`, `channel`, `station` | Bytes transmitted to the station. | — |
-| `hostapd_station_signal_dbm` | gauge | `vif`, `ssid`, `bssid`, `encryption`, `frequency`, `channel`, `station` | Signal of the station, in dBm. | — |
-| `hostapd_station_flag_auth` | gauge | `vif`, `ssid`, `bssid`, `encryption`, `frequency`, `channel`, `station` | Whether the station is authenticated. | — |
-| `hostapd_station_flag_assoc` | gauge | `vif`, `ssid`, `bssid`, `encryption`, `frequency`, `channel`, `station` | Whether the station is associated. | — |
-| `hostapd_station_flag_ht` | gauge | `vif`, `ssid`, `bssid`, `encryption`, `frequency`, `channel`, `station` | Whether the station uses HT (802.11n). | — |
-| `hostapd_station_flag_vht` | gauge | `vif`, `ssid`, `bssid`, `encryption`, `frequency`, `channel`, `station` | Whether the station uses VHT (802.11ac). | — |
-| `hostapd_station_flag_he` | gauge | `vif`, `ssid`, `bssid`, `encryption`, `frequency`, `channel`, `station` | Whether the station uses HE (802.11ax). | — |
-| `hostapd_station_flag_mfp` | gauge | `vif`, `ssid`, `bssid`, `encryption`, `frequency`, `channel`, `station` | Whether the station uses management frame protection. | — |
-| `hostapd_station_flag_wmm` | gauge | `vif`, `ssid`, `bssid`, `encryption`, `frequency`, `channel`, `station` | Whether the station uses WMM. | — |
-| `hostapd_station_vht_capb_su_beamformee` | gauge | `vif`, `ssid`, `bssid`, `encryption`, `frequency`, `channel`, `station` | Whether the station is a VHT single-user beamformee. | — |
-| `hostapd_station_vht_capb_mu_beamformee` | gauge | `vif`, `ssid`, `bssid`, `encryption`, `frequency`, `channel`, `station` | Whether the station is a VHT multi-user beamformee. | — |
+| `hostapd_station_info` | gauge | `vif`, `station`, `ssid`, `bssid`, `encryption`, `frequency`, `channel` | A station of an access point, and the network it is on: its SSID, BSSID, encryption, frequency and channel. | — |
+| `hostapd_station_receive_packets_total` | counter | `vif`, `station` | Packets received from the station. | — |
+| `hostapd_station_receive_bytes_total` | counter | `vif`, `station` | Bytes received from the station. | — |
+| `hostapd_station_transmit_packets_total` | counter | `vif`, `station` | Packets transmitted to the station. | — |
+| `hostapd_station_transmit_bytes_total` | counter | `vif`, `station` | Bytes transmitted to the station. | — |
+| `hostapd_station_signal_dbm` | gauge | `vif`, `station` | Signal of the station, in dBm. | — |
+| `hostapd_station_flag_auth` | gauge | `vif`, `station` | Whether the station is authenticated. | — |
+| `hostapd_station_flag_assoc` | gauge | `vif`, `station` | Whether the station is associated. | — |
+| `hostapd_station_flag_ht` | gauge | `vif`, `station` | Whether the station uses HT (802.11n). | — |
+| `hostapd_station_flag_vht` | gauge | `vif`, `station` | Whether the station uses VHT (802.11ac). | — |
+| `hostapd_station_flag_he` | gauge | `vif`, `station` | Whether the station uses HE (802.11ax). | — |
+| `hostapd_station_flag_mfp` | gauge | `vif`, `station` | Whether the station uses management frame protection. | — |
+| `hostapd_station_flag_wmm` | gauge | `vif`, `station` | Whether the station uses WMM. | — |
+| `hostapd_station_vht_capb_su_beamformee` | gauge | `vif`, `station` | Whether the station is a VHT single-user beamformee. | — |
+| `hostapd_station_vht_capb_mu_beamformee` | gauge | `vif`, `station` | Whether the station is a VHT multi-user beamformee. | — |
 
 ## `hostapd_ubus_stations` {#hostapd_ubus_stations}
 
@@ -494,7 +495,7 @@ Protocol statistics. [Collector](collectors.md#netstat).
 
 | Family | Type | Labels | Help | Notes |
 | :--- | :--- | :--- | :--- | :--- |
-| `node_netstat_<Protocol>_<Field>` | untyped | — | Statistic &lt;Protocol&gt;&lt;Field&gt;: each of `/proc/net/netstat`, `/proc/net/snmp` and `/proc/net/snmp6`. | 402 on the captures |
+| `node_netstat_<Protocol>_<Field>` | untyped | — | Statistic &lt;Protocol&gt;&lt;Field&gt;: each field of `/proc/net/netstat`, `/proc/net/snmp` and `/proc/net/snmp6` the `fields` option matches, by default node\_exporter's. | 42 on the captures |
 
 ## `nft-counters` {#nft-counters}
 
@@ -789,7 +790,7 @@ Wi-Fi. [Collector](collectors.md#wifi).
 | `node_wifi_radio_info` | gauge | `radio`, `htmode`, `channel`, `country` | A Wi-Fi radio, by its mode, channel and country. | — |
 | `node_wifi_interface_frequency_hertz` | gauge | `radio`, `device` | The current frequency a WiFi interface is operating at, in hertz. | — |
 | `node_wifi_network_info` | gauge | `radio`, `device`, `ssid`, `bssid`, `mode` | A Wi-Fi network, by its SSID, BSSID and mode. | — |
-| `node_wifi_network_quality_ratio` | gauge | `radio`, `device` | Signal quality of the network's stations, from 0 (-110 dBm) to 1 (-40 dBm). | — |
+| `node_wifi_network_quality_ratio` | gauge | `radio`, `device` | Signal quality of the network's stations, from 0 (-110 dBm or weaker) to 1 (-40 dBm or stronger). | — |
 | `node_wifi_network_transmit_bits_per_second` | gauge | `radio`, `device` | Average transmit bitrate to the network's stations, in bits per second. | — |
 | `node_wifi_network_noise_dbm` | gauge | `radio`, `device` | Noise on the network's channel, in dBm. | — |
 | `node_wifi_network_signal_dbm` | gauge | `radio`, `device` | Average signal of the network's stations, in dBm. | — |

@@ -3,7 +3,7 @@
 // Based on utils/prometheus-node-exporter-ucode/files/extra/dnsmasq.uc
 // in OpenWrt's packages feed (Apache-2.0), rewritten for this exporter; see NOTICE.
 
-import { Result, errors, services } from 'prometheus_exporter.api';
+import { Result, errors, services, u32 } from 'prometheus_exporter.api';
 
 export const meta = {
 	name: 'dnsmasq',
@@ -40,7 +40,8 @@ export function family_of(key) {
 };
 
 // dnsmasq disabled (its init script), or not installed, is nothing to
-// observe; enabled and not answering, a failure.
+// observe; enabled and not answering, a failure. Every metric is a
+// blobmsg_add_u32() (src/ubus.c), which ucode's ubus gives signed (u32).
 export function collect(deps, out) {
 	let res = deps.ubus.call('dnsmasq', 'metrics');
 
@@ -51,7 +52,7 @@ export function collect(deps, out) {
 
 	for (let key, value in res.data) {
 		let f = family_of(key);
-		out[f[0]](f[1], `dnsmasq's ${key} metric.`)(null, value);
+		out[f[0]](f[1], `dnsmasq's ${key} metric.`)(null, u32(value));
 	}
 
 	return Result.ok();

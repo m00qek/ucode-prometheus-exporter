@@ -598,7 +598,8 @@ function generate(dir, profile) {
 	                'sys/kernel/arch', 'sys/kernel/domainname', 'sys/kernel/hostname', 'sys/kernel/osrelease',
 	                'sys/kernel/ostype', 'sys/kernel/version' ])
 		put(root, `/proc/${f}`, fixture(`caju-ap/proc/${f}`));
-	put(root, '/proc/self/mounts', fixture('caju-router/proc/self/mounts'));
+	// A kernel without SELinux, as OpenWrt's: selinux reads it, as enforce is not there.
+	put(root, '/proc/filesystems', 'nodev\tsysfs\nnodev\ttmpfs\nnodev\tproc\n\tsquashfs\nnodev\toverlay\n\tf2fs\n');
 	put(root, '/proc/net/softnet_stat', join('\n', hex_rows(p.cpus, 13, rand, (r) => r)) + '\n');
 	put(root, '/proc/sys/net/netfilter/nf_conntrack_count', `${p.conntrack}\n`);
 	put(root, '/proc/sys/net/netfilter/nf_conntrack_max', '65536\n');
@@ -692,6 +693,7 @@ function generate(dir, profile) {
 
 	// ubus
 	world.ubus['system:board'] = fixture_json('caju-router/ubus/system.board.json');
+	world.ubus['file:read'] = fixture_json('caju-router/ubus/file.read.json');
 	world.ubus['luci:getMountPoints'] = fixture_json('caju-router/ubus/luci.getMountPoints.json');
 	world.ubus['dnsmasq:metrics'] = fixture_json('caju-router/ubus/dnsmasq.metrics.json');
 	world.ubus['network.interface:dump'] = interfaces(p);

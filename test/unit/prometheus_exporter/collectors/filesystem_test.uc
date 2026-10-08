@@ -5,15 +5,23 @@ import * as fixtures from 'lib.fixtures';
 import { with_collector } from 'context';
 import * as filesystem from 'prometheus_exporter.collectors.filesystem';
 
-const ROUTER_MOUNTS = fixtures.files('caju-router', [ '/proc/self/mounts' ]);
+// The host's mount table, as rpcd's file read gives it.
+const ROUTER_MOUNTS = fixtures.ubus('caju-router', 'file', 'read');
 const ROUTER_POINTS = fixtures.ubus('caju-router', 'luci', 'getMountPoints');
-const AP_MOUNTS = fixtures.files('caju-ap', [ '/proc/self/mounts' ]);
+const AP_MOUNTS = fixtures.ubus('caju-ap', 'file', 'read');
 const AP_POINTS = fixtures.ubus('caju-ap', 'luci', 'getMountPoints');
 
+// What the jail's own /proc/self/mounts holds: procd's jail mounts, none of the
+// host's disks, and the bind mounts read-only.
+const JAIL_MOUNTS = '/dev/root / squashfs ro,relatime 0 0\n' +
+	'tmpfs /tmp tmpfs ro,nosuid,nodev,noatime 0 0\n' +
+	'proc /proc proc ro,nosuid,nodev,noexec,relatime 0 0\n' +
+	'sysfs /sys sysfs ro,nosuid,nodev,noexec,relatime 0 0\n';
+
+// mounts: the host's /proc/mounts, rpcd's reply ({ data }) or its text.
 function cfg(mounts, points) {
 	return {
-		fs: { data: type(mounts) == 'string' ? { '/proc/self/mounts': mounts } : mounts },
-		ubus: { data: { 'luci:getMountPoints': points } },
+		ubus: { data: { 'file:read': type(mounts) == 'string' ? { data: mounts } : mounts, 'luci:getMountPoints': points } },
 	};
 }
 
@@ -60,7 +68,7 @@ describe('collectors.filesystem', () => {
 		});
 	});
 
-	it('reads the ro option and the octal escapes of /proc/self/mounts', () => {
+	it('reads the ro option and the octal escapes of the host\'s /proc/mounts', () => {
 		let mounts = '/dev/sda1 /mnt/usb\\040disk vfat ro,relatime,fmask=0022 0 0\n' +
 			'/dev/sda1 /mnt/usb\\040disk vfat ro,relatime,fmask=0022 0 0\n';
 		let points = { result: [ { device: '/dev/sda1', mount: '/mnt/usb disk', size: 4096, avail: 1024, free: 2048 } ] };
@@ -87,7 +95,7 @@ describe('collectors.filesystem', () => {
 	});
 
 	it('passes on a missing luci ubus object (luci-base not installed)', () => {
-		let c = { fs: { data: ROUTER_MOUNTS }, ubus: { errors: { luci: 'Not found' } } };
+		let c = { ubus: { data: { 'file:read': ROUTER_MOUNTS }, errors: { luci: 'Not found' } } };
 
 		with_collector(filesystem, c, (r) => {
 			assert.match({ ok: false, error: 'UBUS_CALL_FAILED', details: 'luci getMountPoints: Not found' },
@@ -103,10 +111,34 @@ describe('collectors.filesystem', () => {
 		});
 	});
 
-	it('fails with SOURCE_UNREADABLE when /proc/self/mounts cannot be read', () => {
-		with_collector(filesystem, cfg({ '/proc/self/mounts': null }, ROUTER_POINTS), (r) => {
-			assert.match({ error: 'SOURCE_UNREADABLE', details: '/proc/self/mounts' },
+	it('passes on rpcd failing to read the host\'s /proc/mounts', () => {
+		let c = { ubus: { data: { 'luci:getMountPoints': ROUTER_POINTS }, errors: { 'file:read': 'Permission denied' } } };
+
+		with_collector(filesystem, c, (r) => {
+			assert.match({ error: 'UBUS_CALL_FAILED', details: 'file read: Permission denied' },
 				{ error: r.result.error, details: r.result.details });
+			assert.match([], r.lines);
+		});
+	});
+
+	it('fails with SOURCE_INVALID when rpcd\'s file read gives no data', () => {
+		with_collector(filesystem, cfg({}, ROUTER_POINTS), (r) => {
+			assert.match({ error: 'SOURCE_INVALID', details: 'file read /proc/mounts: no data' },
+				{ error: r.result.error, details: r.result.details });
+		});
+	});
+
+	it('reads the host\'s mount table, not the jail\'s', () => {
+		let c = cfg(ROUTER_MOUNTS, ROUTER_POINTS);
+		c.fs = { data: { '/proc/self/mounts': JAIL_MOUNTS, '/proc/mounts': JAIL_MOUNTS, '/proc/1/mounts': JAIL_MOUNTS } };
+
+		with_collector(filesystem, c, (r) => {
+			assert.match(true, r.result.ok);
+			assert.match([
+				'node_filesystem_readonly{device="tmpfs",fstype="tmpfs",mountpoint="/tmp"} 0',
+				'node_filesystem_readonly{device="/dev/loop0",fstype="f2fs",mountpoint="/overlay"} 0',
+				'node_filesystem_readonly{device="/dev/mmcblk0p1",fstype="ext4",mountpoint="/mnt/data"} 0',
+			], filter(r.lines, (l) => match(l, /^node_filesystem_readonly\{/)));
 		});
 	});
 
