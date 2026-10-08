@@ -35,7 +35,8 @@ import * as exposition from 'prometheus_exporter.exposition';
 
 /**
  * What `collector check` takes of the system, as the module's top comment
- * says.
+ * says, and load_timeout: the seconds the probe gives a module to load
+ * (probe.LOAD_TIMEOUT), which the report names.
  *
  * @typedef {{
  *   fs: module:fs,
@@ -44,7 +45,8 @@ import * as exposition from 'prometheus_exporter.exposition';
  *   import_path: function(string): CollectorModule,
  *   probe: function(string, function(string): CollectorModule): ProbeOutcome,
  *   installed: Collector[],
- *   clock: () => int[]
+ *   clock: () => int[],
+ *   load_timeout: int
  * }} ConformSys
  */
 

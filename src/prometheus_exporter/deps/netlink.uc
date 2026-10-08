@@ -23,7 +23,8 @@ import * as errors from 'prometheus_exporter.errors';
 
 /**
  * A netlink module as load_rtnl and load_nl80211 load it: its request,
- * error and constants.
+ * error and constants. request() returns the kernel's reply as the module
+ * decodes it, whose shape is the command's: any value.
  *
  * @typedef {{ request: function(int, ?int, ?Object): *, error: function(): ?string, const: Object<string, int> }} NetlinkModule
  */

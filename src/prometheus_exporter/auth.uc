@@ -263,7 +263,8 @@ export function allowed(a, value, st) {
  * Why `password` cannot be hashed, or null: a string of 1 to PASSWORD_MAX
  * bytes, without control characters.
  *
- * @param {*} password what is to be hashed.
+ * @param {*} password what is to be hashed: anything a caller gave (a ubus
+ *   argument, a line read), which this checks.
  * @returns {?string} why it cannot be, or null.
  */
 export function password_problem(password) {
