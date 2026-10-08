@@ -23,7 +23,9 @@
  *
  * A path declared { path, owned: true } is the exporter's own: a directory no
  * other service makes (textfile's), which the init script makes, before it
- * mounts it, when it is not there (make()). Never another service's.
+ * mounts it, when it is not there (make()). Never another service's: it
+ * must be under one of config.OWNED_ROOTS, or it is a problem, and neither
+ * made nor mounted.
  *
  * sys: { uci: a uci cursor, fs: { stat }, path: the PATH commands are found on }
  *
@@ -173,6 +175,22 @@ export function path_problem(path) {
 };
 
 /**
+ * Why the exporter cannot make and mount `path` as its own, or null: it is
+ * a plain path (path_problem) under one of config.OWNED_ROOTS.
+ *
+ * @param {*} path the path; anything but an absolute path string is a problem.
+ * @returns {?string} why, or null.
+ */
+export function owned_problem(path) {
+	let why = path_problem(path);
+
+	if (why == null && !config.is_owned_directory(path))
+		why = `${path} is not under ${join(', ', config.OWNED_ROOTS)}: the service makes and mounts no other directory`;
+
+	return why;
+};
+
+/**
  * The option names a path of meta.paths holds as {name}.
  *
  * @param {string} template a path of meta.paths.
@@ -286,7 +304,7 @@ export function resolve_paths(meta, options, handles) {
 		}
 
 		for (let p in got) {
-			let why = path_problem(p);
+			let why = own ? owned_problem(p) : path_problem(p);
 
 			if (why) {
 				push(problems, why);

@@ -83,6 +83,15 @@ export const UINTEGER = 'UINTEGER';
 export const ABSOLUTE_PATH = 'ABSOLUTE_PATH';
 
 /**
+ * Not a directory the service may make and mount for a collector: one under
+ * /var, /tmp or /etc/prometheus-exporter (config.types' OWNED_ROOTS), the
+ * datatype owned_directory.
+ *
+ * @type {string}
+ */
+export const OWNED_DIRECTORY = 'OWNED_DIRECTORY';
+
+/**
  * Not a regular expression regexp() compiles: the datatype regex.
  *
  * @type {string}
@@ -154,6 +163,10 @@ export const CODES = {
 	[RANGE]: { args: [ 'min', 'max' ], value: true, text: (p) => `an integer from ${p.min} to ${p.max}` },
 	[UINTEGER]: { args: [], value: true, text: () => 'an integer of 0 or more' },
 	[ABSOLUTE_PATH]: { args: [], value: true, text: () => 'an absolute path' },
+	[OWNED_DIRECTORY]: {
+		args: [], value: true,
+		text: () => 'a directory under /var, /tmp or /etc/prometheus-exporter, which the service makes and mounts',
+	},
 	[REGEX]: { args: [], value: true, text: () => 'a regular expression' },
 	[USERNAME]: { args: [], value: true, text: () => 'a user of 1 to 64 characters, without ":", spaces or control characters' },
 	[CRYPT]: { args: [], value: true, text: () => 'a crypt hash: $1$ (uhttpd -m), $5$ or $6$' },

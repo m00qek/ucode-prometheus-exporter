@@ -52,8 +52,8 @@ A boolean takes `1`, `yes`, `on`, `true`, `enabled` for true and `0`, `no`, `off
 | Datatype | Takes |
 | :--- | :--- |
 | `crypt` | a crypt hash: $1$ (uhttpd -m), $5$ or $6$ |
-| `directory` | an absolute path |
 | `file` | an absolute path |
+| `owned_directory` | a directory under /var, /tmp or /etc/prometheus-exporter, which the service makes and mounts |
 | `range(1,100000)` | an integer from 1 to 100000 |
 | `range(1,30)` | an integer from 1 to 30 |
 | `range(1,60)` | an integer from 1 to 60 |
@@ -76,6 +76,7 @@ What the exporter finds wrong with a value, or with options that go together, ha
 | `RANGE` | `min`, `max`, `value` | expected an integer from `min` to `max`, got `value` |
 | `UINTEGER` | `value` | expected an integer of 0 or more, got `value` |
 | `ABSOLUTE_PATH` | `value` | expected an absolute path, got `value` |
+| `OWNED_DIRECTORY` | `value` | expected a directory under /var, /tmp or /etc/prometheus-exporter, which the service makes and mounts, got `value` |
 | `REGEX` | `value` | expected a regular expression, got `value` |
 | `USERNAME` | `value` | expected a user of 1 to 64 characters, without ":", spaces or control characters, got `value` |
 | `CRYPT` | `value` | expected a crypt hash: $1$ (uhttpd -m), $5$ or $6$, got `value` |

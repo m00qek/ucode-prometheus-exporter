@@ -53,6 +53,7 @@ describe('config.types.datatype', () => {
 	it('knows the datatypes the collectors and the main section use, and no other', () => {
 		assert.match([ true, true, true, true, true ],
 			map([ 'uinteger', 'directory', 'file', 'regex', 'range(1,65535)' ], (n) => types.datatype(n) != null));
+		assert.match(true, types.datatype('owned_directory') != null);
 		assert.match([ null, null, null, null ], map([ 'ipaddr', 'range(9,1)', 'range(1)', 7 ], types.datatype));
 	});
 
@@ -110,6 +111,19 @@ describe('config.types.datatype', () => {
 		let compiles = true;
 		try { regexp(s); } catch (e) { compiles = false; }
 		assert.match(compiles, check('regex', s) === true, s);
+	});
+
+	it('owned_directory takes a directory under /var, /tmp or /etc/prometheus-exporter, and no other', () => {
+		assert.match([ true, true, true, true ], map([ '/var/prometheus', '/tmp/a/b/', '/etc/prometheus-exporter/m', '/var/lib/metrics' ], (d) => check('owned_directory', d)));
+		assert.match('o: expected a directory under /var, /tmp or /etc/prometheus-exporter, which the service makes and mounts, got "/srv/prom"',
+			check('owned_directory', '/srv/prom'));
+
+		for (let d in [ '/var', '/tmp/', '/etc/prometheus-exporter', '/etc/config', '/var/../etc/x', '/tmp/./x', 'var/x', '/variable/x', '/', '' ])
+			assert.match(false, check('owned_directory', d) === true, d);
+	});
+
+	prop('owned_directory takes what is_owned_directory takes', gen.string({ charset: 'atvmp/._', min_len: 0, max_len: 12 }), (s) => {
+		assert.match(types.is_owned_directory(s), check('owned_directory', s) === true, s);
 	});
 
 	it('checks a value only once it has the type of the default', () => {

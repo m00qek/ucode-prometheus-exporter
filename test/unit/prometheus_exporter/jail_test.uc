@@ -113,15 +113,30 @@ describe('jail.resolve_paths', () => {
 	it('takes an option\'s directory that ends in /, as the collector reads it, as the directory', () => {
 		let meta = { paths: [ { path: '{directory}', owned: true } ] };
 
-		assert.match({ paths: [ '/srv/prom' ], owned: [ '/srv/prom' ], problems: [] }, jail.resolve_paths(meta, { directory: '/srv/prom//' }, {}));
+		assert.match({ paths: [ '/var/prom' ], owned: [ '/var/prom' ], problems: [] }, jail.resolve_paths(meta, { directory: '/var/prom//' }, {}));
 		assert.match({ paths: [], owned: [], problems: [ '/ is too broad to mount for one collector' ] }, jail.resolve_paths(meta, { directory: '/' }, {}));
+	});
+
+	it('owns a path under /var, /tmp or /etc/prometheus-exporter alone, and makes and mounts no other', () => {
+		let meta = { paths: [ { path: '{directory}', owned: true } ] };
+		let owned = (d) => jail.resolve_paths(meta, { directory: d }, {});
+
+		for (let d in [ '/var/prom', '/tmp/a/b', '/etc/prometheus-exporter/metrics' ])
+			assert.match({ paths: [ d ], owned: [ d ], problems: [] }, owned(d), d);
+		for (let d in [ '/srv/prom', '/etc/metrics', '/etc/prometheus-exporterx/a', '/root/prom', '/usr/lib/prom', '/etc/prometheus-exporter' ])
+			assert.match({ paths: [], owned: [], problems: [ `${d} is not under /var, /tmp, /etc/prometheus-exporter: the service makes and mounts no other directory` ] },
+				owned(d), d);
+	});
+
+	it('still takes a path of another service\'s outside them, which it does not own', () => {
+		assert.match({ paths: [ '/srv/sock' ], owned: [], problems: [] }, jail.resolve_paths({ paths: [ '{directory}' ] }, { directory: '/srv/sock' }, {}));
 	});
 
 	it('says which paths are owned, and owns none that is not a mount', () => {
 		let meta = { paths: [ { path: '{directory}', owned: true }, '/var/run/x' ] };
 
-		assert.match({ paths: [ '/srv/prom', '/var/run/x' ], owned: [ '/srv/prom' ], problems: [] },
-			jail.resolve_paths(meta, { directory: '/srv/prom' }, {}));
+		assert.match({ paths: [ '/var/prom', '/var/run/x' ], owned: [ '/var/prom' ], problems: [] },
+			jail.resolve_paths(meta, { directory: '/var/prom' }, {}));
 		assert.match({ paths: [ '/var/run/x' ], owned: [], problems: [ '/tmp is too broad to mount for one collector' ] },
 			jail.resolve_paths(meta, { directory: '/tmp' }, {}));
 	});
@@ -202,8 +217,8 @@ describe('jail.collector', () => {
 	});
 
 	it('owns an owned path where its option puts it', () => {
-		with_sys({ owner: { '.type': 'collector', directory: '/srv/own' } }, {}, files([ '/var/other' ]), (sys) => {
-			assert.match([ '/srv/own' ], jail.collector(OWNER, sys).owned);
+		with_sys({ owner: { '.type': 'collector', directory: '/var/own2' } }, {}, files([ '/var/other' ]), (sys) => {
+			assert.match([ '/var/own2' ], jail.collector(OWNER, sys).owned);
 		});
 	});
 

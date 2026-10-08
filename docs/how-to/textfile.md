@@ -72,4 +72,4 @@ uci commit prometheus-exporter
 service prometheus-exporter reload
 ```
 
-The directory must be an absolute path, and not one every service shares, such as `/tmp` or `/var/run`: the jail would refuse to mount it. The service makes it when it starts, if it is not there. Keep it on tmpfs (`/var`, `/tmp`) unless the metrics must survive a reboot: a script writing to flash wears it.
+The directory must be under `/var`, `/tmp` or `/etc/prometheus-exporter`, and not one every service shares, such as `/var/run`: the service makes it, as root, when it starts, if it is not there, and mounts it in its jail, so it refuses any other, saying `OWNED_DIRECTORY`. Keep it on tmpfs (`/var`, `/tmp`) unless the metrics must survive a reboot, then under `/etc/prometheus-exporter`: a script writing to flash wears it.

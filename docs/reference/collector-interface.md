@@ -69,7 +69,7 @@ uhttpd loads them once, when it starts; a scrape runs what was loaded. Installin
 | `default` | yes | A boolean, an integer or a string: it sets the option's type. |
 | `title` | yes | 1 to 40 characters, no control characters: the label a form shows the option by, short and in sentence case, as `Excluded devices`. LuCI shows it as the collector gives it, untranslated. |
 | `help` | yes | A sentence: what the option does. |
-| `datatype` | no | One of the datatypes the core checks: `uinteger`, `range(min,max)`, `directory`, `file`, `regex`. It must take the default. See [UCI configuration](uci-config.md#values). |
+| `datatype` | no | One of the datatypes the core checks: `uinteger`, `range(min,max)`, `directory`, `file`, `regex`, or `owned_directory`, a directory under `/var`, `/tmp` or `/etc/prometheus-exporter`, for an option that names an owned path. It must take the default. See [UCI configuration](uci-config.md#values). |
 
 `collect` gets the options typed, the defaults for those unset. A value that does not fit fails the collector with `CONFIG_INVALID` in each scrape.
 

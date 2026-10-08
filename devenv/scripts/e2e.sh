@@ -697,19 +697,31 @@ eventually "disabling a collector reloads the service" restarted_from "$before"
 eventually "a disabled collector is not served" not_served uname
 check "naming a disabled collector is a 400" refused 'collect[]=uname'
 
-set_config "$NAME.textfile=collector" "$NAME.textfile.directory=/srv/e2e-prom"
-eventually "textfile's directory moves its mount" mount_moved /srv/e2e-prom /var/prometheus
-check "the service makes the new one, and its parent" test -d /srv/e2e-prom
-echo 'e2e_moved_value 7' >/srv/e2e-prom/e2e.prom
+set_config "$NAME.textfile=collector" "$NAME.textfile.directory=/tmp/e2e/prom"
+eventually "textfile's directory moves its mount" mount_moved /tmp/e2e/prom /var/prometheus
+check "the service makes the new one, and its parent" test -d /tmp/e2e/prom
+echo 'e2e_moved_value 7' >/tmp/e2e/prom/e2e.prom
 eventually "textfile reads its new directory" metric 'e2e_moved_value 7$'
-set_config "$NAME.textfile.enabled=0" "$NAME.textfile.directory=/srv/e2e-off"
+set_config "$NAME.textfile.enabled=0" "$NAME.textfile.directory=/tmp/e2e-off"
 eventually "a disabled textfile is not served" not_served textfile
-check "nor its directory made" test ! -e /srv/e2e-off
+check "nor its directory made" test ! -e /tmp/e2e-off
 # A directory with a trailing /, as its datatype takes it: the same one.
-set_config "$NAME.textfile.enabled=1" "$NAME.textfile.directory=/srv/e2e-prom/"
+set_config "$NAME.textfile.enabled=1" "$NAME.textfile.directory=/tmp/e2e/prom/"
 eventually "enabled again, it is served" served textfile
-check "its directory named with a trailing / is mounted" mounted /srv/e2e-prom
+check "its directory named with a trailing / is mounted" mounted /tmp/e2e/prom
 eventually "and read in the jail" metric 'e2e_moved_value 7$'
+# The service makes and mounts its directory under /var, /tmp and
+# /etc/prometheus-exporter alone.
+before=$(pid)
+set_config "$NAME.textfile.directory=/srv/e2e-prom"
+sleep 3
+check "a directory elsewhere keeps the running instance" test "$(pid)" = "$before"
+check "which it neither makes" test ! -e /srv/e2e-prom
+check "nor mounts" not_mounted /srv/e2e-prom
+check "check says why" says 'directory: expected a directory under /var, /tmp or /etc/prometheus-exporter, which the service makes and mounts, got "/srv/e2e-prom"' "$INIT" check
+check "and validate, by its code" says '"code": "OWNED_DIRECTORY"' rpc validate '{"collectors":{"textfile":{"directory":"/srv/e2e-prom"}}}'
+set_config "$NAME.textfile.directory=/tmp/e2e/prom/"
+eventually "back under /tmp, it is served" served textfile
 
 before=$(pid)
 set_config "$NAME.main.listen_port=http"

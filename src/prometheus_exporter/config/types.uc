@@ -51,6 +51,39 @@ function absolute_path(v) {
 	return substr(v, 0, 1) == '/' && !match(v, /[[:cntrl:]]/);
 }
 
+/**
+ * The directories under which the service makes and mounts a directory of a
+ * collector's own (an owned path of meta.paths: textfile's): /var and /tmp,
+ * tmpfs on OpenWrt, where a script writes what changes without wearing the
+ * flash, and /etc/prometheus-exporter, the exporter's own, on flash, for what
+ * must outlive a reboot. Anywhere else the service, as root, would make
+ * directories, and mount them into its jail, among other services' files.
+ *
+ * @type {string[]}
+ */
+export const OWNED_ROOTS = [ '/var', '/tmp', '/etc/prometheus-exporter' ];
+
+/**
+ * Whether `v` is a directory the service may make and mount as a
+ * collector's own: an absolute path below one of OWNED_ROOTS, without a .
+ * or .. component, which may end in '/'.
+ *
+ * @param {*} v anything; only a string is a directory.
+ * @returns {boolean} whether it is one.
+ */
+export function is_owned_directory(v) {
+	if (type(v) != 'string' || !absolute_path(v) || match(v, /\/\.\.?(\/|$)/))
+		return false;
+
+	let p = rtrim(v, '/');
+
+	for (let root in OWNED_ROOTS)
+		if (length(p) > length(root) + 1 && substr(p, 0, length(root) + 1) == `${root}/`)
+			return true;
+
+	return false;
+};
+
 // A datatype of these types whose values check() takes, and the problem of
 // one it does not; why(), when given, a problem of it instead.
 function datatype_of(types, code, args, check, why) {
@@ -63,10 +96,11 @@ function datatype_of(types, code, args, check, why) {
  * The datatypes the core enforces, by LuCI's names: what value type each
  * takes, the problem of a value it does not take and what it calls a valid
  * value, and whether a value is one. Syntactic only: a directory or file is
- * an absolute path, not one that exists. Besides LuCI's, regex, and username
- * and crypt, basic auth's user and hash. A datatype's `why`, when it has one,
- * gives the problem of a value it does not take, instead of `problem`:
- * crypt's, of a hash of too many rounds.
+ * an absolute path, not one that exists. Besides LuCI's, regex, username
+ * and crypt, basic auth's user and hash, and owned_directory, a directory the
+ * service makes and mounts (is_owned_directory). A datatype's `why`, when
+ * it has one, gives the problem of a value it does not take, instead of
+ * `problem`: crypt's, of a hash of too many rounds.
  *
  * @type {Object<string, Datatype>}
  */
@@ -77,6 +111,7 @@ export const DATATYPES = {
 	uinteger: datatype_of([ 'int' ], problems.UINTEGER, null, (v) => v >= 0),
 	directory: datatype_of([ 'string' ], problems.ABSOLUTE_PATH, null, absolute_path),
 	file: datatype_of([ 'string' ], problems.ABSOLUTE_PATH, null, absolute_path),
+	owned_directory: datatype_of([ 'string' ], problems.OWNED_DIRECTORY, null, is_owned_directory),
 	regex: datatype_of([ 'string' ], problems.REGEX, null, function(v) {
 		try {
 			regexp(v);

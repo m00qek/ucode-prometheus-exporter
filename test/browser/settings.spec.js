@@ -445,12 +445,12 @@ test.describe('Services → Prometheus exporter', () => {
     await h.showTab(page, 'collectors');
     await toggle(page, 'textfile').uncheck();
     await h.editCollector(page, 'textfile');
-    await option(page, 'textfile', 'directory').fill('/srv/metrics');
+    await option(page, 'textfile', 'directory').fill('/tmp/metrics');
     await saveDialog(page);
     await expect(toggle(page, 'textfile')).not.toBeChecked();
     await saveAndApply(page);
     await applied(page);
-    expect((await savedSections(request)).textfile).toEqual({ '.type': 'collector', enabled: '0', directory: '/srv/metrics' });
+    expect((await savedSections(request)).textfile).toEqual({ '.type': 'collector', enabled: '0', directory: '/tmp/metrics' });
   });
 
   test('a collector that runs programs has the core\'s timeout, written only when it is set', async ({ page, request }) => {
@@ -530,7 +530,7 @@ test.describe('Services → Prometheus exporter', () => {
     await h.useConfig(request, 'custom');
     await h.openSettings(page);
     await h.editCollector(page, 'textfile');
-    await expect(option(page, 'textfile', 'directory')).toHaveValue('/srv/prom');
+    await expect(option(page, 'textfile', 'directory')).toHaveValue('/var/prom');
     await option(page, 'textfile', 'directory').fill('');
     await saveDialog(page);
     await saveAndApply(page);
@@ -557,15 +557,20 @@ test.describe('Services → Prometheus exporter', () => {
     await expect(h.modal(page)).toBeVisible();
     await dismissDialog(page);
 
-    // LuCI's directory datatype takes any value; the exporter wants an absolute path.
+    // LuCI does not know owned_directory, so the exporter alone checks it: a directory
+    // under /var, /tmp or /etc/prometheus-exporter.
     await h.editCollector(page, 'textfile');
     await option(page, 'textfile', 'directory').fill('srv/prom');
     await expect(option(page, 'textfile', 'directory')).toHaveClass(/cbi-input-invalid/);
-    await expect(option(page, 'textfile', 'directory')).toHaveAttribute('data-tooltip', 'Metrics directory must be an absolute path, not "srv/prom"');
+    await expect(option(page, 'textfile', 'directory')).toHaveAttribute('data-tooltip',
+      'Metrics directory must be a directory under /var, /tmp or /etc/prometheus-exporter, not "srv/prom"');
     await h.modal(page).getByRole('button', { name: 'Save', exact: true }).click();
     await expect(h.modal(page).locator('.alert-message.error')).toContainText('Nothing was staged: the exporter would refuse these values.');
     await h.screenshot(page, 'settings-dialog-refused');
     await option(page, 'textfile', 'directory').fill('/srv/prom');
+    await expect(option(page, 'textfile', 'directory')).toHaveAttribute('data-tooltip',
+      'Metrics directory must be a directory under /var, /tmp or /etc/prometheus-exporter, not "/srv/prom"');
+    await option(page, 'textfile', 'directory').fill('/tmp/prom');
     await expect(option(page, 'textfile', 'directory')).not.toHaveClass(/cbi-input-invalid/);
     await dismissDialog(page);
 

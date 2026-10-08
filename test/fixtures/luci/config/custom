@@ -11,5 +11,5 @@ config collector 'wifi'
 
 config collector 'textfile'
 	option enabled '0'
-	option directory '/srv/prom'
+	option directory '/var/prom'
 

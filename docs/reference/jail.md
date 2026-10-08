@@ -42,7 +42,7 @@ A disabled collector gets nothing. Nothing of `/etc/config` is there but the con
 | :--- | :--- |
 | `'/var/run/bmx7/json'` | That path. |
 | `'{directory}'` | The value of the string option `directory`. |
-| `{ path: '{directory}', owned: true }` | That path, which is the exporter's own: the service makes it, with its parents (mode 0755), when it is not there. |
+| `{ path: '{directory}', owned: true }` | That path, which is the exporter's own: the service makes it, with its parents (mode 0755), when it is not there. It must be under `/var`, `/tmp` or `/etc/prometheus-exporter`: see [below](#owned-paths). |
 | `(options, uci) => [ ... ]` | What the function returns for the collector's options and the configs it reads. |
 
 A path is refused, with a warning, when it is not absolute, holds a space, a control or a glob character, is not plain (`//`, `.`, `..`, or a trailing `/`), or is one of the directories every service shares:
@@ -50,6 +50,17 @@ A path is refused, with a warning, when it is not absolute, holds a space, a con
 `/`, `/bin`, `/dev`, `/etc`, `/etc/config`, `/lib`, `/proc`, `/run`, `/sbin`, `/sys`, `/tmp`, `/tmp/run`, `/usr`, `/usr/bin`, `/usr/lib`, `/usr/sbin`, `/usr/share`, `/var`, `/var/run`.
 
 ujail cannot mount a socket: a collector declares the socket's directory.
+
+### Owned paths {#owned-paths}
+
+The service makes an owned path as root, and mounts it, so it takes one only below these, and refuses any other with a warning, neither made nor mounted:
+
+| Under | Why |
+| :--- | :--- |
+| `/var`, `/tmp` | tmpfs on OpenWrt (`/var` is `/tmp`): what a script writes there often does not wear the flash. |
+| `/etc/prometheus-exporter` | The exporter's own, on flash: for files that must outlive a reboot. |
+
+An option that names one, as textfile's `directory`, has the datatype `owned_directory`, which takes the same: the configuration is refused with `OWNED_DIRECTORY` (see [UCI configuration](uci-config.md#problems)) before the service makes anything.
 
 ## Missing paths
 

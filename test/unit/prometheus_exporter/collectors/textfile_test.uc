@@ -126,15 +126,15 @@ describe('collectors.textfile', () => {
 
 	it('reads the directory the collector section names, and only its *.prom files', () => {
 		let data = {
-			'/etc/metrics/router.prom': 'router_up 1\n',
-			'/etc/metrics/router.prom.tmp': 'router_up 0\n',
-			'/etc/metrics/README': 'not metrics\n',
+			'/etc/prometheus-exporter/metrics/router.prom': 'router_up 1\n',
+			'/etc/prometheus-exporter/metrics/router.prom.tmp': 'router_up 0\n',
+			'/etc/prometheus-exporter/metrics/README': 'not metrics\n',
 		};
 
-		with_collector(textfile, { fs: fs_of(data), options: { directory: '/etc/metrics/' } }, (r) => {
+		with_collector(textfile, { fs: fs_of(data), options: { directory: '/etc/prometheus-exporter/metrics/' } }, (r) => {
 			assert.match([
 				'router_up 1',
-				'node_textfile_mtime_seconds{file="/etc/metrics/router.prom"} 0',
+				'node_textfile_mtime_seconds{file="/etc/prometheus-exporter/metrics/router.prom"} 0',
 				'node_textfile_scrape_error 0',
 			], samples(r.lines));
 		});
@@ -225,7 +225,7 @@ describe('collectors.textfile', () => {
 describe('textfile in the jail', () => {
 	it('gets its directory', () => {
 		assert.match([ '/var/prometheus' ], jail_of(textfile, {}).mounts);
-		assert.match([ '/srv/metrics' ], jail_of(textfile, { options: { directory: '/srv/metrics' } }).mounts);
+		assert.match([ '/tmp/metrics' ], jail_of(textfile, { options: { directory: '/tmp/metrics' } }).mounts);
 	});
 
 	it('owns it: the service makes it when it is not there, so it is mounted and not waited for', () => {

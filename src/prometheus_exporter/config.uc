@@ -72,6 +72,11 @@ export const DATATYPES = types.DATATYPES;
 export const datatype = types.datatype;
 export const convert = types.convert;
 
+// Where the service makes and mounts a directory of a collector's own, and
+// whether a path is one (config.types).
+export const OWNED_ROOTS = types.OWNED_ROOTS;
+export const is_owned_directory = types.is_owned_directory;
+
 // What is wrong with an option's value, as a code and its arguments
 // (prometheus_exporter.config.problems): every code, with what it takes and
 // says; a problem of one; its English; and the CONFIG_INVALID of a value an

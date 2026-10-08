@@ -641,7 +641,7 @@ Metrics from \*.prom files in a directory, as node\_exporter's textfile collecto
 
 | Option | Title | Type | Default | Datatype | Description |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| `directory` | Metrics directory | string | `/var/prometheus` | `directory` | The directory of the \*.prom files. |
+| `directory` | Metrics directory | string | `/var/prometheus` | `owned_directory` | The directory of the \*.prom files, under /var, /tmp or /etc/prometheus-exporter. |
 | `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
 ## `thermal` {#thermal}

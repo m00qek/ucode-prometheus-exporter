@@ -12,6 +12,8 @@ The jail is computed, not written by hand. Each collector's `meta` says what it 
 
 Some declarations are refused outright: a path that is not absolute or not plain, and directories that hold what every service has, `/etc/config`, `/run`, `/tmp`, `/usr/lib` and the like. A collector cannot ask for a socket in `/run`, because the jail would then hold every service's sockets. ujail cannot mount a socket by itself, so a collector names the socket's directory, which must be its service's alone, as Unbound's `/var/lib/unbound` is.
 
+A directory the exporter owns, textfile's, is held tighter: the service makes it as root and mounts it, so it must be under `/var`, `/tmp` or `/etc/prometheus-exporter`, and a value elsewhere is refused before anything is made. An allowlist, not the list of shared directories above: whoever may write the exporter's configuration, as a LuCI login allowed this app alone, cannot have the service make directories in, or mount, the rest of the filesystem.
+
 The ubus socket matters most of these. The jail runs as root, and ubusd lets root call every object, so with the socket the exporter could ask rpcd, netifd or any service for anything they answer. The jail limits what the exporter can see, not what it can do over ubus; so it has the socket only while a collector that needs ubus is enabled, and a router whose enabled collectors read files and netlink alone runs it without ubus.
 
 The jail is a boundary for the exporter's own mistakes as much as for an attacker's: a collector that parses something wrong cannot write anywhere, and one whose program hangs is killed with everything it started.

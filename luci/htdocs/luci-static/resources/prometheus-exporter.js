@@ -174,6 +174,7 @@ const PROBLEMS = {
 	RANGE: (p, title) => say(_('%s must be an integer from %s to %s'), title, p.min, p.max),
 	UINTEGER: (p, title) => say(_('%s must be an integer of 0 or more'), title),
 	ABSOLUTE_PATH: (p, title) => say(_('%s must be an absolute path'), title),
+	OWNED_DIRECTORY: (p, title) => say(_('%s must be a directory under /var, /tmp or /etc/prometheus-exporter'), title),
 	REGEX: (p, title) => say(_('%s must be a regular expression'), title),
 	USERNAME: (p, title) => say(_('%s must be 1 to 64 characters, without ":", spaces or control characters'), title),
 	CRYPT: (p, title) => say(_('%s must be a crypt hash: $1$ (uhttpd -m), $5$ or $6$'), title),
