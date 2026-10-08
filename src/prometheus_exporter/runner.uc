@@ -130,19 +130,19 @@ export function killed(job, took) {
  * [ name, type ] ] }, its Result without its prototype, and then its text,
  * as it is: JSON would escape every quote of every label.
  *
- * @param {Run} r the run, packed (its text written).
+ * @param {Run} run the run, packed (its text written).
  * @param {string[][]} logs what was logged with it: [ level, msg ] pairs.
  * @returns {string} the line of JSON and the text.
  */
-export function pack(r, logs) {
-	let res = r.result;
+export function pack(run, logs) {
+	let res = run.result;
 	let head = {
-		name: r.name, id: r.id, samples: r.samples, duration: r.duration, budget: r.budget, logs,
+		name: run.name, id: run.id, samples: run.samples, duration: run.duration, budget: run.budget, logs,
 		result: { ok: res.ok, error: res.error, details: res.details, data: res.data, none: res.none },
-		families: map(r.families, (f) => [ f.name, f.type ]),
+		families: map(run.families, (f) => [ f.name, f.type ]),
 	};
 
-	return sprintf('%J\n', head) + r.text;
+	return sprintf('%J\n', head) + run.text;
 };
 
 /**

@@ -220,13 +220,13 @@ function over_limit(over, max) {
  *
  * @param {ScrapeEnv} env the scrape's env.
  * @param {Session} session the scrape's session.
- * @param {Collector} c the collector.
+ * @param {Collector} collector the collector.
  * @param {?Job} job its job, or null.
  * @returns {Run} the run.
  */
-export function run_one(env, session, c, job) {
+export function run_one(env, session, collector, job) {
 	let t1 = env.clock();
-	let res = job?.settings ? Result.ok(job.settings) : config.settings(session.uci(), c.id, c.meta);
+	let res = job?.settings ? Result.ok(job.settings) : config.settings(session.uci(), collector.id, collector.meta);
 	let budget = res.ok ? res.data.budget : null;
 	let max = res.ok ? res.data.max_samples : null;
 	let rec = exposition.recorder(max);
@@ -234,10 +234,10 @@ export function run_one(env, session, c, job) {
 	if (res.ok) {
 		let settings = res.data;
 
-		res = session.for(c.meta, settings, job?.cutoff, job?.view, job?.limit);
+		res = session.for(collector.meta, settings, job?.cutoff, job?.view, job?.limit);
 		if (res.ok) {
 			try {
-				let r = c.collect(res.data, rec, settings.options);
+				let r = collector.collect(res.data, rec, settings.options);
 				res = Result.is(r) ? r : Result.err(errors.COLLECTOR_NO_RESULT, `returned ${type(r) ?? 'null'}`);
 			} catch (e) {
 				res = Result.err(errors.COLLECTOR_CRASHED, split(e.message, '\n')[0]);
@@ -254,9 +254,9 @@ export function run_one(env, session, c, job) {
 
 	// One cut at the deadline is in the scrape's line of them.
 	if (!res.ok && res.error != errors.SCRAPE_DEADLINE)
-		env.log('warning', `collector '${c.meta.name}': ${Result.describe(res)}`);
+		env.log('warning', `collector '${collector.meta.name}': ${Result.describe(res)}`);
 	for (let name in rec.conflicts())
-		env.log('warning', `collector '${c.meta.name}': '${name}' declared with two types; later samples dropped`);
+		env.log('warning', `collector '${collector.meta.name}': '${name}' declared with two types; later samples dropped`);
 
 	let families = (Result.is_none(res) || over) ? [] : rec.families();
 	let samples = 0;
@@ -264,20 +264,20 @@ export function run_one(env, session, c, job) {
 	for (let f in families)
 		samples += length(f.lines);
 
-	return { name: c.meta.name, id: c.id, result: res, families, samples, duration, budget };
+	return { name: collector.meta.name, id: collector.id, result: res, families, samples, duration, budget };
 };
 
 /**
  * A collector left out, without running: { name, id, result, families: [],
  * samples: 0, duration: 0, skipped }.
  *
- * @param {Collector} c the collector.
+ * @param {Collector} collector the collector.
  * @param {Result} res what it fails with.
  * @param {string} why 'quarantine' or 'deadline'.
  * @returns {Run} the run.
  */
-export function not_run(c, res, why) {
-	return { name: c.meta.name, id: c.id, result: res, families: [], samples: 0, duration: 0, skipped: why };
+export function not_run(collector, res, why) {
+	return { name: collector.meta.name, id: collector.id, result: res, families: [], samples: 0, duration: 0, skipped: why };
 };
 
 // Whether a run was cut by the deadline: left out, its program killed there,

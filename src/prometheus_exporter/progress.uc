@@ -38,11 +38,11 @@ export function log_breakers(env, events) {
  * once the scrape that held its timer is gone, is killed (env.kill).
  *
  * @param {ScrapeEnv} env the scrape's env: its log, and kill.
- * @param {State} st the instance's state.
+ * @param {State} state the instance's state.
  * @param {Collector[]} collectors the installed collectors.
  */
-export function bury(env, st, collectors) {
-	let dead = st.dead();
+export function bury(env, state, collectors) {
+	let dead = state.dead();
 
 	if (!length(dead))
 		return;
@@ -54,13 +54,13 @@ export function bury(env, st, collectors) {
 	for (let c in collectors)
 		names[c.id] = c.meta.name;
 
-	st.update(ledger.NAME, function(text) {
+	state.update(ledger.NAME, function(text) {
 		let l = ledger.parse(text);
 
 		events = [];
 		blamed = [];
 		for (let d in dead) {
-			if (!st.claim(d.file))
+			if (!state.claim(d.file))
 				continue;
 			if (d.running == null || names[d.running] == null)
 				continue;
