@@ -1,7 +1,11 @@
-'use strict';
+/**
+ * The exporter on the real system; the uhttpd handler and the command line both
+ * start here.
+ *
+ * @module prometheus_exporter_app
+ */
 
-// The exporter on the real system; the uhttpd handler and the command line both
-// start here.
+'use strict';
 
 import * as deps from 'prometheus_exporter.deps';
 import * as loader from 'prometheus_exporter.loader';
@@ -16,10 +20,40 @@ import * as runner from 'prometheus_exporter.runner';
 import { probe as probe_modules } from 'prometheus_exporter.probe';
 import { version } from 'prometheus_exporter.version';
 
-// Basic auth as the handler finds it when it starts: null when uhttpd's
-// config file (auth.FILE) is not there, which the jail mounts only when the
-// main section sets basic auth; { user, hash } when it is that; { broken: true }
-// when it is there but not that, which denies every request.
+/**
+ * The exporter, as create() gives it: its collectors, a scrape of a query
+ * string, and the modules it runs over.
+ *
+ * @typedef {{
+ *   collectors: () => Collector[],
+ *   scrape: (query_string: ?string, opts: ?ScrapeOptions) => ScrapeReply,
+ *   mods: Modules
+ * }} App
+ */
+
+/**
+ * The exporter as uhttpd's handler, as handler() gives it: its collectors,
+ * basic auth (load_auth's), compress and scrape_timeout as the handler read
+ * them, and handle(env), the reply to a request (uhttpd-mod-ucode's env).
+ *
+ * @typedef {{
+ *   collectors: () => Collector[],
+ *   auth: ?(BasicAuth|{ broken: boolean }),
+ *   compress: boolean,
+ *   scrape_timeout: int,
+ *   handle: (req: Object) => HttpReply
+ * }} Handler
+ */
+
+/**
+ * Basic auth as the handler finds it when it starts: null when uhttpd's
+ * config file (auth.FILE) is not there, which the jail mounts only when the
+ * main section sets basic auth; { user, hash } when it is that; { broken: true }
+ * when it is there but not that, which denies every request.
+ *
+ * @param {module:fs} fs what reads auth.FILE: an object of fs's readfile.
+ * @returns {?(BasicAuth|{ broken: boolean })} basic auth.
+ */
 export function load_auth(fs) {
 	let text = fs.readfile(auth.FILE);
 
@@ -29,10 +63,18 @@ export function load_auth(fs) {
 	return auth.parse_conf(text) ?? { broken: true };
 };
 
-// What the handler sends instead of a scrape, or null for a request it serves.
-// Basic auth answers 403 to a request over HTTP, which the init script never
-// listens on with it, and 401 to one without the user and password. `st`, the
-// instance's state, holds basic auth's cache (auth.allowed).
+/**
+ * What the handler sends instead of a scrape, or null for a request it serves.
+ * Basic auth answers 403 to a request over HTTP, which the init script never
+ * listens on with it, and 401 to one without the user and password. `st`, the
+ * instance's state, holds basic auth's cache (auth.allowed).
+ *
+ * @param {?(BasicAuth|{ broken: boolean })} a basic auth, as load_auth gives
+ *   it.
+ * @param {?Object} env uhttpd-mod-ucode's env of the request.
+ * @param {?State} st the instance's state.
+ * @returns {?HttpReply} the reply, or null.
+ */
 export function refusal(a, env, st) {
 	if (a == null)
 		return null;
@@ -50,10 +92,17 @@ export function refusal(a, env, st) {
 	return null;
 };
 
-// The env a scrape runs collectors in (prometheus_exporter.scrape), over the
-// modules `mods` and log(level, msg): each collector in a process of its own
-// (prometheus_exporter.runner), unless opts.fork is false; opts.tmp is the
-// directory of the file their runs cross by (/tmp).
+/**
+ * The env a scrape runs collectors in (prometheus_exporter.scrape), over the
+ * modules `mods` and log(level, msg): each collector in a process of its own
+ * (prometheus_exporter.runner), unless opts.fork is false; opts.tmp is the
+ * directory of the file their runs cross by (/tmp).
+ *
+ * @param {Modules} mods the modules.
+ * @param {Log} log the exporter's log.
+ * @param {?{ fork: ?boolean, tmp: ?string }} opts the options.
+ * @returns {ScrapeEnv} the env.
+ */
 export function scrape_env(mods, log, opts) {
 	return {
 		session: (to) => deps.session({ ...mods, log: to ?? log }),
@@ -76,23 +125,38 @@ export function scrape_env(mods, log, opts) {
 	};
 };
 
-// The collectors in `dir` (loader.DIR), as the exporter loads them: each
-// probed first in a process of its own (prometheus_exporter.probe),
-// unless opts.fork is false.
+/**
+ * The collectors in `dir` (loader.DIR), as the exporter loads them: each
+ * probed first in a process of its own (prometheus_exporter.probe),
+ * unless opts.fork is false.
+ *
+ * @param {Modules} mods the modules.
+ * @param {?string} dir the collectors' directory; loader.DIR when null.
+ * @param {Log} log the exporter's log.
+ * @param {?{ fork: ?boolean }} opts the options.
+ * @returns {Collector[]} the collectors.
+ */
 export function load(mods, dir, log, opts) {
 	let probe = (opts?.fork ?? true) ? (ids) => probe_modules(ids, loader.import_module) : null;
 
 	return loader.load(mods.fs, dir ?? loader.DIR, loader.import_module, log, probe);
 };
 
-// { collectors(), scrape(query_string) }. log(level, msg) takes what the
-// loader, the scrapes and the collectors log (deps.LEVELS). `dir` replaces the
-// installed collectors' directory, for running from a source tree. opts.fork
-// false runs every collector, and loads every module, in this process.
-//
-// The collectors are loaded once: installing, removing or upgrading a
-// collector package reloads the service, which restarts uhttpd when the
-// collectors changed (see the init script).
+/**
+ * { collectors(), scrape(query_string) }. log(level, msg) takes what the
+ * loader, the scrapes and the collectors log (deps.LEVELS). `dir` replaces the
+ * installed collectors' directory, for running from a source tree. opts.fork
+ * false runs every collector, and loads every module, in this process.
+ *
+ * The collectors are loaded once: installing, removing or upgrading a
+ * collector package reloads the service, which restarts uhttpd when the
+ * collectors changed (see the init script).
+ *
+ * @param {Log} log the exporter's log.
+ * @param {?string} dir the collectors' directory; loader.DIR when null.
+ * @param {?{ fork: ?boolean, tmp: ?string }} opts the options.
+ * @returns {App} the exporter.
+ */
 export function create(log, dir, opts) {
 	let mods = deps.modules();
 	let env = scrape_env(mods, log, opts);
@@ -105,16 +169,24 @@ export function create(log, dir, opts) {
 	};
 };
 
-// The exporter as uhttpd's handler: { collectors(), auth, compress,
-// scrape_timeout, handle(env) }, where handle answers one request
-// (uhttpd-mod-ucode's env) with a reply (prometheus_exporter.http), in the time
-// the scraper gives it (prometheus_exporter.deadline), counted from when the
-// request reached the handler. Like the collectors, compress, scrape_timeout
-// and basic auth are read once, when the handler starts: a change of the config
-// restarts uhttpd (see the init script). `auth` is load_auth's. The state is
-// opened here too, in the process uhttpd forks each request from, which names
-// the instance (see prometheus_exporter.state); `state_dir` replaces its
-// directory, for tests.
+/**
+ * The exporter as uhttpd's handler: { collectors(), auth, compress,
+ * scrape_timeout, handle(env) }, where handle answers one request
+ * (uhttpd-mod-ucode's env) with a reply (prometheus_exporter.http), in the time
+ * the scraper gives it (prometheus_exporter.deadline), counted from when the
+ * request reached the handler. Like the collectors, compress, scrape_timeout
+ * and basic auth are read once, when the handler starts: a change of the config
+ * restarts uhttpd (see the init script). `auth` is load_auth's. The state is
+ * opened here too, in the process uhttpd forks each request from, which names
+ * the instance (see prometheus_exporter.state); `state_dir` replaces its
+ * directory, for tests.
+ *
+ * @param {Log} log the exporter's log.
+ * @param {?string} dir the collectors' directory; loader.DIR when null.
+ * @param {?string} state_dir the state's directory; state.DIR when null.
+ * @param {?{ fork: ?boolean }} opts the options.
+ * @returns {Handler} the handler.
+ */
 export function handler(log, dir, state_dir, opts) {
 	// The jail has no /tmp: the state's directory, on tmpfs, is the one it writes.
 	let app = create(log, dir, { tmp: state_dir ?? state.DIR, ...(opts ?? {}) });

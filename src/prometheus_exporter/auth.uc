@@ -1,23 +1,27 @@
-'use strict';
+/**
+ * Basic auth of /metrics, which the main section's auth_user and auth_password
+ * (a crypt hash) turn on, over HTTPS only (see config.together).
+ *
+ * The init script writes uhttpd's config file (FILE): one line, PATH:user:hash,
+ * mode 0600, in a directory of mode 0700. uhttpd reads it with -c, and -r
+ * names its realm; the jail mounts it read-only. OpenWrt 25.12's uhttpd checks
+ * a realm for files and CGI only, not for a handler's prefix (its fix is
+ * newer), so the handler checks it too: it reads the same file when it starts,
+ * and answers 401 to a request without the user and password, before any
+ * scrape. A file that is there but not one line of a user and a hash denies
+ * every request. Neither the password nor the hash is ever logged.
+ *
+ * Computing the hash is what a check costs, and on a router's CPU it costs
+ * much (see docs/explanation/performance.md): so the handler remembers the
+ * last header it let in, in the instance's state (prometheus_exporter.state),
+ * as a digest bound to the user and hash it was checked against (CACHE). A
+ * request with that very header is let in on the digest alone; any other pays
+ * the full check.
+ *
+ * @module prometheus_exporter_auth
+ */
 
-// Basic auth of /metrics, which the main section's auth_user and auth_password
-// (a crypt hash) turn on, over HTTPS only (see config.together).
-//
-// The init script writes uhttpd's config file (FILE): one line, PATH:user:hash,
-// mode 0600, in a directory of mode 0700. uhttpd reads it with -c, and -r
-// names its realm; the jail mounts it read-only. OpenWrt 25.12's uhttpd checks
-// a realm for files and CGI only, not for a handler's prefix (its fix is
-// newer), so the handler checks it too: it reads the same file when it starts,
-// and answers 401 to a request without the user and password, before any
-// scrape. A file that is there but not one line of a user and a hash denies
-// every request. Neither the password nor the hash is ever logged.
-//
-// Computing the hash is what a check costs, and on a router's CPU it costs
-// much (see docs/explanation/performance.md): so the handler remembers the
-// last header it let in, in the instance's state (prometheus_exporter.state),
-// as a digest bound to the user and hash it was checked against (CACHE). A
-// request with that very header is let in on the digest alone; any other pays
-// the full check.
+'use strict';
 
 import { sha256 } from 'digest';
 import * as crypt from 'prometheus_exporter.crypt';
@@ -25,51 +29,119 @@ import * as state from 'prometheus_exporter.state';
 import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
 
+/**
+ * Basic auth as the config and uhttpd's file set it: the user, and the crypt
+ * hash of the password.
+ *
+ * @typedef {{ user: string, hash: string }} BasicAuth
+ */
+
+/**
+ * The user and password of an Authorization header, as credentials() reads
+ * them.
+ *
+ * @typedef {{ user: string, password: string }} Credentials
+ */
+
+/**
+ * The path basic auth guards: the handler's prefix.
+ *
+ * @type {string}
+ */
 export const PATH = '/metrics';
+
+/**
+ * The realm uhttpd (-r) and the handler's 401 name.
+ *
+ * @type {string}
+ */
 export const REALM = 'prometheus-exporter';
+
+/**
+ * The directory of uhttpd's config file: the state's RUN_DIR.
+ *
+ * @type {string}
+ */
 export const DIR = state.RUN_DIR;
+
+/**
+ * uhttpd's config file, which the init script writes.
+ *
+ * @type {string}
+ */
 export const FILE = `${DIR}/uhttpd.conf`;
 
-// The longest password hash_password takes: the longest musl hashes.
+/**
+ * The longest password hash_password takes: the longest musl hashes.
+ *
+ * @type {int}
+ */
 export const PASSWORD_MAX = crypt.KEY_MAX;
 
-// Whether `s` is a user basic auth takes: 1 to 64 bytes, without ':', which
-// ends the user in the credentials and in uhttpd's file, white space or
-// control characters.
+/**
+ * Whether `s` is a user basic auth takes: 1 to 64 bytes, without ':', which
+ * ends the user in the credentials and in uhttpd's file, white space or
+ * control characters.
+ *
+ * @param {*} s anything; only a string is a user.
+ * @returns {boolean} whether it is one.
+ */
 export function is_user(s) {
 	return type(s) == 'string' && match(s, /^[^:[:space:][:cntrl:]]{1,64}$/) != null;
 };
 
-// The most rounds a hash of auth_password may take (see crypt.rounds). The
-// handler computes the hash in ucode to check a password, and a $5$ or $6$
-// hash may name up to 9,999,999 rounds: at the 125 us a round of SHA-512-crypt
-// takes a MIPS 24Kc of 500 MIPS (an MT7621-class router; make bench-qemu),
-// that is 20 minutes a scrape. At 2000 rounds the check takes it 0.26 s (0.21 s
-// for SHA-256-crypt), the R3S 37 ms, x86_64 8 ms: a few hundred milliseconds
-// at most on a slow router, twice hash_password's, which the cache then spares
-// all but the first scrape. MD5-crypt is always 1000 (63 ms there). A hash
-// that names no rounds is of 5000 (0.63 s there), and so is refused: name
-// rounds=1000, as hash_password does.
+/**
+ * The most rounds a hash of auth_password may take (see crypt.rounds). The
+ * handler computes the hash in ucode to check a password, and a $5$ or $6$
+ * hash may name up to 9,999,999 rounds: at the 125 us a round of SHA-512-crypt
+ * takes a MIPS 24Kc of 500 MIPS (an MT7621-class router; make bench-qemu),
+ * that is 20 minutes a scrape. At 2000 rounds the check takes it 0.26 s (0.21 s
+ * for SHA-256-crypt), the R3S 37 ms, x86_64 8 ms: a few hundred milliseconds
+ * at most on a slow router, twice hash_password's, which the cache then spares
+ * all but the first scrape. MD5-crypt is always 1000 (63 ms there). A hash
+ * that names no rounds is of 5000 (0.63 s there), and so is refused: name
+ * rounds=1000, as hash_password does.
+ *
+ * @type {int}
+ */
 export const ROUNDS_MAX = 2000;
 
-// Whether `s` is a hash basic auth takes: of crypt's formats, and of at most
-// ROUNDS_MAX rounds.
+/**
+ * Whether `s` is a hash basic auth takes: of crypt's formats, and of at most
+ * ROUNDS_MAX rounds.
+ *
+ * @param {*} s anything; only a string is a hash.
+ * @returns {boolean} whether it is one.
+ */
 export function is_hash(s) {
 	let n = crypt.rounds(s);
 
 	return n != null && n <= ROUNDS_MAX;
 };
 
-// uhttpd's config file for user and hash.
+/**
+ * uhttpd's config file for user and hash.
+ *
+ * @param {string} user the user.
+ * @param {string} hash the hash.
+ * @returns {string} its one line, PATH:user:hash, ended by a newline.
+ */
 export function conf(user, hash) {
 	return `${PATH}:${user}:${hash}\n`;
 };
 
-// Writes uhttpd's config file for `a` ({ user, hash }) whole, mode 0600 in DIR
-// of mode 0700, and puts it in place by a rename, so the jail of a running
-// instance keeps the file it mounted; with `a` null, removes it. A Result of
-// the path written, or of null. fs: { stat, mkdir, chmod, open, rename,
-// unlink, error }, as the fs module has them.
+/**
+ * Writes uhttpd's config file for `a` ({ user, hash }) whole, mode 0600 in DIR
+ * of mode 0700, and puts it in place by a rename, so the jail of a running
+ * instance keeps the file it mounted; with `a` null, removes it. A Result of
+ * the path written, or of null. fs: { stat, mkdir, chmod, open, rename,
+ * unlink, error }, as the fs module has them.
+ *
+ * @param {module:fs} fs the fs module, or an object of the functions named.
+ * @param {?BasicAuth} a basic auth, or null for none.
+ * @returns {Result<?string>} FILE, or null when it removed it; or
+ *   FILE_UNWRITABLE.
+ */
 export function write_conf(fs, a) {
 	let failed = (what) => Result.err(errors.FILE_UNWRITABLE, `cannot ${what} ${FILE}: ${fs.error()}`);
 
@@ -98,8 +170,13 @@ export function write_conf(fs, a) {
 	return Result.ok(FILE);
 };
 
-// { user, hash } of uhttpd's config file, or null when it is not one line of a
-// user and a hash for PATH.
+/**
+ * { user, hash } of uhttpd's config file, or null when it is not one line of a
+ * user and a hash for PATH.
+ *
+ * @param {?string} text the file's text.
+ * @returns {?BasicAuth} basic auth, or null.
+ */
 export function parse_conf(text) {
 	let m = (type(text) == 'string') ? match(text, /^([^:\n]*):([^:\n]*):([^:\n]*)\n?$/) : null;
 
@@ -109,7 +186,12 @@ export function parse_conf(text) {
 	return { user: m[2], hash: m[3] };
 };
 
-// { user, password } of an Authorization header of the Basic scheme, or null.
+/**
+ * { user, password } of an Authorization header of the Basic scheme, or null.
+ *
+ * @param {?string} value the header's value.
+ * @returns {?Credentials} the user and password, or null.
+ */
 export function credentials(value) {
 	let m = (type(value) == 'string') ? match(value, /^[Bb][Aa][Ss][Ii][Cc][ \t]+([A-Za-z0-9+\/]+={0,2})[ \t]*$/) : null;
 	let text = m ? b64dec(m[1]) : null;
@@ -121,25 +203,42 @@ export function credentials(value) {
 	return { user: substr(text, 0, i), password: substr(text, i + 1) };
 };
 
-// The name of basic auth's cache in the state: one entry, the digest of the
-// last header let in.
+/**
+ * The name of basic auth's cache in the state: one entry, the digest of the
+ * last header let in.
+ *
+ * @type {string}
+ */
 export const CACHE = 'auth';
 
-// The digest the cache keeps of an Authorization header let in by `a`
-// ({ user, hash }): SHA-256 of the header, the user and the hash, each ended
-// by a NUL, which none of them holds. Bound to the user and hash, an entry
-// lets nothing in once either changes. It is no secret beyond the hash's: it
-// lives in a directory as closed as uhttpd's file, and finding a header that
-// gives it is guessing the password, as with the hash.
+/**
+ * The digest the cache keeps of an Authorization header let in by `a`
+ * ({ user, hash }): SHA-256 of the header, the user and the hash, each ended
+ * by a NUL, which none of them holds. Bound to the user and hash, an entry
+ * lets nothing in once either changes. It is no secret beyond the hash's: it
+ * lives in a directory as closed as uhttpd's file, and finding a header that
+ * gives it is guessing the password, as with the hash.
+ *
+ * @param {BasicAuth} a the basic auth it let the header in by.
+ * @param {string} value the header's value.
+ * @returns {string} the digest, as hex.
+ */
 export function digest(a, value) {
 	return sha256(`${value}\0${a.user}\0${a.hash}\0`);
 };
 
-// Whether an Authorization header carries the user and password of `a`
-// ({ user, hash }). The hash is computed for any user, so a wrong user takes
-// as long as a wrong password. With `st`, the instance's state (state.open),
-// the header the cache holds, compared in constant time, is let in without
-// computing the hash; one that is let in otherwise replaces it.
+/**
+ * Whether an Authorization header carries the user and password of `a`
+ * ({ user, hash }). The hash is computed for any user, so a wrong user takes
+ * as long as a wrong password. With `st`, the instance's state (state.open),
+ * the header the cache holds, compared in constant time, is let in without
+ * computing the hash; one that is let in otherwise replaces it.
+ *
+ * @param {BasicAuth} a basic auth.
+ * @param {?string} value the Authorization header's value, or null.
+ * @param {?State} st the instance's state, for the cache; null for none.
+ * @returns {boolean} whether the request is let in.
+ */
 export function allowed(a, value, st) {
 	let d = (st != null && type(value) == 'string') ? digest(a, value) : null;
 
@@ -160,8 +259,13 @@ export function allowed(a, value, st) {
 	return ok;
 };
 
-// Why `password` cannot be hashed, or null: a string of 1 to PASSWORD_MAX
-// bytes, without control characters.
+/**
+ * Why `password` cannot be hashed, or null: a string of 1 to PASSWORD_MAX
+ * bytes, without control characters.
+ *
+ * @param {*} password what is to be hashed.
+ * @returns {?string} why it cannot be, or null.
+ */
 export function password_problem(password) {
 	if (type(password) != 'string' || password == '')
 		return 'expected a password';
@@ -173,12 +277,22 @@ export function password_problem(password) {
 	return null;
 };
 
-// The rounds of the hashes hash_password makes: musl's least, as the handler
-// computes the hash in ucode at each scrape; see docs/explanation/performance.md.
+/**
+ * The rounds of the hashes hash_password makes: musl's least, as the handler
+ * computes the hash in ucode at each scrape; see docs/explanation/performance.md.
+ *
+ * @type {int}
+ */
 export const HASH_ROUNDS = 1000;
 
-// A Result of a new SHA-512-crypt hash of `password`, salted with random(n),
-// which gives n random bytes.
+/**
+ * A Result of a new SHA-512-crypt hash of `password`, salted with random(n),
+ * which gives n random bytes.
+ *
+ * @param {*} password the password; anything but a string fails.
+ * @param {function(int): ?string} random n random bytes.
+ * @returns {Result<string>} the hash, or CONFIG_INVALID.
+ */
 export function hash_password(password, random) {
 	let problem = password_problem(password);
 
