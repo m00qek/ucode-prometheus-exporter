@@ -9,7 +9,8 @@
  * newer), so the handler checks it too: it reads the same file when it starts,
  * and answers 401 to a request without the user and password, before any
  * scrape. A file that is there but not one line of a user and a hash denies
- * every request. Neither the password nor the hash is ever logged.
+ * every request, and so does a file that is not there while the config sets
+ * auth_user (prometheus_exporter.app's load_auth). Neither the password nor the hash is ever logged.
  *
  * Computing the hash is what a check costs, and on a router's CPU it costs
  * much (see docs/explanation/performance.md): so the handler remembers the

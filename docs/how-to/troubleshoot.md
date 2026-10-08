@@ -111,7 +111,7 @@ What the jail holds is in [The jail](../reference/jail.md).
 | `400 Bad Request` | The scrape's `collect[]` names a collector that is not installed, or is disabled. The body says which. |
 | `401 Unauthorized` | The user or password is wrong. |
 | `server returned HTTP status 403 Forbidden` | Basic auth is on and the request came over HTTP: use `scheme: https`. |
-| `500 Internal Server Error` | Basic auth's file is broken: `service prometheus-exporter restart` writes it afresh. |
+| `500 Internal Server Error` | Basic auth's file is broken, or gone while `auth_user` is set: `service prometheus-exporter restart` writes it afresh. |
 
 ## The metrics are not what you expect
 

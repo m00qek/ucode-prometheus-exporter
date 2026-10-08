@@ -44,7 +44,7 @@ Basic auth sends the password with every request, encoded but not encrypted. Ove
 
 uhttpd has basic auth of its own: a config file of `prefix:user:hash` lines, `-c`, with a realm, `-r`. The init script writes that file, and uhttpd reads it. But OpenWrt 25.12's uhttpd applies it to files and CGI only, not to a handler's prefix: a request to `/metrics` would reach the handler without a login. uhttpd fixed this in August 2026 (commit 3aa7e1c), after every 25.12 release so far.
 
-So the handler reads the same file when it starts, and checks every request against it before it scrapes, computing the hash in ucode as musl's crypt would. On a uhttpd that does check, the request is checked twice; on one that does not, it is checked once, which is what matters. A file that is there but wrong denies every request rather than letting them through.
+So the handler reads the same file when it starts, and checks every request against it before it scrapes, computing the hash in ucode as musl's crypt would. On a uhttpd that does check, the request is checked twice; on one that does not, it is checked once, which is what matters. A file that is there but wrong denies every request rather than letting them through, and so does a file that is not there while the configuration sets `auth_user`: should the file go and procd start uhttpd again as it was, with no file for the jail to mount, the handler reads the exporter's configuration, which the jail has, and fails closed rather than serve without the login it asks for.
 
 ### The cache, and what it trades
 

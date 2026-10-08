@@ -837,6 +837,21 @@ check "status says it" says '^listening on https://127.0.0.1:9100/metrics, basic
 check "so does the ubus object's status" auth_true
 check "the hash is in no reply of the ubus object, nor in check, status or the log" no_hash_in secret_free
 
+# Basic auth's file gone under a running instance, and uhttpd ended: procd
+# starts it again as it was, and the jail has no file to mount. The handler
+# reads that the config sets basic auth, and denies every request.
+before=$(pid)
+mv "$AUTH_FILE" "$AUTH_FILE.e2e"
+kill -KILL "$before"
+eventually "procd starts the instance again" restarted_from "$before"
+denied() { [ "$(status_of "$@")" = 'HTTP error 500' ]; }
+eventually "without basic auth's file, it denies a scrape with the right credentials" denied --user=prom --password=e2e-secret
+check "and one without" denied
+check "and logs why, at err" says "daemon.err $NAME\[[0-9]*\]: $AUTH_FILE is not there, and the config sets basic auth (auth_user): every request is denied" logread
+mv "$AUTH_FILE.e2e" "$AUTH_FILE"
+"$INIT" restart
+eventually "a restart, which writes the file, logs in again" logs_in
+
 # --- basic auth's cache, in the instance's state
 # The file of the header let in last: <instance>.auth, which a request the
 # cache lets in leaves as it was, and a full check replaces (a new inode).

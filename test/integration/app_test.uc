@@ -4,7 +4,7 @@
 // patched globally, so the named imports of prometheus_exporter.deps reach the mocks.
 
 import { describe, it, afterEach, assert, contains, mock } from 'utest';
-import { create, handler } from 'prometheus_exporter.app';
+import { create, handler, load_auth, auth_wanted } from 'prometheus_exporter.app';
 import { inflate } from 'zlib';
 import * as auth from 'prometheus_exporter.auth';
 import * as state from 'prometheus_exporter.state';
@@ -283,6 +283,61 @@ describe('app.handler', () => {
 
 		assert.match([ { broken: true }, '500 Internal Server Error' ], [ app.auth, r.status ]);
 		assert.match([ [ 'err', `${auth.FILE} is not one line of a user and a hash for /metrics: every request is denied` ] ], logs);
+	});
+
+	it('denies every request when the config sets basic auth and the file is not there, as after a respawn without it', () => {
+		patch_main({ auth_user: 'prom', cert: '/etc/x.crt', key: '/etc/x.key' });
+
+		let logs = [];
+		let app = handler((level, m) => push(logs, [ level, m ]), SOURCES);
+
+		for (let req in [ request('', { authorization: basic('prom:secret') }, true), request('', {}, true), request('', {}) ])
+			assert.match('500 Internal Server Error', app.handle(req).status);
+		assert.match({ broken: true, missing: true }, app.auth);
+		assert.match([ [ 'err', `${auth.FILE} is not there, and the config sets basic auth (auth_user): every request is denied` ] ], logs);
+	});
+
+	it('serves without the file when the config sets no basic auth, an empty user included', () => {
+		for (let main in [ null, { auth_user: '' } ]) {
+			patch_main(main);
+
+			let app = handler(() => null, SOURCES);
+
+			assert.match([ null, '200 OK' ], [ app.auth, app.handle(request('collect[]=loadavg', {}, true)).status ], main);
+		}
+	});
+});
+
+describe('app.load_auth and app.auth_wanted', () => {
+	const files = (text) => ({ readfile: (p) => (p == auth.FILE) ? text : null });
+
+	it('is null without the file only when the config sets no basic auth', () => {
+		assert.match([ null, { broken: true, missing: true } ], [ load_auth(files(null), false), load_auth(files(null), true) ]);
+	});
+
+	it('takes the file when it is there, whatever the config says, and denies a file that is not right', () => {
+		for (let wanted in [ false, true ]) {
+			assert.match({ user: 'prom', hash: HASH }, load_auth(files(auth.conf('prom', HASH)), wanted));
+			assert.match({ broken: true }, load_auth(files('nonsense\n'), wanted));
+		}
+	});
+
+	it('reads the main section\'s auth_user alone', () => {
+		let wanted = (sections) => {
+			let out;
+
+			mock.inject('uci', { strict: true, data: { [config.NAME]: sections } }, (uci) => { out = auth_wanted(uci.cursor()); });
+			return out;
+		};
+
+		assert.match([ true, false, false, false, true ], [
+			wanted({ main: { '.type': config.NAME, auth_user: 'prom' } }),
+			wanted({ main: { '.type': config.NAME, auth_user: '' } }),
+			wanted({ main: { '.type': config.NAME } }),
+			wanted({ main: { '.type': 'other', auth_user: 'prom' } }),
+			// An invalid section still asks for a login: the handler fails closed.
+			wanted({ main: { '.type': config.NAME, auth_user: 'a user:with a colon', listen_port: 'http' } }),
+		]);
 	});
 });
 

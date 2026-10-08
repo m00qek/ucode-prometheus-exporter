@@ -32,13 +32,21 @@ import { version } from 'prometheus_exporter.version';
  */
 
 /**
+ * Basic auth that denies every request, as load_auth gives it: uhttpd's
+ * config file is there and not what it should be, or `missing`, not there
+ * though the config sets basic auth.
+ *
+ * @typedef {{ broken: boolean, missing: ?boolean }} BrokenAuth
+ */
+
+/**
  * The exporter as uhttpd's handler, as handler() gives it: its collectors,
  * basic auth (load_auth's), compress and scrape_timeout as the handler read
  * them, and handle(env), the reply to a request (uhttpd-mod-ucode's env).
  *
  * @typedef {{
  *   collectors: () => Collector[],
- *   auth: ?(BasicAuth|{ broken: boolean }),
+ *   auth: ?(BasicAuth|BrokenAuth),
  *   compress: boolean,
  *   scrape_timeout: int,
  *   handle: (req: Object) => HttpReply
@@ -46,19 +54,38 @@ import { version } from 'prometheus_exporter.version';
  */
 
 /**
- * Basic auth as the handler finds it when it starts: null when uhttpd's
- * config file (auth.FILE) is not there, which the jail mounts only when the
- * main section sets basic auth; { user, hash } when it is that; { broken: true }
- * when it is there but not that, which denies every request.
+ * Whether the config sets basic auth: the main section's auth_user, as uci
+ * holds it, whatever else the section says. The jail mounts the exporter's
+ * config, so the handler reads it as the init script does.
+ *
+ * @param {UciCursor} uci the cursor.
+ * @returns {boolean} whether it sets a user.
+ */
+export function auth_wanted(uci) {
+	let s = uci.get_all(config.NAME, 'main');
+	let user = (type(s) == 'object' && s['.type'] == config.NAME) ? s.auth_user : null;
+
+	return user != null && user != '';
+};
+
+/**
+ * Basic auth as the handler finds it when it starts: { user, hash } when
+ * uhttpd's config file (auth.FILE) is that; null when it is not there and
+ * the config sets no basic auth (`wanted` false), as the jail mounts it only
+ * when it does. Every other case denies every request: { broken: true } when
+ * it is there but not that, { broken: true, missing: true } when the config
+ * sets basic auth and it is not there, as when procd starts uhttpd again
+ * after the file went: never served without the login the config asks for.
  *
  * @param {module:fs} fs what reads auth.FILE: an object of fs's readfile.
- * @returns {?(BasicAuth|{ broken: boolean })} basic auth.
+ * @param {boolean} wanted whether the config sets basic auth (auth_wanted).
+ * @returns {?(BasicAuth|BrokenAuth)} basic auth.
  */
-export function load_auth(fs) {
+export function load_auth(fs, wanted) {
 	let text = fs.readfile(auth.FILE);
 
 	if (text == null)
-		return null;
+		return wanted ? { broken: true, missing: true } : null;
 
 	return auth.parse_conf(text) ?? { broken: true };
 };
@@ -69,7 +96,7 @@ export function load_auth(fs) {
  * listens on with it, and 401 to one without the user and password. `instance`, the
  * instance's state, holds basic auth's cache (auth.allowed).
  *
- * @param {?(BasicAuth|{ broken: boolean })} credentials basic auth, as load_auth gives
+ * @param {?(BasicAuth|BrokenAuth)} credentials basic auth, as load_auth gives
  *   it.
  * @param {?Object} env uhttpd-mod-ucode's env of the request.
  * @param {?State} instance the instance's state.
@@ -199,10 +226,12 @@ export function handler(log, dir, state_dir, opts) {
 	let main = config.main(app.mods.uci.cursor());
 	let compress = main.ok ? main.data.compress : config.MAIN_OPTIONS.compress.default;
 	let scrape_timeout = main.ok ? main.data.scrape_timeout : config.SCRAPE_TIMEOUT;
-	let credentials = load_auth(app.mods.fs);
+	let credentials = load_auth(app.mods.fs, auth_wanted(app.mods.uci.cursor()));
 	let instance = state.open(app.mods.fs, state_dir ?? state.DIR, state.instance_id(app.mods.fs));
 
-	if (credentials?.broken)
+	if (credentials?.missing)
+		log('err', `${auth.FILE} is not there, and the config sets basic auth (auth_user): every request is denied`);
+	else if (credentials?.broken)
 		log('err', `${auth.FILE} is not one line of a user and a hash for ${auth.PATH}: every request is denied`);
 
 	return {

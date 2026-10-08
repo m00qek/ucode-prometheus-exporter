@@ -76,7 +76,7 @@ With `auth_user` and `auth_password` set, the handler checks every request befor
 | Over HTTP | `403 Forbidden` | | `Basic auth takes HTTPS only.` |
 | Without an `Authorization: Basic` header, or with a user or password that does not match | `401 Unauthorized` | `WWW-Authenticate: Basic realm="prometheus-exporter"` | `Unauthorized.` |
 | With the user and password | As without basic auth | | |
-| Any, when the file is there but is not one line of a user and a hash for `/metrics` | `500 Internal Server Error` | | `Basic auth is not configured as it should be; see the log.` |
+| Any, when the file is there but is not one line of a user and a hash for `/metrics`, or is not there while `auth_user` is set | `500 Internal Server Error` | | `Basic auth is not configured as it should be; see the log.` |
 
 These replies are `Content-Type: text/plain; charset=utf-8`. The init script never serves basic auth over HTTP: the 403 is for a request that reaches the handler without TLS all the same.
 
