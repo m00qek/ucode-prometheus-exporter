@@ -182,55 +182,55 @@ export function parse(text) {
 /**
  * The ledger's JSON, as the state keeps it.
  *
- * @param {Ledger} l the ledger.
+ * @param {Ledger} ledger the ledger.
  * @returns {string} its JSON.
  */
-export function serialize(l) {
-	return sprintf('%J', l);
+export function serialize(ledger) {
+	return sprintf('%J', ledger);
 };
 
 /**
  * The number of the scrape that would start now.
  *
- * @param {Ledger} l the ledger.
+ * @param {Ledger} ledger the ledger.
  * @returns {int} the scrape's number.
  */
-export function number(l) {
-	return l.scrapes + 1;
+export function number(ledger) {
+	return ledger.scrapes + 1;
 };
 
 /**
  * The seconds collector `id` is expected to take, or null before it ran.
  *
- * @param {Ledger} l the ledger.
+ * @param {Ledger} ledger the ledger.
  * @param {string} id the collector's module name.
  * @returns {?float} the seconds.
  */
-export function estimate(l, id) {
-	return l.c[id]?.d;
+export function estimate(ledger, id) {
+	return ledger.c[id]?.d;
 };
 
 /**
  * The seconds the reply of a scrape of `samples` samples is expected to take
  * to write.
  *
- * @param {Ledger} l the ledger.
+ * @param {Ledger} ledger the ledger.
  * @param {int} samples the reply's samples.
  * @returns {float} the seconds.
  */
-export function writing(l, samples) {
-	return samples * (l.k ?? SAMPLE_SECONDS);
+export function writing(ledger, samples) {
+	return samples * (ledger.k ?? SAMPLE_SECONDS);
 };
 
 /**
  * The samples collector `id` wrote last.
  *
- * @param {Ledger} l the ledger.
+ * @param {Ledger} ledger the ledger.
  * @param {string} id the collector's module name.
  * @returns {int} the samples; 0 before it ran.
  */
-export function samples(l, id) {
-	return l.c[id]?.n ?? 0;
+export function samples(ledger, id) {
+	return ledger.c[id]?.n ?? 0;
 };
 
 // sort()'s order of [ last, never run, estimate, index ]: by each, as
@@ -255,18 +255,18 @@ function by_keys(a, b) {
  * collector out only by what the ledger measured, so that one that declares
  * itself heavy is still run, and timed, rather than left out for good.
  *
- * @param {Ledger} l the ledger.
+ * @param {Ledger} ledger the ledger.
  * @param {Collector[]} collectors the collectors to order.
  * @param {?function(Collector): boolean} last which run after every other.
  * @param {?function(Collector): int} rank the rank of one never run.
  * @returns {Collector[]} the collectors, in that order.
  */
-export function order(l, collectors, last, rank) {
+export function order(ledger, collectors, last, rank) {
 	let keyed = map(collectors, function(c, i) {
-		let known = estimate(l, c.id) != null;
+		let known = estimate(ledger, c.id) != null;
 		let unknown = known ? 0 : (rank ? rank(c) : 1);
 
-		return [ (last && last(c)) ? 1 : 0, unknown, estimate(l, c.id) ?? 0, i, c ];
+		return [ (last && last(c)) ? 1 : 0, unknown, estimate(ledger, c.id) ?? 0, i, c ];
 	});
 
 	return map(sort(keyed, by_keys), (x) => x[4]);
@@ -280,19 +280,19 @@ function average(old, value) {
  * What a run means to its collector's breaker (prometheus_exporter.breaker),
  * and why: [ outcome, why ].
  *
- * @param {Run} r the run.
+ * @param {Run} run the run.
  * @returns {(string|?string)[]} [ 'ok', 'failed', 'trip' or 'neutral', and
  *   why, or null ].
  */
-export function outcome_of(r) {
-	let res = r.result;
+export function outcome_of(run) {
+	let res = run.result;
 
-	if (r.skipped != null)
+	if (run.skipped != null)
 		return [ 'neutral', null ];
 	if (res?.error in [ errors.COLLECTOR_CANCELLED, errors.COLLECTOR_KILLED ])
 		return [ 'trip', Result.describe(res) ];
-	if (r.budget != null && r.duration > r.budget)
-		return [ 'trip', sprintf('%s (took %.2f s, over its budget of %d s)', errors.COLLECTOR_OVERRUN, r.duration, r.budget) ];
+	if (run.budget != null && run.duration > run.budget)
+		return [ 'trip', sprintf('%s (took %.2f s, over its budget of %d s)', errors.COLLECTOR_OVERRUN, run.duration, run.budget) ];
 	if (res?.error == errors.COMMAND_TIMEOUT)
 		return [ 'trip', Result.describe(res) ];
 	if (res?.error == errors.SCRAPE_DEADLINE)
@@ -314,7 +314,7 @@ function count_failure(e, code) {
 }
 
 /**
- * The ledger `l` with scrape `runs` recorded, as the scrape counts it: one
+ * The ledger `ledger` with scrape `runs` recorded, as the scrape counts it: one
  * more scrape; for each collector that ran, its duration and samples, and
  * what its run makes of its breaker; for each the deadline left out or cut,
  * that it did; and the seconds per sample the reply took to write (`written`:
@@ -323,21 +323,21 @@ function count_failure(e, code) {
  * duration, samples, budget, skipped }. `events`, when given, gets what
  * changed of the breakers: { name, tripped, closed, cooldown, why }.
  *
- * @param {Ledger} l the ledger as it is.
+ * @param {Ledger} ledger the ledger as it is.
  * @param {Run[]} runs the scrape's runs.
  * @param {?{ seconds: float, samples: int }} written what writing the reply
  *   took, or null.
  * @param {string[]} ids the installed collectors' module names.
  * @param {?BreakerEvent[]} events what gets what changed, or null.
- * @returns {Ledger} the new ledger; `l` is left as it is.
+ * @returns {Ledger} the new ledger; `ledger` is left as it is.
  */
-export function record(l, runs, written, ids, events) {
-	let n = number(l);
+export function record(ledger, runs, written, ids, events) {
+	let n = number(ledger);
 	let c = {};
 
 	for (let id in ids)
-		if (l.c[id] != null)
-			c[id] = l.c[id];
+		if (ledger.c[id] != null)
+			c[id] = ledger.c[id];
 
 	for (let r in runs) {
 		let e = { ...(c[r.id] ?? {}) };
@@ -369,31 +369,31 @@ export function record(l, runs, written, ids, events) {
 		c[r.id] = b.entry;
 	}
 
-	let k = l.k;
+	let k = ledger.k;
 
 	if (written?.samples > 0)
 		k = average(k, written.seconds / (written.samples * 1.0));
 
-	return { ...l, scrapes: n, k, c };
+	return { ...ledger, scrapes: n, k, c };
 };
 
 /**
- * The ledger `l` with collector `id` (named `name`) killed with the scrape
+ * The ledger `ledger` with collector `id` (named `name`) killed with the scrape
  * process it ran in, `why`: a failure, COLLECTOR_KILLED, which trips its
  * breaker as of the scrape that died, which never recorded itself: its
  * cool-down begins with the next scrape. `events` gets what changed of the
  * breaker, as record's.
  *
- * @param {Ledger} l the ledger as it is.
+ * @param {Ledger} ledger the ledger as it is.
  * @param {string} id the collector's module name.
  * @param {string} name the collector's name.
  * @param {string} why what happened, for the breaker's why.
  * @param {?BreakerEvent[]} events what gets what changed, or null.
- * @returns {Ledger} the new ledger; `l` is left as it is.
+ * @returns {Ledger} the new ledger; `ledger` is left as it is.
  */
-export function killed(l, id, name, why, events) {
-	let n = number(l) - 1;
-	let e = { ...(l.c[id] ?? {}) };
+export function killed(ledger, id, name, why, events) {
+	let n = number(ledger) - 1;
+	let e = { ...(ledger.c[id] ?? {}) };
 	let res = Result.err(errors.COLLECTOR_KILLED, why);
 
 	count_failure(e, errors.COLLECTOR_KILLED);
@@ -404,17 +404,17 @@ export function killed(l, id, name, why, events) {
 	if (events)
 		push(events, { name, tripped: true, closed: false, cooldown: b.entry.cd, why: b.entry.why });
 
-	return { ...l, c: { ...l.c, [id]: b.entry } };
+	return { ...ledger, c: { ...ledger.c, [id]: b.entry } };
 };
 
 /**
- * The ledger `l` with one more request that basic auth refused.
+ * The ledger `ledger` with one more request that basic auth refused.
  *
- * @param {Ledger} l the ledger as it is.
+ * @param {Ledger} ledger the ledger as it is.
  * @returns {Ledger} the new ledger.
  */
-export function auth_failure(l) {
-	return { ...l, auth_failures: (l.auth_failures ?? 0) + 1 };
+export function auth_failure(ledger) {
+	return { ...ledger, auth_failures: (ledger.auth_failures ?? 0) + 1 };
 };
 
 /**
@@ -422,13 +422,13 @@ export function auth_failure(l) {
  * auth_failures, collectors: { <id>: { failures: { code: n }, timeouts,
  * quarantines, deadline_skips } } }.
  *
- * @param {Ledger} l the ledger.
+ * @param {Ledger} ledger the ledger.
  * @returns {LedgerCounters} the counters, each collector's by id.
  */
-export function counters(l) {
-	let out = { scrapes: l.scrapes, auth_failures: l.auth_failures ?? 0, collectors: {} };
+export function counters(ledger) {
+	let out = { scrapes: ledger.scrapes, auth_failures: ledger.auth_failures ?? 0, collectors: {} };
 
-	for (let id, e in l.c)
+	for (let id, e in ledger.c)
 		out.collectors[id] = { failures: e.fails ?? {}, timeouts: e.to ?? 0, quarantines: e.qn ?? 0, deadline_skips: e.dl ?? 0 };
 
 	return out;
@@ -437,26 +437,26 @@ export function counters(l) {
 /**
  * Collector `id`'s breaker at scrape number `m`: 'closed', 'open' or 'trial'.
  *
- * @param {Ledger} l the ledger.
+ * @param {Ledger} ledger the ledger.
  * @param {string} id the collector's module name.
  * @param {int} m the scrape's number.
  * @returns {string} the phase.
  */
-export function phase(l, id, m) {
-	return breaker.phase(l.c[id], m);
+export function phase(ledger, id, m) {
+	return breaker.phase(ledger.c[id], m);
 };
 
 /**
  * The result of a collector its breaker keeps out of scrape number `m`.
  *
- * @param {Ledger} l the ledger.
+ * @param {Ledger} ledger the ledger.
  * @param {string} id the collector's module name.
  * @param {int} m the scrape's number.
  * @returns {Result} COLLECTOR_QUARANTINED, saying why and when it is tried
  *   again.
  */
-export function quarantined(l, id, m) {
-	let e = l.c[id];
+export function quarantined(ledger, id, m) {
+	let e = ledger.c[id];
 	let k = breaker.left(e, m);
 
 	return Result.err(errors.COLLECTOR_QUARANTINED,
@@ -470,12 +470,12 @@ export function quarantined(l, id, m) {
  * scrapes since the deadline last left it out, 0 for the last. Null for a
  * collector the ledger has nothing of.
  *
- * @param {Ledger} l the ledger.
+ * @param {Ledger} ledger the ledger.
  * @param {string} id the collector's module name.
  * @returns {?LedgerReport} the report, or null.
  */
-export function report(l, id) {
-	let e = l.c[id];
+export function report(ledger, id) {
+	let e = ledger.c[id];
 
 	if (e == null)
 		return null;
@@ -486,7 +486,7 @@ export function report(l, id) {
 		estimate: e.d,
 		quarantined: held,
 		reason: held ? e.why : null,
-		retry_in: held ? breaker.left(e, number(l)) + 1 : null,
-		late: (e.late != null) ? l.scrapes - e.late : null,
+		retry_in: held ? breaker.left(e, number(ledger)) + 1 : null,
+		late: (e.late != null) ? ledger.scrapes - e.late : null,
 	};
 };

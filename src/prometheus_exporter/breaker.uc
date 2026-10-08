@@ -59,27 +59,27 @@ export const COOLDOWN_MAX = 32;
 /**
  * 'closed', 'open' (quarantined) or 'trial', for scrape number `m`.
  *
- * @param {?LedgerEntry} e the collector's entry; null for none.
+ * @param {?LedgerEntry} entry the collector's entry; null for none.
  * @param {int} m the scrape's number.
  * @returns {string} the phase.
  */
-export function phase(e, m) {
-	if (e?.q == null)
+export function phase(entry, m) {
+	if (entry?.q == null)
 		return 'closed';
 
-	return (m <= e.q) ? 'open' : 'trial';
+	return (m <= entry.q) ? 'open' : 'trial';
 };
 
 /**
  * The scrapes left before the trial, seen from scrape number `m`: 0 when `m`
  * is the trial; null for a closed breaker.
  *
- * @param {?LedgerEntry} e the collector's entry; null for none.
+ * @param {?LedgerEntry} entry the collector's entry; null for none.
  * @param {int} m the scrape's number.
  * @returns {?int} the scrapes.
  */
-export function left(e, m) {
-	return (e?.q == null) ? null : max(e.q - m + 1, 0);
+export function left(entry, m) {
+	return (entry?.q == null) ? null : max(entry.q - m + 1, 0);
 };
 
 /**
@@ -93,7 +93,7 @@ export function next_cooldown(cd) {
 };
 
 /**
- * What scrape `n` makes of entry `e` (left as it is) by an outcome:
+ * What scrape `n` makes of entry `previous` (left as it is) by an outcome:
  *   'ok'      the collector succeeded, within its budget
  *   'failed'  it failed
  *   'trip'    a program was killed at its timeout, or it overran its budget
@@ -101,14 +101,14 @@ export function next_cooldown(cd) {
  * { entry, tripped, closed }: the new entry, and whether the breaker tripped
  * or closed. `why` says what tripped it.
  *
- * @param {?LedgerEntry} e the collector's entry; null for none.
+ * @param {?LedgerEntry} previous the collector's entry; null for none.
  * @param {string} outcome 'ok', 'failed', 'trip' or 'neutral'.
  * @param {int} n the scrape's number.
  * @param {?string} why what tripped it, when it trips.
  * @returns {BreakerChange} the change.
  */
-export function after(e, outcome, n, why) {
-	let entry = { ...(e ?? {}) };
+export function after(previous, outcome, n, why) {
+	let entry = { ...(previous ?? {}) };
 	let held = (entry.q != null);
 
 	function trip() {
