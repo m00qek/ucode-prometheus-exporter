@@ -127,6 +127,20 @@ export function killed(job, took) {
 };
 
 /**
+ * The run of a collector no process could be started for: the children forked
+ * to run the collectors in ended twice in a row before asking for one. It is
+ * not the collector's doing, so it is left out, as one the deadline leaves
+ * out is (`skipped`), which leaves its breaker as it was.
+ *
+ * @param {Job} job its job.
+ * @returns {Run} the run: COLLECTOR_NOT_RUN.
+ */
+export function not_run(job) {
+	return { ...stopped(job, Result.err(errors.COLLECTOR_NOT_RUN,
+		'not run: the processes forked to run the collectors in ended twice before running one'), 0), skipped: 'runner' };
+};
+
+/**
  * A run, and what was logged with it, as the child hands it over: a line of
  * JSON, { name, id, result, samples, duration, budget, logs, families: [
  * { name, type } ] }, its Result without its prototype, and then its text,
@@ -372,6 +386,8 @@ export function forked(env, run_fn, opts) {
 				for (let l in got.logs)
 					st.env.log(l[0], l[1]);
 
+				// A child that ran a collector is no failure to fork one.
+				st.lost = 0;
 				finish(got.run);
 			}
 
@@ -411,12 +427,18 @@ export function forked(env, run_fn, opts) {
 					}
 
 					// It died before it asked for a collector: once may be a
-					// passing failure, twice is not.
+					// passing failure, twice in a row is not. The rest are not
+					// run, which none of them did: their breakers stay as they are.
 					if (++st.lost > 1) {
+						let names = [];
+
 						for (let job = st.plan.next(); job != null; job = st.plan.next()) {
 							st.job = job;
-							finish(killed(job, 0));
+							push(names, job.c.meta.name);
+							finish(not_run(job));
 						}
+						if (length(names))
+							st.env.log('warning', `the processes forked to run the collectors in ended twice before running one; not run: ${join(', ', names)}`);
 						st.done = true;
 						return uloop.end();
 					}

@@ -173,6 +173,60 @@ describe('runner.forked', () => {
 		assert.match([ [ 'warning', `collector 'quitter': ${Result.describe(r.runs[0].result)}` ] ], r.logs);
 	});
 
+	// A child that dies before it asks for a collector: its session
+	// (env.session) ends it, at the calls `dying` names, counted in a file
+	// as the children cannot count in this process.
+	function dying_env(logs, dying) {
+		let count = fs.mkstemp('/tmp/runner-sessions.XXXXXX');
+		let env = env_of(logs);
+
+		return {
+			...env,
+			session: function(to) {
+				count.write('x');
+				count.flush();
+				count.seek(0);
+				if (length(count.read('all')) in dying)
+					exit(1);
+				return env.session(to);
+			},
+		};
+	}
+
+	function run_with(env, collectors, budget, stats) {
+		let runs = [];
+		let queue = [ ...collectors ];
+		let plan = {
+			next: function() {
+				let c = shift(queue);
+
+				return (c == null) ? null
+					: { c, cutoff: null, limit: now() + budget, at_deadline: false, budget, settings: { budget, max_samples: 1000, options: {} } };
+			},
+			done: (job, r) => push(runs, r),
+		};
+
+		runner.forked(env, scrape.run_one, { collectors, stats }).run(plan);
+		return runs;
+	}
+
+	it('gives up after two children in a row die before asking for a collector, and leaves the rest not run, their breakers as they were', () => {
+		let logs = [];
+		let stats = {};
+		let runs = run_with(dying_env(logs, [ 1, 2, 3, 4, 5, 6, 7, 8 ]), [ gauge('a', 1), gauge('b', 2) ], 5, stats);
+
+		assert.match([ [ 'a', 'COLLECTOR_NOT_RUN' ], [ 'b', 'COLLECTOR_NOT_RUN' ] ], map(runs, summary));
+		assert.match(2, stats.children, 'two children, not one more');
+		assert.match([ 'neutral', 'neutral' ], map(runs, (r) => ledger.outcome_of(r)[0]));
+		assert.match([ [ 'warning', 'the processes forked to run the collectors in ended twice before running one; not run: a, b' ] ], logs);
+	});
+
+	it('counts the children that die before asking anew once one ran a collector', () => {
+		let runs = run_with(dying_env([], [ 1, 3 ]), [ gauge('a', 1), LOOP, gauge('c', 3) ], 0.3, {});
+
+		assert.match([ [ 'a', 'ok' ], [ 'loop', 'COLLECTOR_CANCELLED' ], [ 'c', 'ok' ] ], map(runs, summary));
+	});
+
 	it('leaves no child behind', () => {
 		run_forked([ LOOP, QUITTER, gauge('a', 1) ], 0.2);
 

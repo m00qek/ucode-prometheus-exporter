@@ -175,6 +175,15 @@ export const COLLECTOR_CANCELLED  = 'COLLECTOR_CANCELLED';
 export const COLLECTOR_KILLED     = 'COLLECTOR_KILLED';
 
 /**
+ * The collector was not run: the processes the scrape forked to run the
+ * collectors in ended twice in a row before running one. Not its doing: its
+ * breaker is as it was.
+ *
+ * @type {string}
+ */
+export const COLLECTOR_NOT_RUN    = 'COLLECTOR_NOT_RUN';
+
+/**
  * The collector wrote more samples than its max_samples, and was stopped there.
  *
  * @type {string}
