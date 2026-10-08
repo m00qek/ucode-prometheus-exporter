@@ -100,7 +100,8 @@ export function sanitize(name, is_label) {
 
 /**
  * The value as the format spells it, or null for what is not a number: an empty
- * string, a word, an object. Strings are procfs and sysfs readings, so the
+ * string, a word, an object. A double is written so that it reads back as
+ * itself. Strings are procfs and sysfs readings, so the
  * surrounding whitespace goes and hex (as in sysfs flags) is read.
  *
  * @param {*} value anything: a number, a boolean, a string as procfs or
@@ -119,7 +120,16 @@ export function format_value(value) {
 			return '+Inf';
 		if (value == -Infinity)
 			return '-Inf';
-		return '' + value;
+
+		// ucode writes 14 significant digits, which most doubles read back
+		// as: a counter of bytes as a double past 10^14, or a third, does
+		// not, and is written with the fewest more that do; 17 always do.
+		let s = '' + value;
+
+		for (let digits = 15; digits <= 17 && +s != value; digits++)
+			s = sprintf(`%.${digits}g`, value);
+
+		return s;
 
 	case 'bool':
 		return value ? '1' : '0';

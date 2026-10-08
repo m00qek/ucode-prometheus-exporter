@@ -42,6 +42,18 @@ describe('exposition.format.format_value', () => {
 			map([ '', '  ', 'up', '12abc', null, {} ], format.format_value));
 	});
 
+	it('writes a double so that it reads back as itself, in as few digits as ucode writes most', () => {
+		assert.match([ '0.1', '0.25', '2', '1e+21', '0.3333333333333333', '123456789012345.67', '0.30000000000000004', '-0' ],
+			map([ 0.1, 0.25, 2.0, 1e21, 1 / 3.0, 123456789012345.67, 0.1 + 0.2, -0.0 ], (d) => format.format_value(d)));
+	});
+
+	prop('reads every double it writes back as that double', gen.tuple(gen.int(-2147483647, 2147483647), gen.int(1, 2147483647), gen.int(-30, 30)),
+		(t) => {
+			let d = (t[0] / (t[1] * 1.0)) * (10.0 ** t[2]);
+
+			assert.match(true, +format.format_value(d) == d, `${d}`);
+		});
+
 	prop('keeps integers exact, as numbers and as procfs text', gen.int(-2147483648, 2147483647), (n) => {
 		assert.match([ '' + n, '' + n ], [ format.format_value(n), format.format_value(` ${n}\n`) ]);
 	});
