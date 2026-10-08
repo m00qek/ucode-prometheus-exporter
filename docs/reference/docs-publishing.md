@@ -41,10 +41,10 @@ Runs on pull requests and on pushes to `main`.
 Runs on release tags, `docs/*` branches and manual runs. `REF` is the manual run's `ref` input, or else the pushed ref.
 
 1. Checks out `REF` with its full history and tags.
-2. Installs Python 3.12 and `devenv/services/docs/requirements.txt` with `pip`.
-3. Sets the git committer to `github-actions[bot]`.
-4. `mkdocs build --strict --config-file mkdocs.mike.yml`.
-5. `devenv/scripts/docs-publish.sh "$REF"`.
+2. Takes `docs/Makefile` from the commit the workflow runs from, which is `REF` on a push; releases before 0.2.1 have no `publish` target. It runs on `REF`'s checkout, with `PROJECT_ROOT` set to it.
+3. Sets the git committer to `github-actions[bot]`, in the repository's config.
+4. `build-mike`: strict build with `mkdocs.mike.yml`, in the docs tools image built from `REF`'s `devenv/services/docs`.
+5. `publish`: `devenv/scripts/docs-publish.sh "$REF"` in the same image, with the network, and the checkout's credentials and committer from its `.git/config`.
 
 ### Permissions and concurrency
 
@@ -165,7 +165,7 @@ CHANGELOG.md:5: https://example.org/ucode-prometheus-exporter/0.10/ (outside a r
 | `docs/overrides/main.html` | The outdated-version banner. |
 | `devenv/gh-pages/404.html` | The [404 redirect](#404-redirect), copied to the root of `gh-pages` on every publish. |
 | `devenv/services/docs/Dockerfile` | The docs tools image, `ucode-prometheus-exporter-docs`: the mkdocs-material image plus `requirements.txt`, git, coreutils and Node. |
-| `devenv/services/docs/requirements.txt` | Pinned mkdocs-material and mike, for the tools image and the `publish` job. |
+| `devenv/services/docs/requirements.txt` | Pinned mkdocs-material, mike, and mike's dependencies the mkdocs-material image lacks, for the tools image. |
 | `devenv/scripts/docs-version.sh` | Maps a ref to its docs version. |
 | `devenv/scripts/docs-guard.sh` | The [docs-only guard](#docs-only-guard). |
 | `devenv/scripts/docs-publish.sh` | Publishes one version. |
@@ -209,7 +209,6 @@ Runs the [link check](#link-check) on the repository at `ROOT`, by default the o
 | mkdocs-material | `9.5.17` | `devenv/services/docs/requirements.txt` |
 | mike | `2.1.3` | `devenv/services/docs/requirements.txt` |
 | Docs tools image | `ucode-prometheus-exporter-docs:9.5.17`, tag taken from `MKDOCS_IMAGE` | `docs/Makefile` |
-| Python (`publish` job) | `3.12` | `.github/workflows/docs.yml` |
-| `actions/checkout`, `actions/setup-python` | `v4`, `v5` | `.github/workflows/docs.yml` |
+| `actions/checkout` | `v4` | `.github/workflows/docs.yml` |
 
-The `publish` job installs the requirements with `pip` on the runner and does not use the docs tools image. The dependencies of mkdocs-material and mike are not pinned there.
+The `publish` job runs in the docs tools image, as `build-mike` and `test` do in the `build` job; the image pins each Python package it adds to the mkdocs-material image.
