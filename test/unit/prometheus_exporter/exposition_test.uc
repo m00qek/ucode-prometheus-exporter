@@ -230,6 +230,43 @@ describe('exposition: properties', () => {
 				assert.match(vals, map(fam.samples[0].labels, (p) => p[1]));
 		});
 
+	// A set of an object is written without a call when label_text() has
+	// written its names before and its values need nothing; labels()
+	// writes each with label_text(). A sample's labels must be what
+	// labels() makes of them, the first time and after, or both refused.
+	prop('writes a sample\'s labels as labels() makes them, the first time and after, or refuses both',
+		gen.array(gen.tuple(
+			gen.elements('src', 'dst', 'if-name', 'if_name', '1x', ''),
+			gen.oneof(gen.elements('', 'eth0', 'a"b', 'a\\b', 'x\ny', 'café', 'caf\xe9', '\xc3', '\xa9', 'é"'),
+				gen.int(-3, 3), gen.elements(0.5, 1 / 3.0, true, null, [ 1 ]))),
+			{ min_len: 0, max_len: 4 }), (pairs) => {
+			let labels = {};
+
+			for (let p in pairs)
+				labels[p[0]] = p[1];
+
+			// What a recorder makes of fill(out), or null when it refuses.
+			function made(fill) {
+				let out = exposition.recorder();
+
+				try {
+					return fill(out);
+				} catch (e) {
+					return null;
+				}
+			}
+
+			let want = made((out) => out.labels(labels));
+			let written = made(function(out) {
+				let g = out.gauge('g');
+
+				g(labels, 1)(labels, 2);
+				return out.families()[0].lines;
+			});
+
+			assert.match((want == null) ? null : [ `g${want} 1`, `g${want} 2` ], written, sprintf('%J', labels));
+		});
+
 	prop('renders a label value that parses back unchanged', gen.ascii({ min_len: 0, max_len: 24 }), (v) => {
 		let res = exposition.parse(text_of((out) => out.gauge('g')({ v }, 1)));
 

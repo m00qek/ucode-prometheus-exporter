@@ -30,7 +30,7 @@
 import * as Result from 'prometheus_exporter.result';
 import * as format from 'prometheus_exporter.exposition.format';
 import * as parser from 'prometheus_exporter.exposition.parse';
-import { METRIC_NAMES, label_text, label_problem, utf8_valid, sample_line, header, add_family, family_set, families_of } from 'prometheus_exporter.exposition.format';
+import { METRIC_NAMES, LABEL_PREFIXES, SPECIAL, label_text, label_problem, utf8_valid, sample_line, header, add_family, family_set, families_of } from 'prometheus_exporter.exposition.format';
 
 /**
  * A sample as parse() reads it: its name, its labels as [ name, value ]
@@ -112,6 +112,12 @@ export const OVER_LIMIT = 'prometheus_exporter: over the sample limit';
  */
 export const INVALID = 'prometheus_exporter: text Prometheus refuses';
 
+// The samples of a family declared again with another type: dropped, as
+// conflicts() says.
+function dropped(labels, value) {
+	return dropped;
+}
+
 /**
  * What a collector writes to. counter/gauge/untyped(name, help) returns
  * (labels, value) => itself, so samples chain; a value that is not a number is
@@ -191,31 +197,67 @@ export function recorder(max) {
 			push(set.list, target);
 		} else if (target.type != mtype) {
 			push(conflicts, name);
-			target = null;
+			return dropped;
 		} else if (target.help == null && help != null) {
 			target.help = help_of(name, help);
 		}
 
-		let lines = target?.lines;
-		let values = (mtype == 'counter') ? target?.values : null;
+		let lines = target.lines;
+		let values = (mtype == 'counter') ? target.values : null;
 
-		// labels: an object, or what labels() made of one.
+		// The text a sample's line starts with when it has labels.
+		let head = name + '{';
+
+		// labels: an object, or what labels() made of one. An object of
+		// strings whose names label_text() has written already, as they are
+		// (LABEL_PREFIXES), with nothing in its values to escape or to read
+		// as UTF-8, is written here, without a call: what label_text() would
+		// write of it. Any other is label_text()'s.
 		function sample(labels, value) {
-			let v = type(value) == 'int' ? '' + value : format_value(value);
+			let v = (type(value) == 'int') ? '' + value : format_value(value);
 
-			if (target && v != null) {
-				if (++count > cap)
-					stop(name);
+			if (v == null)
+				return sample;
+			if (++count > cap)
+				stop(name);
 
-				let t = type(labels);
-				let text = (t == 'string') ? made[labels] : (t == 'object' || labels == null) ? label_text(labels) : null;
+			let t = type(labels);
+			let line = null;
 
-				if (text == null)
-					refuse_labels(name, labels);
-				push(lines, name + text + ' ' + v);
-				if (values)
-					push(values, v);
+			if (t == 'object') {
+				let text = '', vals = '';
+
+				for (let k, x in labels) {
+					let p = LABEL_PREFIXES[k];
+
+					if (p == null || type(x) != 'string') {
+						text = null;
+						break;
+					}
+
+					text += p + x;
+					vals += x;
+				}
+
+				if (text != null && text != '' && !match(vals, SPECIAL)) {
+					line = head + substr(text, 2) + '"} ' + v;
+				} else {
+					text = label_text(labels);
+					if (text != null)
+						line = name + text + ' ' + v;
+				}
+			} else {
+				let text = (t == 'string') ? made[labels] : (labels == null) ? '' : null;
+
+				if (text != null)
+					line = name + text + ' ' + v;
 			}
+
+			if (line == null)
+				refuse_labels(name, labels);
+			push(lines, line);
+			if (values)
+				push(values, v);
 
 			return sample;
 		}

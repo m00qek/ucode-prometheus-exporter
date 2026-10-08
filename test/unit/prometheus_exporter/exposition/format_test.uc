@@ -76,7 +76,49 @@ describe('exposition.format.utf8_valid', () => {
 	});
 });
 
+// A label set as the format writes it, each pair on its own: its names
+// sanitized, its values spelled and escaped; null where Prometheus would
+// refuse it (two names that are one, a value that is not UTF-8).
+function expected_labels(labels) {
+	let pairs = [];
+	let seen = {};
+
+	for (let name, value in labels) {
+		if (!(type(value) in [ 'string', 'int', 'double', 'bool' ]))
+			continue;
+
+		let s = format.sanitize(name, true);
+		let v = (type(value) == 'string') ? value : format.format_value(value);
+
+		if (seen[s] || !format.utf8_valid(v))
+			return null;
+		seen[s] = true;
+		push(pairs, [ s, v ]);
+	}
+
+	return format.format_labels(pairs);
+}
+
 describe('exposition.format.label_text', () => {
+	// A set is written in one pass, its values escaped and read as UTF-8
+	// only when they need it, each name's text kept from the first time:
+	// what its pairs, one by one, are, the first time and after.
+	prop('writes a set as its pairs one by one, the first time and after, or is null',
+		gen.array(gen.tuple(
+			gen.elements('src', 'dst', 'if-name', 'if_name', '1x', ''),
+			gen.oneof(gen.elements('', 'eth0', 'a"b', 'a\\b', 'x\ny', 'café', 'caf\xe9', '\xc3', '\xa9', 'é"'),
+				gen.int(-3, 3), gen.elements(0.5, 1 / 3.0, true, null, [ 1 ]))),
+			{ min_len: 0, max_len: 4 }), (pairs) => {
+			let labels = {};
+
+			for (let p in pairs)
+				labels[p[0]] = p[1];
+
+			let want = expected_labels(labels);
+
+			assert.match([ want, want ], [ format.label_text(labels), format.label_text(labels) ], sprintf('%J', labels));
+		});
+
 	it('writes a set, escaping only the values that need it', () => {
 		assert.match([ '', '', '{a="1",b="x"}', '{s="a\\\\b",u="café"}' ],
 			[ format.label_text(null), format.label_text({}), format.label_text({ a: 1, b: 'x' }), format.label_text({ s: 'a\\b', u: 'café' }) ]);

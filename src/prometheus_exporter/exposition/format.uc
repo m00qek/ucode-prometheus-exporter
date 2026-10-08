@@ -44,10 +44,18 @@ const HEX = /^0[xX][0-9a-fA-F]+$/;
 const NOT_METRIC = /[^a-zA-Z0-9_:]/g;
 const NOT_LABEL = /[^a-zA-Z0-9_]/g;
 const LEADING_DIGIT = /^[0-9]/;
-// A byte past ASCII, and that or what a label value escapes: a backslash or a
-// newline. In a bracket a backslash is itself; ucode's C locale reads bytes.
+// A byte past ASCII. In a bracket a backslash is itself; ucode's C locale
+// reads bytes.
 const HIGH = regexp('[\x80-\xff]');
-const SPECIAL = regexp('[\\\n\x80-\xff]');
+
+/**
+ * What a label value may hold that is not written as it is: a backslash, a
+ * quote or a newline, which are escaped, or a byte past ASCII, whose UTF-8
+ * is read. Values without any are written as they are (label_text).
+ *
+ * @type {RegExp}
+ */
+export const SPECIAL = regexp('[\\\n"\x80-\xff]');
 
 // sanitize()'s answers, [ metric names, label names ]: a scrape asks for the
 // same names again and again (a label name in every sample). uhttpd runs each
@@ -66,6 +74,18 @@ export const METRIC_NAMES = SANITIZED[0];
 const LABEL_NAMES = SANITIZED[1];
 const SANITIZED_MAX = 4096;
 let sanitized = 0;
+
+/**
+ * What a label starts with in a set, `",name="`: the quote that closes the
+ * value before it (the first label's is made a brace), its name and what
+ * opens its value. By the name as written, and only for a name that is
+ * valid as it is, which no other can be once sanitized: label_text() writes
+ * a set as these and the values, a lookup and a concatenation a label, and
+ * keeps each name's here as it first writes it.
+ *
+ * @type {Object<string, string>}
+ */
+export const LABEL_PREFIXES = {};
 
 /**
  * A name with every character the format does not allow made an underscore, and
@@ -114,6 +134,13 @@ export function format_value(value) {
 		return '' + value;
 
 	case 'double':
+		// ucode writes 14 significant digits, which most doubles read back
+		// as: one that does, and is finite (an infinity less itself is NaN,
+		// not 0), is written so, with no more checks.
+		let s = '' + value;
+
+		if (+s == value && value - value == 0)
+			return s;
 		if (value != value)
 			return 'NaN';
 		if (value == Infinity)
@@ -121,11 +148,9 @@ export function format_value(value) {
 		if (value == -Infinity)
 			return '-Inf';
 
-		// ucode writes 14 significant digits, which most doubles read back
-		// as: a counter of bytes as a double past 10^14, or a third, does
-		// not, and is written with the fewest more that do; 17 always do.
-		let s = '' + value;
-
+		// A counter of bytes as a double past 10^14, or a third, does not
+		// read back as its 14 digits, and is written with the fewest more
+		// that do; 17 always do.
 		for (let digits = 15; digits <= 17 && +s != value; digits++)
 			s = sprintf(`%.${digits}g`, value);
 
@@ -299,6 +324,20 @@ function clash(labels) {
 	return null;
 }
 
+// LABEL_PREFIXES' text for a name, kept there; null for a name that is not
+// valid as it is.
+function label_prefix(name) {
+	if ((LABEL_NAMES[name] ?? sanitize(name, true)) != name)
+		return null;
+
+	let p = `",${name}="`;
+
+	if (sanitized++ < SANITIZED_MAX)
+		LABEL_PREFIXES[name] = p;
+
+	return p;
+}
+
 /**
  * A collector's labels as the format writes them, '' for none: what
  * format_labels(label_pairs(labels)) gives. Null for a set Prometheus would
@@ -306,10 +345,10 @@ function clash(labels) {
  * and 'if_name'), or a value that is not valid UTF-8; label_problem() says
  * which.
  *
- * In one pass, and with the values written as they are: the set is written
- * again with each value escaped only when one needs it, when the text holds a
- * backslash or a newline, or more quotes than its own (sanitized names hold
- * neither). One check for the set is cheaper than one for each value, and
+ * In one pass, each label a lookup of its name's text (LABEL_PREFIXES) and
+ * its value as it is: the set is written again with each value escaped only
+ * when one needs it, when the values hold a backslash, a quote or a newline.
+ * One check of the values, all together, is cheaper than one for each, and
  * the same match finds a byte past ASCII, the only text whose UTF-8 is read.
  * Names can only clash when one was sanitized: the others are an object's
  * keys, each once.
@@ -323,34 +362,40 @@ export function label_text(labels) {
 		return '';
 
 	let text = '';
-	let n = 0;
+	let values = '';
 	let renamed = false;
 
 	for (let name, value in labels) {
-		let t = type(value);
+		if (type(value) != 'string') {
+			let t = type(value);
 
-		if (t != 'string') {
 			if (t != 'int' && t != 'double' && t != 'bool')
 				continue;
 			value = format_value(value);
 		}
 
-		let s = LABEL_NAMES[name] ?? sanitize(name, true);
+		let p = LABEL_PREFIXES[name] ?? label_prefix(name);
 
-		if (s != name)
+		if (p == null) {
 			renamed = true;
-		text += `,${s}="${value}"`;
-		n++;
+			p = `",${sanitize(name, true)}="`;
+		}
+
+		text += p + value;
+		values += value;
 	}
 
-	if (!n)
+	if (text == '')
 		return '';
 	if (renamed && clash(labels) != null)
 		return null;
-	if (match(text, SPECIAL) || length(split(text, '"')) != 2 * n + 1)
+	// UTF-8 is read in the text, not in the values: there a value cut short
+	// of a sequence is followed by the quote that ends it, not by the next
+	// value, which might have completed it.
+	if (match(values, SPECIAL))
 		return utf8_valid(text) ? format_labels(label_pairs(labels)) : null;
 
-	return '{' + substr(text, 1) + '}';
+	return '{' + substr(text, 2) + '"}';
 };
 
 /**
