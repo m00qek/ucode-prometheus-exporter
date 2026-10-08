@@ -33,9 +33,10 @@
  * in a child process of the scrape's, stopped at its limit (its budget's end,
  * or the deadline) with the process, and a collector whose process dies under
  * it fails alone; without, in this process, as the tests run it. It writes at
- * most its max_samples (prometheus_exporter.exposition's recorder), and a
- * family belongs to the first collector of the reply that writes it: another
- * that writes it fails with FAMILY_CONFLICT (prometheus_exporter.ownership).
+ * most its max_samples, and nothing Prometheus would refuse the whole reply
+ * for (prometheus_exporter.exposition's recorder), and a family belongs to
+ * the first collector of the reply that writes it: another that writes it
+ * fails with FAMILY_CONFLICT (prometheus_exporter.ownership).
  * A collector that breaks one of these rules, or is stopped, fails, and none
  * of its samples are served.
  *
@@ -209,12 +210,25 @@ function over_limit(over, max) {
 		sprintf('more than its max_samples of %d: stopped at %d samples, in %s', max, over.samples, over.family));
 }
 
+// What a collector that wrote what Prometheus refuses fails with: what, and
+// where (the recorder's invalid()).
+function refused(bad) {
+	let where = (bad.family != null) ? `in ${bad.family}` : 'in out.labels()';
+
+	if (bad.label != null)
+		where += `, label '${bad.label}'`;
+
+	return Result.err(errors.EXPOSITION_INVALID, `${where}: ${bad.why}`);
+}
+
 /**
  * Runs one collector: { name, id, result, families, samples, duration,
  * budget }, budget the seconds it may take (config.settings). What it
  * recorded is kept even when it fails, as upstream exporters do; nothing is
  * when it has nothing to observe, nor when it wrote more than its
- * max_samples, which it fails with SAMPLE_LIMIT. job (prometheus_exporter.
+ * max_samples, which it fails with SAMPLE_LIMIT, nor when it wrote what
+ * Prometheus would refuse the whole scrape for (the recorder's invalid()),
+ * which it fails with EXPOSITION_INVALID. job (prometheus_exporter.
  * runner's), when given: its programs never run past job.cutoff (monotonic
  * seconds), its ubus calls past job.limit; job.settings are its settings,
  * read already; job.view is the exporter collector's.
@@ -248,10 +262,13 @@ export function run_one(env, session, collector, job) {
 
 	let duration = seconds(t1, env.clock());
 	let over = rec.over();
+	let bad = rec.invalid();
 
 	// However it ended: it may have caught what stopped it.
 	if (over)
 		res = over_limit(over, max);
+	else if (bad)
+		res = refused(bad);
 
 	// One cut at the deadline is in the scrape's line of them.
 	if (!res.ok && res.error != errors.SCRAPE_DEADLINE)
@@ -259,7 +276,7 @@ export function run_one(env, session, collector, job) {
 	for (let name in rec.conflicts())
 		env.log('warning', `collector '${collector.meta.name}': '${name}' declared with two types; later samples dropped`);
 
-	let families = (Result.is_none(res) || over) ? [] : rec.families();
+	let families = (Result.is_none(res) || over || bad) ? [] : rec.families();
 	let samples = 0;
 
 	for (let f in families)

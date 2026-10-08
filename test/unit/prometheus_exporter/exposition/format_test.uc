@@ -46,3 +46,41 @@ describe('exposition.format.format_value', () => {
 		assert.match([ '' + n, '' + n ], [ format.format_value(n), format.format_value(` ${n}\n`) ]);
 	});
 });
+
+describe('exposition.format.utf8_valid', () => {
+	it('takes ASCII and well-formed UTF-8 of one to four bytes', () => {
+		assert.match([ true, true, true, true, true ],
+			map([ '', 'eth0', 'café', 'Wi‑Fi ✓', 'emoji \xf0\x9f\x93\xb6' ], format.utf8_valid));
+	});
+
+	// As Go's utf8.ValidString, which Prometheus reads a scrape with.
+	it('refuses a stray byte, a cut sequence, an overlong form, a surrogate and what is past U+10FFFF', () => {
+		assert.match([ false, false, false, false, false, false, false ],
+			map([ 'caf\xe9', 'caf\xc3', '\xe2\x82', '\xc0\xaf', '\xe0\x80\xaf', '\xed\xa0\x80', '\xf4\x90\x80\x80' ], format.utf8_valid));
+	});
+
+	prop('takes every string of code points', gen.array(gen.int(1, 0x10ffff), { min_len: 0, max_len: 8 }), (cps) => {
+		assert.match(true, format.utf8_valid(join('', map(filter(cps, (c) => c < 0xd800 || c > 0xdfff), (c) => uchr(c)))));
+	});
+});
+
+describe('exposition.format.label_text', () => {
+	it('writes a set, escaping only the values that need it', () => {
+		assert.match([ '', '', '{a="1",b="x"}', '{s="a\\\\b",u="café"}' ],
+			[ format.label_text(null), format.label_text({}), format.label_text({ a: 1, b: 'x' }), format.label_text({ s: 'a\\b', u: 'café' }) ]);
+	});
+
+	it('is null for names that are one once sanitized, or a value that is not valid UTF-8, and label_problem says which', () => {
+		let clash = { 'if-name': 'a', if_name: 'b' };
+		let latin1 = { ssid: 'caf\xe9' };
+
+		assert.match([ null, null ], [ format.label_text(clash), format.label_text(latin1) ]);
+		assert.match([
+			{ label: 'if_name', why: "labels 'if-name' and 'if_name' are both 'if_name' once sanitized" },
+			{ label: 'ssid', why: 'its value is not valid UTF-8' },
+			{ label: null, why: 'labels must be an object, or what out.labels() made, not a string of its own' },
+			{ label: null, why: 'labels must be an object, or what out.labels() made, not array' },
+			null,
+		], map([ clash, latin1, 'eth0 up', [ 'x' ], { a: 'b' } ], format.label_problem));
+	});
+});

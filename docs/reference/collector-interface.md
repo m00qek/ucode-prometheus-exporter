@@ -165,11 +165,12 @@ A need the system lacks (`nl80211`, `socket`) fails the collector with `NEED_MIS
 | `out.labels(labels)` | Makes a label set several samples share, once, to pass in place of the object. |
 | `out.parse(text)` | Adds exposition text, which must be valid as a whole: a Result, `EXPOSITION_INVALID` otherwise. |
 
-- `labels` is an object, or null for none. A label whose value is null is left out.
+- `labels` is an object, or null for none, or what `out.labels()` made. A label whose value is null is left out.
 - A value that is not a number is skipped: null, an empty string, a word. A string of digits, or of hex as in sysfs flags, is read as one. `true` and `false` are 1 and 0.
 - Names are made valid: every character the format does not allow is an underscore.
 - A family declared twice with two types keeps the first, and logs a warning.
 - At most `max_samples` samples in all: the next stops the collector (it throws, again at each sample after), and it fails with `SAMPLE_LIMIT`.
+- Nothing Prometheus would refuse the whole scrape for: a label value or HELP text that is not valid UTF-8, two label names that are one once sanitized (`if-name` and `if_name`), or labels that are a string of the collector's own. The sample stops the collector as the one past `max_samples` does, and it fails with `EXPOSITION_INVALID`, naming the family and the label.
 - A family is the first collector's that writes it: one another collector writes, or one of the exporter's own (`node_scrape_collector_*`, `ucode_prometheus_exporter_*`), fails the collector with `FAMILY_CONFLICT`.
 
 ## Tests and packaging

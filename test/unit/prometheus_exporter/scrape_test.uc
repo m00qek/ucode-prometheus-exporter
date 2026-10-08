@@ -223,6 +223,24 @@ describe('scrape.run_one', () => {
 			assert.match(t[0] <= t[1] ? [ true, t[0] ] : [ false, 0 ], [ r.result.ok, r.samples ]);
 		});
 
+	it('fails a collector that wrote what Prometheus would refuse the scrape for with EXPOSITION_INVALID, alone, keeping none of its samples', () => {
+		let latin1 = run(collector('wifi', function(d, out) {
+			out.gauge('wifi_up')(null, 1);
+			out.gauge('wifi_ssid')({ ssid: 'caf\xe9' }, 1);
+			return Result.ok();
+		}));
+		let raw = run(collector('raw', function(d, out) {
+			try { out.gauge('raw_x')('eth0 up', 1); } catch (e) { }
+			return Result.ok();
+		}));
+
+		assert.match([ 'EXPOSITION_INVALID (in wifi_ssid, label \'ssid\': its value is not valid UTF-8)', 0, [] ],
+			[ Result.describe(latin1.result), latin1.samples, latin1.families ]);
+		assert.match([ "collector 'wifi': EXPOSITION_INVALID (in wifi_ssid, label 'ssid': its value is not valid UTF-8)" ], latin1.logs);
+		assert.match('EXPOSITION_INVALID (in raw_x: labels must be an object, or what out.labels() made, not a string of its own)',
+			Result.describe(raw.result));
+	});
+
 	it('logs a family declared with two types', () => {
 		let r = run(collector('mixed', (d, out) => { out.gauge('m')(null, 1); out.counter('m')(null, 2); return Result.ok(); }));
 		assert.match(contains([ "collector 'mixed': 'm' declared with two types; later samples dropped" ]), r.logs);
@@ -423,6 +441,15 @@ describe('scrape.scrape', () => {
 		for (let q in [ '', 'collect[]=a', 'exclude[]=a' ])
 			assert.match(contains([ 'ucode_prometheus_exporter_build_info{version="0.1.0-r1"} 1' ]),
 				lines(scrape_with([ A ], q).body), q);
+	});
+
+	it('serves the others when one collector writes what Prometheus refuses, and the reply stays valid', () => {
+		let bad = collector('bad', (d, out) => { out.gauge('bad_value')({ 'if-name': 'a', if_name: 'b' }, 1); return Result.ok(); });
+		let r = scrape_with([ A, bad, C ], '');
+
+		assert.match(true, exposition.parse(r.body).ok);
+		assert.match(contains([ 'a_value 1', 'c_value 3', 'node_scrape_collector_success{collector="bad"} 0' ]), lines(r.body));
+		assert.match(-1, index(r.body, 'bad_value'));
 	});
 
 	it('gives a family to the first collector of the reply that writes it, and fails the next that does, alone', () => {

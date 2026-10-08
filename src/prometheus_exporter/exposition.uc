@@ -28,7 +28,7 @@
 import * as Result from 'prometheus_exporter.result';
 import * as format from 'prometheus_exporter.exposition.format';
 import * as parser from 'prometheus_exporter.exposition.parse';
-import { METRIC_NAMES, label_text, sample_line, header, add_family, family_set, families_of } from 'prometheus_exporter.exposition.format';
+import { METRIC_NAMES, label_text, label_problem, utf8_valid, sample_line, header, add_family, family_set, families_of } from 'prometheus_exporter.exposition.format';
 
 /**
  * A sample as parse() reads it: its name, its labels as [ name, value ]
@@ -73,7 +73,8 @@ import { METRIC_NAMES, label_text, sample_line, header, add_family, family_set, 
  *   add: (families: Family[]) => void,
  *   families: () => RecordedFamily[],
  *   conflicts: () => string[],
- *   over: () => ?{ family: string, samples: int }
+ *   over: () => ?{ family: string, samples: int },
+ *   invalid: () => ?{ family: string, label: ?string, why: string }
  * }} Recorder
  */
 
@@ -103,6 +104,13 @@ function as_lines(fam) {
 export const OVER_LIMIT = 'prometheus_exporter: over the sample limit';
 
 /**
+ * What a recorder dies with at text Prometheus would refuse (see recorder).
+ *
+ * @type {string}
+ */
+export const INVALID = 'prometheus_exporter: text Prometheus refuses';
+
+/**
  * What a collector writes to. counter/gauge/untyped(name, help) returns
  * (labels, value) => itself, so samples chain; a value that is not a number is
  * skipped. labels(labels) is the labels for several samples (a station's,
@@ -121,6 +129,14 @@ export const OVER_LIMIT = 'prometheus_exporter: over the sample limit';
  * while it is under. A runaway costs neither the time nor the memory of what it
  * would have gone on writing.
  *
+ * It takes nothing that would have Prometheus refuse the whole scrape, every
+ * collector's samples with it: a label value or HELP text that is not valid
+ * UTF-8, two label names that are one once sanitized, or labels that are
+ * neither an object nor what labels() made (a string of the collector's own
+ * would be written as it is, a line of whatever it holds). That stops the
+ * collector as the sample past `max` does, and invalid() is then { family,
+ * label, why }, or null while there is none.
+ *
  * @param {?int} max the most samples it takes; null for no limit.
  * @returns {Recorder} the recorder.
  */
@@ -130,10 +146,35 @@ export function recorder(max) {
 	let count = 0;
 	let cap = max ?? Infinity;
 	let over = null;
+	let bad = null;
+	// The label sets labels() made, each its own text: the only strings taken
+	// where labels go.
+	let made = { '': '' };
 
 	function stop(name) {
-		over ??= { family: name, samples: count };
-		die(OVER_LIMIT);
+		if (bad == null)
+			over ??= { family: name, samples: count };
+		die(bad ? INVALID : OVER_LIMIT);
+	}
+
+	// Stops the collector at text Prometheus refuses; every sample after it
+	// stops it again (stop()), should it catch that.
+	function refuse(name, label, why) {
+		bad ??= { family: name, label, why };
+		cap = -1;
+		die(INVALID);
+	}
+
+	function refuse_labels(name, labels) {
+		let p = label_problem(labels);
+
+		refuse(name, p?.label, p?.why ?? 'labels the format cannot write');
+	}
+
+	function help_of(name, help) {
+		if (type(help) == 'string' && !utf8_valid(help))
+			refuse(name, null, 'its HELP text is not valid UTF-8');
+		return help;
 	}
 
 	// As add_family() would add an empty family, without making it first:
@@ -144,13 +185,13 @@ export function recorder(max) {
 		let target = set.by_name[name];
 
 		if (!target) {
-			target = set.by_name[name] = { name, type: mtype, help, lines: [], values: [] };
+			target = set.by_name[name] = { name, type: mtype, help: help_of(name, help), lines: [], values: [] };
 			push(set.list, target);
 		} else if (target.type != mtype) {
 			push(conflicts, name);
 			target = null;
-		} else {
-			target.help ??= help;
+		} else if (target.help == null && help != null) {
+			target.help = help_of(name, help);
 		}
 
 		let lines = target?.lines;
@@ -163,7 +204,13 @@ export function recorder(max) {
 			if (target && v != null) {
 				if (++count > cap)
 					stop(name);
-				push(lines, name + (type(labels) == 'string' ? labels : label_text(labels)) + ' ' + v);
+
+				let t = type(labels);
+				let text = (t == 'string') ? made[labels] : (t == 'object' || labels == null) ? label_text(labels) : null;
+
+				if (text == null)
+					refuse_labels(name, labels);
+				push(lines, name + text + ' ' + v);
 				if (values)
 					push(values, v);
 			}
@@ -188,7 +235,14 @@ export function recorder(max) {
 		counter: (name, help) => family(name, 'counter', help),
 		gauge: (name, help) => family(name, 'gauge', help),
 		untyped: (name, help) => family(name, 'untyped', help),
-		labels: label_text,
+		labels: function(labels) {
+			let text = (type(labels) == 'object' || labels == null) ? label_text(labels) : null;
+
+			if (text == null)
+				refuse_labels(null, labels);
+			made[text] = text;
+			return text;
+		},
 
 		parse: function(text) {
 			let res = parse(text);
@@ -206,6 +260,7 @@ export function recorder(max) {
 		families: () => families_of(set),
 		conflicts: () => uniq(conflicts),
 		over: () => over,
+		invalid: () => bad,
 	};
 };
 

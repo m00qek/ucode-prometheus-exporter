@@ -47,6 +47,18 @@ describe('exposition.parse', () => {
 		]);
 	});
 
+	// Prometheus refuses a whole scrape with either: a Latin-1 SSID in a
+	// *.prom file would cost every collector's samples.
+	it('refuses a label value or HELP text that is not valid UTF-8, and takes one that is', () => {
+		assert.match([ 'line 2: label \'ssid\': its value is not valid UTF-8', 'line 1: HELP for \'a\' is not valid UTF-8' ],
+			[ parse_error('# TYPE a gauge\na{ssid="caf\xe9"} 1\n'), parse_error('# HELP a caf\xe9\na 1\n') ]);
+		assert.match([ true, 'café', 'Ünïcödé ✓' ], (function() {
+			let res = parse('# HELP a Ünïcödé ✓\na{ssid="café"} 1\n# a comment of \xff, which nothing reads\n');
+
+			return [ res.ok, res.data[0].samples[0].labels[0][1], res.data[0].help ];
+		})());
+	});
+
 	it('treats the same labels in another order as the same series', () => {
 		assert.match(regex(/second sample/), parse_error('a{x="1",y="2"} 1\na{y="2",x="1"} 1\n'));
 	});

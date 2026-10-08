@@ -231,7 +231,7 @@ export const errors = {
 	COLLECTOR_KILLED: 'The process the collector ran in ended while it ran: it went past the memory limit, a native module crashed, or it called `exit()`; or the scrape process itself died while it ran, which the next scrape finds. None of its samples are served, and its breaker trips.',
 	SAMPLE_LIMIT: 'The collector wrote more samples than its `max_samples`, and was stopped there. The detail says how many and in which family. None of its samples are served.',
 	FAMILY_CONFLICT: 'The collector wrote a family that another collector of the reply wrote first, or one the exporter keeps for itself (`node_scrape_collector_*`, `ucode_prometheus_exporter_*`). The detail names it. None of its samples are served.',
-	EXPOSITION_INVALID: 'Text that is not valid Prometheus exposition format: a `*.prom` file of textfile, which the collector then leaves out. The detail names the line.',
+	EXPOSITION_INVALID: 'Text that is not valid Prometheus exposition format: a `*.prom` file of textfile, which the collector then leaves out, and the detail names the line; or what a collector wrote that Prometheus would refuse the whole scrape for, a label value or HELP text that is not valid UTF-8, two label names that are one once sanitized (`if-name` and `if_name`), or labels that are neither an object nor what `out.labels()` made. The recorder stops the collector there, and the detail names the family and the label. None of its samples are served.',
 };
 
 // The command line's reference page: its usage is cli.uc's USAGE, as docopt

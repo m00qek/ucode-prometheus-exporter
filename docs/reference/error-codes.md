@@ -56,4 +56,4 @@ A failure carries an uppercase code, from `src/prometheus_exporter/errors.uc`, a
 
 | Code | Meaning | Raised by |
 | :--- | :--- | :--- |
-| `EXPOSITION_INVALID` | Text that is not valid Prometheus exposition format: a `*.prom` file of textfile, which the collector then leaves out. The detail names the line. | `exposition/parse.uc` |
+| `EXPOSITION_INVALID` | Text that is not valid Prometheus exposition format: a `*.prom` file of textfile, which the collector then leaves out, and the detail names the line; or what a collector wrote that Prometheus would refuse the whole scrape for, a label value or HELP text that is not valid UTF-8, two label names that are one once sanitized (`if-name` and `if_name`), or labels that are neither an object nor what `out.labels()` made. The recorder stops the collector there, and the detail names the family and the label. None of its samples are served. | `exposition/parse.uc`, `scrape.uc` |
