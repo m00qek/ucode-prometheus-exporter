@@ -307,8 +307,11 @@ export function render(families, opts) {
  *   families' names and types, and their text.
  */
 export function pack(families, omit) {
-	return {
-		families: map(families, (f) => ({ name: f.name, type: f.type })),
-		text: render(families, { omit_zero_counters: omit }),
-	};
+	let named = [];
+
+	// A loop, not map(): a function call for each of hundreds of families.
+	for (let f in families)
+		push(named, { name: f.name, type: f.type });
+
+	return { families: named, text: render(families, { omit_zero_counters: omit }) };
 };

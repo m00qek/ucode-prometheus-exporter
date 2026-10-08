@@ -127,10 +127,13 @@ export function killed(job, took) {
 /**
  * A run, and what was logged with it, as the child hands it over: a line of
  * JSON, { name, id, result, samples, duration, budget, logs, families: [
- * [ name, type ] ] }, its Result without its prototype, and then its text,
- * as it is: JSON would escape every quote of every label.
+ * { name, type } ] }, its Result without its prototype, and then its text,
+ * as it is: JSON would escape every quote of every label. The families go as
+ * they are, which JSON writes and reads in C: a scrape's are hundreds, and a
+ * function called on each, here and in unpack(), cost more than the rest.
  *
- * @param {Run} run the run, packed (its text written).
+ * @param {Run} run the run, packed (its text written, its families' names
+ *   and types alone, as exposition.pack leaves them).
  * @param {string[][]} logs what was logged with it: [ level, msg ] pairs.
  * @returns {string} the line of JSON and the text.
  */
@@ -139,7 +142,7 @@ export function pack(run, logs) {
 	let head = {
 		name: run.name, id: run.id, samples: run.samples, duration: run.duration, budget: run.budget, logs,
 		result: { ok: res.ok, error: res.error, details: res.details, data: res.data, none: res.none },
-		families: map(run.families, (f) => [ f.name, f.type ]),
+		families: run.families,
 	};
 
 	return sprintf('%J\n', head) + run.text;
@@ -156,7 +159,7 @@ export function unpack(text) {
 	let nl = index(text, '\n');
 	let head = json(substr(text, 0, nl));
 	let res = head.result ?? {};
-	let families = map(head.families ?? [], (f) => ({ name: f[0], type: f[1] }));
+	let families = head.families ?? [];
 
 	let result = res.ok
 		? ((res.none != null) ? Result.none(res.none) : Result.ok(res.data))

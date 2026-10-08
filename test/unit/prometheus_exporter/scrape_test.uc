@@ -472,6 +472,15 @@ describe('scrape.scrape', () => {
 		assert.match(-1, index(r.body, 'ucode_prometheus_exporter_scrapes_total'));
 	});
 
+	it('gives back the families a collector took before the one it may not write', () => {
+		let two = (d, out) => { out.gauge('mine')(null, 1); out.gauge('shared')(null, 2); return Result.ok(); };
+		let r = scrape_with([ collector('x', gauge_of('shared', 1)), collector('y', two), collector('z', gauge_of('mine', 3)) ], '');
+
+		assert.match(contains([ 'shared 1', 'mine 3', 'node_scrape_collector_success{collector="y"} 0',
+			'node_scrape_collector_success{collector="z"} 1' ]), lines(r.body));
+		assert.match([ "collector 'y': FAMILY_CONFLICT (shared belongs to collector x)" ], r.logs);
+	});
+
 	it('lets a collector that describes the exporter write the exporter\'s families', () => {
 		let r = scrape_with([ collector('self', gauge_of('ucode_prometheus_exporter_scrapes_total', 9), { needs: [ 'exporter' ] }) ], '');
 

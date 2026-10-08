@@ -289,6 +289,27 @@ describe('state, a scrape\'s progress', () => {
 		assert.match([], keys(o.fs.files));
 	});
 
+	it('reads a child\'s start time once for the collectors it runs one after another, and again for a new child', () => {
+		let o = opened(null, { '42': stat_of(42, 'ucode', 555), '43': stat_of(43, 'ucode', 556) });
+		let reads = 0;
+		let readfile = o.fs.readfile;
+
+		o.fs.readfile = function(p, n) {
+			if (p == '/proc/42/stat' || p == '/proc/43/stat')
+				reads++;
+			return readfile(p, n);
+		};
+
+		let p = o.st.progress();
+
+		p.start('cpu', 42);
+		p.start('loadavg', 42);
+		p.start('nat_traffic', 43);
+		p.start('uname');
+		assert.match("start cpu 42-555\nstart loadavg 42-555\nstart nat_traffic 43-556\nstart uname\n", o.fs.files[`${DIR}/${ID}.p42_555`].data);
+		assert.match(2, reads);
+	});
+
 	it('finds the progress of a scrape process that is gone, and the collector it was running', () => {
 		let o = opened({
 			[`${DIR}/${ID}.p50_600`]: { data: 'start cpu 60-700\nstart oom 61-701\n' },

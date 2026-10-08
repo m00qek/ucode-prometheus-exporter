@@ -262,6 +262,9 @@ export function open(fs, dir, id) {
 			let self = instance_id(fs);
 			let p = (id != null && self != null) ? `${dir}/${prefix}${replace(self, '-', '_')}` : null;
 			let h = null;
+			// The child the collectors run in, and its start time: the same
+			// child runs one collector after another.
+			let child = null, child_start = null;
 
 			function line(text) {
 				if (p == null)
@@ -274,7 +277,12 @@ export function open(fs, dir, id) {
 
 			return {
 				start: function(collector, pid) {
-					let start = (pid != null) ? start_of(fs, pid) : null;
+					if (pid != child) {
+						child = pid;
+						child_start = (pid != null) ? start_of(fs, pid) : null;
+					}
+
+					let start = child_start;
 
 					line(`start ${collector}` + ((start != null) ? ` ${pid}-${start}` : ''));
 				},

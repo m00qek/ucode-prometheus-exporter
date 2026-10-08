@@ -534,7 +534,7 @@ export function scrape(env, collectors, query_string, opts) {
 	let progress = st?.progress ? st.progress() : null;
 	let by_id = collect(env, uci, l, sel.data, {
 		deadline: opts?.deadline, quarantine: true, collectors, pid: st ? pid_of(st.id) : null, kept: st != null,
-		progress, omit: main.data.omit_zero_values,
+		progress, omit: main.data.omit_zero_values, main: main_read,
 	});
 	let runs = map(sel.data, (c) => by_id[c.id]);
 
@@ -552,20 +552,23 @@ export function scrape(env, collectors, query_string, opts) {
 	let success = scrape_meta.gauge('node_scrape_collector_success',
 		'node_exporter: Whether a collector succeeded.');
 
-	for (let r in runs)
-		duration({ collector: r.name }, r.duration);
-	for (let r in runs)
-		success({ collector: r.name }, r.result.ok);
+	// Each collector's label, written once for its four samples.
+	let labels = map(runs, (r) => scrape_meta.labels({ collector: r.name }));
+
+	for (let i, r in runs)
+		duration(labels[i], r.duration);
+	for (let i, r in runs)
+		success(labels[i], r.result.ok);
 
 	let observing = scrape_meta.gauge('node_scrape_collector_observing',
 		'Whether a collector had something to observe: 0 when its hardware, kernel feature or service is not there.');
-	for (let r in runs)
-		observing({ collector: r.name }, !Result.is_none(r.result));
+	for (let i, r in runs)
+		observing(labels[i], !Result.is_none(r.result));
 
 	let held = scrape_meta.gauge(QUARANTINED,
 		'Whether a collector is quarantined: its circuit breaker tripped, and it is not run until its cool-down is over.');
-	for (let r in runs)
-		held({ collector: r.name }, r.skipped == 'quarantine');
+	for (let i, r in runs)
+		held(labels[i], r.skipped == 'quarantine');
 
 	// Whatever the query selects, as node_exporter's node_exporter_build_info.
 	scrape_meta.gauge(BUILD_INFO,
