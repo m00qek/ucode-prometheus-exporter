@@ -1,70 +1,167 @@
-'use strict';
+/**
+ * The ledger: what a uhttpd instance's scrapes leave for the next, in its state
+ * (prometheus_exporter.state, as NAME), lost when the service restarts. A
+ * scrape reads it when it starts, to run the collectors fastest first and to
+ * know which of them its deadline has time for; and records its own when it is
+ * done, under the state's lock (update), on the ledger as it is then: scrapes
+ * that ran at once each add what they saw.
+ *
+ * It is JSON: { v, scrapes, auth_failures, k, c: { <collector id>: entry } }
+ *   v        VERSION; a ledger of another is read as empty
+ *   scrapes  the scrapes the instance answered, this one's number less one
+ *   auth_failures  the requests basic auth refused (401)
+ *   k        seconds per sample of writing a scrape's reply (merging and
+ *            rendering), an exponential moving average
+ *   entry    { d: its duration, a moving average; n: samples it wrote last;
+ *              late: the scrape that last left it out at the deadline;
+ *              f, q, cd, why: its breaker's (prometheus_exporter.breaker);
+ *              counted since the instance started: fails, { code: its failures
+ *              with it }; to, its programs killed at their timeout; qn, the
+ *              times its breaker tripped; dl, the times the deadline left it
+ *              out or cut it }
+ *
+ * The averages weigh the last run by ALPHA.
+ *
+ * @module prometheus_exporter_ledger
+ */
 
-// The ledger: what a uhttpd instance's scrapes leave for the next, in its state
-// (prometheus_exporter.state, as NAME), lost when the service restarts. A
-// scrape reads it when it starts, to run the collectors fastest first and to
-// know which of them its deadline has time for; and records its own when it is
-// done, under the state's lock (update), on the ledger as it is then: scrapes
-// that ran at once each add what they saw.
-//
-// It is JSON: { v, scrapes, auth_failures, k, c: { <collector id>: entry } }
-//   v        VERSION; a ledger of another is read as empty
-//   scrapes  the scrapes the instance answered, this one's number less one
-//   auth_failures  the requests basic auth refused (401)
-//   k        seconds per sample of writing a scrape's reply (merging and
-//            rendering), an exponential moving average
-//   entry    { d: its duration, a moving average; n: samples it wrote last;
-//              late: the scrape that last left it out at the deadline;
-//              f, q, cd, why: its breaker's (prometheus_exporter.breaker);
-//              counted since the instance started: fails, { code: its failures
-//              with it }; to, its programs killed at their timeout; qn, the
-//              times its breaker tripped; dl, the times the deadline left it
-//              out or cut it }
-//
-// The averages weigh the last run by ALPHA.
+'use strict';
 
 import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
 import * as breaker from 'prometheus_exporter.breaker';
 
-// The ledger's name in the state.
+/**
+ * A collector's entry in the ledger, its fields as the module's top comment
+ * says: d, n and late of its runs; f, q, cd and why its breaker's
+ * (prometheus_exporter.breaker); fails, to, qn and dl counted since the
+ * instance started. An absent field is its default.
+ *
+ * @typedef {{
+ *   d: ?float,
+ *   n: ?int,
+ *   late: ?int,
+ *   f: ?int,
+ *   q: ?int,
+ *   cd: ?int,
+ *   why: ?string,
+ *   fails: ?Object<string, int>,
+ *   to: ?int,
+ *   qn: ?int,
+ *   dl: ?int
+ * }} LedgerEntry
+ */
+
+/**
+ * The ledger, as its JSON holds it: { v, scrapes, auth_failures, k, c },
+ * c each collector's entry by id.
+ *
+ * @typedef {{ v: int, scrapes: int, auth_failures: ?int, k: ?float, c: Object<string, LedgerEntry> }} Ledger
+ */
+
+/**
+ * What changed of a collector's breaker, as record() and killed() tell it:
+ * the collector's name, whether its breaker tripped or closed, its
+ * cool-down in scrapes and what tripped it.
+ *
+ * @typedef {{ name: string, tripped: boolean, closed: boolean, cooldown: ?int, why: ?string }} BreakerEvent
+ */
+
+/**
+ * What the ledger counts, as counters() gives it, for the exporter's own
+ * collector: each collector's by id (by name once the scrape names them).
+ *
+ * @typedef {{
+ *   scrapes: int,
+ *   auth_failures: int,
+ *   collectors: Object<string, { failures: Object<string, int>, timeouts: int, quarantines: int, deadline_skips: int }>
+ * }} LedgerCounters
+ */
+
+/**
+ * What the ledger says of a collector, as report() gives it.
+ *
+ * @typedef {{ estimate: ?float, quarantined: boolean, reason: ?string, retry_in: ?int, late: ?int }} LedgerReport
+ */
+
+/**
+ * The ledger's name in the state.
+ *
+ * @type {string}
+ */
 export const NAME = 'scrape';
 
+/**
+ * The ledger's version, its `v`.
+ *
+ * @type {int}
+ */
 export const VERSION = 1;
 
-// The scrapes after which the deadline leaving a collector out is old news to
-// check and the ubus object's status.
+/**
+ * The scrapes after which the deadline leaving a collector out is old news to
+ * check and the ubus object's status.
+ *
+ * @type {int}
+ */
 export const RECENT = 10;
 
-// The most error codes a collector's failures are counted by; any other is
-// counted as OTHER. The codes are errors.uc's, a dozen that a collector can
-// fail with, but a collector of another's may make its own.
+/**
+ * The most error codes a collector's failures are counted by; any other is
+ * counted as OTHER. The codes are errors.uc's, a dozen that a collector can
+ * fail with, but a collector of another's may make its own.
+ *
+ * @type {int}
+ */
 export const REASONS_MAX = 8;
+
+/**
+ * What a failure is counted as past REASONS_MAX codes.
+ *
+ * @type {string}
+ */
 export const OTHER = 'OTHER';
 
 // The most of a breaker's why the ledger keeps.
 const WHY_MAX = 200;
 
-// The weight of the last run in a duration's moving average. A collector
-// takes much the same time scrape after scrape, but for what it reads that
-// grows or shrinks (the conntrack table): at 0.25 a spike of one scrape is
-// half gone after two more, and a lasting change nine tenths there after
-// eight.
+/**
+ * The weight of the last run in a duration's moving average. A collector
+ * takes much the same time scrape after scrape, but for what it reads that
+ * grows or shrinks (the conntrack table): at 0.25 a spike of one scrape is
+ * half gone after two more, and a lasting change nine tenths there after
+ * eight.
+ *
+ * @type {float}
+ */
 export const ALPHA = 0.25;
 
-// The seconds a sample's writing is reckoned to take before the instance has
-// measured it: a 500-MIPS MIPS core's, 50 µs, about thirty times the 1.6 µs
-// the devenv takes (52 ms for the 33,000 samples of the benchmark's large
-// world), so a reply is never reckoned shorter than it is on the slowest
-// router.
+/**
+ * The seconds a sample's writing is reckoned to take before the instance has
+ * measured it: a 500-MIPS MIPS core's, 50 µs, about thirty times the 1.6 µs
+ * the devenv takes (52 ms for the 33,000 samples of the benchmark's large
+ * world), so a reply is never reckoned shorter than it is on the slowest
+ * router.
+ *
+ * @type {float}
+ */
 export const SAMPLE_SECONDS = 0.00005;
 
-// A ledger with nothing in it.
+/**
+ * A ledger with nothing in it.
+ *
+ * @returns {Ledger} { v: VERSION, scrapes: 0, k: null, c: {} }.
+ */
 export function empty() {
 	return { v: VERSION, scrapes: 0, k: null, c: {} };
 };
 
-// The ledger of `text`: empty when there is none, or it is not one.
+/**
+ * The ledger of `text`: empty when there is none, or it is not one.
+ *
+ * @param {?string} text the ledger's JSON, as the state holds it.
+ * @returns {Ledger} the ledger.
+ */
 export function parse(text) {
 	let l = null;
 
@@ -82,27 +179,56 @@ export function parse(text) {
 	return l;
 };
 
+/**
+ * The ledger's JSON, as the state keeps it.
+ *
+ * @param {Ledger} l the ledger.
+ * @returns {string} its JSON.
+ */
 export function serialize(l) {
 	return sprintf('%J', l);
 };
 
-// The number of the scrape that would start now.
+/**
+ * The number of the scrape that would start now.
+ *
+ * @param {Ledger} l the ledger.
+ * @returns {int} the scrape's number.
+ */
 export function number(l) {
 	return l.scrapes + 1;
 };
 
-// The seconds collector `id` is expected to take, or null before it ran.
+/**
+ * The seconds collector `id` is expected to take, or null before it ran.
+ *
+ * @param {Ledger} l the ledger.
+ * @param {string} id the collector's module name.
+ * @returns {?float} the seconds.
+ */
 export function estimate(l, id) {
 	return l.c[id]?.d;
 };
 
-// The seconds the reply of a scrape of `samples` samples is expected to take
-// to write.
+/**
+ * The seconds the reply of a scrape of `samples` samples is expected to take
+ * to write.
+ *
+ * @param {Ledger} l the ledger.
+ * @param {int} samples the reply's samples.
+ * @returns {float} the seconds.
+ */
 export function writing(l, samples) {
 	return samples * (l.k ?? SAMPLE_SECONDS);
 };
 
-// The samples collector `id` wrote last.
+/**
+ * The samples collector `id` wrote last.
+ *
+ * @param {Ledger} l the ledger.
+ * @param {string} id the collector's module name.
+ * @returns {int} the samples; 0 before it ran.
+ */
 export function samples(l, id) {
 	return l.c[id]?.n ?? 0;
 };
@@ -117,16 +243,24 @@ function by_keys(a, b) {
 	return 0;
 }
 
-// `collectors` in the order a scrape runs them: fastest first; one never run,
-// which may be slow, after those the ledger knows, so that it cannot take
-// their time, and among those, by `rank(c)` (1 without it): the scrape
-// ranks the exporter's own collectors before the others, and of each, one
-// that declares itself heavy (meta.cost) after the rest; in their order among
-// equals; those `last(c)` says, after every other.
-//
-// A declared cost orders and does nothing else: the deadline leaves a
-// collector out only by what the ledger measured, so that one that declares
-// itself heavy is still run, and timed, rather than left out for good.
+/**
+ * `collectors` in the order a scrape runs them: fastest first; one never run,
+ * which may be slow, after those the ledger knows, so that it cannot take
+ * their time, and among those, by `rank(c)` (1 without it): the scrape
+ * ranks the exporter's own collectors before the others, and of each, one
+ * that declares itself heavy (meta.cost) after the rest; in their order among
+ * equals; those `last(c)` says, after every other.
+ *
+ * A declared cost orders and does nothing else: the deadline leaves a
+ * collector out only by what the ledger measured, so that one that declares
+ * itself heavy is still run, and timed, rather than left out for good.
+ *
+ * @param {Ledger} l the ledger.
+ * @param {Collector[]} collectors the collectors to order.
+ * @param {?function(Collector): boolean} last which run after every other.
+ * @param {?function(Collector): int} rank the rank of one never run.
+ * @returns {Collector[]} the collectors, in that order.
+ */
 export function order(l, collectors, last, rank) {
 	let keyed = map(collectors, function(c, i) {
 		let known = estimate(l, c.id) != null;
@@ -142,8 +276,14 @@ function average(old, value) {
 	return (old == null) ? value : old + ALPHA * (value - old);
 }
 
-// What a run means to its collector's breaker (prometheus_exporter.breaker),
-// and why: [ outcome, why ].
+/**
+ * What a run means to its collector's breaker (prometheus_exporter.breaker),
+ * and why: [ outcome, why ].
+ *
+ * @param {Run} r the run.
+ * @returns {(string|?string)[]} [ 'ok', 'failed', 'trip' or 'neutral', and
+ *   why, or null ].
+ */
 export function outcome_of(r) {
 	let res = r.result;
 
@@ -173,14 +313,24 @@ function count_failure(e, code) {
 	e.fails = fails;
 }
 
-// The ledger `l` with scrape `runs` recorded, as the scrape counts it: one
-// more scrape; for each collector that ran, its duration and samples, and
-// what its run makes of its breaker; for each the deadline left out or cut,
-// that it did; and the seconds per sample the reply took to write (`written`:
-// { seconds, samples }). `ids` are the installed collectors': any other's
-// entry goes. A run is scrape.run_one's or not_run's: { id, name, result,
-// duration, samples, budget, skipped }. `events`, when given, gets what
-// changed of the breakers: { name, tripped, closed, cooldown, why }.
+/**
+ * The ledger `l` with scrape `runs` recorded, as the scrape counts it: one
+ * more scrape; for each collector that ran, its duration and samples, and
+ * what its run makes of its breaker; for each the deadline left out or cut,
+ * that it did; and the seconds per sample the reply took to write (`written`:
+ * { seconds, samples }). `ids` are the installed collectors': any other's
+ * entry goes. A run is scrape.run_one's or not_run's: { id, name, result,
+ * duration, samples, budget, skipped }. `events`, when given, gets what
+ * changed of the breakers: { name, tripped, closed, cooldown, why }.
+ *
+ * @param {Ledger} l the ledger as it is.
+ * @param {Run[]} runs the scrape's runs.
+ * @param {?{ seconds: float, samples: int }} written what writing the reply
+ *   took, or null.
+ * @param {string[]} ids the installed collectors' module names.
+ * @param {?BreakerEvent[]} events what gets what changed, or null.
+ * @returns {Ledger} the new ledger; `l` is left as it is.
+ */
 export function record(l, runs, written, ids, events) {
 	let n = number(l);
 	let c = {};
@@ -227,11 +377,20 @@ export function record(l, runs, written, ids, events) {
 	return { ...l, scrapes: n, k, c };
 };
 
-// The ledger `l` with collector `id` (named `name`) killed with the scrape
-// process it ran in, `why`: a failure, COLLECTOR_KILLED, which trips its
-// breaker as of the scrape that died, which never recorded itself: its
-// cool-down begins with the next scrape. `events` gets what changed of the
-// breaker, as record's.
+/**
+ * The ledger `l` with collector `id` (named `name`) killed with the scrape
+ * process it ran in, `why`: a failure, COLLECTOR_KILLED, which trips its
+ * breaker as of the scrape that died, which never recorded itself: its
+ * cool-down begins with the next scrape. `events` gets what changed of the
+ * breaker, as record's.
+ *
+ * @param {Ledger} l the ledger as it is.
+ * @param {string} id the collector's module name.
+ * @param {string} name the collector's name.
+ * @param {string} why what happened, for the breaker's why.
+ * @param {?BreakerEvent[]} events what gets what changed, or null.
+ * @returns {Ledger} the new ledger; `l` is left as it is.
+ */
 export function killed(l, id, name, why, events) {
 	let n = number(l) - 1;
 	let e = { ...(l.c[id] ?? {}) };
@@ -248,14 +407,24 @@ export function killed(l, id, name, why, events) {
 	return { ...l, c: { ...l.c, [id]: b.entry } };
 };
 
-// The ledger `l` with one more request that basic auth refused.
+/**
+ * The ledger `l` with one more request that basic auth refused.
+ *
+ * @param {Ledger} l the ledger as it is.
+ * @returns {Ledger} the new ledger.
+ */
 export function auth_failure(l) {
 	return { ...l, auth_failures: (l.auth_failures ?? 0) + 1 };
 };
 
-// What the ledger counts, for the exporter's own collector: { scrapes,
-// auth_failures, collectors: { <id>: { failures: { code: n }, timeouts,
-// quarantines, deadline_skips } } }.
+/**
+ * What the ledger counts, for the exporter's own collector: { scrapes,
+ * auth_failures, collectors: { <id>: { failures: { code: n }, timeouts,
+ * quarantines, deadline_skips } } }.
+ *
+ * @param {Ledger} l the ledger.
+ * @returns {LedgerCounters} the counters, each collector's by id.
+ */
 export function counters(l) {
 	let out = { scrapes: l.scrapes, auth_failures: l.auth_failures ?? 0, collectors: {} };
 
@@ -265,12 +434,27 @@ export function counters(l) {
 	return out;
 };
 
-// Collector `id`'s breaker at scrape number `m`: 'closed', 'open' or 'trial'.
+/**
+ * Collector `id`'s breaker at scrape number `m`: 'closed', 'open' or 'trial'.
+ *
+ * @param {Ledger} l the ledger.
+ * @param {string} id the collector's module name.
+ * @param {int} m the scrape's number.
+ * @returns {string} the phase.
+ */
 export function phase(l, id, m) {
 	return breaker.phase(l.c[id], m);
 };
 
-// The result of a collector its breaker keeps out of scrape number `m`.
+/**
+ * The result of a collector its breaker keeps out of scrape number `m`.
+ *
+ * @param {Ledger} l the ledger.
+ * @param {string} id the collector's module name.
+ * @param {int} m the scrape's number.
+ * @returns {Result} COLLECTOR_QUARANTINED, saying why and when it is tried
+ *   again.
+ */
 export function quarantined(l, id, m) {
 	let e = l.c[id];
 	let k = breaker.left(e, m);
@@ -279,11 +463,17 @@ export function quarantined(l, id, m) {
 		sprintf('not run: %s; tried again %s', e.why ?? 'its breaker is open', (k <= 1) ? 'at the next scrape' : `in ${k} scrapes`));
 };
 
-// What the ledger says of collector `id`, for check and the ubus object, as of
-// the instance's last scrape: { estimate, quarantined, reason, retry_in,
-// late }. retry_in: the scrapes until its trial, 1 for the next; late: the
-// scrapes since the deadline last left it out, 0 for the last. Null for a
-// collector the ledger has nothing of.
+/**
+ * What the ledger says of collector `id`, for check and the ubus object, as of
+ * the instance's last scrape: { estimate, quarantined, reason, retry_in,
+ * late }. retry_in: the scrapes until its trial, 1 for the next; late: the
+ * scrapes since the deadline last left it out, 0 for the last. Null for a
+ * collector the ledger has nothing of.
+ *
+ * @param {Ledger} l the ledger.
+ * @param {string} id the collector's module name.
+ * @returns {?LedgerReport} the report, or null.
+ */
 export function report(l, id) {
 	let e = l.c[id];
 
