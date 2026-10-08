@@ -1,6 +1,6 @@
 # Make Targets
 
-Every target runs in Docker; nothing is installed on the host. `fixtures` and `bench-device` reach a device over ssh.
+Every target runs in Docker, but `feed-makefile`, a shell script with `curl`; nothing is installed on the host. `fixtures` and `bench-device` reach a device over ssh.
 
 ---
 
@@ -14,7 +14,7 @@ Every target runs in Docker; nothing is installed on the host. `fixtures` and `b
 | `unit` | `test/unit/` only. |
 | `integration` | `test/integration/` only. |
 | `watch` | All tests, then again whenever a file under `src/`, `test/`, `files/`, `devenv/scripts/` or `docs/gen/` changes. |
-| `lint` | Loads every module on the release's ucode, so a function it lacks fails here; compiles every test, program and handler; `sh -n` every shell script; parses the JSON of `luci/` and the LuCI views (as the function bodies LuCI compiles them into, with quickjs); fails on LuCI code that could turn data into markup (`devenv/scripts/luci-dom-lint.sh`); checks the pinned documentation links (`devenv/scripts/docs-links.sh`, see [Link check](docs-publishing.md#link-check)); and fails while a generated reference page is not what `docs-gen` would write. Then checks that `luci/po/templates/prometheus-exporter.pot` is what `pot` would write. |
+| `lint` | Loads every module on the release's ucode, so a function it lacks fails here; compiles every test, program and handler; `sh -n` every shell script; parses the JSON of `luci/` and the LuCI views (as the function bodies LuCI compiles them into, with quickjs); fails on LuCI code that could turn data into markup (`devenv/scripts/luci-dom-lint.sh`); checks the pinned documentation links (`devenv/scripts/docs-links.sh`, see [Link check](docs-publishing.md#link-check)); fails while a generated reference page is not what `docs-gen` would write; and runs `test/feed/`, the tests of `feed-makefile`'s generator. Then checks that `luci/po/templates/prometheus-exporter.pot` is what `pot` would write. |
 | `shell` | A shell in the development image. |
 | `image` | Rebuilds the development image, pulling its base again. |
 
@@ -38,8 +38,14 @@ Every target runs in Docker; nothing is installed on the host. `fixtures` and `b
 | `bench` | Each collector and whole scrapes on the generated worlds, in the package-check image: a table, and `bin/bench/<label>.json`. Checks the scaling and memory budgets of `test/bench/budgets.uc`, and, unconstrained, the time budgets too. |
 | `bench-worlds` | Writes the worlds to `bin/bench/worlds/`. |
 | `bench-device` | The benchmark on `HOST` over ssh, from its `/tmp`, with its own ucode; nothing is installed and everything copied is removed. |
-| `bench-qemu` | `package` and `bench-worlds`, then the benchmark on OpenWrt's malta target in qemu-system-mipsel, a MIPS 24Kc, with the built packages installed from the release's feed. |
+| `bench-qemu` | `package` and `bench-worlds`, then the benchmark on OpenWrt's malta target, a MIPS 24Kc, little-endian in qemu-system-mipsel or big-endian in qemu-system-mips (`QEMU_ENDIAN`), with the built packages installed from the release's feed. Before the bench, the guest checks what reads data in the CPU's byte order (`devenv/scripts/qemu-checks.uc`), and the target fails if a check does. |
 | `bench-src` | With `BENCH_REV`, extracts that revision's `src/` into `bin/bench/rev-<rev>`. `bench` and `bench-device` run it. |
+
+### Release
+
+| Target | Description |
+| :--- | :--- |
+| `feed-makefile` | Writes the Makefile of the packages.ucode.dev feed for release `VERSION` to `OUT`, or to standard output: this tree's package Makefile as the `v<VERSION>` tag has it, built from GitHub's tarball of the tag, which it downloads and hashes. See [How to publish a release to the package feed](../how-to/developer/publish-to-feed.md). |
 
 ### Documentation
 
@@ -76,9 +82,14 @@ Every target runs in Docker; nothing is installed on the host. `fixtures` and `b
 | `BENCH_MEMORY` | — | `bench` | The container's memory, without swap. |
 | `BENCH_LABEL` | `devenv` and the limits | `bench` | The name of the result. |
 | `BENCH_DEVICE_LABEL` | `HOST` | `bench-device` | The name of the result. |
+| `QEMU_ENDIAN` | `le` | `bench-qemu` | `le`: malta/le, `mipsel_24kc`, as MT7621-class routers. `be`: malta/be, `mips_24kc`, as ath79-class ones. |
 | `QEMU_SHIFT` | `1` | `bench-qemu` | The guest runs at 1000/2^`QEMU_SHIFT` MIPS: 1 is 500, 2 is 250. |
 | `QEMU_MEMORY` | `128` | `bench-qemu` | The guest's memory, in MB. |
-| `BENCH_QEMU_LABEL` | `qemu-malta-shift<N>` | `bench-qemu` | The name of the result. |
+| `BENCH_QEMU_LABEL` | `qemu-malta-shift<N>`, `qemu-malta-be-shift<N>` big-endian | `bench-qemu` | The name of the result. |
+| `VERSION` | — | `feed-makefile` | The release, `X.Y.Z`, without the `v`. |
+| `OUT` | — | `feed-makefile` | Where to write the Makefile. |
+| `TARBALL` | — | `feed-makefile` | The tag's tarball, already on disk, instead of downloading it. |
+| `HASH` | — | `feed-makefile` | Offline: transform this tree's package Makefile, with this sha256 as `PKG_HASH`. |
 
 ```sh
 make unit FILTER='collectors.wifi' VERBOSE=1

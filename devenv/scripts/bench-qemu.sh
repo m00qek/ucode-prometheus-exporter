@@ -1,8 +1,11 @@
 #!/bin/sh
-# The benchmark on OpenWrt's malta target (mipsel_24kc, the package
-# architecture of MT7621-class routers) under qemu-system-mipsel: one 24Kc
-# CPU, QEMU_MEMORY of RAM, user-mode networking. Runs inside the qemu image
-# (make bench-qemu), with the source tree at /exporter and bin/ at /artifacts.
+# The benchmark on OpenWrt's malta target under QEMU: one 24Kc CPU,
+# QEMU_MEMORY of RAM, user-mode networking. QEMU_ENDIAN is the byte order:
+# le, the default, is malta/le under qemu-system-mipsel, the mipsel_24kc
+# packages of MT7621-class routers; be is malta/be under qemu-system-mips,
+# the mips_24kc packages of ath79-class ones, the most common small routers.
+# Runs inside the qemu image (make bench-qemu), with the source tree at
+# /exporter and bin/ at /artifacts.
 #
 # -icount shift=N,sleep=on runs the guest at one instruction every 2^N ns of
 # its own clock, whatever the host's speed, so what the bench measures is the
@@ -10,25 +13,36 @@
 # 1000-MIPS CPU, 1 a 500-MIPS one, 2 a 250-MIPS one.
 #
 # The packages built in /artifacts are installed in the guest with their
-# dependencies from the release's mipsel_24kc feed, and the bench runs on the
-# installed exporter; its JSON comes back on the serial console.
+# dependencies from the release's feed of the target's architecture. The
+# guest then checks, on the installed exporter, what reads data in the CPU's
+# own byte order (qemu-checks.uc), and runs the bench on it. Both come back on
+# the serial console, the bench's JSON too; a check that fails, or does not
+# run, fails the run once the results are saved.
 #
-# env: OPENWRT_VERSION, PKG_FULLVERSION, QEMU_SHIFT (1), QEMU_MEMORY (128),
-#      BENCH_LABEL, BENCH_ARGS (bench.uc's), QEMU_TIMEOUT (seconds, 14400)
+# env: OPENWRT_VERSION, PKG_FULLVERSION, QEMU_ENDIAN (le), QEMU_SHIFT (1),
+#      QEMU_MEMORY (128), BENCH_LABEL, BENCH_ARGS (bench.uc's),
+#      QEMU_TIMEOUT (seconds, 14400)
 set -eu
 version=$OPENWRT_VERSION
+endian=${QEMU_ENDIAN:-le}
 shift_n=${QEMU_SHIFT:-1}
 memory=${QEMU_MEMORY:-128}
-label=${BENCH_LABEL:-qemu-malta-shift$shift_n}
-cache=/artifacts/qemu
+case $endian in
+le) qemu=qemu-system-mipsel arch=mipsel_24kc ;;
+be) qemu=qemu-system-mips arch=mips_24kc ;;
+*) echo "QEMU_ENDIAN is le or be, not $endian" >&2; exit 2 ;;
+esac
+label=${BENCH_LABEL:-qemu-malta$([ "$endian" = le ] || echo "-$endian")-shift$shift_n}
+cache=/artifacts/qemu/$version/$endian
 work=$(mktemp -d)
-base=https://downloads.openwrt.org/releases/$version/targets/malta/le
-kernel=openwrt-$version-malta-le-vmlinux.elf
-rootfs=openwrt-$version-malta-le-rootfs-ext4.img.gz
+base=https://downloads.openwrt.org/releases/$version/targets/malta/$endian
+kernel=openwrt-$version-malta-$endian-vmlinux.elf
+rootfs=openwrt-$version-malta-$endian-rootfs-ext4.img.gz
 
 # ---- the release's images, verified against its sha256sums ----
-mkdir -p "$cache/$version"
-cd "$cache/$version"
+# Each byte order has its own sha256sums, so its own directory.
+mkdir -p "$cache"
+cd "$cache"
 [ -s sha256sums ] || wget -q "$base/sha256sums"
 for f in $kernel $rootfs; do
 	[ -s "$f" ] || wget -q "$base/$f"
@@ -56,6 +70,7 @@ apk update >/dev/null && apk add --allow-untrusted $(cat packages) || echo 'benc
 /etc/init.d/prometheus-exporter stop 2>/dev/null
 echo 'bench-qemu: installed'
 apk list -I 2>/dev/null | grep -E '^(ucode|ucode-prometheus-exporter|ucode-mod-[a-z0-9]+)-[0-9]' | sed 's/^/bench-qemu: /'
+ucode devenv/scripts/qemu-checks.uc 2>&1 | sed 's/^/bench-qemu: check: /'
 sh devenv/scripts/bench.sh run /mnt/p/worlds /tmp/out.json "$(cat label)" $(cat args) | sed 's/^/bench-qemu: /'
 echo 'bench-qemu: BEGIN JSON'
 cat /tmp/out.json
@@ -82,12 +97,13 @@ done
 ls $apks >/dev/null
 echo $apks | tr ' ' '\n' | sed 's|^|/mnt/p/|' | tr '\n' ' ' >"$work/payload/packages"
 tar -cf "$work/payload.tar" -C "$work/payload" label args packages -C /artifacts $apks -C /artifacts/bench worlds \
-	-C /exporter test/bench test/lib/commands.uc devenv/scripts/bench.sh devenv/scripts/package-info.sh
+	-C /exporter test/bench test/lib/commands.uc devenv/scripts/bench.sh devenv/scripts/package-info.sh \
+	devenv/scripts/qemu-checks.uc
 
 # ---- boot, and wait for the guest to power off ----
-echo "booting malta (24Kc, ${memory} MB, icount shift $shift_n); the bench runs in guest time, several times slower here" >&2
-timeout "${QEMU_TIMEOUT:-14400}" qemu-system-mipsel -M malta -cpu 24Kc -smp 1 -m "$memory" \
-	-kernel "$cache/$version/$kernel" -append 'root=/dev/sda rootwait console=ttyS0 loglevel=3' \
+echo "booting malta/$endian ($arch, 24Kc, ${memory} MB, icount shift $shift_n); the bench runs in guest time, several times slower here" >&2
+timeout "${QEMU_TIMEOUT:-14400}" "$qemu" -M malta -cpu 24Kc -smp 1 -m "$memory" \
+	-kernel "$cache/$kernel" -append 'root=/dev/sda rootwait console=ttyS0 loglevel=3' \
 	-drive file="$work/root.img",format=raw,if=ide,index=0 \
 	-drive file="$work/payload.tar",format=raw,if=ide,index=1 \
 	-nic user,model=pcnet -icount shift="$shift_n",sleep=on -rtc clock=vm \
@@ -103,5 +119,10 @@ fi
 mkdir -p /artifacts/bench
 cp "$work/out.json" "/artifacts/bench/$label.json"
 cp "$work/console" "/artifacts/bench/$label.console"
-rm -rf "$work"
 echo "results: bin/bench/$label.json" >&2
+if ! grep -q '^bench-qemu: check: ok ' "$work/console" || grep -q '^bench-qemu: check: FAILED ' "$work/console"; then
+	echo "the guest's checks failed, or did not run: see above" >&2
+	rm -rf "$work"
+	exit 1
+fi
+rm -rf "$work"

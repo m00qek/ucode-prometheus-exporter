@@ -10,7 +10,7 @@ RUN          = $(COMPOSE) --progress quiet run --rm $(if $(CI),-T) openwrt
 IMAGE_STAMP := devenv/.built-$(IMAGE_TAG)
 TEST_ARGS    = $(if $(FILTER),-f '$(FILTER)') $(if $(VERBOSE),-v) $(MODULES)
 
-.PHONY: test unit integration watch lint shell image fixtures package pkgcheck-image package-check e2e lab lab-down browser pot bench bench-src bench-worlds bench-device bench-qemu docs docs-mike docs-test docs-serve docs-gen
+.PHONY: test unit integration watch lint shell image fixtures package pkgcheck-image package-check e2e lab lab-down browser pot bench bench-src bench-worlds bench-device bench-qemu docs docs-mike docs-test docs-serve docs-gen feed-makefile
 
 test:        $(IMAGE_STAMP) ; @$(RUN) devenv/scripts/test.sh all $(TEST_ARGS)
 unit:        $(IMAGE_STAMP) ; @$(RUN) devenv/scripts/test.sh unit $(TEST_ARGS)
@@ -149,11 +149,14 @@ bench-worlds: pkgcheck-image
 # is installed: make bench-device HOST=router [BENCH_DEVICE_LABEL=router] [BENCH_REV=]
 BENCH_DEVICE_LABEL ?= $(HOST)$(if $(BENCH_REV),-$(BENCH_REV))
 
-# The benchmark on OpenWrt's malta target (mipsel_24kc) in qemu-system-mipsel,
-# from the qemu image: the built packages installed with their dependencies
-# from the release's feed, one 24Kc CPU at 1000/2^QEMU_SHIFT MIPS of guest
-# time, QEMU_MEMORY MB; see devenv/scripts/bench-qemu.sh.
+# The benchmark on OpenWrt's malta target in QEMU, from the qemu image: the
+# built packages installed with their dependencies from the release's feed,
+# one 24Kc CPU at 1000/2^QEMU_SHIFT MIPS of guest time, QEMU_MEMORY MB. Little-
+# endian, QEMU_ENDIAN=le (malta/le, mipsel_24kc, as MT7621-class routers), or
+# big-endian, be (malta/be, mips_24kc, as ath79-class ones); see
+# devenv/scripts/bench-qemu.sh.
 QEMU_IMAGE  := ucode-prometheus-exporter-qemu:$(shell sha256sum devenv/services/qemu/Dockerfile | cut -c1-12)
+QEMU_ENDIAN ?= le
 QEMU_SHIFT  ?= 1
 QEMU_MEMORY ?= 128
 
@@ -165,8 +168,9 @@ bench-qemu: package bench-worlds pkgcheck-image
 		sh -c 'rm -f /artifacts/ucode-docopt-*.apk && apk fetch -q -o /artifacts ucode-docopt'
 	docker build -q -t $(QEMU_IMAGE) devenv/services/qemu >/dev/null
 	@docker run --rm -v $(CURDIR):/exporter:ro -v $(CURDIR)/bin:/artifacts \
-		-e OPENWRT_VERSION -e PKG_FULLVERSION=$(PKG_FULLVERSION) -e QEMU_SHIFT=$(QEMU_SHIFT) -e QEMU_MEMORY=$(QEMU_MEMORY) \
-		-e BENCH_LABEL='$(or $(BENCH_QEMU_LABEL),qemu-malta-shift$(QEMU_SHIFT))' -e BENCH_ARGS='$(if $(FILTER),-f $(FILTER)) $(BENCH_ARGS)' \
+		-e OPENWRT_VERSION -e PKG_FULLVERSION=$(PKG_FULLVERSION) -e QEMU_ENDIAN=$(QEMU_ENDIAN) \
+		-e QEMU_SHIFT=$(QEMU_SHIFT) -e QEMU_MEMORY=$(QEMU_MEMORY) \
+		-e BENCH_LABEL='$(or $(BENCH_QEMU_LABEL),qemu-malta$(if $(filter-out le,$(QEMU_ENDIAN)),-$(QEMU_ENDIAN))-shift$(QEMU_SHIFT))' -e BENCH_ARGS='$(if $(FILTER),-f $(FILTER)) $(BENCH_ARGS)' \
 		$(QEMU_IMAGE) /exporter/devenv/scripts/bench-qemu.sh
 
 bench-device: bench-worlds bench-src
@@ -191,6 +195,17 @@ browser: package
 # The translation template, from the LuCI sources; make lint checks it is up to date.
 I18N_IMAGE := ucode-prometheus-exporter-i18n:$(shell sha256sum devenv/services/i18n/Dockerfile | cut -c1-12)
 pot: ; @I18N_IMAGE=$(I18N_IMAGE) devenv/scripts/pot.sh
+
+# ---- release -----------------------------------------------------------------
+# The ucode-prometheus-exporter Makefile for the packages.ucode.dev feed, built
+# from the v$(VERSION) release tarball: it downloads the tarball unless
+# TARBALL=<path> or HASH=<sha256> is given. Writes to OUT, or to standard output.
+feed-makefile:
+	@sh devenv/scripts/gen-feed-makefile.sh \
+		$(if $(TARBALL),--tarball '$(TARBALL)') \
+		$(if $(HASH),--hash '$(HASH)') \
+		$(if $(OUT),-o '$(OUT)') \
+		'$(VERSION)'
 
 # ---- documentation -----------------------------------------------------------
 # The site, with MkDocs Material in Docker; see docs/README.md.

@@ -55,7 +55,7 @@ done
 ucode -L "$src" files/usr/bin/prometheus-exporter -h >/dev/null ||
 	fail files/usr/bin/prometheus-exporter
 
-for f in files/etc/init.d/* files/etc/uci-defaults/* files/etc/hotplug.d/*/* devenv/scripts/*.sh devenv/services/lab/*.sh; do
+for f in files/etc/init.d/* files/etc/uci-defaults/* files/etc/hotplug.d/*/* devenv/scripts/*.sh devenv/services/lab/*.sh test/feed/*.sh; do
 	sh -n "$f" || fail "$f"
 done
 
@@ -97,5 +97,8 @@ rm -f "$bad"
 # code holds as data as make docs-gen would write them.
 devenv/scripts/docs-links.sh || status=1
 ucode -L "$src" -L "$scripts" devenv/scripts/docs-gen.uc --check || status=1
+
+# The package feed's Makefile, and what its generator refuses (offline).
+sh test/feed/feed_makefile_test.sh >/dev/null || { sh test/feed/feed_makefile_test.sh | grep -v '^ok '; status=1; }
 
 exit $status
