@@ -1,56 +1,111 @@
+/**
+ * The exporter's writable state: small files a uhttpd instance keeps between
+ * the requests it answers. uhttpd answers each request in a process forked
+ * from the one that loaded the handler, so nothing a request leaves in memory
+ * is there for the next; what must last goes here (basic auth's cache, see
+ * prometheus_exporter.auth; the collectors' durations, breakers and counters,
+ * see prometheus_exporter.ledger).
+ *
+ * DIR is on tmpfs, never on flash, mode 0700 (root's alone), inside the
+ * directory of uhttpd's config file (also 0700). jail.uc --make makes it, and
+ * the init script mounts it read-write in the jail, the one path there that is.
+ *
+ * State is the instance's own, and lost when the service restarts, not only at
+ * reboot: the handler names its instance when uhttpd loads it, before any
+ * request forks (instance_id: the pid and start time of that process, which no
+ * later process has, even in a jail's own pid namespace, where the pid is the
+ * same each time). Each file is <id>.<name>, and opening the state of an
+ * instance removes every other instance's files. A reload that keeps the
+ * instance (procd restarts it only when its command, mounts or files change)
+ * keeps its state.
+ *
+ * Requests run at once (a scraper, someone with curl), so every write takes
+ * the instance's lock first, an exclusive flock() of <id>.lock, which the
+ * kernel lets go of when the process holding it ends, however it ends: one
+ * writer at a time writes <file>.new and renames it over <file>, and a read,
+ * which takes no lock, sees one whole file or the other, never a torn one.
+ * update() reads, changes and writes under the lock, so two requests that
+ * count something both count it; write() alone, the last writer wins.
+ *
+ * A scrape keeps a progress file, <id>.p<pid>_<start>, named by its own process:
+ * a line `start <collector> <pid>-<start>` appended before each collector it
+ * starts, the pid and start time of the child process it runs in (O_APPEND,
+ * one write; no rename, no lock), `collected` once they are done, and the
+ * file removed when the reply is written. A scrape process that dies (killed
+ * at uhttpd's timeout, out of memory) leaves its file behind, and a later
+ * scrape of the instance finds it, its process gone (dead()): the collector it
+ * last started, unless it says `collected`, was running when it died, in a
+ * child that may be running still.
+ *
+ * fs: { readfile, writefile, rename, unlink, lsdir, chmod, stat, mkdir, open,
+ * error }, as the fs module has them.
+ *
+ * @module prometheus_exporter_state
+ */
+
 'use strict';
 
-// The exporter's writable state: small files a uhttpd instance keeps between
-// the requests it answers. uhttpd answers each request in a process forked
-// from the one that loaded the handler, so nothing a request leaves in memory
-// is there for the next; what must last goes here (basic auth's cache, see
-// prometheus_exporter.auth; the collectors' durations, breakers and counters,
-// see prometheus_exporter.ledger).
-//
-// DIR is on tmpfs, never on flash, mode 0700 (root's alone), inside the
-// directory of uhttpd's config file (also 0700). jail.uc --make makes it, and
-// the init script mounts it read-write in the jail, the one path there that is.
-//
-// State is the instance's own, and lost when the service restarts, not only at
-// reboot: the handler names its instance when uhttpd loads it, before any
-// request forks (instance_id: the pid and start time of that process, which no
-// later process has, even in a jail's own pid namespace, where the pid is the
-// same each time). Each file is <id>.<name>, and opening the state of an
-// instance removes every other instance's files. A reload that keeps the
-// instance (procd restarts it only when its command, mounts or files change)
-// keeps its state.
-//
-// Requests run at once (a scraper, someone with curl), so every write takes
-// the instance's lock first, an exclusive flock() of <id>.lock, which the
-// kernel lets go of when the process holding it ends, however it ends: one
-// writer at a time writes <file>.new and renames it over <file>, and a read,
-// which takes no lock, sees one whole file or the other, never a torn one.
-// update() reads, changes and writes under the lock, so two requests that
-// count something both count it; write() alone, the last writer wins.
-//
-// A scrape keeps a progress file, <id>.p<pid>_<start>, named by its own process:
-// a line `start <collector> <pid>-<start>` appended before each collector it
-// starts, the pid and start time of the child process it runs in (O_APPEND,
-// one write; no rename, no lock), `collected` once they are done, and the
-// file removed when the reply is written. A scrape process that dies (killed
-// at uhttpd's timeout, out of memory) leaves its file behind, and a later
-// scrape of the instance finds it, its process gone (dead()): the collector it
-// last started, unless it says `collected`, was running when it died, in a
-// child that may be running still.
-//
-// fs: { readfile, writefile, rename, unlink, lsdir, chmod, stat, mkdir, open,
-// error }, as the fs module has them.
+/**
+ * The state of an instance, as open() gives it: its id, its scrape
+ * processes' progress files, and its named files, read, written and
+ * updated under its lock.
+ *
+ * @typedef {{
+ *   id: ?string,
+ *   progress: () => ProgressFile,
+ *   dead: () => DeadScrape[],
+ *   claim: (file: string) => boolean,
+ *   read: (name: string) => ?string,
+ *   write: (name: string, data: string) => boolean,
+ *   update: (name: string, fn: function(?string): ?string) => boolean
+ * }} State
+ */
 
-// The run directory of uhttpd's config file (prometheus_exporter.auth's DIR).
+/**
+ * A scrape process's progress file, as State's progress() gives it.
+ *
+ * @typedef {{ start: (collector: string, pid: ?int) => void, collected: () => void, finish: () => void }} ProgressFile
+ */
+
+/**
+ * The progress file of a scrape process that is gone, as State's dead()
+ * finds it: its name, the collector it was running (its module name), or
+ * null, and the child process that ran it, when it is there still.
+ *
+ * @typedef {{ file: string, running: ?string, child: ?{ pid: int, start: string } }} DeadScrape
+ */
+
+/**
+ * The state of the instance that started last, to read only, as latest()
+ * gives it.
+ *
+ * @typedef {{ id: string, read: (name: string) => ?string }} ReadOnlyState
+ */
+
+/**
+ * The run directory of uhttpd's config file (prometheus_exporter.auth's DIR).
+ *
+ * @type {string}
+ */
 export const RUN_DIR = '/var/run/prometheus-exporter';
+
+/**
+ * The state's directory, under RUN_DIR.
+ *
+ * @type {string}
+ */
 export const DIR = `${RUN_DIR}/state`;
 
-// The most bytes a state file holds: a name's state is small, or it is not
-// kept. The ledger (prometheus_exporter.ledger) is the largest: a duration, a
-// breaker and counters for each installed collector, 30 bytes for one that
-// never failed and some 300 for one that failed in every way it can. 32 KiB
-// holds a hundred of the latter, twice the collectors there are; it is RAM
-// (tmpfs), and json() reads it in a few milliseconds on a router.
+/**
+ * The most bytes a state file holds: a name's state is small, or it is not
+ * kept. The ledger (prometheus_exporter.ledger) is the largest: a duration, a
+ * breaker and counters for each installed collector, 30 bytes for one that
+ * never failed and some 300 for one that failed in every way it can. 32 KiB
+ * holds a hundred of the latter, twice the collectors there are; it is RAM
+ * (tmpfs), and json() reads it in a few milliseconds on a router.
+ *
+ * @type {int}
+ */
 export const SIZE_MAX = 32768;
 
 const NAME = /^[a-z][a-z0-9_]*$/;
@@ -64,8 +119,14 @@ const PROGRESS = /^([0-9]+)_([0-9]+)$/;
 // A progress file's line before a collector, and the process it runs in.
 const STARTED = /^start ([a-z0-9_]+)( ([0-9]+)-([0-9]+))?$/;
 
-// This process's instance id, "<pid>-<start time>" (/proc/self/stat's first
-// and 22nd fields), or null when /proc does not say.
+/**
+ * This process's instance id, "<pid>-<start time>" (/proc/self/stat's first
+ * and 22nd fields), or null when /proc does not say.
+ *
+ * @param {module:fs} fs what reads /proc/self/stat: an object of fs's
+ *   readfile.
+ * @returns {?string} "<pid>-<start time>".
+ */
 export function instance_id(fs) {
 	let stat = fs.readfile('/proc/self/stat');
 	let close = (type(stat) == 'string') ? rindex(stat, ')') : -1;
@@ -83,8 +144,15 @@ export function instance_id(fs) {
 	return `${pid}-${start}`;
 };
 
-// The start time of process `pid` (/proc/<pid>/stat's 22nd field), as a
-// string, or null when there is no such process.
+/**
+ * The start time of process `pid` (/proc/<pid>/stat's 22nd field), as a
+ * string, or null when there is no such process.
+ *
+ * @param {module:fs} fs what reads /proc/<pid>/stat: an object of fs's
+ *   readfile.
+ * @param {(int|string)} pid the process.
+ * @returns {?string} its start time, in clock ticks since boot.
+ */
 export function start_of(fs, pid) {
 	let stat = fs.readfile(`/proc/${pid}/stat`);
 	let close = (type(stat) == 'string') ? rindex(stat, ')') : -1;
@@ -92,16 +160,28 @@ export function start_of(fs, pid) {
 	return (close < 0) ? null : split(substr(stat, close + 2), ' ')[19];
 };
 
-// The pid of instance `id`: the uhttpd that loaded the handler, whose
-// requests are its children.
+/**
+ * The pid of instance `id`: the uhttpd that loaded the handler, whose
+ * requests are its children.
+ *
+ * @param {?string} id the instance's id, "<pid>-<start time>".
+ * @returns {?int} the pid, or null for what is not an id.
+ */
 export function pid_of(id) {
 	let m = (type(id) == 'string') ? match(id, /^([0-9]+)-[0-9]+$/) : null;
 
 	return m ? +m[1] : null;
 };
 
-// Makes DIR and RUN_DIR, as needed, and closes both to their owner (0700):
-// a Result-like { ok, problem }.
+/**
+ * Makes DIR and RUN_DIR, as needed, and closes both to their owner (0700):
+ * a Result-like { ok, problem }.
+ *
+ * @param {module:fs} fs the fs module, or an object of its stat, mkdir,
+ *   chmod and error.
+ * @returns {{ ok: boolean, problem: ?string }} whether it made them, and
+ *   what failed.
+ */
 export function make(fs) {
 	for (let d in [ RUN_DIR, DIR ])
 		if ((fs.stat(d) == null && !fs.mkdir(d, 0o700)) || !fs.chmod(d, 0o700))
@@ -150,13 +230,21 @@ function writable(p, data) {
 	return p != null && type(data) == 'string' && length(data) <= SIZE_MAX;
 }
 
-// The state of instance `id` in `dir` (DIR, but for tests and the bench):
-// { id, read(name), write(name, data), update(name, fn) }. read gives what
-// was last written, or null; write a string of at most SIZE_MAX bytes, whole,
-// mode 0600, and says whether it did. update(name, fn) calls fn with what is
-// there (or null), the lock held, writes the string fn returns (nothing for
-// anything else), and says whether it wrote. Opening it removes the files of
-// every other instance. Without an id it keeps nothing.
+/**
+ * The state of instance `id` in `dir` (DIR, but for tests and the bench):
+ * { id, read(name), write(name, data), update(name, fn) }. read gives what
+ * was last written, or null; write a string of at most SIZE_MAX bytes, whole,
+ * mode 0600, and says whether it did. update(name, fn) calls fn with what is
+ * there (or null), the lock held, writes the string fn returns (nothing for
+ * anything else), and says whether it wrote. Opening it removes the files of
+ * every other instance. Without an id it keeps nothing.
+ *
+ * @param {module:fs} fs the fs module, or an object of the functions the
+ *   module's top comment names.
+ * @param {string} dir the state's directory.
+ * @param {?string} id the instance's id (instance_id), or null.
+ * @returns {State} the state.
+ */
 export function open(fs, dir, id) {
 	if (id != null)
 		for (let f in fs.lsdir(dir) ?? [])
@@ -259,11 +347,18 @@ export function open(fs, dir, id) {
 	};
 };
 
-// The state of the instance that started last in `dir`, to read only, and
-// removing nothing: { id, read(name) }, or null when there is none. For what
-// runs outside the jail (check, the ubus object) and reads the running
-// instance's state: an instance removes the others' files when it starts, so
-// there is that one, or none before the service first answers.
+/**
+ * The state of the instance that started last in `dir`, to read only, and
+ * removing nothing: { id, read(name) }, or null when there is none. For what
+ * runs outside the jail (check, the ubus object) and reads the running
+ * instance's state: an instance removes the others' files when it starts, so
+ * there is that one, or none before the service first answers.
+ *
+ * @param {module:fs} fs what reads the directory: an object of fs's lsdir
+ *   and readfile.
+ * @param {string} dir the state's directory.
+ * @returns {?ReadOnlyState} the state, or null.
+ */
 export function latest(fs, dir) {
 	let best = null, start = -1;
 

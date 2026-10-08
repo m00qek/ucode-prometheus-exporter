@@ -1,40 +1,72 @@
-'use strict';
+/**
+ * The load probe: collector modules loaded in a child process first, as a
+ * scrape's collectors run (prometheus_exporter.runner), so that only what
+ * loads there is loaded in the process that serves the scrapes.
+ *
+ * @module prometheus_exporter_probe
+ */
 
-// The load probe: collector modules loaded in a child process first, as a
-// scrape's collectors run (prometheus_exporter.runner), so that only what
-// loads there is loaded in the process that serves the scrapes.
+'use strict';
 
 import * as uloop from 'uloop';
 import { seconds } from 'prometheus_exporter.deadline';
 
-// How often this process looks whether the child is still there, while a
-// collector loads in it, or runs (prometheus_exporter.runner): a child that
-// died is noticed within this many milliseconds. Each look is a timer's
-// wakeup, a few microseconds.
+/**
+ * How loading a module went in the probe's child process: whether it
+ * loaded, the first line of what loading it threw, whether it was stopped
+ * for hanging, and the seconds it took; `unprobed` when no child could be
+ * forked, and the module is to load where it is used, as before there was
+ * one.
+ *
+ * @typedef {{ ok: boolean, error: ?string, hung: boolean, seconds: float, unprobed: ?boolean }} ProbeOutcome
+ */
+
+/**
+ * How often this process looks whether the child is still there, while a
+ * collector loads in it, or runs (prometheus_exporter.runner): a child that
+ * died is noticed within this many milliseconds. Each look is a timer's
+ * wakeup, a few microseconds.
+ *
+ * @type {int}
+ */
 export const POLL_MS = 100;
 
 function now(env) {
 	return seconds(env.clock());
 }
 
-// The seconds a collector module may take to load. Its top level declares
-// what it exports and little else: loading every collector the packages have
-// takes the devenv 46 ms (load:full in the benchmark), about 1.5 ms a module,
-// and a 500-MIPS MIPS router about forty times that. Five seconds is a
-// hundred times what the largest takes there, and still what a router starts
-// uhttpd in, should one never finish.
+/**
+ * The seconds a collector module may take to load. Its top level declares
+ * what it exports and little else: loading every collector the packages have
+ * takes the devenv 46 ms (load:full in the benchmark), about 1.5 ms a module,
+ * and a 500-MIPS MIPS router about forty times that. Five seconds is a
+ * hundred times what the largest takes there, and still what a router starts
+ * uhttpd in, should one never finish.
+ *
+ * @type {int}
+ */
 export const LOAD_TIMEOUT = 5;
 
-// Each of the modules `ids` loaded with import_fn(id) (loader.import_module)
-// in a child process first, as a scrape's collectors run (runner.forked): one
-// that does not load within `seconds` (LOAD_TIMEOUT) is stopped with its
-// process, and a new one loads the rest. { <id>: { ok, error, hung,
-// seconds } }: error, the first line of what loading it threw; hung, whether
-// it was stopped. clock_fn: [ s, ns ], monotonic.
-//
-// Only what loads here is then loaded in the process that serves the scrapes:
-// a module whose top level never returns would keep uhttpd from ever serving.
-// Each module is so compiled twice, once here and once there.
+/**
+ * Each of the modules `ids` loaded with import_fn(id) (loader.import_module)
+ * in a child process first, as a scrape's collectors run (runner.forked): one
+ * that does not load within `seconds` (LOAD_TIMEOUT) is stopped with its
+ * process, and a new one loads the rest. { <id>: { ok, error, hung,
+ * seconds } }: error, the first line of what loading it threw; hung, whether
+ * it was stopped. clock_fn: [ s, ns ], monotonic.
+ *
+ * Only what loads here is then loaded in the process that serves the scrapes:
+ * a module whose top level never returns would keep uhttpd from ever serving.
+ * Each module is so compiled twice, once here and once there.
+ *
+ * @param {string[]} ids the modules' names.
+ * @param {function(string): CollectorModule} import_fn what loads a module.
+ * @param {?(int|float)} seconds what loading one may take; LOAD_TIMEOUT when
+ *   null.
+ * @param {?function(): int[]} clock_fn a monotonic clock, [ s, ns ];
+ *   clock(true) when null.
+ * @returns {Object<string, ProbeOutcome>} each module's, by name.
+ */
 export function probe(ids, import_fn, seconds, clock_fn) {
 	let out = {};
 	let left = [ ...ids ];
