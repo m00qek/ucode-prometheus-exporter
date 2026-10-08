@@ -1,53 +1,57 @@
-'use strict';
+/**
+ * One scrape: pick the collectors the query asks for, run each with its deps and
+ * options, time it, and write every family once, followed by node_exporter's
+ * node_scrape_collector_duration_seconds and node_scrape_collector_success,
+ * node_scrape_collector_observing, and the exporter's own
+ * ucode_prometheus_exporter_collector_quarantined and
+ * ucode_prometheus_exporter_build_info.
+ *
+ * A collector with nothing to observe (Result.none: its hardware, kernel
+ * feature or service is not there) succeeds, writes no samples and is not
+ * logged: it is what the device is, every scrape. Its
+ * node_scrape_collector_observing is 0, so a dashboard tells it from one that
+ * observes and finds nothing to count; every other collector's is 1.
+ *
+ * The handler's scrapes keep a ledger in the instance's state
+ * (prometheus_exporter.ledger): how long each collector took, how many
+ * samples it wrote, and its circuit breaker (prometheus_exporter.breaker).
+ * They run the collectors fastest first by it, so that a deadline leaves out
+ * the few slow ones rather than the many fast ones; the reply has them in the
+ * order the query selects, whatever order they ran in. A collector whose
+ * breaker is open is not run, even when the query names it: it fails with
+ * COLLECTOR_QUARANTINED, and its ucode_prometheus_exporter_collector_quarantined
+ * is 1. The scrape logs a breaker that trips or closes, not each scrape that
+ * leaves a collector out.
+ *
+ * A scrape may have a deadline (prometheus_exporter.deadline): it then starts
+ * no collector the ledger does not expect done in time to write the reply,
+ * and none of their programs runs past that. A collector left out so fails
+ * with SCRAPE_DEADLINE, as one whose program was killed at the deadline does,
+ * and the scrape logs them once, all together, not a line each.
+ *
+ * Each collector runs as prometheus_exporter.runner runs it: with env.fork,
+ * in a child process of the scrape's, stopped at its limit (its budget's end,
+ * or the deadline) with the process, and a collector whose process dies under
+ * it fails alone; without, in this process, as the tests run it. It writes at
+ * most its max_samples (prometheus_exporter.exposition's recorder), and a
+ * family belongs to the first collector of the reply that writes it: another
+ * that writes it fails with FAMILY_CONFLICT (prometheus_exporter.ownership).
+ * A collector that breaks one of these rules, or is stopped, fails, and none
+ * of its samples are served.
+ *
+ * env: { session(log) -> a deps session, its collectors' lines logged with
+ *        log when given, clock() -> [ s, ns ] monotonic,
+ *        log(level, msg): a collector that fails at warning, as the scrape
+ *        answers without it; a main section the exporter cannot read at err,
+ *        version: the exporter's version (prometheus_exporter.version),
+ *        fork: whether to run the collectors in child processes,
+ *        tmp: the directory of the file their runs cross by (runner.forked),
+ *        stats: an object the runner fills in, for the benchmark }
+ *
+ * @module prometheus_exporter_scrape
+ */
 
-// One scrape: pick the collectors the query asks for, run each with its deps and
-// options, time it, and write every family once, followed by node_exporter's
-// node_scrape_collector_duration_seconds and node_scrape_collector_success,
-// node_scrape_collector_observing, and the exporter's own
-// ucode_prometheus_exporter_collector_quarantined and
-// ucode_prometheus_exporter_build_info.
-//
-// A collector with nothing to observe (Result.none: its hardware, kernel
-// feature or service is not there) succeeds, writes no samples and is not
-// logged: it is what the device is, every scrape. Its
-// node_scrape_collector_observing is 0, so a dashboard tells it from one that
-// observes and finds nothing to count; every other collector's is 1.
-//
-// The handler's scrapes keep a ledger in the instance's state
-// (prometheus_exporter.ledger): how long each collector took, how many
-// samples it wrote, and its circuit breaker (prometheus_exporter.breaker).
-// They run the collectors fastest first by it, so that a deadline leaves out
-// the few slow ones rather than the many fast ones; the reply has them in the
-// order the query selects, whatever order they ran in. A collector whose
-// breaker is open is not run, even when the query names it: it fails with
-// COLLECTOR_QUARANTINED, and its ucode_prometheus_exporter_collector_quarantined
-// is 1. The scrape logs a breaker that trips or closes, not each scrape that
-// leaves a collector out.
-//
-// A scrape may have a deadline (prometheus_exporter.deadline): it then starts
-// no collector the ledger does not expect done in time to write the reply,
-// and none of their programs runs past that. A collector left out so fails
-// with SCRAPE_DEADLINE, as one whose program was killed at the deadline does,
-// and the scrape logs them once, all together, not a line each.
-//
-// Each collector runs as prometheus_exporter.runner runs it: with env.fork,
-// in a child process of the scrape's, stopped at its limit (its budget's end,
-// or the deadline) with the process, and a collector whose process dies under
-// it fails alone; without, in this process, as the tests run it. It writes at
-// most its max_samples (prometheus_exporter.exposition's recorder), and a
-// family belongs to the first collector of the reply that writes it: another
-// that writes it fails with FAMILY_CONFLICT (prometheus_exporter.ownership).
-// A collector that breaks one of these rules, or is stopped, fails, and none
-// of its samples are served.
-//
-// env: { session(log) -> a deps session, its collectors' lines logged with
-//        log when given, clock() -> [ s, ns ] monotonic,
-//        log(level, msg): a collector that fails at warning, as the scrape
-//        answers without it; a main section the exporter cannot read at err,
-//        version: the exporter's version (prometheus_exporter.version),
-//        fork: whether to run the collectors in child processes,
-//        tmp: the directory of the file their runs cross by (runner.forked),
-//        stats: an object the runner fills in, for the benchmark }
+'use strict';
 
 import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
@@ -62,19 +66,111 @@ import { pid_of } from 'prometheus_exporter.state';
 import { own } from 'prometheus_exporter.ownership';
 import { bury, log_breakers } from 'prometheus_exporter.progress';
 
+/**
+ * The env a scrape runs collectors in, as the module's top comment says
+ * (app.scrape_env makes it): mkstemp and readfile are fs's, which the forked
+ * runner takes; kill(pid) kills a collector's child process a scrape left
+ * behind (prometheus_exporter.progress).
+ *
+ * @typedef {{
+ *   session: (log: ?Log) => Session,
+ *   clock: () => int[],
+ *   log: Log,
+ *   version: string,
+ *   fork: boolean,
+ *   tmp: ?string,
+ *   stats: ?Object,
+ *   mkstemp: ?function(string): ?FsFile,
+ *   readfile: ?function(string): ?string,
+ *   kill: ?function(int): void
+ * }} ScrapeEnv
+ */
+
+/**
+ * A collector's run, as run_one, not_run and the runner give it: its name
+ * and module name, its Result, its families (a recorder's, or once packed
+ * their names and types alone), the samples it wrote, the seconds it took
+ * and its budget; `skipped`, why it did not run ('quarantine', 'deadline'),
+ * and `text`, its families as the reply holds them, once packed.
+ *
+ * @typedef {{
+ *   name: string,
+ *   id: string,
+ *   result: Result,
+ *   families: (RecordedFamily|{ name: string, type: string })[],
+ *   samples: int,
+ *   duration: float,
+ *   budget: ?int,
+ *   skipped: ?string,
+ *   text: ?string
+ * }} Run
+ */
+
+/**
+ * A scrape's reply, as scrape() gives it: its HTTP status line, its content
+ * type and its body.
+ *
+ * @typedef {{ status: string, content_type: string, body: string }} ScrapeReply
+ */
+
+/**
+ * scrape()'s options: when the collectors must be done by (monotonic
+ * seconds), the seconds that left them, and the instance's state.
+ *
+ * @typedef {{ deadline: ?float, budget: ?float, state: ?State }} ScrapeOptions
+ */
+
+/**
+ * collect()'s options, as its comment says.
+ *
+ * @typedef {{
+ *   deadline: ?float,
+ *   quarantine: ?boolean,
+ *   collectors: ?Collector[],
+ *   pid: ?int,
+ *   kept: ?boolean,
+ *   progress: ?ProgressFile,
+ *   omit: ?boolean
+ * }} CollectOptions
+ */
+
+/**
+ * The content type of a scrape's reply: the text exposition format, 0.0.4.
+ *
+ * @type {string}
+ */
 export const CONTENT_TYPE = 'text/plain; version=0.0.4; charset=utf-8';
 
+/**
+ * The family that says the exporter's version.
+ *
+ * @type {string}
+ */
 export const BUILD_INFO = 'ucode_prometheus_exporter_build_info';
+
+/**
+ * The family that says whether a collector is quarantined.
+ *
+ * @type {string}
+ */
 export const QUARANTINED = 'ucode_prometheus_exporter_collector_quarantined';
 
 function seconds(t1, t2) {
 	return (t2[0] - t1[0]) + (t2[1] - t1[1]) / 1000000000.0;
 }
 
-// The collectors a query string selects, in the order it names them (all the
-// enabled ones when it names none), less the excluded. Naming an unknown or a
-// disabled collector is an error; `disabled` holds the module names of those
-// switched off in the config.
+/**
+ * The collectors a query string selects, in the order it names them (all the
+ * enabled ones when it names none), less the excluded. Naming an unknown or a
+ * disabled collector is an error; `disabled` holds the module names of those
+ * switched off in the config.
+ *
+ * @param {Collector[]} collectors the installed collectors.
+ * @param {?string} query_string the scrape's query string.
+ * @param {?string[]} disabled the module names of the disabled ones.
+ * @returns {Result<Collector[]>} the collectors selected, or
+ *   COLLECTOR_INVALID.
+ */
 export function select(collectors, query_string, disabled) {
 	let q = query.parse(query_string);
 	let by_name = {};
@@ -112,14 +208,22 @@ function over_limit(over, max) {
 		sprintf('more than its max_samples of %d: stopped at %d samples, in %s', max, over.samples, over.family));
 }
 
-// Runs one collector: { name, id, result, families, samples, duration,
-// budget }, budget the seconds it may take (config.settings). What it
-// recorded is kept even when it fails, as upstream exporters do; nothing is
-// when it has nothing to observe, nor when it wrote more than its
-// max_samples, which it fails with SAMPLE_LIMIT. job (prometheus_exporter.
-// runner's), when given: its programs never run past job.cutoff (monotonic
-// seconds), its ubus calls past job.limit; job.settings are its settings,
-// read already; job.view is the exporter collector's.
+/**
+ * Runs one collector: { name, id, result, families, samples, duration,
+ * budget }, budget the seconds it may take (config.settings). What it
+ * recorded is kept even when it fails, as upstream exporters do; nothing is
+ * when it has nothing to observe, nor when it wrote more than its
+ * max_samples, which it fails with SAMPLE_LIMIT. job (prometheus_exporter.
+ * runner's), when given: its programs never run past job.cutoff (monotonic
+ * seconds), its ubus calls past job.limit; job.settings are its settings,
+ * read already; job.view is the exporter collector's.
+ *
+ * @param {ScrapeEnv} env the scrape's env.
+ * @param {Session} session the scrape's session.
+ * @param {Collector} c the collector.
+ * @param {?Job} job its job, or null.
+ * @returns {Run} the run.
+ */
 export function run_one(env, session, c, job) {
 	let t1 = env.clock();
 	let res = job?.settings ? Result.ok(job.settings) : config.settings(session.uci(), c.id, c.meta);
@@ -163,8 +267,15 @@ export function run_one(env, session, c, job) {
 	return { name: c.meta.name, id: c.id, result: res, families, samples, duration, budget };
 };
 
-// A collector left out, without running: { name, id, result, families: [],
-// samples: 0, duration: 0, skipped }.
+/**
+ * A collector left out, without running: { name, id, result, families: [],
+ * samples: 0, duration: 0, skipped }.
+ *
+ * @param {Collector} c the collector.
+ * @param {Result} res what it fails with.
+ * @param {string} why 'quarantine' or 'deadline'.
+ * @returns {Run} the run.
+ */
 export function not_run(c, res, why) {
 	return { name: c.meta.name, id: c.id, result: res, families: [], samples: 0, duration: 0, skipped: why };
 };
@@ -175,8 +286,14 @@ function at_deadline(r) {
 	return r.result.error == errors.SCRAPE_DEADLINE;
 }
 
-// The line the scrape logs of the collectors the deadline left out or cut, or
-// null for none.
+/**
+ * The line the scrape logs of the collectors the deadline left out or cut, or
+ * null for none.
+ *
+ * @param {Run[]} runs the scrape's runs.
+ * @param {float} budget the seconds the collectors had.
+ * @returns {?string} the line.
+ */
 export function deadline_line(runs, budget) {
 	let names = map(filter(runs, at_deadline), (r) => r.name);
 
@@ -223,20 +340,29 @@ function runner_of(env, chosen, omit) {
 		: runner.inline(env, run_one, { omit });
 }
 
-// Runs the `chosen` collectors, fastest first by the ledger `l`: each one's
-// run, by id. With `quarantine`, one whose breaker is open does not run. With
-// a deadline, a collector runs only if the ledger expects it done in time to
-// write the reply, its own samples included; its programs never run past that,
-// and it is stopped there. Without one, or before it, it is stopped at its
-// budget's end.
-//
-// A collector that needs `exporter` runs after every other, and sees the
-// scrape so far: the ledger's counters with this scrape's runs, and their
-// samples (deps.exporter_channel). opts: { deadline, quarantine,
-// collectors: the installed ones, pid: the serving process's, null for this
-// one, kept: whether the ledger is the instance's, progress: the scrape's
-// (prometheus_exporter.state), omit: omit_zero_values }. The counters name
-// collectors by their names.
+/**
+ * Runs the `chosen` collectors, fastest first by the ledger `l`: each one's
+ * run, by id. With `quarantine`, one whose breaker is open does not run. With
+ * a deadline, a collector runs only if the ledger expects it done in time to
+ * write the reply, its own samples included; its programs never run past that,
+ * and it is stopped there. Without one, or before it, it is stopped at its
+ * budget's end.
+ *
+ * A collector that needs `exporter` runs after every other, and sees the
+ * scrape so far: the ledger's counters with this scrape's runs, and their
+ * samples (deps.exporter_channel). opts: { deadline, quarantine,
+ * collectors: the installed ones, pid: the serving process's, null for this
+ * one, kept: whether the ledger is the instance's, progress: the scrape's
+ * (prometheus_exporter.state), omit: omit_zero_values }. The counters name
+ * collectors by their names.
+ *
+ * @param {ScrapeEnv} env the scrape's env.
+ * @param {UciCursor} uci the scrape's cursor.
+ * @param {Ledger} l the ledger.
+ * @param {Collector[]} chosen the collectors to run.
+ * @param {?CollectOptions} opts the options.
+ * @returns {Object<string, Run>} each collector's run, by id.
+ */
 export function collect(env, uci, l, chosen, opts) {
 	let by_id = {};
 	let collected = 0;
@@ -332,14 +458,23 @@ export function collect(env, uci, l, chosen, opts) {
 	return by_id;
 };
 
-// A guarded run of `chosen` outside the service's scrapes: check, the ubus
-// object's status, the command line's collector check. Each collector runs as
-// the service's scrapes run it (env.fork: in a child process, stopped at its
-// limit), with the deadline of a scrape whose scraper says no timeout (the
-// main section's scrape_timeout), ordered by the service's ledger `l` (null
-// for none), quarantined or not: it is there to see what each does now.
-// `installed`: every collector, for the exporter's. Its runs, in the order
-// of `chosen`; one the deadline left out has SCRAPE_DEADLINE.
+/**
+ * A guarded run of `chosen` outside the service's scrapes: check, the ubus
+ * object's status, the command line's collector check. Each collector runs as
+ * the service's scrapes run it (env.fork: in a child process, stopped at its
+ * limit), with the deadline of a scrape whose scraper says no timeout (the
+ * main section's scrape_timeout), ordered by the service's ledger `l` (null
+ * for none), quarantined or not: it is there to see what each does now.
+ * `installed`: every collector, for the exporter's. Its runs, in the order
+ * of `chosen`; one the deadline left out has SCRAPE_DEADLINE.
+ *
+ * @param {ScrapeEnv} env the env.
+ * @param {UciCursor} uci the cursor.
+ * @param {?Ledger} l the service's ledger, or null.
+ * @param {Collector[]} chosen the collectors to run.
+ * @param {?Collector[]} installed every collector; `chosen` when null.
+ * @returns {Run[]} the runs.
+ */
 export function trial(env, uci, l, chosen, installed) {
 	let main = config.main(uci);
 	let timeout = main.ok ? main.data.scrape_timeout : config.SCRAPE_TIMEOUT;
@@ -350,14 +485,22 @@ export function trial(env, uci, l, chosen, installed) {
 	return map(chosen, (c) => by_id[c.id]);
 };
 
-// { status, content_type, body } for a scrape with this query string. opts:
-// { deadline: when the collectors must be done by (monotonic seconds),
-//   budget: the seconds that left them, for the log,
-//   state: the instance's state (prometheus_exporter.state), whose ledger
-//          orders the collectors, says which ones the deadline has time
-//          for and which ones their breakers keep out, and records this
-//          scrape }.
-// Whatever order they ran in, the reply has them in the order selected.
+/**
+ * { status, content_type, body } for a scrape with this query string. opts:
+ * { deadline: when the collectors must be done by (monotonic seconds),
+ *   budget: the seconds that left them, for the log,
+ *   state: the instance's state (prometheus_exporter.state), whose ledger
+ *          orders the collectors, says which ones the deadline has time
+ *          for and which ones their breakers keep out, and records this
+ *          scrape }.
+ * Whatever order they ran in, the reply has them in the order selected.
+ *
+ * @param {ScrapeEnv} env the scrape's env.
+ * @param {Collector[]} collectors the installed collectors.
+ * @param {?string} query_string the request's query string.
+ * @param {?ScrapeOptions} opts the options.
+ * @returns {ScrapeReply} the reply.
+ */
 export function scrape(env, collectors, query_string, opts) {
 	let session = env.session();
 	let uci = session.uci();

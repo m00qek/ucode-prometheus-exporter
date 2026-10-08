@@ -1,45 +1,49 @@
-'use strict';
+/**
+ * How a scrape's collectors run: one at a time, in the order a plan picks
+ * them, each run handed back to the plan.
+ *
+ * forked(): in a child process forked from this one (ucode's uloop.task),
+ * which has the collectors loaded already, so a fork costs no compiling. The
+ * child runs them one after another, asking this process for each; this
+ * process holds a timer on each. A collector still running at its limit is
+ * stopped by killing the child, and a new child runs the rest: so is one that
+ * never returns from a loop, or waits in a system call (a FIFO opened with no
+ * writer, a socket that never answers), which nothing inside a process could
+ * stop. A child that dies under a collector (it ran past the memory limit, a
+ * native module crashed, it called exit()) costs that collector, not the
+ * scrape. What a collector logs, the child sends back with its run.
+ *
+ * uhttpd-mod-ucode's VM handles no signals: a ucode signal() handler is never
+ * called there, and the signal's default action ends the request. A child
+ * process, killed from outside, is what stops a collector there.
+ *
+ * inline(): in this process, for the tests: nothing stops a collector there.
+ *
+ * A plan is { next(pid) -> job or null, done(job, run) }. next() is called
+ * each time a collector can start, with the pid of the process it would run
+ * in: it returns the next to run, or null when there is none, and leaves out
+ * (and hands done) any it does not run. A job is
+ * { c, cutoff, limit, at_deadline, budget, settings, view }:
+ *   c            the collector
+ *   cutoff       when its programs must be done by (monotonic seconds), or null
+ *   limit        when it is stopped (monotonic seconds), or null for never:
+ *                its budget's end, or the cutoff when that comes first
+ *   at_deadline  whether the limit is the cutoff
+ *   budget       the seconds it may take (config.settings)
+ *   settings     config.settings' data, or null to read them in the run
+ *   view         the exporter collector's data (deps.exporter_channel)
+ * A run is scrape.run_one's: { name, id, result, families, samples, duration,
+ * budget, text }: its families' names and types, and the text of them the
+ * reply holds (prometheus_exporter.exposition's pack).
+ *
+ * env: { session(log) -> a deps session, clock() -> [ s, ns ] monotonic,
+ *        log(level, msg), mkstemp, readfile: fs's (forked's) };
+ * run_fn(env, session, c, job) -> a run.
+ *
+ * @module prometheus_exporter_runner
+ */
 
-// How a scrape's collectors run: one at a time, in the order a plan picks
-// them, each run handed back to the plan.
-//
-// forked(): in a child process forked from this one (ucode's uloop.task),
-// which has the collectors loaded already, so a fork costs no compiling. The
-// child runs them one after another, asking this process for each; this
-// process holds a timer on each. A collector still running at its limit is
-// stopped by killing the child, and a new child runs the rest: so is one that
-// never returns from a loop, or waits in a system call (a FIFO opened with no
-// writer, a socket that never answers), which nothing inside a process could
-// stop. A child that dies under a collector (it ran past the memory limit, a
-// native module crashed, it called exit()) costs that collector, not the
-// scrape. What a collector logs, the child sends back with its run.
-//
-// uhttpd-mod-ucode's VM handles no signals: a ucode signal() handler is never
-// called there, and the signal's default action ends the request. A child
-// process, killed from outside, is what stops a collector there.
-//
-// inline(): in this process, for the tests: nothing stops a collector there.
-//
-// A plan is { next(pid) -> job or null, done(job, run) }. next() is called
-// each time a collector can start, with the pid of the process it would run
-// in: it returns the next to run, or null when there is none, and leaves out
-// (and hands done) any it does not run. A job is
-// { c, cutoff, limit, at_deadline, budget, settings, view }:
-//   c            the collector
-//   cutoff       when its programs must be done by (monotonic seconds), or null
-//   limit        when it is stopped (monotonic seconds), or null for never:
-//                its budget's end, or the cutoff when that comes first
-//   at_deadline  whether the limit is the cutoff
-//   budget       the seconds it may take (config.settings)
-//   settings     config.settings' data, or null to read them in the run
-//   view         the exporter collector's data (deps.exporter_channel)
-// A run is scrape.run_one's: { name, id, result, families, samples, duration,
-// budget, text }: its families' names and types, and the text of them the
-// reply holds (prometheus_exporter.exposition's pack).
-//
-// env: { session(log) -> a deps session, clock() -> [ s, ns ] monotonic,
-//        log(level, msg), mkstemp, readfile: fs's (forked's) };
-// run_fn(env, session, c, job) -> a run.
+'use strict';
 
 import * as uloop from 'uloop';
 import * as Result from 'prometheus_exporter.result';
@@ -47,6 +51,39 @@ import * as errors from 'prometheus_exporter.errors';
 import * as exposition from 'prometheus_exporter.exposition';
 import { seconds } from 'prometheus_exporter.deadline';
 import { POLL_MS } from 'prometheus_exporter.probe';
+
+/**
+ * A job, as the module's top comment says: what a plan's next() returns.
+ *
+ * @typedef {{
+ *   c: Collector,
+ *   cutoff: ?float,
+ *   limit: ?float,
+ *   at_deadline: boolean,
+ *   budget: ?int,
+ *   settings: ?Settings,
+ *   view: ?ExporterView
+ * }} Job
+ */
+
+/**
+ * A plan, as the module's top comment says: next(pid), the next job or
+ * null; done(job, run), each run handed back.
+ *
+ * @typedef {{ next: (pid: ?int) => ?Job, done: (job: Job, run: Run) => void }} Plan
+ */
+
+/**
+ * A runner, inline()'s or forked()'s: run(plan) runs a plan's collectors.
+ *
+ * @typedef {{ run: (plan: Plan) => void }} Runner
+ */
+
+/**
+ * What runs one collector: scrape.run_one, or a test's.
+ *
+ * @typedef {(env: ScrapeEnv, session: Session, c: Collector, job: ?Job) => Run} RunFn
+ */
 
 function now(env) {
 	return seconds(env.clock());
@@ -57,9 +94,15 @@ function stopped(job, res, took) {
 	return { name: job.c.meta.name, id: job.c.id, result: res, families: [], samples: 0, duration: took, budget: job.budget, text: '' };
 }
 
-// The run of a collector stopped at its limit: its budget's end, or the
-// scrape's deadline. One at the deadline is SCRAPE_DEADLINE, as a program
-// killed there is: the scrape's time was spent, not the collector's budget.
+/**
+ * The run of a collector stopped at its limit: its budget's end, or the
+ * scrape's deadline. One at the deadline is SCRAPE_DEADLINE, as a program
+ * killed there is: the scrape's time was spent, not the collector's budget.
+ *
+ * @param {Job} job its job.
+ * @param {float} took the seconds it ran.
+ * @returns {Run} the run: SCRAPE_DEADLINE or COLLECTOR_CANCELLED.
+ */
 export function cancelled(job, took) {
 	if (job.at_deadline)
 		return stopped(job, Result.err(errors.SCRAPE_DEADLINE,
@@ -69,16 +112,28 @@ export function cancelled(job, took) {
 		sprintf('still running after %.2f s, over its budget of %d s: stopped', took, job.budget)), took);
 };
 
-// The run of a collector whose process ended under it.
+/**
+ * The run of a collector whose process ended under it.
+ *
+ * @param {Job} job its job.
+ * @param {float} took the seconds it ran.
+ * @returns {Run} the run: COLLECTOR_KILLED.
+ */
 export function killed(job, took) {
 	return stopped(job, Result.err(errors.COLLECTOR_KILLED,
 		sprintf('its process ended while it ran, after %.2f s: out of memory, a crash, or exit()', took)), took);
 };
 
-// A run, and what was logged with it, as the child hands it over: a line of
-// JSON, { name, id, result, samples, duration, budget, logs, families: [
-// [ name, type ] ] }, its Result without its prototype, and then its text,
-// as it is: JSON would escape every quote of every label.
+/**
+ * A run, and what was logged with it, as the child hands it over: a line of
+ * JSON, { name, id, result, samples, duration, budget, logs, families: [
+ * [ name, type ] ] }, its Result without its prototype, and then its text,
+ * as it is: JSON would escape every quote of every label.
+ *
+ * @param {Run} r the run, packed (its text written).
+ * @param {string[][]} logs what was logged with it: [ level, msg ] pairs.
+ * @returns {string} the line of JSON and the text.
+ */
 export function pack(r, logs) {
 	let res = r.result;
 	let head = {
@@ -90,7 +145,13 @@ export function pack(r, logs) {
 	return sprintf('%J\n', head) + r.text;
 };
 
-// The run of pack()'s text, and its logs: { run, logs }.
+/**
+ * The run of pack()'s text, and its logs: { run, logs }.
+ *
+ * @param {string} text pack()'s text.
+ * @returns {{ run: Run, logs: string[][] }} the run, its Result made one
+ *   again, and its logs.
+ */
 export function unpack(text) {
 	let nl = index(text, '\n');
 	let head = json(substr(text, 0, nl));
@@ -128,6 +189,15 @@ function log_stopped(env, r) {
 		env.log('warning', `collector '${r.name}': ${Result.describe(r.result)}`);
 }
 
+/**
+ * The runner in this process, for the tests: each job's collector run
+ * here, one after another; nothing stops a collector.
+ *
+ * @param {ScrapeEnv} env the scrape's env.
+ * @param {RunFn} run_fn what runs one collector.
+ * @param {?{ omit: ?boolean }} opts omit: omit_zero_values.
+ * @returns {Runner} the runner.
+ */
 export function inline(env, run_fn, opts) {
 	return {
 		run: function(plan) {
@@ -143,8 +213,13 @@ export function inline(env, run_fn, opts) {
 
 const STATUS = /^(VmHWM|VmData|VmRSS):\s+([0-9]+) kB/;
 
-// This process's memory, in kB: { VmHWM, VmData, VmRSS }, for the benchmark.
-// readfile: fs's.
+/**
+ * This process's memory, in kB: { VmHWM, VmData, VmRSS }, for the benchmark.
+ * readfile: fs's.
+ *
+ * @param {function(string): ?string} readfile fs's readfile.
+ * @returns {Object<string, int>} VmHWM, VmData and VmRSS, in kB.
+ */
 export function memory(readfile) {
 	let m = {};
 
@@ -195,12 +270,23 @@ function child_of(st) {
 	};
 }
 
-// opts: { collectors: every collector a plan may pick, omit, stats, tmp }.
-// stats, when given, is an object it fills in: children, how many it forked;
-// child, the memory of the last that ran to its end (memory()). tmp: the
-// directory of the file the runs cross by (/tmp), which is removed as soon as
-// it is made, and gone with the scrape: on tmpfs, the state's in the jail.
-
+/**
+ * The runner in a child process forked from this one, as the module's top
+ * comment says: a collector still running at its limit is stopped with the
+ * process, and a new child runs the rest.
+ *
+ * opts: { collectors: every collector a plan may pick, omit, stats, tmp }.
+ * stats, when given, is an object it fills in: children, how many it forked;
+ * child, the memory of the last that ran to its end (memory()). tmp: the
+ * directory of the file the runs cross by (/tmp), which is removed as soon as
+ * it is made, and gone with the scrape: on tmpfs, the state's in the jail.
+ *
+ * @param {ScrapeEnv} env the scrape's env.
+ * @param {RunFn} run_fn what runs one collector.
+ * @param {?{ collectors: ?Collector[], omit: ?boolean, stats: ?Object, tmp: ?string }} opts
+ *   the options.
+ * @returns {Runner} the runner.
+ */
 export function forked(env, run_fn, opts) {
 	return {
 		run: function(plan) {
