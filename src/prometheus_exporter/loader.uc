@@ -413,12 +413,17 @@ function instead(module) {
 	return `a collector imports ${API} alone`;
 }
 
+// What a collector does instead of calling system(): a program it starts so
+// outlives the child process a scrape kills under it, and runs on.
+const INSTEAD_OF_SYSTEM = "a collector runs programs through deps.exec, with 'exec' in meta.needs and the program in meta.commands, which kills one still running at its timeout";
+
 /**
  * Why a collector module's text loads what a collector may not, or null: it
- * imports a module other than the collector API, or calls require, loadfile
- * or loadstring, which load code past its imports. A collector takes the
- * system through the capabilities collect() gets in deps, and what it uses of
- * the exporter from the API. The loader logs the same text, `collector check`
+ * imports a module other than the collector API, or calls require, loadfile,
+ * loadstring or include, which load code past its imports, or system, which
+ * starts a program nothing stops. A collector takes the system through the
+ * capabilities collect() gets in deps, and what it uses of the exporter from
+ * the API. The loader logs the same text, `collector check`
  * fails with it, and the tests hold our collectors to it.
  *
  * @param {string} text the collector module's text.
@@ -433,7 +438,7 @@ export function import_problem(text) {
 			push(problems, `imports ${i.module} (line ${i.line}): ${instead(i.module)}`);
 
 	for (let l in found.loads)
-		push(problems, `calls ${l.fn}(${l.module != null ? sprintf('%J', l.module) : ''}) (line ${l.line}): ${instead(l.module)}`);
+		push(problems, `calls ${l.fn}(${l.module != null ? sprintf('%J', l.module) : ''}) (line ${l.line}): ${(l.fn == 'system') ? INSTEAD_OF_SYSTEM : instead(l.module)}`);
 
 	return length(problems) ? join('; ', problems) : null;
 };

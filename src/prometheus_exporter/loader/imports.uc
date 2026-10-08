@@ -6,9 +6,11 @@
  * imports(text): { imports: [ { module, line } ], loads: [ { fn, module, line } ] }
  *   imports  each import statement's module, in order, and the line the
  *            statement starts on
- *   loads    each call of require, loadfile or loadstring, which load code
- *            past the imports; `module`, require's module or loadfile's
- *            path when it is a string literal on the call's line, else null
+ *   loads    each call of require, loadfile, loadstring or include, which
+ *            load code past the imports, and of system, which runs a
+ *            program no one stops; `module`, require's module or loadfile's
+ *            or include's path when it is a string literal on the call's
+ *            line, else null
  *
  * Comments, strings, templates and regular expression literals are passed
  * over as the compiler passes over them, so an import in a comment or a
@@ -27,8 +29,11 @@
 
 'use strict';
 
-const KEYWORDS = [ 'import', 'require', 'loadfile', 'loadstring' ];
-const CALLS = [ 'require', 'loadfile', 'loadstring' ];
+const KEYWORDS = [ 'import', 'require', 'loadfile', 'loadstring', 'include', 'system' ];
+const CALLS = [ 'require', 'loadfile', 'loadstring', 'include', 'system' ];
+
+// The calls whose argument is code or a command, not a module's name.
+const NOT_NAMED = [ 'loadstring', 'system' ];
 
 // After these words an expression starts, so a '/' begins a regular
 // expression, not a division.
@@ -166,7 +171,7 @@ function read_line(st, found, line, at, i) {
 				let m = match(substr(line, j), CALL);
 
 				if (m)
-					push(found, { at: at + i, fn: word, module: (m[1] && word != 'loadstring') ? literal(m[1]) : null });
+					push(found, { at: at + i, fn: word, module: (m[1] && !(word in NOT_NAMED)) ? literal(m[1]) : null });
 			}
 
 			i = j;
@@ -213,8 +218,8 @@ function number(text, found) {
 /**
  * What a module's text imports and loads, read without compiling it: each
  * import statement's module and the line it starts on, and each call of
- * require, loadfile or loadstring, with its module or path when it is a
- * string literal on the call's line.
+ * require, loadfile, loadstring, include or system, with its module or path
+ * when it is a string literal on the call's line.
  *
  * @param {*} text the module's text; anything but a string holds nothing.
  * @returns {{ imports: { module: string, line: int }[], loads: { fn: string, module: ?string, line: int }[] }}

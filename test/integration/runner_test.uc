@@ -289,6 +289,34 @@ describe('runner.forked', () => {
 		assert.match([ [ 'warning', "cannot make the file the collectors' runs cross by, in /nowhere; running the collectors in the scrape's own process" ] ], logs);
 	});
 
+	// A program a collector started, killed with its child, would run on: three
+	// scrapes once left three sleeps. system() is refused by the loader; a
+	// native module's process, or one started any other way, is not.
+	it('kills what a collector it stops started, with its child', () => {
+		let starter = collector('starter', function() {
+			// Its descriptors closed, so that one left running holds no
+			// pipe of the scrape's open: it shows, rather than hangs it.
+			system('for fd in 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19; do eval "exec $fd>&-"; done; exec sleep 3083 </dev/null >/dev/null 2>&1');
+			return Result.ok();
+		});
+		let queue = [ starter ];
+		let runs = [];
+		let plan = {
+			next: function() {
+				let c = shift(queue);
+
+				return c ? { c, cutoff: null, limit: now() + 0.5, at_deadline: false, budget: 0, settings: { budget: 0, max_samples: 10, options: {} } } : null;
+			},
+			done: (job, r) => push(runs, r),
+		};
+
+		runner.forked({ ...env_of([]), kill: (pid) => deps.kill_tree(fs.popen, pid) }, scrape.run_one, { collectors: [ starter ] }).run(plan);
+
+		let sleeping = filter(fs.glob('/proc/[0-9]*/cmdline'), (f) => fs.readfile(f) == 'sleep\u00003083\u0000');
+
+		assert.match([ [ [ 'starter', 'COLLECTOR_CANCELLED' ] ], [] ], [ map(runs, summary), sleeping ]);
+	});
+
 	it('leaves no child behind', () => {
 		run_forked([ LOOP, QUITTER, gauge('a', 1) ], 0.2);
 

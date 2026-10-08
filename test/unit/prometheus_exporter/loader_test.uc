@@ -304,6 +304,20 @@ describe('loader.import_problem', () => {
 		]), loader.import_problem(API + "import { abs } from 'math';\nlet fs = require('fs');\nlet f = loadstring(src);\n"));
 	});
 
+	// A program system() starts outlives the child a scrape kills under the
+	// collector: three scrapes once left three sleeps running.
+	it('refuses system(), pointing at deps.exec, and include(), which loads code as require() does', () => {
+		assert.match(join('; ', [
+			"calls system() (line 3): a collector runs programs through deps.exec, with 'exec' in meta.needs and the program in meta.commands, which kills one still running at its timeout",
+			'calls include("helper.uc") (line 4): a collector imports prometheus_exporter.api alone',
+		]), loader.import_problem(API + "system('sleep 3600 &');
+include('helper.uc');
+let s = 'system(\'x\')'; // system('y')
+d.ubus.call('system', 'board');
+ex.system('/proc/stat');
+"));
+	});
+
 	it('is why the loader leaves a module out by its text: strict mode first, then its imports', () => {
 		assert.match([
 			"not in strict mode: its first statement must be 'use strict'",

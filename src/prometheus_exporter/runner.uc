@@ -38,7 +38,8 @@
  * reply holds (prometheus_exporter.exposition's pack).
  *
  * env: { session(log) -> a deps session, clock() -> [ s, ns ] monotonic,
- *        log(level, msg), mkstemp, readfile: fs's (forked's) };
+ *        log(level, msg), mkstemp, readfile: fs's (forked's), kill(pid): a
+ *        child it stops, killed with every process under it (forked's) };
  * run_fn(env, session, c, job) -> a run.
  *
  * @module prometheus_exporter_runner
@@ -452,6 +453,10 @@ export function forked(env, run_fn, opts) {
 				if (st.job?.limit != null && now(st.env) >= st.job.limit) {
 					let r = cancelled(st.job, took);
 
+					// What it started first, as the child's own end would
+					// leave it running, its parent gone (env.kill).
+					if (st.env.kill)
+						st.env.kill(st.task.pid());
 					st.task.kill();
 					log_stopped(st.env, r);
 					finish(r);

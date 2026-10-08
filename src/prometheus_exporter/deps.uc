@@ -127,8 +127,9 @@ export const load_socket = socket_module.load_socket;
 
 // exec: a collector's programs under the watchdog, the script that runs
 // one, how an argument is quoted, the seconds they get and how a killed one
-// closes.
+// closes; and how a process is killed with every process under it.
 export const exec_channel = exec_module.exec_channel;
+export const kill_tree = exec_module.kill_tree;
 export const exec_script = exec_module.exec_script;
 export const shell_quote = exec_module.shell_quote;
 export const EXEC_SECONDS = exec_module.EXEC_SECONDS;

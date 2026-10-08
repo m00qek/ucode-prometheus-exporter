@@ -70,8 +70,9 @@ import { bury, log_breakers } from 'prometheus_exporter.progress';
 /**
  * The env a scrape runs collectors in, as the module's top comment says
  * (app.scrape_env makes it): mkstemp and readfile are fs's, which the forked
- * runner takes; kill(pid) kills a collector's child process a scrape left
- * behind (prometheus_exporter.progress).
+ * runner takes; kill(pid) kills a collector's child process, with every
+ * process under it: one the runner stops, or one a scrape left behind
+ * (prometheus_exporter.progress).
  *
  * @typedef {{
  *   session: (log: ?Log) => Session,
