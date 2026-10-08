@@ -120,6 +120,15 @@ start_service() {
 	# its own default, said here, as the exporter caps a scrape's deadline by
 	# it (prometheus_exporter.config's SCRIPT_TIMEOUT).
 	procd_append_param command -t 60
+	# What uhttpd serves at once, said rather than left to its defaults (3
+	# and 100). Its scrapers are one or two Prometheus servers, each keeping
+	# a connection to it (-k) and scraping on it once an interval; LuCI
+	# reaches the exporter through rpcd, not here. 3 requests run at once:
+	# two scrapers' scrapes that overlap, and one more, a person's curl. Each
+	# is a full scrape, or with basic auth a hash's check first; one past
+	# them waits for its turn. And 10 connections: those of the scrapers,
+	# and room for a few more, which bounds the requests that can wait.
+	procd_append_param command -n 3 -N 10
 
 	if [ -f "$cert" ] && [ -f "$key" ]; then
 		listen=-s

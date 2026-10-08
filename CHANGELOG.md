@@ -4,11 +4,14 @@ What each release changes, for those who run the exporter and those who write co
 
 ## [Unreleased]
 
+### Changed
+
+- uhttpd runs at most 3 requests at once over at most 10 connections (`-n 3 -N 10`), where it took its defaults of 3 and 100: one or two scrapers need no more, and a client that reaches the port can queue fewer scrapes behind it. The port is meant for the scrapers alone: [How to listen on the LAN](docs/how-to/listen-on-lan.md#keep-it-to-the-scrapers) has the firewall rules that keep it so, and [HTTP endpoint](docs/reference/http.md#keep-alive) says why keep-alive is 70 seconds.
+
 ### Fixed
 
 - **A scrape spent nearly as long besides its collectors as in them.** Each collector's settings read the main section of the config two or three times over, and each value of a range option made its datatype anew: on the NanoPi R3S a scrape of 37 collectors took 0.79 to 0.89 s through uhttpd, 0.47 s of it collectors. A scrape now reads the main section once, a range is made once, and what was done for each family is done in one pass; on QEMU's 500-MIPS MIPS 24Kc a scrape of the `-full` group takes 1.16 s where 0.2.0 took 1.44 s, and 0.59 s besides its collectors where 0.2.0 took 0.87 s. Nothing waited on a timer: see [Performance on small routers](docs/explanation/performance.md#besides-the-collectors).
 - **uhttpd kept six descriptors open for each collector.** Each collector was compiled as a program of its own, with its own copy of the collector API and the modules behind it, whose source files ucode keeps open: 268 descriptors for 37 collectors on the R3S, toward the limit of 1024. The collectors are compiled as one program, once each has loaded in a child process of its own: one descriptor each, and the API's once. Loading them takes 0.37 s on the 24Kc where it took 0.93 s, and uhttpd holds 3.5 MB where it held 5.2 MB. A collector that writes over what the API exports would now write over it for the others; none has a reason to.
-
 - **The install guide left out the feed.** The base package depends on `ucode-docopt`, which OpenWrt's feeds do not have, so its `apk add` failed on a device without the exporter's feed. [How to install the exporter](docs/how-to/install.md) adds the feed and its key first, as the README and the tutorial do, and its `.apk` example names `ucode-docopt` and no stale version.
 - **`hash-password` at a terminal dropped the spaces a password starts or ends with**, so the hash took another password than the one typed. It keeps them now, as it did from standard input: either way only the CR and LF that end the line go.
 - **A renewed certificate was not picked up.** The jail kept the certificate and key the service started with, and a reload left the instance running, as their paths had not changed. A reload now restarts it when either file changed: see [How to serve HTTPS with basic auth](docs/how-to/https-basic-auth.md#renew-the-certificate).

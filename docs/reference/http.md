@@ -88,6 +88,14 @@ The password is checked against the hash: `$1$` (MD5-crypt), `$5$` (SHA-256-cryp
 
 uhttpd keeps an idle connection open `http_keepalive` seconds (70), with `-k`: `Keep-Alive: timeout=70`. At `0` it answers `Connection: close` and closes each connection once it has answered.
 
+70 seconds outlasts Prometheus's default `scrape_interval` of 60: its connection stays open from one scrape to the next, and each scrape reuses it, without a new TCP connection or, over HTTPS, a new TLS handshake, which costs a router's CPU more than a scrape's request does. A scraper that scrapes less often than every 70 seconds connects again each time; set `http_keepalive` above its interval to spare it that.
+
+## Connections
+
+uhttpd runs at most 3 requests at once (`-n 3`), over at most 10 connections (`-N 10`), the init script says, rather than leave it to uhttpd's defaults, 3 and 100. The service is scraped by one or two Prometheus servers, each over a connection of its own that keep-alive keeps open; LuCI reaches the exporter through rpcd, not over this port. Each request is a full scrape, or with basic auth a check of the hash first: 3 at once are two scrapers' scrapes that overlap and one more, as a curl's. A request past them waits until one ends, and the connections bound how many can wait. uhttpd gives each request 60 seconds (`-t 60`), as `scrape_timeout` reckons.
+
+The port should be reachable by the scrapers alone: whoever reaches it can make the router scrape, and hash, again and again. See [How to listen on the LAN](../how-to/listen-on-lan.md#keep-it-to-the-scrapers).
+
 ## See also
 
 - [How to serve HTTPS with basic auth](../how-to/https-basic-auth.md)

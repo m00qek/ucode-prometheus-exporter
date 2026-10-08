@@ -438,6 +438,7 @@ set_config "$NAME.main.exec_timeout=5"
 deadline_fetch() { wget -q -O - --header="X-Prometheus-Scrape-Timeout-Seconds: $1" "$URL"; }
 quarantined() { grep -qx "ucode_prometheus_exporter_collector_quarantined{collector=\"$1\"} 1" "$2"; }
 check "uhttpd gives a scrape 60 seconds, as the exporter reckons" says ' -t 60 ' command_line
+check "and runs 3 requests at once, over 10 connections at most" says ' -n 3 -N 10 ' command_line
 eventually "exec_timeout 5 again restarts the instance" restarted_from "$before"
 before=$(pid)
 # Every other collector timed once: ubnt-manager, never run, runs after them.

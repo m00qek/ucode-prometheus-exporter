@@ -56,7 +56,7 @@ service prometheus-exporter status
 
 ```
 running
-listening on https://192.168.1.1:9100/metrics, basic auth, gzip when asked, serving 15 collectors
+listening on https://192.168.1.1:9100/metrics, basic auth, gzip when asked, serving 16 collectors
 ```
 
 From the machine that scrapes:

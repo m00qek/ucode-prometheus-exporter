@@ -32,7 +32,7 @@ service prometheus-exporter status
 
 ```
 running
-listening on http://192.168.1.1:9100/metrics, http://[fd00:ab:cd::1]:9100/metrics, gzip when asked, serving 15 collectors
+listening on http://192.168.1.1:9100/metrics, http://[fd00:ab:cd::1]:9100/metrics, gzip when asked, serving 16 collectors
 ```
 
 From the machine that will scrape it:
@@ -59,6 +59,30 @@ curl -s http://192.168.1.1:9100/metrics | head
     Never open it from `wan`: the metrics name your devices, addresses and clients.
 
 - `status` does not say `running`: the interface has no address yet, and the service waits for it. Check `ifstatus lan`.
+
+## Keep it to the scrapers
+
+Every request to `/metrics` is a scrape, which costs the router its CPU for a while, and with basic auth a password's check, which costs more; uhttpd runs 3 at once and has the rest wait (see [HTTP endpoint](../reference/http.md#connections)). So whoever reaches the port can delay the scrapes Prometheus makes. Let only the scrapers reach it: a rule that accepts the port from the Prometheus host alone, before the zone's own policy, and drops it for the rest of the zone:
+
+```sh
+uci add firewall rule
+uci set firewall.@rule[-1].name='Allow-Prometheus'
+uci set firewall.@rule[-1].src='lan'
+uci set firewall.@rule[-1].src_ip='192.168.1.10'
+uci set firewall.@rule[-1].dest_port='9100'
+uci set firewall.@rule[-1].proto='tcp'
+uci set firewall.@rule[-1].target='ACCEPT'
+uci add firewall rule
+uci set firewall.@rule[-1].name='Deny-Prometheus-others'
+uci set firewall.@rule[-1].src='lan'
+uci set firewall.@rule[-1].dest_port='9100'
+uci set firewall.@rule[-1].proto='tcp'
+uci set firewall.@rule[-1].target='REJECT'
+uci commit firewall
+service firewall reload
+```
+
+with the Prometheus host's address for `192.168.1.10`. fw4 matches rules in order, so the first lets it in and the second keeps the rest of the LAN out.
 
 ---
 

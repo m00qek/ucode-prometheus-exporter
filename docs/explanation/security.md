@@ -56,6 +56,8 @@ A `$5$` or `$6$` hash may name up to 9,999,999 rounds. A hash of that many would
 
 The exporter listens on loopback until told otherwise: a fresh install exposes nothing. `listen_interface` takes a logical interface, so it follows that interface's addresses; `*`, every address, is a choice to make deliberately, since it includes the WAN's.
 
+Once it listens on the LAN, the port is meant for the scrapers alone, and the firewall is what keeps it so ([How to listen on the LAN](../how-to/listen-on-lan.md#keep-it-to-the-scrapers)). Every request is a scrape, or a check of a password, and either costs the router CPU; a client that reaches the port without credentials still makes the handler check the ones it sends. uhttpd runs 3 requests at once and keeps at most 10 connections, so such a client delays the scrapes, and no more: requests past those wait their turn, and the connections bound how many can wait. See [HTTP endpoint](../reference/http.md#connections).
+
 ## Trade-offs
 
 - **The jail is not a sandbox against a hostile collector.** It narrows what the installed collectors can reach; it does not vet them. A collector package is code you choose to run as root: see [Buggy, not hostile](#buggy-not-hostile).
