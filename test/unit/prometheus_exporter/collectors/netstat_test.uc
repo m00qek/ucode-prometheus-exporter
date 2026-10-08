@@ -173,6 +173,43 @@ describe('collectors.netstat', () => {
 		});
 	});
 
+	// The default is checked with lookups, not matched: what it exports must
+	// be what the pattern, matched, exports (any other string of it is).
+	it("exports the same default fields of every capture as the pattern does, matched", () => {
+		for (let data in [ ROUTER, AP ]) {
+			let looked, matched;
+
+			with_collector(netstat, { fs: { data } }, (r) => looked = r.lines);
+			with_collector(netstat, { fs: { data }, options: { fields: `(${netstat.DEFAULT_FIELDS})` } }, (r) => matched = r.lines);
+			assert.match(matched, looked);
+		}
+	});
+
+	prop('exports the same default fields of any section as the pattern does, matched',
+		gen.array(gen.tuple(
+			gen.elements('Ip', 'Ip6', 'IpExt', 'Icmp', 'Icmp6', 'Tcp', 'TcpExt', 'Udp', 'Udp6', 'UdpLite', 'X'),
+			gen.array(gen.elements('Forwarding', 'InOctets', 'OutOctets', 'InMsgs', 'OutMsgs', 'Listen', 'ListenDrops',
+				'Syncookies', 'SyncookiesSent', 'TCPSynRetrans', 'TCPTimeouts', 'TCPOFOQueue', 'TCPRcvQDrop', 'ActiveOpens',
+				'InSegs', 'CurrEstab', 'InDatagrams', 'NoPorts', 'RcvbufErrors', 'SndbufErrors', 'InErrors', 'InErrs',
+				'XInErrors', 'InErrorsX', '_InErrs', 'InErr', 'TCPSynRetransX', 'xListen', 'OutRsts', 'RetransSegs'),
+				{ min_len: 1, max_len: 8 })), { min_len: 1, max_len: 4 }), (sections) => {
+			let text = '';
+
+			for (let i, s in sections) {
+				let name = s[0] + ((i > 0) ? `${i}` : '');
+				let names = uniq(s[1]);
+
+				text += `${name}: ${join(' ', names)}\n${name}: ${join(' ', map(names, (n, j) => j))}\n`;
+			}
+
+			let data = { '/proc/net/netstat': text, '/proc/net/snmp': null, '/proc/net/snmp6': null };
+			let looked, matched;
+
+			with_collector(netstat, { fs: { data } }, (r) => looked = r.lines);
+			with_collector(netstat, { fs: { data }, options: { fields: `(${netstat.DEFAULT_FIELDS})` } }, (r) => matched = r.lines);
+			assert.match(matched, looked, text);
+		});
+
 	it('exports the fields its own pattern matches', () => {
 		with_collector(netstat, { fs: { data: ROUTER }, options: { fields: '^Tcp_(InSegs|OutSegs)$' } }, (r) => {
 			assert.match(true, r.result.ok);

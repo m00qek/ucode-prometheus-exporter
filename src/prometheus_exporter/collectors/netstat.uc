@@ -48,12 +48,35 @@ const SNMP6 = '/proc/net/snmp6';
 // The protocols of /proc/net/snmp6's names, as node_exporter splits them.
 const SNMP6_NAME = /^(Ip6|Icmp6|UdpLite6|Udp6)(.+)$/;
 
+// The fields DEFAULT_FIELDS names whole. With these, a field it matches is one
+// of them, or starts with TcpExt_Listen or TcpExt_Syncookies, or ends with
+// _InErrors or _InErrs (default_field). A scrape checks each of the kernel's
+// 400 or so fields, and musl's regexec takes 14 us in the devenv to match one
+// against the pattern, a third of a millisecond on a 500-MIPS 24Kc: the
+// default, which nearly every router has, is checked with lookups instead,
+// and any other pattern is matched.
+const DEFAULT_WHOLE = {
+	Ip_Forwarding: true, Ip6_InOctets: true, Ip6_OutOctets: true, IpExt_InOctets: true, IpExt_OutOctets: true,
+	Icmp_InMsgs: true, Icmp_OutMsgs: true, Icmp6_InMsgs: true, Icmp6_OutMsgs: true,
+	TcpExt_TCPSynRetrans: true, TcpExt_TCPTimeouts: true, TcpExt_TCPOFOQueue: true, TcpExt_TCPRcvQDrop: true,
+	Tcp_ActiveOpens: true, Tcp_InSegs: true, Tcp_OutSegs: true, Tcp_OutRsts: true, Tcp_PassiveOpens: true,
+	Tcp_RetransSegs: true, Tcp_CurrEstab: true,
+	Udp_InDatagrams: true, Udp_OutDatagrams: true, Udp_NoPorts: true, Udp_RcvbufErrors: true, Udp_SndbufErrors: true,
+	Udp6_InDatagrams: true, Udp6_OutDatagrams: true, Udp6_NoPorts: true, Udp6_RcvbufErrors: true, Udp6_SndbufErrors: true,
+};
+
+// Whether DEFAULT_FIELDS matches a field.
+function default_field(field) {
+	return DEFAULT_WHOLE[field] == true || substr(field, 0, 13) == 'TcpExt_Listen' || substr(field, 0, 17) == 'TcpExt_Syncookies' ||
+		substr(field, -9) == '_InErrors' || substr(field, -7) == '_InErrs';
+}
+
 // With node_exporter's help: "Statistic TcpExtSyncookiesSent." A field the
-// pattern does not match is left out.
+// pattern does not match is left out; a null pattern is DEFAULT_FIELDS.
 function record(out, pattern, section, name, value) {
 	let field = `${section}_${name}`;
 
-	if (match(field, pattern))
+	if (pattern ? match(field, pattern) : default_field(field))
 		out.untyped(`node_netstat_${field}`, `Statistic ${section}${name}.`)(null, value);
 }
 
@@ -110,10 +133,11 @@ function parse_snmp6(fs, out, pattern) {
 }
 
 export function collect(deps, out, options) {
-	let pattern;
+	let pattern = null;
 
 	try {
-		pattern = regexp(options.fields);
+		if (options.fields != DEFAULT_FIELDS)
+			pattern = regexp(options.fields);
 	} catch (e) {
 		return Result.err(errors.CONFIG_INVALID, `fields: ${e.message}`);
 	}
