@@ -742,7 +742,8 @@ check "a memory_limit the handler cannot load in keeps the running instance" tes
 check "check says why" says 'FAIL main: CONFIG_INVALID (memory_limit: expected 0, or an integer of 8 or more, got 2)' "$INIT" check
 set_config "$NAME.main.memory_limit=8"
 eventually "memory_limit 8 restarts the instance" restarted_from "$before"
-eventually "which answers for every installed collector" all_answer
+enabled_answer() { [ "$(fetch | grep -c '^node_scrape_collector_success{')" -eq "$($NAME collector list | grep -c ' enabled ')" ]; }
+eventually "which answers for every enabled collector" enabled_answer
 check "and loaded them all" says "serving $(installed) collectors" sh -c "logread | grep 'daemon.info $NAME\[' | tail -1"
 check "each of its processes may take 8 MB of data" grep -q '^Max data size *8388608 *8388608 *bytes' /proc/$(uhttpd_of)/limits
 before=$(pid)
@@ -842,7 +843,7 @@ check "the hash is in no reply of the ubus object, nor in check, status or the l
 # reads that the config sets basic auth, and denies every request.
 before=$(pid)
 mv "$AUTH_FILE" "$AUTH_FILE.e2e"
-kill -KILL "$before"
+kill -KILL "$(uhttpd_of)"
 eventually "procd starts the instance again" restarted_from "$before"
 denied() { [ "$(status_of "$@")" = 'HTTP error 500' ]; }
 eventually "without basic auth's file, it denies a scrape with the right credentials" denied --user=prom --password=e2e-secret
