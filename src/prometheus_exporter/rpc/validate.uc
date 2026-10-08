@@ -1,23 +1,36 @@
-'use strict';
+/**
+ * The ubus object's `validate`: values checked as the exporter would read
+ * them (prometheus_exporter.rpc).
+ *
+ * validate takes values as uci holds them (strings) and checks each alone, as
+ * the exporter would read it: an empty or missing value is unset. Options nobody
+ * declared, and collectors that are not installed, are ignored, as the exporter
+ * ignores them. The main section's options that go together (basic auth's user
+ * and hash, which need cert and key) are checked as if the values given were the
+ * whole section. A message never holds auth_password's value. Malformed
+ * arguments are answered { error: ARGS_INVALID, message }.
+ *
+ * @module prometheus_exporter_rpc_validate
+ */
 
-// The ubus object's `validate`: values checked as the exporter would read
-// them (prometheus_exporter.rpc).
-//
-// validate takes values as uci holds them (strings) and checks each alone, as
-// the exporter would read it: an empty or missing value is unset. Options nobody
-// declared, and collectors that are not installed, are ignored, as the exporter
-// ignores them. The main section's options that go together (basic auth's user
-// and hash, which need cert and key) are checked as if the values given were the
-// whole section. A message never holds auth_password's value. Malformed
-// arguments are answered { error: ARGS_INVALID, message }.
+'use strict';
 
 import * as Result from 'prometheus_exporter.result';
 import * as config from 'prometheus_exporter.config';
 import { NAME } from 'prometheus_exporter.config';
 
+/**
+ * What malformed arguments are answered with.
+ *
+ * @type {string}
+ */
 export const ARGS_INVALID = 'ARGS_INVALID';
 
-// The main section's options: the init script's, then the exporter's.
+/**
+ * The main section's options: the init script's, then the exporter's.
+ *
+ * @type {string[]}
+ */
 export const MAIN_OPTIONS = [ ...keys(config.SERVICE_OPTIONS), ...keys(config.MAIN_OPTIONS) ];
 
 function is_unset(value) {
@@ -46,7 +59,13 @@ function lone_section(name, stype, values) {
 	};
 }
 
-// The details of a CONFIG_INVALID, less the option's name the field already shows.
+/**
+ * The details of a CONFIG_INVALID, less the option's name the field already shows.
+ *
+ * @param {string} name the option's name.
+ * @param {Result} res the failed Result.
+ * @returns {string} its details, less 'name: '.
+ */
 export function message(name, res) {
 	let d = (type(res.details) == 'string') ? res.details : Result.describe(res);
 	let prefix = `${name}: `;
@@ -54,8 +73,15 @@ export function message(name, res) {
 	return (substr(d, 0, length(prefix)) == prefix) ? substr(d, length(prefix)) : d;
 };
 
-// What the exporter makes of `value` for option `name` of the main section:
-// a Result of the typed value, the default when it is unset.
+/**
+ * What the exporter makes of `value` for option `name` of the main section:
+ * a Result of the typed value, the default when it is unset.
+ *
+ * @param {string} name the option's name.
+ * @param {?string} value its value, as uci holds it.
+ * @returns {Result<(boolean|int|string)>} the typed value, or
+ *   CONFIG_INVALID.
+ */
 export function main_value(name, value) {
 	let uci = lone_section('main', NAME, { [name]: value });
 	let svc = config.service_values(uci);
@@ -69,10 +95,18 @@ export function main_value(name, value) {
 	return Result.ok((name in keys(config.SERVICE_OPTIONS)) ? svc.data[name] : own.data[name]);
 };
 
-// What the exporter makes of `value` for option `name` (or the core's enabled
-// or timeout) of collector `c`: a Result of the typed value, the default when
-// it is unset. The section is read alone: an unset timeout is meta.timeout's,
-// or exec_timeout's default.
+/**
+ * What the exporter makes of `value` for option `name` (or the core's enabled
+ * or timeout) of collector `c`: a Result of the typed value, the default when
+ * it is unset. The section is read alone: an unset timeout is meta.timeout's,
+ * or exec_timeout's default.
+ *
+ * @param {Collector} c the collector.
+ * @param {string} name the option's name.
+ * @param {?string} value its value, as uci holds it.
+ * @returns {Result<(boolean|int|string)>} the typed value, or
+ *   CONFIG_INVALID.
+ */
 export function collector_value(c, name, value) {
 	let uci = lone_section(c.id, 'collector', { [name]: value });
 	let res = config.settings(uci, c.id, c.meta);
@@ -88,15 +122,36 @@ export function collector_value(c, name, value) {
 	return Result.ok(res.data.options[name]);
 };
 
-// The option names a collector's section takes: the core's, then its own.
+/**
+ * The option names a collector's section takes: the core's, then its own.
+ *
+ * @param {Collector} c the collector.
+ * @returns {string[]} the names.
+ */
 export function option_names(c) {
 	return [ ...keys(config.core(c.meta, config.EXEC_TIMEOUT)), ...keys(c.meta.options ?? {}) ];
 };
 
+/**
+ * The answer to malformed arguments.
+ *
+ * @param {string} msg what is wrong.
+ * @returns {{ error: string, message: string }} { error: ARGS_INVALID,
+ *   message }.
+ */
 export function invalid_args(msg) {
 	return { error: ARGS_INVALID, message: msg };
 };
 
+/**
+ * What the ubus object's `validate` answers, as the module's top comment
+ * says.
+ *
+ * @param {RpcSys} sys the system: its collectors.
+ * @param {?Object} args the method's arguments: { main, collectors }.
+ * @returns {Object} { ok, errors: { main: { option: message }, collectors:
+ *   { id: { option: message } } } }, or { error: ARGS_INVALID, message }.
+ */
 export function validate(sys, args) {
 	let main = args?.main ?? {};
 	let given = args?.collectors ?? {};
