@@ -122,21 +122,21 @@ export const BROAD = [
 const PLACEHOLDER = /\{([a-z][a-z0-9_]*)\}/g;
 
 /**
- * Why `p` cannot be a mount, or null. The init script hands procd the mounts
+ * Why `path` cannot be a mount, or null. The init script hands procd the mounts
  * unquoted, so a space or a glob character would be read as the shell does.
  *
- * @param {*} p the path; anything but an absolute path string is a problem.
+ * @param {*} path the path; anything but an absolute path string is a problem.
  * @returns {?string} why, or null.
  */
-export function path_problem(p) {
-	if (type(p) != 'string' || substr(p, 0, 1) != '/')
-		return `${sprintf('%J', p)} is not an absolute path`;
-	if (match(p, /[[:space:][:cntrl:]*?[]/))
-		return `${sprintf('%J', p)} holds a space, a control or a glob character`;
-	if (p != '/' && (match(p, /\/\/|\/\.\.?(\/|$)/) || substr(p, -1) == '/'))
-		return `${p} is not a plain path (no //, . or .., nor a trailing /)`;
-	if (p in BROAD)
-		return `${p} is too broad to mount for one collector`;
+export function path_problem(path) {
+	if (type(path) != 'string' || substr(path, 0, 1) != '/')
+		return `${sprintf('%J', path)} is not an absolute path`;
+	if (match(path, /[[:space:][:cntrl:]*?[]/))
+		return `${sprintf('%J', path)} holds a space, a control or a glob character`;
+	if (path != '/' && (match(path, /\/\/|\/\.\.?(\/|$)/) || substr(path, -1) == '/'))
+		return `${path} is not a plain path (no //, . or .., nor a trailing /)`;
+	if (path in BROAD)
+		return `${path} is too broad to mount for one collector`;
 
 	return null;
 };

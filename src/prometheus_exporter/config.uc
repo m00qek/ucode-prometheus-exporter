@@ -392,24 +392,24 @@ export function service_values(uci) {
 };
 
 /**
- * What is wrong of the init script's options that go together (`o`, typed),
+ * What is wrong of the init script's options that go together (`options`, typed),
  * by option: basic auth's user and hash need each other, and both need cert
  * and key, as Basic sends the password in the clear.
  *
- * @param {ServiceSettings} o the init script's options, typed.
+ * @param {ServiceSettings} options the init script's options, typed.
  * @returns {Object<string, string>} what is wrong, by option; {} when
  *   nothing is.
  */
-export function together(o) {
+export function together(options) {
 	let out = {};
-	let user = (o.auth_user ?? '') != '', hash = (o.auth_password ?? '') != '';
+	let user = (options.auth_user ?? '') != '', hash = (options.auth_password ?? '') != '';
 
 	if (user && !hash)
 		out.auth_password = 'basic auth needs the hash of a password along with auth_user';
 	else if (hash && !user)
 		out.auth_user = 'basic auth needs a user along with auth_password';
 
-	if ((user || hash) && ((o.cert ?? '') == '' || (o.key ?? '') == ''))
+	if ((user || hash) && ((options.cert ?? '') == '' || (options.key ?? '') == ''))
 		out[user ? 'auth_user' : 'auth_password'] ??= 'basic auth needs HTTPS: set cert and key, or the password crosses the network in the clear';
 
 	return out;

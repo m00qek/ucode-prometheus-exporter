@@ -103,11 +103,11 @@ function word(s, at, size, le) {
  * AT_PAGESZ is a power of two; any other reads a value or an address as a
  * type, and stops at its first. Null when none fits.
  *
- * @param {?string} s the bytes of /proc/self/auxv (exporter's system()).
+ * @param {?string} bytes the bytes of /proc/self/auxv (exporter's system()).
  * @returns {?Object<string, int>} each value by its type.
  */
-export function auxv(s) {
-	let n = length(s ?? '');
+export function auxv(bytes) {
+	let n = length(bytes ?? '');
 
 	for (let l in LAYOUTS) {
 		let size = l[0], le = l[1], pair = size * 2, out = {};
@@ -116,7 +116,7 @@ export function auxv(s) {
 			continue;
 
 		for (let at = 0; at < n; at += pair) {
-			let t = word(s, at, size, le);
+			let t = word(bytes, at, size, le);
 
 			if (t >= AT_MAX || t < 0)
 				break;
@@ -128,7 +128,7 @@ export function auxv(s) {
 				break;
 			}
 
-			out[t] = word(s, at + size, size, le);
+			out[t] = word(bytes, at + size, size, le);
 		}
 	}
 

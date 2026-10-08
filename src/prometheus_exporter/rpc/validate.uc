@@ -97,25 +97,25 @@ export function main_value(name, value) {
 
 /**
  * What the exporter makes of `value` for option `name` (or the core's enabled
- * or timeout) of collector `c`: a Result of the typed value, the default when
+ * or timeout) of collector `collector`: a Result of the typed value, the default when
  * it is unset. The section is read alone: an unset timeout is meta.timeout's,
  * or exec_timeout's default.
  *
- * @param {Collector} c the collector.
+ * @param {Collector} collector the collector.
  * @param {string} name the option's name.
  * @param {?string} value its value, as uci holds it.
  * @returns {Result<(boolean|int|string)>} the typed value, or
  *   CONFIG_INVALID.
  */
-export function collector_value(c, name, value) {
-	let uci = lone_section(c.id, 'collector', { [name]: value });
-	let res = config.settings(uci, c.id, c.meta);
+export function collector_value(collector, name, value) {
+	let uci = lone_section(collector.id, 'collector', { [name]: value });
+	let res = config.settings(uci, collector.id, collector.meta);
 
 	if (!res.ok)
 		return res;
 
 	switch (name) {
-	case 'enabled': return Result.ok(config.enabled(uci, c.id));
+	case 'enabled': return Result.ok(config.enabled(uci, collector.id));
 	case 'timeout': return Result.ok(res.data.timeout);
 	}
 
@@ -125,11 +125,11 @@ export function collector_value(c, name, value) {
 /**
  * The option names a collector's section takes: the core's, then its own.
  *
- * @param {Collector} c the collector.
+ * @param {Collector} collector the collector.
  * @returns {string[]} the names.
  */
-export function option_names(c) {
-	return [ ...keys(config.core(c.meta, config.EXEC_TIMEOUT)), ...keys(c.meta.options ?? {}) ];
+export function option_names(collector) {
+	return [ ...keys(config.core(collector.meta, config.EXEC_TIMEOUT)), ...keys(collector.meta.options ?? {}) ];
 };
 
 /**

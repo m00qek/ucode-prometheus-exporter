@@ -77,11 +77,11 @@ export const APK_LISTS = '/lib/apk/packages';
 /**
  * A string that is not empty, or null.
  *
- * @param {*} v anything; only a string that is not empty is kept.
+ * @param {*} value anything; only a string that is not empty is kept.
  * @returns {?string} it, or null.
  */
-export function text(v) {
-	return (type(v) == 'string' && v != '') ? v : null;
+export function text(value) {
+	return (type(value) == 'string' && value != '') ? value : null;
 };
 
 /**

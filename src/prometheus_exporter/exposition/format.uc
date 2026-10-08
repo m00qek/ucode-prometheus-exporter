@@ -252,11 +252,11 @@ export function label_text(labels) {
 /**
  * A sample of parse() as the format writes it.
  *
- * @param {Sample} s the sample.
+ * @param {Sample} sample the sample.
  * @returns {string} its line, without a newline.
  */
-export function sample_line(s) {
-	return s.name + format_labels(s.labels) + ' ' + s.value + (s.ts != null ? ' ' + s.ts : '');
+export function sample_line(sample) {
+	return sample.name + format_labels(sample.labels) + ' ' + sample.value + (sample.ts != null ? ' ' + sample.ts : '');
 };
 
 /**

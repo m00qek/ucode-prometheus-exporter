@@ -193,17 +193,17 @@ export function sha_crypt(id, key, salt, rounds) {
 };
 
 /**
- * Whether `s` is a hash of one of the formats.
+ * Whether `value` is a hash of one of the formats.
  *
- * @param {*} s anything; only a string is a hash.
+ * @param {*} value anything; only a string is a hash.
  * @returns {boolean} whether it is one.
  */
-export function is_hash(s) {
-	if (type(s) != 'string')
+export function is_hash(value) {
+	if (type(value) != 'string')
 		return false;
 
 	for (let re in FORMATS)
-		if (match(s, re))
+		if (match(value, re))
 			return true;
 
 	return false;
