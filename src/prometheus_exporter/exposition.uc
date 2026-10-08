@@ -222,16 +222,19 @@ export function recorder(max) {
 				stop(name);
 
 			let t = type(labels);
-			let line = null;
+			let text;
 
-			if (t == 'object') {
-				let text = '', vals = '';
+			if (t == 'string') {
+				text = made[labels];
+			} else if (t == 'object') {
+				let vals = '';
 
+				text = '';
 				for (let k, x in labels) {
 					let p = LABEL_PREFIXES[k];
 
 					if (p == null || type(x) != 'string') {
-						text = null;
+						vals = null;
 						break;
 					}
 
@@ -239,23 +242,22 @@ export function recorder(max) {
 					vals += x;
 				}
 
-				if (text != null && text != '' && !match(vals, SPECIAL)) {
-					line = head + substr(text, 2) + '"} ' + v;
-				} else {
-					text = label_text(labels);
-					if (text != null)
-						line = name + text + ' ' + v;
-				}
-			} else {
-				let text = (t == 'string') ? made[labels] : (labels == null) ? '' : null;
+				if (vals != null && text != '' && !match(vals, SPECIAL)) {
+					push(lines, head + substr(text, 2) + '"} ' + v);
+					if (values)
+						push(values, v);
 
-				if (text != null)
-					line = name + text + ' ' + v;
+					return sample;
+				}
+
+				text = label_text(labels);
+			} else {
+				text = (labels == null) ? '' : null;
 			}
 
-			if (line == null)
+			if (text == null)
 				refuse_labels(name, labels);
-			push(lines, line);
+			push(lines, name + text + ' ' + v);
 			if (values)
 				push(values, v);
 
