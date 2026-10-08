@@ -44,8 +44,9 @@ jobs:
   build:
     if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: Strict build with mkdocs.yml
         run: make -C docs build
       - name: Strict build with mkdocs.mike.yml
@@ -59,6 +60,7 @@ jobs:
       startsWith(github.ref, 'refs/tags/v') ||
       startsWith(github.ref, 'refs/heads/docs/')
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: write
     concurrency:
@@ -67,20 +69,24 @@ jobs:
     env:
       REF: ${{ inputs.ref || github.ref }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ env.REF }}
           # Tags and history, for the docs-only guard.
           fetch-depth: 0
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - run: pip install -r devenv/services/docs/requirements.txt
+      # The build's environment, docs/Makefile's: the docs tools image, the
+      # pinned mkdocs-material image with REF's devenv/services/docs. The
+      # Makefile is the one of the commit this workflow runs from, which is
+      # REF on a push: a release before 0.2.1 has no publish target.
+      - name: The docs Makefile of this workflow's commit
+        run: git show "$GITHUB_SHA:docs/Makefile" > "$RUNNER_TEMP/docs.mk"
+      # In the repository's config, which the container reads with the
+      # checkout's credentials.
       - name: Configure git
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-      - name: Strict build
-        run: mkdocs build --strict --config-file mkdocs.mike.yml
+      - name: Strict build with mkdocs.mike.yml
+        run: make -f "$RUNNER_TEMP/docs.mk" PROJECT_ROOT="$GITHUB_WORKSPACE" build-mike
       - name: Publish
-        run: devenv/scripts/docs-publish.sh "$REF"
+        run: make -f "$RUNNER_TEMP/docs.mk" PROJECT_ROOT="$GITHUB_WORKSPACE" publish

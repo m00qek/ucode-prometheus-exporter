@@ -64,7 +64,7 @@ The `exporter` collector, in the base package, counts what happened since the se
 ## Trade-offs
 
 - **The first scrape after a restart can still be late.** The ledger is empty then. The exporter's own collectors run first, those that declare themselves heavy (nat_traffic, ethtool) after the others, then those of other packages; a slow one can still take the deadline with the rest. The second scrape knows. Nothing of the ledger survives a restart, by design: a restart is how to forget a quarantine.
-- **A collector too slow for the timeout is left out until something changes.** The ledger says it does not fit, so it is not run, and its estimate stays as it was. A restart forgets it; a job with a longer timeout runs it, and keeps its estimate current.
+- **A collector too slow for the timeout is left out for a while.** The ledger says it does not fit, so it is not run, and not timed: each scrape that leaves it out makes its estimate three quarters of itself, so that it is tried again, and timed, after a few (3 when it was twice too slow, 9 when ten times). One slow run so costs a few scrapes, not the instance's life; one always too slow is tried, and stopped at the deadline, once in a few scrapes. A job with a longer timeout runs it, and keeps its estimate current.
 - **Two scrapes at once can each run a trial.** Each sees the cool-down over, and each counts its trial: two that fail double the cool-down twice.
 - **A program needs a whole second before the deadline.** A collector whose program would take 10 ms is left out when less than a second is left. Fastest first, the programs' collectors run early, while time is plentiful.
 

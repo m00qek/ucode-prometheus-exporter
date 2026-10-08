@@ -23,13 +23,14 @@
  * each time a collector can start, with the pid of the process it would run
  * in: it returns the next to run, or null when there is none, and leaves out
  * (and hands done) any it does not run. A job is
- * { c, cutoff, limit, at_deadline, budget, settings, view }:
+ * { c, cutoff, limit, at_deadline, budget, left, settings, view }:
  *   c            the collector
  *   cutoff       when its programs must be done by (monotonic seconds), or null
  *   limit        when it is stopped (monotonic seconds), or null for never:
  *                its budget's end, or the cutoff when that comes first
  *   at_deadline  whether the limit is the cutoff
  *   budget       the seconds it may take (config.settings)
+ *   left         the samples left of the reply's max_scrape_samples, or null
  *   settings     config.settings' data, or null to read them in the run
  *   view         the exporter collector's data (deps.exporter_channel)
  * A run is scrape.run_one's: { name, id, result, families, samples, duration,
@@ -37,7 +38,8 @@
  * reply holds (prometheus_exporter.exposition's pack).
  *
  * env: { session(log) -> a deps session, clock() -> [ s, ns ] monotonic,
- *        log(level, msg), mkstemp, readfile: fs's (forked's) };
+ *        log(level, msg), mkstemp, readfile: fs's (forked's), kill(pid): a
+ *        child it stops, killed with every process under it (forked's) };
  * run_fn(env, session, c, job) -> a run.
  *
  * @module prometheus_exporter_runner
@@ -61,6 +63,7 @@ import { POLL_MS } from 'prometheus_exporter.probe';
  *   limit: ?float,
  *   at_deadline: boolean,
  *   budget: ?int,
+ *   left: ?int,
  *   settings: ?Settings,
  *   view: ?ExporterView
  * }} Job
@@ -125,6 +128,20 @@ export function killed(job, took) {
 };
 
 /**
+ * The run of a collector no process could be started for: the children forked
+ * to run the collectors in ended twice in a row before asking for one. It is
+ * not the collector's doing, so it is left out, as one the deadline leaves
+ * out is (`skipped`), which leaves its breaker as it was.
+ *
+ * @param {Job} job its job.
+ * @returns {Run} the run: COLLECTOR_NOT_RUN.
+ */
+export function not_run(job) {
+	return { ...stopped(job, Result.err(errors.COLLECTOR_NOT_RUN,
+		'not run: the processes forked to run the collectors in ended twice before running one'), 0), skipped: 'runner' };
+};
+
+/**
  * A run, and what was logged with it, as the child hands it over: a line of
  * JSON, { name, id, result, samples, duration, budget, logs, families: [
  * { name, type } ] }, its Result without its prototype, and then its text,
@@ -161,9 +178,11 @@ export function unpack(text) {
 	let res = head.result ?? {};
 	let families = head.families ?? [];
 
+	// run_one gives every failure its code: none is a run packed some other
+	// way, never one the collector was killed in.
 	let result = res.ok
 		? ((res.none != null) ? Result.none(res.none) : Result.ok(res.data))
-		: Result.err(res.error ?? errors.COLLECTOR_KILLED, res.details, res.data);
+		: Result.err(res.error ?? errors.COLLECTOR_NO_RESULT, res.details, res.data);
 
 	return {
 		run: {
@@ -305,9 +324,10 @@ export function forked(env, run_fn, opts) {
 			let child = child_of(st);
 
 			// When no child can be forked (the system is out of processes or
-			// memory), the rest run here, unguarded, rather than not at all.
-			function fallback() {
-				st.env.log('warning', 'cannot fork a process to run the collectors in; running them in the scrape\'s own');
+			// memory), or the file the runs cross by cannot be made, the rest
+			// run here, unguarded, rather than not at all; `why` says which.
+			function fallback(why) {
+				st.env.log('warning', `${why}; running the collectors in the scrape's own process`);
 				inline(st.env, st.run_fn, { omit: st.omit }).run(st.plan);
 				st.done = true;
 				if (st.timer)
@@ -345,7 +365,7 @@ export function forked(env, run_fn, opts) {
 				st.started = now(st.env);
 				arm();
 
-				return { id: job.c.id, cutoff: job.cutoff, limit: job.limit, settings: job.settings, view: job.view };
+				return { id: job.c.id, cutoff: job.cutoff, limit: job.limit, left: job.left, settings: job.settings, view: job.view };
 			}
 
 			function on_output(g, msg) {
@@ -370,6 +390,8 @@ export function forked(env, run_fn, opts) {
 				for (let l in got.logs)
 					st.env.log(l[0], l[1]);
 
+				// A child that ran a collector is no failure to fork one.
+				st.lost = 0;
 				finish(got.run);
 			}
 
@@ -380,7 +402,7 @@ export function forked(env, run_fn, opts) {
 				st.task = uloop.task(child, (msg) => on_output(g, msg), () => on_input(g));
 
 				if (!st.task)
-					return fallback();
+					return fallback('cannot fork a process to run the collectors in');
 
 				if (st.stats)
 					st.stats.children = (st.stats.children ?? 0) + 1;
@@ -409,12 +431,18 @@ export function forked(env, run_fn, opts) {
 					}
 
 					// It died before it asked for a collector: once may be a
-					// passing failure, twice is not.
+					// passing failure, twice in a row is not. The rest are not
+					// run, which none of them did: their breakers stay as they are.
 					if (++st.lost > 1) {
+						let names = [];
+
 						for (let job = st.plan.next(); job != null; job = st.plan.next()) {
 							st.job = job;
-							finish(killed(job, 0));
+							push(names, job.c.meta.name);
+							finish(not_run(job));
 						}
+						if (length(names))
+							st.env.log('warning', `the processes forked to run the collectors in ended twice before running one; not run: ${join(', ', names)}`);
 						st.done = true;
 						return uloop.end();
 					}
@@ -425,6 +453,10 @@ export function forked(env, run_fn, opts) {
 				if (st.job?.limit != null && now(st.env) >= st.job.limit) {
 					let r = cancelled(st.job, took);
 
+					// What it started first, as the child's own end would
+					// leave it running, its parent gone (env.kill).
+					if (st.env.kill)
+						st.env.kill(st.task.pid());
 					st.task.kill();
 					log_stopped(st.env, r);
 					finish(r);
@@ -434,10 +466,12 @@ export function forked(env, run_fn, opts) {
 				arm();
 			}
 
-			st.out = env.mkstemp(`${opts?.tmp ?? '/tmp'}/prometheus-exporter.XXXXXX`);
+			let tmp = opts?.tmp ?? '/tmp';
+
+			st.out = env.mkstemp(`${tmp}/prometheus-exporter.XXXXXX`);
 
 			if (!st.out)
-				return fallback();
+				return fallback(`cannot make the file the collectors' runs cross by, in ${tmp}`);
 
 			uloop.init();
 			st.timer = uloop.timer(POLL_MS, tick);

@@ -223,6 +223,24 @@ describe('scrape.run_one', () => {
 			assert.match(t[0] <= t[1] ? [ true, t[0] ] : [ false, 0 ], [ r.result.ok, r.samples ]);
 		});
 
+	it('fails a collector that wrote what Prometheus would refuse the scrape for with EXPOSITION_INVALID, alone, keeping none of its samples', () => {
+		let latin1 = run(collector('wifi', function(d, out) {
+			out.gauge('wifi_up')(null, 1);
+			out.gauge('wifi_ssid')({ ssid: 'caf\xe9' }, 1);
+			return Result.ok();
+		}));
+		let raw = run(collector('raw', function(d, out) {
+			try { out.gauge('raw_x')('eth0 up', 1); } catch (e) { }
+			return Result.ok();
+		}));
+
+		assert.match([ 'EXPOSITION_INVALID (in wifi_ssid, label \'ssid\': its value is not valid UTF-8)', 0, [] ],
+			[ Result.describe(latin1.result), latin1.samples, latin1.families ]);
+		assert.match([ "collector 'wifi': EXPOSITION_INVALID (in wifi_ssid, label 'ssid': its value is not valid UTF-8)" ], latin1.logs);
+		assert.match('EXPOSITION_INVALID (in raw_x: labels must be an object, or what out.labels() made, not a string of its own)',
+			Result.describe(raw.result));
+	});
+
 	it('logs a family declared with two types', () => {
 		let r = run(collector('mixed', (d, out) => { out.gauge('m')(null, 1); out.counter('m')(null, 2); return Result.ok(); }));
 		assert.match(contains([ "collector 'mixed': 'm' declared with two types; later samples dropped" ]), r.logs);
@@ -345,6 +363,41 @@ describe('scrape.scrape', () => {
 		assert.match([ 'scrape deadline: 1 collector not served in its 0.8 s: slow' ], r.logs);
 	});
 
+	// A clock that stands still: no collector's run uses up the time, so
+	// what leaves one out is the ledger's estimate alone.
+	function still(collectors, deadline, durations) {
+		let out;
+
+		with_mods({}, (mods) => {
+			let logs = [];
+			let env = { ...env_for(mods, logs), clock: () => [ 0, 0 ] };
+
+			out = { ...scrape.scrape(env, collectors, '', { deadline, budget: deadline, state: memory_state(ledger_of(durations)) }), logs };
+		});
+
+		return out;
+	}
+
+	it('leaves out a collector whose estimate does not fit the time left, and runs one whose does, on the estimate alone', () => {
+		let ran = [];
+		let r = still([ noting('slow', ran), noting('quick', ran), noting('fits', ran) ], 1.0, { slow: 1.5, quick: 0.1, fits: 0.9 });
+
+		assert.match([ 'quick', 'fits' ], ran);
+		assert.match([ 'scrape deadline: 1 collector not served in its 1.0 s: slow' ], r.logs);
+		assert.match(contains([ 'node_scrape_collector_success{collector="slow"} 0' ]), lines(r.body));
+	});
+
+	it('logs once a scrape it could not record in the state, and still answers', () => {
+		let st = memory_state(null);
+
+		st.update = (name, fn) => { fn(null); return false; };
+
+		let r = scrape_with([ A, B ], '', {}, { state: st });
+
+		assert.match([ "the scrape could not be recorded in the instance's state: its ledger is as the last scrape left it" ], r.logs);
+		assert.match(contains([ 'a_value 1', 'b_value 2' ]), lines(r.body));
+	});
+
 	it('keeps back the time the reply is expected to take to write, by the samples', () => {
 		let ran = [];
 		let l = ledger.record(ledger.empty(), [ { id: 'big', duration: 0.1, samples: 1000, result: Result.ok() } ],
@@ -423,6 +476,30 @@ describe('scrape.scrape', () => {
 		for (let q in [ '', 'collect[]=a', 'exclude[]=a' ])
 			assert.match(contains([ 'ucode_prometheus_exporter_build_info{version="0.1.0-r1"} 1' ]),
 				lines(scrape_with([ A ], q).body), q);
+	});
+
+	it('holds the collectors of a reply to max_scrape_samples in all: past it one fails with SAMPLE_LIMIT, and none starts once it is reached', () => {
+		let two = collector('two', (d, out) => { out.gauge('two_value')({ i: '1' }, 1)({ i: '2' }, 2); return Result.ok(); });
+		let st = memory_state(null);
+		let over = scrape_with([ A, two, C ], '', { main: { max_scrape_samples: '2' } }, { state: st });
+		let full = scrape_with([ A, two, C ], '', { main: { max_scrape_samples: '3' } });
+
+		assert.match(contains([ 'a_value 1', 'c_value 3', 'node_scrape_collector_success{collector="two"} 0' ]), lines(over.body));
+		assert.match([ -1 ], [ index(over.body, 'two_value') ]);
+		assert.match([ "collector 'two': SAMPLE_LIMIT (more than the 1 samples left of the reply's max_scrape_samples: stopped at 2 samples, in two_value)" ], over.logs);
+		assert.match([ null, { SAMPLE_LIMIT: 1 } ], [ ledger.parse(st.text).c.two.f, ledger.parse(st.text).c.two.fails ], 'neither a failure of its own nor a success');
+
+		assert.match(contains([ 'a_value 1', 'two_value{i="2"} 2', 'node_scrape_collector_success{collector="c"} 0' ]), lines(full.body));
+		assert.match([ -1, [ "collector 'c': SAMPLE_LIMIT (not run: the reply has its max_scrape_samples of 3)" ] ], [ index(full.body, 'c_value'), full.logs ]);
+	});
+
+	it('serves the others when one collector writes what Prometheus refuses, and the reply stays valid', () => {
+		let bad = collector('bad', (d, out) => { out.gauge('bad_value')({ 'if-name': 'a', if_name: 'b' }, 1); return Result.ok(); });
+		let r = scrape_with([ A, bad, C ], '');
+
+		assert.match(true, exposition.parse(r.body).ok);
+		assert.match(contains([ 'a_value 1', 'c_value 3', 'node_scrape_collector_success{collector="bad"} 0' ]), lines(r.body));
+		assert.match(-1, index(r.body, 'bad_value'));
 	});
 
 	it('gives a family to the first collector of the reply that writes it, and fails the next that does, alone', () => {

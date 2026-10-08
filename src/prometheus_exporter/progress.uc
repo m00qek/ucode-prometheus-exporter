@@ -11,6 +11,7 @@
 'use strict';
 
 import * as ledger from 'prometheus_exporter.ledger';
+import { SIZE_MAX } from 'prometheus_exporter.state';
 
 /**
  * What changed of the breakers (ledger.record's events), logged: a breaker
@@ -72,7 +73,7 @@ export function bury(env, state, collectors) {
 				'its scrape process died while it ran: out of memory, a crash, or killed', events);
 		}
 
-		return ledger.serialize(l);
+		return ledger.serialize(l, SIZE_MAX);
 	});
 
 	for (let name in blamed)

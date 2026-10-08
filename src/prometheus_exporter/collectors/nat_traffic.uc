@@ -90,16 +90,6 @@ function read(fs) {
 	return totals;
 }
 
-// A pair's labels as the format writes them, as out.labels() would: written
-// at once, and escaped (by out.labels()) only when the text holds a backslash
-// or more quotes than its own. An address is a field of a line, so it holds
-// no newline. A table of tens of thousands of pairs is that many label sets.
-function pair_labels(out, src, dst) {
-	let text = `{src="${src}",dst="${dst}"}`;
-
-	return (index(text, '\\') < 0 && length(split(text, '"')) == 5) ? text : out.labels({ src, dst });
-}
-
 // An IPv6 address as the labels have it, compressed: once each.
 function address(seen, a) {
 	return seen[a] ??= (arrtoip(iptoarr(a)) ?? a);
@@ -126,13 +116,13 @@ export function collect(deps, out) {
 	for (let src, dsts in totals) {
 		if (index(src, ':') < 0) {
 			for (let dst, bytes in dsts)
-				traffic(pair_labels(out, src, dst), bytes);
+				traffic({ src, dst }, bytes);
 			continue;
 		}
 
 		src = address(seen, src);
 		for (let dst, bytes in dsts)
-			traffic(pair_labels(out, src, address(seen, dst)), bytes);
+			traffic({ src, dst: address(seen, dst) }, bytes);
 	}
 
 	return Result.ok();

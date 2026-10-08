@@ -145,7 +145,7 @@ Only `prometheus_exporter.deps`, with its modules of each capability (`prometheu
 | `socket` | `unix_request(path, message, timeout_ms)`: the whole reply of a Unix stream socket's server, as a Result (`SOCKET_FAILED`). Needs ucode-mod-socket. |
 | `exec` | `run(argv)`: a program of `meta.commands`, without a shell's interpretation of its arguments, its standard output as a Result. See [Programs](#programs). |
 | `time` | `now()`: the system time, in seconds. |
-| `log` | `log(msg)`: a line at `warning`, `collector '<name>': <msg>`, for what a collector that succeeds still has to say. |
+| `log` | `log(msg)`: a line at `warning`, `collector '<name>': <msg>`, for what a collector that succeeds still has to say. At most 10 lines a run, each cut at 512 bytes; past them, one line once the run is over says how many more were left out. |
 | `exporter` | The exporter itself, read-only: `process(file)`, the serving uhttpd's `/proc/<pid>/stat`, `status` or `limits`; `fds()`, how many descriptors it has open; `system(file)`, `/proc/stat` or `/proc/self/auxv`; `counters()`, what the instance's ledger counts, this scrape so far included, or null outside the handler; `samples()`, `{ collector: samples }` of this scrape so far. A collector that needs it runs after every other. The `exporter` collector's. |
 
 A need the system lacks (`nl80211`, `socket`) fails the collector with `NEED_MISSING`.
@@ -167,11 +167,12 @@ A need the system lacks (`nl80211`, `socket`) fails the collector with `NEED_MIS
 | `out.labels(labels)` | Makes a label set several samples share, once, to pass in place of the object. |
 | `out.parse(text)` | Adds exposition text, which must be valid as a whole: a Result, `EXPOSITION_INVALID` otherwise. |
 
-- `labels` is an object, or null for none. A label whose value is null is left out.
+- `labels` is an object, or null for none, or what `out.labels()` made. A label whose value is null is left out.
 - A value that is not a number is skipped: null, an empty string, a word. A string of digits, or of hex as in sysfs flags, is read as one. `true` and `false` are 1 and 0.
 - Names are made valid: every character the format does not allow is an underscore.
 - A family declared twice with two types keeps the first, and logs a warning.
 - At most `max_samples` samples in all: the next stops the collector (it throws, again at each sample after), and it fails with `SAMPLE_LIMIT`.
+- Nothing Prometheus would refuse the whole scrape for: a label value or HELP text that is not valid UTF-8, two label names that are one once sanitized (`if-name` and `if_name`), or labels that are a string of the collector's own. The sample stops the collector as the one past `max_samples` does, and it fails with `EXPOSITION_INVALID`, naming the family and the label.
 - A family is the first collector's that writes it: one another collector writes, or one of the exporter's own (`node_scrape_collector_*`, `ucode_prometheus_exporter_*`), fails the collector with `FAMILY_CONFLICT`.
 
 ## Tests and packaging

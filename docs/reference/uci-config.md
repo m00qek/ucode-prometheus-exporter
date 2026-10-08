@@ -25,6 +25,7 @@ The exporter's configuration is `/etc/config/prometheus-exporter`. The file is o
 | `scrape_timeout` | integer | `10` | `range(1,60)` | Seconds a scrape has to answer when the scraper does not say (X-Prometheus-Scrape-Timeout-Seconds); collectors left when they are nearly spent are skipped. | exporter |
 | `collector_budget` | integer | `5` | `range(1,60)` | Seconds a collector may take in a scrape, unless it says otherwise; one still running then is stopped, and quarantined for a few scrapes. | exporter |
 | `max_samples` | integer | `20000` | `range(1,100000)` | Samples a collector may write in a scrape, unless it says otherwise; one that writes more fails, and none of its samples are served. | exporter |
+| `max_scrape_samples` | integer | `200000` | `range(1,1000000)` | Samples the collectors of a scrape may write in all; a collector whose samples would go past it fails, and none of its samples are served. | exporter |
 
 Options that go together, checked wherever the configuration is checked (start, reload, `check`, the ubus object's `validate` and LuCI):
 
@@ -55,6 +56,7 @@ A boolean takes `1`, `yes`, `on`, `true`, `enabled` for true and `0`, `no`, `off
 | `directory` | an absolute path |
 | `file` | an absolute path |
 | `range(1,100000)` | an integer from 1 to 100000 |
+| `range(1,1000000)` | an integer from 1 to 1000000 |
 | `range(1,30)` | an integer from 1 to 30 |
 | `range(1,60)` | an integer from 1 to 60 |
 | `range(1,65535)` | an integer from 1 to 65535 |
@@ -100,6 +102,7 @@ config prometheus-exporter 'main'
 	option scrape_timeout '10'
 	option collector_budget '5'
 	option max_samples '20000'
+	option max_scrape_samples '200000'
 
 config collector 'textfile'
 	option enabled '1'

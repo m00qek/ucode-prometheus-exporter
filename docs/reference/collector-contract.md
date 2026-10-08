@@ -27,7 +27,8 @@ Each is described in [Collector interface](collector-interface.md#the-collector-
 Refused, before the module is loaded:
 
 - **Any other module.** `fs`, `ubus`, `uci`, `socket`, `rtnl`, `nl80211`, `uloop`: the capabilities of `meta.needs` do their work, under the exporter's guards. The core's modules, `prometheus_exporter.*`, including another collector's. Pure modules too, `math`, `struct` or `digest`: one would be a dependency the collector's package does not declare, and one more exception to judge; what collectors need of them belongs in the API, in a minor version.
-- **Code loaded past the imports.** A call of `require`, `loadfile` or `loadstring`: `require('fs')` reaches `fs` as surely as an import.
+- **Code loaded past the imports.** A call of `require`, `loadfile`, `loadstring` or `include`: `require('fs')` reaches `fs` as surely as an import.
+- **A program started past `exec`.** A call of `system`: what it starts outlives the child process the scrape kills under the collector, and runs on, where `deps.exec` kills a program still running at its timeout, with everything it started.
 
 The module's text is read for its imports without compiling it: comments, strings, templates and regular expressions are passed over. A collector is a single module; one that wants code of its own in another module has no way to, as every module of the collectors' directory is loaded as a collector.
 
@@ -106,15 +107,17 @@ A `meta` the loader refuses, and text that is not valid exposition, fail the tes
 | Rule | Limit, by default | Set by | Broken: the error | Its breaker |
 | :--- | :--- | :--- | :--- | :--- |
 | The module is in strict mode: its first statement is `'use strict'`. | — | — | Not loaded; logged at `err`, `COLLECTOR_INVALID`. | — |
-| It imports the collector API alone, and calls no `require`, `loadfile` nor `loadstring`. | — | — | Not loaded; logged at `err`, `COLLECTOR_INVALID`. See [What a collector may import](#what-a-collector-may-import). | — |
+| It imports the collector API alone, and calls no `require`, `loadfile`, `loadstring`, `include` nor `system`. | — | — | Not loaded; logged at `err`, `COLLECTOR_INVALID`. See [What a collector may import](#what-a-collector-may-import). | — |
 | Its top level only declares: it loads in time. | 5 s | — | Not loaded; logged at `err`, `collector '<module>' hung at load`. | — |
 | `meta` and `collect` are valid. | — | — | Not loaded; logged at `err`, `COLLECTOR_INVALID`. | — |
 | It returns a Result, without throwing. | — | — | `COLLECTOR_NO_RESULT`, `COLLECTOR_CRASHED`. | A failure |
-| It returns within its budget. Its child process is killed then: a loop, a system call that never returns, a FIFO opened with no writer, all stop there. | 5 s, or its `timeout` and a second more | `collector_budget`, its section's `budget` | `COLLECTOR_CANCELLED`; none of its samples served. | Trips |
+| It returns within its budget. Its child process is killed then, with every process under it: a loop, a system call that never returns, a FIFO opened with no writer, all stop there. | 5 s, or its `timeout` and a second more | `collector_budget`, its section's `budget` | `COLLECTOR_CANCELLED`; none of its samples served. | Trips |
 | It is done by the scrape's deadline: the scraper's timeout less half a second, and what writing the reply takes. | 9.5 s of Prometheus's 10 | the scraper, `scrape_timeout` | `SCRAPE_DEADLINE`: not run, or stopped; none of its samples served. | Unchanged |
 | Its programs end in time. One still running is killed, with every process it started. | 5 s, in all, per scrape | `exec_timeout`, `meta.timeout`, its section's `timeout` | `COMMAND_TIMEOUT` | Trips |
 | Its ubus calls are answered by its own limit (its budget, or the deadline). | as its budget | — | `UBUS_CALL_FAILED` | A failure |
 | It writes at most its samples. The recorder stops it at the next. | 20,000 | `max_samples`, `meta.max_samples`, its section's `max_samples` | `SAMPLE_LIMIT`, saying how far it got; none of its samples served. | A failure |
+| The collectors of a reply write at most its samples in all. The recorder stops the one that would go past them, and none starts once they are written. | 200,000 | `max_scrape_samples` | `SAMPLE_LIMIT`, saying how many were left; none of its samples served. | Unchanged |
+| What it writes is what Prometheus takes: label values and HELP text in UTF-8, label names that stay apart once sanitized, labels that are an object or what `out.labels()` made. The recorder stops it at the first that is not. | — | — | `EXPOSITION_INVALID`, naming the family and the label; none of its samples served. | A failure |
 | A family is one collector's: the first, in the reply's order, that writes it; the exporter's own collectors before those of other packages. | — | — | `FAMILY_CONFLICT`, naming the family's collector; none of its samples served. | A failure |
 | It writes none of the exporter's own families: `node_scrape_collector_*`, and `ucode_prometheus_exporter_*` but for a collector that needs `exporter`. | — | — | `FAMILY_CONFLICT` | A failure |
 | It takes no more memory than each of the service's processes may: past it, its own process ends. | A quarter of the RAM, at most 64 MB | `memory_limit` | `COLLECTOR_KILLED`; none of its samples served. | Trips |

@@ -65,7 +65,7 @@ const SERIGUELA_TRACKING = [
 	'chrony_tracking_last_offset_seconds 0.000418361',
 	'# HELP chrony_tracking_reference_timestamp_seconds Chrony tracking Reference timestamp',
 	'# TYPE chrony_tracking_reference_timestamp_seconds gauge',
-	'chrony_tracking_reference_timestamp_seconds 1790874600.3103',
+	'chrony_tracking_reference_timestamp_seconds 1790874600.3102953',
 	'# HELP chrony_tracking_system_time_seconds Chrony tracking System time',
 	'# TYPE chrony_tracking_system_time_seconds gauge',
 	'chrony_tracking_system_time_seconds -0.000499422',

@@ -12,7 +12,9 @@
  *   auth_failures  the requests basic auth refused (401)
  *   k        seconds per sample of writing a scrape's reply (merging and
  *            rendering), an exponential moving average
- *   entry    { d: its duration, a moving average; n: samples it wrote last;
+ *   entry    { d: its duration, a moving average, which each scrape that
+ *              leaves it out at the deadline makes DEADLINE_DECAY of itself;
+ *              n: samples it wrote last;
  *              late: the scrape that last left it out at the deadline;
  *              f, q, cd, why: its breaker's (prometheus_exporter.breaker);
  *              counted since the instance started: fails, { code: its failures
@@ -116,11 +118,22 @@ export const RECENT = 10;
 export const REASONS_MAX = 8;
 
 /**
- * What a failure is counted as past REASONS_MAX codes.
+ * What a failure is counted as past REASONS_MAX codes, or with a code that is
+ * not one (CODE).
  *
  * @type {string}
  */
 export const OTHER = 'OTHER';
+
+/**
+ * What a failure's code must be to be counted by it: an uppercase word of at
+ * most 64 characters, as errors.uc's are. A collector's own code is any string
+ * it likes, and the ledger keeps every code it counts: one of a few kB would
+ * take the state's room.
+ *
+ * @type {RegExp}
+ */
+export const CODE = /^[A-Z][A-Z0-9_]{0,63}$/;
 
 // The most of a breaker's why the ledger keeps.
 const WHY_MAX = 200;
@@ -135,6 +148,18 @@ const WHY_MAX = 200;
  * @type {float}
  */
 export const ALPHA = 0.25;
+
+/**
+ * What a collector's estimate is made of itself each time the deadline leaves
+ * it out (record): it is not run then, so not timed, and one slow run would
+ * keep it out for the instance's life. Three quarters: an estimate of twice
+ * the time the deadline leaves is tried again after 3 scrapes it was left
+ * out of, one of ten times after 9. A run, in time or cut at the deadline,
+ * measures it again.
+ *
+ * @type {float}
+ */
+export const DEADLINE_DECAY = 0.75;
 
 /**
  * The seconds a sample's writing is reckoned to take before the instance has
@@ -180,13 +205,30 @@ export function parse(text) {
 };
 
 /**
- * The ledger's JSON, as the state keeps it.
+ * The ledger's JSON, as the state keeps it. When it is longer than `max`
+ * bytes, it is written again without what it can do without, each breaker's
+ * why and each collector's failures by code: a state that cannot be written
+ * keeps none of the scrape, its durations, breakers and counts with it.
  *
  * @param {Ledger} ledger the ledger.
+ * @param {?int} max the most bytes it may take; null for no limit.
  * @returns {string} its JSON.
  */
-export function serialize(ledger) {
-	return sprintf('%J', ledger);
+export function serialize(ledger, max) {
+	let text = sprintf('%J', ledger);
+
+	if (max == null || length(text) <= max)
+		return text;
+
+	let c = {};
+
+	for (let id, e in ledger.c) {
+		c[id] = { ...e };
+		delete c[id].why;
+		delete c[id].fails;
+	}
+
+	return sprintf('%J', { ...ledger, c });
 };
 
 /**
@@ -295,7 +337,8 @@ export function outcome_of(run) {
 		return [ 'trip', sprintf('%s (took %.2f s, over its budget of %d s)', errors.COLLECTOR_OVERRUN, run.duration, run.budget) ];
 	if (res?.error == errors.COMMAND_TIMEOUT)
 		return [ 'trip', Result.describe(res) ];
-	if (res?.error == errors.SCRAPE_DEADLINE)
+	// The scrape's time, or the reply's samples, were spent: not its own doing.
+	if (res?.error == errors.SCRAPE_DEADLINE || (res?.error == errors.SAMPLE_LIMIT && res?.data?.scrape))
 		return [ 'neutral', null ];
 	if (!res?.ok)
 		return [ 'failed', Result.describe(res) ];
@@ -304,8 +347,11 @@ export function outcome_of(run) {
 };
 
 // One failure of collector `id` counted in `e` (an entry): by `code`, or as
-// OTHER past REASONS_MAX codes.
+// OTHER past REASONS_MAX codes, or for a code that is not one (CODE).
 function count_failure(e, code) {
+	if (type(code) != 'string' || !match(code, CODE))
+		code = OTHER;
+
 	let fails = { ...(e.fails ?? {}) };
 	let key = (code in keys(fails) || length(fails) < REASONS_MAX) ? code : OTHER;
 
@@ -317,7 +363,8 @@ function count_failure(e, code) {
  * The ledger `ledger` with scrape `runs` recorded, as the scrape counts it: one
  * more scrape; for each collector that ran, its duration and samples, and
  * what its run makes of its breaker; for each the deadline left out or cut,
- * that it did; and the seconds per sample the reply took to write (`written`:
+ * that it did, and of one it left out, its estimate made DEADLINE_DECAY of
+ * itself; and the seconds per sample the reply took to write (`written`:
  * { seconds, samples }). `ids` are the installed collectors': any other's
  * entry goes. A run is scrape.run_one's or not_run's: { id, name, result,
  * duration, samples, budget, skipped }. `events`, when given, gets what
@@ -357,6 +404,8 @@ export function record(ledger, runs, written, ids, events) {
 			e.late = n;
 			e.dl = (e.dl ?? 0) + 1;
 		}
+		if (r.skipped == 'deadline' && e.d != null)
+			e.d *= DEADLINE_DECAY;
 
 		let o = outcome_of(r);
 		let b = breaker.after(e, o[0], n, (o[1] != null) ? substr(o[1], 0, WHY_MAX) : null);

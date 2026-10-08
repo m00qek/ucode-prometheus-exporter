@@ -43,11 +43,37 @@ describe('ledger.record', () => {
 		assert.match(1 + ledger.ALPHA * 2, ledger.estimate(l, 'a'));
 	});
 
-	it('keeps the duration of a collector left out, and the scrape that left it out at the deadline', () => {
+	it('decays the estimate of a collector left out by DEADLINE_DECAY, and keeps the scrape that left it out at the deadline', () => {
 		let l = ledger.record(ledger.empty(), [ ran('a', 1, 5) ], null, [ 'a' ]);
 
 		l = ledger.record(l, [ skipped('a') ], null, [ 'a' ]);
-		assert.match({ d: 1, n: 5, late: 2, dl: 1 }, l.c.a);
+		assert.match({ d: ledger.DEADLINE_DECAY, n: 5, late: 2, dl: 1 }, l.c.a);
+		assert.match(0.75, ledger.DEADLINE_DECAY);
+	});
+
+	// One slow run must not keep a collector out for the instance's life.
+	it('brings a collector left out at every scrape back within the deadline, and measures it again once it runs', () => {
+		let l = ledger.record(ledger.empty(), [ ran('slow', 8) ], null, [ 'slow' ]);
+		let skips = 0;
+
+		while (ledger.estimate(l, 'slow') >= 1 && skips < 100) {
+			l = ledger.record(l, [ skipped('slow') ], null, [ 'slow' ]);
+			skips++;
+		}
+
+		assert.match(8, skips, '8 s to under 1 s: 0.75 to the 8th is 0.1');
+		l = ledger.record(l, [ ran('slow', 0.2) ], null, [ 'slow' ]);
+		let decayed = 8 * 0.75 ** 8;
+		let d = ledger.estimate(l, 'slow') - (decayed + ledger.ALPHA * (0.2 - decayed));
+
+		assert.match(true, d < 1e-9 && d > -1e-9);
+	});
+
+	it('leaves the estimate of a collector quarantined, not left out at the deadline, as it was', () => {
+		let l = ledger.record(ledger.empty(), [ ran('a', 1) ], null, [ 'a' ]);
+
+		l = ledger.record(l, [ { id: 'a', duration: 0, samples: 0, result: Result.err('COLLECTOR_QUARANTINED', 'x'), skipped: 'quarantine' } ], null, [ 'a' ]);
+		assert.match(1, ledger.estimate(l, 'a'));
 	});
 
 	it('averages a collector cut at the deadline with what it ran, and says it was late', () => {
@@ -195,6 +221,31 @@ describe('ledger, the breakers', () => {
 
 		l = ledger.record(l, [], null, [ 'a' ]);
 		assert.match([ 1, null ], [ ledger.report(l, 'a').late, ledger.report(l, 'b') ]);
+	});
+
+	// A collector's own code is any string it likes, kept in every scrape's
+	// ledger: one of kilobytes once made the state refuse the ledger, which
+	// then froze, a quarantine with it.
+	it('counts a code that is not an uppercase word of at most 64 characters as OTHER', () => {
+		let huge = sprintf('%05000d', 7);
+		let l = ledger.empty();
+
+		for (let code in [ 'X' + huge, 'lower', 'A-B', sprintf('A%064d', 0), 42, 'MY_OWN_CODE' ])
+			l = ledger.record(l, [ run_with('a', 0.1, Result.err(code)) ], null, [ 'a' ]);
+
+		assert.match({ OTHER: 5, MY_OWN_CODE: 1 }, l.c.a.fails);
+		assert.match(true, length(ledger.serialize(l)) < 1000);
+	});
+
+	it('writes a ledger over `max` without breakers\' whys and failures by code, and keeps the rest', () => {
+		let ids = map([ 1, 2, 3 ], (i) => `c${i}`);
+		let l = ledger.record(ledger.empty(), map(ids, (id) => run_with(id, 2.5, Result.err('SOURCE_INVALID', sprintf('%0150d', 0)))), null, ids);
+		let full = ledger.serialize(l);
+		let slim = ledger.parse(ledger.serialize(l, length(full) - 1));
+
+		assert.match(full, ledger.serialize(l, length(full)));
+		assert.match([ { d: 2.5, n: 1, f: 1 }, null, null ], [ slim.c.c1, slim.c.c1.why, slim.c.c1.fails ]);
+		assert.match(1, slim.scrapes);
 	});
 
 	it('fits the state with a hundred collectors that failed in every way they can', () => {

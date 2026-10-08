@@ -295,7 +295,7 @@ describe('config.main', () => {
 	it('reads omit_zero_values from the main section', () => {
 		with_uci({ main: { '.type': config.NAME, omit_zero_values: '1', listen_port: '9100' } }, (uci) => {
 			assert.match({ omit_zero_values: true, compress: true, exec_timeout: config.EXEC_TIMEOUT, scrape_timeout: config.SCRAPE_TIMEOUT,
-				collector_budget: config.COLLECTOR_BUDGET, max_samples: config.MAX_SAMPLES }, config.main(uci).data);
+				collector_budget: config.COLLECTOR_BUDGET, max_samples: config.MAX_SAMPLES, max_scrape_samples: config.MAX_SCRAPE_SAMPLES }, config.main(uci).data);
 		});
 	});
 

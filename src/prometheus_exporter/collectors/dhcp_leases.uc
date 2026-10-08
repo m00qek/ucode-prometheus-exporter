@@ -382,12 +382,10 @@ export function collect(deps, out, options) {
 			continue;
 		seen[key] = true;
 
-		// The info's labels are the id's and then the client's: the id's are
-		// written once, for both families.
-		let id = out.labels({ server: l.server, interface: l.interface, family: l.family, address: l.address });
-		let client = out.labels({ mac: l.mac, duid: l.duid, iaid: l.iaid, hostname: l.hostname });
+		// The info's labels are the id's and then the client's.
+		let id = { server: l.server, interface: l.interface, family: l.family, address: l.address };
 
-		info(id == '' ? client : (client == '' ? id : substr(id, 0, -1) + ',' + substr(client, 1)), 1);
+		info({ ...id, mac: l.mac, duid: l.duid, iaid: l.iaid, hostname: l.hostname }, 1);
 		if (l.expiry != null)
 			expiry(id, l.expiry);
 	}

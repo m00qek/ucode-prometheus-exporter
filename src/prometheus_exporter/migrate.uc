@@ -83,7 +83,7 @@ export const OPTIONS = [ 'listen_interface', 'listen_port', 'http_keepalive', 'c
  */
 export const SHIPPED = {
 	enabled: '1', listen_interface: 'loopback', listen_port: '9100', http_keepalive: '70', omit_zero_values: '0', exec_timeout: '5',
-	scrape_timeout: '10', collector_budget: '5', max_samples: '20000', compress: '1',
+	scrape_timeout: '10', collector_budget: '5', max_samples: '20000', max_scrape_samples: '200000', compress: '1',
 };
 
 const SPECS = { ...config.SERVICE_OPTIONS, ...config.MAIN_OPTIONS };

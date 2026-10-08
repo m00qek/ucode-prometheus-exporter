@@ -8,7 +8,7 @@ export OPENWRT_ARCH OPENWRT_VERSION IMAGE_TAG
 COMPOSE     := docker compose -f devenv/docker-compose.yaml
 RUN          = $(COMPOSE) --progress quiet run --rm $(if $(CI),-T) openwrt
 IMAGE_STAMP := devenv/.built-$(IMAGE_TAG)
-TEST_ARGS    = $(if $(FILTER),-f '$(FILTER)') $(if $(VERBOSE),-v) $(MODULES)
+TEST_ARGS    = $(if $(FILTER),-f '$(FILTER)') $(if $(VERBOSE),-v) $(if $(TEST_TIMEOUT),-t $(TEST_TIMEOUT)) $(MODULES)
 
 .PHONY: test unit integration watch lint shell image fixtures package pkgcheck-image package-check e2e lab lab-down browser pot bench bench-src bench-worlds bench-device bench-qemu docs docs-mike docs-test docs-serve docs-gen feed-makefile
 

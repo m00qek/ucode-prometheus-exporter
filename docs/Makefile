@@ -16,10 +16,11 @@ MKDOCS_RUN   := docker run --rm --user $$(id -u):$$(id -g) -v $(PROJECT_ROOT):/d
 TOOLS_DIR    := $(PROJECT_ROOT)/devenv/services/docs
 TOOLS_IMAGE  := ucode-prometheus-exporter-docs:$(lastword $(subst :, ,$(MKDOCS_IMAGE)))
 TOOLS_STAMP  := $(PROJECT_ROOT)/devenv/.built-docs
-TOOLS_RUN    := $(MKDOCS_RUN) -w /docs -e HOME=/tmp --network none $(TOOLS_IMAGE)
+TOOLS_ENV    := $(MKDOCS_RUN) -w /docs -e HOME=/tmp
+TOOLS_RUN    := $(TOOLS_ENV) --network none $(TOOLS_IMAGE)
 
 # --- 2. PUBLIC INTERFACE ---
-.PHONY: build build-mike test serve dev clean help
+.PHONY: build build-mike test publish serve dev clean help
 
 help:
 	@echo "ucode-prometheus-exporter Documentation Toolkit"
@@ -27,6 +28,7 @@ help:
 	@echo "  make build       - Generate the static site in $(PROJECT_ROOT)/bin/site/ (strict)"
 	@echo "  make build-mike  - Strict build with the versioned config, mkdocs.mike.yml"
 	@echo "  make test        - Test the publishing scripts and the gh-pages 404 redirect"
+	@echo "  make publish REF=<vX.Y.Z|docs/X.Y> - Publish REF's docs to origin's gh-pages (the CI job)"
 	@echo "  make serve       - Run a live-reloading dev server on http://localhost:$(DOCS_PORT) (DOCS_PORT=<n> to change)"
 	@echo "  make clean       - Remove the generated site directory"
 
@@ -40,6 +42,14 @@ build-mike: $(TOOLS_STAMP)
 
 test: $(TOOLS_STAMP)
 	$(TOOLS_RUN) test/docs/run.sh
+
+# devenv/scripts/docs-publish.sh in the tools image, as build-mike builds;
+# with the network, to fetch and push gh-pages with the checkout's credentials
+# and committer, which its .git/config holds. REF goes to the container as an
+# environment variable, never through a shell's quoting.
+publish: $(TOOLS_STAMP)
+	@test -n "$$REF" || { echo "usage: make -C docs publish REF=<vX.Y.Z|docs/X.Y>" >&2; exit 2; }
+	$(TOOLS_ENV) -e REF $(TOOLS_IMAGE) sh -c 'exec devenv/scripts/docs-publish.sh "$$REF"'
 
 serve: dev
 dev:

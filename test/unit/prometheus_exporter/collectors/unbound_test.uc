@@ -5,6 +5,7 @@ import { with_collector, jail_of, outcome } from 'context';
 import { rc } from 'lib.rc';
 import * as fixtures from 'lib.fixtures';
 import * as unbound from 'prometheus_exporter.collectors.unbound';
+import { format_value } from 'prometheus_exporter.exposition';
 
 // What unbound 1.26.1 (OpenWrt 25.12's) answers stats_noreset with num-threads 2
 // and no extended statistics; see test/fixtures/synthetic/SOURCES.
@@ -259,7 +260,7 @@ describe('collectors.unbound', () => {
 			for (let row in rows) {
 				let f = FAMILIES[row[0]];
 				let key = `thread${row[1]}.${f[0]}`;
-				let value = (f[0] == 'query.queue_time_us.max') ? row[2] / 1000000.0 : row[2];
+				let value = format_value((f[0] == 'query.queue_time_us.max') ? row[2] * 0.000001 : row[2]);
 
 				// The total with the same name, which must not count.
 				if (row[3])
