@@ -72,15 +72,19 @@ jobs:
           ref: ${{ env.REF }}
           # Tags and history, for the docs-only guard.
           fetch-depth: 0
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - run: pip install -r devenv/services/docs/requirements.txt
+      # The build's environment, docs/Makefile's: the docs tools image, the
+      # pinned mkdocs-material image with REF's devenv/services/docs. The
+      # Makefile is the one of the commit this workflow runs from, which is
+      # REF on a push: a release before 0.2.1 has no publish target.
+      - name: The docs Makefile of this workflow's commit
+        run: git show "$GITHUB_SHA:docs/Makefile" > "$RUNNER_TEMP/docs.mk"
+      # In the repository's config, which the container reads with the
+      # checkout's credentials.
       - name: Configure git
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-      - name: Strict build
-        run: mkdocs build --strict --config-file mkdocs.mike.yml
+      - name: Strict build with mkdocs.mike.yml
+        run: make -f "$RUNNER_TEMP/docs.mk" PROJECT_ROOT="$GITHUB_WORKSPACE" build-mike
       - name: Publish
-        run: devenv/scripts/docs-publish.sh "$REF"
+        run: make -f "$RUNNER_TEMP/docs.mk" PROJECT_ROOT="$GITHUB_WORKSPACE" publish
