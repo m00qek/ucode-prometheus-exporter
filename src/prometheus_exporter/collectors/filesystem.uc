@@ -16,10 +16,11 @@
 // The file system type and the read-only flag (the "ro" mount option, where the
 // Lua collector read statvfs's ST_RDONLY) come from the host's mount table,
 // which rpcd reads for it (`ubus call file read`, rpcd-mod-file, which
-// luci-base depends on). Not from /proc/self/mounts: the service's jail has its
-// own mount namespace, and its own PID namespace, so every mount table it can
-// read is the jail's, which shares a mount or two with the host's at most, and
-// has read-only flags of its own. rpcd reads a file that reports no size, as
+// luci-base depends on: the package depends on luci-base for both). Not from
+// /proc/self/mounts: the service's jail has its own mount namespace, and its
+// own PID namespace, so every mount table it can read is the jail's, which
+// shares a mount or two with the host's at most, and has read-only flags of
+// its own. rpcd reads a file that reports no size, as
 // /proc/mounts does, in one read of at most 4 KiB, which the kernel ends at a
 // whole line: on a system of more than about 60 mounts, those past it are left
 // out.

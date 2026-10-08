@@ -292,7 +292,7 @@ Filesystem sizes and read-only flags, from luci getMountPoints and the host's /p
 - **Title:** Filesystems
 - **Package:** `ucode-prometheus-exporter-filesystem`
 - **In the groups:** `ucode-prometheus-exporter-hardware`, `ucode-prometheus-exporter-full`
-- **Depends on:** `luci-base`, `rpcd-mod-file`
+- **Depends on:** `luci-base`
 - **Section:** `config collector 'filesystem'`
 - **Needs:** `ubus`
 - **Metrics:** [filesystem](metrics.md#filesystem)
