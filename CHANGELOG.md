@@ -4,7 +4,9 @@ What each release changes, for those who run the exporter and those who write co
 
 ## [Unreleased]
 
-Upgrading from 0.2.0 relabels the series of three collectors, moves basic auth's hash to a config of its own, and refuses a few values and collectors 0.2.0 took: see [Upgrading the exporter](docs/how-to/upgrade.md#from-020-to-021).
+## [0.2.1] - 2026-10-08
+
+Upgrading from 0.2.0 relabels the series of three collectors, moves basic auth's hash to a config of its own, and refuses a few values and collectors 0.2.0 took: see [Upgrading the exporter](https://m00qek.github.io/ucode-prometheus-exporter/0.2/how-to/upgrade/#from-020-to-021).
 
 ### Added
 
@@ -114,6 +116,7 @@ The first release: a rewrite of the packages feed's `prometheus-node-exporter-uc
 - A ubus object, `prometheus-exporter`, which the LuCI app, `luci-app-prometheus-exporter`, uses for its settings and status pages.
 - The documentation site, in the Diátaxis structure, published per minor version.
 
-[Unreleased]: https://github.com/m00qek/ucode-prometheus-exporter/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/m00qek/ucode-prometheus-exporter/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/m00qek/ucode-prometheus-exporter/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/m00qek/ucode-prometheus-exporter/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/m00qek/ucode-prometheus-exporter/releases/tag/v0.1.0

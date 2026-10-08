@@ -2,7 +2,7 @@
 
 # Collectors
 
-Every collector of `ucode-prometheus-exporter 0.2.0`. A collector's name is what a scrape's `collect[]=` takes and the suffix of its package; its section in `/etc/config/prometheus-exporter` is named after its module, the name with `_` for `-`. Its options are in that section; [UCI configuration](uci-config.md#collector-sections) has the section's rules.
+Every collector of `ucode-prometheus-exporter 0.2.1`. A collector's name is what a scrape's `collect[]=` takes and the suffix of its package; its section in `/etc/config/prometheus-exporter` is named after its module, the name with `_` for `-`. Its options are in that section; [UCI configuration](uci-config.md#collector-sections) has the section's rules.
 
 | Collector | Title | Package | Groups |
 | :--- | :--- | :--- | :--- |
