@@ -25,7 +25,7 @@ The labels are those seen on the captures; a collector leaves out a label it has
 | [`exporter`](#exporter) | 0 | none | `process_cpu_seconds_total`, `process_virtual_memory_bytes`, `process_resident_memory_bytes`, `process_start_time_seconds`, `process_open_fds`, `process_max_fds`, `ucode_prometheus_exporter_scrapes_total`, `ucode_prometheus_exporter_auth_failures_total`, `ucode_prometheus_exporter_collector_failures_total`, `ucode_prometheus_exporter_program_timeouts_total`, `ucode_prometheus_exporter_quarantines_total`, `ucode_prometheus_exporter_deadline_skips_total`, `ucode_prometheus_exporter_collector_samples` |
 | [`filefd`](#filefd) | 2 | an access point, a router | — |
 | [`filesystem`](#filesystem) | 4 | an access point, a router | — |
-| [`hostapd_stations`](#hostapd_stations) | 14 | an access point | — |
+| [`hostapd_stations`](#hostapd_stations) | 15 | an access point | — |
 | [`hostapd_ubus_stations`](#hostapd_ubus_stations) | 7 | an access point | — |
 | [`hwmon`](#hwmon) | 13 | an access point, a router, made-up captures | — |
 | [`loadavg`](#loadavg) | 3 | an access point, a router | — |
@@ -313,20 +313,21 @@ hostapd stations. [Collector](collectors.md#hostapd_stations).
 
 | Family | Type | Labels | Help | Notes |
 | :--- | :--- | :--- | :--- | :--- |
-| `hostapd_station_receive_packets_total` | counter | `vif`, `ssid`, `bssid`, `encryption`, `frequency`, `channel`, `station` | Packets received from the station. | — |
-| `hostapd_station_receive_bytes_total` | counter | `vif`, `ssid`, `bssid`, `encryption`, `frequency`, `channel`, `station` | Bytes received from the station. | — |
-| `hostapd_station_transmit_packets_total` | counter | `vif`, `ssid`, `bssid`, `encryption`, `frequency`, `channel`, `station` | Packets transmitted to the station. | — |
-| `hostapd_station_transmit_bytes_total` | counter | `vif`, `ssid`, `bssid`, `encryption`, `frequency`, `channel`, `station` | Bytes transmitted to the station. | — |
-| `hostapd_station_signal_dbm` | gauge | `vif`, `ssid`, `bssid`, `encryption`, `frequency`, `channel`, `station` | Signal of the station, in dBm. | — |
-| `hostapd_station_flag_auth` | gauge | `vif`, `ssid`, `bssid`, `encryption`, `frequency`, `channel`, `station` | Whether the station is authenticated. | — |
-| `hostapd_station_flag_assoc` | gauge | `vif`, `ssid`, `bssid`, `encryption`, `frequency`, `channel`, `station` | Whether the station is associated. | — |
-| `hostapd_station_flag_ht` | gauge | `vif`, `ssid`, `bssid`, `encryption`, `frequency`, `channel`, `station` | Whether the station uses HT (802.11n). | — |
-| `hostapd_station_flag_vht` | gauge | `vif`, `ssid`, `bssid`, `encryption`, `frequency`, `channel`, `station` | Whether the station uses VHT (802.11ac). | — |
-| `hostapd_station_flag_he` | gauge | `vif`, `ssid`, `bssid`, `encryption`, `frequency`, `channel`, `station` | Whether the station uses HE (802.11ax). | — |
-| `hostapd_station_flag_mfp` | gauge | `vif`, `ssid`, `bssid`, `encryption`, `frequency`, `channel`, `station` | Whether the station uses management frame protection. | — |
-| `hostapd_station_flag_wmm` | gauge | `vif`, `ssid`, `bssid`, `encryption`, `frequency`, `channel`, `station` | Whether the station uses WMM. | — |
-| `hostapd_station_vht_capb_su_beamformee` | gauge | `vif`, `ssid`, `bssid`, `encryption`, `frequency`, `channel`, `station` | Whether the station is a VHT single-user beamformee. | — |
-| `hostapd_station_vht_capb_mu_beamformee` | gauge | `vif`, `ssid`, `bssid`, `encryption`, `frequency`, `channel`, `station` | Whether the station is a VHT multi-user beamformee. | — |
+| `hostapd_station_info` | gauge | `vif`, `station`, `ssid`, `bssid`, `encryption`, `frequency`, `channel` | A station of an access point, and the network it is on: its SSID, BSSID, encryption, frequency and channel. | — |
+| `hostapd_station_receive_packets_total` | counter | `vif`, `station` | Packets received from the station. | — |
+| `hostapd_station_receive_bytes_total` | counter | `vif`, `station` | Bytes received from the station. | — |
+| `hostapd_station_transmit_packets_total` | counter | `vif`, `station` | Packets transmitted to the station. | — |
+| `hostapd_station_transmit_bytes_total` | counter | `vif`, `station` | Bytes transmitted to the station. | — |
+| `hostapd_station_signal_dbm` | gauge | `vif`, `station` | Signal of the station, in dBm. | — |
+| `hostapd_station_flag_auth` | gauge | `vif`, `station` | Whether the station is authenticated. | — |
+| `hostapd_station_flag_assoc` | gauge | `vif`, `station` | Whether the station is associated. | — |
+| `hostapd_station_flag_ht` | gauge | `vif`, `station` | Whether the station uses HT (802.11n). | — |
+| `hostapd_station_flag_vht` | gauge | `vif`, `station` | Whether the station uses VHT (802.11ac). | — |
+| `hostapd_station_flag_he` | gauge | `vif`, `station` | Whether the station uses HE (802.11ax). | — |
+| `hostapd_station_flag_mfp` | gauge | `vif`, `station` | Whether the station uses management frame protection. | — |
+| `hostapd_station_flag_wmm` | gauge | `vif`, `station` | Whether the station uses WMM. | — |
+| `hostapd_station_vht_capb_su_beamformee` | gauge | `vif`, `station` | Whether the station is a VHT single-user beamformee. | — |
+| `hostapd_station_vht_capb_mu_beamformee` | gauge | `vif`, `station` | Whether the station is a VHT multi-user beamformee. | — |
 
 ## `hostapd_ubus_stations` {#hostapd_ubus_stations}
 

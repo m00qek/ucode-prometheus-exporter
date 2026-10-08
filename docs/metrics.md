@@ -72,8 +72,10 @@ wifi writes node_exporter's wifi collector families, with its help texts and its
 | `wifi_station_receive_packets_total` | `node_wifi_station_received_packets_total` | counter | node_exporter's name. |
 | `wifi_station_expected_throughput_kilobits_per_second` | `node_wifi_station_expected_throughput_bits_per_second` | gauge | Base unit, `node_wifi_` namespace. |
 | `dawn_ap_stations_total` | `dawn_ap_stations` | gauge | A gauge has no `_total`. |
+| `hostapd_station_*{vif,ssid,bssid,encryption,frequency,channel,station}` | `hostapd_station_*{vif,station}` | unchanged | The network's labels are on the info metric below: a channel change (DFS, ACS) no longer starts a new series of every station's counters. |
+| — (labels of `hostapd_station_*`) | `hostapd_station_info{vif,station,ssid,bssid,encryption,frequency,channel}` | gauge | The station's network, as an info metric, one per station. |
 
-The hostapd_stations and hostapd_ubus_stations families already followed the conventions and are unchanged.
+The hostapd_ubus_stations families already followed the conventions and are unchanged.
 
 ## Hardware and system collectors
 
@@ -247,7 +249,7 @@ Neither upstream exporter had these. Where node_exporter has the metric, the nam
 
 ## Unchanged collectors
 
-conntrack (beyond the statistics above), entropy, filefd, filesystem, hostapd_stations, hostapd_ubus_stations, loadavg, realtek-poe, textfile, time and uname write the families they wrote before.
+conntrack (beyond the statistics above), entropy, filefd, filesystem, hostapd_ubus_stations, loadavg, realtek-poe, textfile, time and uname write the families they wrote before.
 
 ## Standalone exporters
 

@@ -6,8 +6,11 @@
 // The Lua exporter's hostapd_stations collector, from hostapd's ubus objects
 // where Lua ran hostapd_cli: for each network.wireless interface with a
 // hostapd.<ifname> object, its get_status (ssid, bssid, freq, channel) and the
-// clients of get_clients, labelled as Lua did: {vif, ssid, bssid, encryption,
-// frequency, channel, station}.
+// clients of get_clients. Each station's series are labelled by what tells it
+// apart, {vif, station}; what Lua labelled every series with as well, the
+// network's ssid, bssid, encryption, frequency and channel, is on one
+// hostapd_station_info per station, so a channel change (DFS, ACS) starts no
+// new series of its counters.
 //
 // get_clients has no connected time, inactive time, SAE group or short
 // preamble flag, so hostapd_station_connected_seconds_total,
@@ -29,6 +32,7 @@ export const meta = {
 
 function metrics(out) {
 	return {
+		info: out.gauge('hostapd_station_info', 'A station of an access point, and the network it is on: its SSID, BSSID, encryption, frequency and channel.'),
 		rx_packets: out.counter('hostapd_station_receive_packets_total', 'Packets received from the station.'),
 		rx_bytes: out.counter('hostapd_station_receive_bytes_total', 'Bytes received from the station.'),
 		tx_packets: out.counter('hostapd_station_transmit_packets_total', 'Packets transmitted to the station.'),
@@ -82,15 +86,16 @@ function access_point(ubus, m, iface) {
 		return res;
 
 	for (let mac, c in res.data?.clients ?? {}) {
-		station(m, m.labels({
+		m.info({
 			vif: iface.ifname,
+			station: mac,
 			ssid: status.ssid,
 			bssid: status.bssid,
 			encryption: iface.config?.encryption,
 			frequency: status.freq,
 			channel: status.channel,
-			station: mac,
-		}), c ?? {});
+		}, 1);
+		station(m, m.labels({ vif: iface.ifname, station: mac }), c ?? {});
 	}
 
 	return null;

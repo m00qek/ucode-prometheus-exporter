@@ -8,6 +8,10 @@ What each release changes, for those who run the exporter and those who write co
 
 - **`u32()` and `u16()` in the collector API**: a ubus integer a daemon sent unsigned (`blobmsg_add_u32()`, `blobmsg_add_u16()`), which ucode's ubus gives signed, as the value the daemon meant. See [Collector interface](docs/reference/collector-interface.md#the-collector-api).
 
+### Changed
+
+- **BREAKING: hostapd_stations labels each station's series by `vif` and `station` alone.** `ssid`, `bssid`, `encryption`, `frequency` and `channel` moved off every `hostapd_station_*` series to the new `hostapd_station_info{vif,station,ssid,bssid,encryption,frequency,channel}`, one per station: a channel change (DFS, ACS) started a new series of every station's counters. A query that selected by them joins the info metric: `hostapd_station_signal_dbm * on (vif, station) group_left (ssid) hostapd_station_info`.
+
 ### Fixed
 
 - **A failed netlink request said nothing of why**: on a real access point, `collector 'netdev': RTNL_FAILED`, `collector 'wifi': NL80211_FAILED (phy0-ap0: null)` and `collector 'netclass': SOURCE_INVALID (RTM_GETLINK: false)`. ucode's rtnl and nl80211 clear their error as `error()` reads it, and the capability read it twice; a request the kernel refused, which they answer with `false`, was taken for a reply. The capability reads the error once and fails a `false` reply too, so the log says why, as `RTNL_FAILED (Operation not permitted)`.
