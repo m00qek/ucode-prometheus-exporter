@@ -6,6 +6,7 @@ What each release changes, for those who run the exporter and those who write co
 
 ### Changed
 
+- **The jail has the ubus socket only while an enabled collector needs ubus.** The jail runs as root, and ubusd lets root call any object: a router whose enabled collectors read files and netlink alone now runs the exporter without ubus, and so do `check`, the ubus object's `status` and `prometheus-exporter scrape`. The base package's `timesync` and `openwrt_interfaces` need it; disable both and the jail has none. A collector whose programs call ubus declares `ubus` in `meta.needs`. `jail.uc` prints the service's own mounts with the collectors', the ubus socket among them while one needs it, and the init script mounts what it prints. See [The jail](docs/reference/jail.md#what-a-collector-gets).
 - uhttpd runs at most 3 requests at once over at most 10 connections (`-n 3 -N 10`), where it took its defaults of 3 and 100: one or two scrapers need no more, and a client that reaches the port can queue fewer scrapes behind it. The port is meant for the scrapers alone: [How to listen on the LAN](docs/how-to/listen-on-lan.md#keep-it-to-the-scrapers) has the firewall rules that keep it so, and [HTTP endpoint](docs/reference/http.md#keep-alive) says why keep-alive is 70 seconds.
 
 ### Fixed

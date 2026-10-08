@@ -1,9 +1,11 @@
 #!/usr/bin/ucode
 'use strict';
 
-// The paths the exporter's jail mounts for the installed and enabled
-// collectors, one per line, for /etc/init.d/prometheus-exporter; what cannot be
-// mounted goes to standard error. With --missing, the paths those collectors
+// The paths the exporter's jail mounts read-only, one per line, for
+// /etc/init.d/prometheus-exporter: the service's own (jail.SERVICE, some of
+// them globs), then what the installed and enabled collectors get, the ubus
+// socket among them when one needs ubus; what cannot be mounted goes to
+// standard error. With --missing, the paths those collectors
 // read that are not there yet instead. With --make, it makes the directories
 // those collectors own (textfile's) that are not there, and says which, and
 // the exporter's state directory (mode 0700, which the jail mounts read-write;
@@ -53,4 +55,4 @@ if (mode == '--make') {
 for (let p in res.problems)
 	log(p);
 
-print(join('\n', res.mounts), '\n');
+print(join('\n', uniq([ ...jail.SERVICE, ...res.mounts ])), '\n');

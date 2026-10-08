@@ -297,43 +297,67 @@ describe('jail.mounts', () => {
 });
 
 describe('jail.COMMON', () => {
-	// What procd's jail options and ujail itself give, which the init script
-	// asks for by its options: procfs, sysfs, log and ubus.
-	const GIVEN = [ '/proc', '/sys', '/dev/log', '/var/run/ubus/ubus.sock', '/dev/null', '/dev/zero', '/dev/full',
-		'/dev/random', '/dev/urandom', '/etc/resolv.conf' ];
-
-	// The init script's mounts that every instance has, its variables filled in.
-	function init_mounts(text) {
+	// The init script's lines that mount something, its variables filled in.
+	function init_lines(text) {
 		let vars = { NAME: config.NAME };
 		let out = [];
 
-		vars.LIBEXEC = `/usr/libexec/${vars.NAME}`;
-		vars.HANDLER = `${vars.LIBEXEC}/handler.uc`;
 		vars.STATE = `/var/run/${vars.NAME}/state`;
 
 		for (let line in split(text, '\n')) {
-			let m = match(line, /^\tprocd_add_jail_mount(_rw)? (.*)$/);
+			let m = match(line, /^\t(\[ [^]]* \] && )?(procd_add_jail[a-z_]*) (.*)$/);
 
-			if (!m)
-				continue;
-
-			for (let arg in split(m[2], ' '))
-				if (arg != '$mounts')
-					push(out, replace(replace(arg, /"/g, ''), /\$([A-Z]+)/g, (all, v) => vars[v] ?? all));
+			if (m)
+				push(out, `${m[2]} ${replace(replace(m[3], /"/g, ''), /\$([A-Z]+)/g, (all, v) => vars[v] ?? all)}`);
 		}
 
 		return out;
 	}
 
-	it('is what the init script has procd mount in every instance, its options\' and its own config', () => {
-		let text = readfile('files/etc/init.d/prometheus-exporter');
-
-		assert.match(true, index(text, '\n\tprocd_add_jail "$NAME" log procfs sysfs ubus\n') >= 0);
-		assert.match(sort([ ...GIVEN, ...init_mounts(text), jail.OWN_CONFIG ]), sort([ ...jail.COMMON ]));
+	it('is what the jail gives, the service\'s own mounts, its config and its state', () => {
+		assert.match(sort([ ...jail.GIVEN, ...jail.SERVICE, jail.OWN_CONFIG, '/var/run/prometheus-exporter/state' ]), sort([ ...jail.COMMON ]));
 
 		with_sys({}, {}, null, (sys) => {
 			assert.match([ jail.OWN_CONFIG ], jail.mounts([], sys).mounts);
 		});
+	});
+
+	it('is what the init script has procd mount: jail.uc\'s, but for TLS\'s, basic auth\'s and the state', () => {
+		let text = readfile('files/etc/init.d/prometheus-exporter');
+
+		assert.match([
+			'procd_add_jail prometheus-exporter log procfs sysfs $ubus',
+			'procd_add_jail_mount $(echo $mounts | grep -vx $UBUS_SOCKET)',
+			'procd_add_jail_mount $cert $key /lib/libustream-*.so* /usr/lib/libustream-*.so*',
+			'procd_add_jail_mount $auth',
+			'procd_add_jail_mount_rw /var/run/prometheus-exporter/state',
+		], init_lines(text));
+		// The socket it takes for the jail's ubus option is the one a collector's mounts name.
+		assert.match(true, index(text, `\nUBUS_SOCKET=${jail.UBUS_SOCKET}\n`) >= 0);
+		assert.match(true, index(text, '\n\techo "$mounts" | grep -qx "$UBUS_SOCKET" && ubus=ubus\n') >= 0);
+	});
+
+	it('jail.uc prints the service\'s own mounts with the collectors\'', () => {
+		let text = readfile('files/usr/libexec/prometheus-exporter/jail.uc');
+
+		assert.match(true, index(text, "print(join('\\n', uniq([ ...jail.SERVICE, ...res.mounts ])), '\\n');") >= 0);
+	});
+});
+
+describe('jail.mounts and ubus', () => {
+	const UBUS = collector('openwrt', { needs: [ 'ubus' ] });
+
+	it('the jail has it while a collector that needs ubus is enabled, and only then', () => {
+		with_sys({}, {}, null, (sys) => {
+			assert.match([ true, false ], [ jail.UBUS_SOCKET in jail.mounts([ UBUS, LOADAVG ], sys).mounts, jail.UBUS_SOCKET in jail.mounts([ LOADAVG, DHCP ], sys).mounts ]);
+		});
+		with_sys({ openwrt: { '.type': 'collector', enabled: '0' } }, {}, null, (sys) => {
+			assert.match(false, jail.UBUS_SOCKET in jail.mounts([ UBUS, LOADAVG ], sys).mounts);
+		});
+	});
+
+	it('is no path of the service\'s own', () => {
+		assert.match(false, jail.UBUS_SOCKET in jail.COMMON);
 	});
 });
 

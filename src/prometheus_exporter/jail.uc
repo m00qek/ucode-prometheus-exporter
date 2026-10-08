@@ -1,15 +1,19 @@
 /**
  * What procd's jail mounts for the exporter: what its installed and enabled
  * collectors declare they need from the filesystem, and nothing more. procfs,
- * sysfs, /dev/log and the ubus socket come with the jail's options, and the
- * exporter's code and libraries with the init script's own mounts.
+ * sysfs and /dev/log come with the jail's options, and the exporter's code
+ * and libraries with its own mounts (SERVICE), which jail.uc prints for the
+ * init script along with the collectors'. The ubus socket comes with the
+ * jail's ubus option, which the init script gives only when an enabled
+ * collector needs ubus: the jail's mounts (mounts()) then name the socket
+ * (UBUS_SOCKET), and the init script takes it for the option.
  *
  * A collector gets /etc/config/<c> for each of its meta.configs, the paths of
- * meta.paths, and with exec, /bin/sh (popen's shell) and each of its commands
- * as found on PATH; a command missing there is a problem, unless it is one of
- * meta.optional_commands. ujail mounts a binary's shared libraries along with
- * it. It cannot mount a socket itself (it opens what it mounts), so a
- * collector declares a socket's directory.
+ * meta.paths, and with exec, /bin/sh (popen's
+ * shell) and each of its commands as found on PATH; a command missing there
+ * is a problem, unless it is one of meta.optional_commands. ujail mounts a
+ * binary's shared libraries along with it. It cannot mount a socket itself
+ * (it opens what it mounts), so a collector declares a socket's directory.
  *
  * A path of meta.paths that is not there is left out of the mounts (ujail
  * would leave it out too), and is `missing`: once it is there, the mounts
@@ -79,26 +83,53 @@ export const OWN_CONFIG = `${CONFIG_DIR}/${config.NAME}`;
 export const SHELL = '/bin/sh';
 
 /**
- * What every jail of the service has, whatever its collectors declare: what
- * procd's jail options give (procfs, sysfs, the log's socket and ubus's) and
- * ujail itself (its devices and resolv.conf), and the init script's own
- * mounts (the exporter's code, ucode's modules and the libraries they load,
- * the handler, the shell, the exporter's config and its state). A path that
- * ends in '*' is every file whose path starts with the rest. Nothing else is
- * there but what the enabled collectors declare: a collector reads these
- * without declaring them, though only procfs and sysfs are meant for it.
- * test/context.uc runs a collector's tests in a filesystem of these and its
- * own mounts, and a test holds the init script to this list.
+ * The ubus socket, which procd's jail option `ubus` mounts: the jail's
+ * mounts name it while an enabled collector needs ubus, and the init script
+ * gives the jail that option, and no mount of its own, for it.
+ *
+ * @type {string}
+ */
+export const UBUS_SOCKET = '/var/run/ubus/ubus.sock';
+
+/**
+ * The service's own read-only mounts, which every instance has: uhttpd's
+ * ucode plugin, the libraries ucode's modules load (zlib's, for gzip), ucode's
+ * modules, the exporter's code, its handler, and ash, for its kill: a scrape
+ * kills the child process a scrape that died left running a collector
+ * (prometheus_exporter.progress's bury). jail.uc prints them for the init
+ * script, before the collectors' mounts; a path that ends in '*' is a glob,
+ * which the init script's shell expands.
  *
  * @type {string[]}
  */
-export const COMMON = [
-	'/proc', '/sys', '/dev/log', '/var/run/ubus/ubus.sock',
-	'/dev/null', '/dev/zero', '/dev/full', '/dev/random', '/dev/urandom', '/etc/resolv.conf',
+export const SERVICE = [
 	'/usr/lib/uhttpd_ucode.so', '/lib/libubus.so*', '/lib/libuci.so*', '/usr/lib/libnl*.so*', '/usr/lib/libz.so*',
-	'/usr/lib/ucode', '/usr/share/ucode/prometheus_exporter', `/usr/libexec/${config.NAME}/handler.uc`,
-	SHELL, OWN_CONFIG, STATE_DIR,
+	'/usr/lib/ucode', '/usr/share/ucode/prometheus_exporter', `/usr/libexec/${config.NAME}/handler.uc`, SHELL,
 ];
+
+/**
+ * What procd's jail options give every instance (procfs, sysfs and the
+ * log's socket) and ujail itself (its devices and resolv.conf).
+ *
+ * @type {string[]}
+ */
+export const GIVEN = [
+	'/proc', '/sys', '/dev/log',
+	'/dev/null', '/dev/zero', '/dev/full', '/dev/random', '/dev/urandom', '/etc/resolv.conf',
+];
+
+/**
+ * What every jail of the service has, whatever its collectors declare: what
+ * the jail gives (GIVEN), the service's own mounts (SERVICE), the exporter's
+ * config and its state, which the init script mounts read-write. Nothing
+ * else is there but what the enabled collectors declare: a collector reads
+ * these without declaring them, though only procfs and sysfs are meant for
+ * it. test/context.uc runs a collector's tests in a filesystem of these and
+ * its own mounts, and a test holds the init script to them.
+ *
+ * @type {string[]}
+ */
+export const COMMON = [ ...GIVEN, ...SERVICE, OWN_CONFIG, STATE_DIR ];
 
 /**
  * procd's PATH, which the jailed uhttpd and so popen's shell have.
@@ -327,8 +358,8 @@ export function collector(c, sys) {
 
 /**
  * { mounts, problems, missing, owned } of the jail for these installed
- * collectors: the exporter's config, and what each enabled one gets, sorted and
- * once each; the paths of the enabled ones that are not there, and those the
+ * collectors: the exporter's config, what each enabled one gets, and the ubus
+ * socket when one of them needs ubus, sorted and once each; the paths of the enabled ones that are not there, and those the
  * exporter makes. A problem names its collector.
  *
  * @param {Collector[]} collectors the installed collectors.
@@ -349,6 +380,8 @@ export function mounts(collectors, sys) {
 		let j = collector(c, sys);
 
 		push(all, ...j.mounts);
+		if ('ubus' in c.meta.needs)
+			push(all, UBUS_SOCKET);
 		push(missing, ...j.missing);
 		push(owned, ...j.owned);
 		for (let p in j.problems)

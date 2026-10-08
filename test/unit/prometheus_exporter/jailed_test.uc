@@ -9,6 +9,7 @@ import { with_mods } from 'context';
 
 const NFT = loader.validate('nft_counters', { meta: { name: 'nft-counters', title: 'N', help: 'N.', needs: [ 'exec' ], commands: [ 'nft' ] },
 	collect: () => Result.ok() }).data;
+const OPENWRT = loader.validate('openwrt', { meta: { name: 'openwrt', title: 'O', help: 'O.', needs: [ 'ubus' ] }, collect: () => Result.ok() }).data;
 const LOADAVG = loader.validate('loadavg', { meta: { name: 'loadavg', title: 'L', help: 'L.', needs: [ 'fs' ] }, collect: () => Result.ok() }).data;
 
 // A system of `files` (path: text), every other path there as a directory,
@@ -43,10 +44,28 @@ describe('jailed.command', () => {
 		with_mods({}, (mods) => {
 			let cmd = jailed.command(sys_of(mods, ROOT, '', []), [ NFT, LOADAVG ], [ 'scrape', 'collect[]=a b' ]);
 
-			assert.match(0, index(cmd, 'ulimit -d 32768 && exec nice -n 10 /sbin/ujail -n \'prometheus-exporter-trial\' -p -s -l -u '));
+			assert.match(0, index(cmd, 'ulimit -d 32768 && exec nice -n 10 /sbin/ujail -n \'prometheus-exporter-trial\' -p -s -l -r '));
 			for (let m in [ '/etc/config/prometheus-exporter', '/bin/sh', '/usr/bin/nft', '/usr/share/ucode/prometheus_exporter', jailed.TRIAL, '/usr/lib/ucode/ubus.so' ])
 				assert.match(true, index(cmd, `-r '${m}'`) >= 0, m);
 			assert.match(true, index(cmd, "-w '/var/run/prometheus-exporter/state' -- /usr/bin/ucode /usr/libexec/prometheus-exporter/trial.uc 'scrape' 'collect[]=a b' 2>/dev/null") > 0, cmd);
+		});
+	});
+
+	it('mounts the ubus socket, by ujail\'s -u, only when a collector needs ubus', () => {
+		with_mods({}, (mods) => {
+			let without = jailed.command(sys_of(mods, ROOT, '', []), [ NFT, LOADAVG ], [ 'runs' ]);
+			let with_ubus = jailed.command(sys_of(mods, ROOT, '', []), [ LOADAVG, OPENWRT ], [ 'runs' ]);
+
+			assert.match([ -1, -1 ], [ index(without, ' -u '), index(without, 'ubus.sock') ]);
+			assert.match(true, index(with_ubus, ' -p -s -l -u -r ') > 0, with_ubus);
+			// The socket is the option's, never a -r of its own.
+			assert.match(-1, index(with_ubus, 'ubus.sock'));
+		});
+	});
+
+	it('leaves the ubus socket out when the collector that needs ubus is disabled', () => {
+		with_mods({ uci: { data: { [config.NAME]: { openwrt: { '.type': 'collector', enabled: '0' } } } } }, (mods) => {
+			assert.match(-1, index(jailed.command(sys_of(mods, ROOT, '', []), [ LOADAVG, OPENWRT ], [ 'runs' ]), ' -u '));
 		});
 	});
 

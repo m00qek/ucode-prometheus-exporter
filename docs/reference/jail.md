@@ -8,16 +8,16 @@ uhttpd, and with it the exporter, runs in procd's jail (ujail), named `prometheu
 
 | From | What |
 | :--- | :--- |
-| The jail's options | procfs, sysfs, the ubus socket, `/dev/log`. |
-| The exporter | `/usr/lib/uhttpd_ucode.so`, `/lib/libubus.so*`, `/lib/libuci.so*`, `/usr/lib/libnl*.so*`, `/usr/lib/libz.so*`, `/usr/lib/ucode`, `/usr/share/ucode/prometheus_exporter`, `/usr/libexec/prometheus-exporter/handler.uc`; `/bin/sh`, whose `kill` a scrape uses to end a collector's process a dead scrape left running. |
+| The jail's options | procfs, sysfs, `/dev/log`. |
+| The exporter (`jail.uc`, before the collectors' mounts) | `/usr/lib/uhttpd_ucode.so`, `/lib/libubus.so*`, `/lib/libuci.so*`, `/usr/lib/libnl*.so*`, `/usr/lib/libz.so*`, `/usr/lib/ucode`, `/usr/share/ucode/prometheus_exporter`, `/usr/libexec/prometheus-exporter/handler.uc`; `/bin/sh`, whose `kill` a scrape uses to end a collector's process a dead scrape left running. |
 | The configuration | `/etc/config/prometheus-exporter`. |
 | HTTPS, with `cert` set | `cert`, `key`, `/lib/libustream-*.so*`, `/usr/lib/libustream-*.so*`. |
 | Basic auth | Its file, `/var/run/prometheus-exporter/uhttpd.conf`. |
 | The state | `/var/run/prometheus-exporter/state`, read-write. |
 
-Every mount is read-only but the state. procd starts the instance at nice 10, with a data limit (`RLIMIT_DATA`) on each of its processes of `memory_limit` MB, or a quarter of the RAM, at most 64 MB: see [Collector contract](collector-contract.md).
+Every mount is read-only but the state. The ubus socket is not among them: see [What a collector gets](#what-a-collector-gets). procd starts the instance at nice 10, with a data limit (`RLIMIT_DATA`) on each of its processes of `memory_limit` MB, or a quarter of the RAM, at most 64 MB: see [Collector contract](collector-contract.md).
 
-`check`, the ubus object's `status` and `prometheus-exporter scrape` run their collectors in a jail of the same mounts, with ujail, at the same priority and data limit: `/usr/libexec/prometheus-exporter/trial.uc`, with the libraries of `/usr/lib/ucode/*.so` given one by one (ujail mounts what each needs), named `prometheus-exporter-trial`. Where ujail cannot run they run outside it.
+`check`, the ubus object's `status` and `prometheus-exporter scrape` run their collectors in a jail of the same mounts, with ujail, at the same priority and data limit, with ubus (ujail's `-u`) only when the service's jail has it: `/usr/libexec/prometheus-exporter/trial.uc`, with the libraries of `/usr/lib/ucode/*.so` given one by one (ujail mounts what each needs), named `prometheus-exporter-trial`. Where ujail cannot run they run outside it.
 
 ## What a collector gets
 
@@ -26,6 +26,7 @@ For each installed collector that is enabled:
 | Declared in `meta` | Mounted |
 | :--- | :--- |
 | `configs: [ 'dhcp' ]` | `/etc/config/dhcp`. |
+| `ubus` in `needs` | The ubus socket, `/var/run/ubus/ubus.sock`, by the jail's `ubus` option: `jail.uc` names it, and the init script gives the jail the option for it. While no enabled collector needs ubus, the jail has no ubus. |
 | `exec` in `needs` | `/bin/sh`, which runs its programs. |
 | `commands: [ 'nft' ]` | Each program, where `PATH` (`/usr/sbin:/usr/bin:/sbin:/bin`) finds it. ujail mounts its shared libraries along with it. |
 | `optional_commands` | The same, where the program is installed; nothing, and no warning, where it is not. |

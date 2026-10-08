@@ -4,8 +4,8 @@
  * trial.uc (TRIAL) under ujail, with what the init script has procd mount for
  * the service (prometheus_exporter.jail's mounts of the enabled collectors, the
  * exporter's code and libraries, the state read-write), procfs, sysfs, the log
- * and ubus, at the service's priority and memory limit: so what they find is
- * what Prometheus gets. The collectors run in it as in the service, each in a
+ * and, when an enabled collector needs it, ubus, at the service's priority
+ * and memory limit: so what they find is what Prometheus gets. The collectors run in it as in the service, each in a
  * process of its own (prometheus_exporter.runner).
  *
  * ujail needs root and a kernel that lets it make namespaces: where it is not
@@ -120,13 +120,15 @@ export function data_kb(sys) {
  * @returns {string} the command.
  */
 export function command(sys, collectors, args) {
-	let ro = [ ...jail.mounts(collectors, sys).mounts, ...CODE ];
+	let mounts = jail.mounts(collectors, sys).mounts;
+	let ro = [ ...filter(mounts, (p) => p != jail.UBUS_SOCKET), ...CODE ];
 
 	for (let pattern in LIBS)
 		push(ro, ...(sys.fs.glob(pattern) ?? []));
 
-	return sprintf('ulimit -d %d && exec nice -n %d %s -n %s -p -s -l -u %s -w %s -- %s %s %s 2>/dev/null',
-		data_kb(sys), NICE, UJAIL, shell_quote(`${config.NAME}-trial`),
+	// ujail's -u mounts the ubus socket, as the init script's ubus option does.
+	return sprintf('ulimit -d %d && exec nice -n %d %s -n %s -p -s -l%s %s -w %s -- %s %s %s 2>/dev/null',
+		data_kb(sys), NICE, UJAIL, shell_quote(`${config.NAME}-trial`), (jail.UBUS_SOCKET in mounts) ? ' -u' : '',
 		join(' ', map(uniq(ro), (p) => '-r ' + shell_quote(p))), shell_quote(STATE_DIR),
 		UCODE, TRIAL, join(' ', map(args, shell_quote)));
 };

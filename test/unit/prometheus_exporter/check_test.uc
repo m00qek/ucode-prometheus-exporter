@@ -215,6 +215,7 @@ describe('check.run', () => {
 			'  /etc/config/prometheus-exporter',
 			'  /srv/prom',
 			'  /usr/sbin/nft',
+			'  /var/run/ubus/ubus.sock',
 		], r.lines);
 	});
 

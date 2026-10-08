@@ -50,12 +50,14 @@ command_line() { instance | jsonfilter -e '@[*].instances.instance1.command[*]' 
 # The exporter's own instance; `watch` runs beside it while a path is missing.
 pid() { instance | jsonfilter -e '@[*].instances.instance1.pid'; }
 mounts() { instance | jsonfilter -e '@[*].instances.instance1.mount' | ucode -e 'print(join("\n", sort(keys(json(require("fs").stdin.read("all"))))), "\n")'; }
-# What the init script mounts for the exporter's own code and libraries.
-own_mount() { case $1 in /lib/libubus.so* | /lib/libuci.so* | /usr/lib/libnl* | /usr/lib/libz.so* | /usr/lib/uhttpd_ucode.so | /usr/lib/ucode | \
-	/usr/share/ucode/prometheus_exporter | $LIBEXEC/handler.uc | $STATE) return 0 ;; esac; return 1; }
-collector_mounts() { mounts | while read -r m; do own_mount "$m" || echo "$m"; done; }
-# /bin/sh is the exporter's own mount, and an exec collector's too.
-mounts_match_jail() { [ "$(collector_mounts | grep -vx /bin/sh)" = "$($LIBEXEC/jail.uc 2>/dev/null | grep -vx /bin/sh)" ]; }
+# The ubus socket, which procd's jail option mounts when a collector needs ubus:
+# jail.uc names it, and procd lists no mount of it.
+UBUS_SOCKET=/var/run/ubus/ubus.sock
+# What jail.uc prints, its globs expanded as the init script's shell expands
+# them, but the ubus socket, is every read-only mount of the instance: the
+# state is its read-write one.
+jail_paths() { for m in $($LIBEXEC/jail.uc 2>/dev/null | grep -vx "$UBUS_SOCKET"); do echo "$m"; done | sort -u; }
+mounts_match_jail() { [ "$(mounts | grep -vx "$STATE")" = "$(jail_paths)" ]; }
 # What the jailed uhttpd sees of /etc/config: procd's pid is ujail's, which
 # runs uhttpd as its child, in the jail's mount namespace.
 jail_configs() { p=$(pid); ls "/proc/$(echo $(cat /proc/$p/task/$p/children))/root/etc/config"; }
@@ -141,6 +143,30 @@ check "its processes may take 64 MB of data at most" grep -q '^Max data size *67
 check "its mounts are what jail.uc prints" mounts_match_jail
 check "the jail has its own config and no other" test "$(jail_configs)" = "$NAME"
 check "no /etc/config/network in its mounts" not_mounted /etc/config/network
+
+# --- ubus, in the jail only while an enabled collector needs it
+# Of the base collectors, timesync and openwrt_interfaces need it. The jail's
+# root is that of the uhttpd it runs.
+in_jail() { test -e "/proc/$(uhttpd_of)/root$1"; }
+jailed_status() { ubus -t 30 call "$NAME" status | jsonfilter -e '@.jailed' | grep -qx true; }
+check "the base collectors that need ubus have its socket in the jail" in_jail "$UBUS_SOCKET"
+check "and jail.uc names it" says "^$UBUS_SOCKET$" "$LIBEXEC/jail.uc"
+before=$(pid)
+set_config "$NAME.timesync=collector" "$NAME.timesync.enabled=0" "$NAME.openwrt_interfaces=collector" "$NAME.openwrt_interfaces.enabled=0"
+eventually "disabling them restarts the instance" restarted_from "$before"
+eventually "which serves the rest" served loadavg
+check "without the ubus socket in its jail" fails in_jail "$UBUS_SOCKET"
+check "nor in what jail.uc prints" fails says "^$UBUS_SOCKET$" "$LIBEXEC/jail.uc"
+check "the exporter collector is served without it" served exporter
+check "its mounts are still what jail.uc prints" mounts_match_jail
+check "check scrapes in the jail without it" says "^ok   scrape, in the service's jail: " "$INIT" check
+check "and so does the ubus object's status" jailed_status
+before=$(pid)
+uci delete "$NAME.timesync" && uci delete "$NAME.openwrt_interfaces"
+set_config
+eventually "enabling them again restarts the instance" restarted_from "$before"
+eventually "which serves them" served timesync
+check "with the ubus socket in its jail again" in_jail "$UBUS_SOCKET"
 
 # --- what a scrape costs besides its collectors, as Prometheus gets it
 # The collectors are compiled as one program: what they share, the collector
