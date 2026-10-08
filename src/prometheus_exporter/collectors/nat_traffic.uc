@@ -9,6 +9,10 @@
 // dst= (the original direction) and the sum of every bytes= field (both
 // directions). Without conntrack accounting (net.netfilter.nf_conntrack_acct)
 // there are no bytes= fields and every pair sums to 0.
+//
+// The kernel writes an IPv6 address in full (%pI6: 2001:0db8:0000:...); the
+// labels have it as every other collector and tool does (RFC 5952,
+// 2001:db8::1), so they join with theirs.
 
 import { Result, errors } from 'prometheus_exporter.api';
 
@@ -96,6 +100,11 @@ function pair_labels(out, src, dst) {
 	return (index(text, '\\') < 0 && length(split(text, '"')) == 5) ? text : out.labels({ src, dst });
 }
 
+// An IPv6 address as the labels have it, compressed: once each.
+function address(seen, a) {
+	return seen[a] ??= (arrtoip(iptoarr(a)) ?? a);
+}
+
 // The labels are src and dst, as the ucode exporter's nat_traffic has them
 // (the Lua one's are src and dest). /proc/net/nf_conntrack is there only
 // while nf_conntrack is loaded: an access point without a firewall has none,
@@ -110,9 +119,21 @@ export function collect(deps, out) {
 			: Result.err(errors.SOURCE_UNREADABLE, CONNTRACK);
 
 	let traffic = out.gauge('node_nat_traffic_bytes', 'Bytes of the connections from src to dst, both directions.');
-	for (let src, dsts in totals)
+	let seen = {};
+
+	// A connection's addresses are of one family: the destinations of an IPv4
+	// source, most of a table, are taken as they are, without a call each.
+	for (let src, dsts in totals) {
+		if (index(src, ':') < 0) {
+			for (let dst, bytes in dsts)
+				traffic(pair_labels(out, src, dst), bytes);
+			continue;
+		}
+
+		src = address(seen, src);
 		for (let dst, bytes in dsts)
-			traffic(pair_labels(out, src, dst), bytes);
+			traffic(pair_labels(out, src, address(seen, dst)), bytes);
+	}
 
 	return Result.ok();
 };

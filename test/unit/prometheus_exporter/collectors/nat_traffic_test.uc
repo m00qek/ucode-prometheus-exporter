@@ -66,8 +66,23 @@ describe('collectors.nat_traffic', () => {
 			assert.match(75, length(samples(r.lines)));
 			assert.match(242156839, total(r.lines));
 			assert.match(contains([
-				'node_nat_traffic_bytes{src="2001:0db8:0000:0001:0000:0000:0000:e157",dst="2001:0db8:0000:0002:0000:0000:0000:0001"} 77100',
+				'node_nat_traffic_bytes{src="2001:db8:0:1::e157",dst="2001:db8:0:2::1"} 77100',
 			]), r.lines);
+		});
+	});
+
+	// The kernel writes them in full; every other collector and tool, compressed.
+	it('labels an IPv6 address compressed, as RFC 5952 writes it, and an IPv4 one as it is', () => {
+		let table = replace(entry('2001:0db8:0000:0000:0000:0000:0000:0001', 'fe80:0000:0000:0000:0211:22ff:fe33:4455', 1, 2), 'ipv4     2', 'ipv6     10') +
+			replace(entry('2001:0db8:0000:0000:0000:0000:0000:0001', '2001:0db8:0000:0000:0000:0000:0000:0002', 3, 4), 'ipv4     2', 'ipv6     10') +
+			entry('10.0.0.2', '192.0.2.1', 5, 6);
+
+		with_table(table, (r) => {
+			assert.match([
+				'node_nat_traffic_bytes{src="2001:db8::1",dst="fe80::211:22ff:fe33:4455"} 3',
+				'node_nat_traffic_bytes{src="2001:db8::1",dst="2001:db8::2"} 7',
+				'node_nat_traffic_bytes{src="10.0.0.2",dst="192.0.2.1"} 11',
+			], samples(r.lines));
 		});
 	});
 
@@ -123,9 +138,13 @@ describe('collectors.nat_traffic', () => {
 			totals[e.src][e.dst] = (totals[e.src][e.dst] ?? 0) + e.bytes;
 		}
 
+		function label(a) {
+			return index(a, ':') < 0 ? a : (arrtoip(iptoarr(a)) ?? a);
+		}
+
 		for (let src, dsts in totals)
 			for (let dst, b in dsts)
-				push(out, `node_nat_traffic_bytes{src="${src}",dst="${dst}"} ${b}`);
+				push(out, `node_nat_traffic_bytes{src="${label(src)}",dst="${label(dst)}"} ${b}`);
 
 		return out;
 	}
