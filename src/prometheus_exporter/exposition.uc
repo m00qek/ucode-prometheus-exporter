@@ -3,11 +3,13 @@
  *
  * A family is { name, type, help, samples }; a sample is { name, labels, value, ts }
  * with labels as [ name, value ] pairs in order and value and ts already spelled
- * as the format wants them. Collectors record families (recorder), the scrape
- * merges them by name (merge) and writes them once (render). parse() reads the
- * format back, strictly (prometheus_exporter.exposition.parse): textfile uses
- * it for *.prom files, the tests for every scrape they make. How names, values
- * and labels are spelled is prometheus_exporter.exposition.format's.
+ * as the format wants them. A collector records its families (recorder), and
+ * its run carries their text (pack, render): a family is one collector's
+ * (prometheus_exporter.ownership), so the reply is each collector's text one
+ * after the other, with nothing to merge. parse() reads the format back,
+ * strictly (prometheus_exporter.exposition.parse): textfile uses it for *.prom
+ * files, the tests for every scrape they make. How names, values and labels
+ * are spelled is prometheus_exporter.exposition.format's.
  *
  * It is the format's module for every other: the modules of exposition/
  * are its own, and what others take of them it exports (TYPES, sanitize,
@@ -265,57 +267,7 @@ export function recorder(max) {
 };
 
 /**
- * The families of several recorders as one list, merged by name in the order
- * they first appear. { families, conflicts }: the names declared with two types.
- *
- * A family only one list has (most) is taken as it is, not copied; it is
- * copied when a second list has it too, so no list's family is changed.
- *
- * @param {(RecordedFamily|Family)[][]} lists the lists of families.
- * @returns {{ families: RecordedFamily[], conflicts: string[] }} the
- *   families, merged, and the names declared with two types.
- */
-export function merge(lists) {
-	let set = family_set();
-	// By name: where its family is in set.list, and whether that is a copy.
-	let at = {}, copied = {};
-	let conflicts = [];
-
-	for (let list in lists)
-		for (let fam in list) {
-			let name = fam.name;
-			let i = at[name];
-
-			if (i == null) {
-				// A family of parse() is made a recorder's, which is a copy.
-				if (fam.lines == null) {
-					fam = as_lines(fam);
-					copied[name] = true;
-				}
-
-				at[name] = length(set.list);
-				set.by_name[name] = fam;
-				push(set.list, fam);
-				continue;
-			}
-
-			if (!copied[name]) {
-				let have = set.list[i];
-
-				set.by_name[name] = set.list[i] = { name, type: have.type, help: have.help, lines: [ ...have.lines ], values: [ ...have.values ] };
-				copied[name] = true;
-			}
-
-			if (!add_family(set, fam.lines == null ? as_lines(fam) : fam))
-				push(conflicts, name);
-		}
-
-	return { families: set.list, conflicts: uniq(conflicts) };
-};
-
-/**
- * The text of families as a recorder or merge() keeps them, or as parse()
- * gives them. opts.omit_zero_counters leaves out counter samples whose value
+ * The text of families as a recorder keeps them, or as parse() gives them. opts.omit_zero_counters leaves out counter samples whose value
  * is 0 (the lua exporter's omit_zero_values). A family left without samples
  * is not written.
  *
