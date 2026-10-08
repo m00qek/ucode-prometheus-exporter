@@ -209,6 +209,6 @@ Runs the [link check](#link-check) on the repository at `ROOT`, by default the o
 | mkdocs-material | `9.5.17` | `devenv/services/docs/requirements.txt` |
 | mike | `2.1.3` | `devenv/services/docs/requirements.txt` |
 | Docs tools image | `ucode-prometheus-exporter-docs:9.5.17`, tag taken from `MKDOCS_IMAGE` | `docs/Makefile` |
-| `actions/checkout` | `v4` | `.github/workflows/docs.yml` |
+| `actions/checkout` | `v4.4.0`, by its commit | `.github/workflows/docs.yml` |
 
 The `publish` job runs in the docs tools image, as `build-mike` and `test` do in the `build` job; the image pins each Python package it adds to the mkdocs-material image.
