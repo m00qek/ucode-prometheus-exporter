@@ -128,7 +128,8 @@ export function scrape_env(mods, log, opts) {
 /**
  * The collectors in `dir` (loader.DIR), as the exporter loads them: each
  * probed first in a process of its own (prometheus_exporter.probe),
- * unless opts.fork is false.
+ * unless opts.fork is false, and then all of them loaded as one program
+ * (loader.import_modules), which compiles what they share once.
  *
  * @param {Modules} mods the modules.
  * @param {?string} dir the collectors' directory; loader.DIR when null.
@@ -139,7 +140,7 @@ export function scrape_env(mods, log, opts) {
 export function load(mods, dir, log, opts) {
 	let probe = (opts?.fork ?? true) ? (ids) => probe_modules(ids, loader.import_module) : null;
 
-	return loader.load(mods.fs, dir ?? loader.DIR, loader.import_module, log, probe);
+	return loader.load(mods.fs, dir ?? loader.DIR, loader.import_module, log, probe, loader.import_modules);
 };
 
 /**

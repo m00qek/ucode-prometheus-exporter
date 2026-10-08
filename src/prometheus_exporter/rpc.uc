@@ -514,7 +514,7 @@ export function system(opts) {
 		path: jail.PATH,
 		dir: loader.DIR,
 		apk: APK_LISTS,
-		collectors: load ? loader.load(mods.fs, loader.DIR, loader.import_module, (level, msg) => push(skipped, msg), opts?.probe) : [],
+		collectors: load ? loader.load(mods.fs, loader.DIR, loader.import_module, (level, msg) => push(skipped, msg), opts?.probe, loader.import_modules) : [],
 		skipped,
 		env: scrape_env(mods, quiet),
 		ubus: deps.ubus_channel(mods.ubus.connect),

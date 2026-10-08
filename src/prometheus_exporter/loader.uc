@@ -102,6 +102,30 @@ export function import_module(id) {
 		{ raw_mode: true })();
 };
 
+/**
+ * The exports of each of the modules `ids`, by name, compiled as ONE
+ * program: what they import, the collector API and the core's modules
+ * behind it, is compiled once for them all, and kept once. import_module
+ * compiles a program a module, and with it a copy of all it imports, whose
+ * source files ucode keeps open while the copy lives: six files a collector.
+ * One module that does not compile or load fails them all.
+ *
+ * @param {string[]} ids the modules' names, in the collectors' directory.
+ * @returns {Object<string, CollectorModule>} each one's exports, by name; it
+ *   throws what loading any of them throws.
+ */
+export function import_modules(ids) {
+	let lines = map(ids, (id, i) => sprintf('import * as c%d from %J;', i, 'prometheus_exporter.collectors.' + id));
+	let mods = loadstring(join('\n', lines) + sprintf('\nreturn [ %s ];', join(', ', map(ids, (id, i) => `c${i}`))),
+		{ raw_mode: true })();
+	let out = {};
+
+	for (let i = 0; i < length(ids); i++)
+		out[ids[i]] = mods[i];
+
+	return out;
+};
+
 function invalid(id, msg) {
 	return Result.err(errors.COLLECTOR_INVALID, `${id}: ${msg}`);
 }
@@ -437,6 +461,12 @@ export function refusal(text) {
  * (prometheus_exporter.probe): { <id>: { ok, error, hung } }, and only those
  * that loaded there are loaded here.
  *
+ * import_all(ids), when given (import_modules), loads every module that is
+ * to be loaded as one program, so that what they share is compiled once; when
+ * that throws, as it does for them all when one of them does not load, each
+ * is loaded alone with import_fn, and one that does not load costs itself
+ * alone, as without it.
+ *
  * @param {module:fs} fs what reads the directory: an object of fs's lsdir
  *   and readfile.
  * @param {string} dir the collectors' directory (DIR).
@@ -446,9 +476,12 @@ export function refusal(text) {
  * @param {?function(string[]): Object<string, ProbeOutcome>} probe what
  *   loads the modules elsewhere first (prometheus_exporter.probe's), by
  *   name; null loads them here alone.
+ * @param {?function(string[]): Object<string, CollectorModule>} import_all
+ *   what loads them all at once (import_modules, or a test's); null loads
+ *   each with import_fn.
  * @returns {Collector[]} the valid collectors, sorted by name.
  */
-export function load(fs, dir, import_fn, log, probe) {
+export function load(fs, dir, import_fn, log, probe, import_all) {
 	let collectors = [];
 	let ids = [];
 
@@ -462,6 +495,16 @@ export function load(fs, dir, import_fn, log, probe) {
 	}
 
 	let probed = probe ? probe(ids) : {};
+	let ready = filter(ids, (id) => probed[id] == null || probed[id].ok);
+	let together = null;
+
+	if (import_all && length(ready)) {
+		try {
+			together = import_all(ready);
+		} catch (e) {
+			log('notice', `cannot load the collectors as one program, so each is loaded alone: ${split(e.message, '\n')[0]}`);
+		}
+	}
 
 	for (let id in ids) {
 		let p = probed[id];
@@ -478,7 +521,7 @@ export function load(fs, dir, import_fn, log, probe) {
 		}
 
 		try {
-			mod = import_fn(id);
+			mod = (together != null) ? together[id] : import_fn(id);
 		} catch (e) {
 			log('err', `cannot load collector '${id}': ${split(e.message, '\n')[0]}`);
 			continue;

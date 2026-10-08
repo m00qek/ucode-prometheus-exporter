@@ -392,8 +392,51 @@ describe('loader.discover and load', () => {
 		});
 	});
 
+	it('loads every module that is to be loaded as one program, with import_all', () => {
+		mock.inject('fs', { strict: true, data: FILES }, (fs) => {
+			let logs = [];
+			let alone = [];
+			let together = [];
+			let probe = (ids) => ({ a: { ok: true }, b: { ok: true }, broken: { ok: false, error: 'Unable to compile module' }, odd: { ok: true, unprobed: true } });
+			let import_all = function(ids) {
+				push(together, ...ids);
+				return { a: module_named('a'), b: module_named('b'), odd: module_named('odd') };
+			};
+			let loaded = loader.load(fs, DIR, (id) => { push(alone, id); return module_named(id); }, (level, m) => push(logs, [ level, m ]), probe, import_all);
+
+			assert.match([ 'a', 'b', 'odd' ], together);
+			assert.match([], alone);
+			assert.match([ 'a', 'b', 'odd' ], map(loaded, (c) => c.meta.name));
+			assert.match([ [ 'err', "cannot load collector 'broken': Unable to compile module" ] ], logs);
+		});
+	});
+
+	it('loads each alone when they do not load as one program, and one that does not load costs itself alone', () => {
+		mock.inject('fs', { strict: true, data: FILES }, (fs) => {
+			let logs = [];
+			let mods = { a: module_named('a'), b: module_named('b'), odd: { meta: 1 } };
+			let loaded = loader.load(fs, DIR, (id) => mods[id] ?? die(`Unable to compile module\nmore`), (level, m) => push(logs, [ level, m ]), null,
+				(ids) => die(`Unable to compile module\nmore`));
+
+			assert.match([ 'a', 'b' ], map(loaded, (c) => c.meta.name));
+			assert.match([
+				[ 'notice', 'cannot load the collectors as one program, so each is loaded alone: Unable to compile module' ],
+				[ 'err', "cannot load collector 'broken': Unable to compile module" ],
+				[ 'err', 'skipping collector: COLLECTOR_INVALID (odd: exports no meta)' ],
+			], logs);
+		});
+	});
+
 	it('imports a collector module by its name', () => {
 		assert.match('loadavg', loader.import_module('loadavg').meta.name);
 		assert.throws(() => loader.import_module('does_not_exist'), regex(/Unable to/));
+	});
+
+	it('imports collector modules as one program, by their names', () => {
+		let mods = loader.import_modules([ 'loadavg', 'uname' ]);
+
+		assert.match([ 'loadavg', 'uname' ], [ mods.loadavg.meta.name, mods.uname.meta.name ]);
+		assert.match({}, loader.import_modules([]));
+		assert.throws(() => loader.import_modules([ 'loadavg', 'does_not_exist' ]), regex(/Unable to/));
 	});
 });
