@@ -91,6 +91,7 @@ nav:
               - Publishing a Patch Release: how-to/developer/publish-patch-docs.md
               - Fixing the Released Docs: how-to/developer/fix-released-docs.md
               - Republishing a Version: how-to/developer/republish-docs.md
+          - Publishing a Release to the Package Feed: how-to/developer/publish-to-feed.md
   - Reference:
       - Overview: reference/index.md
       - Collectors: reference/collectors.md

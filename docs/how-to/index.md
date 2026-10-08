@@ -40,3 +40,4 @@ Directions for a goal you already have. Each assumes the exporter is installed, 
 | [Publishing a patch release](developer/publish-patch-docs.md) | Republish a minor from its patch tag. |
 | [Fixing the released docs](developer/fix-released-docs.md) | Correct the docs already online. |
 | [Republishing a version](developer/republish-docs.md) | Publish a version again. |
+| [Publishing a release to the package feed](developer/publish-to-feed.md) | Have routers install a tagged release from packages.ucode.dev. |
