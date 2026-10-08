@@ -213,6 +213,22 @@ function sample(lines, name) {
 	return null;
 }
 
+
+// A request refused as ucode's netlink modules refuse one: false, and an
+// error that error() clears as it reads it.
+function refused(why) {
+	let error = why;
+
+	return {
+		request: () => false,
+		error: function() {
+			let e = error;
+			error = null;
+			return e;
+		},
+	};
+}
+
 describe('collectors.wifi', () => {
 	it('exports the radios, networks and stations of the caju AP', () => {
 		with_collector(wifi, ap(), (r) => {
@@ -276,6 +292,16 @@ describe('collectors.wifi', () => {
 				'node_wifi_interface_frequency_hertz{radio="radio_5G",device="phy1-ap1"} 5745000000',
 				'node_wifi_network_info{radio="radio_5G",device="phy1-ap1",ssid="home",bssid="02:00:00:00:a0:03",mode="Master"} 1',
 			], filter(r.lines, (l) => index(l, 'device="phy1-ap1"') >= 0));
+		});
+	});
+
+	it('says why nl80211 refused a request', () => {
+		let cfg = ap();
+		cfg.nl80211.behavior = refused('No such device');
+
+		with_collector(wifi, cfg, (r) => {
+			assert.match({ ok: false, error: 'NL80211_FAILED', details: 'phy0-ap0: No such device' },
+				{ ok: r.result.ok, error: r.result.error, details: r.result.details });
 		});
 	});
 

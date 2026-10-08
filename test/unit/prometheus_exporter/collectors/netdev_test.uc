@@ -50,6 +50,22 @@ function proc_net_dev(s) {
 	};
 }
 
+
+// A request refused as ucode's netlink modules refuse one: false, and an
+// error that error() clears as it reads it.
+function refused(why) {
+	let error = why;
+
+	return {
+		request: () => false,
+		error: function() {
+			let e = error;
+			error = null;
+			return e;
+		},
+	};
+}
+
 describe('collectors.netdev', () => {
 	it('exports the sixteen /proc/net/dev counters and receive_nohandler of each caju router link', () => {
 		with_collector(netdev, links(ROUTER), (r) => {
@@ -128,6 +144,14 @@ describe('collectors.netdev', () => {
 			assert.match({ ok: false, error: 'RTNL_FAILED', details: 'Operation not permitted' },
 				{ ok: r.result.ok, error: r.result.error, details: r.result.details });
 			assert.match([], r.lines);
+			assert.match([ "collector 'netdev': RTNL_FAILED (Operation not permitted)" ], r.logs);
+		});
+	});
+
+	it('says why the kernel refused the dump', () => {
+		with_collector(netdev, { rtnl: { behavior: refused('Operation not permitted') } }, (r) => {
+			assert.match({ ok: false, error: 'RTNL_FAILED', details: 'Operation not permitted' },
+				{ ok: r.result.ok, error: r.result.error, details: r.result.details });
 			assert.match([ "collector 'netdev': RTNL_FAILED (Operation not permitted)" ], r.logs);
 		});
 	});
