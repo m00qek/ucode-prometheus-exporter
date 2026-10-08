@@ -18,7 +18,7 @@
 // An interface whose hostapd object does not answer is left out, and fails the
 // collector once the others are written.
 
-import { Result, errors, services } from 'prometheus_exporter.api';
+import { Result, errors, services, u32 } from 'prometheus_exporter.api';
 
 export const meta = {
 	name: 'hostapd_stations',
@@ -47,10 +47,12 @@ function metrics(out) {
 	};
 }
 
+// hostapd sends the packet counts with blobmsg_add_u32() (src/ap/ubus.c),
+// which ucode's ubus gives signed (u32); the byte counts are 64-bit.
 function station(m, labels, c) {
-	m.rx_packets(labels, c.packets?.rx ?? 0);
+	m.rx_packets(labels, u32(c.packets?.rx) ?? 0);
 	m.rx_bytes(labels, c.bytes?.rx ?? 0);
-	m.tx_packets(labels, c.packets?.tx ?? 0);
+	m.tx_packets(labels, u32(c.packets?.tx) ?? 0);
 	m.tx_bytes(labels, c.bytes?.tx ?? 0);
 	m.signal(labels, c.signal);
 

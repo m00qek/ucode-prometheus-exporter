@@ -161,6 +161,24 @@ describe('collectors.dhcp_leases', () => {
 		});
 	});
 
+	// odhcpd sends both with blobmsg_add_u32(), which ucode's ubus gives
+	// signed: an infinite lease's (uint32_t)-1 is the fixture's -1.
+	it('labels an IAID past 2^31 unsigned, and gives a lease that never expires no expiry', () => {
+		let v6 = json(sprintf('%J', SYNTHETIC_V6));
+		let lease = v6.device['br-lan'].leases[0];
+		let cfg = synthetic({ leases: '1' });
+
+		lease.iaid = -559038737;
+		lease.valid = -1;
+		cfg.ubus.data['dhcp:ipv6leases'] = v6;
+
+		with_collector(dhcp_leases, cfg, (r) => {
+			assert.match(2, length(filter(of(r.lines, 'node_openwrt_dhcp_lease_info'), (l) => index(l, 'iaid="3735928559"') >= 0)));
+			assert.match(false, index(r.text, 'iaid="-') >= 0);
+			assert.match([], filter(of(r.lines, 'node_openwrt_dhcp_lease_expiry_timestamp_seconds'), (l) => index(l, '::1234') >= 0));
+		});
+	});
+
 	it("reads the lease file /etc/config/dhcp names, each once, and dnsmasq's default for an instance without one", () => {
 		let dhcp = {
 			a: { '.type': 'dnsmasq', leasefile: '/tmp/a.leases' },

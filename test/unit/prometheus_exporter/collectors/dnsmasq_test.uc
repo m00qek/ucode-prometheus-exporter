@@ -81,6 +81,14 @@ describe('collectors.dnsmasq', () => {
 		});
 	});
 
+	// dnsmasq sends every metric with blobmsg_add_u32(), which ucode's ubus gives signed.
+	it('reads a count past 2^31 unsigned, as dnsmasq sent it', () => {
+		with_collector(dnsmasq, { ubus: { data: { 'dnsmasq:metrics': { dns_queries_forwarded: -2147483000, bootp: -1 } } } }, (r) => {
+			assert.match([ 'dnsmasq_dns_queries_forwarded_total 2147484296', 'dnsmasq_bootp_total 4294967295' ],
+				filter(r.lines, (l) => substr(l, 0, 1) != '#'));
+		});
+	});
+
 	it('exports a metric it does not know as untyped, without _total', () => {
 		with_collector(dnsmasq, { ubus: { data: { 'dnsmasq:metrics': { dns_new_thing: 3 } } } }, (r) => {
 			assert.match([ "# HELP dnsmasq_dns_new_thing dnsmasq's dns_new_thing metric.", '# TYPE dnsmasq_dns_new_thing untyped',

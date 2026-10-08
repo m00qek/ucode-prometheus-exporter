@@ -160,6 +160,21 @@ describe('collectors.hostapd_stations', () => {
 		});
 	});
 
+	// hostapd sends the packet counts with blobmsg_add_u32(), which ucode's ubus gives signed.
+	it('reads packet counts past 2^31 unsigned, as hostapd sent them', () => {
+		let client = { auth: true, packets: { rx: -1, tx: -2147483648 }, bytes: { rx: 5000000000, tx: 1 } };
+
+		with_collector(hostapd_stations, ap({ 'hostapd.phy0-ap0:get_clients': { clients: { '02:00:00:00:00:09': client } }, 'hostapd.phy1-ap1:get_clients': { clients: {} } }), (r) => {
+			let station = `{${AP0},station="02:00:00:00:00:09"}`;
+
+			assert.match(contains([
+				`hostapd_station_receive_packets_total${station} 4294967295`,
+				`hostapd_station_receive_bytes_total${station} 5000000000`,
+				`hostapd_station_transmit_packets_total${station} 2147483648`,
+			]), r.lines);
+		});
+	});
+
 	prop('writes one sample per client for each interface',
 		gen.array(gen.int(0, 8), { min_len: 1, max_len: 4 }), (counts) => {
 			with_collector(hostapd_stations, lab(counts), (r) => {

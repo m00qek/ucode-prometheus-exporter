@@ -2,7 +2,7 @@
 
 // The collector API: exactly the names it lists, each the core's own.
 
-import { describe, it, assert } from 'utest';
+import { describe, it, prop, gen, assert } from 'utest';
 import * as api from 'prometheus_exporter.api';
 import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
@@ -11,8 +11,8 @@ import * as proc from 'prometheus_exporter.proc';
 import * as exposition from 'prometheus_exporter.exposition';
 
 describe('prometheus_exporter.api', () => {
-	it('exports Result, errors, services, proc and exposition, and nothing else', () => {
-		assert.match([ 'Result', 'errors', 'exposition', 'proc', 'services' ], sort(keys(api)));
+	it('exports Result, errors, services, proc, exposition, u16 and u32, and nothing else', () => {
+		assert.match([ 'Result', 'errors', 'exposition', 'proc', 'services', 'u16', 'u32' ], sort(keys(api)));
 	});
 
 	it('gives Result\'s functions', () => {
@@ -54,5 +54,23 @@ describe('prometheus_exporter.api', () => {
 		assert.match(exposition.parse(text).data, res.data);
 		res = api.exposition.parse('x{');
 		assert.match([ false, 'EXPOSITION_INVALID' ], [ res.ok, res.error ]);
+	});
+
+	it('gives a signed INT16 or INT32 of ubus back as the unsigned integer its sender meant', () => {
+		assert.match([ 4294967295, 2147483648, 0, 2147483647 ], map([ -1, -2147483648, 0, 2147483647 ], api.u32));
+		assert.match([ 51820, 65535, 32768, 0, 32767 ], map([ -13716, -1, -32768, 0, 32767 ], api.u16));
+	});
+
+	it('gives back as it is what is not a negative integer of its width', () => {
+		for (let v in [ null, 'x', 1.5, -1.5, true, [ -1 ], { a: -1 } ])
+			assert.match(v, api.u32(v), sprintf('%J', v));
+
+		assert.match([ -2147483649, -32769 ], [ api.u32(-2147483649), api.u16(-32769) ]);
+	});
+
+	prop('undoes ucode\'s signed reading of an unsigned 32-bit integer', gen.int(0, 4294967295), (n) => {
+		let signed = n >= 2147483648 ? n - 4294967296 : n;
+
+		assert.match(n, api.u32(signed));
 	});
 });

@@ -19,8 +19,8 @@
 						},
 						{
 							"address": "fd00:5:6:10::1234",
-							"preferred-lifetime": 4294967295,
-							"valid-lifetime": 4294967295
+							"preferred-lifetime": -1,
+							"valid-lifetime": -1
 						}
 					],
 					"valid": 7190
