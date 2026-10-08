@@ -15,6 +15,7 @@ What each release changes, for those who run the exporter and those who write co
 
 ### Fixed
 
+- `node_wifi_network_quality_ratio` went past 1 for stations stronger than -40 dBm, and below 0 under -110 dBm; it is kept from 0 to 1.
 - wifi's option `stations` off also left out `node_wifi_stations`, how many stations each interface has, which is no per-station series; it is written either way.
 - **selinux reported SELinux off in the service wherever it was on.** The jail's sysfs is a fresh one, without selinuxfs mounted under it, so `/sys/fs/selinux/enforce` was never there. Without it, selinux asks `/proc/filesystems`, which lists selinuxfs only where SELinux is enabled: `node_selinux_enabled` is 1 there, without `node_selinux_current_mode`, which only enforce tells; 0 only where the kernel has no SELinux.
 - hostapd_stations wrote 0 for a byte or packet count hostapd did not give a station, which Prometheus takes for a counter reset; it leaves the sample out.

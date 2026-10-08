@@ -790,7 +790,7 @@ Wi-Fi. [Collector](collectors.md#wifi).
 | `node_wifi_radio_info` | gauge | `radio`, `htmode`, `channel`, `country` | A Wi-Fi radio, by its mode, channel and country. | — |
 | `node_wifi_interface_frequency_hertz` | gauge | `radio`, `device` | The current frequency a WiFi interface is operating at, in hertz. | — |
 | `node_wifi_network_info` | gauge | `radio`, `device`, `ssid`, `bssid`, `mode` | A Wi-Fi network, by its SSID, BSSID and mode. | — |
-| `node_wifi_network_quality_ratio` | gauge | `radio`, `device` | Signal quality of the network's stations, from 0 (-110 dBm) to 1 (-40 dBm). | — |
+| `node_wifi_network_quality_ratio` | gauge | `radio`, `device` | Signal quality of the network's stations, from 0 (-110 dBm or weaker) to 1 (-40 dBm or stronger). | — |
 | `node_wifi_network_transmit_bits_per_second` | gauge | `radio`, `device` | Average transmit bitrate to the network's stations, in bits per second. | — |
 | `node_wifi_network_noise_dbm` | gauge | `radio`, `device` | Noise on the network's channel, in dBm. | — |
 | `node_wifi_network_signal_dbm` | gauge | `radio`, `device` | Average signal of the network's stations, in dBm. | — |

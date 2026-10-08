@@ -40,7 +40,7 @@ const NETWORKS = [
 	'node_wifi_network_info{radio="radio_2G",device="phy0-ap0",ssid="iot",bssid="02:00:00:00:a0:01",mode="Master"} 1',
 	'node_wifi_network_info{radio="radio_5G",device="phy1-ap0",ssid="guest",bssid="02:00:00:00:a0:02",mode="Master"} 1',
 	'node_wifi_network_info{radio="radio_5G",device="phy1-ap1",ssid="home",bssid="02:00:00:00:a0:03",mode="Master"} 1',
-	'# HELP node_wifi_network_quality_ratio Signal quality of the network\'s stations, from 0 (-110 dBm) to 1 (-40 dBm).',
+	'# HELP node_wifi_network_quality_ratio Signal quality of the network\'s stations, from 0 (-110 dBm or weaker) to 1 (-40 dBm or stronger).',
 	'# TYPE node_wifi_network_quality_ratio gauge',
 	'node_wifi_network_quality_ratio{radio="radio_2G",device="phy0-ap0"} 0.67142857142857',
 	'node_wifi_network_quality_ratio{radio="radio_5G",device="phy1-ap0"} NaN',
@@ -393,7 +393,7 @@ describe('collectors.wifi', () => {
 				assert.match(length(stations), sample(r.lines, 'node_wifi_stations'));
 				assert.match(true, signal >= min(...signals) && signal <= max(...signals), `${signal}`);
 				assert.match(true, bitrate >= min(...bitrates) * 100000 && bitrate <= max(...bitrates) * 100000, `${bitrate}`);
-				let error = quality - (signal + 110) / 70.0;
+				let error = quality - min(1, max(0, (signal + 110) / 70.0));
 
 				assert.match(true, error > -1e-6 && error < 1e-6, `${quality}`);
 			});
@@ -414,6 +414,12 @@ describe('collectors.wifi', () => {
 
 	it('gives the quality as a ratio: 0 at -110 dBm, 1 at -40 dBm', () => {
 		assert.match([ 0.0, 0.5, 1.0 ], [ wifi.quality(-110), wifi.quality(-75), wifi.quality(-40) ]);
+	});
+
+	it('keeps the quality from 0 to 1 past those signals, and NaN for no signal', () => {
+		assert.match([ 1.0, 1.0, 0.0, 0.0 ], [ wifi.quality(-39), wifi.quality(-20), wifi.quality(-111), wifi.quality(-150) ]);
+		let nan = wifi.quality(NaN);
+		assert.match(true, nan != nan);
 	});
 
 	prop('converts a station\'s times to seconds and its rates to bits per second',

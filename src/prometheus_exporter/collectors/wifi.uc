@@ -106,7 +106,7 @@ function metrics(out) {
 		radio_info: out.gauge('node_wifi_radio_info', 'A Wi-Fi radio, by its mode, channel and country.'),
 		frequency: out.gauge('node_wifi_interface_frequency_hertz', 'The current frequency a WiFi interface is operating at, in hertz.'),
 		network_info: out.gauge('node_wifi_network_info', 'A Wi-Fi network, by its SSID, BSSID and mode.'),
-		network_quality: out.gauge('node_wifi_network_quality_ratio', 'Signal quality of the network\'s stations, from 0 (-110 dBm) to 1 (-40 dBm).'),
+		network_quality: out.gauge('node_wifi_network_quality_ratio', 'Signal quality of the network\'s stations, from 0 (-110 dBm or weaker) to 1 (-40 dBm or stronger).'),
 		network_bitrate: out.gauge('node_wifi_network_transmit_bits_per_second', 'Average transmit bitrate to the network\'s stations, in bits per second.'),
 		network_noise: out.gauge('node_wifi_network_noise_dbm', 'Noise on the network\'s channel, in dBm.'),
 		network_signal: out.gauge('node_wifi_network_signal_dbm', 'Average signal of the network\'s stations, in dBm.'),
@@ -138,9 +138,12 @@ function mean(list, pick) {
 }
 
 // The upstream exporter's signal quality, (signal + 110) / 70, as a ratio
-// where it was a percentage: -110 dBm is 0, -40 dBm 1.
+// where it was a percentage: -110 dBm is 0, -40 dBm 1, and a signal past
+// either is as good or as bad as it. NaN, for no stations, stays NaN.
 export function quality(signal) {
-	return (signal + 110) / 70.0;
+	let q = (signal + 110) / 70.0;
+
+	return q < 0 ? 0.0 : (q > 1 ? 1.0 : q);
 };
 
 function noise_at(survey, freq) {
