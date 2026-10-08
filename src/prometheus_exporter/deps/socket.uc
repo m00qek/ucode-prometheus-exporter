@@ -1,10 +1,20 @@
-'use strict';
+/**
+ * The socket capability: a request to a Unix stream socket's server, and
+ * ucode-mod-socket, loaded by name at run time.
+ *
+ * @module prometheus_exporter_deps_socket
+ */
 
-// The socket capability: a request to a Unix stream socket's server, and
-// ucode-mod-socket, loaded by name at run time.
+'use strict';
 
 import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
+
+/**
+ * deps.socket: socket_channel's object.
+ *
+ * @typedef {{ unix_request: (path: string, message: string, timeout_ms: int) => Result<string> }} SocketCapability
+ */
 
 // What recv() fails with (errno) once SO_RCVTIMEO passes without data: EAGAIN,
 // 11 on every architecture OpenWrt builds for.
@@ -49,10 +59,16 @@ function exchange(mod, sock, path, message, tv, timeout_ms) {
 	}
 }
 
-// unix_request(path, message, timeout_ms): the whole reply of the server on the
-// Unix stream socket `path` to `message`, as a Result: SOCKET_FAILED when the
-// socket is missing or refuses, or no more of the reply comes for timeout_ms
-// (a positive integer). The socket is closed either way.
+/**
+ * unix_request(path, message, timeout_ms): the whole reply of the server on the
+ * Unix stream socket `path` to `message`, as a Result: SOCKET_FAILED when the
+ * socket is missing or refuses, or no more of the reply comes for timeout_ms
+ * (a positive integer). The socket is closed either way.
+ *
+ * @param {module:socket} mod load_socket's: the socket module's create,
+ *   error and constants, or a test's.
+ * @returns {SocketCapability} deps.socket.
+ */
 export function socket_channel(mod) {
 	return {
 		unix_request: function(path, message, timeout_ms) {
@@ -72,9 +88,15 @@ export function socket_channel(mod) {
 	};
 };
 
-// ucode-mod-socket by name at run time too: only the collectors that need it
-// (unbound) depend on its package, so a static import would stop the exporter
-// loading where it is not installed. Null then. Lint loads it on 25.12.
+/**
+ * ucode-mod-socket by name at run time too: only the collectors that need it
+ * (unbound) depend on its package, so a static import would stop the exporter
+ * loading where it is not installed. Null then. Lint loads it on 25.12.
+ *
+ * @returns {?module:socket} its create, error, AF_UNIX, SOCK_STREAM,
+ *   SOL_SOCKET, SO_RCVTIMEO, SO_SNDTIMEO and MSG_NOSIGNAL; null when it is not
+ *   installed.
+ */
 export function load_socket() {
 	try {
 		return loadstring(

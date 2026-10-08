@@ -1,23 +1,48 @@
-'use strict';
+/**
+ * The exec capability: the programs a collector declares, run without a
+ * shell's interpretation of their arguments, under a watchdog that kills one
+ * still running when its seconds are spent.
+ *
+ * @module prometheus_exporter_deps_exec
+ */
 
-// The exec capability: the programs a collector declares, run without a
-// shell's interpretation of their arguments, under a watchdog that kills one
-// still running when its seconds are spent.
+'use strict';
 
 import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
 import { EXEC_TIMEOUT } from 'prometheus_exporter.config';
 
+/**
+ * deps.exec: exec_channel's object.
+ *
+ * @typedef {{ run: (argv: string[]) => Result<string> }} ExecCapability
+ */
+
+/**
+ * `arg` single-quoted for the shell, its own single quotes escaped: no
+ * shell interprets what it holds.
+ *
+ * @param {*} arg anything: it is made a string first.
+ * @returns {string} the quoted string.
+ */
 export function shell_quote(arg) {
 	return "'" + replace('' + arg, "'", "'\\''") + "'";
 };
 
-// The seconds a collector's commands get in all, in one scrape, when nobody
-// says otherwise: the main section's exec_timeout by default (see config).
+/**
+ * The seconds a collector's commands get in all, in one scrape, when nobody
+ * says otherwise: the main section's exec_timeout by default (see config).
+ *
+ * @type {int}
+ */
 export const EXEC_SECONDS = EXEC_TIMEOUT;
 
-// What a program's handle closes with when the watchdog killed it: the shell
-// that ran it, killed by SIGKILL, which nothing else sends it.
+/**
+ * What a program's handle closes with when the watchdog killed it: the shell
+ * that ran it, killed by SIGKILL, which nothing else sends it.
+ *
+ * @type {int}
+ */
 export const EXEC_KILLED = -9;
 
 // The shell script popen runs for a program, after a first line that sets $1 to
@@ -61,8 +86,14 @@ const WATCHDOG = join('\n', [
 	'',
 ]);
 
-// What popen runs for argv, given `seconds`: the first line sets the watchdog's
-// arguments, each one single-quoted, so no shell interprets them.
+/**
+ * What popen runs for argv, given `seconds`: the first line sets the watchdog's
+ * arguments, each one single-quoted, so no shell interprets them.
+ *
+ * @param {string[]} argv the program and its arguments.
+ * @param {int} seconds what the program may take, in whole seconds.
+ * @returns {string} the script.
+ */
 export function exec_script(argv, seconds) {
 	return `set -- ${seconds} ${join(' ', map(argv, shell_quote))}\n${WATCHDOG}`;
 };
@@ -71,23 +102,35 @@ function milliseconds(t) {
 	return t[0] * 1000 + t[1] / 1000000;
 }
 
-// run(argv): the standard output of one of the `allowed` programs, run without a
-// shell's interpretation of its arguments. Its standard error is discarded. A
-// failure's data is { status }: the exit status, null when it could not start.
-//
-// The channel's programs get `seconds` (EXEC_SECONDS by default) in all, from
-// its first run; a channel is one collector's in one scrape. A program still
-// running when they are spent is killed, with whatever it started, and fails
-// with COMMAND_TIMEOUT; so does one asked to run after that, without running.
-// Their data is { status: null, timed_out: true }. The shell counts whole
-// seconds: a program gets what is left rounded up, so the commands of a channel
-// take at most a second more than `seconds`. clock_fn: [ s, ns ], monotonic.
-//
-// `cutoff`, when given, is the time (monotonic seconds) the collector must be
-// done by, for its scrape to answer in time: a program never runs past it. It
-// gets the whole seconds left before it when they are fewer than its own, and
-// does not run when not one is left; killed at the cutoff, or not run, it fails
-// with SCRAPE_DEADLINE, its data { status: null, timed_out: true, deadline: true }.
+/**
+ * run(argv): the standard output of one of the `allowed` programs, run without a
+ * shell's interpretation of its arguments. Its standard error is discarded. A
+ * failure's data is { status }: the exit status, null when it could not start.
+ *
+ * The channel's programs get `seconds` (EXEC_SECONDS by default) in all, from
+ * its first run; a channel is one collector's in one scrape. A program still
+ * running when they are spent is killed, with whatever it started, and fails
+ * with COMMAND_TIMEOUT; so does one asked to run after that, without running.
+ * Their data is { status: null, timed_out: true }. The shell counts whole
+ * seconds: a program gets what is left rounded up, so the commands of a channel
+ * take at most a second more than `seconds`. clock_fn: [ s, ns ], monotonic.
+ *
+ * `cutoff`, when given, is the time (monotonic seconds) the collector must be
+ * done by, for its scrape to answer in time: a program never runs past it. It
+ * gets the whole seconds left before it when they are fewer than its own, and
+ * does not run when not one is left; killed at the cutoff, or not run, it fails
+ * with SCRAPE_DEADLINE, its data { status: null, timed_out: true, deadline: true }.
+ *
+ * @param {function(string, string): ?FsProc} popen_fn fs's popen, or a test's.
+ * @param {string[]} allowed the programs it may run (meta.commands).
+ * @param {?int} seconds the seconds its programs get in all; EXEC_SECONDS
+ *   when null.
+ * @param {?function(): int[]} clock_fn a monotonic clock, [ s, ns ];
+ *   clock(true) when null.
+ * @param {?float} cutoff when the collector must be done by (monotonic
+ *   seconds), or null for no deadline.
+ * @returns {ExecCapability} the channel.
+ */
 export function exec_channel(popen_fn, allowed, seconds, clock_fn, cutoff) {
 	seconds ??= EXEC_SECONDS;
 	clock_fn ??= () => clock(true);

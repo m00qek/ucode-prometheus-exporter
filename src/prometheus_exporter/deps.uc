@@ -1,21 +1,31 @@
-'use strict';
+/**
+ * The only module that touches the system, with the modules of its capabilities
+ * (deps/<capability>.uc: ubus, netlink, socket, exec, exporter, uci, log). It
+ * takes each native function by name, so one that OpenWrt 25.12's ucode lacks
+ * fails this module's load rather than a scrape.
+ *
+ * It is the facade of deps/: the modules there are its own, and what others
+ * take of them it exports, under the names below.
+ *
+ * modules(): the real fs, ubus, uci, rtnl, nl80211 and socket (these two when
+ * installed), time and a monotonic clock. Of fs, writefile, rename, unlink and
+ * chmod are the handler's, for its state (prometheus_exporter.state),
+ * mkstemp the runner's (prometheus_exporter.runner) and stdin the command
+ * line's: no collector gets them (FS_API).
+ * system_log(ident): a log(level, msg) to syslog, at the level's priority.
+ * session(mods): one scrape's capabilities over module-shaped objects, the real
+ * ones or utest's proxies: `for(meta)` hands a collector exactly its `needs`.
+ *
+ * The capabilities' types are their modules': UbusCapability
+ * (deps.ubus), NetlinkCapability (deps.netlink), SocketCapability
+ * (deps.socket), ExecCapability (deps.exec), ExporterCapability
+ * (deps.exporter), UciHandle (deps.uci) and Log (deps.log); fs's and time's,
+ * and the Deps a collector gets, are this module's.
+ *
+ * @module prometheus_exporter_deps
+ */
 
-// The only module that touches the system, with the modules of its capabilities
-// (deps/<capability>.uc: ubus, netlink, socket, exec, exporter, uci, log). It
-// takes each native function by name, so one that OpenWrt 25.12's ucode lacks
-// fails this module's load rather than a scrape.
-//
-// It is the facade of deps/: the modules there are its own, and what others
-// take of them it exports, under the names below.
-//
-// modules(): the real fs, ubus, uci, rtnl, nl80211 and socket (these two when
-// installed), time and a monotonic clock. Of fs, writefile, rename, unlink and
-// chmod are the handler's, for its state (prometheus_exporter.state),
-// mkstemp the runner's (prometheus_exporter.runner) and stdin the command
-// line's: no collector gets them (FS_API).
-// system_log(ident): a log(level, msg) to syslog, at the level's priority.
-// session(mods): one scrape's capabilities over module-shaped objects, the real
-// ones or utest's proxies: `for(meta)` hands a collector exactly its `needs`.
+'use strict';
 
 import { readfile, open, lsdir, glob, stat, realpath, popen, writefile, rename, unlink, chmod, mkstemp, stdin } from 'fs';
 import { connect } from 'ubus';
@@ -29,6 +39,75 @@ import * as exec_module from 'prometheus_exporter.deps.exec';
 import * as exporter_module from 'prometheus_exporter.deps.exporter';
 import * as uci_module from 'prometheus_exporter.deps.uci';
 import * as log_module from 'prometheus_exporter.deps.log';
+
+/**
+ * deps.fs: the functions of the fs module a collector may use (FS_API), as
+ * the fs module has them.
+ *
+ * @typedef {{
+ *   readfile: (path: string, limit: ?int) => ?string,
+ *   open: (path: string, mode: ?string, perm: ?int) => ?FsFile,
+ *   lsdir: (path: string) => ?string[],
+ *   glob: (pattern: string) => ?string[],
+ *   stat: (path: string) => ?FileStatResult,
+ *   realpath: (path: string) => ?string
+ * }} FsCapability
+ */
+
+/**
+ * deps.time: the system time, in seconds.
+ *
+ * @typedef {{ now: () => int }} TimeCapability
+ */
+
+/**
+ * What collect() gets as `deps`: one capability per entry of meta.needs, by
+ * name, and nothing else; a need the collector did not declare is absent.
+ *
+ * @typedef {{
+ *   fs: FsCapability,
+ *   ubus: UbusCapability,
+ *   uci: Object<string, UciHandle>,
+ *   rtnl: NetlinkCapability,
+ *   nl80211: NetlinkCapability,
+ *   socket: SocketCapability,
+ *   exec: ExecCapability,
+ *   time: TimeCapability,
+ *   log: (msg: string) => void,
+ *   exporter: ExporterCapability
+ * }} Deps
+ */
+
+/**
+ * One scrape's capabilities, as session() makes them: its uci cursor, the
+ * deps of a collector (`for`, a Result of Deps, or NEED_MISSING), and
+ * close(), once the scrape is over.
+ *
+ * @typedef {{
+ *   uci: () => UciCursor,
+ *   for: (meta: Meta, settings: ?Settings, cutoff: ?float, view: ?ExporterView, limit: ?float) => Result<Deps>,
+ *   close: () => void
+ * }} Session
+ */
+
+/**
+ * The modules a session is made over (modules()'s, or utest's proxies): fs
+ * as the fs module has it, ubus's connect and uci's cursor, the netlink and
+ * socket modules when installed, the time, a monotonic clock, and the log a
+ * session adds.
+ *
+ * @typedef {{
+ *   fs: module:fs,
+ *   ubus: { connect: function(?string, ?int): ?UbusConnection },
+ *   uci: { cursor: function(): UciCursor },
+ *   rtnl: ?NetlinkModule,
+ *   nl80211: ?NetlinkModule,
+ *   socket: ?module:socket,
+ *   time: () => int,
+ *   clock: () => int[],
+ *   log: ?Log
+ * }} Modules
+ */
 
 // ubus: a scrape's channel, ucode's own timeout, the status of a failed call.
 export const ubus_channel = ubus_module.ubus_channel;
@@ -67,16 +146,31 @@ export const LEVELS = log_module.LEVELS;
 export const syslog_channel = log_module.syslog_channel;
 export const system_log = log_module.system_log;
 
+/**
+ * The capabilities a collector may need (meta.needs), each the name of what
+ * it gets in deps.
+ *
+ * @type {string[]}
+ */
 export const NEEDS = [ 'fs', 'ubus', 'uci', 'rtnl', 'nl80211', 'socket', 'exec', 'time', 'log', 'exporter' ];
 
-// The functions of fs a collector may use. popen is exec's.
+/**
+ * The functions of fs a collector may use. popen is exec's.
+ *
+ * @type {string[]}
+ */
 export const FS_API = [ 'readfile', 'open', 'lsdir', 'glob', 'stat', 'realpath' ];
 
-// One scrape's capabilities: a ubus connection and a uci cursor shared by its
-// collectors, and closed once it is over. mods.log, the exporter's log(level,
-// msg), takes what collectors log, each line naming its collector, at warning:
-// what a collector that succeeds still has to say is something it could not
-// read.
+/**
+ * One scrape's capabilities: a ubus connection and a uci cursor shared by its
+ * collectors, and closed once it is over. mods.log, the exporter's log(level,
+ * msg), takes what collectors log, each line naming its collector, at warning:
+ * what a collector that succeeds still has to say is something it could not
+ * read.
+ *
+ * @param {Modules} mods the modules: modules()'s, or utest's proxies.
+ * @returns {Session} the session.
+ */
 export function session(mods) {
 	let ubus = ubus_channel(mods.ubus.connect, mods.clock);
 	let uci = null;
@@ -140,6 +234,15 @@ export function session(mods) {
 // only, not changes staged in uci and not yet committed.
 const UCI_NO_DELTAS = '/var/run/prometheus-exporter/no-uci-deltas';
 
+/**
+ * The real fs, ubus, uci, rtnl, nl80211 and socket (these two when
+ * installed), time and a monotonic clock. Of fs, writefile, rename, unlink and
+ * chmod are the handler's, for its state, mkstemp the runner's and stdin the
+ * command line's: no collector gets them (FS_API). Cursors read committed
+ * configuration only (UCI_NO_DELTAS).
+ *
+ * @returns {Modules} the modules.
+ */
 export function modules() {
 	return {
 		fs: { readfile, open, lsdir, glob, stat, realpath, popen, writefile, rename, unlink, chmod, mkstemp, stdin },
