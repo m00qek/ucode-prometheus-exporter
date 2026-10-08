@@ -152,6 +152,28 @@ describe('deps.session', () => {
 	});
 });
 
+describe('deps.urandom', () => {
+	it('reads n bytes of the kernel\'s random device, and closes it', () => {
+		let opened = [], closed = 0;
+		let fs = {
+			open: function(path, mode) {
+				push(opened, [ path, mode ]);
+				return { read: (n) => substr('0123456789abcdef', 0, n), close: () => { closed++; return true; } };
+			},
+		};
+
+		assert.match([ '0123', [ [ deps.RANDOM_DEVICE, 'r' ] ], 1 ], [ deps.urandom(fs)(4), opened, closed ]);
+	});
+
+	it('gives null when it cannot open it', () => {
+		assert.match(null, deps.urandom({ open: () => null })(16));
+	});
+
+	it('reads the real device', () => {
+		assert.match(16, length(deps.urandom(require('fs'))(16)));
+	});
+});
+
 describe('deps.modules', () => {
 	it('names every capability the loader accepts', () => {
 		assert.match([ 'exec', 'exporter', 'fs', 'log', 'nl80211', 'rtnl', 'socket', 'time', 'ubus', 'uci' ], sort([ ...deps.NEEDS ]));

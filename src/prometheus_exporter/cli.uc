@@ -294,12 +294,6 @@ export function system() {
 			load_timeout: probe.LOAD_TIMEOUT,
 		}, path),
 		read_password: () => read_password(mods.fs),
-		random: function(n) {
-			let f = mods.fs.open('/dev/urandom', 'r');
-			let bytes = f?.read(n);
-
-			f?.close();
-			return bytes;
-		},
+		random: deps.urandom(mods.fs),
 	};
 };

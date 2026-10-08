@@ -230,6 +230,31 @@ export function session(mods) {
 	};
 };
 
+/**
+ * Where urandom reads.
+ *
+ * @type {string}
+ */
+export const RANDOM_DEVICE = '/dev/urandom';
+
+/**
+ * The kernel's random bytes (RANDOM_DEVICE) through fs: random(n) gives n of
+ * them, or null when it cannot read them; what auth.hash_password salts a
+ * hash with, for the ubus object and the command line alike.
+ *
+ * @param {module:fs} fs what reads: an object of fs's open.
+ * @returns {function(int): ?string} random(n).
+ */
+export function urandom(fs) {
+	return function(n) {
+		let f = fs.open(RANDOM_DEVICE, 'r');
+		let bytes = f?.read(n);
+
+		f?.close();
+		return bytes;
+	};
+};
+
 // A delta directory that never exists: cursors read committed configuration
 // only, not changes staged in uci and not yet committed.
 const UCI_NO_DELTAS = '/var/run/prometheus-exporter/no-uci-deltas';

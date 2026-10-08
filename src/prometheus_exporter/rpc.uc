@@ -519,13 +519,7 @@ export function system(opts) {
 		env: scrape_env(mods, quiet),
 		ubus: deps.ubus_channel(mods.ubus.connect),
 		ledger: st ? ledger.parse(st.read(ledger.NAME)) : null,
-		random: function(n) {
-			let f = mods.fs.open('/dev/urandom', 'r');
-			let bytes = f?.read(n);
-
-			f?.close();
-			return bytes;
-		},
+		random: deps.urandom(mods.fs),
 	};
 
 	// In the service's jail, where it can be had (check.trial).
