@@ -12,7 +12,9 @@
  *   auth_failures  the requests basic auth refused (401)
  *   k        seconds per sample of writing a scrape's reply (merging and
  *            rendering), an exponential moving average
- *   entry    { d: its duration, a moving average; n: samples it wrote last;
+ *   entry    { d: its duration, a moving average, which each scrape that
+ *              leaves it out at the deadline makes DEADLINE_DECAY of itself;
+ *              n: samples it wrote last;
  *              late: the scrape that last left it out at the deadline;
  *              f, q, cd, why: its breaker's (prometheus_exporter.breaker);
  *              counted since the instance started: fails, { code: its failures
@@ -135,6 +137,18 @@ const WHY_MAX = 200;
  * @type {float}
  */
 export const ALPHA = 0.25;
+
+/**
+ * What a collector's estimate is made of itself each time the deadline leaves
+ * it out (record): it is not run then, so not timed, and one slow run would
+ * keep it out for the instance's life. Three quarters: an estimate of twice
+ * the time the deadline leaves is tried again after 3 scrapes it was left
+ * out of, one of ten times after 9. A run, in time or cut at the deadline,
+ * measures it again.
+ *
+ * @type {float}
+ */
+export const DEADLINE_DECAY = 0.75;
 
 /**
  * The seconds a sample's writing is reckoned to take before the instance has
@@ -317,7 +331,8 @@ function count_failure(e, code) {
  * The ledger `ledger` with scrape `runs` recorded, as the scrape counts it: one
  * more scrape; for each collector that ran, its duration and samples, and
  * what its run makes of its breaker; for each the deadline left out or cut,
- * that it did; and the seconds per sample the reply took to write (`written`:
+ * that it did, and of one it left out, its estimate made DEADLINE_DECAY of
+ * itself; and the seconds per sample the reply took to write (`written`:
  * { seconds, samples }). `ids` are the installed collectors': any other's
  * entry goes. A run is scrape.run_one's or not_run's: { id, name, result,
  * duration, samples, budget, skipped }. `events`, when given, gets what
@@ -357,6 +372,8 @@ export function record(ledger, runs, written, ids, events) {
 			e.late = n;
 			e.dl = (e.dl ?? 0) + 1;
 		}
+		if (r.skipped == 'deadline' && e.d != null)
+			e.d *= DEADLINE_DECAY;
 
 		let o = outcome_of(r);
 		let b = breaker.after(e, o[0], n, (o[1] != null) ? substr(o[1], 0, WHY_MAX) : null);
