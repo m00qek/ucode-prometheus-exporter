@@ -22,7 +22,7 @@
 const fill = exporter.fill;
 
 // What the error codes mean, in the docs of this release.
-const ERROR_CODES = 'https://m00qek.github.io/ucode-prometheus-exporter/0.1/reference/error-codes/';
+const ERROR_CODES = 'https://m00qek.github.io/ucode-prometheus-exporter/0.2/reference/error-codes/';
 
 // No class makes a label red in every theme: material has `label danger`, bootstrap no
 // red label at all. So Failed also takes the theme's own error colour, from its variables:

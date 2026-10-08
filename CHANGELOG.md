@@ -2,7 +2,7 @@
 
 What each release changes, for those who run the exporter and those who write collectors for it. The format is [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions are [semantic](https://semver.org/): before 1.0.0 a minor version may break things, and says so, marked **BREAKING** here.
 
-## [0.2.0] - Unreleased
+## [0.2.0] - 2026-10-08
 
 A slow or broken collector now costs only itself: a scrape answers within the scraper's timeout, runs each collector in a process of its own, and quarantines one that hangs, overruns or keeps failing. Upgrading from 0.1 takes a few steps: see [Upgrading the exporter](https://m00qek.github.io/ucode-prometheus-exporter/0.2/how-to/upgrade/#from-01-to-02).
 
