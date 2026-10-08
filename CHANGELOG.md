@@ -10,6 +10,7 @@ What each release changes, for those who run the exporter and those who write co
 
 ### Fixed
 
+- **A collector could log without end.** 5,000 calls of `deps.log` in one run were 5,000 lines, enough to flush logd's ring of every other daemon's. A run's log now takes 10 lines of 512 bytes at most, and then says in one line how many more it left out.
 - **A collector that failed without an error code was quarantined at once.** A code the collector API does not export, as `errors.COLLECTOR_CRASHED`, is null, and the child process handed such a failure back as `COLLECTOR_KILLED`, which trips a breaker; the tests' in-process runner kept the null. Both now fail it with `COLLECTOR_NO_RESULT`, which counts as one failure.
 - **Two child processes that died anywhere in a scrape failed every collector left as `COLLECTOR_KILLED`**, and tripped their breakers, though none of them had run. The count is of children that die in a row before running a collector, and starts again once one runs one; when it gives up, the rest fail with the new code `COLLECTOR_NOT_RUN`, logged once for all, which leaves their breakers as they were.
 - **A collector the deadline left out was never measured again.** It was not run, so not timed, and one slow run could keep it out for the instance's life. Each scrape that leaves it out now makes its estimate three quarters of itself, so it is tried, and timed, again after a few: see [About deadlines and circuit breakers](docs/explanation/deadlines-and-breakers.md#trade-offs).

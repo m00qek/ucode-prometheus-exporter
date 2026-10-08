@@ -143,7 +143,7 @@ Only `prometheus_exporter.deps`, with its modules of each capability (`prometheu
 | `socket` | `unix_request(path, message, timeout_ms)`: the whole reply of a Unix stream socket's server, as a Result (`SOCKET_FAILED`). Needs ucode-mod-socket. |
 | `exec` | `run(argv)`: a program of `meta.commands`, without a shell's interpretation of its arguments, its standard output as a Result. See [Programs](#programs). |
 | `time` | `now()`: the system time, in seconds. |
-| `log` | `log(msg)`: a line at `warning`, `collector '<name>': <msg>`, for what a collector that succeeds still has to say. |
+| `log` | `log(msg)`: a line at `warning`, `collector '<name>': <msg>`, for what a collector that succeeds still has to say. At most 10 lines a run, each cut at 512 bytes; past them, one line once the run is over says how many more were left out. |
 | `exporter` | The exporter itself, read-only: `process(file)`, the serving uhttpd's `/proc/<pid>/stat`, `status` or `limits`; `fds()`, how many descriptors it has open; `system(file)`, `/proc/stat` or `/proc/self/auxv`; `counters()`, what the instance's ledger counts, this scrape so far included, or null outside the handler; `samples()`, `{ collector: samples }` of this scrape so far. A collector that needs it runs after every other. The `exporter` collector's. |
 
 A need the system lacks (`nl80211`, `socket`) fails the collector with `NEED_MISSING`.

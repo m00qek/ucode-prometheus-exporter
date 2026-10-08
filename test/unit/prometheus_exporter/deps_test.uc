@@ -128,6 +128,30 @@ describe('deps.session', () => {
 		});
 	});
 
+	// 5000 lines of one run once flushed logd's ring of every other daemon's.
+	it('takes LOG_LINES lines of a run, of LOG_BYTES each, and says how many more it left out once the run is done', () => {
+		with_mods({}, (mods) => {
+			let seen = [];
+			let s = deps.session({ ...mods, log: (level, m) => push(seen, m) });
+			let log = s.for({ name: 'chatty', needs: [ 'log' ] }).data.log;
+
+			for (let i = 0; i < 5000; i++)
+				log(`line ${i}`);
+			s.done();
+
+			let quiet = s.for({ name: 'quiet', needs: [ 'log' ] }).data.log;
+
+			quiet(sprintf('%2000s', 'long'));
+			s.done();
+			s.done();
+
+			assert.match([ 10, 2, 12 ], [ deps.LOG_LINES, length(filter(seen, (m) => index(m, "collector 'quiet'") == 0 || index(m, '4990 more') > 0)), length(seen) ]);
+			assert.match([ "collector 'chatty': line 0", "collector 'chatty': line 9", "collector 'chatty': 4990 more lines of its log left out" ],
+				[ seen[0], seen[9], seen[10] ]);
+			assert.match([ length("collector 'quiet': ") + deps.LOG_BYTES + 3, '...' ], [ length(seen[11]), substr(seen[11], -3) ]);
+		});
+	});
+
 	it('limits exec to the collector\'s commands', () => {
 		with_mods({}, (mods) => {
 			let exec = deps.session(mods).for({ needs: [ 'exec' ], commands: [ 'nft' ] }).data.exec;

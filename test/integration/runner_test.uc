@@ -128,6 +128,17 @@ describe('runner.forked', () => {
 		assert.match([ 'ok', 20000 ], [ summary(r.runs[0])[1], length(filter(split(r.runs[0].text, '\n'), (l) => index(l, 'huge_value{') == 0)) ]);
 	});
 
+	it('logs at most LOG_LINES lines of a collector\'s run, then how many more it left out', () => {
+		let chatty = collector('chatty', function(d) {
+			for (let i = 0; i < 1000; i++)
+				d.log(`line ${i}`);
+			return Result.ok();
+		}, { needs: [ 'log' ] });
+		let r = run_forked([ chatty, gauge('after', 1) ], 5);
+
+		assert.match([ deps.LOG_LINES + 1, [ 'warning', "collector 'chatty': 990 more lines of its log left out" ] ], [ length(r.logs), r.logs[-1] ]);
+	});
+
 	it('logs what a collector logged in its child, here', () => {
 		let failing = collector('failing', () => Result.err('SOURCE_INVALID', 'garbled'));
 		let r = run_forked([ failing ], 5);

@@ -271,6 +271,8 @@ export function run_one(env, session, collector, job) {
 				res = Result.err(errors.COLLECTOR_CRASHED, split(e.message, '\n')[0]);
 			}
 
+			session.done?.();
+
 			// A code the API does not export (errors.COLLECTOR_CRASHED) is
 			// null: a failure without one is not a Result as the contract
 			// says, here or in the child, whatever crosses the pipe.
