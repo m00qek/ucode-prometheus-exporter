@@ -269,6 +269,26 @@ describe('runner.forked', () => {
 		assert.match('COLLECTOR_NO_RESULT', runner.unpack(packed).run.result.error);
 	});
 
+	// Each fallback says why: a full tmpfs once logged that it could not fork.
+	it('runs the collectors in this process when the file their runs cross by cannot be made, and says that, not that it cannot fork', () => {
+		let logs = [];
+		let queue = [ gauge('a', 1), gauge('b', 2) ];
+		let runs = [];
+		let plan = {
+			next: function() {
+				let c = shift(queue);
+
+				return c ? { c, cutoff: null, limit: null, at_deadline: false, budget: 5, settings: { budget: 5, max_samples: 10, options: {} } } : null;
+			},
+			done: (job, r) => push(runs, r),
+		};
+
+		runner.forked({ ...env_of(logs), mkstemp: () => null }, scrape.run_one, { tmp: '/nowhere' }).run(plan);
+
+		assert.match([ [ 'a', 'ok' ], [ 'b', 'ok' ] ], map(runs, summary));
+		assert.match([ [ 'warning', "cannot make the file the collectors' runs cross by, in /nowhere; running the collectors in the scrape's own process" ] ], logs);
+	});
+
 	it('leaves no child behind', () => {
 		run_forked([ LOOP, QUITTER, gauge('a', 1) ], 0.2);
 

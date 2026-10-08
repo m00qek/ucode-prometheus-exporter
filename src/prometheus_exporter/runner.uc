@@ -323,9 +323,10 @@ export function forked(env, run_fn, opts) {
 			let child = child_of(st);
 
 			// When no child can be forked (the system is out of processes or
-			// memory), the rest run here, unguarded, rather than not at all.
-			function fallback() {
-				st.env.log('warning', 'cannot fork a process to run the collectors in; running them in the scrape\'s own');
+			// memory), or the file the runs cross by cannot be made, the rest
+			// run here, unguarded, rather than not at all; `why` says which.
+			function fallback(why) {
+				st.env.log('warning', `${why}; running the collectors in the scrape's own process`);
 				inline(st.env, st.run_fn, { omit: st.omit }).run(st.plan);
 				st.done = true;
 				if (st.timer)
@@ -400,7 +401,7 @@ export function forked(env, run_fn, opts) {
 				st.task = uloop.task(child, (msg) => on_output(g, msg), () => on_input(g));
 
 				if (!st.task)
-					return fallback();
+					return fallback('cannot fork a process to run the collectors in');
 
 				if (st.stats)
 					st.stats.children = (st.stats.children ?? 0) + 1;
@@ -460,10 +461,12 @@ export function forked(env, run_fn, opts) {
 				arm();
 			}
 
-			st.out = env.mkstemp(`${opts?.tmp ?? '/tmp'}/prometheus-exporter.XXXXXX`);
+			let tmp = opts?.tmp ?? '/tmp';
+
+			st.out = env.mkstemp(`${tmp}/prometheus-exporter.XXXXXX`);
 
 			if (!st.out)
-				return fallback();
+				return fallback(`cannot make the file the collectors' runs cross by, in ${tmp}`);
 
 			uloop.init();
 			st.timer = uloop.timer(POLL_MS, tick);
