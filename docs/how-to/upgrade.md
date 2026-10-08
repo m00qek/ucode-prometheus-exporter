@@ -8,7 +8,9 @@ Read what the new version changes. Before 1.0.0 a minor version may rename metri
 
 ---
 
-## From a feed
+## From the feed
+
+With the exporter's feed added, as [How to install the exporter](install.md#1-add-the-feed) adds it:
 
 ```sh
 apk update
@@ -17,13 +19,14 @@ apk upgrade
 
 ## From `.apk` files
 
-Copy every package you have installed, in the new version, to the device's `/tmp`, and add them in one command:
+Copy every package you have installed, in the new version, to the device's `/tmp`, and add them in one command, `version` set to the new version as the files' names end:
 
 ```sh
-apk add --allow-untrusted /tmp/ucode-prometheus-exporter-*0.2.0-r1.apk /tmp/luci-app-prometheus-exporter-0.2.0-r1.apk
+version=0.2.0-r1
+apk add --allow-untrusted /tmp/ucode-prometheus-exporter-*$version.apk /tmp/luci-app-prometheus-exporter-$version.apk
 ```
 
-Adding the base package alone fails: the installed collectors still want the old version.
+Adding the base package alone fails: the installed collectors still want the old version. A dependency the new version adds comes from the feeds the device has: `ucode-docopt`, which 0.2 added, from the exporter's feed.
 
 ## From 0.1 to 0.2
 

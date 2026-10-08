@@ -7,12 +7,6 @@ It takes about twenty minutes.
 ## What you need
 
 - A router on OpenWrt 25.12, at `192.168.1.1` on its LAN, with internet access, and a shell on it: `ssh root@192.168.1.1`.
-- The exporter's base package, `ucode-prometheus-exporter-0.1.0-r1.apk`, copied to the router's `/tmp`:
-
-    ```bash
-    scp -O ucode-prometheus-exporter-0.1.0-r1.apk root@192.168.1.1:/tmp/
-    ```
-
 - A computer on the router's LAN, with Docker.
 
 If your router's address is not `192.168.1.1`, use yours wherever it appears.
@@ -21,11 +15,14 @@ If your router's address is not `192.168.1.1`, use yours wherever it appears.
 
 ## 1. Install the exporter
 
-On the router, install the package. apk fetches what it depends on from OpenWrt's feeds:
+On the router, add the feed the exporter is published in, with the key its packages are signed with, then install the package. apk fetches what it depends on from that feed and OpenWrt's own:
 
 ```sh
+feed=https://m00qek.github.io/packages.ucode.dev/25.12
+wget -qO /etc/apk/keys/packages.ucode.dev.pem "$feed/feed.pub.pem"
+echo "$feed" > /etc/apk/repositories.d/ucode-dev.list
 apk update
-apk add --allow-untrusted /tmp/ucode-prometheus-exporter-0.1.0-r1.apk
+apk add ucode-prometheus-exporter
 ```
 
 apk lists what it installs, and ends with `OK`. The service starts on its own. Let's ask it how it is:
@@ -36,7 +33,7 @@ service prometheus-exporter status
 
 ```
 running
-listening on http://127.0.0.1:9100/metrics, gzip when asked, serving 15 collectors
+listening on http://127.0.0.1:9100/metrics, gzip when asked, serving 16 collectors
 ```
 
 Notice where it listens: `127.0.0.1`, the router's loopback. For now only the router itself can reach it.
@@ -65,7 +62,7 @@ wget -qO- http://127.0.0.1:9100/metrics | tail -n 4
 node_scrape_collector_observing{collector="vmstat"} 1
 # HELP ucode_prometheus_exporter_build_info A metric with a constant '1' value labeled by the version of ucode-prometheus-exporter.
 # TYPE ucode_prometheus_exporter_build_info gauge
-ucode_prometheus_exporter_build_info{version="0.1.0-r1"} 1
+ucode_prometheus_exporter_build_info{version="0.2.0-r1"} 1
 ```
 
 Every scrape ends with what it says of itself: how long each collector took, whether it succeeded, and the exporter's version.
@@ -83,7 +80,7 @@ service prometheus-exporter status
 
 ```
 running
-listening on http://192.168.1.1:9100/metrics, gzip when asked, serving 15 collectors
+listening on http://192.168.1.1:9100/metrics, gzip when asked, serving 16 collectors
 ```
 
 The address is now the router's LAN address. From the computer, check that it answers:
@@ -144,7 +141,7 @@ ucode_prometheus_exporter_build_info
 ```
 
 ```
-ucode_prometheus_exporter_build_info{instance="192.168.1.1:9100", job="openwrt", version="0.1.0-r1"}  1
+ucode_prometheus_exporter_build_info{instance="192.168.1.1:9100", job="openwrt", version="0.2.0-r1"}  1
 ```
 
 ## 6. Ask the exporter how it is doing
@@ -160,7 +157,7 @@ The first lines are its findings, something like:
 ```
 ok   main: HTTP on interface lan, port 9100, keepalive 70s, exec_timeout 5s, scrape_timeout 10s, collector_budget 5s, max_samples 20000, memory_limit 64 MB (a quarter of the RAM, at most 64), gzip when asked
 ok   collectors: 15 installed collectors, their options valid
-ok   scrape, in the service's jail: 15 of 15 collectors succeeded
+ok   scrape, in the service's jail: 16 of 16 collectors succeeded
 ```
 
 Then one block per collector, with what it reads and what the service's jail gives it, and last, everything the jail mounts. Each `ok` is a check that passed; a problem would be a `warn` or `FAIL` line saying what is wrong.

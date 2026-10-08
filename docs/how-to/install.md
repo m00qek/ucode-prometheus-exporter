@@ -1,17 +1,28 @@
 # How to Install the Exporter
 
-Install the base package, then the collectors you want, one by one or in groups. The service starts on its own, on loopback, port 9100.
+Add the feed the exporter is published in, install the base package, then the collectors you want, one by one or in groups. The service starts on its own, on loopback, port 9100.
 
 ## Prerequisites
 
-- A device on OpenWrt 25.12, with a shell on it (ssh).
-- The packages: from a package feed your device uses, or as `.apk` files, which `make package` builds into `bin/` (see [Make targets](../reference/make-targets.md#packages-and-the-device)).
-- The device can reach its release's own feeds: the packages depend on `uhttpd`, `ucode` modules and `rpcd-mod-ucode`, which come from there.
+- A device on OpenWrt 25.12, with a shell on it (ssh), that can reach the internet.
 - Neither `prometheus-node-exporter-ucode` nor `prometheus-node-exporter-lua` is installed. If one is, see [How to move from the feed's exporters](migrate-from-feed.md) instead.
 
 ---
 
-## 1. Choose the packages
+## 1. Add the feed
+
+The exporter's packages are in the [packages.ucode.dev](https://github.com/m00qek/packages.ucode.dev) feed, and so is `ucode-docopt`, which the base package depends on and OpenWrt's own feeds do not have. Its other dependencies, `uhttpd`, `ucode` modules and `rpcd-mod-ucode`, come from the release's own feeds. Add the feed and its signing key:
+
+```sh
+feed=https://m00qek.github.io/packages.ucode.dev/25.12
+wget -qO /etc/apk/keys/packages.ucode.dev.pem "$feed/feed.pub.pem"
+echo "$feed" > /etc/apk/repositories.d/ucode-dev.list
+apk update
+```
+
+apk then checks every package of the feed against that key, as it checks OpenWrt's against the release's.
+
+## 2. Choose the packages
 
 - `ucode-prometheus-exporter`, the base package: the service and the collectors every device can use.
 - A collector's package, `ucode-prometheus-exporter-<name>`, for each other collector you want: `-wifi`, `-dnsmasq`, `-wireguard`.
@@ -20,27 +31,28 @@ Install the base package, then the collectors you want, one by one or in groups.
 
 [Collectors](../reference/collectors.md) lists every collector, its package and its groups.
 
-## 2. Install them
+## 3. Install them
 
-From a feed:
+From the feed:
 
 ```sh
 apk update
 apk add ucode-prometheus-exporter ucode-prometheus-exporter-full luci-app-prometheus-exporter
 ```
 
-From `.apk` files, copied to the device's `/tmp`:
+Or from `.apk` files, which `make package` builds into `bin/` (see [Make targets](../reference/make-targets.md#packages-and-the-device)), copied to the device's `/tmp`. `ucode-docopt` still comes from the feed of step 1, unless its own file is among them. Set `version` to the files' version, as their names end:
 
 ```sh
+version=0.2.0-r1
 apk update
-apk add --allow-untrusted /tmp/ucode-prometheus-exporter-0.1.0-r1.apk \
-    /tmp/ucode-prometheus-exporter-wifi-0.1.0-r1.apk \
-    /tmp/luci-app-prometheus-exporter-0.1.0-r1.apk
+apk add --allow-untrusted ucode-docopt /tmp/ucode-prometheus-exporter-$version.apk \
+    /tmp/ucode-prometheus-exporter-wifi-$version.apk \
+    /tmp/luci-app-prometheus-exporter-$version.apk
 ```
 
 A group's file brings nothing without its collectors' files: install them together. Every package must be of the same version as the base package.
 
-## 3. Check that it serves
+## 4. Check that it serves
 
 ```sh
 service prometheus-exporter status

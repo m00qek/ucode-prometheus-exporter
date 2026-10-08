@@ -5,7 +5,7 @@ This exporter replaces the packages feed's `prometheus-node-exporter-ucode` and 
 ## Prerequisites
 
 - One of the feed's exporters is installed, with its collector packages.
-- The new packages are at hand: see [How to install the exporter](install.md).
+- The device has the exporter's feed: see [How to install the exporter](install.md#1-add-the-feed).
 
 ---
 
@@ -16,7 +16,7 @@ apk installs neither feed exporter beside this one, nor this one beside either, 
 ```
 ERROR: unable to select packages:
   prometheus-node-exporter-ucode-2024.02.07-r2:
-    breaks: ucode-prometheus-exporter-0.1.0-r1[!prometheus-node-exporter-ucode>=0]
+    breaks: ucode-prometheus-exporter-0.2.0-r1[!prometheus-node-exporter-ucode>=0]
 ```
 
 Remove the old exporter and its collector packages first:

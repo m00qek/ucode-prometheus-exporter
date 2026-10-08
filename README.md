@@ -6,7 +6,13 @@ Metrics of OpenWrt for Prometheus, written in ucode and served by uhttpd at `/me
 
 ## Install
 
+The packages, and `ucode-docopt`, which the base package depends on, are in the [packages.ucode.dev](https://github.com/m00qek/packages.ucode.dev) feed: add it and its key, then install.
+
 ```sh
+feed=https://m00qek.github.io/packages.ucode.dev/25.12
+wget -qO /etc/apk/keys/packages.ucode.dev.pem "$feed/feed.pub.pem"
+echo "$feed" > /etc/apk/repositories.d/ucode-dev.list
+apk update
 apk add ucode-prometheus-exporter ucode-prometheus-exporter-full
 wget -qO- http://127.0.0.1:9100/metrics
 service prometheus-exporter check
