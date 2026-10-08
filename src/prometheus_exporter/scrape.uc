@@ -63,7 +63,7 @@ import { seconds as now_of, budget as deadline_budget } from 'prometheus_exporte
 import * as ledger from 'prometheus_exporter.ledger';
 import * as runner from 'prometheus_exporter.runner';
 import * as loader from 'prometheus_exporter.loader';
-import { pid_of } from 'prometheus_exporter.state';
+import { pid_of, SIZE_MAX } from 'prometheus_exporter.state';
 import { own } from 'prometheus_exporter.ownership';
 import { bury, log_breakers } from 'prometheus_exporter.progress';
 
@@ -643,10 +643,14 @@ export function scrape(env, collectors, query_string, opts) {
 
 		let events = [];
 
-		st.update(ledger.NAME, function(text) {
+		let recorded = st.update(ledger.NAME, function(text) {
 			events = [];
-			return ledger.serialize(ledger.record(ledger.parse(text), runs, written, ids, events));
+			return ledger.serialize(ledger.record(ledger.parse(text), runs, written, ids, events), SIZE_MAX);
 		});
+
+		// The next scrape then orders, times and quarantines by an old one.
+		if (!recorded)
+			env.log('warning', 'the scrape could not be recorded in the instance\'s state: its ledger is as the last scrape left it');
 		log_breakers(env, events);
 	}
 

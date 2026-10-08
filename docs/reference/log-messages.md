@@ -31,7 +31,10 @@ Logged by uhttpd's handler, with the pid of the uhttpd process.
 | `collector '<name>' quarantined for <n> scrape[s]: <CODE (detail)>` | `warning` | Its circuit breaker tripped: a program killed at its timeout, `COLLECTOR_OVERRUN` (over its budget), or a third failure in a row; or its trial failed. |
 | `collector '<name>' served again: its trial succeeded` | `notice` | Its circuit breaker closed. |
 | `collector '<name>': <message>` | `warning` | A collector that succeeded said something with its `log` capability: textfile's `skipped <file>: <why>`, as `skipped /var/prometheus/x.prom: is not a regular file (fifo): not read`. |
+| `collector '<name>': <n> more line[s] of its log left out` | `warning` | A collector's run logged more than 10 lines with its `log` capability: the first 10 were logged, each cut at 512 bytes, and this once the run was over. |
 | `collector '<name>': '<family>' declared with two types; later samples dropped` | `warning` | A collector declared a family twice. |
+| `the processes forked to run the collectors in ended twice before running one; not run: <name>, ...` | `warning` | Two child processes in a row ended before they ran a collector: the collectors left fail with `COLLECTOR_NOT_RUN`, their breakers as they were. |
+| `the scrape could not be recorded in the instance's state: its ledger is as the last scrape left it` | `warning` | The state's directory could not be written: the next scrape orders, times and quarantines the collectors by the ledger as it was. |
 | `main: <CODE (detail)>` | `err` | A scrape read a main section it does not take, and used the defaults. |
 
 ## The init script

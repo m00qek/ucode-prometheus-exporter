@@ -118,11 +118,22 @@ export const RECENT = 10;
 export const REASONS_MAX = 8;
 
 /**
- * What a failure is counted as past REASONS_MAX codes.
+ * What a failure is counted as past REASONS_MAX codes, or with a code that is
+ * not one (CODE).
  *
  * @type {string}
  */
 export const OTHER = 'OTHER';
+
+/**
+ * What a failure's code must be to be counted by it: an uppercase word of at
+ * most 64 characters, as errors.uc's are. A collector's own code is any string
+ * it likes, and the ledger keeps every code it counts: one of a few kB would
+ * take the state's room.
+ *
+ * @type {RegExp}
+ */
+export const CODE = /^[A-Z][A-Z0-9_]{0,63}$/;
 
 // The most of a breaker's why the ledger keeps.
 const WHY_MAX = 200;
@@ -194,13 +205,30 @@ export function parse(text) {
 };
 
 /**
- * The ledger's JSON, as the state keeps it.
+ * The ledger's JSON, as the state keeps it. When it is longer than `max`
+ * bytes, it is written again without what it can do without, each breaker's
+ * why and each collector's failures by code: a state that cannot be written
+ * keeps none of the scrape, its durations, breakers and counts with it.
  *
  * @param {Ledger} ledger the ledger.
+ * @param {?int} max the most bytes it may take; null for no limit.
  * @returns {string} its JSON.
  */
-export function serialize(ledger) {
-	return sprintf('%J', ledger);
+export function serialize(ledger, max) {
+	let text = sprintf('%J', ledger);
+
+	if (max == null || length(text) <= max)
+		return text;
+
+	let c = {};
+
+	for (let id, e in ledger.c) {
+		c[id] = { ...e };
+		delete c[id].why;
+		delete c[id].fails;
+	}
+
+	return sprintf('%J', { ...ledger, c });
 };
 
 /**
@@ -319,8 +347,11 @@ export function outcome_of(run) {
 };
 
 // One failure of collector `id` counted in `e` (an entry): by `code`, or as
-// OTHER past REASONS_MAX codes.
+// OTHER past REASONS_MAX codes, or for a code that is not one (CODE).
 function count_failure(e, code) {
+	if (type(code) != 'string' || !match(code, CODE))
+		code = OTHER;
+
 	let fails = { ...(e.fails ?? {}) };
 	let key = (code in keys(fails) || length(fails) < REASONS_MAX) ? code : OTHER;
 

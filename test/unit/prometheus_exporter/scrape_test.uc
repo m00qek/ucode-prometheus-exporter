@@ -387,6 +387,17 @@ describe('scrape.scrape', () => {
 		assert.match(contains([ 'node_scrape_collector_success{collector="slow"} 0' ]), lines(r.body));
 	});
 
+	it('logs once a scrape it could not record in the state, and still answers', () => {
+		let st = memory_state(null);
+
+		st.update = (name, fn) => { fn(null); return false; };
+
+		let r = scrape_with([ A, B ], '', {}, { state: st });
+
+		assert.match([ "the scrape could not be recorded in the instance's state: its ledger is as the last scrape left it" ], r.logs);
+		assert.match(contains([ 'a_value 1', 'b_value 2' ]), lines(r.body));
+	});
+
 	it('keeps back the time the reply is expected to take to write, by the samples', () => {
 		let ran = [];
 		let l = ledger.record(ledger.empty(), [ { id: 'big', duration: 0.1, samples: 1000, result: Result.ok() } ],

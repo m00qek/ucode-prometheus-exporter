@@ -223,6 +223,31 @@ describe('ledger, the breakers', () => {
 		assert.match([ 1, null ], [ ledger.report(l, 'a').late, ledger.report(l, 'b') ]);
 	});
 
+	// A collector's own code is any string it likes, kept in every scrape's
+	// ledger: one of kilobytes once made the state refuse the ledger, which
+	// then froze, a quarantine with it.
+	it('counts a code that is not an uppercase word of at most 64 characters as OTHER', () => {
+		let huge = sprintf('%05000d', 7);
+		let l = ledger.empty();
+
+		for (let code in [ 'X' + huge, 'lower', 'A-B', sprintf('A%064d', 0), 42, 'MY_OWN_CODE' ])
+			l = ledger.record(l, [ run_with('a', 0.1, Result.err(code)) ], null, [ 'a' ]);
+
+		assert.match({ OTHER: 5, MY_OWN_CODE: 1 }, l.c.a.fails);
+		assert.match(true, length(ledger.serialize(l)) < 1000);
+	});
+
+	it('writes a ledger over `max` without breakers\' whys and failures by code, and keeps the rest', () => {
+		let ids = map([ 1, 2, 3 ], (i) => `c${i}`);
+		let l = ledger.record(ledger.empty(), map(ids, (id) => run_with(id, 2.5, Result.err('SOURCE_INVALID', sprintf('%0150d', 0)))), null, ids);
+		let full = ledger.serialize(l);
+		let slim = ledger.parse(ledger.serialize(l, length(full) - 1));
+
+		assert.match(full, ledger.serialize(l, length(full)));
+		assert.match([ { d: 2.5, n: 1, f: 1 }, null, null ], [ slim.c.c1, slim.c.c1.why, slim.c.c1.fails ]);
+		assert.match(1, slim.scrapes);
+	});
+
 	it('fits the state with a hundred collectors that failed in every way they can', () => {
 		let ids = map([ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 ], (i) => `hostapd_ubus_stations_${i}`);
 		let l = ledger.empty();
