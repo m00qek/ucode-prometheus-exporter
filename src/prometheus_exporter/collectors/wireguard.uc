@@ -23,6 +23,7 @@ export const meta = {
 	options: {
 		peer_names: {
 			default: false,
+			title: 'Peer names',
 			help: 'Label each peer with its description in the network config (friendly_name), asked of rpcd: the peer sections alone, never the private keys.',
 		},
 	},

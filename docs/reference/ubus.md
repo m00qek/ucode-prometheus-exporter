@@ -49,6 +49,7 @@ Every installed collector, in the order of their names, and the messages of the 
 | :--- | :--- | :--- |
 | `name` | string | The option's name. |
 | `core` | boolean | `true` for the core's `timeout`, `false` for the collector's own. |
+| `title` | string | Its label, as the collector declares it: `Excluded devices`. The core's `timeout` is `Program timeout`. |
 | `type` | string | `bool`, `int` or `string`: the type of its default. |
 | `default` | any | Its default. For `timeout`, the seconds it gets while unset. |
 | `default_from` | string | `timeout` only: `meta.timeout` or `exec_timeout`, whose seconds the default is. |

@@ -29,7 +29,7 @@ export const meta = {
 	help: 'Metrics from *.prom files in a directory, as node_exporter\'s textfile collector.',
 	needs: [ 'fs', 'log' ],
 	options: {
-		directory: { default: '/var/prometheus', datatype: 'directory', help: 'The directory of the *.prom files.' },
+		directory: { default: '/var/prometheus', title: 'Metrics directory', datatype: 'directory', help: 'The directory of the *.prom files.' },
 	},
 	// No other service makes it: the exporter does, when it starts, so the
 	// jail always has it to mount.

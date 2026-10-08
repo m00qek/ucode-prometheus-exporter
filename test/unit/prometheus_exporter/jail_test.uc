@@ -29,8 +29,8 @@ function with_sys(own, configs, fs, cb) {
 }
 
 const NFT = collector('nft-counters', { needs: [ 'exec' ], commands: [ 'nft' ] });
-const TEXTFILE = collector('textfile', { needs: [ 'fs' ], options: { directory: { default: '/var/prometheus', datatype: 'directory', help: 'Where.' } }, paths: [ '{directory}' ] });
-const OWNER = collector('owner', { needs: [ 'fs' ], options: { directory: { default: '/var/own', datatype: 'directory', help: 'Where.' } },
+const TEXTFILE = collector('textfile', { needs: [ 'fs' ], options: { directory: { default: '/var/prometheus', datatype: 'directory', title: 'T', help: 'Where.' } }, paths: [ '{directory}' ] });
+const OWNER = collector('owner', { needs: [ 'fs' ], options: { directory: { default: '/var/own', datatype: 'directory', title: 'T', help: 'Where.' } },
 	paths: [ { path: '{directory}', owned: true }, '/var/other' ] });
 const DHCP = collector('uci_dhcp_host', { needs: [ 'uci' ], configs: [ 'dhcp' ] });
 const LOADAVG = collector('loadavg', { needs: [ 'fs' ] });
@@ -254,7 +254,7 @@ describe('jail.mounts', () => {
 	it('leaves out the paths that are not there, and lists them', () => {
 		let socket = collector('unbound', {
 			needs: [ 'socket' ],
-			options: { socket: { default: '/var/lib/unbound/unbound.ctl', datatype: 'file', help: 'Where.' } },
+			options: { socket: { default: '/var/lib/unbound/unbound.ctl', datatype: 'file', title: 'T', help: 'Where.' } },
 			paths: [ (options) => [ '/var/lib/unbound' ] ],
 		});
 

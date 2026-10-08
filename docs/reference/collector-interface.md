@@ -58,7 +58,7 @@ uhttpd loads them once, when it starts; a scrape runs what was loaded. Installin
 | `timeout` | no | integer | With `exec`: the seconds its programs get in all per scrape, 1 to 30, unless its section sets `timeout`. Without it, the main section's `exec_timeout`. |
 | `max_samples` | no | integer | The samples it may write per scrape, 1 to 100,000, unless its section sets `max_samples`. Without it, the main section's `max_samples` (20,000). |
 | `cost` | no | string | `light` (the default) or `heavy`: until the ledger has timed it, a heavy collector runs after the others not yet timed. |
-| `options` | no | object | Its own options, `{ <name>: { default, help, datatype } }`. See [Options](#options). |
+| `options` | no | object | Its own options, `{ <name>: { default, title, help, datatype } }`. See [Options](#options). |
 | `paths` | no | array | What it reads outside procfs and sysfs, with `fs`, `socket` or `exec` in `needs`. See [The jail](jail.md#paths). |
 
 ### Options
@@ -67,6 +67,7 @@ uhttpd loads them once, when it starts; a scrape runs what was loaded. Installin
 | :--- | :--- | :--- |
 | (the name) | | `[a-z][a-z0-9_]*`; not `enabled`, `timeout`, `budget` nor `max_samples`, which are the core's. |
 | `default` | yes | A boolean, an integer or a string: it sets the option's type. |
+| `title` | yes | 1 to 40 characters, no control characters: the label a form shows the option by, short and in sentence case, as `Excluded devices`. LuCI shows it as the collector gives it, untranslated. |
 | `help` | yes | A sentence: what the option does. |
 | `datatype` | no | One of the datatypes the core checks: `uinteger`, `range(min,max)`, `directory`, `file`, `regex`. It must take the default. See [UCI configuration](uci-config.md#values). |
 

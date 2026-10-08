@@ -40,6 +40,7 @@ export const meta = {
 	options: {
 		device_exclude: {
 			default: DEFAULT_EXCLUDE,
+			title: 'Excluded devices',
 			datatype: 'regex',
 			help: 'A regular expression of the block devices to leave out: by default RAM disks, zram, loop devices, flash (mtdblock, ubiblock) and the partitions of disks, whose I/O their disk counts. ^$ leaves out none.',
 		},

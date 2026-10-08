@@ -21,7 +21,7 @@ function collector(name, collect, meta) {
 
 const OK = collector('loadavg', () => Result.ok(), { needs: [ 'fs' ] });
 const FAILING = collector('openwrt', () => Result.err('UBUS_CALL_FAILED', 'system board: Not found'), { needs: [ 'ubus' ] });
-const TEXTFILE = collector('textfile', () => Result.ok(), { needs: [ 'fs' ], options: { directory: { default: '/var/prometheus', datatype: 'directory', help: 'Where.' } }, paths: [ '{directory}' ] });
+const TEXTFILE = collector('textfile', () => Result.ok(), { needs: [ 'fs' ], options: { directory: { default: '/var/prometheus', datatype: 'directory', title: 'T', help: 'Where.' } }, paths: [ '{directory}' ] });
 const NFT = collector('nft-counters', () => Result.ok(), { needs: [ 'exec' ], commands: [ 'nft' ] });
 const IDLE = collector('dnsmasq', () => Result.none('dnsmasq is disabled'), { needs: [ 'ubus' ] });
 
@@ -252,7 +252,7 @@ describe('check.run', () => {
 
 	it('says which directories the service makes, and does not warn of them', () => {
 		let owner = collector('owner', () => Result.ok(), {
-			needs: [ 'fs' ], options: { directory: { default: '/var/own', datatype: 'directory', help: 'Where.' } },
+			needs: [ 'fs' ], options: { directory: { default: '/var/own', datatype: 'directory', title: 'T', help: 'Where.' } },
 			paths: [ { path: '{directory}', owned: true } ],
 		});
 		let r = run({}, [ owner ], {});

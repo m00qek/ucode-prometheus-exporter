@@ -10,9 +10,9 @@ export const meta = {
 	help: 'Samples nothing, with an option of each type.',
 	needs: [ 'fs' ],
 	options: {
-		retries: { default: 3, help: 'How many times to try.' },
-		verbose: { default: false, help: 'Say more.' },
-		label: { default: 'node', help: 'The label of the sample.' },
+		retries: { default: 3, title: 'Retries', help: 'How many times to try.' },
+		verbose: { default: false, title: 'Verbose', help: 'Say more.' },
+		label: { default: 'node', title: 'Label', help: 'The label of the sample.' },
 	},
 };
 

@@ -27,7 +27,7 @@ export const meta = {
 	help: 'Wi-Fi radios, networks and stations, from ubus network.wireless and nl80211.',
 	needs: [ 'ubus', 'nl80211' ],
 	options: {
-		stations: { default: true, help: 'Per-station metrics: signal, rates and traffic of each client.' },
+		stations: { default: true, title: 'Station metrics', help: 'Per-station metrics: signal, rates and traffic of each client.' },
 	},
 };
 

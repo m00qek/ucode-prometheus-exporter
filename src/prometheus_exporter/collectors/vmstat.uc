@@ -24,7 +24,7 @@ export const meta = {
 	help: 'Virtual memory statistics, from /proc/vmstat.',
 	needs: [ 'fs' ],
 	options: {
-		fields: { default: DEFAULT_FIELDS, datatype: 'regex', help: 'A regular expression of the /proc/vmstat fields to export.' },
+		fields: { default: DEFAULT_FIELDS, title: 'Exported fields', datatype: 'regex', help: 'A regular expression of the /proc/vmstat fields to export.' },
 	},
 };
 

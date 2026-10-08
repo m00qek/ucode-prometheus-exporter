@@ -57,6 +57,7 @@ export const meta = {
 	options: {
 		socket: {
 			default: '/var/lib/unbound/unbound.ctl',
+			title: 'Control socket',
 			datatype: 'file',
 			help: 'Unbound\'s control socket (control-interface), in a directory the jail can mount: not one every service shares, such as /run.',
 		},

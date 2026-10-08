@@ -60,7 +60,7 @@ export const meta = {
 	needs: [ 'fs', 'ubus', 'uci', 'time' ],
 	configs: [ 'dhcp' ],
 	options: {
-		leases: { default: false, help: 'A series per lease, with its address, MAC, hostname and expiry.' },
+		leases: { default: false, title: 'Lease series', help: 'A series per lease, with its address, MAC, hostname and expiry.' },
 	},
 	paths: [ (options, uci) => leasefiles(uci.dhcp) ],
 };

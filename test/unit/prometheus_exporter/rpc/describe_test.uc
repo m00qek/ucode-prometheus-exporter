@@ -7,11 +7,11 @@ import * as jail from 'prometheus_exporter.jail';
 import { NAME, PACKAGE, collector, LOADAVG, NFT, with_sys, entry } from 'lib.rpc';
 
 describe('rpc.describe.option_spec', () => {
-	it('takes a bare default, typed by it, with no help or datatype', () => {
+	it('takes a bare default, typed by it, titled by its name, with no help or datatype', () => {
 		assert.match([
-			{ name: 'stations', core: false, type: 'bool', default: true, help: null, datatype: null },
-			{ name: 'retries', core: false, type: 'int', default: 3, help: null, datatype: null },
-			{ name: 'directory', core: false, type: 'string', default: '/var/prometheus', help: null, datatype: null },
+			{ name: 'stations', core: false, title: 'stations', type: 'bool', default: true, help: null, datatype: null },
+			{ name: 'retries', core: false, title: 'retries', type: 'int', default: 3, help: null, datatype: null },
+			{ name: 'directory', core: false, title: 'directory', type: 'string', default: '/var/prometheus', help: null, datatype: null },
 		], [
 			rpc_describe.option_spec('stations', true),
 			rpc_describe.option_spec('retries', 3),
@@ -19,14 +19,14 @@ describe('rpc.describe.option_spec', () => {
 		]);
 	});
 
-	it('takes { default, help, datatype }, and leaves out an empty help or datatype', () => {
+	it('takes { default, title, help, datatype }, and leaves out an empty help or datatype', () => {
 		assert.match([
-			{ name: 'directory', core: false, type: 'string', default: '/var/prometheus', help: 'Where the .prom files are.', datatype: 'directory' },
-			{ name: 'fields', core: false, type: 'string', default: '^pg', help: null, datatype: 'regex' },
-			{ name: 'stations', core: false, type: 'bool', default: false, help: null, datatype: null },
+			{ name: 'directory', core: false, title: 'Metrics directory', type: 'string', default: '/var/prometheus', help: 'Where the .prom files are.', datatype: 'directory' },
+			{ name: 'fields', core: false, title: 'fields', type: 'string', default: '^pg', help: null, datatype: 'regex' },
+			{ name: 'stations', core: false, title: 'stations', type: 'bool', default: false, help: null, datatype: null },
 		], [
-			rpc_describe.option_spec('directory', { default: '/var/prometheus', help: 'Where the .prom files are.', datatype: 'directory' }),
-			rpc_describe.option_spec('fields', { default: '^pg', help: '', datatype: 'regex' }),
+			rpc_describe.option_spec('directory', { default: '/var/prometheus', title: 'Metrics directory', help: 'Where the .prom files are.', datatype: 'directory' }),
+			rpc_describe.option_spec('fields', { default: '^pg', title: '', help: '', datatype: 'regex' }),
 			rpc_describe.option_spec('stations', { default: false }),
 		]);
 	});
@@ -34,7 +34,7 @@ describe('rpc.describe.option_spec', () => {
 	prop('gives the same spec for a bare default and the object that holds only it',
 		gen.oneof(gen.bool(), gen.int(-1000, 1000), gen.string({ min_len: 0, max_len: 12 })), (v) => {
 			assert.match(rpc_describe.option_spec('o', { default: v }), rpc_describe.option_spec('o', v));
-			assert.match({ name: 'o', core: false, type: type(v), default: v, help: null, datatype: null }, rpc_describe.option_spec('o', v));
+			assert.match({ name: 'o', core: false, title: 'o', type: type(v), default: v, help: null, datatype: null }, rpc_describe.option_spec('o', v));
 		});
 });
 
@@ -63,7 +63,10 @@ describe('rpc.describe.collectors', () => {
 				name: 'wifi', id: 'wifi', title: 'wifi', help: 'The wifi test collector.',
 				enabled: true,
 				package: `${PACKAGE}-wifi`, base: false,
-				options: [ { name: 'stations', core: false, type: 'bool', default: true, help: 'The stations option.', datatype: null, value: false, set: true, error: null } ],
+				options: [ {
+					name: 'stations', core: false, title: 'stations', type: 'bool', default: true, help: 'The stations option.', datatype: null,
+					value: false, set: true, error: null,
+				} ],
 				needs: [ 'ubus' ], configs: [], commands: [],
 				jail: { paths: [], owned: [], commands: {}, mounts: [], problems: [], missing: [] },
 				error: null,
@@ -143,7 +146,7 @@ describe('rpc.describe.collectors', () => {
 
 		with_sys({ main: { '.type': NAME, exec_timeout: '8' } }, { collectors: [ NFT, radio, LOADAVG ] }, (sys) => {
 			assert.match([
-				{ name: 'timeout', core: true, type: 'int', default: 8, default_from: 'exec_timeout', help: config.TIMEOUT.help,
+				{ name: 'timeout', core: true, title: 'Program timeout', type: 'int', default: 8, default_from: 'exec_timeout', help: config.TIMEOUT.help,
 				  datatype: 'range(1,30)', value: 8, set: false, error: null },
 			], entry(sys, 'nft-counters').options);
 			assert.match([ [ 'verbose', false ], [ 'timeout', true ] ], map(entry(sys, 'ubnt-manager').options, (o) => [ o.name, o.core ]));

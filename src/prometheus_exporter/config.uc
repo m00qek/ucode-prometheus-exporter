@@ -1,12 +1,14 @@
 /**
  * Options from /etc/config/prometheus-exporter. Each is declared as
- * { default, help, datatype, secret }: the default sets its type (a boolean
- * takes uci's boolean spellings, an integer an integer, a string any single
- * value), help is a sentence saying what it does, and the optional datatype,
- * one of LuCI's names (and `regex`, `username` and `crypt`), narrows the values
- * it takes as LuCI would (prometheus_exporter.config.types). A secret option's
- * value is never part of a message. Unset options take the default; options
- * nobody declared are ignored, so an older config never breaks a scrape.
+ * { default, title, help, datatype, secret }: the default sets its type (a
+ * boolean takes uci's boolean spellings, an integer an integer, a string any
+ * single value), the title labels it in a form (a collector's options and the
+ * core's options of a collector have one), help is a sentence saying what it
+ * does, and the optional datatype, one of LuCI's names (and `regex`,
+ * `username` and `crypt`), narrows the values it takes as LuCI would
+ * (prometheus_exporter.config.types). A secret option's value is never part
+ * of a message. Unset options take the default; options nobody declared are
+ * ignored, so an older config never breaks a scrape.
  *
  * It is the facade of config/: what others take of the modules there it
  * exports, under the names below.
@@ -24,10 +26,12 @@ import { invalid } from 'prometheus_exporter.config.types';
 /**
  * An option as it is declared: its default, which sets its type (a boolean,
  * an integer or a string; absent from the core's TIMEOUT, BUDGET and
- * SAMPLES, whose defaults are worked out), the sentence of its help, its
- * datatype, and whether its value is a secret.
+ * SAMPLES, whose defaults are worked out), its title, the sentence of its
+ * help, its datatype, and whether its value is a secret. A collector's
+ * options and the core's options of a collector have a title, the label a
+ * form shows them by; the main section's have none, as LuCI labels them.
  *
- * @typedef {{ default: ?(boolean|int|string), help: string, datatype: ?string, secret: ?boolean }} OptionSpec
+ * @typedef {{ default: ?(boolean|int|string), title: ?string, help: string, datatype: ?string, secret: ?boolean }} OptionSpec
  */
 
 /**
@@ -190,7 +194,7 @@ export const MAIN_OPTIONS = {
  *
  * @type {OptionSpec}
  */
-export const ENABLED = { default: true, help: 'Serve this collector; 0 leaves it out, and naming it in a query is a 400.' };
+export const ENABLED = { default: true, title: 'Enabled', help: 'Serve this collector; 0 leaves it out, and naming it in a query is a 400.' };
 
 /**
  * The core's option of a collector that runs programs (exec in meta.needs),
@@ -200,6 +204,7 @@ export const ENABLED = { default: true, help: 'Serve this collector; 0 leaves it
  * @type {OptionSpec}
  */
 export const TIMEOUT = {
+	title: 'Program timeout',
 	datatype: EXEC_TIMEOUT_RANGE,
 	help: 'Seconds the programs of this collector get in all in each scrape; one still running then is killed.',
 };
@@ -212,6 +217,7 @@ export const TIMEOUT = {
  * @type {OptionSpec}
  */
 export const BUDGET = {
+	title: 'Budget',
 	datatype: SECONDS_RANGE,
 	help: 'Seconds this collector may take in a scrape; one still running then is stopped, and quarantined for a few scrapes.',
 };
@@ -224,6 +230,7 @@ export const BUDGET = {
  * @type {OptionSpec}
  */
 export const SAMPLES = {
+	title: 'Sample limit',
 	datatype: SAMPLES_RANGE,
 	help: 'Samples this collector may write in a scrape; one that writes more fails, and none of its samples are served.',
 };

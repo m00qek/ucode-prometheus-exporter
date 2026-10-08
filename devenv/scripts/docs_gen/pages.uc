@@ -48,6 +48,16 @@ function option_row(name, spec, dflt) {
 	];
 }
 
+// One row of a table of a collector's options, its own or the core's: name,
+// title, type, default, datatype, help.
+function titled_row(name, spec, dflt) {
+	let row = option_row(name, spec, dflt);
+
+	return [ row[0], md.text(spec.title), ...slice(row, 1) ];
+}
+
+const TITLED = [ 'Option', 'Title', 'Type', 'Default', 'Datatype', 'Description' ];
+
 // ---- collectors.md ------------------------------------------------------------
 
 function package_cell(p) {
@@ -95,18 +105,18 @@ function collector_options(c) {
 	let core = config.core(c.meta, ('exec' in c.meta.needs) ? (c.meta.timeout ?? config.EXEC_TIMEOUT) : null);
 
 	for (let name, spec in c.meta.options ?? {})
-		push(rows, option_row(name, spec));
+		push(rows, titled_row(name, spec));
 
-	push(rows, option_row('enabled', core.enabled));
+	push(rows, titled_row('enabled', core.enabled));
 
 	if (core.timeout) {
-		let row = option_row('timeout', core.timeout);
+		let row = titled_row('timeout', core.timeout);
 
-		row[2] = (c.meta.timeout != null) ? md.code(c.meta.timeout) : `\`exec_timeout\`'s (${config.EXEC_TIMEOUT})`;
+		row[3] = (c.meta.timeout != null) ? md.code(c.meta.timeout) : `\`exec_timeout\`'s (${config.EXEC_TIMEOUT})`;
 		push(rows, row);
 	}
 
-	return md.table([ 'Option', 'Type', 'Default', 'Datatype', 'Description' ], rows);
+	return md.table(TITLED, rows);
 }
 
 function collector_section(ctx, c, problems) {
@@ -492,26 +502,26 @@ export function uci_page(ctx) {
 		'runs with its defaults. A section that names no installed collector, and one without a name, is ignored ' +
 		'(`check` warns of both). Besides its own options, listed in [Collectors](collectors.md), every collector has these:');
 
-	let core = [ option_row('enabled', config.ENABLED) ];
-	let t = option_row('timeout', config.TIMEOUT, config.EXEC_TIMEOUT);
+	let core = [ titled_row('enabled', config.ENABLED) ];
+	let t = titled_row('timeout', config.TIMEOUT, config.EXEC_TIMEOUT);
 
-	t[2] = `the collector's \`meta.timeout\`, else \`exec_timeout\` (${config.EXEC_TIMEOUT})`;
+	t[3] = `the collector's \`meta.timeout\`, else \`exec_timeout\` (${config.EXEC_TIMEOUT})`;
 	push(core, t);
 	note_type(config.TIMEOUT);
 
-	let b = option_row('budget', config.BUDGET, config.COLLECTOR_BUDGET);
+	let b = titled_row('budget', config.BUDGET, config.COLLECTOR_BUDGET);
 
-	b[2] = `\`collector_budget\` (${config.COLLECTOR_BUDGET}), or the collector's \`timeout\` and a second more when that is longer`;
+	b[3] = `\`collector_budget\` (${config.COLLECTOR_BUDGET}), or the collector's \`timeout\` and a second more when that is longer`;
 	push(core, b);
 	note_type(config.BUDGET);
 
-	let n = option_row('max_samples', config.SAMPLES, config.MAX_SAMPLES);
+	let n = titled_row('max_samples', config.SAMPLES, config.MAX_SAMPLES);
 
-	n[2] = `the collector's \`meta.max_samples\`, else \`max_samples\` (${config.MAX_SAMPLES})`;
+	n[3] = `the collector's \`meta.max_samples\`, else \`max_samples\` (${config.MAX_SAMPLES})`;
 	push(core, n);
 	note_type(config.SAMPLES);
 
-	push(blocks, md.table([ 'Option', 'Type', 'Default', 'Datatype', 'Description' ], core));
+	push(blocks, md.table(TITLED, core));
 	push(blocks,
 		'`timeout` is only for a collector that runs programs (`exec` in its needs); the others ignore it. ' +
 		'A collector still running at the end of its `budget` is stopped and quarantined, and one that writes more ' +

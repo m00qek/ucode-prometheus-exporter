@@ -5,7 +5,7 @@
  *
  *   collector: { name, id, title, help, enabled, package, base, options: [ option ],
  *                needs, configs, commands, jail: { paths, owned, commands, mounts, problems, missing }, error }
- *   option:    { name, core, type, default, help, datatype, value, set, error }
+ *   option:    { name, core, title, type, default, help, datatype, value, set, error }
  *
  * options are the collector's own, in the order it declares them, then the
  * core's `timeout` (core: true) when it runs programs: the seconds they get in
@@ -36,6 +36,7 @@ import { collector_value, message } from 'prometheus_exporter.rpc.validate';
  * @typedef {{
  *   name: string,
  *   core: boolean,
+ *   title: string,
  *   type: ?string,
  *   default: ?(boolean|int|string),
  *   default_from: ?string,
@@ -86,11 +87,12 @@ export function text(value) {
 
 /**
  * One option of meta.options, in either shape: a bare default (`stations: true`),
- * or { default, help, datatype }. datatype names LuCI's datatypes, and 'regex'.
+ * or { default, title, help, datatype }. datatype names LuCI's datatypes, and
+ * 'regex'. Its title is the option's name when it declares none.
  *
  * @param {string} name the option's name.
- * @param {*} decl its declaration: { default, help, datatype }, or a bare
- *   default of any type.
+ * @param {*} decl its declaration: { default, title, help, datatype }, or a
+ *   bare default of any type.
  * @returns {OptionEntry} the option, without a value.
  */
 export function option_spec(name, decl) {
@@ -99,6 +101,7 @@ export function option_spec(name, decl) {
 	return {
 		name,
 		core: false,
+		title: text(spec.title) ?? name,
 		type: type(spec.default),
 		default: spec.default,
 		help: text(spec.help),
@@ -174,6 +177,7 @@ function timeout_entry(sys, c, section) {
 	return {
 		name: 'timeout',
 		core: true,
+		title: config.TIMEOUT.title,
 		type: 'int',
 		default: fallback,
 		default_from: (c.meta.timeout != null) ? 'meta.timeout' : 'exec_timeout',

@@ -12,7 +12,7 @@ export const meta = {
 	title: HOSTILE,
 	help: HOSTILE,
 	needs: [],
-	options: { note: { default: HOSTILE, help: HOSTILE } },
+	options: { note: { default: HOSTILE, title: HOSTILE, help: HOSTILE } },
 };
 
 export function collect(deps, out, options) {

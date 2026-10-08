@@ -104,9 +104,9 @@ The bmx7 mesh node, its links and tunnels, from its JSON status files.
 - **Nothing to observe:** bmx7 disabled, or not installed. See [Nothing to observe](#nothing-to-observe).
 - **Metrics:** [bmx7](metrics.md#bmx7)
 
-| Option | Type | Default | Datatype | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
 ## `chrony` {#chrony}
 
@@ -122,10 +122,10 @@ chronyd's tracking and sources, and its server statistics where it serves time, 
 - **Nothing to observe:** chronyd disabled, or not installed. See [Nothing to observe](#nothing-to-observe).
 - **Metrics:** [chrony](metrics.md#chrony)
 
-| Option | Type | Default | Datatype | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
-| `timeout` | integer | `exec_timeout`'s (5) | `range(1,30)` | Seconds the programs of this collector get in all in each scrape; one still running then is killed. |
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+| `timeout` | Program timeout | integer | `exec_timeout`'s (5) | `range(1,30)` | Seconds the programs of this collector get in all in each scrape; one still running then is killed. |
 
 ## `conntrack` {#conntrack}
 
@@ -138,9 +138,9 @@ The size and statistics of the connection tracking table, from /proc/sys/net/net
 - **Nothing to observe:** nf\_conntrack not loaded: none of its files in `/proc/sys/net/netfilter`. See [Nothing to observe](#nothing-to-observe).
 - **Metrics:** [conntrack](metrics.md#conntrack)
 
-| Option | Type | Default | Datatype | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
 ## `cpu` {#cpu}
 
@@ -152,9 +152,9 @@ CPU times, interrupts, context switches and processes from /proc/stat.
 - **Needs:** `fs`
 - **Metrics:** [cpu](metrics.md#cpu)
 
-| Option | Type | Default | Datatype | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
 ## `dawn` {#dawn}
 
@@ -167,9 +167,9 @@ Access points and client signal from the DAWN Wi-Fi controller.
 - **Nothing to observe:** DAWN disabled, or not installed. See [Nothing to observe](#nothing-to-observe).
 - **Metrics:** [dawn](metrics.md#dawn)
 
-| Option | Type | Default | Datatype | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
 ## `dhcp_leases` {#dhcp_leases}
 
@@ -185,10 +185,10 @@ Active DHCP leases of dnsmasq and odhcpd, by interface and family.
 - **Nothing to observe:** dnsmasq (or no dnsmasq instance in `/etc/config/dhcp`) and odhcpd both disabled or not installed. With one of them enabled, it observes that one. See [Nothing to observe](#nothing-to-observe).
 - **Metrics:** [dhcp\_leases](metrics.md#dhcp_leases)
 
-| Option | Type | Default | Datatype | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `leases` | boolean | `0` | — | A series per lease, with its address, MAC, hostname and expiry. |
-| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `leases` | Lease series | boolean | `0` | — | A series per lease, with its address, MAC, hostname and expiry. |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
 ## `diskstats` {#diskstats}
 
@@ -202,10 +202,10 @@ Reads, writes, discards and flushes of each disk, and the time spent on them, fr
 - **Nothing to observe:** Every block device in `/proc/diskstats` is one `device_exclude` leaves out (by default flash, loop devices, zram and partitions): a router without a disk. Or no block device at all. See [Nothing to observe](#nothing-to-observe).
 - **Metrics:** [diskstats](metrics.md#diskstats)
 
-| Option | Type | Default | Datatype | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `device_exclude` | string | `^(z?ram|loop|fd|(h|s|v|xv)d[a-z]|nvme[0-9]+n[0-9]+p|mtdblock|ubiblock[0-9]+_|mmcblk[0-9]+(p|boot))[0-9]+$` | `regex` | A regular expression of the block devices to leave out: by default RAM disks, zram, loop devices, flash (mtdblock, ubiblock) and the partitions of disks, whose I/O their disk counts. ^$ leaves out none. |
-| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `device_exclude` | Excluded devices | string | `^(z?ram|loop|fd|(h|s|v|xv)d[a-z]|nvme[0-9]+n[0-9]+p|mtdblock|ubiblock[0-9]+_|mmcblk[0-9]+(p|boot))[0-9]+$` | `regex` | A regular expression of the block devices to leave out: by default RAM disks, zram, loop devices, flash (mtdblock, ubiblock) and the partitions of disks, whose I/O their disk counts. ^$ leaves out none. |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
 ## `dnsmasq` {#dnsmasq}
 
@@ -219,9 +219,9 @@ DNS and DHCP counters of dnsmasq, from ubus dnsmasq metrics.
 - **Nothing to observe:** dnsmasq disabled, or not installed. See [Nothing to observe](#nothing-to-observe).
 - **Metrics:** [dnsmasq](metrics.md#dnsmasq)
 
-| Option | Type | Default | Datatype | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
 ## `entropy` {#entropy}
 
@@ -233,9 +233,9 @@ The entropy available to the kernel random number generator, from /proc/sys/kern
 - **Needs:** `fs`
 - **Metrics:** [entropy](metrics.md#entropy)
 
-| Option | Type | Default | Datatype | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
 ## `ethtool` {#ethtool}
 
@@ -252,10 +252,10 @@ Network driver statistics from ethtool -S.
 - **Cost:** heavy (`meta.cost`): until the ledger has timed it, it runs after the others
 - **Metrics:** [ethtool](metrics.md#ethtool)
 
-| Option | Type | Default | Datatype | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
-| `timeout` | integer | `exec_timeout`'s (5) | `range(1,30)` | Seconds the programs of this collector get in all in each scrape; one still running then is killed. |
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+| `timeout` | Program timeout | integer | `exec_timeout`'s (5) | `range(1,30)` | Seconds the programs of this collector get in all in each scrape; one still running then is killed. |
 
 ## `exporter` {#exporter}
 
@@ -267,9 +267,9 @@ The CPU, memory and descriptors of the uhttpd instance that serves the scrapes, 
 - **Needs:** `exporter`
 - **Metrics:** [exporter](metrics.md#exporter)
 
-| Option | Type | Default | Datatype | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
 ## `filefd` {#filefd}
 
@@ -281,9 +281,9 @@ File descriptors allocated and the most there may be, from /proc/sys/fs/file-nr.
 - **Needs:** `fs`
 - **Metrics:** [filefd](metrics.md#filefd)
 
-| Option | Type | Default | Datatype | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
 ## `filesystem` {#filesystem}
 
@@ -297,9 +297,9 @@ Filesystem sizes and read-only flags, from luci getMountPoints and /proc/self/mo
 - **Needs:** `fs`, `ubus`
 - **Metrics:** [filesystem](metrics.md#filesystem)
 
-| Option | Type | Default | Datatype | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
 ## `hostapd_stations` {#hostapd_stations}
 
@@ -313,9 +313,9 @@ Stations of each hostapd access point, from hostapd's ubus objects.
 - **Nothing to observe:** As wifi, or no `hostapd.<ifname>` object for any interface. See [Nothing to observe](#nothing-to-observe).
 - **Metrics:** [hostapd\_stations](metrics.md#hostapd_stations)
 
-| Option | Type | Default | Datatype | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
 ## `hostapd_ubus_stations` {#hostapd_ubus_stations}
 
@@ -329,9 +329,9 @@ Radio measurement capabilities of hostapd's stations, from hostapd's ubus object
 - **Nothing to observe:** No `hostapd.*` object. See [Nothing to observe](#nothing-to-observe).
 - **Metrics:** [hostapd\_ubus\_stations](metrics.md#hostapd_ubus_stations)
 
-| Option | Type | Default | Datatype | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
 ## `hwmon` {#hwmon}
 
@@ -344,9 +344,9 @@ Hardware monitor chips: sensor labels, temperatures, PWM, fans, voltages, curren
 - **Needs:** `fs`
 - **Metrics:** [hwmon](metrics.md#hwmon)
 
-| Option | Type | Default | Datatype | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
 ## `loadavg` {#loadavg}
 
@@ -358,9 +358,9 @@ Load averages from /proc/loadavg.
 - **Needs:** `fs`
 - **Metrics:** [loadavg](metrics.md#loadavg)
 
-| Option | Type | Default | Datatype | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
 ## `ltq-dsl` {#ltq-dsl}
 
@@ -373,9 +373,9 @@ Lantiq DSL line state, rates and errors, from ubus dsl metrics.
 - **Nothing to observe:** No `dsl` object. See [Nothing to observe](#nothing-to-observe).
 - **Metrics:** [ltq-dsl](metrics.md#ltq-dsl)
 
-| Option | Type | Default | Datatype | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
 ## `meminfo` {#meminfo}
 
@@ -387,9 +387,9 @@ Memory statistics from /proc/meminfo.
 - **Needs:** `fs`
 - **Metrics:** [meminfo](metrics.md#meminfo)
 
-| Option | Type | Default | Datatype | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
 ## `modemmanager` {#modemmanager}
 
@@ -405,10 +405,10 @@ Signal quality and strength of cellular modems, from mmcli.
 - **Nothing to observe:** ModemManager disabled or not installed, or it lists no modem. See [Nothing to observe](#nothing-to-observe).
 - **Metrics:** [modemmanager](metrics.md#modemmanager)
 
-| Option | Type | Default | Datatype | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
-| `timeout` | integer | `exec_timeout`'s (5) | `range(1,30)` | Seconds the programs of this collector get in all in each scrape; one still running then is killed. |
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+| `timeout` | Program timeout | integer | `exec_timeout`'s (5) | `range(1,30)` | Seconds the programs of this collector get in all in each scrape; one still running then is killed. |
 
 ## `mwan3` {#mwan3}
 
@@ -421,9 +421,9 @@ mwan3 interface tracking, from ubus mwan3 status.
 - **Nothing to observe:** mwan3 disabled, or not installed. See [Nothing to observe](#nothing-to-observe).
 - **Metrics:** [mwan3](metrics.md#mwan3)
 
-| Option | Type | Default | Datatype | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
 ## `nat_traffic` {#nat_traffic}
 
@@ -439,9 +439,9 @@ Bytes per source and destination address, from /proc/net/nf\_conntrack.
 - **Nothing to observe:** nf\_conntrack not loaded: no `/proc/net/nf_conntrack`. See [Nothing to observe](#nothing-to-observe).
 - **Metrics:** [nat\_traffic](metrics.md#nat_traffic)
 
-| Option | Type | Default | Datatype | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
 ## `netclass` {#netclass}
 
@@ -453,9 +453,9 @@ Network device properties, from rtnetlink and /sys/class/net.
 - **Needs:** `fs`, `rtnl`
 - **Metrics:** [netclass](metrics.md#netclass)
 
-| Option | Type | Default | Datatype | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
 ## `netdev` {#netdev}
 
@@ -467,9 +467,9 @@ Network device statistics, as /proc/net/dev shows them, from rtnetlink.
 - **Needs:** `rtnl`
 - **Metrics:** [netdev](metrics.md#netdev)
 
-| Option | Type | Default | Datatype | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
 ## `netstat` {#netstat}
 
@@ -482,9 +482,9 @@ Protocol statistics from /proc/net/netstat, /proc/net/snmp and /proc/net/snmp6.
 - **Needs:** `fs`
 - **Metrics:** [netstat](metrics.md#netstat)
 
-| Option | Type | Default | Datatype | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
 ## `nft-counters` {#nft-counters}
 
@@ -500,10 +500,10 @@ Packets and bytes of the named nftables counters.
 - **Seconds for its programs:** The main section's `exec_timeout`, unless its section sets `timeout`
 - **Metrics:** [nft-counters](metrics.md#nft-counters)
 
-| Option | Type | Default | Datatype | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
-| `timeout` | integer | `exec_timeout`'s (5) | `range(1,30)` | Seconds the programs of this collector get in all in each scrape; one still running then is killed. |
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+| `timeout` | Program timeout | integer | `exec_timeout`'s (5) | `range(1,30)` | Seconds the programs of this collector get in all in each scrape; one still running then is killed. |
 
 ## `openwrt` {#openwrt}
 
@@ -516,9 +516,9 @@ The OpenWrt release and board, from ubus system board.
 - **Needs:** `ubus`
 - **Metrics:** [openwrt](metrics.md#openwrt)
 
-| Option | Type | Default | Datatype | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
 ## `openwrt_interfaces` {#openwrt_interfaces}
 
@@ -530,9 +530,9 @@ OpenWrt logical interfaces (wan, lan, ...): state, uptime, devices and address c
 - **Needs:** `ubus`
 - **Metrics:** [openwrt\_interfaces](metrics.md#openwrt_interfaces)
 
-| Option | Type | Default | Datatype | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
 ## `qdisc` {#qdisc}
 
@@ -548,10 +548,10 @@ Statistics of each network device's root queueing discipline, and CAKE's per tin
 - **Seconds for its programs:** The main section's `exec_timeout`, unless its section sets `timeout`
 - **Metrics:** [qdisc](metrics.md#qdisc)
 
-| Option | Type | Default | Datatype | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
-| `timeout` | integer | `exec_timeout`'s (5) | `range(1,30)` | Seconds the programs of this collector get in all in each scrape; one still running then is killed. |
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+| `timeout` | Program timeout | integer | `exec_timeout`'s (5) | `range(1,30)` | Seconds the programs of this collector get in all in each scrape; one still running then is killed. |
 
 ## `realtek-poe` {#realtek-poe}
 
@@ -564,9 +564,9 @@ PoE budget, consumption and port states of realtek-poe switches, from ubus poe i
 - **Nothing to observe:** No `poe` object. See [Nothing to observe](#nothing-to-observe).
 - **Metrics:** [realtek-poe](metrics.md#realtek-poe)
 
-| Option | Type | Default | Datatype | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
 ## `selinux` {#selinux}
 
@@ -578,9 +578,9 @@ Whether SELinux is enabled and enforcing, from /sys/fs/selinux/enforce.
 - **Needs:** `fs`
 - **Metrics:** [selinux](metrics.md#selinux)
 
-| Option | Type | Default | Datatype | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
 ## `snmp6` {#snmp6}
 
@@ -594,9 +594,9 @@ Per-device IPv6 statistics from /proc/net/dev\_snmp6.
 - **Nothing to observe:** No `/proc/net/dev_snmp6` (IPv6 disabled). See [Nothing to observe](#nothing-to-observe).
 - **Metrics:** [snmp6](metrics.md#snmp6)
 
-| Option | Type | Default | Datatype | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
 ## `sockstat` {#sockstat}
 
@@ -609,9 +609,9 @@ Sockets in use per protocol (TCP, UDP, raw, fragments) and the memory they hold,
 - **Needs:** `fs`
 - **Metrics:** [sockstat](metrics.md#sockstat)
 
-| Option | Type | Default | Datatype | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
 ## `softnet` {#softnet}
 
@@ -623,9 +623,9 @@ Per-CPU network softirq statistics, from /proc/net/softnet\_stat.
 - **Needs:** `fs`
 - **Metrics:** [softnet](metrics.md#softnet)
 
-| Option | Type | Default | Datatype | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
 ## `textfile` {#textfile}
 
@@ -639,10 +639,10 @@ Metrics from \*.prom files in a directory, as node\_exporter's textfile collecto
 - **Jail paths:** `/var/prometheus` (`{directory}`), which the service makes when it is not there
 - **Metrics:** [textfile](metrics.md#textfile)
 
-| Option | Type | Default | Datatype | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `directory` | string | `/var/prometheus` | `directory` | The directory of the \*.prom files. |
-| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `directory` | Metrics directory | string | `/var/prometheus` | `directory` | The directory of the \*.prom files. |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
 ## `thermal` {#thermal}
 
@@ -655,9 +655,9 @@ Thermal zone temperatures from /sys/class/thermal.
 - **Needs:** `fs`
 - **Metrics:** [thermal](metrics.md#thermal)
 
-| Option | Type | Default | Datatype | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
 ## `time` {#time}
 
@@ -669,9 +669,9 @@ The system clock, in seconds since the epoch.
 - **Needs:** `time`
 - **Metrics:** [time](metrics.md#time)
 
-| Option | Type | Default | Datatype | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
 ## `timesync` {#timesync}
 
@@ -687,10 +687,10 @@ Whether busybox ntpd or chronyd keeps the clock synchronized: stratum, offset an
 - **Nothing to observe:** Neither busybox ntpd nor chronyd runs, as procd's instances say: sysntpd runs ntpd only while `/etc/config/system` turns NTP on. With one running, it observes that one. See [Nothing to observe](#nothing-to-observe).
 - **Metrics:** [timesync](metrics.md#timesync)
 
-| Option | Type | Default | Datatype | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
-| `timeout` | integer | `exec_timeout`'s (5) | `range(1,30)` | Seconds the programs of this collector get in all in each scrape; one still running then is killed. |
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+| `timeout` | Program timeout | integer | `exec_timeout`'s (5) | `range(1,30)` | Seconds the programs of this collector get in all in each scrape; one still running then is killed. |
 
 ## `ubnt-manager` {#ubnt-manager}
 
@@ -706,10 +706,10 @@ Ubiquiti airOS radios, from their status as ubnt-manager reads it over ssh.
 - **Nothing to observe:** ubnt-manager not installed, or `ubnt-manager -l` lists no radio. See [Nothing to observe](#nothing-to-observe).
 - **Metrics:** [ubnt-manager](metrics.md#ubnt-manager)
 
-| Option | Type | Default | Datatype | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
-| `timeout` | integer | `exec_timeout`'s (5) | `range(1,30)` | Seconds the programs of this collector get in all in each scrape; one still running then is killed. |
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+| `timeout` | Program timeout | integer | `exec_timeout`'s (5) | `range(1,30)` | Seconds the programs of this collector get in all in each scrape; one still running then is killed. |
 
 ## `uci_dhcp_host` {#uci_dhcp_host}
 
@@ -723,9 +723,9 @@ Static DHCP leases from /etc/config/dhcp.
 - **Reads the configs:** `/etc/config/dhcp`
 - **Metrics:** [uci\_dhcp\_host](metrics.md#uci_dhcp_host)
 
-| Option | Type | Default | Datatype | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
 ## `uname` {#uname}
 
@@ -737,9 +737,9 @@ The kernel and host names uname reports, from /proc/sys/kernel.
 - **Needs:** `fs`
 - **Metrics:** [uname](metrics.md#uname)
 
-| Option | Type | Default | Datatype | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
 ## `unbound` {#unbound}
 
@@ -754,10 +754,10 @@ Unbound DNS resolver statistics, from its remote control socket.
 - **Nothing to observe:** unbound disabled, or not installed. See [Nothing to observe](#nothing-to-observe).
 - **Metrics:** [unbound](metrics.md#unbound)
 
-| Option | Type | Default | Datatype | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `socket` | string | `/var/lib/unbound/unbound.ctl` | `file` | Unbound's control socket (control-interface), in a directory the jail can mount: not one every service shares, such as /run. |
-| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `socket` | Control socket | string | `/var/lib/unbound/unbound.ctl` | `file` | Unbound's control socket (control-interface), in a directory the jail can mount: not one every service shares, such as /run. |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
 ## `vmstat` {#vmstat}
 
@@ -769,10 +769,10 @@ Virtual memory statistics, from /proc/vmstat.
 - **Needs:** `fs`
 - **Metrics:** [vmstat](metrics.md#vmstat)
 
-| Option | Type | Default | Datatype | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `fields` | string | `^(oom_kill|pgpg|pswp|pg.*fault).*` | `regex` | A regular expression of the /proc/vmstat fields to export. |
-| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `fields` | Exported fields | string | `^(oom_kill|pgpg|pswp|pg.*fault).*` | `regex` | A regular expression of the /proc/vmstat fields to export. |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
 ## `wifi` {#wifi}
 
@@ -787,10 +787,10 @@ Wi-Fi radios, networks and stations, from ubus network.wireless and nl80211.
 - **Nothing to observe:** No `network.wireless` object, or one without radios. See [Nothing to observe](#nothing-to-observe).
 - **Metrics:** [wifi](metrics.md#wifi)
 
-| Option | Type | Default | Datatype | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `stations` | boolean | `1` | — | Per-station metrics: signal, rates and traffic of each client. |
-| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `stations` | Station metrics | boolean | `1` | — | Per-station metrics: signal, rates and traffic of each client. |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
 ## `wireguard` {#wireguard}
 
@@ -804,7 +804,7 @@ WireGuard interfaces and peers, from ubus wireguard status.
 - **Nothing to observe:** rpcd has no `wireguard` object: rpcd-mod-wireguard not installed. See [Nothing to observe](#nothing-to-observe).
 - **Metrics:** [wireguard](metrics.md#wireguard)
 
-| Option | Type | Default | Datatype | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `peer_names` | boolean | `0` | — | Label each peer with its description in the network config (friendly\_name), asked of rpcd: the peer sections alone, never the private keys. |
-| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `peer_names` | Peer names | boolean | `0` | — | Label each peer with its description in the network config (friendly\_name), asked of rpcd: the peer sections alone, never the private keys. |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |

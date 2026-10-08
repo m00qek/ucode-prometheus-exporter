@@ -131,7 +131,7 @@ describe('scrape.run_one', () => {
 
 	it('passes the typed options, and does not call a collector whose options are invalid', () => {
 		let seen = [];
-		let c = collector('opt', (d, out, config) => { push(seen, config); return Result.ok(); }, { options: { stations: { default: true, help: 'Stations.' } } });
+		let c = collector('opt', (d, out, config) => { push(seen, config); return Result.ok(); }, { options: { stations: { default: true, title: 'T', help: 'Stations.' } } });
 
 		run(c, { options: { stations: 'off' } });
 		let bad = run(c, { options: { stations: 'maybe' } });

@@ -22,12 +22,12 @@ export const DIR = '/collectors';
 export const APK = '/apk';
 
 // A collector as the loader returns it. Options may be given as bare defaults:
-// they get the help the loader requires.
+// they get the title and help the loader requires.
 export function collector(name, meta, collect) {
 	let options = {};
 
 	for (let k, v in meta?.options ?? {})
-		options[k] = (type(v) == 'object') ? v : { default: v, help: `The ${k} option.` };
+		options[k] = (type(v) == 'object') ? v : { default: v, title: k, help: `The ${k} option.` };
 
 	let res = loader.validate(loader.id_of(name), {
 		meta: { name, title: name, help: `The ${name} test collector.`, needs: [], ...meta, options },

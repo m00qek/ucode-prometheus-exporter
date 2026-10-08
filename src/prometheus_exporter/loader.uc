@@ -38,10 +38,11 @@ export const DIR = '/usr/share/ucode/prometheus_exporter/collectors';
 
 const NAME = /^[a-z0-9][a-z0-9_-]*$/;
 const OPTION_TYPES = [ 'bool', 'int', 'string' ];
-const OPTION_KEYS = [ 'default', 'help', 'datatype' ];
+const OPTION_KEYS = [ 'default', 'title', 'help', 'datatype' ];
 
 /**
- * A collector's title, as a list or a form shows it.
+ * The most characters of a collector's title and of an option's, as a list
+ * or a form shows them.
  *
  * @type {int}
  */
@@ -109,20 +110,27 @@ function is_strings(v) {
 	return type(v) == 'array' && length(filter(v, (s) => type(s) != 'string' || s == '')) == 0;
 }
 
-// One of meta.options: { default, help, datatype }, the datatype one the core
-// knows, that takes the default's type and the default itself.
+// A label: a string of 1 to TITLE_MAX characters, without control characters.
+function is_title(v) {
+	return type(v) == 'string' && v != '' && length(v) <= TITLE_MAX && !match(v, /[[:cntrl:]]/);
+}
+
+// One of meta.options: { default, title, help, datatype }, the datatype one the
+// core knows, that takes the default's type and the default itself.
 function validate_option(id, key, spec) {
 	if (!match(key, /^[a-z][a-z0-9_]*$/))
 		return invalid(id, `option '${key}' needs a name of a-z, 0-9 and _`);
 	if (type(spec) != 'object')
-		return invalid(id, `option '${key}' must be { default, help, datatype }`);
+		return invalid(id, `option '${key}' must be { default, title, help, datatype }`);
 
 	for (let k in keys(spec))
 		if (!(k in OPTION_KEYS))
-			return invalid(id, `option '${key}' has '${k}', not one of default, help, datatype`);
+			return invalid(id, `option '${key}' has '${k}', not one of default, title, help, datatype`);
 
 	if (!(type(spec.default) in OPTION_TYPES))
 		return invalid(id, `option '${key}' needs a boolean, integer or string default`);
+	if (!is_title(spec.title))
+		return invalid(id, `option '${key}' needs a title of 1 to ${TITLE_MAX} characters`);
 	if (type(spec.help) != 'string' || spec.help == '')
 		return invalid(id, `option '${key}' needs a help sentence`);
 	if (spec.datatype == null)
@@ -190,7 +198,7 @@ export function validate(id, mod) {
 		return invalid(id, 'exports no meta');
 	if (type(meta.name) != 'string' || !match(meta.name, NAME) || id_of(meta.name) != id)
 		return invalid(id, `meta.name must be '${id}', or it with '-' for '_'`);
-	if (type(meta.title) != 'string' || meta.title == '' || length(meta.title) > TITLE_MAX || match(meta.title, /[[:cntrl:]]/))
+	if (!is_title(meta.title))
 		return invalid(id, `meta.title must be a label of 1 to ${TITLE_MAX} characters`);
 	if (type(meta.help) != 'string' || meta.help == '')
 		return invalid(id, 'meta.help must be a sentence');
@@ -240,7 +248,7 @@ export function validate(id, mod) {
 		return invalid(id, `meta.cost must be one of ${join(', ', COSTS)}`);
 
 	if (meta.options != null && type(meta.options) != 'object')
-		return invalid(id, 'meta.options must be an object of { default, help, datatype }');
+		return invalid(id, 'meta.options must be an object of { default, title, help, datatype }');
 
 	if ('enabled' in keys(meta.options ?? {}))
 		return invalid(id, "option 'enabled' is the core's, every collector has it");

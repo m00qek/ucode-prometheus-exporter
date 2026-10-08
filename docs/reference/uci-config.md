@@ -36,12 +36,12 @@ Options that go together, checked wherever the configuration is checked (start, 
 
 `config collector '<module>'`, one per collector, named after its module: the collector's name with `_` for `-` (`ltq_dsl` for `ltq-dsl`), as a uci section name cannot hold `-`. A collector without a section runs with its defaults. A section that names no installed collector, and one without a name, is ignored (`check` warns of both). Besides its own options, listed in [Collectors](collectors.md), every collector has these:
 
-| Option | Type | Default | Datatype | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `enabled` | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
-| `timeout` | integer | the collector's `meta.timeout`, else `exec_timeout` (5) | `range(1,30)` | Seconds the programs of this collector get in all in each scrape; one still running then is killed. |
-| `budget` | integer | `collector_budget` (5), or the collector's `timeout` and a second more when that is longer | `range(1,60)` | Seconds this collector may take in a scrape; one still running then is stopped, and quarantined for a few scrapes. |
-| `max_samples` | integer | the collector's `meta.max_samples`, else `max_samples` (20000) | `range(1,100000)` | Samples this collector may write in a scrape; one that writes more fails, and none of its samples are served. |
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+| `timeout` | Program timeout | integer | the collector's `meta.timeout`, else `exec_timeout` (5) | `range(1,30)` | Seconds the programs of this collector get in all in each scrape; one still running then is killed. |
+| `budget` | Budget | integer | `collector_budget` (5), or the collector's `timeout` and a second more when that is longer | `range(1,60)` | Seconds this collector may take in a scrape; one still running then is stopped, and quarantined for a few scrapes. |
+| `max_samples` | Sample limit | integer | the collector's `meta.max_samples`, else `max_samples` (20000) | `range(1,100000)` | Samples this collector may write in a scrape; one that writes more fails, and none of its samples are served. |
 
 `timeout` is only for a collector that runs programs (`exec` in its needs); the others ignore it. A collector still running at the end of its `budget` is stopped and quarantined, and one that writes more than its `max_samples` fails: see [Collector contract](collector-contract.md) and [About deadlines and circuit breakers](../explanation/deadlines-and-breakers.md). No collector may declare an option named `enabled`, `timeout`, `budget`, `max_samples`.
 

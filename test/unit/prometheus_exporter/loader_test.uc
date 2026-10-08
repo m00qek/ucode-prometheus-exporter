@@ -61,10 +61,14 @@ describe('loader.validate', () => {
 			"x: option 'enabled' is the core's, every collector has it",
 			"x: option 'timeout' is the core's, every collector that runs programs has it; meta.timeout sets its default",
 			"x: option 'timeout' is the core's, every collector that runs programs has it; meta.timeout sets its default",
-			"x: option 'stations' must be { default, help, datatype }",
+			"x: option 'stations' must be { default, title, help, datatype }",
 			"x: option 'stations' needs a boolean, integer or string default",
+			"x: option 'stations' needs a title of 1 to 40 characters",
+			"x: option 'stations' needs a title of 1 to 40 characters",
+			"x: option 'stations' needs a title of 1 to 40 characters",
+			"x: option 'stations' needs a title of 1 to 40 characters",
 			"x: option 'stations' needs a help sentence",
-			"x: option 'stations' has 'deafult', not one of default, help, datatype",
+			"x: option 'stations' has 'deafult', not one of default, title, help, datatype",
 			"x: option 'Stations' needs a name of a-z, 0-9 and _",
 			'x: option \'dir\': unknown datatype "dir"',
 			"x: option 'dir': datatype directory does not take a int",
@@ -107,18 +111,22 @@ describe('loader.validate', () => {
 			problem('x', module_named('x', { needs: [ 'exec' ], commands: [ 'nft' ], timeout: 0 })),
 			problem('x', module_named('x', { needs: [ 'exec' ], commands: [ 'nft' ], timeout: 31 })),
 			problem('x', module_named('x', { needs: [ 'exec' ], commands: [ 'nft' ], timeout: 2.5 })),
-			problem('x', module_named('x', { options: { enabled: { default: true, help: 'H.' } } })),
-			problem('x', module_named('x', { needs: [ 'exec' ], commands: [ 'nft' ], options: { timeout: { default: 9, help: 'H.' } } })),
-			problem('x', module_named('x', { options: { timeout: { default: 'soon', help: 'H.' } } })),
+			problem('x', module_named('x', { options: { enabled: { default: true, title: 'T', help: 'H.' } } })),
+			problem('x', module_named('x', { needs: [ 'exec' ], commands: [ 'nft' ], options: { timeout: { default: 9, title: 'T', help: 'H.' } } })),
+			problem('x', module_named('x', { options: { timeout: { default: 'soon', title: 'T', help: 'H.' } } })),
 			problem('x', module_named('x', { options: { stations: true } })),
-			problem('x', module_named('x', { options: { stations: { default: null, help: 'H.' } } })),
-			problem('x', module_named('x', { options: { stations: { default: true } } })),
+			problem('x', module_named('x', { options: { stations: { default: null, title: 'T', help: 'H.' } } })),
+			problem('x', module_named('x', { options: { stations: { default: true, help: 'H.' } } })),
+			problem('x', module_named('x', { options: { stations: { default: true, title: '', help: 'H.' } } })),
+			problem('x', module_named('x', { options: { stations: { default: true, title: 'A title much longer than forty characters', help: 'H.' } } })),
+			problem('x', module_named('x', { options: { stations: { default: true, title: 'Two\nlines', help: 'H.' } } })),
+			problem('x', module_named('x', { options: { stations: { default: true, title: 'T' } } })),
 			problem('x', module_named('x', { options: { stations: { deafult: true, help: 'H.' } } })),
-			problem('x', module_named('x', { options: { Stations: { default: true, help: 'H.' } } })),
-			problem('x', module_named('x', { options: { dir: { default: '/x', help: 'H.', datatype: 'dir' } } })),
-			problem('x', module_named('x', { options: { dir: { default: 1, help: 'H.', datatype: 'directory' } } })),
-			problem('x', module_named('x', { options: { dir: { default: 'x', help: 'H.', datatype: 'directory' } } })),
-			problem('x', module_named('x', { options: { n: { default: 0, help: 'H.', datatype: 'range(1,9)' } } })),
+			problem('x', module_named('x', { options: { Stations: { default: true, title: 'T', help: 'H.' } } })),
+			problem('x', module_named('x', { options: { dir: { default: '/x', title: 'T', help: 'H.', datatype: 'dir' } } })),
+			problem('x', module_named('x', { options: { dir: { default: 1, title: 'T', help: 'H.', datatype: 'directory' } } })),
+			problem('x', module_named('x', { options: { dir: { default: 'x', title: 'T', help: 'H.', datatype: 'directory' } } })),
+			problem('x', module_named('x', { options: { n: { default: 0, title: 'T', help: 'H.', datatype: 'range(1,9)' } } })),
 			problem('x', module_named('x', { needs: [ 'fs' ], paths: '/var/x' })),
 			problem('x', module_named('x', { needs: [ 'fs' ], paths: [] })),
 			problem('x', module_named('x', { needs: [ 'fs' ], paths: [ 7 ] })),
@@ -129,10 +137,10 @@ describe('loader.validate', () => {
 			problem('x', module_named('x', { needs: [ 'fs' ], paths: [ { path: '/tmp', owned: true } ] })),
 			problem('x', module_named('x', { needs: [ 'ubus' ], paths: [ '/var/x' ] })),
 			problem('x', module_named('x', { needs: [ 'fs' ], paths: [ '{dir}' ] })),
-			problem('x', module_named('x', { needs: [ 'fs' ], options: { n: { default: 1, help: 'H.' } }, paths: [ '/var/{n}' ] })),
+			problem('x', module_named('x', { needs: [ 'fs' ], options: { n: { default: 1, title: 'T', help: 'H.' } }, paths: [ '/var/{n}' ] })),
 			problem('x', module_named('x', { needs: [ 'fs' ], paths: [ 'relative' ] })),
 			problem('x', module_named('x', { needs: [ 'socket' ], paths: [ '/var/run' ] })),
-			problem('x', module_named('x', { needs: [ 'fs' ], options: { dir: { default: '/tmp', help: 'H.' } }, paths: [ '{dir}' ] })),
+			problem('x', module_named('x', { needs: [ 'fs' ], options: { dir: { default: '/tmp', title: 'T', help: 'H.' } }, paths: [ '{dir}' ] })),
 			problem('x', { meta: module_named('x').meta }),
 		]);
 	});
@@ -140,7 +148,7 @@ describe('loader.validate', () => {
 	it('takes paths, {option}s of string options filled with their defaults, and functions', () => {
 		let res = loader.validate('x', module_named('x', {
 			needs: [ 'fs', 'exec' ], commands: [ 'mmcli' ],
-			options: { directory: { default: '/var/prometheus', help: 'Where.', datatype: 'directory' } },
+			options: { directory: { default: '/var/prometheus', title: 'T', help: 'Where.', datatype: 'directory' } },
 			paths: [ '/var/run/dbus', '{directory}', (options) => [ options.directory ] ],
 		}));
 
@@ -163,7 +171,7 @@ describe('loader.validate', () => {
 		gen.tuple(gen.elements(...config.RESERVED), gen.elements([], [ 'fs' ], [ 'exec' ])), (t) => {
 			let needs = t[1];
 			let extra = ('exec' in needs) ? { commands: [ 'nft' ] } : {};
-			let res = loader.validate('x', module_named('x', { needs, ...extra, options: { [t[0]]: { default: 1, help: 'H.' } } }));
+			let res = loader.validate('x', module_named('x', { needs, ...extra, options: { [t[0]]: { default: 1, title: 'T', help: 'H.' } } }));
 
 			assert.match([ false, true ], [ res.ok, index(res.details, `option '${t[0]}' is the core's`) >= 0 ]);
 		});
@@ -172,11 +180,11 @@ describe('loader.validate', () => {
 		assert.match(config.EXEC_TIMEOUT_MAX, loader.TIMEOUT_MAX);
 	});
 
-	it('takes options declared as { default, help, datatype }', () => {
+	it('takes options declared as { default, title, help, datatype }', () => {
 		let options = {
-			stations: { default: true, help: 'Per-station metrics.' },
-			fields: { default: '^pg', help: 'A regex.', datatype: 'regex' },
-			port: { default: 9100, help: 'A port.', datatype: 'range(1,65535)' },
+			stations: { default: true, title: 'Station metrics', help: 'Per-station metrics.' },
+			fields: { default: '^pg', title: 'Fields', help: 'A regex.', datatype: 'regex' },
+			port: { default: 9100, title: 'A title of exactly forty characters, ok.', help: 'A port.', datatype: 'range(1,65535)' },
 		};
 		let res = loader.validate('x', module_named('x', { options }));
 
