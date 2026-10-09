@@ -597,6 +597,7 @@ Per-device IPv6 statistics from /proc/net/dev\_snmp6.
 
 | Option | Title | Type | Default | Datatype | Description |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| `fields` | Exported fields | string | `^(Ip6_(InOctets|OutOctets|OutForwDatagrams|InDiscards|OutDiscards|InNoRoutes|OutNoRoutes|InHdrErrors|InAddrErrors|InTooBigErrors)|Icmp6_(InMsgs|OutMsgs|InErrors))$` | `regex` | A regular expression of the &lt;protocol&gt;\_&lt;name&gt; fields to export (13 of the 70 or so of a device by default; .\* for every one). |
 | `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
 ## `sockstat` {#sockstat}

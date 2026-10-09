@@ -43,7 +43,7 @@ The labels are those seen on the captures; a collector leaves out a label it has
 | [`qdisc`](#qdisc) | 23 | a router, a second router, made-up captures | — |
 | [`realtek-poe`](#realtek-poe) | 7 | made-up captures | — |
 | [`selinux`](#selinux) | 2 | made-up captures | — |
-| [`snmp6`](#snmp6) | 80 | an access point, a router | — |
+| [`snmp6`](#snmp6) | 13 | an access point, a router | `node_snmp6_ifindex` |
 | [`sockstat`](#sockstat) | 20 | an access point, a second router | — |
 | [`softnet`](#softnet) | 7 | an access point, a router | — |
 | [`textfile`](#textfile) | 6 | an access point, a router, a second router, made-up captures | — |
@@ -592,8 +592,8 @@ IPv6 statistics per device. [Collector](collectors.md#snmp6).
 
 | Family | Type | Labels | Help | Notes |
 | :--- | :--- | :--- | :--- | :--- |
-| `node_snmp6_ifindex` | gauge | `device` | Interface index of the device. | — |
-| `node_snmp6_<Protocol>_<Field>_total` | counter | `device` | IPv6 statistic &lt;Protocol&gt;&lt;Field&gt; of the device: each of `/proc/net/dev_snmp6/<device>`. | 79 on the captures |
+| `node_snmp6_<Protocol>_<Field>_total` | counter | `device` | IPv6 statistic &lt;Protocol&gt;&lt;Field&gt; of the device: each field of `/proc/net/dev_snmp6/<device>` the `fields` option matches, by default 13 of about 70. | 13 on the captures |
+| `node_snmp6_ifindex` | gauge | `device` | Interface index of the device. | Listed from the code: Written where the `fields` option matches `ifIndex`, which its default does not: netclass's `node_network_iface_id` is the same index. |
 
 ## `sockstat` {#sockstat}
 

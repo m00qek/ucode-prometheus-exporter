@@ -28,6 +28,18 @@ apk add --allow-untrusted /tmp/ucode-prometheus-exporter-*$version.apk /tmp/luci
 
 Adding the base package alone fails: the installed collectors still want the old version. A dependency the new version adds comes from the feeds the device has: `ucode-docopt`, which 0.2 added, from the exporter's feed.
 
+## From 0.2.1 to 0.3.0
+
+0.3.0 is the first release candidate for 1.0: the names and labels of its metrics are those 1.0 keeps. It changes what 0.2.1 did in these ways, each marked **BREAKING** in the [CHANGELOG](https://github.com/m00qek/ucode-prometheus-exporter/blob/main/CHANGELOG.md):
+
+- **snmp6 exports 13 fields of each device by default**, where it wrote every one, some 70. Gone by default: every `node_snmp6_*_total` but the device's `Ip6_InOctets`, `Ip6_OutOctets`, `Ip6_OutForwDatagrams`, `Ip6_InDiscards`, `Ip6_OutDiscards`, `Ip6_InNoRoutes`, `Ip6_OutNoRoutes`, `Ip6_InHdrErrors`, `Ip6_InAddrErrors`, `Ip6_InTooBigErrors`, `Icmp6_InMsgs`, `Icmp6_OutMsgs` and `Icmp6_InErrors`, and `node_snmp6_ifindex`, whose index netclass's `node_network_iface_id` has too. Its new option `fields`, a regular expression of `<Protocol>_<Field>`, takes others; `.*` exports every one, as 0.2.1 did:
+
+    ```sh
+    uci set prometheus-exporter.snmp6=collector
+    uci set prometheus-exporter.snmp6.fields='.*'
+    uci commit prometheus-exporter
+    ```
+
 ## From 0.2.0 to 0.2.1
 
 0.2.1 changes what 0.2.0 did in these ways, each marked **BREAKING** in the [CHANGELOG](https://github.com/m00qek/ucode-prometheus-exporter/blob/main/CHANGELOG.md):

@@ -145,7 +145,7 @@ export const metric_patterns = {
 	} ],
 	'snmp6': [ {
 		name: 'node_snmp6_<Protocol>_<Field>_total',
-		help: 'IPv6 statistic <Protocol><Field> of the device: each of `/proc/net/dev_snmp6/<device>`.',
+		help: 'IPv6 statistic <Protocol><Field> of the device: each field of `/proc/net/dev_snmp6/<device>` the `fields` option matches, by default 13 of about 70.',
 		match: (n) => match(n, /^node_snmp6_.*_total$/),
 	} ],
 	'vmstat': [ {
@@ -196,6 +196,9 @@ export const unharvested = {
 		{ name: 'ucode_prometheus_exporter_quarantines_total', labels: [ 'collector' ], why: 'As scrapes_total: times a collector\'s circuit breaker tripped.' },
 		{ name: 'ucode_prometheus_exporter_deadline_skips_total', labels: [ 'collector' ], why: 'As scrapes_total: times the deadline left a collector out or killed its program.' },
 		{ name: 'ucode_prometheus_exporter_collector_samples', labels: [ 'collector' ], why: 'This scrape\'s: the samples each collector that ran before it wrote.' },
+	],
+	'snmp6': [
+		{ name: 'node_snmp6_ifindex', labels: [ 'device' ], why: 'Written where the `fields` option matches `ifIndex`, which its default does not: netclass\'s `node_network_iface_id` is the same index.' },
 	],
 	'thermal': [
 		{ name: 'node_thermal_zone_passive_celsius', labels: [ 'zone', 'type' ], why: 'Written for a zone with a passive trip point; no captured zone has one.' },
