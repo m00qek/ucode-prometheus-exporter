@@ -231,7 +231,7 @@ acl_is_ours() {
 		let want = { 'luci-app-$NAME': {
 			description: acl['luci-app-$NAME']?.description,
 			read: { ubus: { '$NAME': [ $APP_METHODS ] }, uci: [ '$NAME' ] },
-			write: { ubus: { '$NAME': [ 'stage_password' ] }, uci: [ '$NAME', '$NAME-auth' ] } } };
+			write: { ubus: { '$NAME': [ 'set_password' ] }, uci: [ '$NAME' ] } } };
 		exit(sprintf('%J', acl) == sprintf('%J', want) ? 0 : 1);" "$ACL"
 }
 plugin_kept() { for f in $PLUGIN $RPC_MODULE $STATUS_HELPER; do [ -f "$f" ] || return 1; done; }
@@ -248,7 +248,7 @@ for f in $APP_FILES; do
 	check "$f parses" parses "$f"
 done
 check "app depends on luci-base and the exporter alone" app_depends
-check "its ACL grants the ubus object's methods, the exporter's config, and writing basic auth's alone" acl_is_ours
+check "its ACL grants the ubus object's methods and the exporter's config, nothing of basic auth's" acl_is_ours
 
 seed_luci_caches
 app_removed() {

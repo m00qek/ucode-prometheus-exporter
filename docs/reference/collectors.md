@@ -35,7 +35,7 @@ Every collector of `ucode-prometheus-exporter 0.2.1`. A collector's name is what
 | [`nft-counters`](#nft-counters) | nftables counters | `ucode-prometheus-exporter-nft-counters` | `ucode-prometheus-exporter-network`, `ucode-prometheus-exporter-full` |
 | [`openwrt`](#openwrt) | OpenWrt release and board | `ucode-prometheus-exporter-openwrt` | `ucode-prometheus-exporter-full` |
 | [`openwrt_interfaces`](#openwrt_interfaces) | OpenWrt interfaces | `ucode-prometheus-exporter` (base) | — |
-| [`pressure`](#pressure) | Pressure stall information | `ucode-prometheus-exporter` (base) | — |
+| [`pressure`](#pressure) | Pressure stall information | `ucode-prometheus-exporter-pressure` | — |
 | [`qdisc`](#qdisc) | Traffic control queues | `ucode-prometheus-exporter-qdisc` | `ucode-prometheus-exporter-network`, `ucode-prometheus-exporter-full` |
 | [`realtek-poe`](#realtek-poe) | Realtek PoE | `ucode-prometheus-exporter-realtek-poe` | — |
 | [`selinux`](#selinux) | SELinux | `ucode-prometheus-exporter` (base) | — |
@@ -56,7 +56,7 @@ Every collector of `ucode-prometheus-exporter 0.2.1`. A collector's name is what
 
 ## Packages {#packages}
 
-The base package, `ucode-prometheus-exporter`, installs `conntrack`, `cpu`, `entropy`, `exporter`, `filefd`, `loadavg`, `meminfo`, `netclass`, `netdev`, `openwrt_interfaces`, `pressure`, `selinux`, `softnet`, `time`, `timesync`, `uname`, `vmstat`. Every other collector is a package of its own, `ucode-prometheus-exporter-<name>`, which depends on the base package of the same release. A group package installs no files, only its collectors.
+The base package, `ucode-prometheus-exporter`, installs `conntrack`, `cpu`, `entropy`, `exporter`, `filefd`, `loadavg`, `meminfo`, `netclass`, `netdev`, `openwrt_interfaces`, `selinux`, `softnet`, `time`, `timesync`, `uname`, `vmstat`. Every other collector is a package of its own, `ucode-prometheus-exporter-<name>`, which depends on the base package of the same release. A group package installs no files, only its collectors.
 
 | Group package | For | Collectors |
 | :--- | :--- | :--- |
@@ -65,7 +65,7 @@ The base package, `ucode-prometheus-exporter`, installs `conntrack`, `cpu`, `ent
 | `ucode-prometheus-exporter-hardware` | hardware and filesystems | `diskstats`, `filesystem`, `hwmon`, `thermal` |
 | `ucode-prometheus-exporter-full` | a router or access point | `ethtool`, `nat_traffic`, `netstat`, `nft-counters`, `qdisc`, `snmp6`, `sockstat`, `hostapd_stations`, `hostapd_ubus_stations`, `wifi`, `diskstats`, `filesystem`, `hwmon`, `thermal`, `dhcp_leases`, `dnsmasq`, `openwrt`, `textfile`, `uci_dhcp_host`, `wireguard` |
 
-In no group: `bmx7`, `chrony`, `dawn`, `interrupts`, `ltq-dsl`, `modemmanager`, `mwan3`, `realtek-poe`, `ubnt-manager`, `unbound`.
+In no group: `bmx7`, `chrony`, `dawn`, `interrupts`, `ltq-dsl`, `modemmanager`, `mwan3`, `pressure`, `realtek-poe`, `ubnt-manager`, `unbound`.
 
 ## Nothing to observe {#nothing-to-observe}
 
@@ -573,7 +573,7 @@ OpenWrt logical interfaces (wan, lan, ...): state, uptime, devices and address c
 Time tasks waited for or were stalled on CPU, I/O, memory and IRQs, from /proc/pressure.
 
 - **Title:** Pressure stall information
-- **Package:** `ucode-prometheus-exporter` (base)
+- **Package:** `ucode-prometheus-exporter-pressure`
 - **Section:** `config collector 'pressure'`
 - **Needs:** `fs`
 - **Nothing to observe:** No `/proc/pressure`: a kernel without `CONFIG_PSI`, or booted with `psi=0`. See [Nothing to observe](#nothing-to-observe).

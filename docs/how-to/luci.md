@@ -17,7 +17,15 @@
 2. Change the fields. A value the exporter would not take is marked as you type, with why; a tab with such a field shows how many on its title.
 3. **Save & Apply**. If the exporter would refuse a value, nothing is saved: a **Save error** dialog lists what and why, each field by its tab. Press a field's name to go to it, fix it, and save again.
 
-To serve the LAN, pick its interface in **Listen on**, on **General**. Basic auth needs HTTPS: on **HTTPS & login**, fill in **TLS certificate** and **TLS key** first, then **Basic auth user** and **Basic auth password**. The password is saved as a hash on Save, apart from the rest of the settings, and the service takes it at once; the password itself is never stored. To keep the saved password, leave the field empty; to take basic auth away, empty the user.
+To serve the LAN, pick its interface in **Listen on**, on **General**. Basic auth needs HTTPS: on **HTTPS & login**, fill in **TLS certificate** and **TLS key** first, then **Basic auth user**, and **Save & Apply**. The password is no field of the form, and not part of Save, Save & Apply or Revert: as LuCI's own router password, it is changed apart, and at once.
+
+## Change basic auth's password
+
+1. On **HTTPS & login**, **Basic auth password** says whether one is saved: **Set** or **Not set**. Press **Change password…**: it needs **TLS certificate** and **TLS key** filled in.
+2. Type the new password in **New password** and again in **Confirmation**, and press **Change password**.
+3. The hash is saved at once, and the exporter reloads with it: give every scraper the new password. The password itself is never stored, and the page never sees the hash.
+
+To take basic auth away, empty **Basic auth user** and **Save & Apply**: a saved password is then unused. **Remove password** removes it too, once the user is empty; it is applied at once, as a change is.
 
 ## Switch a collector off or on
 

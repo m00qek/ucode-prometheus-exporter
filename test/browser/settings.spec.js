@@ -156,12 +156,14 @@ test.describe('Services → Prometheus exporter', () => {
     await h.screenshot(page, 'settings-limits');
   });
 
+  // Basic auth with a saved password, as test/fixtures/luci/config/auth has it, without TLS.
   test('LuCI\'s badge marks the tab of a field the exporter would refuse, and the Save error names the tab, with a link to the field', async ({ page, request }) => {
+    await h.useConfig(request, 'auth');
     const before = await h.readConfig(request);
     await h.openSettings(page);
     await h.showTab(page, 'https');
-    await field(page, 'auth_user').fill('prom');
-    await field(page, 'auth_password').fill('browser-secret');
+    await field(page, 'cert').fill('');
+    await field(page, 'key').fill('');
     await expect(field(page, 'auth_user')).toHaveClass(/cbi-input-invalid/);
     await h.showTab(page, 'general');
     await expect(tab(page, 'https')).toHaveAttribute('data-errors', '1');

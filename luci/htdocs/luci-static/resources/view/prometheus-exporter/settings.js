@@ -18,12 +18,12 @@
 //
 // What is saved states every setting: the main section's fields write their values even
 // at the defaults (but for the TLS files and basic auth, which are unset without them).
-// Basic auth's password is never saved, nor shown, nor its hash, which is saved apart from
-// the exporter's config, where the app's ACL lets a login write and not read: Save hands
-// a password typed in its field to the object's stage_password, which stages its hash in
-// the login's session, and Save & Apply commits it with the rest, as every other setting;
-// an empty field keeps the saved one, and a user emptied takes basic auth away, the saved
-// hash left unused. A collector's
+// Basic auth's password is no field of the form, and its hash, which is saved apart from
+// the exporter's config, where the app's ACL does not reach, is never shown: its row says
+// whether one is saved, and its Change password and Remove password hand it to the
+// object's set_password, which saves or removes the hash and has the service reload at
+// once, apart from Save, Save & Apply and Revert, as LuCI's own root password is changed.
+// A user emptied takes basic auth away, the saved hash left unused. A collector's
 // `config collector '<module>'` section is there only while something differs from the
 // defaults, its switch included, or a timeout is set; while it is, it holds the switch
 // and every option the collector declares, each written out. timeout is written only
@@ -48,19 +48,9 @@ const lookup = exporter.lookup;
 const fill = exporter.fill;
 const alertBox = widgets.alertBox;
 const line = widgets.line;
-const blank = widgets.blank;
 
 // How long typing pauses before the values are checked, in ms.
 const CHECK_DELAY = widgets.CHECK_DELAY;
-
-// What the object's validate is given for a password typed and not yet hashed, or staged
-// and not yet applied: a hash of the form stage_password makes (1000 rounds, which
-// auth_password takes; one that names none has 5000, which it refuses), so that the
-// options that go with it are checked.
-const PENDING_HASH = '$6$rounds=1000$$' + '.'.repeat(86);
-
-// The longest password the object hashes, in bytes.
-const PASSWORD_MAX = 256;
 
 return view.extend({
 	// A call that fails answers { failure }, which alerts() describes.
@@ -113,6 +103,7 @@ return view.extend({
 
 		this.renderMain(s, (L.isObject(ifaces) && Array.isArray(ifaces.interfaces)) ? ifaces.interfaces : []);
 		this.mainOptions.auth_password.hashSaved = L.isObject(password) && password.saved === true;
+		this.mainOptions.auth_password.tls = [ this.mainOptions.cert, this.mainOptions.key ];
 
 		this.table = s.taboption('collectors', widgets.CollectorTable, '_collectors', '');
 		this.table.collectors = Array.isArray(data?.collectors) ? data.collectors : [];
@@ -127,6 +118,9 @@ return view.extend({
 				node.addEventListener('input', () => this.scheduleCheck());
 				this.scheduleCheck(0);
 			}
+
+			// Basic auth's buttons follow the TLS files and the user as they are typed.
+			node.addEventListener('input', () => this.mainOptions.auth_password.update('main'));
 
 			return E([], [
 				E('h2', { 'name': 'content' }, [ _('Prometheus exporter') ]),
@@ -222,22 +216,11 @@ return view.extend({
 			_('With a password, a scrape logs in as this user. Empty for none.'));
 		user.placeholder = _('None');
 
-		o = this.option(s, 'https', widgets.PasswordValue, 'auth_password', _('Basic auth password'),
-			_('Saved as a hash; the password itself is never stored. Empty keeps the saved one.'));
-		o.password = true;
+		// Not the form's: its buttons save or remove the hash at once, through the object.
+		o = this.option(s, 'https', widgets.PasswordAction, 'auth_password', _('Basic auth password'),
+			_('Saved as a hash; the password itself is never stored. Changing or removing it applies at once, apart from Save & Apply.'));
 		o.user = user;
-		o.validate = (section_id, value) => {
-			const mark = lookup(this.marks, 'auth_password');
-
-			if (mark && mark.value === value)
-				return mark.message;
-			if (value != null && new TextEncoder().encode(value).length > PASSWORD_MAX)
-				return _('At most %d bytes').format(PASSWORD_MAX);
-			if (/[\x00-\x1f\x7f]/.test(value ?? ''))
-				return _('No control characters');
-
-			return true;
-		};
+		o.refusal = () => lookup(this.marks, 'auth_password')?.message ?? null;
 
 		o = this.option(s, 'general', form.Flag, 'compress', _('Compress'),
 			_('Gzip-compresses a scrape when the scraper asks for it, as Prometheus and vmagent do.'));
@@ -286,8 +269,7 @@ return view.extend({
 	},
 
 	// The form's values as the object's validate takes them: empty fields left out, as unset.
-	// Basic auth's password is a stand-in for a hash when a password is typed, or staged by
-	// a Save; otherwise it is left out, and the object checks the saved hash, which the page
+	// Basic auth's password is no field: the object checks the saved hash, which the page
 	// may not read.
 	candidate() {
 		const main = {};
@@ -297,10 +279,6 @@ return view.extend({
 			if (value != null && value !== '')
 				main[name] = String(value);
 		}
-
-		delete main.auth_password;
-		if (main.auth_user != null && (!blank(this.mainOptions.auth_password.formvalue('main')) || this.mainOptions.auth_password.hashStaged === true))
-			main.auth_password = PENDING_HASH;
 
 		return { main: main, collectors: this.table.candidate() };
 	},
@@ -353,8 +331,7 @@ return view.extend({
 
 		for (const name in (errors.main ?? {}))
 			this.marks[name] = {
-				// The password's field holds what is typed, not what was checked.
-				value: (name === 'auth_password') ? (this.mainOptions.auth_password.formvalue('main') ?? '') : (candidate.main[name] ?? ''),
+				value: candidate.main[name] ?? '',
 				message: this.refusalOf(name, errors.main[name])
 			};
 
@@ -411,7 +388,7 @@ return view.extend({
 			for (const name in (errors.main ?? {})) {
 				const o = lookup(this.mainOptions, name);
 				const where = o ? this.revealLink(this.tabOf[name],
-					`.cbi-value[data-name="${CSS.escape(name)}"] :is(input:not([type="hidden"]), select, textarea, .cbi-dropdown)`,
+					`.cbi-value[data-name="${CSS.escape(name)}"] :is(input:not([type="hidden"]), select, textarea, .cbi-dropdown, button)`,
 					[ o.title ]) : name;
 
 				out.push(line([ where, ': ', this.refusalOf(name, errors.main[name]) ]));

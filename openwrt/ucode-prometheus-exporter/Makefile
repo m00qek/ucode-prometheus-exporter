@@ -22,7 +22,7 @@ COLLECTORS_DIR:=$(MODULES_DIR)/collectors
 MODULE_SUBDIRS:=config deps exposition loader rpc
 
 # Installed with the exporter itself; every other collector is a subpackage.
-BASE_COLLECTORS:=conntrack cpu entropy exporter filefd loadavg meminfo netclass netdev openwrt_interfaces pressure selinux softnet time timesync uname vmstat
+BASE_COLLECTORS:=conntrack cpu entropy exporter filefd loadavg meminfo netclass netdev openwrt_interfaces selinux softnet time timesync uname vmstat
 
 define Package/$(PKG_NAME)/Default
   SECTION:=utils
@@ -194,6 +194,7 @@ $(eval $(call Collector,nat_traffic,nat_traffic,conntrack bytes per address pair
 $(eval $(call Collector,netstat,netstat,protocol statistics,))
 $(eval $(call Collector,nft_counters,nft-counters,nftables counters,+nftables-json))
 $(eval $(call Collector,openwrt,openwrt,OpenWrt release and board,))
+$(eval $(call Collector,pressure,pressure,pressure stall information,))
 $(eval $(call Collector,qdisc,qdisc,traffic control queues and CAKE,+tc))
 $(eval $(call Collector,realtek_poe,realtek-poe,Realtek PoE switch,))
 $(eval $(call Collector,snmp6,snmp6,IPv6 statistics,))
@@ -234,7 +235,8 @@ NETWORK_GROUP:=ethtool nat_traffic netstat nft-counters qdisc snmp6 sockstat
 WIRELESS_GROUP:=hostapd_stations hostapd_ubus_stations wifi
 HARDWARE_GROUP:=diskstats filesystem hwmon thermal
 # Not the collectors of particular hardware or services: DSL, PoE, bmx7, mwan3, ModemManager, airOS, chrony;
-# nor interrupts, which node_exporter has off by default: a series per interrupt and CPU.
+# nor interrupts, which node_exporter has off by default: a series per interrupt and CPU;
+# nor pressure, which needs a kernel with CONFIG_PSI, and OpenWrt's leave it off.
 FULL_GROUP:=$(NETWORK_GROUP) $(WIRELESS_GROUP) $(HARDWARE_GROUP) dhcp_leases dnsmasq openwrt textfile uci_dhcp_host wireguard
 
 $(eval $(call Group,network,network statistics,$(NETWORK_GROUP)))

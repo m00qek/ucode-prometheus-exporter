@@ -9,9 +9,9 @@
 		},
 		"write": {
 			"ubus": {
-				"prometheus-exporter": [ "stage_password" ]
+				"prometheus-exporter": [ "set_password" ]
 			},
-			"uci": [ "prometheus-exporter", "prometheus-exporter-auth" ]
+			"uci": [ "prometheus-exporter" ]
 		}
 	}
 }
