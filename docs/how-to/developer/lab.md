@@ -40,9 +40,29 @@ logread -e prometheus-exporter
 ubus call prometheus-exporter status
 ```
 
+## Watch it with Prometheus, Grafana and Perses
+
+```bash
+make monitoring-lab
+```
+
+It starts a Prometheus that scrapes the lab every 5 seconds with the rules of `monitoring/prometheus/`, a Grafana with the dashboards of `monitoring/grafana/` and a Perses with those of `monitoring/perses/`, each from its official image, unprivileged. After `MONITORING_WAIT` seconds of scrapes, 3 minutes, it runs every panel's queries through Grafana and through Perses, fails on one that errs or has no data where the lab has some, and screenshots each dashboard:
+
+```
+Monitoring the lab ucode-prometheus-exporter-lab:
+  Prometheus  http://127.0.0.1:9090/alerts
+  Grafana     http://127.0.0.1:3000/dashboards  (no login)
+  Perses      http://127.0.0.1:8081/projects/openwrt
+  results     bin/monitoring/report.txt, bin/monitoring/screenshots/
+  stop it     make monitoring-lab-down
+```
+
+Give the same `LAB_NAME` as the lab's, and other ports if those are taken: `make monitoring-lab LAB_NAME=my-lab GRAFANA_PORT=13000`.
+
 ## Stop it
 
 ```bash
+make monitoring-lab-down
 make lab-down
 ```
 

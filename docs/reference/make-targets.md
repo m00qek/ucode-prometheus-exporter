@@ -1,6 +1,6 @@
 # Make Targets
 
-Every target runs in Docker, but `feed-makefile`, a shell script with `curl`; nothing is installed on the host. `fixtures` and `bench-device` reach a device over ssh.
+Every target runs in Docker, but `feed-makefile`, a shell script with `curl`; nothing is installed on the host. `monitoring-lab` waits for its servers with `curl` on the host. `fixtures` and `bench-device` reach a device over ssh.
 
 ---
 
@@ -47,6 +47,8 @@ Every target runs in Docker, but `feed-makefile`, a shell script with `curl`; no
 | Target | Description |
 | :--- | :--- |
 | `monitoring-check` | Checks `monitoring/`: that every metric family and label its rules, their tests and its dashboards name is in [Metrics](metrics.md) (`devenv/scripts/monitoring-refs.py`, in the docs' mkdocs image); `promtool check rules` and `promtool test rules`; `vmalert -dryRun` and `vmalert-tool unittest` on the same files; `percli lint` of the Perses dashboards against the plugins the Perses image ships; and that the Grafana dashboards take their data source from a variable. Each in its official image, without the network. The metric check and the lint are also shown something they must refuse. |
+| `monitoring-lab` | Prometheus, Grafana and Perses on the running lab (`LAB_NAME`), with `monitoring/`'s rules and dashboards: the dashboards applied to Perses with `percli lint --online` and `percli apply`, every panel's queries run through Grafana's and Perses's APIs after `MONITORING_WAIT` seconds, a report in `bin/monitoring/report.txt` and screenshots in `bin/monitoring/screenshots/`. Left running. See [How to use the lab](../how-to/developer/lab.md#watch-it-with-prometheus-grafana-and-perses). |
+| `monitoring-lab-down` | Removes `monitoring-lab`'s containers and network. |
 
 ### Release
 
@@ -79,10 +81,15 @@ Every target runs in Docker, but `feed-makefile`, a shell script with `curl`; no
 | `CI` | — | all | Runs containers without a TTY. |
 | `HOST` | — | `fixtures`, `bench-device` | An ssh destination. |
 | `NAME` | — | `fixtures` | The fixture set to write, `test/fixtures/NAME/`. |
-| `LAB_NAME` | `ucode-prometheus-exporter-lab` | `lab`, `lab-down` | The lab's container. |
+| `LAB_NAME` | `ucode-prometheus-exporter-lab` | `lab`, `lab-down`, `monitoring-lab`, `monitoring-lab-down` | The lab's container. |
 | `LAB_ADDRESS` | `127.0.0.1` | `lab` | The host address its ports are published on. |
 | `LAB_LUCI_PORT` | `8080` | `lab` | LuCI's port on the host. |
 | `LAB_METRICS_PORT` | `9100` | `lab` | `/metrics`' port on the host. |
+| `MONITORING_ADDRESS` | `127.0.0.1` | `monitoring-lab` | The host address Prometheus, Grafana and Perses are published on. |
+| `PROMETHEUS_PORT` | `9090` | `monitoring-lab` | Prometheus's port on the host. |
+| `GRAFANA_PORT` | `3000` | `monitoring-lab` | Grafana's port on the host. |
+| `PERSES_PORT` | `8081` | `monitoring-lab` | Perses's port on the host. |
+| `MONITORING_WAIT` | `180` | `monitoring-lab` | Seconds of the lab's scrapes before the panels are checked. |
 | `BENCH_ARGS` | — | benchmark | Options of `test/bench/bench.uc`: `-r N` runs at least, `-t S` seconds at least. |
 | `BENCH_REV` | — | `bench`, `bench-device` | Bench another revision's `src/` with this benchmark. |
 | `BENCH_CPUS` | — | `bench` | A share of a CPU, 0.05 at least, as a CFS quota of a 20 ms period. |

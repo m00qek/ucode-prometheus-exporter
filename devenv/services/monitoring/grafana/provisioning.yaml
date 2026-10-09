@@ -1,0 +1,25 @@
+# make monitoring-lab's Grafana: the lab's Prometheus as its data source, and
+# the dashboards of monitoring/grafana, read-only, in a folder of their own.
+# Grafana reads this one file as both a datasources and a dashboards provider;
+# devenv/scripts/monitoring-lab.sh mounts it as each.
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    jsonData:
+      # The lab's scrape interval, for $__rate_interval.
+      timeInterval: 5s
+
+providers:
+  - name: ucode-prometheus-exporter
+    folder: OpenWrt
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    options:
+      path: /var/lib/grafana/dashboards

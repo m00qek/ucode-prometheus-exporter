@@ -1,0 +1,24 @@
+# make monitoring-lab's Perses project, and the lab's Prometheus as its
+# default data source, through Perses's proxy.
+- kind: Project
+  metadata:
+    name: openwrt
+  spec:
+    display:
+      name: OpenWrt
+
+- kind: Datasource
+  metadata:
+    name: prometheus
+    project: openwrt
+  spec:
+    default: true
+    plugin:
+      kind: PrometheusDatasource
+      spec:
+        # The lab's scrape interval, for $__rate_interval.
+        scrapeInterval: 5s
+        proxy:
+          kind: HTTPProxy
+          spec:
+            url: http://prometheus:9090

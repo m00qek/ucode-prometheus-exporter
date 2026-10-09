@@ -1,0 +1,15 @@
+# make monitoring-lab's Perses: no auth, its database in the container, and
+# the project and data source of provisioning/; the dashboards are applied
+# with percli, as monitoring/perses's comments say.
+database:
+  file:
+    folder: /perses
+    extension: yaml
+
+security:
+  readonly: false
+  enable_auth: false
+
+provisioning:
+  folders:
+    - /etc/perses/provisioning
