@@ -441,6 +441,7 @@ Bytes per source and destination address, from /proc/net/nf\_conntrack.
 
 | Option | Title | Type | Default | Datatype | Description |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| `peers` | Series per peer | boolean | `0` | — | Label each host's bytes by the address at the other end too: a series per host and peer, as many as the connections and new with each, which a Prometheus server keeps for hours. |
 | `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
 ## `netclass` {#netclass}

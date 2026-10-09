@@ -170,6 +170,10 @@ export const metric_patterns = {
 // What a family's row says besides, by collector: `note` for each family
 // `match(name)` takes. Every entry must take a family the fixtures show.
 export const family_notes = {
+	'nat_traffic': [ {
+		match: (n) => n == 'node_nat_traffic_bytes',
+		note: '`peer` with the `peers` option only: a series per host and peer, which come and go with the connections.',
+	} ],
 	'chrony': [ {
 		match: (n) => match(n, /^chrony_serverstats_/),
 		note: 'Never at `/metrics`: written outside the jail only, as by the `prometheus-exporter` command, where chronyd serves time (an `allow` section in `/etc/config/chrony`).',

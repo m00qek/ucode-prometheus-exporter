@@ -437,7 +437,7 @@ Traffic per address pair. [Collector](collectors.md#nat_traffic).
 
 | Family | Type | Labels | Help | Notes |
 | :--- | :--- | :--- | :--- | :--- |
-| `node_nat_traffic_bytes` | gauge | `src`, `dst` | Bytes of the connections from src to dst, both directions. | — |
+| `node_nat_traffic_bytes` | gauge | `host`, `peer` | Bytes of the connections of a host on this side of the router, both directions. | `peer` with the `peers` option only: a series per host and peer, which come and go with the connections. |
 
 ## `netclass` {#netclass}
 

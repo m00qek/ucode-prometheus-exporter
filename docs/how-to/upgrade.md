@@ -40,6 +40,14 @@ Adding the base package alone fails: the installed collectors still want the old
     uci commit prometheus-exporter
     ```
 
+- **nat_traffic labels its series `host`, one per host on this side of the router**, where 0.2.1 wrote one per pair of addresses, labeled `src` and `dst`. `node_nat_traffic_bytes{src,dst}` is `node_nat_traffic_bytes{host}`: the source of each connection, as `src` was, but for a port-forwarded connection the LAN host it reaches, where `src` was the remote address. A query by `src` is one by `host`: `sum by (host) (node_nat_traffic_bytes)`. The pairs are back with the new option `peers`, labeled `host` and `peer`, as many series as 0.2.1 wrote, new with every connection; a Prometheus server keeps each for hours, so leave it off but for a short look:
+
+    ```sh
+    uci set prometheus-exporter.nat_traffic=collector
+    uci set prometheus-exporter.nat_traffic.peers=1
+    uci commit prometheus-exporter
+    ```
+
 ## From 0.2.0 to 0.2.1
 
 0.2.1 changes what 0.2.0 did in these ways, each marked **BREAKING** in the [CHANGELOG](https://github.com/m00qek/ucode-prometheus-exporter/blob/main/CHANGELOG.md):
