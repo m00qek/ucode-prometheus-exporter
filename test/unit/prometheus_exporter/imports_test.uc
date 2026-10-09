@@ -189,6 +189,23 @@ describe('what the collectors import', () => {
 		assert.match(true, length(files_under('src/prometheus_exporter/collectors', [])) >= length(loader.OWN));
 	});
 
+	// A collector's top level runs again in uhttpd's own process, unguarded
+	// but for collection.top_level: it only declares (loader.purity_problem).
+	it('only declares at its top level, for each collector the packages ship and each the checks install', () => {
+		let problems = [];
+		let paths = [ ...files_under('src/prometheus_exporter/collectors', []), ...files_under('test/fixtures/luci/collectors', []) ];
+
+		for (let path in paths) {
+			let why = loader.purity_problem(readfile(path));
+
+			if (why != null)
+				push(problems, `${path}: ${why}`);
+		}
+
+		assert.match([], problems);
+		assert.match(true, length(paths) > length(loader.OWN));
+	});
+
 	// The collectors the checks install (the browser's sampler, runner and
 	// hostile) are loaded as any other: one the loader refuses is missing from
 	// the pages the tests look at, and every test of it fails for that alone.

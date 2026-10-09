@@ -62,7 +62,11 @@ export const LOAD_TIMEOUT = 5;
  *
  * Only what loads here is then loaded in the process that serves the scrapes:
  * a module whose top level never returns would keep uhttpd from ever serving.
- * Each module is so compiled twice, once here and once there.
+ * Each module is so compiled twice, once here and once there. Both loads run
+ * its top level under prometheus_exporter.collection's top_level, which
+ * refuses what blocks, ends or writes to the process, or loads code, before
+ * it runs (COLLECTOR_IMPURE): here, the time limit stops what that does not,
+ * a loop that never ends.
  *
  * While it waits for the child, uloop takes SIGTERM and SIGINT: one ends the
  * wait, and is forgotten by the next uloop.run(), uhttpd's own, where it

@@ -38,11 +38,37 @@ That is `loadavg`, as the base package installs it.
 
 ## Loading
 
-The loader (`src/prometheus_exporter/loader.uc`) takes every file of the collectors' directory named `[a-z0-9_]+.uc`, imports it, and validates its exports. A module must be in strict mode, its first statement `'use strict'` (after comments only), import `prometheus_exporter.api` and no other module, and its top level must return within 5 seconds: it is first loaded in a process of its own. A module that is not in strict mode, imports another module, does not import in time, or whose `meta` or `collect` is not valid, is left out, and the rest load: the handler logs it at `err`, `check` and the ubus object's `collectors` list it. The collectors are sorted by name.
+The loader (`src/prometheus_exporter/loader.uc`) takes every file of the collectors' directory named `[a-z0-9_]+.uc`, imports it, and validates its exports. A module must be in strict mode, its first statement `'use strict'` (after comments only), import `prometheus_exporter.api` and no other module, and its top level must [only declare](#the-top-level) and return within 5 seconds: it is first loaded in a process of its own. A module that is not in strict mode, imports another module, does more than declare at its top level, does not import in time, or whose `meta` or `collect` is not valid, is left out, and the rest load: the handler logs it at `err`, `check` and the ubus object's `collectors` list it. The collectors are sorted by name.
 
 What the exporter enforces of a collector, and what breaking each rule costs, is in [Collector contract](collector-contract.md).
 
 uhttpd loads them once, when it starts; a scrape runs what was loaded. Installing or removing a collector package reloads the service, which restarts uhttpd.
+
+## The top level
+
+A module's top level runs twice each time the service starts: in a child process, where the probe stops it at 5 seconds, and again in uhttpd's own process, which every scrape is forked from and nothing guards. So it only declares, and leaves what it does to `collect()`:
+
+- `'use strict'`, and its import of `prometheus_exporter.api`;
+- constants and variables (`const`, `let`) and functions, and their exports, `meta` and `collect` among them;
+- values of literals, regular expressions, templates, objects and arrays, functions (not called), operators, and what it declared before;
+- calls of ucode's functions that compute from their arguments alone: `arrtoip`, `assert`, `b64dec`, `b64enc`, `chr`, `exists`, `filter`, `hex`, `hexdec`, `hexenc`, `index`, `int`, `iptoarr`, `join`, `json`, `keys`, `lc`, `length`, `ltrim`, `map`, `match`, `max`, `min`, `ord`, `pop`, `proto`, `push`, `regexp`, `replace`, `reverse`, `rindex`, `rtrim`, `shift`, `slice`, `sort`, `splice`, `split`, `sprintf`, `substr`, `trim`, `type`, `uc`, `uchr`, `uniq`, `unshift`, `values`, `wildcard`; and of the collector API's that do: `Result`'s, `proc.fields`, `proc.auxv`, `u16`, `u32`.
+
+```js
+const FIELDS = [ 'rx_bytes', 'tx_bytes' ];
+const LINE = regexp('^(' + join('|', FIELDS) + ') ([0-9]+)$');  // ok: pure calls
+const UPPER = map(FIELDS, (f) => uc(f));                         // ok
+
+const HOME = getenv('HOME');                 // not ok: reads the process's environment
+const ONE = proc.first_line(fs, '/proc/x');  // not ok: no fs here; read it in collect()
+for (let f in FIELDS) TABLE[f] = true;       // not ok: a statement; declare TABLE whole
+```
+
+| Where | Holds it to | Broken |
+| :--- | :--- | :--- |
+| Every load: the probe's child, uhttpd, rpcd's helpers, the command line | While the top level runs, `sleep`, `system`, `exit`, `print`, `printf`, `warn`, `trace`, `require`, `include`, `loadfile`, `loadstring`, `render` and `signal` refuse to run: they block, end or write to the process, load code (and through `require`, read files, run programs and open sockets), or change its signals. The collector API's `exposition` functions load the format with `loadstring`, and are refused too. A loop that never ends is stopped at 5 s in the child. | Left out, logged at `err`: `skipping collector: COLLECTOR_IMPURE (<module>: its top level called sleep(), which blocks the process: ...)`; a loop, `collector '<module>' hung at load`. |
+| `prometheus-exporter collector check`, the repository's tests, and a collector package's tests with the devkit | The module's text: no statement but declarations, no call but of the functions above, outside the bodies of its functions. | `FAIL its top level calls getenv() (line 4): ...`, `FAIL its top level runs 'for' (line 6): ...`. |
+
+The loader does not read the text for it: reading a module a character at a time would cost a router's uhttpd seconds when it starts, and the guard of each load refuses what the module does, as it does it. A function the top level calls through `map()` or `sort()` is not read, and the guard holds it as it runs. See [Error codes](error-codes.md#collectors-and-their-sources).
 
 ## `meta`
 

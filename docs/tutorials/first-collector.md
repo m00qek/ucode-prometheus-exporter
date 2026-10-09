@@ -123,6 +123,7 @@ ucode -L /exporter/src files/usr/bin/prometheus-exporter collector check src/pro
 ```
 ok   strict mode: 'use strict' first
 ok   imports: prometheus_exporter.api alone
+ok   top level: declarations alone
 ok   load: 0.001 s, of at most 5 s
 ok   meta: tasks (Scheduler tasks), needs fs, budget 5 s, max_samples 20000
 ok   run: 0.000 s, 2 samples in 2 families
@@ -130,7 +131,7 @@ ok   families: node_tasks_runnable node_tasks
 ok   exposition: valid text, each series once
 ```
 
-Every line is `ok`: it imports the API alone, it loads quickly, its `meta` is valid, it ran in a process of its own well within its budget, and it wrote two families no installed collector writes. Had it looped, or written `node_load1`, a line would say `FAIL`, and why. `exit` the shell.
+Every line is `ok`: it imports the API alone, its top level only declares, it loads quickly, its `meta` is valid, it ran in a process of its own well within its budget, and it wrote two families no installed collector writes. Had it looped, or written `node_load1`, a line would say `FAIL`, and why. `exit` the shell.
 
 ## 5. Test it
 

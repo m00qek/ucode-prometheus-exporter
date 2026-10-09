@@ -13,6 +13,7 @@ A failure carries an uppercase code, from `src/prometheus_exporter/errors.uc`, a
 | `COLLECTOR_CRASHED` | The collector died with an exception. The detail is the exception's first line. | `conform.uc`, `scrape.uc` |
 | `COLLECTOR_NO_RESULT` | The collector returned something other than a Result, or a failure without an error code (a code the collector API does not export is null). The detail says what. | `conform.uc`, `runner.uc`, `scrape.uc` |
 | `COLLECTOR_INVALID` | A collector module that cannot be loaded as one (its `meta` or `collect`), which the exporter leaves out; or a query that names a collector that is not installed, or one that is disabled, which is answered 400. | `loader.uc`, `scrape.uc` |
+| `COLLECTOR_IMPURE` | A collector module whose top level does more than declare, which the exporter leaves out. As it loaded, it called a function that blocks, ends or writes to the process (`sleep`, `exit`, `print`), loads code (`require`, `loadstring`, and so the collector API's `exposition` functions) or changes its signals: refused before it runs, in the process that first loads it and in uhttpd's, and the detail names the call. Or, in `collector check` and the tests, its text runs a statement or calls a function that a declaration does not, and the detail names it and its line. See [Collector interface](collector-interface.md#the-top-level). | `collection.uc` |
 
 ## Configuration
 

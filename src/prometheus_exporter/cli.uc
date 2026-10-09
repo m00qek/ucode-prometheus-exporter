@@ -24,6 +24,7 @@ import * as state from 'prometheus_exporter.state';
 import * as ledger from 'prometheus_exporter.ledger';
 import * as jail from 'prometheus_exporter.jail';
 import * as jailed from 'prometheus_exporter.jailed';
+import { import_path } from 'prometheus_exporter.collection';
 
 /**
  * What run() takes of the system, as its comment says.
@@ -240,12 +241,6 @@ export function read_password(fs, prompt) {
 
 	return password_of(fs.stdin.read('line'));
 };
-
-// A collector module's exports, by its path: an import by path, as the
-// loader imports one by name.
-function import_path(path) {
-	return loadstring(sprintf('import * as c from %J;\nreturn c;', path), { raw_mode: true })();
-}
 
 /**
  * sys on the real system, for run().

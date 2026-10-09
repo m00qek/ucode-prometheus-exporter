@@ -4,7 +4,9 @@
  * is logged and left out, so a broken subpackage costs only its own collector.
  * So is one that is not in strict mode, or imports anything but the collector
  * API, which its text tells before it is loaded, and, given a probe
- * (prometheus_exporter.probe's), one that does not load within its time.
+ * (prometheus_exporter.probe's), one that does not load within its time, or
+ * whose top level does more than declare (prometheus_exporter.collection's
+ * top_level, which purity_problem() reads the text for).
  *
  * It is the facade of loader/: the modules there are its own, and what others
  * take of them it exports.
@@ -21,6 +23,7 @@ import * as jail from 'prometheus_exporter.jail';
 import * as privileges from 'prometheus_exporter.privileges';
 import * as config from 'prometheus_exporter.config';
 import * as scan from 'prometheus_exporter.loader.imports';
+import * as purity from 'prometheus_exporter.loader.purity';
 import * as collection from 'prometheus_exporter.collection';
 
 /**
@@ -403,6 +406,24 @@ export function import_problem(text) {
 };
 
 /**
+ * Why a collector module's text does more at its top level than declare, or
+ * null (prometheus_exporter.loader.purity): a statement that is not a
+ * declaration, or a call of what is not one of ucode's functions that compute
+ * alone (purity.PURE) nor of the collector API's (purity.PURE_API), each with
+ * its line. `collector check` fails with it, and the tests hold every
+ * collector to it. The loader does not read it: a module's text read a
+ * character at a time would cost a router's uhttpd seconds when it starts,
+ * and the guard of each load (collection.top_level) refuses what it would
+ * catch that the module does, as it does it.
+ *
+ * @param {string} text the collector module's text.
+ * @returns {?string} the problems, joined by '; ', or null.
+ */
+export function purity_problem(text) {
+	return purity.problem(text, API);
+};
+
+/**
  * Why the loader leaves a module out by its text alone, before it loads it,
  * or null: it is not in strict mode (is_strict), or it loads what a collector
  * may not (import_problem).
@@ -524,7 +545,7 @@ export function load(fs, dir, import_fn, log, probe, import_all) {
 		try {
 			mod = (together != null) ? together[id] : import_fn(id);
 		} catch (e) {
-			log('err', `cannot load collector '${id}': ${split(e.message, '\n')[0]}`);
+			log('err', collection.load_error(id, split(e.message, '\n')[0]));
 			continue;
 		}
 
