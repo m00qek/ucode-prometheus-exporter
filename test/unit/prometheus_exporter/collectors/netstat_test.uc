@@ -324,4 +324,55 @@ describe('collectors.netstat', () => {
 				assert.match(want, samples(r.lines));
 			});
 		});
+
+	// A line as the kernel writes it ("%-32s\t%lu") is split on its tab,
+	// and a name's protocol is read by its first letters: what any line
+	// gives must be what its fields, split on runs of whitespace, and the
+	// protocols' regex give, every field and the default ones.
+	prop('reads any line of /proc/net/snmp6 as its fields and the protocols\' regex do',
+		gen.array(gen.tuple(
+			gen.elements('Ip6', 'Ip', 'Icmp6', 'Icmp', 'Icm6', 'Udp6', 'Udp', 'UdpLite6', 'UdpLite', 'Udp6Lite', 'ifIndex', ''),
+			gen.elements('InOctets', 'OutMsgs', 'InErrors', 'X_InErrs', 'NoPorts', 'InDatagrams', '', '6', 'a b'),
+			gen.elements('\t', ' ', '   \t', ' \t ', '\t\t', '', '\v', '\r', ' \t'),
+			gen.elements('5', '0', '', '1 2', ' 7 ', '12\t3')), { min_len: 0, max_len: 8 }), (rows) => {
+			let text = '';
+			let want = [];
+			let seen = {};
+
+			// A name once, as the kernel's are.
+			for (let r in rows) {
+				let line = `${r[0]}${r[1]}${r[2]}${r[3]}`;
+				let x = split(trim(line), /\s+/);
+				let m = (length(x) >= 2) ? match(x[0], /^(Ip6|Icmp6|UdpLite6|Udp6)(.+)$/) : null;
+
+				if (seen[x[0]])
+					continue;
+				seen[x[0]] = true;
+				text += line + '\n';
+				// A value that is not a number is not written.
+				if (m && match(x[1], /^[0-9]+$/))
+					push(want, `node_netstat_${m[1]}_${m[2]} ${x[1]}`);
+			}
+
+			let data = { '/proc/net/netstat': null, '/proc/net/snmp': null, '/proc/net/snmp6': text };
+			let looked, matched;
+
+			with_collector(netstat, every(data), (r) => assert.match(sort(want), sort(samples(r.lines)), text));
+			with_collector(netstat, { fs: { data } }, (r) => looked = r.lines);
+			with_collector(netstat, { fs: { data }, options: { fields: `(${netstat.DEFAULT_FIELDS})` } }, (r) => matched = r.lines);
+			assert.match(matched, looked, text);
+		});
+
+	// A section the kernel never names, with an underscore, is checked
+	// against the default fields by its whole field.
+	it('checks a section with an underscore against the default fields whole', () => {
+		let text = 'Tcp_X: InErrors Y\nTcp_X: 1 2\nIp_6: InOctets\nIp_6: 3\nTcpExt_ListenA: B\nTcpExt_ListenA: 4\n';
+		let data = { '/proc/net/netstat': text, '/proc/net/snmp': null, '/proc/net/snmp6': null };
+		let looked, matched;
+
+		with_collector(netstat, { fs: { data } }, (r) => looked = samples(r.lines));
+		with_collector(netstat, { fs: { data }, options: { fields: `(${netstat.DEFAULT_FIELDS})` } }, (r) => matched = samples(r.lines));
+		assert.match([ 'node_netstat_Tcp_X_InErrors 1', 'node_netstat_TcpExt_ListenA_B 4' ], looked);
+		assert.match(matched, looked);
+	});
 });
