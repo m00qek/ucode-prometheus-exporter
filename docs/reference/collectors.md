@@ -41,7 +41,7 @@ Every collector of `ucode-prometheus-exporter 0.2.1`. A collector's name is what
 | [`sockstat`](#sockstat) | Sockets | `ucode-prometheus-exporter-sockstat` | `ucode-prometheus-exporter-network`, `ucode-prometheus-exporter-full` |
 | [`softnet`](#softnet) | Network softirq statistics | `ucode-prometheus-exporter` (base) | — |
 | [`textfile`](#textfile) | Text files | `ucode-prometheus-exporter-textfile` | `ucode-prometheus-exporter-full` |
-| [`thermal`](#thermal) | Thermal zones | `ucode-prometheus-exporter-thermal` | `ucode-prometheus-exporter-hardware`, `ucode-prometheus-exporter-full` |
+| [`thermal`](#thermal) | Thermal zones and cooling devices | `ucode-prometheus-exporter-thermal` | `ucode-prometheus-exporter-hardware`, `ucode-prometheus-exporter-full` |
 | [`time`](#time) | System time | `ucode-prometheus-exporter` (base) | — |
 | [`timesync`](#timesync) | Time synchronization | `ucode-prometheus-exporter` (base) | — |
 | [`ubnt-manager`](#ubnt-manager) | Ubiquiti airOS radios | `ucode-prometheus-exporter-ubnt-manager` | — |
@@ -649,9 +649,9 @@ Metrics from \*.prom files in a directory, as node\_exporter's textfile collecto
 
 ## `thermal` {#thermal}
 
-Thermal zone temperatures from /sys/class/thermal.
+Thermal zone temperatures and cooling device states, from /sys/class/thermal.
 
-- **Title:** Thermal zones
+- **Title:** Thermal zones and cooling devices
 - **Package:** `ucode-prometheus-exporter-thermal`
 - **In the groups:** `ucode-prometheus-exporter-hardware`, `ucode-prometheus-exporter-full`
 - **Section:** `config collector 'thermal'`

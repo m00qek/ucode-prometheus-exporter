@@ -47,7 +47,7 @@ The labels are those seen on the captures; a collector leaves out a label it has
 | [`sockstat`](#sockstat) | 20 | an access point, a second router | — |
 | [`softnet`](#softnet) | 7 | an access point, a router | — |
 | [`textfile`](#textfile) | 6 | an access point, a router, a second router, made-up captures | — |
-| [`thermal`](#thermal) | 2 | an access point, a router | `node_thermal_zone_passive_celsius` |
+| [`thermal`](#thermal) | 4 | an access point, a router, made-up captures | `node_thermal_zone_passive_celsius` |
 | [`time`](#time) | 1 | an access point, a router, a second router, made-up captures | — |
 | [`timesync`](#timesync) | 4 | a second router | — |
 | [`ubnt-manager`](#ubnt-manager) | 43 | made-up captures | — |
@@ -652,12 +652,14 @@ Text files. [Collector](collectors.md#textfile).
 
 ## `thermal` {#thermal}
 
-Thermal zones. [Collector](collectors.md#thermal).
+Thermal zones and cooling devices. [Collector](collectors.md#thermal).
 
 | Family | Type | Labels | Help | Notes |
 | :--- | :--- | :--- | :--- | :--- |
 | `node_thermal_zone_temp` | gauge | `zone`, `type` | Zone temperature in Celsius | — |
 | `node_thermal_zone_info` | gauge | `zone`, `type`, `policy`, `mode` | A thermal zone, by its policy and mode. | — |
+| `node_cooling_device_cur_state` | gauge | `name`, `type` | Current throttle state of the cooling device | — |
+| `node_cooling_device_max_state` | gauge | `name`, `type` | Maximum throttle state of the cooling device | — |
 | `node_thermal_zone_passive_celsius` | gauge | `zone`, `type` | Passive trip point of the zone, in Celsius. | Listed from the code: Written for a zone with a passive trip point; no captured zone has one. |
 
 ## `time` {#time}
