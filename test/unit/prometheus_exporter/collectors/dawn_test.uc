@@ -1,8 +1,8 @@
 'use strict';
 
 import { describe, it, prop, gen, assert } from 'utest';
-import { with_collector, outcome } from 'context';
-import { rc } from 'lib.rc';
+import { with_collector, outcome } from 'prometheus_exporter.devkit.collector';
+import { rc } from 'prometheus_exporter.devkit.rc';
 import * as fixtures from 'lib.fixtures';
 import * as dawn from 'prometheus_exporter.collectors.dawn';
 

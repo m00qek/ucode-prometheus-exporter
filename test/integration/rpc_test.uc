@@ -11,7 +11,7 @@ import * as loader from 'prometheus_exporter.loader';
 import * as deps from 'prometheus_exporter.deps';
 import * as config from 'prometheus_exporter.config';
 import * as jail from 'prometheus_exporter.jail';
-import { with_mods } from 'context';
+import { with_mods } from 'prometheus_exporter.devkit.collector';
 
 const SOURCES = 'src/prometheus_exporter/collectors';
 const COLLECTORS = loader.load({ lsdir, readfile }, SOURCES, loader.import_module, (level, msg) => die(msg));

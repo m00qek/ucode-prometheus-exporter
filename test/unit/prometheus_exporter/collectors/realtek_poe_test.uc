@@ -1,7 +1,7 @@
 'use strict';
 
 import { describe, it, prop, gen, assert } from 'utest';
-import { with_collector, outcome } from 'context';
+import { with_collector, outcome } from 'prometheus_exporter.devkit.collector';
 import * as fixtures from 'lib.fixtures';
 import * as realtek_poe from 'prometheus_exporter.collectors.realtek_poe';
 

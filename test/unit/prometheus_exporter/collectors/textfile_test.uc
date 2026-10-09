@@ -2,7 +2,7 @@
 
 import { describe, it, prop, gen, assert } from 'utest';
 import * as fixtures from 'lib.fixtures';
-import { with_collector, jail_of } from 'context';
+import { with_collector, jail_of } from 'prometheus_exporter.devkit.collector';
 import * as exposition from 'prometheus_exporter.exposition';
 import * as textfile from 'prometheus_exporter.collectors.textfile';
 

@@ -10,7 +10,7 @@ RUN          = $(COMPOSE) --progress quiet run --rm $(if $(CI),-T) openwrt
 IMAGE_STAMP := devenv/.built-$(IMAGE_TAG)
 TEST_ARGS    = $(if $(FILTER),-f '$(FILTER)') $(if $(VERBOSE),-v) $(if $(TEST_TIMEOUT),-t $(TEST_TIMEOUT)) $(MODULES)
 
-.PHONY: test unit integration watch lint shell image fixtures package pkgcheck-image package-check e2e lab lab-down browser pot bench bench-src bench-worlds bench-device bench-qemu docs docs-mike docs-test docs-serve docs-gen feed-makefile
+.PHONY: test unit integration watch lint shell image fixtures package template-package pkgcheck-image package-check e2e lab lab-down browser pot bench bench-src bench-worlds bench-device bench-qemu docs docs-mike docs-test docs-serve docs-gen feed-makefile
 
 test:        $(IMAGE_STAMP) ; @$(RUN) devenv/scripts/test.sh all $(TEST_ARGS)
 unit:        $(IMAGE_STAMP) ; @$(RUN) devenv/scripts/test.sh unit $(TEST_ARGS)
@@ -39,8 +39,10 @@ PKG_DIR         := /builder/package/ucode-prometheus-exporter
 
 # fakeroot's faked closes every descriptor up to the open-file limit when it starts;
 # where the daemon's limit is unbounded (about a billion) each start takes minutes.
+# The devkit goes to bin/devkit, apart from what a router installs: the checks
+# install every ucode-prometheus-exporter-*.apk of bin as a collector or a group.
 package:
-	@mkdir -p bin && chmod a+rwx bin
+	@mkdir -p bin/devkit && chmod a+rwx bin bin/devkit
 	docker run --rm --ulimit nofile=1024:524288 \
 		-v $(CURDIR)/openwrt/ucode-prometheus-exporter/Makefile:$(PKG_DIR)/Makefile:ro \
 		-v $(CURDIR)/src:$(PKG_DIR)/src:ro \
@@ -52,7 +54,25 @@ package:
 		$(SDK_IMAGE) sh -c 'make defconfig >/dev/null && \
 			make package/ucode-prometheus-exporter/compile $(if $(VERBOSE),V=s) && \
 			find bin \( -name "ucode-prometheus-exporter*-$(PKG_FULLVERSION).apk" \
-				-o -name "luci-app-prometheus-exporter-$(PKG_FULLVERSION).apk" \) -exec cp {} /artifacts/ \;'
+				-o -name "luci-app-prometheus-exporter-$(PKG_FULLVERSION).apk" \) \
+				! -name "ucode-prometheus-exporter-devkit-*" -exec cp {} /artifacts/ \; && \
+			find bin -name "ucode-prometheus-exporter-devkit-$(PKG_FULLVERSION).apk" -exec cp {} /artifacts/devkit/ \;'
+
+# The devkit's template collector package (devkit/template), built in the SDK
+# as a collector of another package is, against this tree's release of the
+# exporter (EXPORTER_MIN), into bin/template; make e2e installs it beside the
+# exporter.
+TEMPLATE_PKG := ucode-prometheus-exporter-example
+TEMPLATE_DIR := /builder/package/$(TEMPLATE_PKG)
+
+template-package:
+	@mkdir -p bin/template && chmod a+rwx bin bin/template
+	docker run --rm --ulimit nofile=1024:524288 \
+		-v $(CURDIR)/devkit/template:$(TEMPLATE_DIR):ro \
+		-v $(CURDIR)/bin/template:/artifacts \
+		$(SDK_IMAGE) sh -c 'make defconfig >/dev/null && \
+			make package/$(TEMPLATE_PKG)/compile EXPORTER_MIN=$(call PKG_FIELD,VERSION) $(if $(VERBOSE),V=s) && \
+			rm -f /artifacts/$(TEMPLATE_PKG)-*.apk && find bin -name "$(TEMPLATE_PKG)-*.apk" -exec cp {} /artifacts/ \;'
 
 # Keyed by its inputs, the Dockerfile and the packages it installs, as IMAGE_TAG is.
 # What collectors watch, which their packages do not depend on (a monitoring
@@ -67,7 +87,7 @@ pkgcheck-image:
 		--build-arg FEED_DEPENDS="$$(devenv/scripts/package-info.sh feed-depends) $$(devenv/scripts/package-info.sh app-depends) $(WATCHED) quickjs unbound-daemon" \
 		devenv/services/pkgcheck >/dev/null
 
-# No network: the image carries the dependencies.
+# No network: the image carries the dependencies, utest for the devkit's included.
 package-check: package pkgcheck-image
 	docker run --rm $(if $(CI),,-t) --network none -e PKG_FULLVERSION=$(PKG_FULLVERSION) \
 		-e BASE_COLLECTORS="$$(devenv/scripts/package-info.sh base-collectors)" \
@@ -81,7 +101,7 @@ E2E_CONTAINER := ucode-prometheus-exporter-e2e-$(OPENWRT_ARCH)-$(OPENWRT_VERSION
 
 # The packages on a booted OpenWrt: procd as PID 1, with ubusd and netifd,
 # and ujail, which needs the container privileged. No network either.
-e2e: package pkgcheck-image
+e2e: package template-package pkgcheck-image
 	@docker rm -f $(E2E_CONTAINER) >/dev/null 2>&1 || true
 	@docker run -d --privileged --network none --name $(E2E_CONTAINER) \
 		-v $(CURDIR)/bin:/artifacts:ro -v $(CURDIR):/exporter:ro $(PKGCHECK_IMAGE) /sbin/init >/dev/null

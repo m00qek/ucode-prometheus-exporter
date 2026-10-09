@@ -1,11 +1,11 @@
 'use strict';
 
-// The collector contract as test/context.uc's with_collector holds a test to
+// The collector contract as prometheus_exporter.devkit.collector's with_collector holds a test to
 // it: on small collectors made here, each breaking one rule.
 
 import { describe, it, prop, gen, assert } from 'utest';
 import { parse_thrown } from 'utest.util';
-import { with_collector } from 'context';
+import { with_collector } from 'prometheus_exporter.devkit.collector';
 import * as Result from 'prometheus_exporter.result';
 
 function collector(name, meta, collect) {

@@ -1,7 +1,7 @@
 'use strict';
 
 import { describe, it, prop, gen, assert } from 'utest';
-import { with_collector } from 'context';
+import { with_collector } from 'prometheus_exporter.devkit.collector';
 import * as time_collector from 'prometheus_exporter.collectors.time';
 
 describe('collectors.time', () => {

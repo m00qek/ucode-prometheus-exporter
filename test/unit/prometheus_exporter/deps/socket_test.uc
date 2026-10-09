@@ -100,7 +100,7 @@ describe('deps.socket.socket_channel', () => {
 		});
 });
 
-describe('test/proxies/socket', () => {
+describe('devkit/proxies/socket', () => {
 	it('reads a reply in chunks of the size asked, then gives EOF', () => {
 		mock.inject('socket', { strict: true, data: { [CTL]: 'abcde' } }, (socket) => {
 			let s = socket.create(socket.AF_UNIX, socket.SOCK_STREAM);

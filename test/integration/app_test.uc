@@ -16,7 +16,7 @@ import * as deps from 'prometheus_exporter.deps';
 import * as exposition from 'prometheus_exporter.exposition';
 import * as config from 'prometheus_exporter.config';
 import * as fixtures from 'lib.fixtures';
-import * as commands from 'lib.commands';
+import * as commands from 'prometheus_exporter.devkit.commands';
 import * as lockable from 'lib.lockable';
 
 const SOURCES = 'src/prometheus_exporter/collectors';

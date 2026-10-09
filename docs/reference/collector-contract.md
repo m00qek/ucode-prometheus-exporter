@@ -55,7 +55,7 @@ Nothing it may read is writable.
 
 ### In the tests
 
-`test/context.uc`'s `with_collector` runs a collector's test in the filesystem the service's jail gives it: the jail's mounts for its `meta`, and what every jail has (`jail.COMMON`: procfs, sysfs, the log's and ubus's sockets, ujail's devices and `/etc/resolv.conf`, the exporter's code, ucode's modules and libraries, the shell, the exporter's own config and state). Whatever the fs and socket mocks hold, an access outside them answers as in the jail:
+The devkit's `with_collector` (`prometheus_exporter.devkit.collector`, see [The devkit](devkit.md)) runs a collector's test in the filesystem the service's jail gives it: the jail's mounts for its `meta`, and what every jail has (`jail.COMMON`: procfs, sysfs, the log's and ubus's sockets, ujail's devices and `/etc/resolv.conf`, the exporter's code, ucode's modules and libraries, the shell, the exporter's own config and state). Whatever the fs and socket mocks hold, an access outside them answers as in the jail:
 
 | Access | Answers |
 | :--- | :--- |

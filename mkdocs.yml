@@ -77,6 +77,8 @@ nav:
           - Monitoring SQM and CAKE: how-to/sqm-cake.md
           - Using the LuCI App: how-to/luci.md
           - Troubleshooting: how-to/troubleshoot.md
+      - Collector Authors:
+          - Writing a Collector in Your Own Package: how-to/collector-package.md
       - Developer:
           - Running the Tests: how-to/developer/testing.md
           - Using the Lab: how-to/developer/lab.md
@@ -106,6 +108,7 @@ nav:
       - The Jail: reference/jail.md
       - Collector Interface: reference/collector-interface.md
       - Collector Contract: reference/collector-contract.md
+      - The Devkit: reference/devkit.md
       - Log Messages: reference/log-messages.md
       - Error Codes: reference/error-codes.md
       - Files and Packages: reference/files.md

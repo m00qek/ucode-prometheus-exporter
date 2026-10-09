@@ -1,9 +1,9 @@
 'use strict';
 
 import { describe, it, prop, gen, assert } from 'utest';
-import { with_collector } from 'context';
+import { with_collector } from 'prometheus_exporter.devkit.collector';
 import * as fixtures from 'lib.fixtures';
-import * as commands from 'lib.commands';
+import * as commands from 'prometheus_exporter.devkit.commands';
 import * as qdisc from 'prometheus_exporter.collectors.qdisc';
 
 const TC = commands.line([ 'tc', '-s', '-j', 'qdisc', 'show' ]);

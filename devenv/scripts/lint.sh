@@ -9,8 +9,9 @@ fail() { echo "  in $1" >&2; status=1; }
 
 # Modules are loaded, not only compiled: `ucode -c` accepts a named import the
 # module does not export, loading does not. So every native function
-# prometheus_exporter.deps takes by name is checked against this ucode.
-for f in $(find src -name '*.uc'); do
+# prometheus_exporter.deps takes by name is checked against this ucode. The
+# devkit's mock proxies are programs, compiled below.
+for f in $(find src -name '*.uc' ! -path 'src/prometheus_exporter/devkit/proxies/*'); do
 	ucode -L "$src" -e "import * as _ from '$PWD/$f';" || fail "$f"
 done
 
@@ -36,14 +37,14 @@ ucode -e "import { md5 } from 'digest'; exit(md5('') == 'd41d8cd98f00b204e980099
 
 # Tests import utest's mocks, which exist only while utest runs: compile them.
 importer=$(mktemp)
-for f in $(find test -name '*.uc' ! -name utest.config.uc ! -path 'test/proxies/*' ! -path test/bench/handler.uc); do
+for f in $(find test devkit/template/test -name '*.uc' ! -name utest.config.uc ! -path test/bench/handler.uc); do
 	echo "import * as _ from '$PWD/$f';" >"$importer"
-	ucode -L "$src" -L "$PWD/test" -L "$scripts" -c -o /dev/null "$importer" || fail "$f"
+	ucode -L "$src" -L "$PWD/test" -L "$scripts" -L "$PWD/devkit/template/src" -c -o /dev/null "$importer" || fail "$f"
 done
 rm -f "$importer"
 
-# Programs: the utest config and proxies return at top level; the handlers are templates.
-for f in test/utest.config.uc test/proxies/*.uc devenv/scripts/*.uc; do
+# Programs: the utest configs and the devkit's proxies return at top level; the handlers are templates.
+for f in test/utest.config.uc devkit/template/test/utest.config.uc src/prometheus_exporter/devkit/proxies/*.uc devenv/scripts/*.uc; do
 	ucode -L "$src" -L "$scripts" -c -o /dev/null "$f" || fail "$f"
 done
 ucode -L "$src" -T -c -o /dev/null files/usr/libexec/prometheus-exporter/handler.uc ||

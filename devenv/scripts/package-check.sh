@@ -151,9 +151,10 @@ for f in $PLUGIN $RPC_MODULE $STATUS_HELPER; do
 	check "the base package ships $f" grep -qx "$f" "$BASE_LIST"
 	check "$f parses" parses "$f"
 done
-# Every module of the source tree but the collectors, the subdirectories split
-# out of a module (exposition/ ...) included: shipped, and each loads.
-library() { cd /exporter/src && find prometheus_exporter -name '*.uc' ! -path 'prometheus_exporter/collectors/*' | sort; }
+# Every module of the source tree but the collectors and the devkit (a package
+# of its own), the subdirectories split out of a module (exposition/ ...)
+# included: shipped, and each loads.
+library() { cd /exporter/src && find prometheus_exporter -name '*.uc' ! -path 'prometheus_exporter/collectors/*' ! -path 'prometheus_exporter/devkit/*' | sort; }
 ships_library() { for f in $(library); do grep -qx "/usr/share/ucode/$f" "$BASE_LIST" || return 1; done; }
 library_loads() { for f in $(library); do parses "/usr/share/ucode/$f" || return 1; done; }
 check "the base package ships every module of the exporter, in their directories" ships_library
@@ -207,6 +208,38 @@ interfaces_are_netifds() {
 		/exporter/test/fixtures/caju-router/ubus/network.interface.dump.json
 }
 check "interfaces lists netifd's interfaces, by name and protocol" interfaces_are_netifds
+
+# ---- ucode-prometheus-exporter-devkit ----
+# What a collector of another package is tested with: installed beside the
+# exporter, it runs the template collector's tests (devkit/template) as that
+# package's own CI would, and `collector check` passes the template.
+DEVKIT=/artifacts/devkit/$PKG-devkit-$PKG_FULLVERSION.apk
+DEVKIT_DIR=/usr/share/ucode/prometheus_exporter/devkit
+DEVKIT_LIST=/lib/apk/packages/$PKG-devkit.list
+devkit_modules() { cd /exporter/src && find prometheus_exporter/devkit -maxdepth 1 -name '*.uc' | sort; }
+ships_devkit() {
+	for f in $(devkit_modules) $(cd /exporter/src && ls prometheus_exporter/devkit/proxies/*.uc); do
+		grep -qx "/usr/share/ucode/$f" "$DEVKIT_LIST" || return 1
+	done
+}
+devkit_loads() { for f in $(devkit_modules); do parses "/usr/share/ucode/$f" || return 1; done; }
+devkit_pins_exporter() { apk adbdump "$DEVKIT" | grep -qx "    - $PKG=$PKG_FULLVERSION"; }
+template_tests() {
+	rm -rf /tmp/template && cp -r /exporter/devkit/template /tmp/template &&
+	(cd /tmp/template && utest -c test/utest.config.uc test >/tmp/template-tests.log 2>&1)
+}
+
+[ -f "$DEVKIT" ] || fail "no $DEVKIT (run make package)"
+check "the devkit pins the exporter's version" devkit_pins_exporter
+check "the devkit installs offline" apk add --allow-untrusted --no-network "$DEVKIT"
+check "it ships its modules and the mocks' proxies" ships_devkit
+check "each of its modules loads" devkit_loads
+check "and depends on utest" depends_on "$PKG-devkit" ucode-utest
+check "the template collector's tests pass on it, from its own config" template_tests
+check "collector check passes the template collector" \
+	$NAME collector check /tmp/template/src/prometheus_exporter/collectors/example.uc
+check "the base package ships nothing of it" sh -c "! grep -q '$DEVKIT_DIR' '$BASE_LIST'"
+[ -f /tmp/template-tests.log ] && { tail -3 /tmp/template-tests.log | sed 's/^/info /'; }
 
 # ---- luci-app-prometheus-exporter ----
 # The LuCI app on top of the exporter: its views, menu, resource and ACL, and its

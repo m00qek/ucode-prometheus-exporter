@@ -1,6 +1,6 @@
 # Write Your First Collector
 
-In this tutorial we will write a collector, `tasks`, that counts the tasks the kernel has, from `/proc/loadavg`. We will run it on the command line, test it, package it, and see it served by OpenWrt in the lab, in LuCI and at `/metrics`. Along the way we will meet the development environment: `make shell`, `make test`, `test/context.uc`, `make docs-gen` and `make lab`.
+In this tutorial we will write a collector, `tasks`, that counts the tasks the kernel has, from `/proc/loadavg`. We will run it on the command line, test it, package it, and see it served by OpenWrt in the lab, in LuCI and at `/metrics`. Along the way we will meet the development environment: `make shell`, `make test`, the devkit's `with_collector`, `make docs-gen` and `make lab`.
 
 It takes about half an hour, most of it waiting for builds. At the end we will remove what we made: this collector is practice.
 
@@ -135,13 +135,13 @@ Every line is `ok`: it imports the API alone, its top level only declares, it lo
 
 ## 5. Test it
 
-Tests run the collector the way a scrape does, with fakes in place of the system: `test/context.uc` gives them. Create `test/unit/prometheus_exporter/collectors/tasks_test.uc`:
+Tests run the collector the way a scrape does, with fakes in place of the system: the devkit's `with_collector` gives them, the same a collector of another package is tested with. Create `test/unit/prometheus_exporter/collectors/tasks_test.uc`:
 
 ```js
 'use strict';
 
 import { describe, it, assert } from 'utest';
-import { with_collector } from 'context';
+import { with_collector } from 'prometheus_exporter.devkit.collector';
 import * as tasks from 'prometheus_exporter.collectors.tasks';
 
 describe('collectors.tasks', () => {
@@ -275,7 +275,7 @@ make docs-gen
 
 ## What we did
 
-We wrote a collector that asks for one capability and writes two families, ran it on the command line, checked it keeps the collector contract, tested it with `test/context.uc`'s fakes, gave it a package, generated its reference, and saw it served by OpenWrt in its jail and listed in LuCI.
+We wrote a collector that asks for one capability and writes two families, ran it on the command line, checked it keeps the collector contract, tested it with the devkit's fakes, gave it a package, generated its reference, and saw it served by OpenWrt in its jail and listed in LuCI.
 
 ## Next
 
@@ -284,3 +284,4 @@ We wrote a collector that asks for one capability and writes two families, ran i
 - [About nothing to observe](../explanation/nothing-to-observe.md): when a collector should answer `Result.none`.
 - [How to capture fixtures from a device](../how-to/developer/fixtures.md): to test on what a real router answers.
 - [How to package a collector](../how-to/developer/package-collector.md) and [How to run the benchmark](../how-to/developer/benchmarks.md).
+- [How to write a collector in your own package](../how-to/collector-package.md): the same, outside the exporter's tree.

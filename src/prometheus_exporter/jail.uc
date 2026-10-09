@@ -131,7 +131,7 @@ export const GIVEN = [
  * config and its state, which the init script mounts read-write. Nothing
  * else is there but what the enabled collectors declare: a collector reads
  * these without declaring them, though only procfs and sysfs are meant for
- * it. test/context.uc runs a collector's tests in a filesystem of these and
+ * it. prometheus_exporter.devkit.collector runs a collector's tests in a filesystem of these and
  * its own mounts, and a test holds the init script to them.
  *
  * @type {string[]}

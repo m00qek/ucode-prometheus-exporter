@@ -213,7 +213,7 @@ A need the system lacks (`nl80211`, `socket`) fails the collector with `NEED_MIS
 
 Every collector has a unit test, `test/unit/prometheus_exporter/collectors/<module>_test.uc`, and a package: in the base package's `BASE_COLLECTORS`, or a `Collector` line of the package Makefile that depends on what its `needs` and `commands` call for. `test/integration/collectors_test.uc` holds every collector to both. See [How to package a collector](../how-to/developer/package-collector.md).
 
-A unit test runs the collector with `test/context.uc`'s `with_collector`, which fails the test when the collector touches a path, a socket or a program its `meta` does not declare: see [Collector contract](collector-contract.md#in-the-tests).
+A unit test runs the collector with the devkit's `with_collector` (`prometheus_exporter.devkit.collector`), which fails the test when the collector touches a path, a socket or a program its `meta` does not declare: see [Collector contract](collector-contract.md#in-the-tests) and [The devkit](devkit.md). A collector of another package is tested the same way, with `ucode-prometheus-exporter-devkit`: see [How to write a collector in your own package](../how-to/collector-package.md).
 
 ## See also
 

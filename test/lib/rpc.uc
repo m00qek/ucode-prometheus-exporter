@@ -11,7 +11,7 @@ import * as config from 'prometheus_exporter.config';
 import * as jail from 'prometheus_exporter.jail';
 import * as Result from 'prometheus_exporter.result';
 import * as fixtures from 'lib.fixtures';
-import { with_mods } from 'context';
+import { with_mods } from 'prometheus_exporter.devkit.collector';
 
 export const NAME = config.NAME;
 

@@ -2,7 +2,7 @@
 
 import { describe, it, prop, gen, assert } from 'utest';
 import * as fixtures from 'lib.fixtures';
-import { with_collector } from 'context';
+import { with_collector } from 'prometheus_exporter.devkit.collector';
 import * as thermal from 'prometheus_exporter.collectors.thermal';
 
 const ATTRS = [ 'type', 'policy', 'temp', 'mode', 'passive' ];

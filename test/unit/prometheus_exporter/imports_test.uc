@@ -165,7 +165,7 @@ describe('modules split into a directory', () => {
 		assert.match(true, length(filter([
 			'files/usr/libexec/prometheus-exporter/handler.uc', 'files/usr/bin/prometheus-exporter',
 			'files/usr/share/rpcd/ucode/prometheus-exporter.uc', 'devenv/scripts/docs_gen/harvest.uc',
-			'devenv/scripts/package-check.sh', 'test/lib/commands.uc', 'test/context.uc',
+			'devenv/scripts/package-check.sh', 'src/prometheus_exporter/devkit/commands.uc', 'src/prometheus_exporter/devkit/collector.uc',
 		], (p) => !(p in scanned))) == 0);
 		assert.match(true, 'exposition' in facades() && !('collectors' in facades()));
 	});

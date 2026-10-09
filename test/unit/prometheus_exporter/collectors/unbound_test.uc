@@ -1,8 +1,8 @@
 'use strict';
 
 import { describe, it, prop, gen, assert, contains } from 'utest';
-import { with_collector, jail_of, outcome } from 'context';
-import { rc } from 'lib.rc';
+import { with_collector, jail_of, outcome } from 'prometheus_exporter.devkit.collector';
+import { rc } from 'prometheus_exporter.devkit.rc';
 import * as fixtures from 'lib.fixtures';
 import * as unbound from 'prometheus_exporter.collectors.unbound';
 import { format_value } from 'prometheus_exporter.exposition';

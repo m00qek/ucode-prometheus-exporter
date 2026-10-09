@@ -302,6 +302,22 @@ eventually "textfile reads its directory in the jail" metric 'e2e_textfile_value
 check "nft-counters runs nft in the jail" served nft-counters
 check "and reads the counters" metric 'nft_counter_packets_total{.*name="e2e_hits"'
 
+# --- a collector of another package: the devkit's template (make template-package)
+# Built in the SDK as a third party builds one, installed beside the exporter's
+# packages, served from the service's jail, then removed.
+TEMPLATE=$(ls /artifacts/template/ucode-prometheus-exporter-example-*.apk 2>/dev/null | head -1)
+before=$(pid)
+check "the template collector's package installs offline beside the exporter" apk add --allow-untrusted --no-network "$TEMPLATE"
+eventually "which restarts the instance" restarted_from "$before"
+eventually "its collector is served from the jail" served example
+check "with its samples" metric 'example_uptime_seconds_total [0-9]'
+check "collector check passes it" $NAME collector check /usr/share/ucode/prometheus_exporter/collectors/example.uc
+check "the ubus object lists it, by its package" sh -c "rpc collectors | jsonfilter -e \"@.collectors[@.name='example'].package\" | grep -qx ucode-prometheus-exporter-example"
+before=$(pid)
+check "it removes cleanly" apk del ucode-prometheus-exporter-example
+eventually "which restarts the instance" restarted_from "$before"
+eventually "without it" not_served example
+
 # --- the service's user, with every collector
 # nft's netlink dump takes CAP_NET_ADMIN (bit 12), which nft-counters
 # declares: the jail has it, in every set, and nothing else. nat_traffic's

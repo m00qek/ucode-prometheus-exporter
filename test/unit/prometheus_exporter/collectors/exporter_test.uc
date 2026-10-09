@@ -1,7 +1,7 @@
 'use strict';
 
 import { describe, it, prop, gen, assert, contains, mock } from 'utest';
-import { with_collector } from 'context';
+import { with_collector } from 'prometheus_exporter.devkit.collector';
 import * as exporter from 'prometheus_exporter.collectors.exporter';
 import * as deps from 'prometheus_exporter.deps';
 import * as exposition from 'prometheus_exporter.exposition';

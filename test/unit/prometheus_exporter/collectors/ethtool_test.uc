@@ -1,9 +1,9 @@
 'use strict';
 
 import { describe, it, prop, gen, assert, contains } from 'utest';
-import { with_collector } from 'context';
+import { with_collector } from 'prometheus_exporter.devkit.collector';
 import * as fixtures from 'lib.fixtures';
-import * as commands from 'lib.commands';
+import * as commands from 'prometheus_exporter.devkit.commands';
 import * as exposition from 'prometheus_exporter.exposition';
 import * as ethtool from 'prometheus_exporter.collectors.ethtool';
 

@@ -68,6 +68,10 @@ All are on tmpfs: none survives a reboot.
 
 `ucode-prometheus-exporter-network`, `-wireless`, `-hardware` and `-full` install no files: each depends on its collectors' packages. Removing a group from a device's world lets apk remove its collectors too. Which collectors each holds is in [Collectors](collectors.md#packages).
 
+## `ucode-prometheus-exporter-devkit`
+
+What a collector is tested with, under utest: `/usr/share/ucode/prometheus_exporter/devkit/`, its modules, and `devkit/proxies/`, the mocks' proxies. Depends on the base package of the same release, `ucode-utest`, `ucode-mod-nl80211` and `ucode-mod-socket`. For a development machine or a CI image, not a router: see [The devkit](devkit.md).
+
 ## `luci-app-prometheus-exporter`
 
 LuCI's pages for the exporter. Depends on `luci-base` and the base package. Its files are in [LuCI app](luci.md#files). Installing and removing it clears LuCI's caches and reloads rpcd.
@@ -78,6 +82,8 @@ LuCI's pages for the exporter. Depends on `luci-base` and the base package. Its 
 | :--- | :--- |
 | `src/prometheus_exporter/` | The modules, installed to `/usr/share/ucode/prometheus_exporter/`. |
 | `src/prometheus_exporter/collectors/` | The collectors. |
+| `src/prometheus_exporter/devkit/` | The devkit, installed by its own package: what the tests of every collector run on. |
+| `devkit/template/` | The template of a collector in a package of its own: its Makefile, module, test and fixtures. |
 | `files/` | What the base package installs besides the modules. |
 | `luci/` | The LuCI app. |
 | `openwrt/ucode-prometheus-exporter/Makefile` | The package Makefile. |

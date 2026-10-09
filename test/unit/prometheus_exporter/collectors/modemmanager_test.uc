@@ -1,10 +1,10 @@
 'use strict';
 
 import { describe, it, prop, gen, assert, contains } from 'utest';
-import { with_collector, jail_of, outcome } from 'context';
-import { rc } from 'lib.rc';
+import { with_collector, jail_of, outcome } from 'prometheus_exporter.devkit.collector';
+import { rc } from 'prometheus_exporter.devkit.rc';
 import * as fixtures from 'lib.fixtures';
-import * as commands from 'lib.commands';
+import * as commands from 'prometheus_exporter.devkit.commands';
 import * as modemmanager from 'prometheus_exporter.collectors.modemmanager';
 
 // Neither caju device has a cellular modem. An LTE modem as mmcli prints it with

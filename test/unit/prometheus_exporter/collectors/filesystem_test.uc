@@ -2,7 +2,7 @@
 
 import { describe, it, prop, gen, assert } from 'utest';
 import * as fixtures from 'lib.fixtures';
-import { with_collector } from 'context';
+import { with_collector } from 'prometheus_exporter.devkit.collector';
 import * as filesystem from 'prometheus_exporter.collectors.filesystem';
 
 // The host's mount table, as rpcd's file read gives it.

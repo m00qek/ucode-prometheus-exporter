@@ -20,6 +20,16 @@ A collector imports one module, `prometheus_exporter.api`, and the loader refuse
 
 Without that rule, every module a collector happened to import would be a promise, and the core could not move a function without a major version, or would break a collector of someone else's package without knowing. The API lists, name by name, what is promised; the rest is free.
 
+What a collector of another package builds on is, all of it:
+
+- **The collector API**: `Result`, `errors`, `services`, `proc` (`rows` among them), `exposition`, `u16` and `u32`, each name it exports.
+- **The recorder, `out`**: `gauge`, `counter`, `untyped`, `batch`, `labels` and `parse`, and what each records.
+- **`meta`**: its fields and what each means, those the jail derives grants from (`paths`, `configs`, `commands`, `ubus`, `capabilities`, `groups`, `proc_files`) included; and `deps`, each capability's functions.
+- **The rules a module is loaded by**: strict mode, the API alone, and [a top level that only declares](../reference/collector-interface.md#the-top-level), with the functions it may call there.
+- **The devkit**, what a collector's tests build on: [its modules' exports](../reference/devkit.md), `with_collector`'s config and run, and its proxies' keys and channels.
+
+0.3.0 froze them for 1.0: a later 0.x adds to them, and only a major version breaks one. So a collector package depends on the exporter's major from 1.0 (`>=1.0.0`), and on 0.3.0 or later before it, rather than on the exact release the exporter's own packages pin.
+
 ## Before 1.0.0
 
 Before 1.0.0, a minor version may break any of these, and says so. The project is young, the metric names and the configuration are still settling, and holding them fixed now would freeze mistakes. 1.0.0 is meant to be the first release to OpenWrt's packages feed, with the metric names and the configuration settled: from then on, a break is a major version.

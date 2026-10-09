@@ -5,7 +5,7 @@ import * as conform from 'prometheus_exporter.conform';
 import * as loader from 'prometheus_exporter.loader';
 import * as deps from 'prometheus_exporter.deps';
 import * as Result from 'prometheus_exporter.result';
-import { with_mods } from 'context';
+import { with_mods } from 'prometheus_exporter.devkit.collector';
 
 const STRICT = "'use strict';\n";
 

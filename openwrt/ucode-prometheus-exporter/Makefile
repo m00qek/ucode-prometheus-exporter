@@ -287,3 +287,30 @@ define Package/$(LUCI_APP)/install
 endef
 
 $(eval $(call BuildPackage,$(LUCI_APP)))
+
+# ---- ucode-prometheus-exporter-devkit ----------------------------------------
+# What a collector of another package is tested with, under utest: with_collector,
+# its jail check and its mocks, the programs, fixtures and rpcd's rc
+# (prometheus_exporter.devkit). For a development machine or a CI image, not a
+# router. It runs on the exporter's modules, so it pins the exporter's release.
+define Package/$(PKG_NAME)-devkit
+  $(call Package/$(PKG_NAME)/Default)
+  TITLE+= (collector development kit)
+  DEPENDS:=+$(PKG_NAME) +ucode-utest +ucode-mod-nl80211 +ucode-mod-socket
+  EXTRA_DEPENDS:=$(PKG_NAME) (=$(PKG_VERSION)-r$(PKG_RELEASE))
+endef
+
+define Package/$(PKG_NAME)-devkit/description
+  The test helpers for writing a collector in a package of your own:
+  with_collector, which runs a collector as a scrape does and fails a test
+  whose collector touches what its meta does not declare, and the mocks it
+  builds capabilities from, for utest.
+endef
+
+define Package/$(PKG_NAME)-devkit/install
+	$(INSTALL_DIR) $(1)$(MODULES_DIR)/devkit/proxies
+	$(INSTALL_DATA) ./src/prometheus_exporter/devkit/*.uc $(1)$(MODULES_DIR)/devkit/
+	$(INSTALL_DATA) ./src/prometheus_exporter/devkit/proxies/*.uc $(1)$(MODULES_DIR)/devkit/proxies/
+endef
+
+$(eval $(call BuildPackage,$(PKG_NAME)-devkit))

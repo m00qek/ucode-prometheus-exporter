@@ -8,7 +8,7 @@ import * as jail from 'prometheus_exporter.jail';
 import * as config from 'prometheus_exporter.config';
 import * as Result from 'prometheus_exporter.result';
 import * as ledger from 'prometheus_exporter.ledger';
-import { with_mods } from 'context';
+import { with_mods } from 'prometheus_exporter.devkit.collector';
 
 function collector(name, collect, meta) {
 	let res = loader.validate(loader.id_of(name), { meta: { name, title: 'Test', help: 'Test.', needs: [], ...meta }, collect });
