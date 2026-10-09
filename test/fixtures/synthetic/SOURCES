@@ -86,9 +86,15 @@
 # sockets/unbound.stats_noreset.txt
 #   Unbound 1.26.1's (OpenWrt 25.12's) reply to `UBCT1 stats_noreset` on its
 #   control socket, what `unbound-control stats_noreset` prints: num-threads 2
-#   (the UCI's num_threads), no dnscrypt and no extended-statistics (OpenWrt's
-#   defaults). Lines and number formats: daemon/remote.c's do_stats(),
-#   print_stats() and print_uptime(); the totals as daemon/stats.c's
+#   (the UCI's num_threads), no dnscrypt, and extended-statistics (the UCI's
+#   extended_stats '1'; OpenWrt's default is '0', which ends the reply at
+#   time.elapsed). Lines and number formats: daemon/remote.c's do_stats(),
+#   print_stats(), print_uptime(), and with extended-statistics print_mem(),
+#   print_hist() (40 buckets of util/timehist.c, doubling from 1 us, each a
+#   range: the recursion times of the 6106 recursive replies) and print_ext()
+#   (the types, classes, opcodes and rcodes no query had left out, as
+#   stat_inhibit_zero does but for rcodes 0 to 5; the queries' types and
+#   rcodes summing to total.num.queries); the totals as daemon/stats.c's
 #   server_stats_add() makes them (sums, the maximum for the .max counters,
 #   the mean of the thread medians); the counters' meaning:
 #   doc/unbound-control.rst, "Statistic Counters".

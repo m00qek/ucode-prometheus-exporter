@@ -720,6 +720,14 @@ before=$(pid)
 /etc/init.d/unbound restart >/dev/null 2>&1
 eventually "a restarted unbound's new socket is read in the same jail" served unbound
 check "without restarting the exporter" test "$(pid)" = "$before"
+# With extended-statistics (the UCI's extended_stats): unbound's own lines,
+# as the collector reads them. Its histogram, the caches' memory and rcodes 0
+# to 5 are there before any query.
+uci set unbound.ub_main.extended_stats=1 && uci commit unbound
+/etc/init.d/unbound restart >/dev/null 2>&1
+eventually "unbound's extended statistics are read" metric 'unbound_response_time_seconds_count '
+check "the caches' memory" metric 'unbound_memory_caches_bytes{cache="rrset"} '
+check "and the answers by rcode" metric 'unbound_answer_rcodes_total{rcode="NOERROR"} '
 
 # --- the config
 before=$(pid)

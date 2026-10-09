@@ -178,6 +178,11 @@ export const family_notes = {
 		match: (n) => n == 'node_nat_traffic_bytes',
 		note: '`peer` with the `peers` option only: a series per host and peer, which come and go with the connections.',
 	} ],
+	'unbound': [ {
+		match: (n) => match(n, /^unbound_(memory_|answer|rrset_|unwanted_|msg_cache|infra_cache|key_cache|response_time|rpz_)/) ||
+			(match(n, /^unbound_query_/) && n != 'unbound_query_queue_time_seconds_max'),
+		note: 'With `extended-statistics: yes` in unbound\'s config only (the UCI\'s `extended_stats`); see [How to monitor Unbound](../how-to/unbound.md#extended-statistics).',
+	} ],
 	'chrony': [ {
 		match: (n) => match(n, /^chrony_serverstats_/),
 		note: 'Never at `/metrics`: written outside the jail only, as by the `prometheus-exporter` command, where chronyd serves time (an `allow` section in `/etc/config/chrony`).',

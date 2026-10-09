@@ -1,6 +1,6 @@
 'use strict';
 
-import { describe, it, prop, gen, assert } from 'utest';
+import { describe, it, prop, gen, assert, contains } from 'utest';
 import { with_collector, jail_of, outcome } from 'context';
 import { rc } from 'lib.rc';
 import * as fixtures from 'lib.fixtures';
@@ -8,8 +8,21 @@ import * as unbound from 'prometheus_exporter.collectors.unbound';
 import { format_value } from 'prometheus_exporter.exposition';
 
 // What unbound 1.26.1 (OpenWrt 25.12's) answers stats_noreset with num-threads 2
-// and no extended statistics; see test/fixtures/synthetic/SOURCES.
-const STATS = fixtures.file('synthetic', '/sockets/unbound.stats_noreset.txt');
+// and extended statistics; see test/fixtures/synthetic/SOURCES.
+const EXTENDED = fixtures.file('synthetic', '/sockets/unbound.stats_noreset.txt');
+
+// The same without them, as OpenWrt's default config has it: up to time.elapsed.
+function basic(reply) {
+	let lines = split(reply, '\n');
+	let end = 0;
+
+	while (substr(lines[end], 0, 13) != 'time.elapsed=')
+		end++;
+
+	return join('\n', slice(lines, 0, end + 1)) + '\n';
+}
+
+const STATS = basic(EXTENDED);
 const CTL = '/var/lib/unbound/unbound.ctl';
 
 // The families: [ key (without threadN. for a thread's), name, type ].
@@ -179,14 +192,91 @@ describe('collectors.unbound', () => {
 		});
 	});
 
-	it('ignores the total, time, extended and unknown counters, and carriage returns', () => {
+	it('ignores the total, time and unknown counters, and carriage returns', () => {
 		let reply = 'thread0.num.queries=99\r\ntotal.num.queries=5\r\ntime.up=86412.500113\r\n' +
-			'histogram.000000.000000.to.000000.000001=0\r\nnum.query.type.A=4\r\nthread0.tcpusage=3\r\n' +
+			'mem.streamwait=0\r\nmsg.cache.max_collisions=1\r\nthread0.tcpusage=3\r\n' +
 			'thread0.num.a_counter_unbound_adds_later=8\r\nthread0.num.cachemiss=2\r\n';
 
 		with_reply(reply, (r) => {
 			assert.match(true, r.result.ok);
 			assert.match([ 'unbound_queries_total{thread="0"} 99', 'unbound_cache_misses_total{thread="0"} 2' ], samples(r.lines));
+		});
+	});
+
+	it("exports the extended statistics of a reply that has them, with unbound_exporter's names", () => {
+		with_reply(EXTENDED, (r) => {
+			let names = map(r.families, (f) => f.name);
+
+			assert.match(true, r.result.ok);
+			assert.match([
+				'unbound_memory_caches_bytes', 'unbound_memory_modules_bytes', 'unbound_query_types_total', 'unbound_query_classes_total',
+				'unbound_query_opcodes_total', 'unbound_query_tcp_total', 'unbound_query_tcpout_total', 'unbound_query_udpout_total',
+				'unbound_query_tls_total', 'unbound_query_tls_resume_total', 'unbound_query_https_total', 'unbound_query_ipv6_total',
+				'unbound_query_flags_total', 'unbound_query_edns_present_total', 'unbound_query_edns_DO_total', 'unbound_answer_rcodes_total',
+				'unbound_answers_secure_total', 'unbound_answers_bogus_total', 'unbound_rrset_bogus_total', 'unbound_query_aggressive_nsec_total',
+				'unbound_unwanted_queries_total', 'unbound_unwanted_replies_total', 'unbound_msg_cache_count', 'unbound_rrset_cache_count',
+				'unbound_infra_cache_count', 'unbound_key_cache_count', 'unbound_query_authzone_up_total', 'unbound_query_authzone_down_total',
+				'unbound_response_time_seconds',
+			], slice(names, length(FAMILIES)));
+			assert.match(contains([
+				'# TYPE unbound_memory_caches_bytes gauge',
+				'unbound_memory_caches_bytes{cache="rrset"} 2105348',
+				'unbound_memory_caches_bytes{cache="message"} 1340292',
+				'unbound_memory_modules_bytes{module="iterator"} 16588',
+				'unbound_query_types_total{type="A"} 20113',
+				'unbound_query_types_total{type="HTTPS"} 3104',
+				'unbound_query_classes_total{class="IN"} 36247',
+				'unbound_query_opcodes_total{opcode="QUERY"} 36247',
+				'unbound_query_tcp_total 41',
+				'unbound_query_flags_total{flag="RD"} 36247',
+				'unbound_query_edns_DO_total 1876',
+				'unbound_answer_rcodes_total{rcode="NOERROR"} 34877',
+				'unbound_answer_rcodes_total{rcode="nodata"} 2930',
+				'unbound_answers_secure_total 1209',
+				'unbound_query_aggressive_nsec_total{rcode="NXDOMAIN"} 37',
+				'unbound_unwanted_replies_total 3',
+				'# TYPE unbound_msg_cache_count gauge',
+				'unbound_msg_cache_count 4120',
+				'unbound_key_cache_count 97',
+			]), r.lines);
+		});
+	});
+
+	it("sums unbound's histogram of recursion times into Prometheus's, as unbound_exporter does", () => {
+		with_reply(EXTENDED, (r) => {
+			let lines = filter(r.lines, (l) => match(l, /^unbound_response_time_seconds/));
+
+			assert.match(43, length(lines));
+			assert.match(contains([
+				'unbound_response_time_seconds_bucket{le="1e-06"} 0',
+				'unbound_response_time_seconds_bucket{le="0.001024"} 2',
+				'unbound_response_time_seconds_bucket{le="0.002048"} 33',
+				'unbound_response_time_seconds_bucket{le="0.524288"} 6037',
+				'unbound_response_time_seconds_bucket{le="1"} 6089',
+				'unbound_response_time_seconds_bucket{le="4"} 6106',
+				'unbound_response_time_seconds_bucket{le="524288"} 6106',
+				'unbound_response_time_seconds_bucket{le="+Inf"} 6106',
+				'unbound_response_time_seconds_sum 426.711704',
+				'unbound_response_time_seconds_count 6106',
+			]), lines);
+		});
+	});
+
+	it('writes the histogram of any buckets, in the order of their bounds', () => {
+		assert.match('# HELP unbound_response_time_seconds Query response time in seconds.\n' +
+			'# TYPE unbound_response_time_seconds histogram\n' +
+			'unbound_response_time_seconds_bucket{le="0.5"} 3\n' +
+			'unbound_response_time_seconds_bucket{le="2"} 4\n' +
+			'unbound_response_time_seconds_bucket{le="+Inf"} 4\n' +
+			'unbound_response_time_seconds_sum 1\n' +
+			'unbound_response_time_seconds_count 4\n', unbound.histogram([ [ 2, 1 ], [ 0.5, 3 ] ], 0.25));
+		assert.match(null, unbound.histogram([], 0.25));
+	});
+
+	it('fails with SOURCE_INVALID for a bucket that is not a number, keeping the rest', () => {
+		with_reply('thread0.num.queries=5\nhistogram.000000.000000.to.000000.000001=x\nnum.query.tcp=2\n', (r) => {
+			assert.match({ ok: false, error: 'SOURCE_INVALID', details: `${CTL}: "histogram.000000.000000.to.000000.000001=x"` }, brief(r.result));
+			assert.match([ 'unbound_queries_total{thread="0"} 5', 'unbound_query_tcp_total 2' ], samples(r.lines));
 		});
 	});
 
