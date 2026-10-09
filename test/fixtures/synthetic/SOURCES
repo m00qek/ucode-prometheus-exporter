@@ -42,6 +42,15 @@
 #   transmit throttling, named after its wiphy (phy0; max_state 99,
 #   MT7915_CDEV_THROTTLE_MAX of mt76's mt7915.h). Attributes:
 #   Documentation/driver-api/thermal/sysfs-api.rst, "Cooling device attributes".
+# proc/interrupts
+#   An MT7981 access point's (two Cortex-A53s, a GICv3, OpenWrt 25.12's 6.12),
+#   which neither device's captures hold: the timer, UART, SPI, I2C, the
+#   Ethernet frame engine's two queues, the switch, USB, the radio, and a GPIO
+#   button on the pinctrl's EINT. Layout: show_interrupts() in
+#   kernel/irq/proc.c (a "%*d:" name, "%10u " per CPU, the chip, its hwirq,
+#   the trigger and the actions' names) and arm64's arch_show_interrupts()
+#   in arch/arm64/kernel/smp.c (IPI0 to IPI7 and their descriptions, and Err
+#   with a single count).
 # proc/pressure/{cpu,io,memory,irq}
 #   Pressure stall information of a kernel with CONFIG_PSI and
 #   CONFIG_IRQ_TIME_ACCOUNTING (6.12, OpenWrt 25.12's), which neither device's

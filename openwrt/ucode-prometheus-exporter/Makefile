@@ -157,6 +157,7 @@ $(eval $(call Collector,filesystem,filesystem,filesystem sizes,+luci-base))
 $(eval $(call Collector,hostapd_stations,hostapd_stations,hostapd stations,))
 $(eval $(call Collector,hostapd_ubus_stations,hostapd_ubus_stations,hostapd station radio measurement capabilities,))
 $(eval $(call Collector,hwmon,hwmon,hardware monitor sensors,))
+$(eval $(call Collector,interrupts,interrupts,interrupts per CPU,))
 $(eval $(call Collector,ltq_dsl,ltq-dsl,Lantiq DSL line,))
 $(eval $(call Collector,modemmanager,modemmanager,ModemManager signal,))
 $(eval $(call Collector,mwan3,mwan3,mwan3 interface tracking,))
@@ -203,7 +204,8 @@ NETWORK_GROUP:=ethtool nat_traffic netstat nft-counters qdisc snmp6 sockstat
 # Not dawn, which needs DAWN.
 WIRELESS_GROUP:=hostapd_stations hostapd_ubus_stations wifi
 HARDWARE_GROUP:=diskstats filesystem hwmon thermal
-# Not the collectors of particular hardware or services: DSL, PoE, bmx7, mwan3, ModemManager, airOS, chrony.
+# Not the collectors of particular hardware or services: DSL, PoE, bmx7, mwan3, ModemManager, airOS, chrony;
+# nor interrupts, which node_exporter has off by default: a series per interrupt and CPU.
 FULL_GROUP:=$(NETWORK_GROUP) $(WIRELESS_GROUP) $(HARDWARE_GROUP) dhcp_leases dnsmasq openwrt textfile uci_dhcp_host wireguard
 
 $(eval $(call Group,network,network statistics,$(NETWORK_GROUP)))

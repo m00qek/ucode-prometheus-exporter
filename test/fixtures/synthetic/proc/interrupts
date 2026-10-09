@@ -1,0 +1,20 @@
+           CPU0       CPU1
+ 11:    1730566    1546829     GICv3  30 Level     arch_timer
+ 14:       2715          0     GICv3 155 Level     ttyS0
+ 15:          0          0     GICv3 172 Level     1100a000.spi
+ 16:         18          0     GICv3 141 Level     11008000.i2c
+ 17:     391234          0     GICv3 229 Level     15100000.ethernet
+ 18:     287112          0     GICv3 230 Level     15100000.ethernet
+ 19:          4          0     GICv3 237 Level     mt7530
+ 21:          0          0     GICv3 205 Level     xhci-hcd:usb1
+ 23:     182376          0     GICv3 245 Level     mt7915e
+ 24:          0          0  mt-eint  10 Edge      reset
+IPI0:     17283      20131       Rescheduling interrupts
+IPI1:    264012     325871       Function call interrupts
+IPI2:         0          0       CPU stop interrupts
+IPI3:         0          0       CPU stop NMIs
+IPI4:         0          0       Timer broadcast interrupts
+IPI5:      4219       3911       IRQ work interrupts
+IPI6:         0          0       CPU backtrace interrupts
+IPI7:         0          0       KGDB roundup interrupts
+Err:          0

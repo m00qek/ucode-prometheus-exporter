@@ -28,6 +28,7 @@ The labels are those seen on the captures; a collector leaves out a label it has
 | [`hostapd_stations`](#hostapd_stations) | 15 | an access point | — |
 | [`hostapd_ubus_stations`](#hostapd_ubus_stations) | 7 | an access point | — |
 | [`hwmon`](#hwmon) | 17 | an access point, a router, made-up captures | — |
+| [`interrupts`](#interrupts) | 1 | made-up captures | — |
 | [`loadavg`](#loadavg) | 3 | an access point, a router | — |
 | [`ltq-dsl`](#ltq-dsl) | 15 | made-up captures | — |
 | [`meminfo`](#meminfo) | 50 | an access point, a router | — |
@@ -367,6 +368,14 @@ Hardware sensors. [Collector](collectors.md#hwmon).
 | `node_hwmon_temp_max_celsius` | gauge | `chip`, `sensor` | Hardware monitor for temperature (max) | — |
 | `node_hwmon_temp_crit_celsius` | gauge | `chip`, `sensor` | Hardware monitor for temperature (crit) | — |
 | `node_hwmon_temp_alarm` | gauge | `chip`, `sensor` | Hardware sensor alarm status (temp) | — |
+
+## `interrupts` {#interrupts}
+
+Interrupts. [Collector](collectors.md#interrupts).
+
+| Family | Type | Labels | Help | Notes |
+| :--- | :--- | :--- | :--- | :--- |
+| `node_interrupts_total` | counter | `cpu`, `type`, `info`, `devices` | Interrupt details. | — |
 
 ## `loadavg` {#loadavg}
 

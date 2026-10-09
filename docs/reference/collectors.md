@@ -22,6 +22,7 @@ Every collector of `ucode-prometheus-exporter 0.2.1`. A collector's name is what
 | [`hostapd_stations`](#hostapd_stations) | hostapd stations | `ucode-prometheus-exporter-hostapd_stations` | `ucode-prometheus-exporter-wireless`, `ucode-prometheus-exporter-full` |
 | [`hostapd_ubus_stations`](#hostapd_ubus_stations) | hostapd station capabilities | `ucode-prometheus-exporter-hostapd_ubus_stations` | `ucode-prometheus-exporter-wireless`, `ucode-prometheus-exporter-full` |
 | [`hwmon`](#hwmon) | Hardware sensors | `ucode-prometheus-exporter-hwmon` | `ucode-prometheus-exporter-hardware`, `ucode-prometheus-exporter-full` |
+| [`interrupts`](#interrupts) | Interrupts | `ucode-prometheus-exporter-interrupts` | — |
 | [`loadavg`](#loadavg) | Load average | `ucode-prometheus-exporter` (base) | — |
 | [`ltq-dsl`](#ltq-dsl) | Lantiq DSL line | `ucode-prometheus-exporter-ltq-dsl` | — |
 | [`meminfo`](#meminfo) | Memory | `ucode-prometheus-exporter` (base) | — |
@@ -64,7 +65,7 @@ The base package, `ucode-prometheus-exporter`, installs `conntrack`, `cpu`, `ent
 | `ucode-prometheus-exporter-hardware` | hardware and filesystems | `diskstats`, `filesystem`, `hwmon`, `thermal` |
 | `ucode-prometheus-exporter-full` | a router or access point | `ethtool`, `nat_traffic`, `netstat`, `nft-counters`, `qdisc`, `snmp6`, `sockstat`, `hostapd_stations`, `hostapd_ubus_stations`, `wifi`, `diskstats`, `filesystem`, `hwmon`, `thermal`, `dhcp_leases`, `dnsmasq`, `openwrt`, `textfile`, `uci_dhcp_host`, `wireguard` |
 
-In no group: `bmx7`, `chrony`, `dawn`, `ltq-dsl`, `modemmanager`, `mwan3`, `realtek-poe`, `ubnt-manager`, `unbound`.
+In no group: `bmx7`, `chrony`, `dawn`, `interrupts`, `ltq-dsl`, `modemmanager`, `mwan3`, `realtek-poe`, `ubnt-manager`, `unbound`.
 
 ## Nothing to observe {#nothing-to-observe}
 
@@ -345,6 +346,20 @@ Hardware monitor chips: sensor labels, temperatures and their limits, PWM, fans,
 - **Section:** `config collector 'hwmon'`
 - **Needs:** `fs`
 - **Metrics:** [hwmon](metrics.md#hwmon)
+
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+
+## `interrupts` {#interrupts}
+
+Interrupts per CPU, from /proc/interrupts, as node\_exporter's interrupts collector counts them.
+
+- **Title:** Interrupts
+- **Package:** `ucode-prometheus-exporter-interrupts`
+- **Section:** `config collector 'interrupts'`
+- **Needs:** `fs`
+- **Metrics:** [interrupts](metrics.md#interrupts)
 
 | Option | Title | Type | Default | Datatype | Description |
 | :--- | :--- | :--- | :--- | :--- | :--- |
