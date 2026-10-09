@@ -312,7 +312,8 @@ eventually "which restarts the instance" restarted_from "$before"
 eventually "its collector is served from the jail" served example
 check "with its samples" metric 'example_uptime_seconds_total [0-9]'
 check "collector check passes it" $NAME collector check /usr/share/ucode/prometheus_exporter/collectors/example.uc
-check "the ubus object lists it, by its package" sh -c "rpc collectors | jsonfilter -e \"@.collectors[@.name='example'].package\" | grep -qx ucode-prometheus-exporter-example"
+template_listed() { rpc collectors | jsonfilter -e "@.collectors[@.name='example'].package" | grep -qx ucode-prometheus-exporter-example; }
+check "the ubus object lists it, by its package" template_listed
 before=$(pid)
 check "it removes cleanly" apk del ucode-prometheus-exporter-example
 eventually "which restarts the instance" restarted_from "$before"
