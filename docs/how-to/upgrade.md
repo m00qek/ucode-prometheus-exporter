@@ -1,6 +1,6 @@
 # How to Upgrade the Exporter
 
-Every collector package, group and the LuCI app depends on the base package of the very same version, so they move together.
+Every collector package, group, the command line's package and the LuCI app depends on the base package of the very same version, so they move together.
 
 ## Before you upgrade
 
@@ -26,7 +26,7 @@ version=0.2.0-r1
 apk add --allow-untrusted /tmp/ucode-prometheus-exporter-*$version.apk /tmp/luci-app-prometheus-exporter-$version.apk
 ```
 
-Adding the base package alone fails: the installed collectors still want the old version. A dependency the new version adds comes from the feeds the device has: `ucode-docopt`, which 0.2 added, from the exporter's feed.
+Adding the base package alone fails: the installed collectors still want the old version. A dependency the new version adds comes from the feeds the device has: `ucode-docopt`, which the command line's package depends on, from the exporter's feed.
 
 ## From 0.2.1 to 0.3.0
 
@@ -50,8 +50,15 @@ Adding the base package alone fails: the installed collectors still want the old
 
 - **The jail no longer runs as root.** uhttpd runs in it as the user and group `prometheus-exporter`, which the upgrade makes. The upgrade restarts a running service, which then grants that user what its enabled collectors declare, and nothing needs doing: its state directory is the user's, and starts empty, as at every restart; basic auth's file is written again for the user's group to read; the TLS key and certificate are copied for it, and the files themselves stay as they were, the key root's alone; the configs its collectors read are opened to its group, read-only. See [The jail](../reference/jail.md#the-services-user).
 - **textfile's files must be readable by the service's user.** A script that writes a `*.prom` file only root reads (mode 0600, as `mktemp` makes one) has it skipped, and logged: `chmod 0644` it before renaming it into place. See [How to publish metrics from scripts](textfile.md).
-- **A collector of another package that calls ubus must declare its calls**, in `meta.ubus`, as `ubus: { dnsmasq: [ 'metrics' ], rc: [ 'list' ] }` (`rc list` for the API's `services`): the loader refuses one that needs ubus without them, and a call it does not declare fails, `UBUS_NOT_ALLOWED`. One that reads a root-only file of `/proc`, needs a capability, or connects to a socket of another service's group declares it too: `proc_files`, `capabilities`, `groups`. Every collector of the exporter's packages does; check one of another package with `prometheus-exporter collector check`. See [Collector interface](../reference/collector-interface.md#meta).
-- **A collector's top level must only declare.** It runs again in uhttpd's own process each time the service starts, where nothing stops it: there, and in the child process that first loads it, a top level that calls `sleep`, `exit`, `print`, `printf`, `warn`, `trace`, `require`, `include`, `loadfile`, `loadstring`, `render` or `signal`, or the collector API's `exposition` functions, is refused before the call runs, and the collector is left out, logged at `err` as `COLLECTOR_IMPURE`. Every collector of the exporter's packages only declares; move what one of another package does at its top level into `collect()`, and check it with `prometheus-exporter collector check`, which now reads its text for statements and calls past the declarations too. See [Collector interface](../reference/collector-interface.md#the-top-level).
+- **The `prometheus-exporter` command is a package of its own, `ucode-prometheus-exporter-cli`.** The base package no longer installs `/usr/bin/prometheus-exporter`, nor depends on `ucode-docopt`: `apk upgrade` leaves a device without the command, and a script or cron job that runs it (`prometheus-exporter scrape`, as [How to push metrics](push-metrics.md) does, or `hash-password`) fails until it is installed:
+
+    ```sh
+    apk add ucode-prometheus-exporter-cli
+    ```
+
+    The service needs none of it: `service prometheus-exporter check`, and the check start and reload run, are the base package's `/usr/libexec/prometheus-exporter/check.uc`; LuCI and the ubus object set basic auth's password (`set_password`). Without it, apk removes `ucode-docopt` too, which nothing else of the exporter needs. See [The `prometheus-exporter` command](../reference/command.md).
+- **A collector of another package that calls ubus must declare its calls**, in `meta.ubus`, as `ubus: { dnsmasq: [ 'metrics' ], rc: [ 'list' ] }` (`rc list` for the API's `services`): the loader refuses one that needs ubus without them, and a call it does not declare fails, `UBUS_NOT_ALLOWED`. One that reads a root-only file of `/proc`, needs a capability, or connects to a socket of another service's group declares it too: `proc_files`, `capabilities`, `groups`. Every collector of the exporter's packages does; check one of another package with `prometheus-exporter collector check` (`ucode-prometheus-exporter-cli`). See [Collector interface](../reference/collector-interface.md#meta).
+- **A collector's top level must only declare.** It runs again in uhttpd's own process each time the service starts, where nothing stops it: there, and in the child process that first loads it, a top level that calls `sleep`, `exit`, `print`, `printf`, `warn`, `trace`, `require`, `include`, `loadfile`, `loadstring`, `render` or `signal`, or the collector API's `exposition` functions, is refused before the call runs, and the collector is left out, logged at `err` as `COLLECTOR_IMPURE`. Every collector of the exporter's packages only declares; move what one of another package does at its top level into `collect()`, and check it with `prometheus-exporter collector check` (`ucode-prometheus-exporter-cli`), which now reads its text for statements and calls past the declarations too. See [Collector interface](../reference/collector-interface.md#the-top-level).
 
 
 These change what 0.2.1 did without breaking a query or a configuration:

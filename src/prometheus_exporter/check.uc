@@ -1,5 +1,5 @@
 /**
- * `prometheus-exporter check`, which `service prometheus-exporter check` runs:
+ * `service prometheus-exporter check`, and the command line's `check`:
  * the configuration, checked as the exporter and the init script read it;
  * every installed collector, with its section, options, needs and what the
  * jail gives it; and one scrape, in the service's own jail where it can be had
@@ -7,8 +7,11 @@
  * own and stopped at its limit, as the service's scrapes run them
  * (scrape.trial), with each collector that fails and why, and each that has
  * nothing to observe and why (a success: 'dnsmasq is disabled'). With
- * config_only (check --config, which start and reload run) it stops after
- * the configuration. Only an invalid configuration makes it fail.
+ * config_only (check.uc --config, which start and reload run) it stops after
+ * the configuration. Only an invalid configuration makes it fail. The base
+ * package runs it with /usr/libexec/prometheus-exporter/check.uc, so the
+ * service needs no command line (ucode-prometheus-exporter-cli); system()
+ * is that sys, on the real system.
  *
  * It also says what the service's own scrapes found, from the ledger of its
  * running instance (prometheus_exporter.ledger): each collector quarantined,
@@ -33,8 +36,13 @@ import * as Result from 'prometheus_exporter.result';
 import * as config from 'prometheus_exporter.config';
 import * as jail from 'prometheus_exporter.jail';
 import * as privileges from 'prometheus_exporter.privileges';
+import * as grant from 'prometheus_exporter.grant';
 import * as scrape from 'prometheus_exporter.scrape';
 import * as ledger from 'prometheus_exporter.ledger';
+import * as deps from 'prometheus_exporter.deps';
+import * as state from 'prometheus_exporter.state';
+import * as jailed from 'prometheus_exporter.jailed';
+import * as app from 'prometheus_exporter.app';
 
 /**
  * What check takes of the system, as the module's top comment says.
@@ -294,7 +302,7 @@ export function run(sys, opts) {
 
 		push(lines, '', `collectors: ${length(sys.collectors)} installed, ${enabled} enabled`, ...map(described, (l) => '  ' + l));
 		push(lines, '', 'jail mounts:', ...map(mounts, (m) => '  ' + m));
-		push(lines, '', `jail user: ${privileges.USER}, capabilities: ${join(' ', privileges.service_capabilities(g)) || 'none'}`,
+		push(lines, '', `jail user: ${privileges.USER}, capabilities: ${join(' ', grant.service_capabilities(g)) || 'none'}`,
 			'ubus ACL:', ...map(keys(g.ubus), (o) => `  ${o} ${join(' ', g.ubus[o])}`));
 	}
 
@@ -373,4 +381,32 @@ export function status(command, collectors, uci) {
 	return `listening on ${join(', ', listening(command)) || 'nothing'}` +
 		(logs_in(command) ? ', basic auth' : '') + (compress ? ', gzip when asked' : '') +
 		`, serving ${count(serving, 'collector')}`;
+};
+
+/**
+ * sys on the real system, for run(): the installed collectors, loaded as the
+ * service loads them, with what the loader left out; the running instance's
+ * ledger, of the service's own scrapes; and a run of the enabled collectors
+ * in the service's jail where it can be had (jailed.trial), else here.
+ *
+ * @returns {CheckSys} the system.
+ */
+export function system() {
+	let mods = deps.modules();
+	let skipped = [];
+	let collectors = app.load(mods, null, (level, msg) => push(skipped, msg));
+	// The running instance's: the service's own scrapes.
+	let st = state.latest(mods.fs, state.DIR);
+	let sys = {
+		uci: mods.uci.cursor(),
+		fs: mods.fs,
+		path: jail.PATH,
+		collectors,
+		skipped,
+		ledger: st ? ledger.parse(st.read(ledger.NAME)) : null,
+		env: app.scrape_env(mods, () => null),
+	};
+
+	sys.trial = (chosen, here) => jailed.trial(sys, collectors, chosen, here);
+	return sys;
 };

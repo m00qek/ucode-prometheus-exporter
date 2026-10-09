@@ -83,7 +83,7 @@ variant '/^PKG_LICENSE_FILES:=/d'
 check "a source without PKG_LICENSE_FILES is refused" \
 	refuses "one PKG_LICENSE_FILES:= line, found 0" gen --hash "$HASH" --source "$TMP/variant.mk" "$VERSION"
 
-variant 's|^\t\$(INSTALL_DIR) \$(1)/usr/bin$|&\n\t$(CP) ./extra/thing $(1)/|'
+variant 's|^\t\$(INSTALL_DIR) \$(1)/etc/config$|&\n\t$(CP) ./extra/thing $(1)/|'
 check "a copy from a directory the generator does not rewrite is refused" \
 	refuses "still use a path relative" gen --hash "$HASH" --source "$TMP/variant.mk" "$VERSION"
 

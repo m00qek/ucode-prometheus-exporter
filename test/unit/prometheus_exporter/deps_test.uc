@@ -276,13 +276,25 @@ describe('deps.modules', () => {
 		assert.match([ 'function', 'function', 'function' ], [ type(m.ubus.connect), type(m.uci.cursor), type(m.time) ]);
 	});
 
-	// uhttpd holds each it loads for as long as it runs.
-	it('loads the native modules the needs name, and no other', () => {
-		let none = deps.natives([]);
-		let some = deps.natives([ 'socket', 'fs' ]);
+	// uhttpd holds each it loads for as long as it runs: none is loaded
+	// until a collector's deps ask for it, in the process that asks.
+	it('loads a native module the first time it is asked for, and keeps it', () => {
+		let m = deps.modules();
 
-		assert.match([ null, null, null ], [ none.rtnl, none.nl80211, none.socket ]);
-		assert.match([ null, null, 'function' ], [ some.rtnl, some.nl80211, type(some.socket?.create) ]);
-		assert.match([ null, null ], [ deps.modules([]).rtnl, deps.modules([]).socket ]);
+		assert.match([ null, null, null, 'function' ], [ m.rtnl, m.nl80211, m.socket, type(m.native) ]);
+		assert.match('function', type(deps.native('socket')?.create));
+		assert.match(true, deps.native('socket') === deps.native('socket'));
+		assert.match([ null, null ], [ deps.native('rtnl'), deps.native('fs') ]);
+	});
+
+	it('hands a collector the native module native() loads, when the session has none of its own', () => {
+		with_mods({ no_socket: true, no_rtnl: true }, (mods) => {
+			let asked = [];
+			let native = (name) => { push(asked, name); return (name == 'socket') ? { create: () => null } : null; };
+			let res = deps.session({ ...mods, native }).for({ name: 'c', needs: [ 'socket', 'rtnl' ] });
+
+			assert.match([ 'socket', 'rtnl' ], asked);
+			assert.match({ ok: false, error: 'NEED_MISSING', details: 'rtnl is not installed' }, brief(res));
+		});
 	});
 });

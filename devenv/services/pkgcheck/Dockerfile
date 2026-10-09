@@ -15,11 +15,11 @@ FROM ghcr.io/openwrt/rootfs:${OPENWRT_ARCH}-${OPENWRT_VERSION}
 # container shares with its host: e2e starts it, without a network, when it
 # checks chrony.
 #
-# ucode-docopt, the command line's parser, is not in the release's feeds: it
-# comes from its author's feed, which the devenv's image takes utest from,
-# pinned to the version and release that image pins it to
-# (devenv/services/openwrt/Dockerfile). The pinned name comes after
-# FEED_DEPENDS, which names it bare: apk keeps the last. ucode-utest comes
+# ucode-docopt, the parser of the command line's package, is not in the
+# release's feeds: it comes from its author's feed, which the devenv's image
+# takes utest from, pinned to the version and release that image pins it to
+# (devenv/services/openwrt/Dockerfile). The check installs the base package
+# alone first, which must not need it. ucode-utest comes
 # from there too, pinned as that image pins it: package-check installs the
 # devkit, which depends on it, and runs the template collector's tests on it.
 #

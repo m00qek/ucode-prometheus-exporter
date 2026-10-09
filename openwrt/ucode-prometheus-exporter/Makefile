@@ -21,6 +21,11 @@ COLLECTORS_DIR:=$(MODULES_DIR)/collectors
 # loader/, rpc.uc's rpc/), installed with them.
 MODULE_SUBDIRS:=config deps exposition loader rpc
 
+# The command line's modules: ucode-prometheus-exporter-cli's, not the base
+# package's, which installs every other module of src/prometheus_exporter.
+CLI_MODULES:=cli conform
+BASE_MODULES=$(filter-out $(CLI_MODULES),$(basename $(notdir $(wildcard ./src/prometheus_exporter/*.uc))))
+
 # Installed with the exporter itself; every other collector is a subpackage.
 BASE_COLLECTORS:=conntrack cpu entropy exporter filefd loadavg meminfo netclass netdev openwrt_interfaces selinux softnet time timesync uname vmstat
 
@@ -36,8 +41,9 @@ define Package/$(PKG_NAME)
   $(call Package/$(PKG_NAME)/Default)
   # rpcd-mod-ucode serves the service's ubus object; ucode-mod-uloop lets it
   # wait for a status scrape without blocking rpcd. ucode-mod-zlib gzips a
-  # scrape, and ucode-mod-digest hashes basic auth's password.
-  DEPENDS:=+uhttpd +uhttpd-mod-ucode +ucode +ucode-mod-fs +ucode-mod-ubus +ucode-mod-uci +ucode-mod-rtnl +ucode-mod-log +rpcd-mod-ucode +ucode-mod-uloop +ucode-mod-zlib +ucode-mod-digest +ucode-docopt
+  # scrape, and ucode-mod-digest hashes basic auth's password. The command
+  # line, and ucode-docopt with it, is ucode-prometheus-exporter-cli's.
+  DEPENDS:=+uhttpd +uhttpd-mod-ucode +ucode +ucode-mod-fs +ucode-mod-ubus +ucode-mod-uci +ucode-mod-rtnl +ucode-mod-log +rpcd-mod-ucode +ucode-mod-uloop +ucode-mod-zlib +ucode-mod-digest
   # The feed's exporters it replaces, which want the same port. CONFLICTS
   # keeps an image from building both in, but apk packages do not carry it:
   # a dependency on !<name> is apk's conflict, refused either way round.
@@ -83,7 +89,7 @@ endef
 
 define Package/$(PKG_NAME)/install
 	$(INSTALL_DIR) $(1)$(MODULES_DIR) $(1)$(COLLECTORS_DIR)
-	$(INSTALL_DATA) ./src/prometheus_exporter/*.uc $(1)$(MODULES_DIR)/
+	$(INSTALL_DATA) $(foreach m,$(BASE_MODULES),./src/prometheus_exporter/$(m).uc) $(1)$(MODULES_DIR)/
 	$(foreach d,$(MODULE_SUBDIRS),$(INSTALL_DIR) $(1)$(MODULES_DIR)/$(d) && $(INSTALL_DATA) ./src/prometheus_exporter/$(d)/*.uc $(1)$(MODULES_DIR)/$(d)/;)
 	# The version ucode_prometheus_exporter_build_info reports: the package's.
 	$(SED) "/^const VERSION = /s/'dev'/'$(PKG_VERSION)-r$(PKG_RELEASE)'/" $(1)$(MODULES_DIR)/version.uc
@@ -91,7 +97,7 @@ define Package/$(PKG_NAME)/install
 	$(foreach c,$(BASE_COLLECTORS),$(INSTALL_DATA) ./src/prometheus_exporter/collectors/$(c).uc $(1)$(COLLECTORS_DIR)/;)
 	$(INSTALL_DIR) $(1)/usr/libexec/$(SERVICE)
 	$(INSTALL_DATA) ./files/usr/libexec/$(SERVICE)/handler.uc $(1)/usr/libexec/$(SERVICE)/
-	$(INSTALL_BIN) $(foreach f,jail status import watch rpc-status probe trial auth,./files/usr/libexec/$(SERVICE)/$(f).uc) $(1)/usr/libexec/$(SERVICE)/
+	$(INSTALL_BIN) $(foreach f,jail status import watch rpc-status probe trial auth check,./files/usr/libexec/$(SERVICE)/$(f).uc) $(1)/usr/libexec/$(SERVICE)/
 	# The ubus ACL of the service's user, which ubusd reads from acl.d: a link
 	# to the one jail.uc --make writes for the enabled collectors when the
 	# service starts (prometheus_exporter.privileges' ACL_FILE), which points
@@ -101,8 +107,6 @@ define Package/$(PKG_NAME)/install
 	# The service's ubus object, which rpcd serves (prometheus_exporter.rpc).
 	$(INSTALL_DIR) $(1)/usr/share/rpcd/ucode
 	$(INSTALL_DATA) ./files/usr/share/rpcd/ucode/$(SERVICE).uc $(1)/usr/share/rpcd/ucode/
-	$(INSTALL_DIR) $(1)/usr/bin
-	$(INSTALL_BIN) ./files/usr/bin/$(SERVICE) $(1)/usr/bin/
 	$(INSTALL_DIR) $(1)/etc/config
 	$(INSTALL_CONF) ./files/etc/config/$(SERVICE) $(1)/etc/config/
 	# Basic auth's hash, apart: LuCI's ACL grants the config above alone (mode 0600).
@@ -118,6 +122,33 @@ define Package/$(PKG_NAME)/install
 endef
 
 $(eval $(call BuildPackage,$(PKG_NAME)))
+
+# ---- ucode-prometheus-exporter-cli -------------------------------------------
+# The command line, /usr/bin/prometheus-exporter, on ucode-docopt, which only
+# it depends on. The service needs none of it: the init script's check is the
+# base package's (/usr/libexec/prometheus-exporter/check.uc). The command runs
+# on the exporter's modules as this release has them, so it pins the release.
+define Package/$(PKG_NAME)-cli
+  $(call Package/$(PKG_NAME)/Default)
+  TITLE+= (command line)
+  DEPENDS:=+$(PKG_NAME) +ucode-docopt
+  EXTRA_DEPENDS:=$(PKG_NAME) (=$(PKG_VERSION)-r$(PKG_RELEASE))
+endef
+
+define Package/$(PKG_NAME)-cli/description
+  The prometheus-exporter command: a scrape on standard output, the
+  configuration and the collectors checked, the installed collectors listed,
+  a collector module checked before it is installed, and the hash of a
+  password for basic auth.
+endef
+
+define Package/$(PKG_NAME)-cli/install
+	$(INSTALL_DIR) $(1)$(MODULES_DIR) $(1)/usr/bin
+	$(INSTALL_DATA) $(foreach m,$(CLI_MODULES),./src/prometheus_exporter/$(m).uc) $(1)$(MODULES_DIR)/
+	$(INSTALL_BIN) ./files/usr/bin/$(SERVICE) $(1)/usr/bin/
+endef
+
+$(eval $(call BuildPackage,$(PKG_NAME)-cli))
 
 # A collector package's scripts: on a running system (not in an image build),
 # reload an enabled exporter, which restarts it with the collector served or

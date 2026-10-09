@@ -126,7 +126,10 @@ apk add --allow-untrusted ucode-prometheus-exporter-mine-1.0.0-r1.apk
 
 ## 8. Check it on a device
 
+The command is the command line's package's, which the service does not need: install it to check.
+
 ```sh
+apk add ucode-prometheus-exporter-cli
 prometheus-exporter collector check /usr/share/ucode/prometheus_exporter/collectors/mine.uc
 wget -qO- http://127.0.0.1:9100/metrics | grep 'collector="mine"'
 ```

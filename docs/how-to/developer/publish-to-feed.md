@@ -6,7 +6,7 @@ Routers install the exporter, its collector packages, its groups and luci-app-pr
 
 - The release is tagged and pushed: `v0.2.0`, with `PKG_VERSION:=0.2.0` in `openwrt/ucode-prometheus-exporter/Makefile`, and `CHANGELOG.md`'s `## [0.2.0]` section dated.
 - A checkout of packages.ucode.dev next to this one.
-- The feed has `ucode-docopt`, which the base package depends on. It does: the feed publishes it for 25.12.
+- The feed has `ucode-docopt`, which the command line's package, `ucode-prometheus-exporter-cli`, depends on. It does: the feed publishes it for 25.12.
 
 The feed fetches the tarball of `v<PKG_VERSION>`, so a release that only raises `PKG_RELEASE` cannot reach the feed: publish a new version instead.
 

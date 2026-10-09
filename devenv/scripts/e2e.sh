@@ -283,9 +283,22 @@ check "validate refuses what the init script would" says 'expected an integer fr
 check "validate says what is wrong by its code" says '"code": "RANGE"' \
 	rpc validate '{"main":{"listen_port":"0"}}'
 
+# --- the command line's package
+# The service, its check (above) and its ubus object run without it: the
+# base package has no command, and needs no ucode-docopt.
+no_command() { ! command -v $NAME && ! apk info -R $PKG | grep -q '^ucode-docopt'; }
+check "the base package has no command line, and needs no ucode-docopt" no_command
+before=$(pid)
+install cli
+check "the command line's package installs the command" says "^$NAME $PKG_FULLVERSION$" $NAME --version
+check "which depends on ucode-docopt and pins the exporter" sh -c "apk info -R $PKG-cli | grep -q '^ucode-docopt' && apk info -R $PKG-cli | grep -qx '$PKG=$PKG_FULLVERSION'"
+check "and scrapes in the service's jail" sh -c "$NAME scrape loadavg | grep -q '^node_load1 '"
+check "and checks as the init script does" says "^ok   scrape, in the service's jail: " $NAME check
+check "installing it leaves the instance be" test "$(pid)" = "$before"
+
 # --- every collector package
 before=$(pid)
-COLLECTORS=$(ls /artifacts/$PKG-*-$PKG_FULLVERSION.apk | sed "s|^/artifacts/$PKG-||; s|-$PKG_FULLVERSION.apk$||")
+COLLECTORS=$(ls /artifacts/$PKG-*-$PKG_FULLVERSION.apk | sed "s|^/artifacts/$PKG-||; s|-$PKG_FULLVERSION.apk$||" | grep -vx cli)
 install $COLLECTORS
 eventually "installing collectors restarts the instance" restarted_from "$before"
 installed() { ls /usr/share/ucode/prometheus_exporter/collectors/*.uc | wc -l; }

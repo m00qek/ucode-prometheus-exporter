@@ -22,6 +22,7 @@ import * as deps from 'prometheus_exporter.deps';
 import * as jail from 'prometheus_exporter.jail';
 import * as state from 'prometheus_exporter.state';
 import * as privileges from 'prometheus_exporter.privileges';
+import * as grant from 'prometheus_exporter.grant';
 import { load } from 'prometheus_exporter.app';
 
 const mode = ARGV[0];
@@ -31,7 +32,7 @@ if (length(ARGV) > 1 || (mode != null && !(mode in [ '--missing', '--make', '--c
 	exit(2);
 }
 
-// What privileges.make and clean take of the system: ubusd reads its ACLs
+// What grant.make and clean take of the system: ubusd reads its ACLs
 // again on SIGHUP, and /etc/group is changed under the lock OpenWrt's tools
 // take (lock /var/lock/passwd, an flock()).
 const fs_all = { stat, readfile, open, chown, chmod, rename, unlink, error };
@@ -47,7 +48,7 @@ const priv = {
 };
 
 if (mode == '--clean')
-	exit(privileges.clean(priv) ? 0 : 1);
+	exit(grant.clean(priv) ? 0 : 1);
 
 const mods = deps.modules();
 const log = (msg) => warn(`${msg}\n`);
@@ -65,7 +66,7 @@ if (mode == '--missing') {
 if (mode == '--make') {
 	let made = jail.make({ ...mods.fs, mkdir, error }, res.owned);
 	let st = state.make({ ...mods.fs, mkdir, chmod, chown, error }, privileges.USER);
-	let granted = privileges.make(priv, jail.grants(collectors, { uci: mods.uci.cursor(), fs: mods.fs, path: jail.PATH }));
+	let granted = grant.make(priv, jail.grants(collectors, { uci: mods.uci.cursor(), fs: mods.fs, path: jail.PATH }));
 
 	for (let p in made.made)
 		print(`made ${p}\n`);

@@ -180,8 +180,8 @@ QEMU_ENDIAN ?= le
 QEMU_SHIFT  ?= 1
 QEMU_MEMORY ?= 128
 
-# ucode-docopt, which the base package depends on, is in its author's feed and
-# not in the release's the guest installs from: fetched here, from the pkgcheck
+# ucode-docopt, which the command line's package depends on, is in its author's
+# feed and not in the release's the guest installs from: fetched here, from the pkgcheck
 # image's feed (pinned there), and installed beside the built packages.
 bench-qemu: package bench-worlds pkgcheck-image
 	@docker run --rm --network host -u $$(id -u):$$(id -g) -v $(CURDIR)/bin:/artifacts $(PKGCHECK_IMAGE) \

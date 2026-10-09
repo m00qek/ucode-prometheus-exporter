@@ -11,6 +11,7 @@ Directions for a goal you already have. Each assumes the exporter is installed, 
 | [Removing the exporter](uninstall.md) | Remove a collector, or everything. |
 | [Moving from the feed's exporters](migrate-from-feed.md) | Replace `prometheus-node-exporter-ucode` or `-lua`, keeping their settings. |
 | [Choosing collectors](choose-collectors.md) | Install, disable, or select collectors per scrape. |
+| [Running on a small device](small-device.md) | Fit the exporter in 32 or 64 MB of RAM and a few MB of flash. |
 | [Listening on the LAN](listen-on-lan.md) | Have Prometheus on another machine scrape it. |
 | [Serving HTTPS with basic auth](https-basic-auth.md) | Ask every scrape for a password, over TLS. |
 | [Compressing scrapes](gzip.md) | Check, or turn off, gzip. |

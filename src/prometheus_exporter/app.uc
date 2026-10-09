@@ -19,7 +19,6 @@ import * as deps from 'prometheus_exporter.deps';
 import * as collection from 'prometheus_exporter.collection';
 import * as scrape from 'prometheus_exporter.scrape';
 import * as config from 'prometheus_exporter.config';
-import * as auth from 'prometheus_exporter.auth';
 import * as http from 'prometheus_exporter.http';
 import * as state from 'prometheus_exporter.state';
 import * as deadline from 'prometheus_exporter.deadline';
@@ -42,9 +41,10 @@ import { version } from 'prometheus_exporter.version';
 /**
  * Basic auth that denies every request, as load_auth gives it: uhttpd's
  * config file is there and not what it should be, or `missing`, not there
- * though the config sets basic auth.
+ * though the config sets basic auth, or `unloaded`, there though basic
+ * auth's module did not load, which says why.
  *
- * @typedef {{ broken: boolean, missing: ?boolean }} BrokenAuth
+ * @typedef {{ broken: boolean, missing: ?boolean, unloaded: ?string }} BrokenAuth
  */
 
 /**
@@ -60,6 +60,55 @@ import { version } from 'prometheus_exporter.version';
  *   handle: (req: Object) => HttpReply
  * }} Handler
  */
+
+/**
+ * uhttpd's config file of basic auth, which the init script writes
+ * (prometheus_exporter.auth's FILE).
+ *
+ * @type {string}
+ */
+export const AUTH_FILE = `${state.RUN_DIR}/uhttpd.conf`;
+
+/**
+ * The program that loads basic auth's module (prometheus_exporter.auth),
+ * which the handler compiles the first time it needs it, as a program of its
+ * own: when it starts, only where AUTH_FILE is there, and then keeps it.
+ * Without basic auth, uhttpd, which holds what it compiles for as long as it
+ * runs, holds none of it, nor of crypt, nor ucode-mod-digest.
+ *
+ * @type {string}
+ */
+export const AUTH_PROGRAM = "import * as auth from 'prometheus_exporter.auth';\nreturn auth;";
+
+// AUTH_PROGRAM's module, once it loaded.
+let auth_loaded = null;
+
+// Basic auth's module, as { module }, from `source` (AUTH_PROGRAM when null,
+// kept once it loads; another, a test's, compiled each time), or { error }
+// when it does not compile, load or give what the handler takes of it:
+// whatever the reason (a file missing, or not mounted, a syntax error, no
+// memory left), the handler then denies every request, never serves one.
+function auth_module(source) {
+	if (source == null && auth_loaded != null)
+		return { module: auth_loaded };
+
+	let mod;
+
+	try {
+		mod = loadstring(source ?? AUTH_PROGRAM, { raw_mode: true })();
+	} catch (e) {
+		return { error: split(e.message, '\n')[0] };
+	}
+
+	if (type(mod?.parse_conf) != 'function' || type(mod.allowed) != 'function' ||
+	    type(mod.REALM) != 'string' || type(mod.PATH) != 'string')
+		return { error: 'it is not prometheus_exporter.auth' };
+
+	if (source == null)
+		auth_loaded = mod;
+
+	return { module: mod };
+}
 
 /**
  * Whether the config sets basic auth: the main section's auth_user, as uci
@@ -78,24 +127,39 @@ export function auth_wanted(uci) {
 
 /**
  * Basic auth as the handler finds it when it starts: { user, hash } when
- * uhttpd's config file (auth.FILE) is that; null when it is not there and
+ * uhttpd's config file (AUTH_FILE) is that; null when it is not there and
  * the config sets no basic auth (`wanted` false), as the jail mounts it only
  * when it does. Every other case denies every request: { broken: true } when
  * it is there but not that, { broken: true, missing: true } when the config
  * sets basic auth and it is not there, as when procd starts uhttpd again
  * after the file went: never served without the login the config asks for.
  *
- * @param {module:fs} fs what reads auth.FILE: an object of fs's readfile.
+ * It compiles basic auth's module (`program`, AUTH_PROGRAM when null) only
+ * when the file is there, and denies every request when that fails:
+ * { broken: true, unloaded: why }.
+ *
+ * @param {module:fs} fs what reads AUTH_FILE: an object of fs's readfile.
  * @param {boolean} wanted whether the config sets basic auth (auth_wanted).
+ * @param {?string} program what loads basic auth's module; AUTH_PROGRAM
+ *   when null.
  * @returns {?(BasicAuth|BrokenAuth)} basic auth.
  */
-export function load_auth(fs, wanted) {
-	let text = fs.readfile(auth.FILE);
+export function load_auth(fs, wanted, program) {
+	let text = fs.readfile(AUTH_FILE);
 
 	if (text == null)
 		return wanted ? { broken: true, missing: true } : null;
 
-	return auth.parse_conf(text) ?? { broken: true };
+	let loaded = auth_module(program);
+
+	if (loaded.error != null)
+		return { broken: true, unloaded: loaded.error };
+
+	try {
+		return loaded.module.parse_conf(text) ?? { broken: true };
+	} catch (e) {
+		return { broken: true, unloaded: split(e.message, '\n')[0] };
+	}
 };
 
 /**
@@ -104,23 +168,42 @@ export function load_auth(fs, wanted) {
  * listens on with it, and 401 to one without the user and password. `instance`, the
  * instance's state, holds basic auth's cache (auth.allowed).
  *
+ * Basic auth's module is load_auth's (`program`, AUTH_PROGRAM when null):
+ * should it not load, or its check throw, the request is denied with a 500.
+ *
  * @param {?(BasicAuth|BrokenAuth)} credentials basic auth, as load_auth gives
  *   it.
  * @param {?Object} env uhttpd-mod-ucode's env of the request.
  * @param {?State} instance the instance's state.
+ * @param {?string} program what loads basic auth's module; AUTH_PROGRAM
+ *   when null.
  * @returns {?HttpReply} the reply, or null.
  */
-export function refusal(credentials, env, instance) {
+export function refusal(credentials, env, instance, program) {
+	let broken = () => http.text_reply('500 Internal Server Error', 'Basic auth is not configured as it should be; see the log.\n');
+
 	if (credentials == null)
 		return null;
 
 	if (credentials.broken)
-		return http.text_reply('500 Internal Server Error', 'Basic auth is not configured as it should be; see the log.\n');
+		return broken();
 
 	if (env?.HTTPS != 'on')
 		return http.text_reply('403 Forbidden', 'Basic auth takes HTTPS only.\n');
 
-	if (!auth.allowed(credentials, http.header(env, 'authorization'), instance))
+	let auth = auth_module(program).module;
+	let allowed = false;
+
+	if (auth == null)
+		return broken();
+
+	try {
+		allowed = auth.allowed(credentials, http.header(env, 'authorization'), instance);
+	} catch (e) {
+		return broken();
+	}
+
+	if (allowed !== true)
 		return http.text_reply('401 Unauthorized', 'Unauthorized.\n',
 			[ [ 'WWW-Authenticate', `Basic realm="${auth.REALM}"` ] ]);
 
@@ -382,16 +465,11 @@ export function load(mods, dir, log, opts) {
  * @returns {App} the exporter.
  */
 export function create(log, dir, opts) {
-	let mods = deps.modules([]);
+	// The native modules the collectors need besides fs and uci are loaded
+	// when one runs, in its process (deps.native), not here.
+	let mods = deps.modules();
 	let env = scrape_env(mods, log, opts);
 	let loaded = load(mods, dir, log, opts);
-	let needs = [];
-
-	// The native modules the collectors need, and only those.
-	for (let c in loaded)
-		push(needs, ...c.meta.needs);
-	for (let name, m in deps.natives(uniq(needs)))
-		mods[name] = m;
 
 	return {
 		collectors: () => loaded,
@@ -410,12 +488,13 @@ export function create(log, dir, opts) {
  * restarts uhttpd (see the init script). `auth` is load_auth's. The state is
  * opened here too, in the process uhttpd forks each request from, which names
  * the instance (see prometheus_exporter.state); `state_dir` replaces its
- * directory, for tests.
+ * directory, for tests, and opts.auth_program basic auth's AUTH_PROGRAM.
  *
  * @param {Log} log the exporter's log.
  * @param {?string} dir the collectors' directory; collection.DIR when null.
  * @param {?string} state_dir the state's directory; state.DIR when null.
- * @param {?{ fork: ?boolean, observed: ?Modules }} opts the options: create()'s.
+ * @param {?{ fork: ?boolean, observed: ?Modules, auth_program: ?string }} opts
+ *   the options: create()'s, and what loads basic auth's module.
  * @returns {Handler} the handler.
  */
 export function handler(log, dir, state_dir, opts) {
@@ -424,13 +503,16 @@ export function handler(log, dir, state_dir, opts) {
 	let main = config.main(app.mods.uci.cursor());
 	let compress = main.ok ? main.data.compress : config.MAIN_OPTIONS.compress.default;
 	let scrape_timeout = main.ok ? main.data.scrape_timeout : config.SCRAPE_TIMEOUT;
-	let credentials = load_auth(app.mods.fs, auth_wanted(app.mods.uci.cursor()));
+	let program = opts?.auth_program;
+	let credentials = load_auth(app.mods.fs, auth_wanted(app.mods.uci.cursor()), program);
 	let instance = state.open(app.mods.fs, state_dir ?? state.DIR, state.instance_id(app.mods.fs));
 
 	if (credentials?.missing)
-		log('err', `${auth.FILE} is not there, and the config sets basic auth (auth_user): every request is denied`);
+		log('err', `${AUTH_FILE} is not there, and the config sets basic auth (auth_user): every request is denied`);
+	else if (credentials?.unloaded != null)
+		log('err', `cannot load basic auth's module, and ${AUTH_FILE} is there: ${credentials.unloaded}: every request is denied`);
 	else if (credentials?.broken)
-		log('err', `${auth.FILE} is not one line of a user and a hash for ${auth.PATH}: every request is denied`);
+		log('err', `${AUTH_FILE} is not one line of a user and a hash for ${auth_module(program).module.PATH}: every request is denied`);
 
 	return {
 		collectors: app.collectors,
@@ -439,7 +521,7 @@ export function handler(log, dir, state_dir, opts) {
 		scrape_timeout,
 		handle: function(req) {
 			let start = deadline.seconds(clock(true));
-			let refused = refusal(credentials, req, instance);
+			let refused = refusal(credentials, req, instance, program);
 
 			// Counted for the exporter's own collector: a 401 is a request
 			// whose credentials basic auth refused.

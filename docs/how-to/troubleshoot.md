@@ -73,7 +73,7 @@ The log says `collector '<name>': ` and one of these, and the collector fails al
 | `hung at load` (at `err`) | Its module's top level did not return in 5 s: it is left out until the service restarts. | A bug of the module. |
 | `COLLECTOR_IMPURE` (at `err`) | Its module's top level called what only `collect()` may, as `sleep()` or `print()`: it is left out until the service restarts. `prometheus-exporter collector check <file>` names the line. | A bug of the module: see [The top level](../reference/collector-interface.md#the-top-level). |
 
-`prometheus-exporter collector check <module file>` runs a module as the service would and says which rule it breaks: see [Collector contract](../reference/collector-contract.md).
+`prometheus-exporter collector check <module file>` (`ucode-prometheus-exporter-cli`) runs a module as the service would and says which rule it breaks: see [Collector contract](../reference/collector-contract.md).
 
 ## Collectors are left out at the deadline
 

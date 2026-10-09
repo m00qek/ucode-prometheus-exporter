@@ -60,12 +60,16 @@ export function stop(pid) {
 };
 
 // { ok, pid, port, error }: uhttpd started in the background with `handler`
-// on PORT, BENCH_HANDLER=`cfg` in its environment, once it serves.
-export function start(handler, cfg, pidfile) {
+// on PORT, BENCH_HANDLER=`cfg` in its environment, once it serves; with
+// `data_kb`, each of its processes may take that much data (RLIMIT_DATA), as
+// the service's memory_limit has procd limit them.
+export function start(handler, cfg, pidfile, data_kb) {
 	fs.unlink(pidfile);
 
-	system(sprintf("BENCH_HANDLER='%s' /usr/sbin/uhttpd -f -c /dev/null -h /dev/null -S -D -k 0 -t 60 " +
-		"-o /metrics -O '%s' -p 127.0.0.1:%d >/dev/null 2>&1 </dev/null & echo $! >'%s'", cfg, handler, PORT, pidfile));
+	// A subshell that sets the limit and becomes uhttpd: $! is uhttpd's.
+	system(sprintf("( %sexport BENCH_HANDLER='%s' && exec /usr/sbin/uhttpd -f -c /dev/null -h /dev/null -S -D -k 0 -t 60 " +
+		"-o /metrics -O '%s' -p 127.0.0.1:%d ) >/dev/null 2>&1 </dev/null & echo $! >'%s'",
+		(data_kb != null) ? sprintf('ulimit -d %d && ', data_kb) : '', cfg, handler, PORT, pidfile));
 
 	let pid = +trim(fs.readfile(pidfile) ?? '');
 	let until = now() + START_SECONDS;

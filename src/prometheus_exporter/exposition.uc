@@ -8,7 +8,7 @@
  * (prometheus_exporter.ownership), so the reply is each collector's text one
  * after the other, with nothing to merge. parse() reads the format back,
  * strictly (prometheus_exporter.exposition.parse): textfile uses it for *.prom
- * files, the tests for every scrape they make. How names, values and labels
+ * files, unbound for its statistics, the tests for every scrape they make. How names, values and labels
  * are spelled is prometheus_exporter.exposition.format's.
  *
  * It is the format's module for every other: the modules of exposition/
@@ -29,7 +29,6 @@
 
 import * as Result from 'prometheus_exporter.result';
 import * as format from 'prometheus_exporter.exposition.format';
-import * as parser from 'prometheus_exporter.exposition.parse';
 import { METRIC_NAME, METRIC_NAMES, LABEL_PREFIXES, SPECIAL, label_text, label_problem, utf8_valid, sample_line, header, add_family, family_set, families_of } from 'prometheus_exporter.exposition.format';
 
 /**
@@ -81,13 +80,34 @@ import { METRIC_NAME, METRIC_NAMES, LABEL_PREFIXES, SPECIAL, label_text, label_p
  * }} Recorder
  */
 
-// The format's types, a name made valid, a value as the format spells it, a
-// label value escaped, and exposition text read back.
+// The format's types, a name made valid, a value as the format spells it,
+// and a label value escaped.
 export const TYPES = format.TYPES;
 export const sanitize = format.sanitize;
 export const format_value = format.format_value;
 export const escape_label = format.escape_label;
-export const parse = parser.parse;
+
+// The parser's parse(), compiled the first time this process parses, as a
+// program of its own: two collectors parse text, in a scrape's child, and
+// uhttpd, which every request is forked from and which holds what it
+// compiles for as long as it runs, holds none of it. In the devenv it
+// compiles in some 2 ms, a scrape's of either.
+let parser = null;
+
+/**
+ * The families in exposition text, or EXPOSITION_INVALID naming the first
+ * line that breaks the format (prometheus_exporter.exposition.parse's
+ * parse, compiled the first time it is called).
+ *
+ * @param {?string} text exposition text; null reads as none.
+ * @returns {Result<Family[]>} its families, in the order they first appear,
+ *   each { name, type, help, samples }.
+ */
+export function parse(text) {
+	parser ??= loadstring("import { parse } from 'prometheus_exporter.exposition.parse';\nreturn parse;", { raw_mode: true })();
+
+	return parser(text);
+};
 
 // A family of parse() ({ samples }) as a recorder keeps one: its samples as
 // lines, and a counter's values, which omit_zero_counters reads.

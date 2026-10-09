@@ -6,11 +6,10 @@ FROM ghcr.io/openwrt/rootfs:${OPENWRT_ARCH}-${OPENWRT_VERSION}
 # (devenv/scripts/package-info.sh), so the container installs the built packages with
 # no network; uhttpd-mod-ubus and luci-mod-status for LuCI itself, and the themes.
 #
-# ucode-docopt, the command line's parser, is not in the release's feeds: it
-# comes from its author's feed, which the devenv's image takes utest from,
-# pinned to the version and release that image pins it to
-# (devenv/services/openwrt/Dockerfile). The pinned name comes after
-# FEED_DEPENDS, which names it bare: apk keeps the last.
+# ucode-docopt, the parser of the command line's package, which the lab
+# installs, is not in the release's feeds: it comes from its author's feed,
+# which the devenv's image takes utest from, pinned to the version and release
+# that image pins it to (devenv/services/openwrt/Dockerfile).
 ARG OPENWRT_VERSION
 ARG UCODE_FEED=https://m00qek.github.io/packages.ucode.dev
 ARG DOCOPT_VERSION=1.0.2-r1

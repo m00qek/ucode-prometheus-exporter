@@ -2,7 +2,7 @@
 
 # The `prometheus-exporter` Command
 
-`/usr/bin/prometheus-exporter`, which the base package installs: a scrape on standard output, the checks of the service and of a collector module, and the hash of a password for basic auth. It parses its arguments with docopt (the `ucode-docopt` package) by the usage below, which is also what `-h` prints.
+`/usr/bin/prometheus-exporter`, which the package `ucode-prometheus-exporter-cli` installs: a scrape on standard output, the checks of the service and of a collector module, and the hash of a password for basic auth. It parses its arguments with docopt (the `ucode-docopt` package, which only this package depends on) by the usage below, which is also what `-h` prints. The service needs none of it: its init script checks the configuration with the base package's own `/usr/libexec/prometheus-exporter/check.uc`, which `check` runs too, and the ubus object (`set_password`, LuCI's \*\*Change password\*\*) sets basic auth's password. `apk add ucode-prometheus-exporter-cli` installs it.
 
 ```
 prometheus-exporter: metrics of OpenWrt for Prometheus.
@@ -68,7 +68,7 @@ ucode_prometheus_exporter_build_info{version="0.2.0-r1"} 1
 
 ## `prometheus-exporter check` {#check}
 
-Checks the configuration as the exporter and the init script read it, describes every installed collector (its section, options, needs and what the jail gives it), and runs a scrape of the enabled ones, outside the jail, each as the service runs it; then what the service's own scrapes found: each collector quarantined, and each the deadline left out lately. `service prometheus-exporter check` runs it. With `--config`, the configuration alone, as `start` and `reload` check it. See [Service commands](service-commands.md#check).
+Checks the configuration as the exporter and the init script read it, describes every installed collector (its section, options, needs and what the jail gives it), and runs a scrape of the enabled ones, outside the jail, each as the service runs it; then what the service's own scrapes found: each collector quarantined, and each the deadline left out lately. `service prometheus-exporter check` runs the same, the base package's `/usr/libexec/prometheus-exporter/check.uc`, without the command line. With `--config`, the configuration alone, as `start` and `reload` check it. See [Service commands](service-commands.md#check).
 
 | Exit status | When |
 | :--- | :--- |

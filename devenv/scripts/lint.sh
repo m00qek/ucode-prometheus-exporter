@@ -20,13 +20,13 @@ for f in $(find devenv/scripts/docs_gen docs/gen -name '*.uc'); do
 	ucode -L "$src" -L "$scripts" -e "import * as _ from '$PWD/$f';" || fail "$f"
 done
 
-# rtnl, nl80211 and socket are imported at run time, by name too; the image has them.
-for m in rtnl nl80211 socket; do
+# ubus, rtnl, nl80211 and socket are imported at run time, by name too; the image has them.
+for m in ubus rtnl nl80211 socket; do
 	ucode -L "$src" -e "import { load_$m } from 'prometheus_exporter.deps'; exit(load_$m() ? 0 : 1);" ||
 		{ echo "prometheus_exporter.deps: $m does not load" >&2; status=1; }
 done
 
-# zlib (gzip, in http.uc) and digest (basic auth's crypt, in crypt.uc) are imported
+# zlib (gzip, which http.uc loads at run time) and digest (basic auth's crypt, in crypt.uc) are imported
 # by name above; what they compute is checked here, on this ucode: a gzip header,
 # and an MD5 as hex.
 ucode -e "import { deflate, inflate } from 'zlib'; let g = deflate('x', true, 1);

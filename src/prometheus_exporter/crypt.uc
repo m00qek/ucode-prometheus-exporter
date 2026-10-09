@@ -15,6 +15,7 @@
 'use strict';
 
 import { md5, sha256, sha512 } from 'digest';
+import * as hashes from 'prometheus_exporter.hashes';
 
 /**
  * The crypt alphabet: 64 characters, each 6 bits of a digest or a salt.
@@ -23,12 +24,8 @@ import { md5, sha256, sha512 } from 'digest';
  */
 export const ITOA64 = './0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
 
-/**
- * The rounds of a $5$ or $6$ hash that names none.
- *
- * @type {int}
- */
-export const ROUNDS_DEFAULT = 5000;
+// The rounds of a $5$ or $6$ hash that names none (prometheus_exporter.hashes).
+export const ROUNDS_DEFAULT = hashes.ROUNDS_DEFAULT;
 
 /**
  * The fewest rounds a $5$ or $6$ hash may name.
@@ -50,23 +47,6 @@ export const ROUNDS_MAX = 9999999;
  * @type {int}
  */
 export const KEY_MAX = 256;
-
-// The formats, as a whole hash: what the config takes. Rounds are written as
-// musl writes them back (no leading zero, in range), or no password would
-// match. Not DES's 13 characters, which a plain password could be (uhttpd
-// compares a value without a leading $ as plain text), nor bcrypt, which
-// ucode cannot compute in the time of a scrape.
-//
-// Each is checked as its parts between the $s, their lengths counted and
-// their characters matched without a count: musl compiles a count, as
-// [...]{86}, into a copy of what it counts for each, and the three formats
-// as one regex each held 350 kB of the handler's memory, for as long as
-// uhttpd runs. By the format's id: the salt's most characters, and the
-// digest's.
-const FORMATS = { '1': [ 8, 22 ], '5': [ 16, 43 ], '6': [ 16, 86 ] };
-const ALPHABET = /^[.\/0-9A-Za-z]*$/;
-// rounds= and 4 to 7 digits, the first not 0.
-const ROUNDS = /^rounds=[1-9][0-9]*$/;
 
 // n characters of the crypt alphabet for the low bits of v, the lowest first.
 function to64(v, n) {
@@ -198,57 +178,10 @@ export function sha_crypt(id, key, salt, rounds) {
 	return `$${id}$` + (rounds != null ? `rounds=${rounds}$` : '') + salt + '$' + out;
 };
 
-/**
- * Whether `value` is a hash of one of the formats.
- *
- * @param {*} value anything; only a string is a hash.
- * @returns {boolean} whether it is one.
- */
-export function is_hash(value) {
-	if (type(value) != 'string')
-		return false;
-
-	// '', the id, rounds= when it names them, the salt and the digest.
-	let parts = split(value, '$');
-	let n = length(parts);
-	let f = (n >= 4 && parts[0] == '') ? FORMATS[parts[1]] : null;
-
-	if (f == null)
-		return false;
-
-	if (n == 5) {
-		let r = parts[2];
-
-		if (parts[1] == '1' || length(r) < 11 || length(r) > 14 || !match(r, ROUNDS))
-			return false;
-	} else if (n != 4) {
-		return false;
-	}
-
-	let s = parts[n - 2], d = parts[n - 1];
-
-	return length(s) <= f[0] && length(d) == f[1] && match(s + d, ALPHABET) != null;
-};
-
-/**
- * The rounds computing `hash` takes, or null when it is not of one of the
- * formats: MD5-crypt's are 1000, always; SHA-crypt's those it names, or
- * ROUNDS_DEFAULT.
- *
- * @param {*} hash anything; only a string is a hash.
- * @returns {?int} the rounds.
- */
-export function rounds(hash) {
-	if (!is_hash(hash))
-		return null;
-
-	let parts = split(hash, '$');
-
-	if (parts[1] == '1')
-		return 1000;
-
-	return (substr(parts[2], 0, 7) == 'rounds=') ? int(substr(parts[2], 7)) : ROUNDS_DEFAULT;
-};
+// Whether a value is a hash of one of the formats, and the rounds computing
+// one takes (prometheus_exporter.hashes).
+export const is_hash = hashes.is_hash;
+export const rounds = hashes.rounds;
 
 /**
  * crypt(key, hash): the hash of `key` with the salt and rounds of `hash`, or

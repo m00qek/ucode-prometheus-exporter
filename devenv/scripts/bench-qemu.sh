@@ -15,9 +15,13 @@
 # The packages built in /artifacts are installed in the guest with their
 # dependencies from the release's feed of the target's architecture. The
 # guest then checks, on the installed exporter, what reads data in the CPU's
-# own byte order (qemu-checks.uc), and runs the bench on it. Both come back on
-# the serial console, the bench's JSON too; a check that fails, or does not
-# run, fails the run once the results are saved.
+# own byte order (qemu-checks.uc), and runs the bench on it. Before, while
+# the service runs as installed, it says what the packages take of the flash
+# (each new package's installed size), what the service's uhttpd holds and
+# what the guest has left (free), and whether it serves every collector:
+# the `service:` and `size:` lines. All come back on the serial console, the
+# bench's JSON too; a check that fails, or does not run, fails the run once
+# the results are saved.
 #
 # env: OPENWRT_VERSION, PKG_FULLVERSION, QEMU_ENDIAN (le), QEMU_SHIFT (1),
 #      QEMU_MEMORY (128), BENCH_LABEL, BENCH_ARGS (bench.uc's),
@@ -66,9 +70,26 @@ mkdir -p /mnt/p && cd /mnt/p && tar -xf /dev/sdb
 ip addr add 10.0.2.15/24 dev br-lan
 ip route add default via 10.0.2.2
 rm -f /etc/resolv.conf && echo 'nameserver 10.0.2.3' >/etc/resolv.conf
+apk info 2>/dev/null | sort >/tmp/before
 apk update >/dev/null && apk add --allow-untrusted $(cat packages) || echo 'bench-qemu: apk failed'
-/etc/init.d/prometheus-exporter stop 2>/dev/null
 echo 'bench-qemu: installed'
+# What the install added, each package's installed size: the exporter's and
+# the dependencies the release's image lacked.
+for p in $(apk info 2>/dev/null | sort | grep -vxF -f /tmp/before); do
+	echo "bench-qemu: size: $p $(apk info -s "$p" 2>/dev/null | sed -n 2p)"
+done
+# The service as installed, once a scrape succeeds: what its uhttpd holds,
+# what the guest has left, and how many collectors it serves.
+i=0
+until wget -q -O /tmp/metrics http://127.0.0.1:9100/metrics 2>/dev/null || [ $i -ge 90 ]; do sleep 2; i=$((i + 1)); done
+wget -q -O /tmp/metrics http://127.0.0.1:9100/metrics 2>/dev/null
+echo "bench-qemu: service: serves $(grep -c '^node_scrape_collector_success{.*} 1$' /tmp/metrics) of $(grep -c '^node_scrape_collector_success{' /tmp/metrics) collectors, $(grep -c '^[a-z]' /tmp/metrics) samples"
+for p in $(pidof uhttpd); do
+	grep -q prometheus-exporter "/proc/$p/cmdline" &&
+		echo "bench-qemu: service: uhttpd $(grep -E '^(VmRSS|RssAnon|VmData)' "/proc/$p/status" | tr -s ' \t' ' ' | tr '\n' ' ')"
+done
+free | sed 's/^/bench-qemu: service: /'
+/etc/init.d/prometheus-exporter stop 2>/dev/null
 apk list -I 2>/dev/null | grep -E '^(ucode|ucode-prometheus-exporter|ucode-mod-[a-z0-9]+)-[0-9]' | sed 's/^/bench-qemu: /'
 ucode devenv/scripts/qemu-checks.uc 2>&1 | sed 's/^/bench-qemu: check: /'
 sh devenv/scripts/bench.sh run /mnt/p/worlds /tmp/out.json "$(cat label)" $(cat args) | sed 's/^/bench-qemu: /'
@@ -88,9 +109,10 @@ mkdir -p "$work/payload"
 cd /artifacts
 echo "$label" >"$work/payload/label"
 echo "${BENCH_ARGS:-}" >"$work/payload/args"
-# The base package and the -full group, with its collectors: the bench's sets.
+# The base package and the -full group, with its collectors: the bench's sets;
+# and the command line's package, which the checks scrape with, with
 # ucode-docopt, from its author's feed, which make bench-qemu fetched.
-apks="ucode-prometheus-exporter-$PKG_FULLVERSION.apk $(cd /artifacts && ls ucode-docopt-*.apk)"
+apks="ucode-prometheus-exporter-$PKG_FULLVERSION.apk ucode-prometheus-exporter-cli-$PKG_FULLVERSION.apk $(cd /artifacts && ls ucode-docopt-*.apk)"
 for p in full $(/exporter/devenv/scripts/package-info.sh groups | sed -n 's/^full //p'); do
 	apks="$apks ucode-prometheus-exporter-$p-$PKG_FULLVERSION.apk"
 done

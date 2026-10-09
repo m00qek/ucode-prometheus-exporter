@@ -4,7 +4,7 @@ Where nothing can reach the router to scrape it (behind NAT, on a link that come
 
 ## Prerequisites
 
-- The exporter installed, with the collectors you want: see [How to install the exporter](install.md). The service itself need not run; `service prometheus-exporter disable` if nothing scrapes it.
+- The exporter installed, with the collectors you want, and its command line, `ucode-prometheus-exporter-cli`: see [How to install the exporter](install.md). The service itself need not run; `service prometheus-exporter disable` if nothing scrapes it.
 - `curl`: `apk add curl`.
 - A Pushgateway or VictoriaMetrics the router can reach.
 

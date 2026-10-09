@@ -26,6 +26,7 @@
 
 import { sha256 } from 'digest';
 import * as crypt from 'prometheus_exporter.crypt';
+import * as hashes from 'prometheus_exporter.hashes';
 import * as state from 'prometheus_exporter.state';
 import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
@@ -80,46 +81,12 @@ export const FILE = `${DIR}/uhttpd.conf`;
  */
 export const PASSWORD_MAX = crypt.KEY_MAX;
 
-/**
- * Whether `user` is a user basic auth takes: 1 to 64 bytes, without ':', which
- * ends the user in the credentials and in uhttpd's file, white space or
- * control characters.
- *
- * @param {*} user anything; only a string is a user.
- * @returns {boolean} whether it is one.
- */
-export function is_user(user) {
-	return type(user) == 'string' && match(user, /^[^:[:space:][:cntrl:]]{1,64}$/) != null;
-};
-
-/**
- * The most rounds a hash of auth_password may take (see crypt.rounds). The
- * handler computes the hash in ucode to check a password, and a $5$ or $6$
- * hash may name up to 9,999,999 rounds: at the 125 us a round of SHA-512-crypt
- * takes a MIPS 24Kc of 500 MIPS (an MT7621-class router; make bench-qemu),
- * that is 20 minutes a scrape. At 2000 rounds the check takes it 0.26 s (0.21 s
- * for SHA-256-crypt), the R3S 37 ms, x86_64 8 ms: a few hundred milliseconds
- * at most on a slow router, twice hash_password's, which the cache then spares
- * all but the first scrape. MD5-crypt is always 1000 (63 ms there). A hash
- * that names no rounds is of 5000 (0.63 s there), and so is refused: name
- * rounds=1000, as hash_password does.
- *
- * @type {int}
- */
-export const ROUNDS_MAX = 2000;
-
-/**
- * Whether `value` is a hash basic auth takes: of crypt's formats, and of at most
- * ROUNDS_MAX rounds.
- *
- * @param {*} value anything; only a string is a hash.
- * @returns {boolean} whether it is one.
- */
-export function is_hash(value) {
-	let n = crypt.rounds(value);
-
-	return n != null && n <= ROUNDS_MAX;
-};
+// Whether a user is one basic auth takes, the most rounds a hash of
+// auth_password may take, and whether a hash is one basic auth takes
+// (prometheus_exporter.hashes, which the config's datatypes take them from).
+export const is_user = hashes.is_user;
+export const ROUNDS_MAX = hashes.AUTH_ROUNDS_MAX;
+export const is_hash = hashes.is_auth_hash;
 
 /**
  * uhttpd's config file for user and hash.

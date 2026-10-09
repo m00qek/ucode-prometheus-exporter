@@ -1,6 +1,6 @@
 # Files and Packages
 
-Every package is architecture-independent (`PKGARCH:=all`), built from `openwrt/ucode-prometheus-exporter/Makefile`, version `<PKG_VERSION>-r<PKG_RELEASE>`. Each collector package, group package and the LuCI app depends on the base package of the very same version.
+Every package is architecture-independent (`PKGARCH:=all`), built from `openwrt/ucode-prometheus-exporter/Makefile`, version `<PKG_VERSION>-r<PKG_RELEASE>`. Each collector package, group package, the command line's package and the LuCI app depends on the base package of the very same version.
 
 ---
 
@@ -25,19 +25,19 @@ It makes the user and group `prometheus-exporter`, which uhttpd runs as in the s
 | `/etc/init.d/prometheus-exporter` | The service. See [Service commands](service-commands.md). |
 | `/etc/uci-defaults/prometheus-exporter-import` | Takes over a feed exporter's settings, once. See [How to move from the feed's exporters](../how-to/migrate-from-feed.md). |
 | `/etc/hotplug.d/ntp/90-prometheus-exporter` | Keeps busybox ntpd's last event for timesync. |
-| `/usr/bin/prometheus-exporter` | The command; `service prometheus-exporter check` runs its `check`, and start and reload its `check --config`. See [The `prometheus-exporter` command](command.md). |
 | `/usr/libexec/prometheus-exporter/handler.uc` | uhttpd's handler for `/metrics`. |
+| `/usr/libexec/prometheus-exporter/check.uc` | The check: `service prometheus-exporter check` runs it, and start and reload `check.uc --config`. The command line's `check` runs the same. |
 | `/usr/libexec/prometheus-exporter/status.uc` | What `status` prints of a running service. |
 | `/usr/libexec/prometheus-exporter/jail.uc` | The jail's mounts; `--missing`, the paths not there yet; `--make`, the directories the service makes, and what it grants its user; `--clean`, what it takes away when it stops. |
 | `/usr/libexec/prometheus-exporter/auth.uc` | Writes or removes basic auth's file. |
 | `/usr/libexec/prometheus-exporter/watch.uc` | The `watch` instance. |
 | `/usr/libexec/prometheus-exporter/import.uc` | The import the uci-defaults script runs. |
 | `/usr/libexec/prometheus-exporter/rpc-status.uc` | The scrape of the ubus object's `status`. |
-| `/usr/libexec/prometheus-exporter/trial.uc` | What runs in the service's jail for `check`, `status` and the command's `scrape`. |
+| `/usr/libexec/prometheus-exporter/trial.uc` | What runs in the service's jail for `check`, `status` and the command line's `scrape`. |
 | `/usr/libexec/prometheus-exporter/probe.uc` | Loads collector modules in a process of its own, for rpcd, which loads none it has not seen load. |
 | `/usr/share/rpcd/ucode/prometheus-exporter.uc` | rpcd's plugin: the [ubus object](ubus.md). |
 | `/usr/share/acl.d/prometheus-exporter.json` | A link to `/var/run/prometheus-exporter.acl.json`, the service's ubus ACL, which ubusd reads. See [The jail](jail.md#the-ubus-acl). |
-| `/usr/share/ucode/prometheus_exporter/*.uc` | The exporter's modules. `version.uc` holds the package's version. |
+| `/usr/share/ucode/prometheus_exporter/*.uc` | The exporter's modules, but the command line's (`cli.uc`, `conform.uc`). `version.uc` holds the package's version. |
 | `/usr/share/ucode/prometheus_exporter/config/*.uc` | The modules split out of `config.uc`: the options' types and datatypes. |
 | `/usr/share/ucode/prometheus_exporter/exposition/*.uc` | The modules split out of `exposition.uc`. |
 | `/usr/share/ucode/prometheus_exporter/deps/*.uc` | The capabilities of `deps.uc`, a module each. |
@@ -57,6 +57,16 @@ It makes the user and group `prometheus-exporter`, which uhttpd runs as in the s
 | `/var/run/prometheus-exporter/timesync/ntpd` | busybox ntpd's last event. |
 
 All are on tmpfs: none survives a reboot.
+
+## `ucode-prometheus-exporter-cli`
+
+The command line, [`prometheus-exporter`](command.md): a scrape on standard output, the check, the installed collectors listed, a collector module checked before it is installed, and the hash of a password. The service, its check, its ubus object and LuCI need none of it. Depends on the base package of the very same version and on `ucode-docopt`, which parses the command's arguments, from the same feed as the exporter; nothing else depends on `ucode-docopt`. 16 KiB installed, and `ucode-docopt` 43 KiB.
+
+| Path | Content |
+| :--- | :--- |
+| `/usr/bin/prometheus-exporter` | The command. See [The `prometheus-exporter` command](command.md). |
+| `/usr/share/ucode/prometheus_exporter/cli.uc` | Its commands, and the usage docopt parses its arguments by. |
+| `/usr/share/ucode/prometheus_exporter/conform.uc` | `collector check`: a collector module checked against the collector contract. |
 
 ## Collector packages
 
