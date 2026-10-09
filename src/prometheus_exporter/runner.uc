@@ -14,6 +14,18 @@
  * crashed, it called exit()) costs that collector, not the scrape. What a
  * collector logs, the child hands back with its run.
  *
+ * The limits this process holds the child to are the child's word, and the
+ * child is where the collectors run: one that writes over what the plan
+ * keeps there, by mistake, could have it give a limit past the deadline, or
+ * none, or start collectors the deadline leaves no time for. So this process
+ * holds the child to the scrape's deadline too (opts.deadline), whatever it
+ * says: a collector it runs is stopped there at the latest, and a child that
+ * runs past it with none it told of is stopped a turn of the timer later
+ * (GRACE). This process then forks no other: it goes through the rest of the
+ * plan itself, where the collectors never ran, and every collector left is
+ * left out at the deadline. A child that keeps to its limits stops before
+ * the deadline, or hands back the rest left out there before that turn.
+ *
  * uhttpd-mod-ucode's VM handles no signals: a ucode signal() handler is never
  * called there, and the signal's default action ends the request. A child
  * process, killed from outside, is what stops a collector there.
@@ -89,6 +101,18 @@ export const WAKE = 4;
  * @type {int}
  */
 export const WAKE_BYTES = 16384;
+
+/**
+ * How long after the scrape's deadline this process lets a child it holds
+ * no collector of run on, in seconds, before it stops it: one turn of its
+ * timer. A child that keeps to its limits is then only handing back the
+ * collectors the deadline leaves out, which takes it far less: as one forked
+ * after a collector was stopped at the deadline does, or one whose last
+ * collector ended just before it.
+ *
+ * @type {float}
+ */
+export const GRACE = POLL_MS / 1000.0;
 
 /**
  * A job, as the module's top comment says: what a plan's next() returns;
@@ -185,6 +209,18 @@ export function not_run(job) {
 };
 
 /**
+ * The run of a collector left out at the scrape's deadline, by this process
+ * once it stopped a child that ran past it: SCRAPE_DEADLINE, `skipped`, as
+ * the plan leaves one out there, which leaves its breaker as it was.
+ *
+ * @param {Job} job its job.
+ * @returns {Run} the run: SCRAPE_DEADLINE.
+ */
+export function late(job) {
+	return { ...stopped(job, Result.err(errors.SCRAPE_DEADLINE, 'not run: the scrape\'s time was spent'), 0), skipped: 'deadline' };
+};
+
+/**
  * The digits of a packed run's head's length, in hex.
  *
  * @type {int}
@@ -195,6 +231,8 @@ export const HEAD_DIGITS = 8;
 // makes and JSON writes and reads for less than an object, a table each.
 const HEAD = [ 'name', 'id', 'samples', 'duration', 'budget', 'skipped', 'logs', 'ok', 'error', 'details', 'data', 'none', 'families', 'size' ];
 const SIZE = index(HEAD, 'size');
+// The types of a number, as type() names them.
+const NUMBER = [ 'int', 'double' ];
 // The fields of a collector's start's head (started()), which has no text.
 const MARK = length([ 'id', 'limit', 'at_deadline', 'budget', 'started' ]);
 
@@ -427,9 +465,12 @@ function child_of(st) {
 /**
  * The runner in a child process forked from this one, as the module's top
  * comment says: a collector still running at its limit is stopped with the
- * process, and a new child runs the rest.
+ * process, and a new child runs the rest; a child still running at the
+ * scrape's deadline is stopped there, whatever limits it gave, and the rest
+ * are left out.
  *
- * opts: { collectors: every collector a plan may pick, omit, stats, tmp }.
+ * opts: { collectors: every collector a plan may pick, omit, stats, tmp,
+ * deadline: the scrape's (monotonic seconds), or null for none }.
  * stats, when given, is an object it fills in: children, how many it forked;
  * child, the memory of the last that ran to its end (memory()). tmp: the
  * directory of the files the runs cross by (/tmp), a file a child, each
@@ -438,7 +479,7 @@ function child_of(st) {
  *
  * @param {ScrapeEnv} env the scrape's env.
  * @param {RunFn} run_fn what runs one collector.
- * @param {?{ collectors: ?Collector[], omit: ?boolean, stats: ?Object, tmp: ?string }} opts
+ * @param {?{ collectors: ?Collector[], omit: ?boolean, stats: ?Object, tmp: ?string, deadline: ?float }} opts
  *   the options.
  * @returns {Runner} the runner.
  */
@@ -447,6 +488,7 @@ export function forked(env, run_fn, opts) {
 		run: function(plan) {
 			let by_id = {};
 			let tmp = opts?.tmp ?? '/tmp';
+			let deadline = opts?.deadline;
 
 			for (let c in opts?.collectors ?? [])
 				by_id[c.id] = c;
@@ -484,8 +526,12 @@ export function forked(env, run_fn, opts) {
 				if (c == null || st.ran[c.id])
 					return;
 
-				st.job = { c, limit: s[1], at_deadline: s[2], budget: s[3] };
-				st.started = s[4];
+				// A number, or none: what a child that went wrong wrote is
+				// no time to compare.
+				let limit = s[1], t = s[4];
+
+				st.job = { c, limit: (type(limit) in NUMBER) ? limit : null, at_deadline: s[2], budget: s[3] };
+				st.started = (type(t) in NUMBER) ? t : now(st.env);
 				// A child that started a collector is no failure to fork one.
 				st.lost = 0;
 			}
@@ -545,11 +591,28 @@ export function forked(env, run_fn, opts) {
 				return n;
 			}
 
+			// When the child is stopped, whatever it says, or null for never:
+			// the collector it runs at its limit, or at the deadline when
+			// that is sooner, or it gave none; without one, the deadline's
+			// GRACE after it, `t` being now.
+			function due(t) {
+				let limit = st.job?.limit;
+
+				if (deadline == null)
+					return limit;
+				if (st.job != null)
+					return (limit != null && limit < deadline) ? limit : deadline;
+
+				return (t < deadline) ? deadline : deadline + GRACE;
+			}
+
 			function arm() {
 				let ms = POLL_MS;
+				let t = now(st.env);
+				let at = due(t);
 
-				if (st.job?.limit != null)
-					ms = min(ms, max(0, int((st.job.limit - now(st.env)) * 1000)));
+				if (at != null)
+					ms = min(ms, max(0, int((at - t) * 1000)));
 
 				st.timer.set(max(ms, 1));
 			}
@@ -603,6 +666,26 @@ export function forked(env, run_fn, opts) {
 				arm();
 			}
 
+			// The child, still running at the deadline: stopped, and the rest
+			// of the plan gone through here, where no collector ran, each
+			// collector left out at the deadline, and none run in another
+			// child. The runs it wrote are taken first, and one it was
+			// running when stopped there is.
+			function backstop() {
+				if (st.env.kill)
+					st.env.kill(st.task.pid());
+				st.task.kill();
+				absorb(true);
+				if (st.job != null)
+					finish(cancelled({ ...st.job, at_deadline: true }, now(st.env) - st.started));
+
+				st.env.log('warning', 'the process running the collectors ran past the scrape\'s deadline, past the limits it gave: stopped there, the rest left out');
+				for (let job = st.plan.next(st.env.log); job != null; job = st.plan.next(st.env.log))
+					st.plan.done(job, job.skipped ?? late(job));
+				st.done = true;
+				uloop.end();
+			}
+
 			function tick() {
 				if (st.done)
 					return;
@@ -648,10 +731,11 @@ export function forked(env, run_fn, opts) {
 
 				// What it ran since the last turn, and the collector it runs.
 				absorb(false);
-				let took = (st.job != null) ? now(st.env) - st.started : 0;
+				let t = now(st.env);
+				let limit = st.job?.limit;
 
-				if (st.job?.limit != null && now(st.env) >= st.job.limit) {
-					let r = cancelled(st.job, took);
+				if (limit != null && t >= limit && (deadline == null || limit <= deadline)) {
+					let r = cancelled(st.job, t - st.started);
 
 					// What it started first, as the child's own end would
 					// leave it running, its parent gone (env.kill).
@@ -669,6 +753,9 @@ export function forked(env, run_fn, opts) {
 
 					return spawn();
 				}
+
+				if (deadline != null && t >= due(t))
+					return backstop();
 
 				arm();
 			}
