@@ -11,11 +11,11 @@ On a router of 32 or 64 MB of RAM and 4 to 16 MB of flash, install the base pack
 
 ## 1. Check what it takes
 
-**Flash.** Installed sizes, as apk counts them, uncompressed; on a JFFS2 overlay, which compresses, the base package takes about its `.apk`'s 163 KiB:
+**Flash.** Installed sizes, as apk counts them, uncompressed; on a JFFS2 overlay, which compresses, the base package takes about its `.apk`'s 171 KiB:
 
 | Package | Installed |
 | :--- | :--- |
-| `ucode-prometheus-exporter`, the base package | 524 KiB |
+| `ucode-prometheus-exporter`, the base package | 553 KiB |
 | what it needs besides, on an image with LuCI | `uhttpd-mod-ucode` and `ucode-mod-zlib`, 12 KiB each (mipsel) |
 | what it needs besides, on an image without LuCI | `uhttpd`, `uhttpd-mod-ucode`, `rpcd-mod-ucode`, `ucode-mod-uloop`, `-zlib`, `-digest` and `-log`: some 200 KiB (x86_64's sizes) |
 | a collector's package | 2 to 16 KiB |
