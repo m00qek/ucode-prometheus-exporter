@@ -2,7 +2,7 @@
 
 import { describe, it, prop, gen, assert } from 'utest';
 import * as fixtures from 'lib.fixtures';
-import { with_collector } from 'context';
+import { with_collector } from 'prometheus_exporter.devkit.collector';
 import * as uci_dhcp_host from 'prometheus_exporter.collectors.uci_dhcp_host';
 
 // caju-router's /etc/config/dhcp, with fake names, MACs and addresses.

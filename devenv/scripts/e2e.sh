@@ -315,6 +315,23 @@ eventually "textfile reads its directory in the jail" metric 'e2e_textfile_value
 check "nft-counters runs nft in the jail" served nft-counters
 check "and reads the counters" metric 'nft_counter_packets_total{.*name="e2e_hits"'
 
+# --- a collector of another package: the devkit's template (make template-package)
+# Built in the SDK as a third party builds one, installed beside the exporter's
+# packages, served from the service's jail, then removed.
+TEMPLATE=$(ls /artifacts/template/ucode-prometheus-exporter-example-*.apk 2>/dev/null | head -1)
+before=$(pid)
+check "the template collector's package installs offline beside the exporter" apk add --allow-untrusted --no-network "$TEMPLATE"
+eventually "which restarts the instance" restarted_from "$before"
+eventually "its collector is served from the jail" served example
+check "with its samples" metric 'example_uptime_seconds_total [0-9]'
+check "collector check passes it" $NAME collector check /usr/share/ucode/prometheus_exporter/collectors/example.uc
+template_listed() { rpc collectors | jsonfilter -e "@.collectors[@.name='example'].package" | grep -qx ucode-prometheus-exporter-example; }
+check "the ubus object lists it, by its package" template_listed
+before=$(pid)
+check "it removes cleanly" apk del ucode-prometheus-exporter-example
+eventually "which restarts the instance" restarted_from "$before"
+eventually "without it" not_served example
+
 # --- the service's user, with every collector
 # nft's netlink dump takes CAP_NET_ADMIN (bit 12), which nft-counters
 # declares: the jail has it, in every set, and nothing else. nat_traffic's
@@ -677,6 +694,11 @@ broken e2e_flood '' '' "let g = out.gauge('e2e_flood_value'); for (let i = 0; ; 
 broken e2e_thief '' '' "out.gauge('node_load1', 'Not its own.')(null, 42);"
 broken e2e_hog '' '' "let s = 'x'; while (true) s += s;"
 broken e2e_stuck 'while (true) ;' '' ''
+# Top levels that do more than declare: each refused before it runs, in the
+# probe's child, and never run in uhttpd's own process.
+broken e2e_sleeper 'sleep(600000);' '' ''
+broken e2e_quitter 'exit(0);' '' ''
+broken e2e_runner "global['sys' + 'tem']('touch /tmp/e2e-top-level-ran');" '' ''
 # A third party's module that imports fs, as ucode's own scripts do.
 IMPORT="import { readfile } from 'fs';"
 broken e2e_importer '' '' 'readfile("/etc/passwd");'
@@ -711,6 +733,12 @@ check "one that allocates past the memory limit costs its own process" failed e2
 check "and logged as killed" logged_as e2e_hog 'COLLECTOR_KILLED (its process ended while it ran'
 check "one that hangs when loaded is left out, logged at err" says "daemon.err $NAME\[[0-9]*\]: collector 'e2e_stuck' hung at load: still loading after 5 s: stopped; it is left out" logread
 check "and is not served" fails grep -q 'collector="e2e_stuck"' /tmp/broken
+impure() { says "daemon.err $NAME\\[[0-9]*\\]: skipping collector: COLLECTOR_IMPURE ($1: its top level called $2(), which $3: a collector's top level only declares, and leaves what it does to collect())" logread; }
+check "one whose top level sleeps is left out at once, logged at err" impure e2e_sleeper sleep 'blocks the process'
+check "one whose top level exits, too, and uhttpd still serves" impure e2e_quitter exit 'ends the process'
+check "one whose top level runs a program past the loader's text check, too" impure e2e_runner system 'runs a program'
+check "and the program never ran" test ! -e /tmp/e2e-top-level-ran
+check "none of them is served" sh -c "! grep -q -e 'collector=\"e2e_sleeper\"' -e 'collector=\"e2e_quitter\"' -e 'collector=\"e2e_runner\"' /tmp/broken"
 check "one that imports fs is left out unloaded, logged at err with what to use" says "daemon.err $NAME\[[0-9]*\]: skipping collector: COLLECTOR_INVALID (e2e_importer: imports fs (line 3): a collector reads files through deps.fs, with 'fs' in meta.needs)" logread
 check "and is not served" fails grep -q 'collector="e2e_importer"' /tmp/broken
 check "a FIFO in textfile's directory does not hold it" grep -qx 'node_scrape_collector_success{collector="textfile"} 1' /tmp/broken

@@ -4,7 +4,7 @@ import { describe, it, prop, gen, assert, mock } from 'utest';
 import * as deps from 'prometheus_exporter.deps';
 import * as services from 'prometheus_exporter.services';
 import * as Result from 'prometheus_exporter.result';
-import { rc } from 'lib.rc';
+import { rc } from 'prometheus_exporter.devkit.rc';
 
 // cb(ubus channel, connection) over a strict ubus mock with this config.
 function with_ubus(cfg, cb) {

@@ -283,7 +283,7 @@ function take(checked, log, import_all, import_one, changed) {
 		try {
 			mod = (together != null) ? together[x.id] : import_one(x.id);
 		} catch (e) {
-			log('err', `cannot load collector '${x.id}': ${split(e.message, '\n')[0]}`);
+			log('err', collection.load_error(x.id, split(e.message, '\n')[0]));
 			continue;
 		}
 

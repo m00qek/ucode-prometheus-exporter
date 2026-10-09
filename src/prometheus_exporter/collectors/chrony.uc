@@ -22,7 +22,7 @@
 // (where ujail cannot be had, and `collector check` of a module) they are
 // read, when chronyd serves time: /etc/config/chrony has an `allow` section.
 // SOCKET is so a path it looks for without declaring it, knowing the jail
-// never has it; its tests say so (test/context.uc's outside_jail).
+// never has it; its tests say so (the devkit's with_collector's outside_jail).
 
 import { Result, errors, services } from 'prometheus_exporter.api';
 

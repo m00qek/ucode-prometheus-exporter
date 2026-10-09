@@ -1,7 +1,7 @@
 'use strict';
 
 import { describe, it, assert, contains } from 'utest';
-import { with_collector, outcome } from 'context';
+import { with_collector, outcome } from 'prometheus_exporter.devkit.collector';
 import * as fixtures from 'lib.fixtures';
 import * as ltq_dsl from 'prometheus_exporter.collectors.ltq_dsl';
 

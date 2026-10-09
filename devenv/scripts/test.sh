@@ -8,10 +8,12 @@ cd "$(dirname "$0")/../.."
 
 suites() {
 	case "$1" in
-	unit) roots=test/unit ;;
+	# The devkit's template collector package's tests, with the unit tests,
+	# on the devkit of this tree.
+	unit) roots="test/unit devkit/template/test" ;;
 	integration) roots=test/integration ;;
 	# The docs generator's tests (test/docs/gen) run with the rest.
-	*) roots="test/unit test/integration test/docs" ;;
+	*) roots="test/unit test/integration test/docs devkit/template/test" ;;
 	esac
 	find $roots -name '*_test.uc' -exec dirname {} \; | sort -u
 }
@@ -82,7 +84,7 @@ watch)
 	trap 'exit 130' INT TERM
 	while :; do
 		run all "$@" || true
-		inotifywait -qq -r -e close_write,create,delete,move src test files devenv/scripts docs/gen
+		inotifywait -qq -r -e close_write,create,delete,move src test files devenv/scripts docs/gen devkit
 	done
 	;;
 *)

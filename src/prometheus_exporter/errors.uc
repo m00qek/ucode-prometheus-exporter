@@ -49,6 +49,16 @@ export const COLLECTOR_NO_RESULT  = 'COLLECTOR_NO_RESULT';
  */
 export const COLLECTOR_INVALID    = 'COLLECTOR_INVALID';
 
+/**
+ * A collector module whose top level does more than declare: it called, as it
+ * loaded, a function that blocks, ends or writes to the process, loads code or
+ * changes its signals; or its text runs a statement, or calls a function, that
+ * is not a declaration's.
+ *
+ * @type {string}
+ */
+export const COLLECTOR_IMPURE     = 'COLLECTOR_IMPURE';
+
 // Configuration
 
 /**

@@ -24,6 +24,12 @@ Directions for a goal you already have. Each assumes the exporter is installed, 
 | [Using the LuCI app](luci.md) | Do the above from LuCI. |
 | [Troubleshooting](troubleshoot.md) | Find why the service, a collector or a scrape fails. |
 
+## Collector authors
+
+| Guide | Goal |
+| :--- | :--- |
+| [Writing a collector in your own package](collector-package.md) | Write, test and package a collector outside the exporter's tree, with its devkit. |
+
 ## Developers
 
 | Guide | Goal |

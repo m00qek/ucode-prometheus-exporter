@@ -1,10 +1,10 @@
 'use strict';
 
 import { describe, it, prop, gen, assert } from 'utest';
-import { with_collector, jail_of, outcome } from 'context';
-import * as rc from 'lib.rc';
+import { with_collector, jail_of, outcome } from 'prometheus_exporter.devkit.collector';
+import * as rc from 'prometheus_exporter.devkit.rc';
 import * as fixtures from 'lib.fixtures';
-import * as commands from 'lib.commands';
+import * as commands from 'prometheus_exporter.devkit.commands';
 import * as timesync from 'prometheus_exporter.collectors.timesync';
 import * as state from 'prometheus_exporter.state';
 import { readfile } from 'fs';

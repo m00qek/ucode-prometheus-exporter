@@ -17,10 +17,11 @@ import { Result, errors, services, proc, exposition } from 'prometheus_exporter.
 | Export | Names |
 | :--- | :--- |
 | `Result` | `ok`, `err`, `none`, `is`, `is_none`, `describe` |
-| `errors` | `SOURCE_UNREADABLE`, `SOURCE_INVALID`, `CONFIG_INVALID`, the codes it fails with; `UBUS_CONNECT_FAILED`, `UBUS_CALL_FAILED`, `NL80211_FAILED`, `RTNL_FAILED`, `SOCKET_FAILED`, `COMMAND_NOT_ALLOWED`, `COMMAND_FAILED`, `COMMAND_TIMEOUT`, `SCRAPE_DEADLINE`, `EXPOSITION_INVALID`, those its capabilities return |
+| `errors` | `SOURCE_UNREADABLE`, `SOURCE_INVALID`, `CONFIG_INVALID`, the codes it fails with; `UBUS_CONNECT_FAILED`, `UBUS_CALL_FAILED`, `UBUS_NOT_ALLOWED`, `NL80211_FAILED`, `RTNL_FAILED`, `SOCKET_FAILED`, `COMMAND_NOT_ALLOWED`, `COMMAND_FAILED`, `COMMAND_TIMEOUT`, `PERMISSION_DENIED`, `SCRAPE_DEADLINE`, `EXPOSITION_INVALID`, those its capabilities return |
 | `services` | `state`, `idle`, `unless_disabled`, `object_missing`; `ENABLED`, `DISABLED`, `NOT_INSTALLED`, `NOT_FOUND` |
-| `proc` | `first_line`, `lines`, `each_line`, `fields`, `auxv`; `AT_PAGESZ`, `AT_CLKTCK` |
+| `proc` | `first_line`, `lines`, `each_line`, `fields`, `rows`, `auxv`; `AT_PAGESZ`, `AT_CLKTCK` |
 | `exposition` | `parse`, `format_value`, `sanitize` |
+| `u16`, `u32` | functions |
 
 Each is described in [Collector interface](collector-interface.md#the-collector-api). These are the collector's semantic-versioning surface: what the API exports changes incompatibly only in a major version. The modules behind it are the core's, and change in any release. See [About versions](../explanation/versions.md#what-a-version-promises).
 
@@ -54,7 +55,7 @@ Nothing it may read is writable.
 
 ### In the tests
 
-`test/context.uc`'s `with_collector` runs a collector's test in the filesystem the service's jail gives it: the jail's mounts for its `meta`, and what every jail has (`jail.COMMON`: procfs, sysfs, the log's and ubus's sockets, ujail's devices and `/etc/resolv.conf`, the exporter's code, ucode's modules and libraries, the shell, the exporter's own config and state). Whatever the fs and socket mocks hold, an access outside them answers as in the jail:
+The devkit's `with_collector` (`prometheus_exporter.devkit.collector`, see [The devkit](devkit.md)) runs a collector's test in the filesystem the service's jail gives it: the jail's mounts for its `meta`, and what every jail has (`jail.COMMON`: procfs, sysfs, the log's and ubus's sockets, ujail's devices and `/etc/resolv.conf`, the exporter's code, ucode's modules and libraries, the shell, the exporter's own config and state). Whatever the fs and socket mocks hold, an access outside them answers as in the jail:
 
 | Access | Answers |
 | :--- | :--- |
@@ -110,7 +111,8 @@ A `meta` the loader refuses, and text that is not valid exposition, fail the tes
 | :--- | :--- | :--- | :--- | :--- |
 | The module is in strict mode: its first statement is `'use strict'`. | — | — | Not loaded; logged at `err`, `COLLECTOR_INVALID`. | — |
 | It imports the collector API alone, and calls no `require`, `loadfile`, `loadstring`, `include` nor `system`. | — | — | Not loaded; logged at `err`, `COLLECTOR_INVALID`. See [What a collector may import](#what-a-collector-may-import). | — |
-| Its top level only declares: it loads in time. | 5 s | — | Not loaded; logged at `err`, `collector '<module>' hung at load`. | — |
+| Its top level only declares: it calls nothing that blocks, ends or writes to the process, loads code or changes its signals, at any load. See [Collector interface](collector-interface.md#the-top-level). | — | — | Not loaded; logged at `err`, `COLLECTOR_IMPURE`. | — |
+| Its top level loads in time. | 5 s | — | Not loaded; logged at `err`, `collector '<module>' hung at load`. | — |
 | `meta` and `collect` are valid. | — | — | Not loaded; logged at `err`, `COLLECTOR_INVALID`. | — |
 | It returns a Result, without throwing. | — | — | `COLLECTOR_NO_RESULT`, `COLLECTOR_CRASHED`. | A failure |
 | It returns within its budget. Its child process is killed then, with every process under it: a loop, a system call that never returns, a FIFO opened with no writer, all stop there. | 5 s, or its `timeout` and a second more | `collector_budget`, its section's `budget` | `COLLECTOR_CANCELLED`; none of its samples served. | Trips |
@@ -157,7 +159,7 @@ Until the ledger has timed them, as on the first scrape after a restart, the exp
 prometheus-exporter collector check /tmp/my_collector.uc
 ```
 
-It reads the module's text for strict mode and its imports, loads the module under the load timer, validates its `meta`, runs it on the device under the rules above, and says how long it took to load and to run, the samples it wrote and its families; then whether its text is valid exposition, each series once, and whether a family is one an installed collector or the exporter writes. A rule broken is a `FAIL` line, and exit status `1`. See [The prometheus-exporter command](command.md#collector-check).
+It reads the module's text for strict mode, its imports and [its top level](collector-interface.md#the-top-level), loads the module under the load timer and the top level's guard, validates its `meta`, runs it on the device under the rules above, and says how long it took to load and to run, the samples it wrote and its families; then whether its text is valid exposition, each series once, and whether a family is one an installed collector or the exporter writes. A rule broken is a `FAIL` line, and exit status `1`. See [The prometheus-exporter command](command.md#collector-check).
 
 ## See also
 

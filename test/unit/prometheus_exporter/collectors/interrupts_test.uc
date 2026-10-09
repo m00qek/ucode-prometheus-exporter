@@ -1,7 +1,7 @@
 'use strict';
 
 import { describe, it, prop, gen, assert, contains } from 'utest';
-import { with_collector } from 'context';
+import { with_collector } from 'prometheus_exporter.devkit.collector';
 import * as fixtures from 'lib.fixtures';
 import * as interrupts from 'prometheus_exporter.collectors.interrupts';
 

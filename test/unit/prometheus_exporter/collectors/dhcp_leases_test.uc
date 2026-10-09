@@ -1,8 +1,8 @@
 'use strict';
 
 import { describe, it, prop, gen, assert } from 'utest';
-import { with_collector, jail_of, outcome } from 'context';
-import { rc } from 'lib.rc';
+import { with_collector, jail_of, outcome } from 'prometheus_exporter.devkit.collector';
+import { rc } from 'prometheus_exporter.devkit.rc';
 import * as Result from 'prometheus_exporter.result';
 import * as fixtures from 'lib.fixtures';
 import * as dhcp_leases from 'prometheus_exporter.collectors.dhcp_leases';

@@ -8,7 +8,7 @@ Everything runs in Docker, on OpenWrt's own images, on the release in `OPENWRT_V
 make test
 ```
 
-`make unit` and `make integration` run one suite. To narrow a run:
+The template collector package's tests, `devkit/template/test/`, run with the unit tests, on the devkit of the tree. `make unit` and `make integration` run one suite. To narrow a run:
 
 ```bash
 make unit MODULES=test/unit/prometheus_exporter/collectors/wifi_test.uc
@@ -16,7 +16,7 @@ make test FILTER='collectors.wifi' VERBOSE=1
 make watch
 ```
 
-`watch` runs the tests again whenever a file under `src/`, `test/`, `files/`, `devenv/scripts/` or `docs/gen/` changes. To run them on the API floor, the first 25.12 release, as CI does too: `make test OPENWRT_VERSION=25.12.0`.
+`watch` runs the tests again whenever a file under `src/`, `test/`, `files/`, `devenv/scripts/`, `docs/gen/` or `devkit/` changes. To run them on the API floor, the first 25.12 release, as CI does too: `make test OPENWRT_VERSION=25.12.0`.
 
 ## Lint
 
@@ -32,7 +32,7 @@ It loads every module on the release's ucode, so a function that ucode lacks fai
 make package-check
 ```
 
-Builds the apks with the SDK, installs them offline in an OpenWrt image, scrapes a real uhttpd and calls the ubus object in a real rpcd, with the base package alone and then with the LuCI app.
+Builds the apks with the SDK, installs them offline in an OpenWrt image, scrapes a real uhttpd and calls the ubus object in a real rpcd, with the base package alone and then with the LuCI app. Then it installs the devkit and runs the template collector's tests on it, as a collector package's own CI would.
 
 ## The service under procd
 

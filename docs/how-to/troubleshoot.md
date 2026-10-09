@@ -71,6 +71,7 @@ The log says `collector '<name>': ` and one of these, and the collector fails al
 | `EXPOSITION_INVALID` | It wrote what Prometheus would refuse the whole scrape for: a label value or HELP text that is not valid UTF-8 (a Latin-1 SSID or hostname), or two label names that are one once sanitized. The detail names the family and the label. | A bug of the collector, which should make the value valid or leave it out. |
 | `FAMILY_CONFLICT` | It wrote a family another collector writes, or one the exporter keeps for itself: the detail names it. | Disable one of the two, or fix the collector's names. |
 | `hung at load` (at `err`) | Its module's top level did not return in 5 s: it is left out until the service restarts. | A bug of the module. |
+| `COLLECTOR_IMPURE` (at `err`) | Its module's top level called what only `collect()` may, as `sleep()` or `print()`: it is left out until the service restarts. `prometheus-exporter collector check <file>` names the line. | A bug of the module: see [The top level](../reference/collector-interface.md#the-top-level). |
 
 `prometheus-exporter collector check <module file>` (`ucode-prometheus-exporter-cli`) runs a module as the service would and says which rule it breaks: see [Collector contract](../reference/collector-contract.md).
 

@@ -82,7 +82,7 @@ Each finding starts with `ok`, `warn` or `FAIL`. Only a `FAIL` makes `check` exi
 | `collector <name>, section '<module>': <CODE (detail)>`: an option of its section it does not take | `FAIL` |
 | `section '<name>' names no installed collector; it is ignored` | `warn` |
 | `an unnamed collector section is ignored: name it after its collector's module` | `warn` |
-| `cannot load collector '<module>': ...` or `skipping collector: COLLECTOR_INVALID (...)`: a module the loader left out | `warn` |
+| `cannot load collector '<module>': ...`, `skipping collector: COLLECTOR_INVALID (...)` or `skipping collector: COLLECTOR_IMPURE (...)`: a module the loader left out | `warn` |
 | `jail: <collector>: <problem>`: a path or command the jail cannot give | `warn` |
 | `jail: <collector>: <path> is not there; the service mounts it once it is` | `warn` |
 | `scrape, in the service's jail: <n> of <m> collectors succeeded[, <k> with nothing to observe]` (or `outside the jail`, where ujail cannot run) | `ok`, or `warn` when one failed |

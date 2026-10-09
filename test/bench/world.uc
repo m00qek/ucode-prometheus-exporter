@@ -10,7 +10,24 @@
 import * as fs from 'fs';
 import { cursor } from 'uci';
 import { exec_script } from 'prometheus_exporter.deps';
-import { parse } from 'lib.commands';
+
+// What follows the command line in every script exec_script makes.
+const TAIL = substr(exec_script([ '' ], 1), length("set -- 1 ''"));
+
+// { seconds, line } of a script deps' exec runs, or null for any other
+// command: the devkit's commands.parse, here so that the bench runs on the
+// src/ of another revision (BENCH_REV), which may have no devkit.
+function parse(script) {
+	let head = match(script, /^set -- ([0-9]+) /);
+
+	if (!head || length(script) < length(head[0]) + length(TAIL) || substr(script, -length(TAIL)) != TAIL)
+		return null;
+
+	return {
+		seconds: +head[1],
+		line: substr(script, length(head[0]), length(script) - length(head[0]) - length(TAIL)),
+	};
+}
 
 // The constants are their own names: the stand-ins key replies by them.
 const RTNL_CONST = { RTM_GETLINK: 'RTM_GETLINK', NLM_F_DUMP: 'NLM_F_DUMP' };

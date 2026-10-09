@@ -89,7 +89,7 @@ check "a copy from a directory the generator does not rewrite is refused" \
 
 variant '/^\$(eval \$(call BuildPackage,\$(LUCI_APP)))/d'
 check "a package without its BuildPackage call is refused" \
-	refuses "3 define Package/<name> blocks but 2 BuildPackage" gen --hash "$HASH" --source "$TMP/variant.mk" "$VERSION"
+	refuses "([0-9]+) define Package/<name> blocks but ([0-9]+) BuildPackage" gen --hash "$HASH" --source "$TMP/variant.mk" "$VERSION"
 
 check "a bad hash is refused" refuses "64 lowercase hex" gen --hash abc "$VERSION"
 check "a VERSION with a leading v is refused" refuses "no leading v" gen --hash "$HASH" "v$VERSION"

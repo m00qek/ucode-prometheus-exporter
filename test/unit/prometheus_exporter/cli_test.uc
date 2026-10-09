@@ -4,7 +4,7 @@ import { describe, it, prop, gen, assert, contains } from 'utest';
 import * as cli from 'prometheus_exporter.cli';
 import * as config from 'prometheus_exporter.config';
 import * as crypt from 'prometheus_exporter.crypt';
-import { with_mods } from 'context';
+import { with_mods } from 'prometheus_exporter.devkit.collector';
 import { shell_quote } from 'prometheus_exporter.deps';
 
 const COMMAND = 'files/usr/bin/prometheus-exporter';

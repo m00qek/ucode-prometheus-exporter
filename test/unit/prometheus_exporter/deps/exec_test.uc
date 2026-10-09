@@ -4,8 +4,8 @@ import { describe, it, prop, gen, assert } from 'utest';
 import { popen } from 'fs';
 import * as deps from 'prometheus_exporter.deps';
 import * as deps_exec from 'prometheus_exporter.deps.exec';
-import { with_mods } from 'context';
-import * as commands from 'lib.commands';
+import { with_mods } from 'prometheus_exporter.devkit.collector';
+import * as commands from 'prometheus_exporter.devkit.commands';
 
 function brief(res) {
 	return res.ok ? { ok: true, data: res.data } : { ok: false, error: res.error, details: res.details };
@@ -182,7 +182,7 @@ describe('deps.exec.exec_channel, running programs', () => {
 	});
 });
 
-describe('test/lib/commands', () => {
+describe('devkit.commands', () => {
 	it('fakes what exec runs, exit status included', () => {
 		with_mods({ fs: commands.fs({ [commands.line([ 'nft', '-j' ])]: { out: '{}', status: 0 }, [commands.line([ 'nft', 'x' ])]: { out: '', status: 2 } }) }, (mods) => {
 			let exec = deps.session(mods).for({ needs: [ 'exec' ], commands: [ 'nft' ] }).data.exec;

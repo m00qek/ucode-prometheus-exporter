@@ -109,6 +109,7 @@ Checks a collector module before it is installed, on the device it is meant for:
 $ prometheus-exporter collector check /tmp/apk_updates.uc
 ok   strict mode: 'use strict' first
 ok   imports: prometheus_exporter.api alone
+ok   top level: declarations alone
 ok   load: 0.004 s, of at most 5 s
 ok   meta: apk_updates (APK updates), needs exec, budget 6 s, max_samples 20000
 ok   run: 0.412 s, 3 samples in 2 families

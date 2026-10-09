@@ -4,8 +4,8 @@ import { describe, it, prop, gen, assert } from 'utest';
 import { popen } from 'fs';
 import * as deps from 'prometheus_exporter.deps';
 import * as config from 'prometheus_exporter.config';
-import { with_mods } from 'context';
-import * as commands from 'lib.commands';
+import { with_mods } from 'prometheus_exporter.devkit.collector';
+import * as commands from 'prometheus_exporter.devkit.commands';
 
 function brief(res) {
 	return res.ok ? { ok: true, data: res.data } : { ok: false, error: res.error, details: res.details };

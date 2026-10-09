@@ -2,7 +2,7 @@
 
 import { describe, it, prop, gen, assert, contains } from 'utest';
 import { readfile } from 'fs';
-import { with_collector } from 'context';
+import { with_collector } from 'prometheus_exporter.devkit.collector';
 import * as fixtures from 'lib.fixtures';
 import * as netclass from 'prometheus_exporter.collectors.netclass';
 

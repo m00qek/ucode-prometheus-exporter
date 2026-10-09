@@ -1,9 +1,9 @@
 'use strict';
 
 import { describe, it, prop, gen, assert } from 'utest';
-import { with_collector } from 'context';
+import { with_collector } from 'prometheus_exporter.devkit.collector';
 import * as fixtures from 'lib.fixtures';
-import * as commands from 'lib.commands';
+import * as commands from 'prometheus_exporter.devkit.commands';
 import * as nft_counters from 'prometheus_exporter.collectors.nft_counters';
 
 const NFT = commands.line([ 'nft', '--json', 'list', 'counters' ]);

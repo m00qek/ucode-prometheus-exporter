@@ -5,7 +5,7 @@ import * as jailed from 'prometheus_exporter.jailed';
 import * as loader from 'prometheus_exporter.loader';
 import * as config from 'prometheus_exporter.config';
 import * as Result from 'prometheus_exporter.result';
-import { with_mods } from 'context';
+import { with_mods } from 'prometheus_exporter.devkit.collector';
 
 const NFT = loader.validate('nft_counters', { meta: { name: 'nft-counters', title: 'N', help: 'N.', needs: [ 'exec' ], commands: [ 'nft' ] },
 	collect: () => Result.ok() }).data;

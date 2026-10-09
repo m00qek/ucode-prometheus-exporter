@@ -5,7 +5,7 @@ import * as conform from 'prometheus_exporter.conform';
 import * as loader from 'prometheus_exporter.loader';
 import * as deps from 'prometheus_exporter.deps';
 import * as Result from 'prometheus_exporter.result';
-import { with_mods } from 'context';
+import { with_mods } from 'prometheus_exporter.devkit.collector';
 
 const STRICT = "'use strict';\n";
 
@@ -56,6 +56,7 @@ describe('conform.run', () => {
 		assert.match([
 			"ok   strict mode: 'use strict' first",
 			'ok   imports: prometheus_exporter.api alone',
+			'ok   top level: declarations alone',
 			'ok   load: 0.002 s, of at most 5 s',
 			'ok   meta: mine (Mine), needs nothing, budget 5 s, max_samples 20000',
 			'ok   run: 0.001 s, 2 samples in 1 family',
@@ -77,6 +78,25 @@ describe('conform.run', () => {
 
 		assert.match("imports ubus (line 3): a collector calls ubus through deps.ubus, with 'ubus' in meta.needs", why);
 		assert.match([ false, [ "ok   strict mode: 'use strict' first", `FAIL ${why}` ] ], [ r.ok, r.lines ]);
+	});
+
+	it('fails one whose top level does more than declare, without loading it, as loader.purity_problem says', () => {
+		let text = STRICT + "import { Result } from 'prometheus_exporter.api';\nconst HOME = getenv('HOME');\nsleep(1);\n";
+		let r = check('/tmp/mine.uc', { files: { '/tmp/mine.uc': text }, probed: { ok: false, error: 'loaded' } });
+		let why = loader.purity_problem(text);
+
+		assert.match("its top level calls getenv() (line 3): getenv() reads the environment, which is not the same in each process that loads it; " +
+			"its top level runs sleep() (line 4): a collector's top level only declares, and leaves what it does to collect()", why);
+		assert.match([ false, [ "ok   strict mode: 'use strict' first", 'ok   imports: prometheus_exporter.api alone', `FAIL ${why}` ] ],
+			[ r.ok, r.lines ]);
+	});
+
+	it('fails one whose top level called what its guard refuses as it loaded', () => {
+		let impure = check('/tmp/mine.uc', { probed: { ok: false, hung: false,
+			error: "COLLECTOR_IMPURE (its top level called sleep(), which blocks the process: a collector's top level only declares, and leaves what it does to collect())" } });
+
+		assert.match([ false, "FAIL load: COLLECTOR_IMPURE (its top level called sleep(), which blocks the process: a collector's top level only declares, and leaves what it does to collect())" ],
+			[ impure.ok, impure.lines[-1] ]);
 	});
 
 	it('fails one that does not load in time, or at all', () => {

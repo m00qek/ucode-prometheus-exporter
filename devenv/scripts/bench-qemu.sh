@@ -119,7 +119,7 @@ done
 ls $apks >/dev/null
 echo $apks | tr ' ' '\n' | sed 's|^|/mnt/p/|' | tr '\n' ' ' >"$work/payload/packages"
 tar -cf "$work/payload.tar" -C "$work/payload" label args packages -C /artifacts $apks -C /artifacts/bench worlds \
-	-C /exporter test/bench test/lib/commands.uc devenv/scripts/bench.sh devenv/scripts/package-info.sh \
+	-C /exporter test/bench devenv/scripts/bench.sh devenv/scripts/package-info.sh \
 	devenv/scripts/qemu-checks.uc
 
 # ---- boot, and wait for the guest to power off ----

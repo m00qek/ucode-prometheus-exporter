@@ -22,7 +22,7 @@ trap cleanup EXIT INT TERM
 
 ssh "$host" "rm -rf '$dir' && mkdir -p '$dir'"
 # BENCH_SRC: the directory whose src/ is benched (make's BENCH_REV), else this one's.
-tar -czf - -C "${BENCH_SRC:-.}" src -C "$PWD" test/bench test/lib/commands.uc devenv/scripts/bench.sh -C "$PWD/bin/bench" worlds |
+tar -czf - -C "${BENCH_SRC:-.}" src -C "$PWD" test/bench devenv/scripts/bench.sh -C "$PWD/bin/bench" worlds |
 	ssh "$host" "tar -xzf - -C '$dir'"
 mkdir -p bin/bench
 # The bench's options, each single-quoted for the device's shell (a filter holds '|').

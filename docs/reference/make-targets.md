@@ -22,9 +22,10 @@ Every target runs in Docker, but `feed-makefile`, a shell script with `curl`; no
 
 | Target | Description |
 | :--- | :--- |
-| `package` | Builds the apks with the OpenWrt SDK of `OPENWRT_ARCH` and `OPENWRT_VERSION`, into `bin/`. |
-| `package-check` | `package`, then installs the packages offline in an OpenWrt image that carries their dependencies, scrapes a real uhttpd on loopback, calls the ubus object in a real rpcd, with the base package alone and then with the LuCI app, and checks the files, dependencies and ACL. |
-| `e2e` | `package`, then boots OpenWrt (procd, ubusd, netifd) in a privileged container without network and checks the service in its jail as packages come and go and its config changes, and its ubus object, without LuCI. |
+| `package` | Builds the apks with the OpenWrt SDK of `OPENWRT_ARCH` and `OPENWRT_VERSION`, into `bin/`, and the devkit's into `bin/devkit/`. |
+| `template-package` | Builds the devkit's template collector package, `devkit/template`, with the same SDK, as a package of another tree, against this tree's release of the exporter, into `bin/template/`. |
+| `package-check` | `package`, then installs the packages offline in an OpenWrt image that carries their dependencies, scrapes a real uhttpd on loopback, calls the ubus object in a real rpcd, with the base package alone and then with the LuCI app, and checks the files, dependencies and ACL; then installs the devkit, runs the template collector's tests on it from the template's own utest config, and has `collector check` pass the template. |
+| `e2e` | `package` and `template-package`, then boots OpenWrt (procd, ubusd, netifd) in a privileged container without network and checks the service in its jail as packages come and go and its config changes, and its ubus object, without LuCI; the template collector's package is installed beside the exporter's, served and removed. |
 | `lab` | `package`, then OpenWrt under procd in a privileged container, left running, with every collector package and the LuCI app installed: LuCI on `http://LAB_ADDRESS:LAB_LUCI_PORT/` (root, no password) and `/metrics` on `http://LAB_ADDRESS:LAB_METRICS_PORT/metrics`. `make lab` again starts it afresh with new packages. See [How to use the lab](../how-to/developer/lab.md). |
 | `lab-down` | Removes the lab's container. |
 | `browser` | `package`, then the Playwright tests of `test/browser/` against LuCI in a container: the built packages, the ubus object in a real rpcd, real collectors, a stand-in for procd and netifd. Results and screenshots in `bin/browser/`. |
@@ -66,7 +67,7 @@ Every target runs in Docker, but `feed-makefile`, a shell script with `curl`; no
 | `OPENWRT_VERSION` | `25.12.5` | all | The OpenWrt release of the images and the SDK. CI also runs `25.12.0`, the API floor. |
 | `OPENWRT_ARCH` | `x86_64` | all | The architecture of the images and the SDK. |
 | `FILTER` | — | tests, `browser`, `bench`, `bench-device`, `bench-qemu` | Tests: only those whose name matches. Benchmark: a regex of `world/case`. |
-| `VERBOSE` | — | tests, `package` | Tests: one line per test. `package`: the SDK's `V=s`. |
+| `VERBOSE` | — | tests, `package`, `template-package` | Tests: one line per test. `package`, `template-package`: the SDK's `V=s`. |
 | `MODULES` | — | tests | Only these test files or directories. |
 | `TEST_TIMEOUT` | `300` | tests | Seconds the whole run may take; past them it is stopped, and the test file it was in is named. |
 | `CI` | — | all | Runs containers without a TTY. |

@@ -207,7 +207,7 @@ describe('modules split into a directory', () => {
 		assert.match(true, length(filter([
 			'files/usr/libexec/prometheus-exporter/handler.uc', 'files/usr/bin/prometheus-exporter',
 			'files/usr/share/rpcd/ucode/prometheus-exporter.uc', 'devenv/scripts/docs_gen/harvest.uc',
-			'devenv/scripts/package-check.sh', 'test/lib/commands.uc', 'test/context.uc',
+			'devenv/scripts/package-check.sh', 'src/prometheus_exporter/devkit/commands.uc', 'src/prometheus_exporter/devkit/collector.uc',
 		], (p) => !(p in scanned))) == 0);
 		assert.match(true, 'exposition' in facades() && !('collectors' in facades()));
 	});
@@ -229,6 +229,23 @@ describe('what the collectors import', () => {
 
 		assert.match([], problems);
 		assert.match(true, length(files_under('src/prometheus_exporter/collectors', [])) >= length(loader.OWN));
+	});
+
+	// A collector's top level runs again in uhttpd's own process, unguarded
+	// but for collection.top_level: it only declares (loader.purity_problem).
+	it('only declares at its top level, for each collector the packages ship and each the checks install', () => {
+		let problems = [];
+		let paths = [ ...files_under('src/prometheus_exporter/collectors', []), ...files_under('test/fixtures/luci/collectors', []) ];
+
+		for (let path in paths) {
+			let why = loader.purity_problem(readfile(path));
+
+			if (why != null)
+				push(problems, `${path}: ${why}`);
+		}
+
+		assert.match([], problems);
+		assert.match(true, length(paths) > length(loader.OWN));
 	});
 
 	// The collectors the checks install (the browser's sampler, runner and

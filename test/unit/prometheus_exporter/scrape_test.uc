@@ -7,8 +7,8 @@ import * as deps from 'prometheus_exporter.deps';
 import * as exposition from 'prometheus_exporter.exposition';
 import * as Result from 'prometheus_exporter.result';
 import * as ledger from 'prometheus_exporter.ledger';
-import * as commands from 'lib.commands';
-import { with_mods } from 'context';
+import * as commands from 'prometheus_exporter.devkit.commands';
+import { with_mods } from 'prometheus_exporter.devkit.collector';
 
 function collector(name, collect, meta) {
 	return loader.validate(loader.id_of(name), { meta: { name, title: 'Test', help: 'Test.', needs: [], ...(meta ?? {}) }, collect }).data;
