@@ -151,6 +151,7 @@ export function scrape_env(mods, log, opts) {
 		fork: opts?.fork ?? true,
 		tmp: opts?.tmp,
 		mkstemp: mods.fs.mkstemp,
+		open: mods.fs.open,
 		readfile: mods.fs.readfile,
 		// A collector's child process, with every process under it: one
 		// the runner stops, or one its scrape left behind

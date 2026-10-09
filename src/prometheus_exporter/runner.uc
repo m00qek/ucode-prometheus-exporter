@@ -4,14 +4,15 @@
  *
  * forked(): in a child process forked from this one (ucode's uloop.task),
  * which has the collectors loaded already, so a fork costs no compiling. The
- * child runs them one after another, asking this process for each; this
- * process holds a timer on each. A collector still running at its limit is
- * stopped by killing the child, and a new child runs the rest: so is one that
- * never returns from a loop, or waits in a system call (a FIFO opened with no
- * writer, a socket that never answers), which nothing inside a process could
- * stop. A child that dies under a collector (it ran past the memory limit, a
- * native module crashed, it called exit()) costs that collector, not the
- * scrape. What a collector logs, the child sends back with its run.
+ * child goes through the plan itself, one collector after another, and
+ * tells this process each one it starts; this process holds a timer on it.
+ * A collector still running at its limit is stopped by killing the child,
+ * and a new child runs the rest: so is one that never returns from a loop,
+ * or waits in a system call (a FIFO opened with no writer, a socket that
+ * never answers), which nothing inside a process could stop. A child that
+ * dies under a collector (it ran past the memory limit, a native module
+ * crashed, it called exit()) costs that collector, not the scrape. What a
+ * collector logs, the child hands back with its run.
  *
  * uhttpd-mod-ucode's VM handles no signals: a ucode signal() handler is never
  * called there, and the signal's default action ends the request. A child
@@ -19,10 +20,17 @@
  *
  * inline(): in this process, for the tests: nothing stops a collector there.
  *
- * A plan is { next(pid) -> job or null, done(job, run) }. next() is called
- * each time a collector can start, with the pid of the process it would run
- * in: it returns the next to run, or null when there is none, and leaves out
- * (and hands done) any it does not run. A job is
+ * A plan is { next(log) -> job or null, started(job, pid), done(job, run) },
+ * and goes through its collectors in an order of its own, the queue:
+ * next() is called each time a collector can start, in the process it would
+ * run in, and returns the next of the queue, or null when there is none; a
+ * job it does not run is { c, skipped: its run }, and what it logs it logs
+ * with `log`. started() is called in this process once the collector has
+ * started, with the pid of the process it runs in. done() is called with
+ * each job's run where next() gave the job, and again in this process,
+ * where it is handed back: the queue then goes on after job.c, whatever
+ * next() was asked there, so that a new child starts where the last one was
+ * stopped. A job is
  * { c, cutoff, limit, at_deadline, budget, left, settings, view }:
  *   c            the collector
  *   cutoff       when its programs must be done by (monotonic seconds), or null
@@ -34,11 +42,11 @@
  *   settings     config.settings' data, or null to read them in the run
  *   view         the exporter collector's data (deps.exporter_channel)
  * A run is scrape.run_one's: { name, id, result, families, samples, duration,
- * budget, text }: its families' names and types, and the text of them the
- * reply holds (prometheus_exporter.exposition's pack).
+ * budget, text }: its families' names, and the text of them the reply holds
+ * (prometheus_exporter.exposition's pack).
  *
  * env: { session(log) -> a deps session, clock() -> [ s, ns ] monotonic,
- *        log(level, msg), mkstemp, readfile: fs's (forked's), kill(pid): a
+ *        log(level, msg), mkstemp, open, readfile: fs's (forked's), kill(pid): a
  *        child it stops, killed with every process under it (forked's) };
  * run_fn(env, session, c, job) -> a run.
  *
@@ -55,7 +63,27 @@ import { seconds } from 'prometheus_exporter.deadline';
 import { POLL_MS } from 'prometheus_exporter.probe';
 
 /**
- * A job, as the module's top comment says: what a plan's next() returns.
+ * How soon a collector's limit must be, in seconds, for the child to tell
+ * this process of its start at once, rather than leave it to be read at the
+ * timer's next turn, which is at most POLL_MS away: twice that.
+ *
+ * @type {float}
+ */
+export const SOON = 2 * POLL_MS / 1000.0;
+
+/**
+ * The child tells this process of every WAKE-th collector it starts too, so
+ * that it takes the runs before it while the child runs that one, rather
+ * than all of them once the child is done: on a router of two cores, at
+ * once. A message for each costs the two processes more than it saves.
+ *
+ * @type {int}
+ */
+export const WAKE = 4;
+
+/**
+ * A job, as the module's top comment says: what a plan's next() returns;
+ * `skipped`, the run of a collector it does not run.
  *
  * @typedef {{
  *   c: Collector,
@@ -65,15 +93,21 @@ import { POLL_MS } from 'prometheus_exporter.probe';
  *   budget: ?int,
  *   left: ?int,
  *   settings: ?Settings,
- *   view: ?ExporterView
+ *   view: ?ExporterView,
+ *   skipped: ?Run
  * }} Job
  */
 
 /**
- * A plan, as the module's top comment says: next(pid), the next job or
- * null; done(job, run), each run handed back.
+ * A plan, as the module's top comment says: next(log), the next job or
+ * null; started(job, pid), once a job's collector started; done(job, run),
+ * each run handed back.
  *
- * @typedef {{ next: (pid: ?int) => ?Job, done: (job: Job, run: Run) => void }} Plan
+ * @typedef {{
+ *   next: (log: Log) => ?Job,
+ *   started: ?function(Job, ?int): void,
+ *   done: (job: Job, run: Run) => void
+ * }} Plan
  */
 
 /**
@@ -129,7 +163,7 @@ export function killed(job, took) {
 
 /**
  * The run of a collector no process could be started for: the children forked
- * to run the collectors in ended twice in a row before asking for one. It is
+ * to run the collectors in ended twice in a row before running one. It is
  * not the collector's doing, so it is left out, as one the deadline leaves
  * out is (`skipped`), which leaves its breaker as it was.
  *
@@ -142,54 +176,111 @@ export function not_run(job) {
 };
 
 /**
- * A run, and what was logged with it, as the child hands it over: a line of
- * JSON, { name, id, result, samples, duration, budget, logs, families: [
- * { name, type } ] }, its Result without its prototype, and then its text,
- * as it is: JSON would escape every quote of every label. The families go as
- * they are, which JSON writes and reads in C: a scrape's are hundreds, and a
- * function called on each, here and in unpack(), cost more than the rest.
+ * The digits of a packed run's head's length, in hex.
+ *
+ * @type {int}
+ */
+export const HEAD_DIGITS = 8;
+
+// The fields of a packed run's head, in their order: an array, which ucode
+// makes and JSON writes and reads for less than an object, a table each.
+const HEAD = [ 'name', 'id', 'samples', 'duration', 'budget', 'skipped', 'logs', 'ok', 'error', 'details', 'data', 'none', 'families', 'size' ];
+const SIZE = index(HEAD, 'size');
+// The fields of a collector's start's head (started()), which has no text.
+const MARK = length([ 'id', 'limit', 'at_deadline', 'budget', 'started' ]);
+
+/**
+ * A run, and what was logged with it, as the child hands it over: the
+ * length of its head (HEAD_DIGITS hex digits), its head, a line of JSON,
+ * [ name, id, samples, duration, budget, skipped, logs, ok, error, details,
+ * data, none, families, size ], its Result's fields without its prototype
+ * and its families' names, and then its text, `size` bytes, as it is: JSON
+ * would escape every quote of every label. One packed run follows another
+ * in the file the child writes, which this process reads as the child goes.
  *
  * @param {Run} run the run, packed (its text written, its families' names
- *   and types alone, as exposition.pack leaves them).
+ *   alone, as exposition.pack leaves them).
  * @param {string[][]} logs what was logged with it: [ level, msg ] pairs.
- * @returns {string} the line of JSON and the text.
+ * @returns {string} the run, packed.
  */
 export function pack(run, logs) {
 	let res = run.result;
-	let head = {
-		name: run.name, id: run.id, samples: run.samples, duration: run.duration, budget: run.budget, logs,
-		result: { ok: res.ok, error: res.error, details: res.details, data: res.data, none: res.none },
-		families: run.families,
-	};
+	let text = run.text ?? '';
+	let head = sprintf('%J\n', [
+		run.name, run.id, run.samples, run.duration, run.budget, run.skipped, logs,
+		res.ok, res.error, res.details, res.data, res.none, run.families, length(text),
+	]);
 
-	return sprintf('%J\n', head) + run.text;
+	return sprintf('%08x', length(head)) + head + text;
 };
 
 /**
- * The run of pack()'s text, and its logs: { run, logs }.
+ * A collector's start, as the child writes it before it runs it, in the
+ * file its runs go to: [ id, limit, at_deadline, budget, started ], `started`
+ * when it started (monotonic seconds), and no text.
  *
- * @param {string} text pack()'s text.
- * @returns {{ run: Run, logs: string[][] }} the run, its Result made one
- *   again, and its logs.
+ * @param {Job} job its job.
+ * @param {float} t when it started.
+ * @returns {string} the start, packed.
  */
-export function unpack(text) {
-	let nl = index(text, '\n');
-	let head = json(substr(text, 0, nl));
-	let res = head.result ?? {};
-	let families = head.families ?? [];
+export function started(job, t) {
+	let head = sprintf('%J\n', [ job.c.id, job.limit, job.at_deadline, job.budget, t ]);
+
+	return sprintf('%08x', length(head)) + head;
+};
+
+/**
+ * The run pack() wrote at `at` of `text`, and its logs: { run, logs, end },
+ * `end` where the next one begins; or the start started() wrote there,
+ * { start, end }, start its head; null where there is none, or only part of
+ * one, as a child stopped while it wrote one leaves.
+ *
+ * @param {string} text what pack() and started() wrote, one after another.
+ * @param {?int} at where the run begins; 0 when null.
+ * @returns {?{ run: ?Run, logs: ?string[][], start: ?Array, end: int }} the
+ *   run, its Result made one again, its logs, and where it ends; or the
+ *   start.
+ */
+export function unpack(text, at) {
+	at ??= 0;
+
+	let n = hex(substr(text, at, HEAD_DIGITS));
+	let start = at + HEAD_DIGITS + n;
+
+	if (type(n) != 'int' || n <= 0 || start > length(text))
+		return null;
+
+	let h = null;
+
+	try {
+		h = json(substr(text, at + HEAD_DIGITS, n));
+	} catch (e) {
+		return null;
+	}
+
+	if (type(h) != 'array')
+		return null;
+
+	// A collector the child started.
+	if (length(h) == MARK)
+		return { start: h, end: start };
+
+	if (type(h[SIZE]) != 'int' || start + h[SIZE] > length(text))
+		return null;
 
 	// run_one gives every failure its code: none is a run packed some other
 	// way, never one the collector was killed in.
-	let result = res.ok
-		? ((res.none != null) ? Result.none(res.none) : Result.ok(res.data))
-		: Result.err(res.error ?? errors.COLLECTOR_NO_RESULT, res.details, res.data);
+	let result = h[7]
+		? ((h[11] != null) ? Result.none(h[11]) : Result.ok(h[10]))
+		: Result.err(h[8] ?? errors.COLLECTOR_NO_RESULT, h[9], h[10]);
 
 	return {
 		run: {
-			name: head.name, id: head.id, result, families, samples: head.samples, duration: head.duration, budget: head.budget,
-			text: substr(text, nl + 1),
+			name: h[0], id: h[1], result, families: h[12] ?? [], samples: h[2], duration: h[3], budget: h[4],
+			skipped: h[5], text: substr(text, start, h[SIZE]),
 		},
-		logs: head.logs ?? [],
+		logs: h[6] ?? [],
+		end: start + h[SIZE],
 	};
 };
 
@@ -225,8 +316,15 @@ export function inline(env, run_fn, opts) {
 		run: function(plan) {
 			let session = env.session();
 
-			for (let job = plan.next(); job != null; job = plan.next())
+			for (let job = plan.next(env.log); job != null; job = plan.next(env.log)) {
+				if (job.skipped) {
+					plan.done(job, job.skipped);
+					continue;
+				}
+
+				plan.started?.(job, null);
 				plan.done(job, run_packed(env, run_fn, session, job, opts?.omit));
+			}
 
 			session.close();
 		},
@@ -255,38 +353,57 @@ export function memory(readfile) {
 	return m;
 };
 
-// What the child runs: the jobs this process sends, until it sends none.
-// Everything it needs it reads from `st`: uloop keeps the callbacks of every
-// task it ran for as long as the process lives, and what they hold with them,
-// so run() lets go of st's fields once it is done.
+// What the child runs: the plan, from where this process left it, until it
+// has no more. Everything it needs it reads from `st`: uloop keeps the
+// callbacks of every task it ran for as long as the process lives, and what
+// they hold with them, so run() lets go of st's fields once it is done.
 //
-// Each run goes into st.out, a file this process made before it forked the
-// child, which they share, appended (pack()); the pipe carries where it is.
-// A message the child sends must be no longer than PIPE_BUF (4096 bytes), as
-// what ucode's uloop reads of the pipe without blocking: a longer one may be
-// half there when this process reads it, and ucode then loses it whole.
+// Each run goes into st.out, a file this process made for this child before
+// it forked it, appended (pack()), and so does each collector's start
+// (started()), before it runs, with the run before it, in one write: so the
+// runs it ran are there should it be stopped later. This process reads them
+// as it goes, at its timer's turns (absorb), and holds a timer on the
+// collector each start names. The pipe tells it of a collector whose limit
+// is less than SOON away, which it could be past before that turn, of every
+// WAKE-th, and of every one when this process has no reader of the file. A
+// message must be no longer than PIPE_BUF (4096 bytes), as what ucode's
+// uloop reads of the pipe without blocking: a longer one may be half there
+// when this process reads it, and ucode then loses it whole.
 function child_of(st) {
 	return function(pipe) {
 		let logs = [];
 		let log = (level, msg) => push(logs, [ level, msg ]);
 		let child_env = { ...st.env, log };
 		let session = st.env.session(log);
+		let out = st.out;
+		let told = (st.reader == null), started_n = 0;
+		// This process's pid, which a start gives the plan (the progress
+		// file's line).
+		let pid = int(split(st.env.readfile?.('/proc/self/stat') ?? '', ' ')[0]);
 
-		for (let job = pipe.receive(); job?.id != null; job = pipe.receive()) {
+		if (type(pid) != 'int')
+			pid = null;
+
+		for (let job = st.plan.next(log); job != null; job = st.plan.next(log)) {
+			let r = job.skipped;
+
+			if (r == null) {
+				let t = now(st.env);
+
+				st.plan.started?.(job, pid);
+				out.write(started(job, t));
+				out.flush();
+				if (told || (++started_n % WAKE) == 0 || (job.limit != null && job.limit - t < SOON))
+					pipe.send({ start: [ job.c.id, job.limit, job.at_deadline, job.budget, t ] });
+				r = run_packed(child_env, st.run_fn, session, job, st.omit);
+			}
+
+			st.plan.done(job, r);
+			out.write(pack(r, logs));
 			logs = [];
-
-			let r = run_packed(child_env, st.run_fn, session, { ...job, c: st.by_id[job.id] }, st.omit);
-			let text = pack(r, logs);
-
-			st.out.seek(0, 2);
-
-			let at = st.out.tell();
-
-			st.out.write(text);
-			st.out.flush();
-			pipe.send({ id: r.id, at, size: length(text) });
 		}
 
+		out.flush();
 		session.close();
 		return { end: true, memory: st.stats ? memory(st.env.readfile) : null };
 	};
@@ -300,8 +417,9 @@ function child_of(st) {
  * opts: { collectors: every collector a plan may pick, omit, stats, tmp }.
  * stats, when given, is an object it fills in: children, how many it forked;
  * child, the memory of the last that ran to its end (memory()). tmp: the
- * directory of the file the runs cross by (/tmp), which is removed as soon as
- * it is made, and gone with the scrape: on tmpfs, the state's in the jail.
+ * directory of the files the runs cross by (/tmp), a file a child, each
+ * removed as soon as it is made, and gone with the scrape: on tmpfs, the
+ * state's in the jail.
  *
  * @param {ScrapeEnv} env the scrape's env.
  * @param {RunFn} run_fn what runs one collector.
@@ -313,13 +431,14 @@ export function forked(env, run_fn, opts) {
 	return {
 		run: function(plan) {
 			let by_id = {};
+			let tmp = opts?.tmp ?? '/tmp';
 
 			for (let c in opts?.collectors ?? [])
 				by_id[c.id] = c;
 
 			let st = {
 				env, run_fn, by_id, plan, omit: opts?.omit, stats: opts?.stats,
-				task: null, timer: null, gen: 0, job: null, started: null, closing: false, done: false, lost: 0,
+				task: null, timer: null, gen: 0, job: null, started: null, done: false, lost: 0, out: null, reader: null, read_at: 0, ran: {},
 			};
 			let child = child_of(st);
 
@@ -341,6 +460,76 @@ export function forked(env, run_fn, opts) {
 				st.plan.done(job, r);
 			}
 
+			// A collector the child started, its start's head ([ id, limit,
+			// at_deadline, budget, started ]): held by the timer, unless its
+			// run is here already.
+			function hold(s) {
+				let c = st.by_id[s[0]];
+
+				if (c == null || st.ran[c.id])
+					return;
+
+				st.job = { c, limit: s[1], at_deadline: s[2], budget: s[3] };
+				st.started = s[4];
+				// A child that started a collector is no failure to fork one.
+				st.lost = 0;
+			}
+
+			// The runs the child wrote since this process last looked, handed
+			// to the plan in the order it ran them, and what they logged
+			// logged here, and the collector it started last held: how many
+			// runs. The collector this process holds a timer on is done,
+			// when its run is there. While the child runs, they are read by a
+			// reader of their own (env.open), whose place in the file is not
+			// the child's, which goes on writing: so this process takes the
+			// runs while the child runs the next, on a router of two cores at
+			// once. `last`: the child is done, and the file is read to its
+			// end, and closed.
+			function absorb(last) {
+				let h = st.reader ?? (last ? st.out : null);
+				let n = 0;
+
+				if (h) {
+					h.seek(st.read_at);
+
+					let text = h.read('all') ?? '';
+					let at = 0;
+
+					for (let got = unpack(text, 0); got != null; got = unpack(text, got.end)) {
+						at = got.end;
+						if (got.start) {
+							hold(got.start);
+							continue;
+						}
+
+						let c = st.by_id[got.run.id];
+
+						if (c == null)
+							continue;
+
+						for (let l in got.logs)
+							st.env.log(l[0], l[1]);
+
+						if (st.job?.c == c)
+							st.job = null;
+
+						st.ran[c.id] = true;
+						st.plan.done({ c }, got.run);
+						n++;
+					}
+
+					st.read_at += at;
+				}
+
+				if (last) {
+					st.reader?.close();
+					st.out?.close();
+					st.reader = st.out = null;
+				}
+
+				return n;
+			}
+
 			function arm() {
 				let ms = POLL_MS;
 
@@ -350,24 +539,8 @@ export function forked(env, run_fn, opts) {
 				st.timer.set(max(ms, 1));
 			}
 
-			function on_input(g) {
-				if (g != st.gen || st.done)
-					return null;
-
-				let job = st.plan.next(st.task?.pid());
-
-				if (job == null) {
-					st.closing = true;
-					return null;
-				}
-
-				st.job = job;
-				st.started = now(st.env);
-				arm();
-
-				return { id: job.c.id, cutoff: job.cutoff, limit: job.limit, left: job.left, settings: job.settings, view: job.view };
-			}
-
+			// The child's end, or a collector it started that this process
+			// is to hold sooner than its timer's next turn.
 			function on_output(g, msg) {
 				if (g != st.gen || st.done)
 					return;
@@ -375,34 +548,40 @@ export function forked(env, run_fn, opts) {
 				if (msg?.end) {
 					if (st.stats)
 						st.stats.child = msg.memory;
+					absorb(true);
 					st.done = true;
 					uloop.end();
 					return;
 				}
 
-				if (st.job == null || msg?.id != st.job.c.id)
+				if (type(msg?.start) != 'array')
 					return;
 
-				st.out.seek(msg.at);
-
-				let got = unpack(st.out.read(msg.size));
-
-				for (let l in got.logs)
-					st.env.log(l[0], l[1]);
-
-				// A child that ran a collector is no failure to fork one.
-				st.lost = 0;
-				finish(got.run);
+				// The runs before it are written, and its start.
+				absorb(false);
+				hold(msg.start);
+				arm();
 			}
 
 			function spawn() {
 				let g = ++st.gen;
 
-				st.closing = false;
-				st.task = uloop.task(child, (msg) => on_output(g, msg), () => on_input(g));
+				st.job = null;
+				st.out = env.mkstemp(`${tmp}/prometheus-exporter.XXXXXX`);
 
-				if (!st.task)
+				if (!st.out)
+					return fallback(`cannot make the file the collectors' runs cross by, in ${tmp}`);
+
+				// The file is removed already: opened again through its
+				// descriptor, it is read where the child does not write.
+				st.read_at = 0;
+				st.reader = st.env.open ? st.env.open(`/proc/self/fd/${st.out.fileno()}`, 'r') : null;
+				st.task = uloop.task(child, (msg) => on_output(g, msg));
+
+				if (!st.task) {
+					absorb(true);
 					return fallback('cannot fork a process to run the collectors in');
+				}
 
 				if (st.stats)
 					st.stats.children = (st.stats.children ?? 0) + 1;
@@ -413,11 +592,11 @@ export function forked(env, run_fn, opts) {
 				if (st.done)
 					return;
 
-				let took = (st.job != null) ? now(st.env) - st.started : 0;
-
 				if (st.task.finished()) {
+					let ran = absorb(true);
+
 					if (st.job != null) {
-						let r = killed(st.job, took);
+						let r = killed(st.job, now(st.env) - st.started);
 
 						log_stopped(st.env, r);
 						finish(r);
@@ -425,21 +604,20 @@ export function forked(env, run_fn, opts) {
 						return spawn();
 					}
 
-					if (st.closing) {
-						st.done = true;
-						return uloop.end();
-					}
-
-					// It died before it asked for a collector: once may be a
-					// passing failure, twice in a row is not. The rest are not
-					// run, which none of them did: their breakers stay as they are.
-					if (++st.lost > 1) {
+					// It died before it ran a collector: once may be a passing
+					// failure, twice in a row is not. The rest are not run,
+					// which none of them did: their breakers stay as they are.
+					if (ran == 0 && ++st.lost > 1) {
 						let names = [];
 
-						for (let job = st.plan.next(); job != null; job = st.plan.next()) {
-							st.job = job;
+						for (let job = st.plan.next(st.env.log); job != null; job = st.plan.next(st.env.log)) {
+							if (job.skipped) {
+								st.plan.done(job, job.skipped);
+								continue;
+							}
+
 							push(names, job.c.meta.name);
-							finish(not_run(job));
+							st.plan.done(job, not_run(job));
 						}
 						if (length(names))
 							st.env.log('warning', `the processes forked to run the collectors in ended twice before running one; not run: ${join(', ', names)}`);
@@ -447,8 +625,15 @@ export function forked(env, run_fn, opts) {
 						return uloop.end();
 					}
 
+					if (ran > 0)
+						st.lost = 0;
+
 					return spawn();
 				}
+
+				// What it ran since the last turn, and the collector it runs.
+				absorb(false);
+				let took = (st.job != null) ? now(st.env) - st.started : 0;
 
 				if (st.job?.limit != null && now(st.env) >= st.job.limit) {
 					let r = cancelled(st.job, took);
@@ -458,20 +643,20 @@ export function forked(env, run_fn, opts) {
 					if (st.env.kill)
 						st.env.kill(st.task.pid());
 					st.task.kill();
-					log_stopped(st.env, r);
-					finish(r);
+
+					// What it ran before; and should the run it was stopped
+					// in have been written as it was, that run.
+					absorb(true);
+					if (st.job != null) {
+						log_stopped(st.env, r);
+						finish(r);
+					}
+
 					return spawn();
 				}
 
 				arm();
 			}
-
-			let tmp = opts?.tmp ?? '/tmp';
-
-			st.out = env.mkstemp(`${tmp}/prometheus-exporter.XXXXXX`);
-
-			if (!st.out)
-				return fallback(`cannot make the file the collectors' runs cross by, in ${tmp}`);
 
 			uloop.init();
 			st.timer = uloop.timer(POLL_MS, tick);
@@ -482,9 +667,10 @@ export function forked(env, run_fn, opts) {
 
 			st.timer.cancel();
 			uloop.done();
-			st.out.close();
+			st.reader?.close();
+			st.out?.close();
 
-			for (let k in [ 'env', 'run_fn', 'by_id', 'plan', 'task', 'timer', 'job', 'stats', 'out' ])
+			for (let k in [ 'env', 'run_fn', 'by_id', 'plan', 'task', 'timer', 'job', 'stats', 'out', 'reader', 'ran' ])
 				st[k] = null;
 			st.done = true;
 		},

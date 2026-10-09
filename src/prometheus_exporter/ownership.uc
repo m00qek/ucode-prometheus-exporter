@@ -57,6 +57,36 @@ function family_problem(me, name, owners, exporter) {
 	return null;
 }
 
+// Whether no family of `runs` needs a look: none is the core's, and none is
+// written by two runs. A run's names are each once, as a recorder merges a
+// family declared again, so a name twice among them all is two runs'; a
+// name of the core's is found among all of a run's at once, after a
+// newline, as no name holds one; and the names are counted again once
+// uniq() has left each once, all of it done by ucode's builtins.
+function clear(runs, by_id) {
+	let texts = [];
+	let n = 0;
+
+	for (let r in runs) {
+		let names = r.families;
+
+		if (!length(names))
+			continue;
+
+		let text = '\n' + join('\n', names);
+
+		if (index(text, `\n${SCRAPE_PREFIX}`) >= 0)
+			return false;
+		if (index(text, `\n${EXPORTER_PREFIX}`) >= 0 && !('exporter' in by_id[r.id].meta.needs))
+			return false;
+
+		push(texts, text);
+		n += length(names);
+	}
+
+	return !n || length(uniq(split(substr(join('', texts), 1), '\n'))) == n;
+}
+
 /**
  * Each family to the first collector of `runs` (scrape.run_one's, in the
  * order of the reply, `by_id` their collectors) that writes it: a run that
@@ -68,13 +98,20 @@ function family_problem(me, name, owners, exporter) {
  * a family of the exporter's own. A family a collector writes is its own,
  * and the reply has each once.
  *
+ * A scrape's runs nearly always write each family once, and none of the
+ * core's: that is checked first, of all the families at once, and only
+ * runs that do not pass are looked at a family at a time.
+ *
  * @param {ScrapeEnv} env the scrape's env, whose log it logs at.
- * @param {Run[]} runs the runs, in the order of the reply; a run that may
- *   not write a family is changed to fail.
+ * @param {Run[]} runs the runs, in the order of the reply, their families'
+ *   names; a run that may not write a family is changed to fail.
  * @param {Object<string, Collector>} by_id their collectors, by id.
  * @returns {Run[]} `runs`.
  */
 export function own(env, runs, by_id) {
+	if (clear(runs, by_id))
+		return runs;
+
 	let owners = {};
 	let first = filter(runs, (r) => OWN[r.id]);
 
@@ -86,8 +123,7 @@ export function own(env, runs, by_id) {
 
 		// Each family is taken as it is checked, a scrape's hundreds in one
 		// pass: a run that may not write one gives back what it took.
-		for (let f in r.families) {
-			let name = f.name;
+		for (let name in r.families) {
 			let owner = owners[name];
 
 			if (owner == me || (owner == null && substr(name, 0, SCRAPE_LENGTH) != SCRAPE_PREFIX &&
@@ -103,8 +139,8 @@ export function own(env, runs, by_id) {
 
 		if (why) {
 			for (let j = 0; j < i; j++)
-				if (owners[r.families[j].name] == me)
-					delete owners[r.families[j].name];
+				if (owners[r.families[j]] == me)
+					delete owners[r.families[j]];
 
 			r.result = Result.err(errors.FAMILY_CONFLICT, why);
 			r.families = [];

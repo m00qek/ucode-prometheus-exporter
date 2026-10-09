@@ -234,7 +234,7 @@ if (kind == 'calibrate') {
 	let mods = bench_world.modules(world, uniq(needs), { lazy: true });
 	let env = {
 		session: (to) => deps.session({ ...mods, log: to ?? log }), clock: () => clock(true), log, version: 'bench',
-		fork: kind == 'scrape', stats, mkstemp: fs.mkstemp, readfile: fs.readfile,
+		fork: kind == 'scrape', stats, mkstemp: fs.mkstemp, open: fs.open, readfile: fs.readfile,
 	};
 
 	mem_before = reset_peak();
@@ -375,7 +375,7 @@ if (kind == 'calibrate') {
 	let mods = bench_world.modules(world, [], { lazy: true });
 	let env = {
 		session: (to) => deps.session({ ...mods, log: to ?? log }), clock: () => clock(true), log, version: 'bench',
-		fork: true, mkstemp: fs.mkstemp, readfile: fs.readfile,
+		fork: true, mkstemp: fs.mkstemp, open: fs.open, readfile: fs.readfile,
 	};
 
 	mem_before = reset_peak();
@@ -493,7 +493,7 @@ if (kind == 'calibrate') {
 	let mods = bench_world.modules(world, uniq(needs), { lazy: true, redirect: { '/proc/net/nf_conntrack': `${world_dir}/conntrack/${parts[1]}` } });
 	let env = {
 		session: (to) => deps.session({ ...mods, log: to ?? log }), clock: () => clock(true), log, version: 'bench',
-		fork: true, mkstemp: fs.mkstemp, readfile: fs.readfile,
+		fork: true, mkstemp: fs.mkstemp, open: fs.open, readfile: fs.readfile,
 	};
 	let dir = `${world_dir}/../state-deadline`;
 	let timeout = 10;

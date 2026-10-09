@@ -346,23 +346,24 @@ export function render(families, opts) {
 
 /**
  * A collector's families as a scrape keeps its run: { families, text }, the
- * families' names and types, which a scrape needs to say whose each family
- * is (prometheus_exporter.ownership), and the text render() writes of them,
+ * families' names, which a scrape needs to say whose each family is
+ * (prometheus_exporter.ownership), and the text render() writes of them,
  * with `omit` (omit_zero_values). The reply is the text of each collector,
  * one after the other: a family is one collector's, so the reply has it once
  * without a merge.
  *
  * @param {RecordedFamily[]} families the collector's families.
  * @param {?boolean} omit omit_zero_values.
- * @returns {{ families: { name: string, type: string }[], text: string }} its
- *   families' names and types, and their text.
+ * @returns {{ families: string[], text: string }} its families' names, and
+ *   their text.
  */
 export function pack(families, omit) {
-	let named = [];
+	let names = [];
 
-	// A loop, not map(): a function call for each of hundreds of families.
+	// A loop, not map(): a function call for each of hundreds of families,
+	// and a name each, not an object, which costs ucode a table.
 	for (let f in families)
-		push(named, { name: f.name, type: f.type });
+		push(names, f.name);
 
-	return { families: named, text: render(families, { omit_zero_counters: omit }) };
+	return { families: names, text: render(families, { omit_zero_counters: omit }) };
 };

@@ -31,6 +31,22 @@ function env_of(logs) {
 		clock: () => clock(true),
 		log: (level, msg) => push(logs, [ level, msg ]),
 		mkstemp: fs.mkstemp,
+		open: fs.open,
+	};
+}
+
+// A plan of `collectors`, in their order, as the runner takes one: next()
+// gives job(c) of the next, in whichever process asks, and done() goes on
+// after the collector of the run it is handed, which it pushes to `runs`.
+function plan_of(collectors, job, runs) {
+	let at = 0;
+
+	return {
+		next: () => (at < length(collectors)) ? job(collectors[at++]) : null,
+		done: function(j, r) {
+			at = max(at, index(collectors, j.c) + 1);
+			push(runs, r);
+		},
 	};
 }
 
@@ -40,21 +56,12 @@ function env_of(logs) {
 function run_forked(collectors, budget, cutoff) {
 	let logs = [];
 	let runs = [];
-	let queue = [ ...collectors ];
-	let plan = {
-		next: function() {
-			let c = shift(queue);
+	let plan = plan_of(collectors, function(c) {
+		let limit = now() + budget;
+		let held = cutoff != null && cutoff < limit;
 
-			if (c == null)
-				return null;
-
-			let limit = now() + budget;
-			let held = cutoff != null && cutoff < limit;
-
-			return { c, cutoff: null, limit: held ? cutoff : limit, at_deadline: held, budget, settings: { budget, max_samples: c.meta.max_samples ?? 1000, options: {} } };
-		},
-		done: (job, r) => push(runs, r),
-	};
+		return { c, cutoff: null, limit: held ? cutoff : limit, at_deadline: held, budget, settings: { budget, max_samples: c.meta.max_samples ?? 1000, options: {} } };
+	}, runs);
 
 	runner.forked(env_of(logs), scrape.run_one, { collectors }).run(plan);
 
@@ -89,7 +96,7 @@ describe('runner.forked', () => {
 		let r = run_forked([ gauge('a', 1), me ], 5);
 
 		assert.match([ [ 'a', 'ok' ], [ 'me', 'ok' ] ], map(r.runs, summary));
-		assert.match([ [ { name: 'a_value', type: 'gauge' } ], '# TYPE a_value gauge\na_value 1\n' ], [ r.runs[0].families, r.runs[0].text ]);
+		assert.match([ [ 'a_value' ], '# TYPE a_value gauge\na_value 1\n' ], [ r.runs[0].families, r.runs[0].text ]);
 		assert.match([ 1, true ], [ r.runs[1].samples, Result.is(r.runs[1].result) ]);
 		assert.match([], r.logs);
 	});
@@ -185,7 +192,7 @@ describe('runner.forked', () => {
 		assert.match([ [ 'warning', `collector 'quitter': ${Result.describe(r.runs[0].result)}` ] ], r.logs);
 	});
 
-	// A child that dies before it asks for a collector: its session
+	// A child that dies before it runs a collector: its session
 	// (env.session) ends it, at the calls `dying` names, counted in a file
 	// as the children cannot count in this process.
 	function dying_env(logs, dying) {
@@ -207,22 +214,14 @@ describe('runner.forked', () => {
 
 	function run_with(env, collectors, budget, stats) {
 		let runs = [];
-		let queue = [ ...collectors ];
-		let plan = {
-			next: function() {
-				let c = shift(queue);
-
-				return (c == null) ? null
-					: { c, cutoff: null, limit: now() + budget, at_deadline: false, budget, settings: { budget, max_samples: 1000, options: {} } };
-			},
-			done: (job, r) => push(runs, r),
-		};
+		let plan = plan_of(collectors,
+			(c) => ({ c, cutoff: null, limit: now() + budget, at_deadline: false, budget, settings: { budget, max_samples: 1000, options: {} } }), runs);
 
 		runner.forked(env, scrape.run_one, { collectors, stats }).run(plan);
 		return runs;
 	}
 
-	it('gives up after two children in a row die before asking for a collector, and leaves the rest not run, their breakers as they were', () => {
+	it('gives up after two children in a row die before running a collector, and leaves the rest not run, their breakers as they were', () => {
 		let logs = [];
 		let stats = {};
 		let runs = run_with(dying_env(logs, [ 1, 2, 3, 4, 5, 6, 7, 8 ]), [ gauge('a', 1), gauge('b', 2) ], 5, stats);
@@ -233,7 +232,7 @@ describe('runner.forked', () => {
 		assert.match([ [ 'warning', 'the processes forked to run the collectors in ended twice before running one; not run: a, b' ] ], logs);
 	});
 
-	it('counts the children that die before asking anew once one ran a collector', () => {
+	it('counts the children that die before running one anew once one ran a collector', () => {
 		let runs = run_with(dying_env([], [ 1, 3 ]), [ gauge('a', 1), LOOP, gauge('c', 3) ], 0.3, {});
 
 		assert.match([ [ 'a', 'ok' ], [ 'loop', 'COLLECTOR_CANCELLED' ], [ 'c', 'ok' ] ], map(runs, summary));
@@ -248,15 +247,8 @@ describe('runner.forked', () => {
 		let forked = run_forked([ codeless, unknown ], 5).runs;
 		let inline = [];
 
-		runner.inline(env_of([]), scrape.run_one).run({
-			queue: [ codeless, unknown ],
-			next: function() {
-				let c = shift(this.queue);
-
-				return c ? { c, settings: { budget: 5, max_samples: 10, options: {} } } : null;
-			},
-			done: (job, r) => push(inline, r),
-		});
+		runner.inline(env_of([]), scrape.run_one).run(plan_of([ codeless, unknown ],
+			(c) => ({ c, settings: { budget: 5, max_samples: 10, options: {} } }), inline));
 
 		assert.match([ [ 'codeless', 'COLLECTOR_NO_RESULT' ], [ 'unknown', 'COLLECTOR_NO_RESULT' ] ], map(forked, summary));
 		assert.match(map(forked, (r) => Result.describe(r.result)), map(inline, (r) => Result.describe(r.result)));
@@ -264,24 +256,45 @@ describe('runner.forked', () => {
 	});
 
 	it('unpacks a run packed with a failure without a code as COLLECTOR_NO_RESULT', () => {
-		let packed = sprintf('%J\n', { name: 'x', id: 'x', samples: 0, duration: 0, logs: [], families: [], result: { ok: false } });
+		let packed = runner.pack({ name: 'x', id: 'x', samples: 0, duration: 0, families: [], result: { ok: false }, text: '' }, []);
 
 		assert.match('COLLECTOR_NO_RESULT', runner.unpack(packed).run.result.error);
 	});
 
+	// A child stopped while it wrote a run leaves part of one: it is not a run.
+	prop('unpacks the runs packed one after another, and none of what is cut short of one',
+		gen.tuple(gen.array(gen.tuple(gen.string({ min_len: 0, max_len: 40 }), gen.elements('ok', 'err', 'none')), { min_len: 1, max_len: 4 }),
+			gen.int(0, 10000)), (t) => {
+			let runs = map(t[0], (x, i) => ({
+				name: `c${i}`, id: `c${i}`, samples: i, duration: 0.5, budget: 5, families: [ `f${i}`, 'g' ], text: x[0],
+				result: { ok: Result.ok(), err: Result.err('SOURCE_INVALID', 'why'), none: Result.none('absent') }[x[1]],
+			}));
+			let text = join('', map(runs, (r, i) => runner.pack(r, [ [ 'warning', `line ${i}` ] ])));
+			let cut = t[1] % (length(text) + 1);
+			let got = [];
+
+			for (let u = runner.unpack(text, 0); u != null; u = runner.unpack(text, u.end))
+				push(got, u);
+
+			assert.match(map(runs, (r) => [ r.name, r.text, r.families, Result.describe(r.result), Result.is_none(r.result) ]),
+				map(got, (u) => [ u.run.name, u.run.text, u.run.families, Result.describe(u.run.result), Result.is_none(u.run.result) ]));
+			assert.match(map(runs, (r, i) => [ [ 'warning', `line ${i}` ] ]), map(got, (u) => u.logs));
+
+			let short = substr(text, 0, cut);
+			let left = [];
+
+			for (let u = runner.unpack(short, 0); u != null; u = runner.unpack(short, u.end))
+				push(left, u.run.name);
+
+			assert.match(map(filter(got, (u) => u.end <= cut), (u) => u.run.name), left, `cut at ${cut} of ${length(text)}`);
+		});
+
 	// Each fallback says why: a full tmpfs once logged that it could not fork.
 	it('runs the collectors in this process when the file their runs cross by cannot be made, and says that, not that it cannot fork', () => {
 		let logs = [];
-		let queue = [ gauge('a', 1), gauge('b', 2) ];
 		let runs = [];
-		let plan = {
-			next: function() {
-				let c = shift(queue);
-
-				return c ? { c, cutoff: null, limit: null, at_deadline: false, budget: 5, settings: { budget: 5, max_samples: 10, options: {} } } : null;
-			},
-			done: (job, r) => push(runs, r),
-		};
+		let plan = plan_of([ gauge('a', 1), gauge('b', 2) ],
+			(c) => ({ c, cutoff: null, limit: null, at_deadline: false, budget: 5, settings: { budget: 5, max_samples: 10, options: {} } }), runs);
 
 		runner.forked({ ...env_of(logs), mkstemp: () => null }, scrape.run_one, { tmp: '/nowhere' }).run(plan);
 
@@ -299,16 +312,9 @@ describe('runner.forked', () => {
 			system('for fd in 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19; do eval "exec $fd>&-"; done; exec sleep 3083 </dev/null >/dev/null 2>&1');
 			return Result.ok();
 		});
-		let queue = [ starter ];
 		let runs = [];
-		let plan = {
-			next: function() {
-				let c = shift(queue);
-
-				return c ? { c, cutoff: null, limit: now() + 0.5, at_deadline: false, budget: 0, settings: { budget: 0, max_samples: 10, options: {} } } : null;
-			},
-			done: (job, r) => push(runs, r),
-		};
+		let plan = plan_of([ starter ],
+			(c) => ({ c, cutoff: null, limit: now() + 0.5, at_deadline: false, budget: 0, settings: { budget: 0, max_samples: 10, options: {} } }), runs);
 
 		runner.forked({ ...env_of([]), kill: (pid) => deps.kill_tree(fs.popen, pid) }, scrape.run_one, { collectors: [ starter ] }).run(plan);
 

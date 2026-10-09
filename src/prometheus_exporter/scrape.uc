@@ -69,9 +69,9 @@ import { bury, log_breakers } from 'prometheus_exporter.progress';
 
 /**
  * The env a scrape runs collectors in, as the module's top comment says
- * (app.scrape_env makes it): mkstemp and readfile are fs's, which the forked
- * runner takes; kill(pid) kills a collector's child process, with every
- * process under it: one the runner stops, or one a scrape left behind
+ * (app.scrape_env makes it): mkstemp, open and readfile are fs's, which the
+ * forked runner takes; kill(pid) kills a collector's child process, with
+ * every process under it: one the runner stops, or one a scrape left behind
  * (prometheus_exporter.progress).
  *
  * @typedef {{
@@ -83,6 +83,7 @@ import { bury, log_breakers } from 'prometheus_exporter.progress';
  *   tmp: ?string,
  *   stats: ?Object,
  *   mkstemp: ?function(string): ?FsFile,
+ *   open: ?function(string, ?string): ?FsFile,
  *   readfile: ?function(string): ?string,
  *   kill: ?function(int): void
  * }} ScrapeEnv
@@ -91,15 +92,15 @@ import { bury, log_breakers } from 'prometheus_exporter.progress';
 /**
  * A collector's run, as run_one, not_run and the runner give it: its name
  * and module name, its Result, its families (a recorder's, or once packed
- * their names and types alone), the samples it wrote, the seconds it took
- * and its budget; `skipped`, why it did not run ('quarantine', 'deadline'),
- * and `text`, its families as the reply holds them, once packed.
+ * their names alone), the samples it wrote, the seconds it took and its
+ * budget; `skipped`, why it did not run ('quarantine', 'deadline'), and
+ * `text`, its families as the reply holds them, once packed.
  *
  * @typedef {{
  *   name: string,
  *   id: string,
  *   result: Result,
- *   families: (RecordedFamily|{ name: string, type: string })[],
+ *   families: (RecordedFamily|string)[],
  *   samples: int,
  *   duration: float,
  *   budget: ?int,
@@ -475,6 +476,7 @@ export function collect(env, uci, l, chosen, opts) {
 	let deadline = opts?.deadline;
 	let queue = ledger.order(l, chosen, (c) => 'exporter' in c.meta.needs, untimed_rank);
 	let next = 0;
+	let place = {};
 	// Read once: every collector's settings default to it.
 	let main = opts?.main ?? config.main(uci);
 	let reply_max = main.ok ? main.data.max_scrape_samples : config.MAX_SCRAPE_SAMPLES;
@@ -501,63 +503,64 @@ export function collect(env, uci, l, chosen, opts) {
 		return { pid: opts?.pid, counters, samples };
 	}
 
+	for (let i, c in queue)
+		place[c.id] = i;
+
+	// The runner's plan (prometheus_exporter.runner): its next() runs in the
+	// collectors' child, which decides what to leave out as this process
+	// would, and done() here too, as each run is handed back.
 	let plan = {
-		next: function(pid) {
-			while (next < length(queue)) {
-				let c = queue[next++];
+		next: function(log) {
+			if (next >= length(queue))
+				return null;
 
-				if (opts?.quarantine && ledger.phase(l, c.id, m) == 'open') {
-					by_id[c.id] = not_run(c, ledger.quarantined(l, c.id, m), 'quarantine');
-					continue;
-				}
+			let c = queue[next++];
 
-				let now = now_of(env.clock());
-				let cutoff = null;
+			if (opts?.quarantine && ledger.phase(l, c.id, m) == 'open')
+				return { c, skipped: not_run(c, ledger.quarantined(l, c.id, m), 'quarantine') };
 
-				if (deadline != null) {
-					cutoff = deadline - ledger.writing(l, collected + ledger.samples(l, c.id));
+			let now = now_of(env.clock());
+			let cutoff = null;
 
-					let late = too_late(l, c, now, cutoff);
+			if (deadline != null) {
+				cutoff = deadline - ledger.writing(l, collected + ledger.samples(l, c.id));
 
-					if (late) {
-						by_id[c.id] = not_run(c, late, 'deadline');
-						continue;
-					}
-				}
+				let late = too_late(l, c, now, cutoff);
 
-				let left = reply_max - collected;
-
-				if (left <= 0) {
-					let full = Result.err(errors.SAMPLE_LIMIT,
-						sprintf('not run: the reply has its max_scrape_samples of %d', reply_max), { scrape: true });
-
-					env.log('warning', `collector '${c.meta.name}': ${Result.describe(full)}`);
-					by_id[c.id] = not_run(c, full, 'samples');
-					continue;
-				}
-
-				let s = config.settings(uci, c.id, c.meta, main);
-				let budget = s.ok ? s.data.budget : null;
-				let limit = (budget != null) ? now + budget : null;
-				let held = false;
-
-				if (cutoff != null && (limit == null || cutoff < limit)) {
-					limit = cutoff;
-					held = true;
-				}
-
-				opts?.progress?.start(c.id, pid);
-
-				return {
-					c, cutoff, limit, at_deadline: held, budget, left,
-					settings: s.ok ? s.data : null,
-					view: ('exporter' in c.meta.needs) ? view() : null,
-				};
+				if (late)
+					return { c, skipped: not_run(c, late, 'deadline') };
 			}
 
-			return null;
+			let left = reply_max - collected;
+
+			if (left <= 0) {
+				let full = Result.err(errors.SAMPLE_LIMIT,
+					sprintf('not run: the reply has its max_scrape_samples of %d', reply_max), { scrape: true });
+
+				log('warning', `collector '${c.meta.name}': ${Result.describe(full)}`);
+				return { c, skipped: not_run(c, full, 'samples') };
+			}
+
+			let s = config.settings(uci, c.id, c.meta, main);
+			let budget = s.ok ? s.data.budget : null;
+			let limit = (budget != null) ? now + budget : null;
+			let held = false;
+
+			if (cutoff != null && (limit == null || cutoff < limit)) {
+				limit = cutoff;
+				held = true;
+			}
+
+			return {
+				c, cutoff, limit, at_deadline: held, budget, left,
+				settings: s.ok ? s.data : null,
+				view: ('exporter' in c.meta.needs) ? view() : null,
+			};
 		},
+		started: (job, pid) => opts?.progress?.start(job.c.id, pid),
+		// The queue goes on after the collector, wherever its run comes from.
 		done: function(job, r) {
+			next = max(next, place[job.c.id] + 1);
 			collected += r.samples;
 			by_id[job.c.id] = r;
 		},
