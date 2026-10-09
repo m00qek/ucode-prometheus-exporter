@@ -451,10 +451,11 @@ function untimed_rank(c) {
 }
 
 // The runner of `chosen` for env (prometheus_exporter.runner): forked with
-// env.fork, else inline. `omit`: omit_zero_values.
-function runner_of(env, chosen, omit) {
+// env.fork, else inline. `omit`: omit_zero_values; `deadline`, the
+// scrape's, which the forked runner holds its child to whatever it says.
+function runner_of(env, chosen, omit, deadline) {
 	return env.fork
-		? runner.forked(env, run_one, { collectors: chosen, omit, stats: env.stats, tmp: env.tmp })
+		? runner.forked(env, run_one, { collectors: chosen, omit, stats: env.stats, tmp: env.tmp, deadline })
 		: runner.inline(env, run_one, { omit });
 }
 
@@ -526,7 +527,9 @@ export function collect(env, uci, l, chosen, opts) {
 
 	// The runner's plan (prometheus_exporter.runner): its next() runs in the
 	// collectors' child, which decides what to leave out as this process
-	// would, and done() here too, as each run is handed back.
+	// would, and done() here too, as each run is handed back; and next()
+	// here, past the deadline, once the runner stopped a child that ran on
+	// to it, or after two children ended before running a collector.
 	let plan = {
 		next: function(log) {
 			if (next >= length(queue))
@@ -584,7 +587,7 @@ export function collect(env, uci, l, chosen, opts) {
 		},
 	};
 
-	runner_of(env, chosen, opts?.omit).run(plan);
+	runner_of(env, chosen, opts?.omit, deadline).run(plan);
 
 	let by_c = {};
 
