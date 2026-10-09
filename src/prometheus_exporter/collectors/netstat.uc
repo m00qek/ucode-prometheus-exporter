@@ -45,46 +45,127 @@ export const meta = {
 const TABLES = [ '/proc/net/netstat', '/proc/net/snmp' ];
 const SNMP6 = '/proc/net/snmp6';
 
-// The protocols of /proc/net/snmp6's names, as node_exporter splits them.
-const SNMP6_NAME = /^(Ip6|Icmp6|UdpLite6|Udp6)(.+)$/;
-
-// The fields DEFAULT_FIELDS names whole. With these, a field it matches is one
-// of them, or starts with TcpExt_Listen or TcpExt_Syncookies, or ends with
-// _InErrors or _InErrs (default_field). A scrape checks each of the kernel's
-// 400 or so fields, and musl's regexec takes 14 us in the devenv to match one
-// against the pattern, as long as forty lookups: the default, which nearly
-// every router has, is checked with lookups instead, and any other pattern
-// is matched.
+// The fields DEFAULT_FIELDS names whole, by section and name. A scrape
+// checks each of the kernel's 400 or so fields, and musl's regexec takes
+// 14 us in the devenv to match one against the pattern, as long as forty
+// lookups: the default, which nearly every router has, is looked for
+// instead (default_at), and any other pattern is matched.
 const DEFAULT_WHOLE = {
-	Ip_Forwarding: true, Ip6_InOctets: true, Ip6_OutOctets: true, IpExt_InOctets: true, IpExt_OutOctets: true,
-	Icmp_InMsgs: true, Icmp_OutMsgs: true, Icmp6_InMsgs: true, Icmp6_OutMsgs: true,
-	TcpExt_TCPSynRetrans: true, TcpExt_TCPTimeouts: true, TcpExt_TCPOFOQueue: true, TcpExt_TCPRcvQDrop: true,
-	Tcp_ActiveOpens: true, Tcp_InSegs: true, Tcp_OutSegs: true, Tcp_OutRsts: true, Tcp_PassiveOpens: true,
-	Tcp_RetransSegs: true, Tcp_CurrEstab: true,
-	Udp_InDatagrams: true, Udp_OutDatagrams: true, Udp_NoPorts: true, Udp_RcvbufErrors: true, Udp_SndbufErrors: true,
-	Udp6_InDatagrams: true, Udp6_OutDatagrams: true, Udp6_NoPorts: true, Udp6_RcvbufErrors: true, Udp6_SndbufErrors: true,
+	Ip: { Forwarding: true },
+	Ip6: { InOctets: true, OutOctets: true },
+	IpExt: { InOctets: true, OutOctets: true },
+	Icmp: { InMsgs: true, OutMsgs: true },
+	Icmp6: { InMsgs: true, OutMsgs: true },
+	TcpExt: { TCPSynRetrans: true, TCPTimeouts: true, TCPOFOQueue: true, TCPRcvQDrop: true },
+	Tcp: { ActiveOpens: true, InSegs: true, OutSegs: true, OutRsts: true, PassiveOpens: true, RetransSegs: true, CurrEstab: true },
+	Udp: { InDatagrams: true, OutDatagrams: true, NoPorts: true, RcvbufErrors: true, SndbufErrors: true },
+	Udp6: { InDatagrams: true, OutDatagrams: true, NoPorts: true, RcvbufErrors: true, SndbufErrors: true },
 };
+const NONE = {};
 
-// Whether DEFAULT_FIELDS matches a field.
+// Whether DEFAULT_FIELDS matches a field, <section>_<name>: one it names
+// whole, one that starts with TcpExt_Listen or TcpExt_Syncookies, or one
+// that ends with _InErrors or _InErrs.
 function default_field(field) {
-	return DEFAULT_WHOLE[field] == true || substr(field, 0, 13) == 'TcpExt_Listen' || substr(field, 0, 17) == 'TcpExt_Syncookies' ||
+	let i = index(field, '_');
+
+	return (i > 0 && DEFAULT_WHOLE[substr(field, 0, i)]?.[substr(field, i + 1)] == true && index(substr(field, i + 1), '_') < 0) ||
+		substr(field, 0, 13) == 'TcpExt_Listen' || substr(field, 0, 17) == 'TcpExt_Syncookies' ||
 		substr(field, -9) == '_InErrors' || substr(field, -7) == '_InErrs';
 }
 
-// With node_exporter's help: "Statistic TcpExtSyncookiesSent." A field the
-// pattern does not match is left out; a null pattern is DEFAULT_FIELDS.
-function record(out, pattern, section, name, value) {
-	let field = `${section}_${name}`;
+// The names of a section's fields, joined by spaces, that may end with
+// InErrors or InErrs, and those that start with Listen or Syncookies, for
+// TcpExt: one match finds them all.
+const ERR_NAMES = /(^| )([^ ]*InErr[^ ]*)/g;
+const TCPEXT_NAMES = /(^| )((Listen|Syncookies)[^ ]*)/g;
+const TCPEXT_KNOWN = [ 'ListenOverflows', 'ListenDrops', 'SyncookiesSent', 'SyncookiesRecv', 'SyncookiesFailed' ];
 
-	if (pattern ? match(field, pattern) : default_field(field))
-		out.untyped(`node_netstat_${field}`, `Statistic ${section}${name}.`)(null, value);
+// Where in `names`, from `from` on, the fields of a section without an
+// underscore are that DEFAULT_FIELDS matches, in order; null for a section
+// that names a field twice, which the kernel's never do.
+//
+// For such a section the name alone tells it, as default_field() would of
+// `${section}_${name}`: one of the section's DEFAULT_WHOLE, one that is,
+// or ends with _, InErrors or InErrs, or one of TcpExt's that starts with
+// Listen or Syncookies. So they are looked for, not each field checked: an
+// index() of each whole name, and one match of the names for the others.
+// The kernel's sections have 400 or so fields, and a turn of a loop for
+// each cost more than the rest of netstat; TcpExt and MPTcpExt, two thirds
+// of them, have but a few the default takes, or none.
+function default_at(section, names, from) {
+	if (length(uniq(names)) != length(names))
+		return null;
+
+	let at = [];
+	let whole = DEFAULT_WHOLE[section] ?? NONE;
+	let text = join(' ', names);
+
+	for (let name in whole) {
+		let i = index(names, name);
+
+		if (i >= from)
+			push(at, i);
+	}
+
+	if (index(text, 'InErr') >= 0)
+		for (let m in match(text, ERR_NAMES) ?? []) {
+			let name = m[2];
+
+			if (name == 'InErrors' || name == 'InErrs' || substr(name, -9) == '_InErrors' || substr(name, -7) == '_InErrs')
+				push(at, index(names, name));
+		}
+
+	// TcpExt's names that start with Listen or Syncookies are the kernel's
+	// five, unless as many splits of the names say there are more: the
+	// match reads all 2 kB of them.
+	if (section == 'TcpExt') {
+		let known = 0;
+
+		for (let name in TCPEXT_KNOWN) {
+			let i = index(names, name);
+
+			if (i >= 0) {
+				push(at, i);
+				known++;
+			}
+		}
+
+		if (length(split(text, ' Listen')) + length(split(text, ' Syncookies')) - 2 != known)
+			for (let m in match(text, TCPEXT_NAMES) ?? [])
+				push(at, index(names, m[2]));
+	}
+
+	return sort(filter(uniq(at), (i) => i >= from), (a, b) => a - b);
+}
+
+// Records the fields of one section, `names` and `values` from `from` on, as
+// rows of out.batch(): those `pattern` matches, or with a null pattern
+// DEFAULT_FIELDS (default_at, or default_field for a section with an
+// underscore). With node_exporter's help: "Statistic TcpExtSyncookiesSent."
+function record(rows, pattern, section, names, values, from) {
+	let at = (!pattern && index(section, '_') < 0) ? default_at(section, names, from) : null;
+
+	if (at != null) {
+		for (let j in at)
+			push(rows, [ `node_netstat_${section}_${names[j]}`, `Statistic ${section}${names[j]}.`, values[j] ]);
+		return;
+	}
+
+	for (let j = from; j < length(names); j++) {
+		let name = names[j];
+		let field = `${section}_${name}`;
+
+		if (pattern ? match(field, pattern) : default_field(field))
+			push(rows, [ `node_netstat_${field}`, `Statistic ${section}${name}.`, values[j] ]);
+	}
 }
 
 // The sections of one table file, recorded; the sections whose two lines do not
 // match (named apart, or with more names than values or fewer), which are left
 // out. Null when the file cannot be read.
-function parse_table(fs, out, pattern, path) {
-	let l = proc.lines(fs, path);
+function parse_table(fs, rows, pattern, path) {
+	let l = proc.rows(fs, path);
 
 	if (l == null)
 		return null;
@@ -92,8 +173,8 @@ function parse_table(fs, out, pattern, path) {
 	let bad = [];
 
 	for (let i = 0; i + 1 < length(l); i += 2) {
-		let names = proc.fields(l[i]);
-		let values = proc.fields(l[i + 1]);
+		let names = l[i];
+		let values = l[i + 1];
 
 		if (!length(names) || names[0] != values[0] || length(names) != length(values)
 		    || substr(names[0], -1) != ':') {
@@ -101,32 +182,83 @@ function parse_table(fs, out, pattern, path) {
 			continue;
 		}
 
-		let section = substr(names[0], 0, -1);
-		for (let j = 1; j < length(names); j++)
-			record(out, pattern, section, names[j], values[j]);
+		record(rows, pattern, substr(names[0], 0, -1), names, values, 1);
 	}
 
 	if (length(l) % 2)
-		push(bad, proc.fields(l[-1])[0] ?? '');
+		push(bad, l[-1][0] ?? '');
 
 	return bad;
+}
+
+// The names of /proc/net/snmp6's fields DEFAULT_FIELDS names whole.
+const SNMP6_WHOLE = {
+	Ip6InOctets: true, Ip6OutOctets: true, Icmp6InMsgs: true, Icmp6OutMsgs: true,
+	Udp6InDatagrams: true, Udp6OutDatagrams: true, Udp6NoPorts: true, Udp6RcvbufErrors: true, Udp6SndbufErrors: true,
+};
+
+// A /proc/net/snmp6 line's protocol and the rest of its name, as the
+// protocols' regex, ^(Ip6|Icmp6|UdpLite6|Udp6)(.+)$, splits them, or null:
+// by its first letters, without a match.
+function snmp6_name(name) {
+	let p = substr(name, 0, 3);
+	let n = (p == 'Ip6') ? 3 : (p == 'Icm') ? 5 : (p == 'Udp') ? ((substr(name, 3, 1) == '6') ? 4 : 8) : 0;
+
+	if (!n || length(name) <= n)
+		return null;
+
+	p = substr(name, 0, n);
+
+	return (p == 'Ip6' || p == 'Icmp6' || p == 'Udp6' || p == 'UdpLite6') ? [ name, p, substr(name, n) ] : null;
 }
 
 // /proc/net/snmp6, recorded: nothing in it is a section that can break, and a
 // line without a value or a protocol is left out. Null when the file cannot be
 // read, as where IPv6 is disabled.
-function parse_snmp6(fs, out, pattern) {
-	let l = proc.lines(fs, SNMP6);
+//
+// The kernel writes a line as "%-32s\t%lu": a name, the spaces that pad it
+// and a tab, then a value. In a file without \v, \f and \r, such a line is
+// its two fields by a split on its tab and a trim of each, without the regex
+// proc.fields() splits it with; and with the default pattern, a name it
+// takes neither whole nor with InErr in it is left out there, its value
+// unread, as about 75 of the 90 are. Any other line is proc.fields()'.
+function parse_snmp6(fs, rows, pattern) {
+	let text = fs.readfile(SNMP6);
 
-	if (l == null)
+	if (text == null)
 		return null;
 
+	let plain = index(text, '\v') < 0 && index(text, '\f') < 0 && index(text, '\r') < 0;
+	let l = split(text, '\n');
+
+	if (l[-1] == '')
+		pop(l);
+
 	for (let line in l) {
-		let x = proc.fields(line);
-		let m = length(x) >= 2 ? match(x[0], SNMP6_NAME) : null;
+		let x = null;
+
+		if (plain) {
+			x = split(line, '\t');
+
+			let name = (length(x) == 2) ? trim(x[0]) : null;
+
+			if (name == null || name == '' || index(name, ' ') >= 0) {
+				x = null;
+			} else if (!pattern && SNMP6_WHOLE[name] != true && index(name, 'InErr') < 0) {
+				continue;
+			} else {
+				let value = trim(x[1]);
+
+				x = (value != '' && index(value, ' ') < 0) ? [ name, value ] : null;
+			}
+		}
+
+		x ??= proc.fields(line);
+
+		let m = length(x) >= 2 ? snmp6_name(x[0]) : null;
 
 		if (m)
-			record(out, pattern, m[1], m[2], x[1]);
+			record(rows, pattern, m[1], [ m[2] ], [ x[1] ], 0);
 	}
 
 	return [];
@@ -145,9 +277,10 @@ export function collect(deps, out, options) {
 	let sources = [ ...TABLES, SNMP6 ];
 	let readable = 0;
 	let invalid = [];
+	let rows = [];
 
 	for (let path in sources) {
-		let bad = (path == SNMP6) ? parse_snmp6(deps.fs, out, pattern) : parse_table(deps.fs, out, pattern, path);
+		let bad = (path == SNMP6) ? parse_snmp6(deps.fs, rows, pattern) : parse_table(deps.fs, rows, pattern, path);
 
 		if (bad == null)
 			continue;
@@ -156,6 +289,8 @@ export function collect(deps, out, options) {
 		if (length(bad))
 			push(invalid, `${path}: ${join(' ', bad)}`);
 	}
+
+	out.batch('untyped', rows);
 
 	// Any file alone is worth exporting, as upstream has it.
 	if (!readable)

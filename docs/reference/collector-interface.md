@@ -128,6 +128,7 @@ The collector API's, for a collector to tell nothing to observe from a failure, 
 | | `lines(fs, path)` | Every line, without newlines; null when it cannot be read. |
 | | `each_line(fs, path, cb)` | `cb(line)` for each line, read one at a time; false when it cannot be read. |
 | | `fields(line)` | The whitespace-separated fields of a line; `[]` for none or for null. |
+| | `rows(fs, path)` | The fields of every line, `[]` for a blank one, as `fields()` gives them; null when it cannot be read. Cheaper than `fields()` of each line for a file of single spaces. |
 | | `auxv(text)`, `AT_PAGESZ`, `AT_CLKTCK` | An auxiliary vector as `/proc/self/auxv` gives it, `{ type: value }`, or null; two of its types. |
 | `exposition` | `parse(text)` | Exposition text read strictly, as a Result of its families (`EXPOSITION_INVALID`). |
 | | `format_value(v)` | A value as the format spells it, or null for one that is not a number. |
@@ -170,6 +171,7 @@ A need the system lacks (`nl80211`, `socket`) fails the collector with `NEED_MIS
 | Call | Does |
 | :--- | :--- |
 | `out.gauge(name, help)`, `out.counter(name, help)`, `out.untyped(name, help)` | Declares a family, and returns `(labels, value)`, which records a sample and returns itself, so calls chain. |
+| `out.batch(type, rows)` | Records families of one sample each, without labels: for each row `[ name, help, value ]`, in order, what `out[type](name, help)(null, value)` records, with less work for each. `type` is `'gauge'`, `'counter'` or `'untyped'`. |
 | `out.labels(labels)` | Makes a label set several samples share, once, to pass in place of the object. |
 | `out.parse(text)` | Adds exposition text, which must be valid as a whole: a Result, `EXPOSITION_INVALID` otherwise. |
 

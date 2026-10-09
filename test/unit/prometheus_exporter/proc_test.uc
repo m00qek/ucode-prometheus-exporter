@@ -78,6 +78,25 @@ describe('proc.fields', () => {
 		});
 });
 
+describe('proc.rows', () => {
+	it('is the fields of each line, [] for a blank one, and null for a file that cannot be read', () => {
+		with_fs({ '/f': 'a b\n\nc  d\te\n', '/g': 'a b\n\nc d\n', '/gone': null }, (fs) => {
+			assert.match([ [ [ 'a', 'b' ], [], [ 'c', 'd', 'e' ] ], [ [ 'a', 'b' ], [], [ 'c', 'd' ] ], null ],
+				[ proc.rows(fs, '/f'), proc.rows(fs, '/g'), proc.rows(fs, '/gone') ]);
+		});
+	});
+
+	// rows() splits each line on ' ' when one look at the whole text says
+	// it can: it must give what fields() gives of each of lines(), of any
+	// text.
+	prop('gives what fields() gives of each line, of any text',
+		gen.array(gen.elements('a', 'b7', ' ', '  ', '\t', '\n', '\n', '\v', '\f', '\r', ' \n', '\n '), { min_len: 0, max_len: 16 }), (parts) => {
+			let text = join('', parts);
+
+			with_fs({ '/f': text }, (fs) => assert.match(map(proc.lines(fs, '/f'), proc.fields), proc.rows(fs, '/f'), sprintf('%J', text)));
+		});
+});
+
 // An auxiliary vector of `pairs`, then AT_NULL, in words of `size` bytes.
 function vector(pairs, size, le) {
 	let s = '';
@@ -100,6 +119,57 @@ describe('proc.auxv', () => {
 			assert.match([ 4096, 100 ], [ v?.[proc.AT_PAGESZ], v?.[proc.AT_CLKTCK] ], sprintf('%J', layout));
 		}
 	});
+
+	// auxv() reads a word with its loop written out, and a type by its zero
+	// bytes: it must read any bytes as the loop of a word a byte did, every
+	// type with its word.
+	prop('reads any bytes as reading each word a byte at a time does',
+		gen.tuple(gen.array(gen.tuple(gen.oneof(gen.int(0, 70), gen.elements(0x100, 0x10006, 1 << 31)),
+			gen.oneof(gen.int(0, 70000), gen.elements(4096, 1 << 31, 0xffffffff, 0x7fffffff))), { min_len: 0, max_len: 6 }),
+			gen.elements(8, 4), gen.bool(), gen.array(gen.int(0, 255), { min_len: 0, max_len: 3 })), (t) => {
+			let bytes = vector(t[0], t[1], t[2]) + join('', map(t[3], chr));
+
+			function word(s, at, size, le) {
+				let v = 0;
+
+				for (let i = 0; i < size; i++)
+					v = v * 256 + ord(s, le ? at + size - 1 - i : at + i);
+
+				return v;
+			}
+
+			// auxv() as it read each word a byte at a time.
+			function reference(bytes) {
+				let n = length(bytes ?? '');
+
+				for (let l in [ [ 8, true ], [ 4, true ], [ 8, false ], [ 4, false ] ]) {
+					let size = l[0], le = l[1], pair = size * 2, out = {};
+
+					if (!n || n % pair)
+						continue;
+
+					for (let at = 0; at < n; at += pair) {
+						let w = word(bytes, at, size, le);
+
+						if (w >= 64 || w < 0)
+							break;
+						if (w == 0) {
+							let ps = out[proc.AT_PAGESZ];
+
+							if (at + pair == n && ps >= 1024 && !(ps & (ps - 1)))
+								return out;
+							break;
+						}
+
+						out[w] = word(bytes, at + size, size, le);
+					}
+				}
+
+				return null;
+			}
+
+			assert.match(reference(bytes), proc.auxv(bytes), sprintf('%J', t));
+		});
 
 	it('is null for what is not a vector, or one without a page size', () => {
 		assert.match([ null, null, null, null ],

@@ -28,7 +28,12 @@ function parse(line) {
 	if (!m)
 		return null;
 
-	let name = replace(replace(m[1], ')', ''), '(', '_');
+	let name = m[1];
+
+	// Nearly every name has no parenthesis: an index() rather than two replace().
+	if (index(name, '(') >= 0 || index(name, ')') >= 0)
+		name = replace(replace(name, ')', ''), '(', '_');
+
 	return m[3]
 		? { name: `${PREFIX}${name}_bytes`, value: +m[2] * 1024 }
 		: { name: `${PREFIX}${name}`, value: +m[2] };
@@ -41,7 +46,7 @@ export function collect(deps, out) {
 		return Result.err(errors.SOURCE_UNREADABLE, PATH);
 
 	let bad = null;
-	let n = 0;
+	let rows = [];
 
 	// A line it cannot read fails the collector, but not the fields after it.
 	for (let line in l) {
@@ -52,13 +57,14 @@ export function collect(deps, out) {
 			continue;
 		}
 
-		out.gauge(f.name, `Memory information field ${substr(f.name, length(PREFIX))}.`)(null, f.value);
-		n++;
+		push(rows, [ f.name, `Memory information field ${substr(f.name, length(PREFIX))}.`, f.value ]);
 	}
+
+	out.batch('gauge', rows);
 
 	if (bad != null)
 		return Result.err(errors.SOURCE_INVALID, `${PATH}: ${sprintf('%J', bad)}`);
-	if (!n)
+	if (!length(rows))
 		return Result.err(errors.SOURCE_INVALID, `${PATH}: no fields`);
 
 	return Result.ok();

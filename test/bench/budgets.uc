@@ -27,8 +27,22 @@ const TIME = [
 	[ 'large/scrape:full', 5.0, 'a busy router\'s full scrape' ],
 	// Measured 0.21 s; 0.25 s with a call to check each sample's labels, 9.2 s before.
 	[ 'large/collector:nat_traffic@20000', 0.6, 'nat_traffic on 20k entries' ],
-	// Measured 2.4 ms; 6.8 ms matching each of 400 fields against the default pattern.
-	[ 'large/collector:netstat', 0.006, 'netstat on the kernel\'s 400 fields' ],
+	// Measured 1.3 ms; 2.4 ms checking each of 400 fields against the
+	// default, 6.8 ms matching each against the pattern.
+	[ 'large/collector:netstat', 0.004, 'netstat on the kernel\'s 400 fields' ],
+	// Measured 10 ms; 12 ms reading 14 sysfs files a link.
+	[ 'large/collector:netclass', 0.025, 'netclass on 50 links' ],
+	// Measured 3.2 ms; 3.9 ms with a call for each statistic of a link.
+	[ 'large/collector:netdev', 0.008, 'netdev on 50 links' ],
+	// Measured 9.4 ms; 10.2 ms before.
+	[ 'large/collector:wifi', 0.025, 'wifi on 3 radios of 3 networks and 200 stations' ],
+	// Measured 0.8 ms; 1.05 ms reading the auxiliary vector's words a
+	// byte at a time and /proc/stat with a regex.
+	[ 'large/collector:exporter', 0.002, 'the exporter collector' ],
+	// Measured 0.8 ms; 1.0 ms with a writer made for each family.
+	[ 'large/collector:meminfo', 0.002, 'meminfo\'s 37 families' ],
+	// Measured 0.6 ms; 0.9 ms matching each of 170 fields and values.
+	[ 'large/collector:vmstat', 0.0015, 'vmstat on the kernel\'s 170 fields' ],
 	// Measured 0.07 s; 3.8 s before.
 	[ 'large/collector:ethtool', 1.0, 'ethtool on 17 ports' ],
 	// Measured 0.035 s; 0.32 s before.

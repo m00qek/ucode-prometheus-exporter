@@ -51,7 +51,8 @@ const ROUTER = capture('caju-router');
 const ROUTER_TWO = capture('caju-router', [ 'eth0', 'wg_mesh' ]);
 const AP = capture('caju-ap');
 
-// What sysfs says of the attributes taken from the dump, for comparing the two.
+// What sysfs says of the attributes taken from the dump, or from other
+// attributes (carrier_changes, iflink), for comparing the two.
 function sysfs_view(host, links) {
 	let lines = [];
 
@@ -66,7 +67,8 @@ function sysfs_view(host, links) {
 			(duplex != null ? `,duplex="${duplex}"` : '') + `,operstate="${f('operstate')}",adminstate="${admin}",ifalias="${f('ifalias')}"} 1`);
 
 		for (let p in [ [ 'carrier', 'carrier' ], [ 'iface_link_mode', 'link_mode' ], [ 'mtu_bytes', 'mtu' ],
-				[ 'net_dev_group', 'netdev_group' ], [ 'protocol_type', 'type' ], [ 'transmit_queue_length', 'tx_queue_len' ] ])
+				[ 'net_dev_group', 'netdev_group' ], [ 'protocol_type', 'type' ], [ 'transmit_queue_length', 'tx_queue_len' ],
+				[ 'carrier_changes_total', 'carrier_changes' ], [ 'iface_link', 'iflink' ] ])
 			push(lines, `node_network_${p[0]}{device="${d}"} ${f(p[1])}`);
 	}
 
@@ -219,7 +221,7 @@ describe('collectors.netclass', () => {
 
 	it('leaves out the carrier, speed and duplex sysfs refuses for a link that is down', () => {
 		let c = one_link({ ...ETH9, flags: 4098, carrier: false, operstate: 2 },
-			{ flags: '0x1002\n', ifindex: '9\n', ifalias: '\n' });
+			{ flags: '0x1002\n', ifindex: '9\n', iflink: '9\n', ifalias: '\n' });
 
 		with_collector(netclass, cfg_of(c), (r) => {
 			assert.match(true, r.result.ok);
@@ -228,12 +230,37 @@ describe('collectors.netclass', () => {
 				'node_network_info{device="eth9",address="02:00:00:00:09:09",broadcast="ff:ff:ff:ff:ff:ff",operstate="down",adminstate="down",ifalias=""} 1',
 				'node_network_flags{device="eth9"} 4098',
 				'node_network_iface_id{device="eth9"} 9',
+				'node_network_iface_link{device="eth9"} 9',
 				'node_network_iface_link_mode{device="eth9"} 0',
 				'node_network_mtu_bytes{device="eth9"} 1500',
 				'node_network_net_dev_group{device="eth9"} 0',
 				'node_network_protocol_type{device="eth9"} 1',
 				'node_network_transmit_queue_length{device="eth9"} 1000',
 			], filter(r.lines, (l) => substr(l, 0, 1) != '#'));
+		});
+	});
+
+	// What sysfs gives of carrier_changes and iflink is taken from what
+	// tells the same, and read only where nothing does: a kernel without
+	// the up and down counts, and a link the dump names another of, or one
+	// in another namespace.
+	it('reads carrier_changes without both counts, and iflink of a link the dump links', () => {
+		let files = { flags: '0x1003\n', ifindex: '9\n', iflink: '4\n', carrier_changes: '7\n', carrier_up_count: '3\n', ifalias: '\n' };
+		let seen = [];
+
+		for (let link in [ { ...ETH9, link: 'eth4' }, { ...ETH9, link_netnsid: 1 }, ETH9 ])
+			with_collector(netclass, cfg_of(one_link(link, files)), (r) => push(seen, filter(r.lines, (l) => match(l, /^node_network_(carrier_changes_total|iface_link)\{/))));
+
+		assert.match([
+			[ 'node_network_carrier_changes_total{device="eth9"} 7', 'node_network_iface_link{device="eth9"} 4' ],
+			[ 'node_network_carrier_changes_total{device="eth9"} 7', 'node_network_iface_link{device="eth9"} 4' ],
+			[ 'node_network_carrier_changes_total{device="eth9"} 7', 'node_network_iface_link{device="eth9"} 9' ],
+		], seen);
+	});
+
+	it('takes the dump\'s alias, its first line, as sysfs writes it', () => {
+		with_collector(netclass, cfg_of(one_link({ ...ETH9, ifalias: 'uplink\nmore' }, { flags: '0x1003\n' })), (r) => {
+			assert.match(true, length(filter(r.lines, (l) => index(l, 'ifalias="uplink"} 1') > 0)) == 1);
 		});
 	});
 

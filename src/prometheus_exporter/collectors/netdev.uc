@@ -41,9 +41,11 @@ function sum(stats, fields) {
 	let total = 0;
 
 	for (let f in fields) {
-		if (!(type(stats[f]) in [ 'int', 'double' ]))
+		let v = stats[f], t = type(v);
+
+		if (t != 'int' && t != 'double')
 			return null;
-		total += stats[f];
+		total += v;
 	}
 
 	return total;
@@ -67,11 +69,22 @@ export function collect(deps, out) {
 
 	let labels = map(links, (l) => out.labels({ device: l.dev }));
 
+	// A statistic of one field, as most are, is the field itself, without
+	// the call: sum() of it, a number or null.
 	for (let s in STATS) {
 		let m = out.counter(`node_network_${s[0]}_total`, `Network device statistic ${s[0]}.`);
+		let one = (length(s[1]) == 1) ? s[1][0] : null;
 
-		for (let i, l in links)
-			m(labels[i], sum(l.stats64, s[1]));
+		for (let i, l in links) {
+			if (one == null) {
+				m(labels[i], sum(l.stats64, s[1]));
+				continue;
+			}
+
+			let v = l.stats64[one], t = type(v);
+
+			m(labels[i], (t == 'int' || t == 'double') ? v : null);
+		}
 	}
 
 	return Result.ok();

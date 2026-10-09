@@ -39,6 +39,9 @@ const IFTYPES = [
 	'Mesh Point', 'P2P Client', 'P2P Go', 'P2P Device', 'OCB',
 ];
 
+// The types of a number, for a lookup rather than an array made at each check.
+const NUMBER = { int: true, double: true };
+
 // nl80211's bitrates are in units of 100 kbit/s, its expected throughput in kbit/s.
 const BITRATE_UNIT = 100000;
 const KBIT = 1000;
@@ -94,7 +97,7 @@ function channel_times(m, labels, survey, freq) {
 		for (let t in CHANNEL_TIMES) {
 			let ms = info[t[0]];
 
-			if (type(ms) in [ 'int', 'double' ])
+			if (NUMBER[type(ms)])
 				m[t[1]](l, ms / 1000.0);
 		}
 		return;
@@ -129,7 +132,7 @@ function mean(list, pick) {
 
 	for (let x in list) {
 		let v = pick(x);
-		if (type(v) in [ 'int', 'double' ]) {
+		if (NUMBER[type(v)]) {
 			sum += v;
 			n++;
 		}
@@ -158,7 +161,7 @@ function noise_at(survey, freq) {
 
 // A value in milliseconds in seconds, or null for none.
 function seconds(ms) {
-	return type(ms) in [ 'int', 'double' ] ? ms / 1000.0 : null;
+	return NUMBER[type(ms)] ? ms / 1000.0 : null;
 }
 
 // A field the driver does not report is left out, and so are the bitrates and

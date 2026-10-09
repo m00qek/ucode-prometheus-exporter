@@ -14,6 +14,11 @@ const COLLECTOR = join('\n', [
 	"if (!x) return Result.none('no such thing');",
 	"return services.unless_disabled(deps.ubus, 'dnsmasq', res);",
 	"let why = services.idle(deps.ubus, 'odhcpd');",
+	"out.batch('counter', [",
+	"	[ 'node_rows_total', 'Rows, it\\'s said.', (n != null) ? n[1] : null ],",
+	"	[ 'node_load1', 'Again.', 1 ],",
+	"]);",
+	"out.batch('gauge', rows);",
 ]);
 
 describe('docs_gen.source.declared', () => {
@@ -22,6 +27,7 @@ describe('docs_gen.source.declared', () => {
 			{ name: 'node_load1', type: 'gauge', help: '1m load average.' },
 			{ name: 'node_things_total', type: 'counter', help: 'Things, it\'s said.' },
 			{ name: 'node_built', type: 'gauge', help: null },
+			{ name: 'node_rows_total', type: 'counter', help: 'Rows, it\'s said.' },
 		], source.declared(COLLECTOR));
 	});
 });
