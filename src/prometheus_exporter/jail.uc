@@ -37,6 +37,7 @@
 import * as Result from 'prometheus_exporter.result';
 import * as config from 'prometheus_exporter.config';
 import * as privileges from 'prometheus_exporter.privileges';
+import * as grant from 'prometheus_exporter.grant';
 import { uci_handles } from 'prometheus_exporter.deps';
 import { DIR as STATE_DIR } from 'prometheus_exporter.state';
 
@@ -428,7 +429,7 @@ export function mounts(collectors, sys) {
 
 /**
  * What the service's user may do in the jail of these installed collectors,
- * for prometheus_exporter.privileges' make(): the ubus calls, capabilities,
+ * for prometheus_exporter.grant's make(): the ubus calls, capabilities,
  * groups and proc files of the enabled ones, read access to the configs the
  * jail mounts (the exporter's own among them), the TLS files when both are
  * there, and the port it listens on; and what to take back, the groups and
@@ -470,7 +471,7 @@ export function grants(collectors, sys) {
 	groups = sort(uniq(groups));
 
 	return {
-		ubus: privileges.merge(ubus),
+		ubus: grant.merge(ubus),
 		capabilities: sort(uniq(capabilities)),
 		groups,
 		groups_off: sort(uniq(filter(groups_off, (g) => !(g in groups)))),

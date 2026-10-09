@@ -12,8 +12,6 @@
 
 'use strict';
 
-import { deflate } from 'zlib';
-
 /**
  * A reply, as the module's top comment says: its status line, its headers
  * as [ name, value ] pairs, and its body.
@@ -86,21 +84,36 @@ export function accepts_gzip(value) {
 	return (named != null) ? named : (any == true);
 };
 
+// zlib's deflate, loaded the first time a reply is compressed, in the
+// request's process: uhttpd, which every request is forked from and which
+// holds what it loads for as long as it runs, holds none of it. Some 0.1 ms
+// of a scrape in the devenv. False once it did not load.
+let deflate = null;
+
 /**
- * gzip of `text`.
+ * gzip of `text`, or null when zlib does not load.
  *
  * @param {string} text the text.
- * @returns {string} its gzip.
+ * @returns {?string} its gzip.
  */
 export function gzip(text) {
-	return deflate(text, true, GZIP_LEVEL);
+	if (deflate == null) {
+		try {
+			deflate = loadstring("import { deflate } from 'zlib';\nreturn deflate;", { raw_mode: true })();
+		} catch (e) {
+			deflate = false;
+		}
+	}
+
+	return deflate ? deflate(text, true, GZIP_LEVEL) : null;
 };
 
 /**
  * The reply of a scrape ({ status, content_type, body }), for a request whose
  * Accept-Encoding is `accept`: gzip-compressed when `compress` is on, the
- * scrape succeeded and the scraper takes gzip. While compress is on, the reply
- * varies by Accept-Encoding, and says so.
+ * scrape succeeded and the scraper takes gzip, and plain should zlib not
+ * load. While compress is on, the reply varies by Accept-Encoding, and says
+ * so.
  *
  * @param {ScrapeReply} res the scrape's reply.
  * @param {?string} accept the request's Accept-Encoding, or null.
@@ -114,8 +127,10 @@ export function scrape_reply(res, accept, compress) {
 	if (compress) {
 		push(headers, [ 'Vary', 'Accept-Encoding' ]);
 
-		if (substr(res.status, 0, 3) == '200' && accepts_gzip(accept)) {
-			body = gzip(body);
+		let gzipped = (substr(res.status, 0, 3) == '200' && accepts_gzip(accept)) ? gzip(body) : null;
+
+		if (gzipped != null) {
+			body = gzipped;
 			push(headers, [ 'Content-Encoding', 'gzip' ]);
 		}
 	}

@@ -25,7 +25,7 @@ for m in ubus rtnl nl80211 socket; do
 		{ echo "prometheus_exporter.deps: $m does not load" >&2; status=1; }
 done
 
-# zlib (gzip, in http.uc) and digest (basic auth's crypt, in crypt.uc) are imported
+# zlib (gzip, which http.uc loads at run time) and digest (basic auth's crypt, in crypt.uc) are imported
 # by name above; what they compute is checked here, on this ucode: a gzip header,
 # and an MD5 as hex.
 ucode -e "import { deflate, inflate } from 'zlib'; let g = deflate('x', true, 1);

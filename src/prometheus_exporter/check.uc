@@ -33,6 +33,7 @@ import * as Result from 'prometheus_exporter.result';
 import * as config from 'prometheus_exporter.config';
 import * as jail from 'prometheus_exporter.jail';
 import * as privileges from 'prometheus_exporter.privileges';
+import * as grant from 'prometheus_exporter.grant';
 import * as scrape from 'prometheus_exporter.scrape';
 import * as ledger from 'prometheus_exporter.ledger';
 
@@ -294,7 +295,7 @@ export function run(sys, opts) {
 
 		push(lines, '', `collectors: ${length(sys.collectors)} installed, ${enabled} enabled`, ...map(described, (l) => '  ' + l));
 		push(lines, '', 'jail mounts:', ...map(mounts, (m) => '  ' + m));
-		push(lines, '', `jail user: ${privileges.USER}, capabilities: ${join(' ', privileges.service_capabilities(g)) || 'none'}`,
+		push(lines, '', `jail user: ${privileges.USER}, capabilities: ${join(' ', grant.service_capabilities(g)) || 'none'}`,
 			'ubus ACL:', ...map(keys(g.ubus), (o) => `  ${o} ${join(' ', g.ubus[o])}`));
 	}
 
