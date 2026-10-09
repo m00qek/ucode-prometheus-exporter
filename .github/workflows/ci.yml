@@ -5,7 +5,7 @@ on:
   pull_request:
 
 # Each job's timeout-minutes is a few times what it takes with its images
-# built and cached (test 1.5 min, bench 0.5, e2e 6, browser 3), so a hang
+# built and cached (test 1.5 min, monitoring 1, bench 0.5, e2e 6, browser 3), so a hang
 # fails the job instead of holding the runner for GitHub's 6 hours.
 jobs:
   test:
@@ -24,6 +24,17 @@ jobs:
       - run: make lint
       - run: make test
       - run: make package-check
+
+  # The alerting rules of monitoring/: their metrics against the reference,
+  # promtool and vmalert on the rules and their tests.
+  monitoring:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CI: 1
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - run: make monitoring-check
 
   # Each collector and whole scrapes on generated worlds, held to the budgets
   # of test/bench/budgets.uc: scaling, memory, and generous times.

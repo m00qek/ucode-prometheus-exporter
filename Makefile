@@ -10,7 +10,7 @@ RUN          = $(COMPOSE) --progress quiet run --rm $(if $(CI),-T) openwrt
 IMAGE_STAMP := devenv/.built-$(IMAGE_TAG)
 TEST_ARGS    = $(if $(FILTER),-f '$(FILTER)') $(if $(VERBOSE),-v) $(if $(TEST_TIMEOUT),-t $(TEST_TIMEOUT)) $(MODULES)
 
-.PHONY: test unit integration watch lint shell image fixtures package template-package pkgcheck-image package-check e2e lab lab-down browser pot bench bench-src bench-worlds bench-device bench-qemu docs docs-mike docs-test docs-serve docs-gen feed-makefile
+.PHONY: test unit integration watch lint shell image fixtures package template-package pkgcheck-image package-check e2e lab lab-down browser pot bench bench-src bench-worlds bench-device bench-qemu docs docs-mike docs-test docs-serve docs-gen feed-makefile monitoring-check
 
 test:        $(IMAGE_STAMP) ; @$(RUN) devenv/scripts/test.sh all $(TEST_ARGS)
 unit:        $(IMAGE_STAMP) ; @$(RUN) devenv/scripts/test.sh unit $(TEST_ARGS)
@@ -215,6 +215,18 @@ browser: package
 # The translation template, from the LuCI sources; make lint checks it is up to date.
 I18N_IMAGE := ucode-prometheus-exporter-i18n:$(shell sha256sum devenv/services/i18n/Dockerfile | cut -c1-12)
 pot: ; @I18N_IMAGE=$(I18N_IMAGE) devenv/scripts/pot.sh
+
+# ---- monitoring ----------------------------------------------------------------
+# The alerting rules of monitoring/, checked with the official
+# images of what loads them; see devenv/scripts/monitoring-check.sh. The
+# metric names are checked in the docs' mkdocs image, for its Python.
+PROMETHEUS_IMAGE   := prom/prometheus:v3.15.0
+VMALERT_IMAGE      := victoriametrics/vmalert:v1.152.0
+VMALERT_TOOL_IMAGE := victoriametrics/vmalert-tool:v1.152.0
+PYTHON_IMAGE       := squidfunk/mkdocs-material:9.5.17
+export PROMETHEUS_IMAGE VMALERT_IMAGE VMALERT_TOOL_IMAGE PYTHON_IMAGE
+
+monitoring-check: ; @devenv/scripts/monitoring-check.sh
 
 # ---- release -----------------------------------------------------------------
 # The ucode-prometheus-exporter Makefile for the packages.ucode.dev feed, built

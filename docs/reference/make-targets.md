@@ -42,6 +42,12 @@ Every target runs in Docker, but `feed-makefile`, a shell script with `curl`; no
 | `bench-qemu` | `package` and `bench-worlds`, then the benchmark on OpenWrt's malta target, a MIPS 24Kc, little-endian in qemu-system-mipsel or big-endian in qemu-system-mips (`QEMU_ENDIAN`), with the built packages installed from the release's feed. Before the bench, the guest checks what reads data in the CPU's byte order (`devenv/scripts/qemu-checks.uc`), and the target fails if a check does. |
 | `bench-src` | With `BENCH_REV`, extracts that revision's `src/` into `bin/bench/rev-<rev>`. `bench` and `bench-device` run it. |
 
+### Monitoring
+
+| Target | Description |
+| :--- | :--- |
+| `monitoring-check` | Checks `monitoring/`: that every metric family and label its rules and their tests name is in [Metrics](metrics.md) (`devenv/scripts/monitoring-refs.py`, in the docs' mkdocs image); `promtool check rules` and `promtool test rules`; `vmalert -dryRun` and `vmalert-tool unittest` on the same files. Each in its official image, without the network. The metric check is also shown something it must refuse. |
+
 ### Release
 
 | Target | Description |

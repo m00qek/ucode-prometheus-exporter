@@ -1,0 +1,257 @@
+# promtool test rules (make monitoring-check): the exporter's health rules on
+# made-up series, a sample a minute, each rule firing where it should and
+# quiet where it should not.
+
+rule_files:
+  - ../exporter.rules.yml
+
+evaluation_interval: 1m
+
+tests:
+  # A target down for 5 minutes; a router of another job is left alone.
+  - interval: 1m
+    input_series:
+      - series: 'up{job="openwrt", instance="router:9100"}'
+        values: '1 1 0x10'
+      - series: 'up{job="node", instance="server:9100"}'
+        values: '0x12'
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: OpenWrtExporterDown
+        exp_alerts: []
+      - eval_time: 8m
+        alertname: OpenWrtExporterDown
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              job: openwrt
+              instance: router:9100
+            exp_annotations:
+              summary: The exporter on router:9100 does not answer.
+              description: >-
+                Scrapes of router:9100 (job openwrt) have failed for 5 minutes:
+                the router or its exporter is down, the scrape times out, or basic auth refuses the scraper.
+                Every other metric of the router is missing meanwhile.
+
+  # nat_traffic fails from the second scrape, with its failures counted by
+  # code; ethtool from the first, without any counted (left out at the
+  # deadline); wifi succeeds once in a while, and is not reported.
+  - interval: 1m
+    input_series:
+      - series: 'node_scrape_collector_success{job="openwrt", instance="router:9100", collector="nat_traffic"}'
+        values: '1 0x30'
+      - series: 'ucode_prometheus_exporter_collector_failures_total{job="openwrt", instance="router:9100", collector="nat_traffic", reason="SOURCE_UNREADABLE"}'
+        values: '0+1x30'
+      - series: 'ucode_prometheus_exporter_collector_failures_total{job="openwrt", instance="router:9100", collector="nat_traffic", reason="PERMISSION_DENIED"}'
+        values: '_x20 1x10'
+      - series: 'node_scrape_collector_success{job="openwrt", instance="router:9100", collector="ethtool"}'
+        values: '0x30'
+      - series: 'node_scrape_collector_success{job="openwrt", instance="router:9100", collector="wifi"}'
+        values: '0 0 0 0 0 0 0 0 0 0 1 0x20'
+    alert_rule_test:
+      - eval_time: 14m
+        alertname: OpenWrtExporterCollectorFailing
+        exp_alerts: []
+      - eval_time: 25m
+        alertname: OpenWrtExporterCollectorFailing
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job: openwrt
+              instance: router:9100
+              collector: nat_traffic
+            exp_annotations:
+              summary: Collector nat_traffic on router:9100 has not succeeded for 15 minutes.
+              description: >-
+                Collector nat_traffic on router:9100 has had node_scrape_collector_success 0
+                in every scrape for 15 minutes, so its metrics are missing.
+                Its failures since the service started, by error code:
+                PERMISSION_DENIED 1; SOURCE_UNREADABLE 25;
+                `service prometheus-exporter check` on the router says why it fails now.
+          - exp_labels:
+              severity: warning
+              job: openwrt
+              instance: router:9100
+              collector: ethtool
+            exp_annotations:
+              summary: Collector ethtool on router:9100 has not succeeded for 15 minutes.
+              description: >-
+                Collector ethtool on router:9100 has had node_scrape_collector_success 0
+                in every scrape for 15 minutes, so its metrics are missing.
+                Its failures since the service started, by error code:
+                none counted (quarantined, left out at the deadline, or the exporter collector is disabled);
+                `service prometheus-exporter check` on the router says why it fails now.
+
+  # nat_traffic is quarantined for a scrape the scraper sees; ethtool's
+  # breaker trips between two of its scrapes, which only the counter shows;
+  # wifi's never does.
+  - interval: 1m
+    input_series:
+      - series: 'ucode_prometheus_exporter_collector_quarantined{job="openwrt", instance="router:9100", collector="nat_traffic"}'
+        values: '0 0 1 0x30'
+      - series: 'ucode_prometheus_exporter_quarantines_total{job="openwrt", instance="router:9100", collector="nat_traffic"}'
+        values: '0 0 1x30'
+      - series: 'ucode_prometheus_exporter_collector_quarantined{job="openwrt", instance="router:9100", collector="ethtool"}'
+        values: '0x32'
+      - series: 'ucode_prometheus_exporter_quarantines_total{job="openwrt", instance="router:9100", collector="ethtool"}'
+        values: '0 0 0 0 0 1x27'
+      - series: 'ucode_prometheus_exporter_collector_quarantined{job="openwrt", instance="router:9100", collector="wifi"}'
+        values: '0x32'
+      - series: 'ucode_prometheus_exporter_quarantines_total{job="openwrt", instance="router:9100", collector="wifi"}'
+        values: '0x32'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: OpenWrtExporterCollectorQuarantined
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job: openwrt
+              instance: router:9100
+              collector: nat_traffic
+            exp_annotations:
+              summary: Collector nat_traffic on router:9100 was quarantined.
+              description: >-
+                The circuit breaker of collector nat_traffic on router:9100 tripped
+                in the last 15 minutes: it is left out for 1 to 32 scrapes at a time, then tried again.
+                `service prometheus-exporter check` on the router says what tripped it, and when it is tried again;
+                a restart of the service tries it at once.
+          - exp_labels:
+              severity: warning
+              job: openwrt
+              instance: router:9100
+              collector: ethtool
+            exp_annotations:
+              summary: Collector ethtool on router:9100 was quarantined.
+              description: >-
+                The circuit breaker of collector ethtool on router:9100 tripped
+                in the last 15 minutes: it is left out for 1 to 32 scrapes at a time, then tried again.
+                `service prometheus-exporter check` on the router says what tripped it, and when it is tried again;
+                a restart of the service tries it at once.
+      - eval_time: 25m
+        alertname: OpenWrtExporterCollectorQuarantined
+        exp_alerts: []
+
+  # Deadline skips: nat_traffic is left out every scrape for a while,
+  # ethtool once, after a restart.
+  - interval: 1m
+    input_series:
+      - series: 'ucode_prometheus_exporter_deadline_skips_total{job="openwrt", instance="router:9100", collector="nat_traffic"}'
+        values: '0 0 1 2 3 4 5 6 6x30'
+      - series: 'ucode_prometheus_exporter_deadline_skips_total{job="openwrt", instance="router:9100", collector="ethtool"}'
+        values: '0 1x36'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: OpenWrtExporterDeadlineSkips
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job: openwrt
+              instance: router:9100
+              collector: nat_traffic
+            exp_annotations:
+              summary: The scrape deadline leaves collector nat_traffic on router:9100 out.
+              description: >-
+                The scrape deadline left collector nat_traffic on router:9100 out,
+                or killed its program, in 6 scrapes of the last 30 minutes: the scrapes need more time
+                than the scraper's timeout gives them. Scrape the collector in a job of its own with a longer
+                scrape_timeout, or raise the job's.
+      - eval_time: 36m
+        alertname: OpenWrtExporterDeadlineSkips
+        exp_alerts: []
+
+  # A program timeout, which ages out after 30 minutes.
+  - interval: 1m
+    input_series:
+      - series: 'ucode_prometheus_exporter_program_timeouts_total{job="openwrt", instance="router:9100", collector="ubnt-manager"}'
+        values: '0 0 1x40'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: OpenWrtExporterProgramTimeouts
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job: openwrt
+              instance: router:9100
+              collector: ubnt-manager
+            exp_annotations:
+              summary: A program of collector ubnt-manager on router:9100 timed out.
+              description: >-
+                Collector ubnt-manager on router:9100 had a program killed at its timeout
+                in the last 30 minutes (COMMAND_TIMEOUT, 1 in all), and was quarantined. Give the program more time with the collector's `timeout`,
+                or find why it hangs.
+      - eval_time: 40m
+        alertname: OpenWrtExporterProgramTimeouts
+        exp_alerts: []
+
+  # Basic auth refuses 3 requests a minute for 4 minutes, then none.
+  - interval: 1m
+    input_series:
+      - series: 'ucode_prometheus_exporter_auth_failures_total{job="openwrt", instance="router:9100"}'
+        values: '0 0 3 6 9 12x30'
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: OpenWrtExporterAuthFailures
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job: openwrt
+              instance: router:9100
+            exp_annotations:
+              summary: Basic auth refuses requests on router:9100.
+              description: >-
+                Basic auth on router:9100 refused 12 requests in 15 minutes:
+                a scraper or a script with an old password, or someone guessing it.
+      - eval_time: 30m
+        alertname: OpenWrtExporterAuthFailures
+        exp_alerts: []
+
+  # Scrapes of 9 seconds: past 80% of a 10-second timeout the scraper says
+  # (a), past 80% of the 10 seconds assumed where it says none (b), within 80%
+  # of 30 seconds (c); and another exporter's (d), which is not this one's.
+  - interval: 1m
+    input_series:
+      - series: 'scrape_duration_seconds{job="openwrt", instance="a:9100"}'
+        values: '9x30'
+      - series: 'scrape_timeout_seconds{job="openwrt", instance="a:9100"}'
+        values: '10x30'
+      - series: 'ucode_prometheus_exporter_build_info{job="openwrt", instance="a:9100", version="0.3.0-r1"}'
+        values: '1x30'
+      - series: 'scrape_duration_seconds{job="openwrt", instance="b:9100"}'
+        values: '9x30'
+      - series: 'ucode_prometheus_exporter_build_info{job="openwrt", instance="b:9100", version="0.3.0-r1"}'
+        values: '1x30'
+      - series: 'scrape_duration_seconds{job="openwrt", instance="c:9100"}'
+        values: '9x30'
+      - series: 'scrape_timeout_seconds{job="openwrt", instance="c:9100"}'
+        values: '30x30'
+      - series: 'ucode_prometheus_exporter_build_info{job="openwrt", instance="c:9100", version="0.3.0-r1"}'
+        values: '1x30'
+      - series: 'scrape_duration_seconds{job="node", instance="d:9100"}'
+        values: '9x30'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: OpenWrtExporterScrapeSlow
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: OpenWrtExporterScrapeSlow
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job: openwrt
+              instance: a:9100
+            exp_annotations:
+              summary: Scrapes of a:9100 are close to their timeout.
+              description: >-
+                Scrapes of a:9100 have taken 9s, more than 80% of
+                the scraper's timeout, for 15 minutes. Collectors are left out once the deadline comes:
+                find the slow ones by node_scrape_collector_duration_seconds.
+          - exp_labels:
+              severity: warning
+              job: openwrt
+              instance: b:9100
+            exp_annotations:
+              summary: Scrapes of b:9100 are close to their timeout.
+              description: >-
+                Scrapes of b:9100 have taken 9s, more than 80% of
+                the scraper's timeout, for 15 minutes. Collectors are left out once the deadline comes:
+                find the slow ones by node_scrape_collector_duration_seconds.

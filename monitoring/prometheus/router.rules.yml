@@ -1,0 +1,168 @@
+# Alerting rules for a router's basics, from what ucode-prometheus-exporter's
+# collectors write: a short, opinionated set. A rule whose collector is not
+# installed has nothing to evaluate, and never fires. Prometheus and vmalert
+# both load them as they are.
+#
+# Every threshold is in its rule's expression, with what it means above it:
+# edit it here, and its test in tests/router.test.yml, to change it. See
+# docs/how-to/dashboards-and-alerts.md for what each alert means and what to
+# do about it.
+
+groups:
+  - name: openwrt-router
+    rules:
+      # conntrack: the connection table more than 80% full for 10 minutes. A
+      # full table drops new connections.
+      - alert: OpenWrtConntrackTableNearlyFull
+        expr: node_nf_conntrack_entries / node_nf_conntrack_entries_limit > 0.8
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: The connection table of {{ $labels.instance }} is {{ $value | humanizePercentage }} full.
+          description: >-
+            The conntrack table of {{ $labels.instance }} has been more than 80% full for 10 minutes.
+            When it is full the router drops new connections. Raise net.netfilter.nf_conntrack_max,
+            or find the host that opens them.
+
+      # meminfo: less than 10% of the memory available for 10 minutes. Past it
+      # the kernel's OOM killer picks a process.
+      - alert: OpenWrtMemoryLow
+        expr: node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 0.1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: '{{ $labels.instance }} has {{ $value | humanizePercentage }} of its memory available.'
+          description: >-
+            Less than 10% of the memory of {{ $labels.instance }} has been available for 10 minutes.
+            /tmp is memory too: a full /tmp, or a large log, takes it.
+
+      # filesystem: a writable filesystem with less than 10% of its space
+      # available for 15 minutes. Read-only ones (the squashfs root) are
+      # always full, and left out. /tmp is tmpfs, memory.
+      - alert: OpenWrtFilesystemNearlyFull
+        expr: |
+          node_filesystem_avail_bytes / node_filesystem_size_bytes < 0.1
+          and node_filesystem_readonly == 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: '{{ $labels.mountpoint }} on {{ $labels.instance }} has {{ $value | humanizePercentage }} of its space left.'
+          description: >-
+            The filesystem at {{ $labels.mountpoint }} ({{ $labels.device }}, {{ $labels.fstype }}) on {{ $labels.instance }}
+            has had less than 10% of its space available for 15 minutes. On the overlay, packages and
+            settings stop being written once it is full.
+
+      # filesystem: a writable filesystem with less than 10% of its inodes
+      # free for 15 minutes; one that reports no inodes (jffs2) is left out.
+      - alert: OpenWrtFilesystemOutOfInodes
+        expr: |
+          node_filesystem_files_free / node_filesystem_files < 0.1
+          and node_filesystem_files > 0
+          and node_filesystem_readonly == 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: '{{ $labels.mountpoint }} on {{ $labels.instance }} has {{ $value | humanizePercentage }} of its inodes left.'
+          description: >-
+            The filesystem at {{ $labels.mountpoint }} ({{ $labels.device }}) on {{ $labels.instance }} has had less
+            than 10% of its inodes free for 15 minutes: many small files, as a growing cache or spool.
+
+      # hwmon: a sensor at or above the chip's own `max` for 5 minutes. Some
+      # chips throttle there (mt76's Wi-Fi radios).
+      - alert: OpenWrtTemperatureAboveMax
+        expr: node_hwmon_temp_celsius >= on (job, instance, chip, sensor) (node_hwmon_temp_max_celsius > 0)
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Sensor {{ $labels.sensor }} of {{ $labels.chip }} on {{ $labels.instance }} is at its maximum.
+          description: >-
+            Sensor {{ $labels.sensor }} of chip {{ $labels.chip }} on {{ $labels.instance }} has read
+            {{ $value }} °C, at or above the chip's maximum, for 5 minutes. Check the airflow.
+
+      # hwmon: a sensor at or above the chip's own `crit` for a minute: the
+      # hardware may shut down.
+      - alert: OpenWrtTemperatureCritical
+        expr: node_hwmon_temp_celsius >= on (job, instance, chip, sensor) (node_hwmon_temp_crit_celsius > 0)
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Sensor {{ $labels.sensor }} of {{ $labels.chip }} on {{ $labels.instance }} is at its critical temperature.
+          description: >-
+            Sensor {{ $labels.sensor }} of chip {{ $labels.chip }} on {{ $labels.instance }} reads {{ $value }} °C,
+            at or above the chip's critical temperature: the hardware may shut down.
+
+      # thermal: a zone at or above its passive trip point for 5 minutes, where
+      # the kernel throttles the CPU to cool it.
+      - alert: OpenWrtThermalZoneThrottling
+        expr: node_thermal_zone_temp >= on (job, instance, zone, type) node_thermal_zone_passive_celsius
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Thermal zone {{ $labels.zone }} ({{ $labels.type }}) on {{ $labels.instance }} is throttling.
+          description: >-
+            Thermal zone {{ $labels.zone }} ({{ $labels.type }}) on {{ $labels.instance }} has been at or above
+            its passive trip point for 5 minutes, at {{ $value }} °C: the kernel slows the CPU to cool it.
+
+      # openwrt_interfaces: the logical interface `wan` down for 5 minutes.
+      # Name yours in the regex: wan|wan6, wwan, or mwan3's members.
+      - alert: OpenWrtWanDown
+        expr: node_openwrt_interface_up{interface=~"wan"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: Interface {{ $labels.interface }} of {{ $labels.instance }} is down.
+          description: >-
+            The logical interface {{ $labels.interface }} of {{ $labels.instance }} has been down for 5 minutes.
+            `ifstatus {{ $labels.interface }}` on the router says why; node_openwrt_interface_errors counts
+            the errors netifd holds for it.
+
+      # wifi: a radio without a network up for 10 minutes. A radio disabled on
+      # purpose has none either: silence it, or leave it out in the expression
+      # (node_wifi_radio_info{radio!="radio1"}).
+      - alert: OpenWrtWifiRadioDown
+        expr: node_wifi_radio_info unless on (job, instance, radio) node_wifi_network_info
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Wi-Fi radio {{ $labels.radio }} of {{ $labels.instance }} has no network up.
+          description: >-
+            Radio {{ $labels.radio }} of {{ $labels.instance }} has had no network up for 10 minutes:
+            it is disabled, its driver failed, or it waits for a DFS channel check.
+            `wifi status` on the router says which.
+
+      # timesync: the NTP daemon has not synchronized the clock for 30
+      # minutes. TLS, DNSSEC and logs need the right time.
+      - alert: OpenWrtClockNotSynchronized
+        expr: node_timesync_synchronized == 0
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: The clock of {{ $labels.instance }} is not synchronized.
+          description: >-
+            {{ $labels.daemon }} on {{ $labels.instance }} has not had the clock synchronized for 30 minutes:
+            no NTP server answers, or none is set.
+
+      # dhcp_leases: 135 or more DHCPv4 leases on one interface for 15
+      # minutes: 90% of OpenWrt's default pool, `limit` 150 in /etc/config/dhcp.
+      # The exporter does not write the pool's size: set 90% of yours here.
+      - alert: OpenWrtDhcpPoolNearlyExhausted
+        expr: sum by (job, instance, interface) (node_openwrt_dhcp_leases{family="ipv4"}) >= 135
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: The DHCP pool of {{ $labels.interface }} on {{ $labels.instance }} is nearly exhausted.
+          description: >-
+            {{ $value }} DHCPv4 leases are active on {{ $labels.interface }} of {{ $labels.instance }}, 90% of
+            a pool of 150 addresses, OpenWrt's default. A new client gets no address once the pool is spent:
+            raise the interface's `limit`, or shorten its `leasetime`.

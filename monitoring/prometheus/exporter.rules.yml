@@ -1,0 +1,134 @@
+# Alerting rules for ucode-prometheus-exporter's own health: is the router
+# scraped at all, and does each of its collectors serve. Prometheus and
+# vmalert both load them as they are.
+#
+# Every threshold is in its rule's expression, with what it means above it:
+# edit it here, and its test in tests/exporter.test.yml, to change it. See
+# docs/how-to/dashboards-and-alerts.md for what each alert means and what to
+# do about it.
+#
+# Every rule but OpenWrtExporterDown finds the exporter by its own metrics,
+# whatever the job is called. OpenWrtExporterDown cannot: a target that does
+# not answer has none. It asks for the job `openwrt`, the tutorial's: name
+# yours there.
+
+groups:
+  - name: ucode-prometheus-exporter
+    rules:
+      # The scrape failed: the router or the exporter is down, the scrape timed
+      # out, or the scraper's password is refused (401). 5 minutes, so that a
+      # reboot or an upgrade does not page.
+      - alert: OpenWrtExporterDown
+        expr: up{job="openwrt"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: The exporter on {{ $labels.instance }} does not answer.
+          description: >-
+            Scrapes of {{ $labels.instance }} (job {{ $labels.job }}) have failed for 5 minutes:
+            the router or its exporter is down, the scrape times out, or basic auth refuses the scraper.
+            Every other metric of the router is missing meanwhile.
+
+      # A collector served nothing for 15 minutes: every scrape had
+      # node_scrape_collector_success 0, failed, quarantined or left out at
+      # the deadline. A collector with nothing to observe succeeds, and is left
+      # alone. The description lists its failures since the service started,
+      # by error code, where the exporter collector counts them.
+      - alert: OpenWrtExporterCollectorFailing
+        expr: node_scrape_collector_success == 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: Collector {{ $labels.collector }} on {{ $labels.instance }} has not succeeded for 15 minutes.
+          description: >-
+            Collector {{ $labels.collector }} on {{ $labels.instance }} has had node_scrape_collector_success 0
+            in every scrape for 15 minutes, so its metrics are missing.
+            Its failures since the service started, by error code:{{ range printf `ucode_prometheus_exporter_collector_failures_total{job="%s",instance="%s",collector="%s"}` $labels.job $labels.instance $labels.collector | query | sortByLabel "reason" }} {{ .Labels.reason }} {{ .Value }};{{ else }} none counted (quarantined, left out at the deadline, or the exporter collector is disabled);{{ end }}
+            `service prometheus-exporter check` on the router says why it fails now.
+
+      # A collector's circuit breaker tripped in the last 15 minutes: it hung,
+      # was killed, overran its budget, had a program killed at its timeout,
+      # or failed three scrapes in a row. The gauge shows a quarantine the
+      # scraper saw; the counter one it did not (another scraper's scrape).
+      - alert: OpenWrtExporterCollectorQuarantined
+        expr: |
+          max_over_time(ucode_prometheus_exporter_collector_quarantined[15m]) == 1
+          or
+          increase(ucode_prometheus_exporter_quarantines_total[15m]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: Collector {{ $labels.collector }} on {{ $labels.instance }} was quarantined.
+          description: >-
+            The circuit breaker of collector {{ $labels.collector }} on {{ $labels.instance }} tripped
+            in the last 15 minutes: it is left out for 1 to 32 scrapes at a time, then tried again.
+            `service prometheus-exporter check` on the router says what tripped it, and when it is tried again;
+            a restart of the service tries it at once.
+
+      # The scrape deadline left a collector out, or killed its program, more
+      # than twice in 30 minutes: the scrapes take longer than the scraper's
+      # timeout allows. The first scrape after a restart can be late once, as
+      # the exporter does not know yet what each collector takes.
+      - alert: OpenWrtExporterDeadlineSkips
+        expr: increase(ucode_prometheus_exporter_deadline_skips_total[30m]) > 2
+        labels:
+          severity: warning
+        annotations:
+          summary: The scrape deadline leaves collector {{ $labels.collector }} on {{ $labels.instance }} out.
+          description: >-
+            The scrape deadline left collector {{ $labels.collector }} on {{ $labels.instance }} out,
+            or killed its program, in {{ $value | humanize }} scrapes of the last 30 minutes: the scrapes need more time
+            than the scraper's timeout gives them. Scrape the collector in a job of its own with a longer
+            scrape_timeout, or raise the job's.
+
+      # A collector's program was killed at its timeout (exec_timeout, or the
+      # collector's `timeout`) in the last 30 minutes. It also trips the
+      # collector's breaker.
+      - alert: OpenWrtExporterProgramTimeouts
+        expr: increase(ucode_prometheus_exporter_program_timeouts_total[30m]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: A program of collector {{ $labels.collector }} on {{ $labels.instance }} timed out.
+          description: >-
+            Collector {{ $labels.collector }} on {{ $labels.instance }} had a program killed at its timeout
+            in the last 30 minutes (COMMAND_TIMEOUT, {{ $value | humanize }} in all), and was quarantined. Give the program more time with the collector's `timeout`,
+            or find why it hangs.
+
+      # Basic auth refused more than 5 requests in 15 minutes. A scraper with
+      # the wrong password is OpenWrtExporterDown, as its scrapes fail; these
+      # are requests of someone else's.
+      - alert: OpenWrtExporterAuthFailures
+        expr: increase(ucode_prometheus_exporter_auth_failures_total[15m]) > 5
+        labels:
+          severity: warning
+        annotations:
+          summary: Basic auth refuses requests on {{ $labels.instance }}.
+          description: >-
+            Basic auth on {{ $labels.instance }} refused {{ $value | humanize }} requests in 15 minutes:
+            a scraper or a script with an old password, or someone guessing it.
+
+      # Scrapes take more than 80% of the scraper's timeout for 15 minutes:
+      # the deadline is near, and the slowest collectors are the next to be
+      # left out. scrape_timeout_seconds is vmagent's, and Prometheus's with
+      # --enable-feature=extra-scrape-metrics; without it, the timeout is taken
+      # to be 10 seconds, both scrapers' default, and 80% of it is 8.
+      - alert: OpenWrtExporterScrapeSlow
+        expr: |
+          (
+            scrape_duration_seconds > on (job, instance) 0.8 * scrape_timeout_seconds
+            or
+            (scrape_duration_seconds > 8 unless on (job, instance) scrape_timeout_seconds)
+          )
+          and on (job, instance) ucode_prometheus_exporter_build_info
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: Scrapes of {{ $labels.instance }} are close to their timeout.
+          description: >-
+            Scrapes of {{ $labels.instance }} have taken {{ $value | humanizeDuration }}, more than 80% of
+            the scraper's timeout, for 15 minutes. Collectors are left out once the deadline comes:
+            find the slow ones by node_scrape_collector_duration_seconds.
