@@ -69,7 +69,7 @@ describe('collectors.hwmon', () => {
 		});
 	});
 
-	it('exports labels, PWM outputs, fans, voltages, currents and power, in sensor number order, and falls back to hwmonN without chip_names', () => {
+	it('exports labels, PWM outputs, fans, voltages, currents, power and temperature limits, in sensor number order, and falls back to hwmonN without chip_names', () => {
 		with_collector(hwmon, { fs: fs_of(SYNTHETIC, SYNTHETIC_LINKS) }, (r) => {
 			assert.match(true, r.result.ok);
 			assert.match([
@@ -77,6 +77,8 @@ describe('collectors.hwmon', () => {
 				'# TYPE node_hwmon_chip_names gauge',
 				'node_hwmon_chip_names{chip="platform_nct6775_656",chip_name="nct6779"} 1',
 				'node_hwmon_chip_names{chip="i2c_0_0_0040",chip_name="ina219"} 1',
+				'node_hwmon_chip_names{chip="ieee80211_phy0",chip_name="mt7915_phy0"} 1',
+				'node_hwmon_chip_names{chip="i2c_1_1_0010",chip_name="lm25066"} 1',
 				'# HELP node_hwmon_sensor_label Label for given chip and sensor',
 				'# TYPE node_hwmon_sensor_label gauge',
 				'node_hwmon_sensor_label{chip="platform_nct6775_656",sensor="temp1",label="SYSTIN"} 1',
@@ -88,6 +90,7 @@ describe('collectors.hwmon', () => {
 				'node_hwmon_temp_celsius{chip="platform_nct6775_656",sensor="temp2"} 38.5',
 				'node_hwmon_temp_celsius{chip="platform_nct6775_656",sensor="temp10"} 45',
 				'node_hwmon_temp_celsius{chip="hwmon1",sensor="temp1"} -5.5',
+				'node_hwmon_temp_celsius{chip="ieee80211_phy0",sensor="temp1"} 51',
 				'# HELP node_hwmon_pwm Hardware monitor pwm element ',
 				'# TYPE node_hwmon_pwm gauge',
 				'node_hwmon_pwm{chip="platform_nct6775_656",sensor="pwm1"} 128',
@@ -110,6 +113,7 @@ describe('collectors.hwmon', () => {
 				'node_hwmon_in_volts{chip="platform_nct6775_656",sensor="in1"} 3.344',
 				'node_hwmon_in_volts{chip="i2c_0_0_0040",sensor="in0"} 0.012',
 				'node_hwmon_in_volts{chip="i2c_0_0_0040",sensor="in1"} 12.016',
+				'node_hwmon_in_volts{chip="i2c_1_1_0010",sensor="in1"} 11.95',
 				'# HELP node_hwmon_in_min_volts Hardware monitor for voltage (min)',
 				'# TYPE node_hwmon_in_min_volts gauge',
 				'node_hwmon_in_min_volts{chip="platform_nct6775_656",sensor="in0"} 0',
@@ -125,9 +129,26 @@ describe('collectors.hwmon', () => {
 				'# HELP node_hwmon_curr_amps Hardware monitor for current (input)',
 				'# TYPE node_hwmon_curr_amps gauge',
 				'node_hwmon_curr_amps{chip="i2c_0_0_0040",sensor="curr1"} 1.25',
+				'node_hwmon_curr_amps{chip="i2c_1_1_0010",sensor="curr1"} 1.25',
 				'# HELP node_hwmon_power_watt Hardware monitor for power usage in watts (input)',
 				'# TYPE node_hwmon_power_watt gauge',
 				'node_hwmon_power_watt{chip="i2c_0_0_0040",sensor="power1"} 15.02',
+				'node_hwmon_power_watt{chip="i2c_1_1_0010",sensor="power1"} 14.94',
+				'# HELP node_hwmon_power_average_watt Hardware monitor for power usage in watts (average)',
+				'# TYPE node_hwmon_power_average_watt gauge',
+				'node_hwmon_power_average_watt{chip="i2c_1_1_0010",sensor="power1"} 14.87',
+				'# HELP node_hwmon_temp_max_celsius Hardware monitor for temperature (max)',
+				'# TYPE node_hwmon_temp_max_celsius gauge',
+				'node_hwmon_temp_max_celsius{chip="platform_nct6775_656",sensor="temp1"} 80',
+				'node_hwmon_temp_max_celsius{chip="platform_nct6775_656",sensor="temp2"} 80',
+				'node_hwmon_temp_max_celsius{chip="ieee80211_phy0",sensor="temp1"} 100',
+				'# HELP node_hwmon_temp_crit_celsius Hardware monitor for temperature (crit)',
+				'# TYPE node_hwmon_temp_crit_celsius gauge',
+				'node_hwmon_temp_crit_celsius{chip="ieee80211_phy0",sensor="temp1"} 110',
+				'# HELP node_hwmon_temp_alarm Hardware sensor alarm status (temp)',
+				'# TYPE node_hwmon_temp_alarm gauge',
+				'node_hwmon_temp_alarm{chip="platform_nct6775_656",sensor="temp1"} 0',
+				'node_hwmon_temp_alarm{chip="platform_nct6775_656",sensor="temp2"} 0',
 			], r.lines);
 		});
 	});
@@ -142,7 +163,7 @@ describe('collectors.hwmon', () => {
 			let files = sort(map(filter(read, (p) => !match(p, /\/name$/)), (p) => split(p, '/')[-1]));
 
 			assert.match(true, r.result.ok);
-			assert.match([], filter(files, (f) => match(f, /^(fan1_pulses|in0_beep|pwm[0-9]_(enable|mode)|shunt_resistor|update_interval)$/)));
+			assert.match([], filter(files, (f) => match(f, /^(fan1_pulses|in0_beep|pwm[0-9]_(enable|mode)|shunt_resistor|update_interval|temp[0-9]+_max_hyst|power1_(input_highest|alarm))$/)));
 			assert.match(length(filter(r.lines, (l) => substr(l, 0, 1) != '#' && !match(l, /^node_hwmon_chip_names/))), length(files));
 		});
 	});
@@ -180,6 +201,24 @@ describe('collectors.hwmon', () => {
 
 				assert.match(true, delta > -0.001 * per && delta < 0.001 * per, `${t[2]} -> ${fam.samples[0].value}`);
 				assert.match([ [ 'chip', 'chip' ], [ 'sensor', `${t[0]}${t[1]}` ] ], fam.samples[0].labels);
+			});
+		});
+
+	prop('reports any temperature limit in degrees Celsius, and an average power in watts',
+		gen.tuple(gen.elements('temp1_max', 'temp1_crit', 'power1_average'), gen.int(-55000, 150000000)), (t) => {
+			let data = {
+				'/sys/class/hwmon/hwmon0/name': 'chip\n',
+				[`/sys/class/hwmon/hwmon0/${t[0]}`]: `${t[1]}\n`,
+			};
+			let per = (t[0] == 'power1_average') ? 1000000 : 1000;
+
+			with_collector(hwmon, { fs: fs_of(data, {}) }, (r) => {
+				let fam = filter(r.families, (f) => f.name != 'node_hwmon_chip_names')[0];
+				let delta = +fam.samples[0].value * per - t[1];
+
+				assert.match(true, delta > -0.001 * per && delta < 0.001 * per, `${t[1]} -> ${fam.samples[0].value}`);
+				assert.match({ temp1_max: 'node_hwmon_temp_max_celsius', temp1_crit: 'node_hwmon_temp_crit_celsius',
+					power1_average: 'node_hwmon_power_average_watt' }[t[0]], fam.name);
 			});
 		});
 

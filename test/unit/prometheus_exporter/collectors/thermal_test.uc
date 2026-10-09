@@ -105,6 +105,73 @@ describe('collectors.thermal', () => {
 		});
 	});
 
+	it('exports the cooling devices of the synthetic board, by number and type, as node_exporter', () => {
+		let paths = [];
+
+		for (let n in [ 0, 1, 2 ])
+			for (let a in [ 'type', 'cur_state', 'max_state' ])
+				push(paths, `/sys/class/thermal/cooling_device${n}/${a}`);
+
+		let data = fixtures.files('synthetic', paths);
+
+		with_collector(thermal, { fs: { data } }, (r) => {
+			assert.match(true, r.result.ok);
+			assert.match([
+				'# HELP node_cooling_device_cur_state Current throttle state of the cooling device',
+				'# TYPE node_cooling_device_cur_state gauge',
+				'node_cooling_device_cur_state{name="0",type="cpufreq-cpu0"} 0',
+				'node_cooling_device_cur_state{name="1",type="pwm-fan"} 1',
+				'node_cooling_device_cur_state{name="2",type="phy0"} 0',
+				'# HELP node_cooling_device_max_state Maximum throttle state of the cooling device',
+				'# TYPE node_cooling_device_max_state gauge',
+				'node_cooling_device_max_state{name="0",type="cpufreq-cpu0"} 3',
+				'node_cooling_device_max_state{name="1",type="pwm-fan"} 4',
+				'node_cooling_device_max_state{name="2",type="phy0"} 99',
+			], r.lines);
+		});
+	});
+
+	it('writes zones and cooling devices together, devices in number order, and leaves out what it cannot read', () => {
+		let data = {
+			...zone(0, { type: 'cpu-thermal', policy: 'step_wise', temp: '40000', mode: 'enabled' }),
+			'/sys/class/thermal/cooling_device10/type': 'pwm-fan\n',
+			'/sys/class/thermal/cooling_device10/cur_state': '2\n',
+			'/sys/class/thermal/cooling_device10/max_state': '4\n',
+			'/sys/class/thermal/cooling_device2/type': 'phy1\n',
+			'/sys/class/thermal/cooling_device2/cur_state': null,
+			'/sys/class/thermal/cooling_device2/max_state': '99\n',
+			'/sys/class/thermal/cooling_device3/type': null,
+			'/sys/class/thermal/cooling_device3/cur_state': '1\n',
+			'/sys/class/thermal/cooling_device3/max_state': '1\n',
+		};
+
+		with_collector(thermal, { fs: { data } }, (r) => {
+			assert.match(true, r.result.ok);
+			assert.match([
+				'node_thermal_zone_temp{zone="0",type="cpu-thermal"} 40',
+				'node_thermal_zone_info{zone="0",type="cpu-thermal",policy="step_wise",mode="enabled"} 1',
+				'node_cooling_device_cur_state{name="10",type="pwm-fan"} 2',
+				'node_cooling_device_max_state{name="2",type="phy1"} 99',
+				'node_cooling_device_max_state{name="10",type="pwm-fan"} 4',
+			], filter(r.lines, (l) => substr(l, 0, 1) != '#'));
+		});
+	});
+
+	prop('exports any cooling device state as it is', gen.tuple(gen.int(0, 1000), gen.int(0, 1000)), (t) => {
+		let data = {
+			'/sys/class/thermal/cooling_device0/type': 'Processor\n',
+			'/sys/class/thermal/cooling_device0/cur_state': `${t[0]}\n`,
+			'/sys/class/thermal/cooling_device0/max_state': `${t[1]}\n`,
+		};
+
+		with_collector(thermal, { fs: { data } }, (r) => {
+			assert.match([
+				`node_cooling_device_cur_state{name="0",type="Processor"} ${t[0]}`,
+				`node_cooling_device_max_state{name="0",type="Processor"} ${t[1]}`,
+			], filter(r.lines, (l) => substr(l, 0, 1) != '#'));
+		});
+	});
+
 	it('exports nothing, successfully, without thermal zones', () => {
 		with_collector(thermal, { fs: { behavior: { lsdir: () => null } } }, (r) => {
 			assert.match(true, r.result.ok);

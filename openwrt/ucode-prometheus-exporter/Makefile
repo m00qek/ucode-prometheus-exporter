@@ -22,7 +22,7 @@ COLLECTORS_DIR:=$(MODULES_DIR)/collectors
 MODULE_SUBDIRS:=config deps exposition loader rpc
 
 # Installed with the exporter itself; every other collector is a subpackage.
-BASE_COLLECTORS:=conntrack cpu entropy exporter filefd loadavg meminfo netclass netdev openwrt_interfaces selinux softnet time timesync uname vmstat
+BASE_COLLECTORS:=conntrack cpu entropy exporter filefd loadavg meminfo netclass netdev openwrt_interfaces pressure selinux softnet time timesync uname vmstat
 
 define Package/$(PKG_NAME)/Default
   SECTION:=utils
@@ -124,7 +124,6 @@ $(eval $(call BuildPackage,$(PKG_NAME)))
 # gone, and its jail mounts what the collectors now declare. A failed reload
 # (an invalid config) is logged by the init script and fails no install.
 define Collector/reload
-#!/bin/sh
 [ -n "$${IPKG_INSTROOT}" ] || ! /etc/init.d/$(SERVICE) enabled ||
 	/etc/init.d/$(SERVICE) reload || true
 endef
@@ -132,6 +131,9 @@ endef
 # $(1): the collector's module name, $(2): its name (the package suffix),
 # $(3): what it collects, $(4): the packages its needs and commands call for.
 # A collector runs on the exporter's API, so it pins the exporter's release.
+# Collector/<module>/install, where it is defined, installs what the package
+# has besides the module ($(1) the package's root), and
+# Collector/<module>/scripts runs in its scripts before the exporter reloads.
 define Collector
   define Package/$(PKG_NAME)-$(2)
     $$(call Package/$(PKG_NAME)/Default)
@@ -143,17 +145,34 @@ define Collector
   define Package/$(PKG_NAME)-$(2)/install
 	$$(INSTALL_DIR) $$(1)$(COLLECTORS_DIR)
 	$$(INSTALL_DATA) ./src/prometheus_exporter/collectors/$(1).uc $$(1)$(COLLECTORS_DIR)/
+	$$(call Collector/$(1)/install,$$(1))
   endef
 
   define Package/$(PKG_NAME)-$(2)/postinst
+#!/bin/sh
+$$(Collector/$(1)/scripts)
 $$(Collector/reload)
   endef
 
   define Package/$(PKG_NAME)-$(2)/postrm
+#!/bin/sh
+$$(Collector/$(1)/scripts)
 $$(Collector/reload)
   endef
 
   $$(eval $$(call BuildPackage,$(PKG_NAME)-$(2)))
+endef
+
+# filesystem's rpcd plugin, prometheus-exporter.filesystem: the statvfs()
+# of the host's mounts, with luci-base's luci.core. rpcd loads its plugins
+# when it starts: a reload serves it, or on removal takes it away.
+define Collector/filesystem/install
+	$(INSTALL_DIR) $(1)/usr/share/rpcd/ucode
+	$(INSTALL_DATA) ./files/usr/share/rpcd/ucode/$(SERVICE)-filesystem.uc $(1)/usr/share/rpcd/ucode/
+endef
+
+define Collector/filesystem/scripts
+[ -n "$${IPKG_INSTROOT}" ] || /etc/init.d/rpcd reload 2>/dev/null
 endef
 
 $(eval $(call Collector,bmx7,bmx7,bmx7 mesh node and links,))
@@ -162,11 +181,12 @@ $(eval $(call Collector,dawn,dawn,DAWN access points and clients,))
 $(eval $(call Collector,dhcp_leases,dhcp_leases,active DHCP leases of dnsmasq and odhcpd,))
 $(eval $(call Collector,diskstats,diskstats,disk I/O statistics,))
 $(eval $(call Collector,dnsmasq,dnsmasq,dnsmasq DNS and DHCP metrics,))
-$(eval $(call Collector,ethtool,ethtool,network driver statistics,+ethtool))
-$(eval $(call Collector,filesystem,filesystem,filesystem sizes,+luci-base))
+$(eval $(call Collector,ethtool,ethtool,network driver statistics and link modes,+ethtool))
+$(eval $(call Collector,filesystem,filesystem,filesystem sizes and inodes,+luci-base))
 $(eval $(call Collector,hostapd_stations,hostapd_stations,hostapd stations,))
 $(eval $(call Collector,hostapd_ubus_stations,hostapd_ubus_stations,hostapd station radio measurement capabilities,))
 $(eval $(call Collector,hwmon,hwmon,hardware monitor sensors,))
+$(eval $(call Collector,interrupts,interrupts,interrupts per CPU,))
 $(eval $(call Collector,ltq_dsl,ltq-dsl,Lantiq DSL line,))
 $(eval $(call Collector,modemmanager,modemmanager,ModemManager signal,))
 $(eval $(call Collector,mwan3,mwan3,mwan3 interface tracking,))
@@ -179,7 +199,7 @@ $(eval $(call Collector,realtek_poe,realtek-poe,Realtek PoE switch,))
 $(eval $(call Collector,snmp6,snmp6,IPv6 statistics,))
 $(eval $(call Collector,sockstat,sockstat,sockets in use and their memory,))
 $(eval $(call Collector,textfile,textfile,metrics from text files,))
-$(eval $(call Collector,thermal,thermal,thermal zone temperatures,))
+$(eval $(call Collector,thermal,thermal,thermal zones and cooling devices,))
 $(eval $(call Collector,ubnt_manager,ubnt-manager,Ubiquiti airOS radios,))
 $(eval $(call Collector,uci_dhcp_host,uci_dhcp_host,static DHCP leases,))
 $(eval $(call Collector,unbound,unbound,Unbound DNS resolver,+ucode-mod-socket))
@@ -213,7 +233,8 @@ NETWORK_GROUP:=ethtool nat_traffic netstat nft-counters qdisc snmp6 sockstat
 # Not dawn, which needs DAWN.
 WIRELESS_GROUP:=hostapd_stations hostapd_ubus_stations wifi
 HARDWARE_GROUP:=diskstats filesystem hwmon thermal
-# Not the collectors of particular hardware or services: DSL, PoE, bmx7, mwan3, ModemManager, airOS, chrony.
+# Not the collectors of particular hardware or services: DSL, PoE, bmx7, mwan3, ModemManager, airOS, chrony;
+# nor interrupts, which node_exporter has off by default: a series per interrupt and CPU.
 FULL_GROUP:=$(NETWORK_GROUP) $(WIRELESS_GROUP) $(HARDWARE_GROUP) dhcp_leases dnsmasq openwrt textfile uci_dhcp_host wireguard
 
 $(eval $(call Group,network,network statistics,$(NETWORK_GROUP)))

@@ -10,8 +10,20 @@
 // dashboards work: the counters of each thread (threadN.*) with a `thread`
 // label, and the recursion times of total.*. Where that exporter's name breaks
 // the conventions (a counter without _total), _total is added; a time is in
-// seconds. time.*, the per-thread TCP buffer usage and the extended statistics
-// are left out.
+// seconds. time.* and the per-thread TCP buffer usage are left out.
+//
+// With `extended-statistics: yes` in unbound's config (OpenWrt's UCI option
+// extended_stats), the reply goes on with what that exporter has of it too,
+// written where the reply has it (EXTENDED, LABELED): the queries by type,
+// class, opcode, header flag and transport, the answers by rcode and DNSSEC
+// result, the caches' sizes and memory, the modules' memory, the unwanted
+// traffic, and the recursion times' histogram, unbound_response_time_seconds,
+// as that exporter makes it: unbound's buckets, which hold each a range,
+// summed into Prometheus's, which hold all below their bound, and the sum the
+// average recursion time times the count. Unbound leaves out a type, class,
+// opcode or rcode no query had (stat_inhibit_zero), so their series come as
+// the queries do. What that exporter does not have (the stream and HTTP
+// buffers' memory, the caches' lock collisions, dnscrypt's) is left out.
 //
 // Unbound answers there only when its config has a `remote-control:` clause
 // with `control-enable: yes` and a path as `control-interface` (see the
@@ -111,6 +123,75 @@ const TOTAL = [
 	[ 'total.recursion.time.median', 'unbound_recursion_time_seconds_median', 'gauge', 'The median of the time it took to answer queries that needed recursive processing.' ],
 ];
 
+// The extended statistics of a key of their own, as letsencrypt/unbound_exporter
+// names them: { key: [ family, type, help ] }.
+const EXTENDED = {
+	'num.query.tcp': [ 'unbound_query_tcp_total', 'counter', 'Total number of queries that were made using TCP towards the Unbound server.' ],
+	'num.query.tcpout': [ 'unbound_query_tcpout_total', 'counter', 'Total number of queries that the Unbound server made using TCP outgoing towards other servers.' ],
+	'num.query.udpout': [ 'unbound_query_udpout_total', 'counter', 'Total number of queries that the Unbound server made using UDP outgoing towards other servers.' ],
+	'num.query.tls': [ 'unbound_query_tls_total', 'counter', 'Total number of queries that were made using TCP TLS towards the Unbound server.' ],
+	'num.query.tls.resume': [ 'unbound_query_tls_resume_total', 'counter', 'Total number of queries that were made using TCP TLS Resume towards the Unbound server.' ],
+	'num.query.https': [ 'unbound_query_https_total', 'counter', 'Total number of queries that were made using HTTPS towards the Unbound server.' ],
+	'num.query.ipv6': [ 'unbound_query_ipv6_total', 'counter', 'Total number of queries that were made using IPv6 towards the Unbound server.' ],
+	'num.query.edns.present': [ 'unbound_query_edns_present_total', 'counter', 'Total number of queries that had an EDNS OPT record present.' ],
+	'num.query.edns.DO': [ 'unbound_query_edns_DO_total', 'counter', 'Total number of queries that had an EDNS OPT record with the DO (DNSSEC OK) bit set present.' ],
+	'num.query.subnet': [ 'unbound_query_subnet_total', 'counter', 'Total number of queries that got an answer that contained EDNS client subnet data.' ],
+	'num.query.subnet_cache': [ 'unbound_query_subnet_cache_total', 'counter', 'Total number of queries answered from the edns client subnet cache.' ],
+	'num.query.cachedb': [ 'unbound_query_cachedb_total', 'counter', 'Total number of queries answered from cachedb.' ],
+	'num.query.authzone.up': [ 'unbound_query_authzone_up_total', 'counter', 'Total number of queries answered from auth-zone data, upstream queries.' ],
+	'num.query.authzone.down': [ 'unbound_query_authzone_down_total', 'counter', 'Total number of queries answered from auth-zone data, downstream queries.' ],
+	'num.answer.secure': [ 'unbound_answers_secure_total', 'counter', 'Total number of answers that were secure.' ],
+	'num.answer.bogus': [ 'unbound_answers_bogus_total', 'counter', 'Total number of answers that were bogus.' ],
+	'num.rrset.bogus': [ 'unbound_rrset_bogus_total', 'counter', 'Total number of rrsets marked bogus by the validator.' ],
+	'unwanted.queries': [ 'unbound_unwanted_queries_total', 'counter', 'Total number of queries that were refused or dropped because they failed the access control settings.' ],
+	'unwanted.replies': [ 'unbound_unwanted_replies_total', 'counter', 'Total number of replies that were unwanted or unsolicited.' ],
+	'msg.cache.count': [ 'unbound_msg_cache_count', 'gauge', 'The Number of Messages cached' ],
+	'rrset.cache.count': [ 'unbound_rrset_cache_count', 'gauge', 'The Number of rrset cached' ],
+	'infra.cache.count': [ 'unbound_infra_cache_count', 'gauge', 'The number of infra cache entries' ],
+	'key.cache.count': [ 'unbound_key_cache_count', 'gauge', 'The number of key cache entries' ],
+	'mem.total.sbrk': [ 'unbound_memory_sbrk_bytes', 'gauge', 'Memory in bytes allocated through sbrk.' ],
+};
+
+// Those of a key that ends in a label's value, by its prefix:
+// [ prefix, family, type, help, label ].
+const LABELED = [
+	[ 'num.query.type.', 'unbound_query_types_total', 'counter', 'Total number of queries with a given query type.', 'type' ],
+	[ 'num.query.class.', 'unbound_query_classes_total', 'counter', 'Total number of queries with a given query class.', 'class' ],
+	[ 'num.query.opcode.', 'unbound_query_opcodes_total', 'counter', 'Total number of queries with a given query opcode.', 'opcode' ],
+	[ 'num.query.flags.', 'unbound_query_flags_total', 'counter', 'Total number of queries that had a given flag set in the header.', 'flag' ],
+	[ 'num.answer.rcode.', 'unbound_answer_rcodes_total', 'counter', 'Total number of answers to queries, from cache or from recursion, by response code.', 'rcode' ],
+	[ 'num.query.aggressive.', 'unbound_query_aggressive_nsec_total', 'counter', 'Total number of queries that the Unbound server generated response using Aggressive NSEC.', 'rcode' ],
+	[ 'num.rpz.action.', 'unbound_rpz_action_count_total', 'counter', 'Total number of triggered Response Policy Zone actions, by type.', 'type' ],
+	[ 'mem.cache.', 'unbound_memory_caches_bytes', 'gauge', 'Memory in bytes in use by caches.', 'cache' ],
+	[ 'mem.mod.', 'unbound_memory_modules_bytes', 'gauge', 'Memory in bytes in use by modules.', 'module' ],
+];
+
+// A bucket of the recursion times' histogram: its range's ends, each
+// <seconds>.<microseconds>.
+const BUCKET = /^histogram\.[0-9]+\.[0-9]+\.to\.([0-9]+\.[0-9]+)$/;
+
+// The exposition text of unbound_response_time_seconds, from `buckets`
+// ([ upper bound, count ] of unbound's) and the average recursion time, as
+// unbound_exporter makes it; null without buckets.
+export function histogram(buckets, avg) {
+	if (!length(buckets))
+		return null;
+
+	let lines = [ '# HELP unbound_response_time_seconds Query response time in seconds.', '# TYPE unbound_response_time_seconds histogram' ];
+	let count = 0;
+
+	for (let b in sort([ ...buckets ], (a, b) => a[0] - b[0])) {
+		count += b[1];
+		push(lines, `unbound_response_time_seconds_bucket{le="${exposition.format_value(b[0])}"} ${count}`);
+	}
+
+	push(lines, `unbound_response_time_seconds_bucket{le="+Inf"} ${count}`,
+		`unbound_response_time_seconds_sum ${exposition.format_value((avg ?? 0) * count)}`,
+		`unbound_response_time_seconds_count ${count}`);
+
+	return join('\n', lines) + '\n';
+};
+
 // { values, threads, bad } of a stats reply: its name=value lines as values
 // (the first of a name), and the threads they name, in order, up to `bad`, the
 // first other line, or null.
@@ -170,6 +251,44 @@ export function collect(deps, out, options) {
 
 	for (let f in TOTAL)
 		record(out[f[2]](f[1], f[3]), f[0], null, f[4]);
+
+	// The extended statistics, in the reply's order, where it has them; each
+	// family declared once.
+	let buckets = [];
+	let families = {};
+	let family = (name, type, help) => families[name] ??= out[type](name, help);
+
+	for (let key in keys(p.values)) {
+		let f = EXTENDED[key];
+
+		if (f) {
+			record(family(f[0], f[1], f[2]), key, null);
+			continue;
+		}
+
+		let m = match(key, BUCKET);
+		if (m) {
+			if (exposition.format_value(p.values[key]) == null)
+				bad ??= `${key}=${p.values[key]}`;
+			else
+				push(buckets, [ +m[1], +p.values[key] ]);
+			continue;
+		}
+
+		for (let l in LABELED)
+			if (substr(key, 0, length(l[0])) == l[0]) {
+				record(family(l[1], l[2], l[3]), key, { [l[4]]: substr(key, length(l[0])) });
+				break;
+			}
+	}
+
+	let text = histogram(buckets, +(p.values['total.recursion.time.avg'] ?? 0));
+	if (text != null) {
+		let res = out.parse(text);
+
+		if (!res.ok)
+			return res;
+	}
 
 	bad = p.bad ?? bad;
 

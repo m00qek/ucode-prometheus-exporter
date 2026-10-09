@@ -174,10 +174,17 @@ NTP_HOOK=/etc/hotplug.d/ntp/90-$NAME
 check "the base package ships $NTP_HOOK, for timesync" grep -qx "$NTP_HOOK" "$BASE_LIST"
 check "$NTP_HOOK parses" sh -n "$NTP_HOOK"
 check "no LuCI app is installed" fails apk info -e "luci-app-$NAME"
+# filesystem's own rpcd plugin, its object's statvfs() of the host's mounts.
+FS_PLUGIN=/usr/share/rpcd/ucode/$NAME-filesystem.uc
+check "the filesystem package ships $FS_PLUGIN" grep -qx "$FS_PLUGIN" "/lib/apk/packages/$PKG-filesystem.list"
+check "$FS_PLUGIN 0644" has_mode 644 "$FS_PLUGIN"
+check "$FS_PLUGIN parses" parses "$FS_PLUGIN"
 
 kill "$services_stand_in"; sleep 1
 rpcd &
 check "rpcd serves the ubus object" ubus -t 10 wait_for "$NAME"
+check "and filesystem's, with each mount's inodes" sh -c \
+	"ubus -t 30 call $NAME.filesystem mounts | jsonfilter -e '@.result[*].ffree' | grep -q '^[0-9]'"
 reply=$(ubus -t 30 call "$NAME" collectors 2>/dev/null)
 check "collectors lists every installed collector" test "$(collectors_in "$reply")" -eq "$(installed)"
 check "validate refuses what the init script would" sh -c \

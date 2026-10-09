@@ -3,15 +3,21 @@
 // Based on utils/prometheus-node-exporter-lua/files/usr/lib/lua/prometheus-collectors/filesystem.lua
 // in OpenWrt's packages feed (Apache-2.0), rewritten for this exporter; see NOTICE.
 
-// The Lua exporter's filesystem collector: size, free and available bytes and
-// the read-only flag of every mounted filesystem, less the pseudo and read-only
-// image filesystems node_exporter leaves out (so / itself, an overlay, is not
-// reported; /overlay under it is).
+// The Lua exporter's filesystem collector: size, free and available bytes,
+// inodes and free inodes, and the read-only flag of every mounted filesystem,
+// less the pseudo and read-only image filesystems node_exporter leaves out (so
+// / itself, an overlay, is not reported; /overlay under it is).
 //
-// OpenWrt 25.12's ucode has no statvfs(), so the sizes come from luci-base's
-// `ubus call luci getMountPoints`, which statvfs()es every mount in /proc/mounts
-// that has blocks. That call reports no inode counts, so node_filesystem_files
-// and node_filesystem_files_free, which the Lua collector has, are left out.
+// OpenWrt 25.12's ucode has no statvfs(), and in the service's jail it would
+// find the jail's mounts, not the host's: the sizes come from rpcd, which
+// statvfs()es every mount in the host's /proc/mounts that has blocks, with
+// luci-base's luci.core. luci's own `ubus call luci getMountPoints` reports no
+// inode counts, so the package installs an rpcd plugin that is getMountPoints
+// with them, `ubus call prometheus-exporter.filesystem mounts`
+// (files/usr/share/rpcd/ucode/prometheus-exporter-filesystem.uc), whose
+// node_filesystem_files and node_filesystem_files_free node_exporter has. Where
+// rpcd has not loaded it yet (it is reloaded when the package is installed)
+// the collector asks getMountPoints, and writes the sizes alone.
 //
 // The file system type and the read-only flag (the "ro" mount option, where the
 // Lua collector read statvfs's ST_RDONLY) come from the host's mount table,
@@ -25,14 +31,15 @@
 // whole line: on a system of more than about 60 mounts, those past it are left
 // out.
 
-import { Result, errors, proc } from 'prometheus_exporter.api';
+import { Result, errors, services, proc } from 'prometheus_exporter.api';
 
 export const meta = {
 	name: 'filesystem',
 	title: 'Filesystems',
-	help: 'Filesystem sizes and read-only flags, from luci getMountPoints and the host\'s /proc/mounts (rpcd\'s file read).',
+	help: 'Filesystem sizes, inodes and read-only flags, from the package\'s rpcd object (statvfs) and the host\'s /proc/mounts (rpcd\'s file read).',
 	needs: [ 'ubus' ],
-	ubus: { file: [ 'read' ], luci: [ 'getMountPoints' ] },
+	// Its package's rpcd plugin, and luci's, where rpcd has not loaded it.
+	ubus: { 'prometheus-exporter.filesystem': [ 'mounts' ], file: [ 'read' ], luci: [ 'getMountPoints' ] },
 };
 
 const MOUNTS = '/proc/mounts';
@@ -79,13 +86,20 @@ export function collect(deps, out) {
 	if (!mounts.ok)
 		return mounts;
 
-	let res = deps.ubus.call('luci', 'getMountPoints');
+	let source = 'prometheus-exporter.filesystem mounts';
+	let res = deps.ubus.call('prometheus-exporter.filesystem', 'mounts');
+
+	if (!res.ok && services.object_missing(res)) {
+		source = 'luci getMountPoints';
+		res = deps.ubus.call('luci', 'getMountPoints');
+	}
+
 	if (!res.ok)
 		return res;
 
 	let points = res.data?.result;
 	if (type(points) != 'array')
-		return Result.err(errors.SOURCE_INVALID, `luci getMountPoints: ${res.data?.error ?? 'no result'}`);
+		return Result.err(errors.SOURCE_INVALID, `${source}: ${res.data?.error ?? 'no result'}`);
 
 	let stats = {};
 	for (let p in points)
@@ -95,6 +109,8 @@ export function collect(deps, out) {
 	let size = out.gauge('node_filesystem_size_bytes', 'Filesystem size in bytes.');
 	let free = out.gauge('node_filesystem_free_bytes', 'Filesystem free space in bytes.');
 	let avail = out.gauge('node_filesystem_avail_bytes', 'Filesystem space available to non-root users in bytes.');
+	let files = out.gauge('node_filesystem_files', 'Filesystem total file nodes.');
+	let files_free = out.gauge('node_filesystem_files_free', 'Filesystem total free file nodes.');
 	let readonly = out.gauge('node_filesystem_readonly', 'Filesystem read-only status.');
 	let seen = {};
 
@@ -117,6 +133,8 @@ export function collect(deps, out) {
 		size(labels, st.size);
 		free(labels, st.free);
 		avail(labels, st.avail);
+		files(labels, st.files);
+		files_free(labels, st.ffree);
 		readonly(labels, 'ro' in split(f[3], ','));
 	}
 

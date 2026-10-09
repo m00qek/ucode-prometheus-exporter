@@ -13,6 +13,12 @@ apk add ucode-prometheus-exporter-network
 
 The service reloads with the new collector. [Collectors](../reference/collectors.md) lists each collector, its package, its groups and what it depends on.
 
+A collector in no group is installed only by its own package: those of particular hardware or services, and `interrupts`, which node_exporter has off by default for its many series, one per interrupt and CPU. Installing its package is turning it on:
+
+```sh
+apk add ucode-prometheus-exporter-interrupts
+```
+
 ## Disable a collector
 
 To stop serving a collector that is installed, base collectors included, set `enabled` to 0 in its section. The section is named after the collector's module: the name with `_` for `-`, as `ltq_dsl` for `ltq-dsl`.

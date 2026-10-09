@@ -31,7 +31,7 @@ service unbound restart
 
 ```sh
 ls -l /var/lib/unbound/unbound.ctl
-prometheus-exporter unbound | grep unbound_queries_total
+prometheus-exporter scrape unbound | grep unbound_queries_total
 ```
 
 The service mounts the socket's directory in its jail. At boot Unbound starts after the exporter: the directory is mounted a few seconds after Unbound makes it, and the first scrapes until then fail. `check` warns of it meanwhile:
@@ -41,6 +41,18 @@ warn jail: unbound: /var/lib/unbound is not there; the service mounts it once it
 ```
 
 ---
+
+## Extended statistics
+
+Unbound counts more with `extended-statistics: yes`: the queries by type, class, opcode, header flag and transport, the answers by rcode and DNSSEC result, the caches' entries and memory, the modules' memory, and a histogram of the recursion times. OpenWrt's package writes it from the UCI option `extended_stats`:
+
+```sh
+uci set unbound.ub_main.extended_stats=1
+uci commit unbound
+service unbound restart
+```
+
+The collector writes them as [letsencrypt/unbound_exporter](https://github.com/letsencrypt/unbound_exporter) names them, `unbound_query_types_total{type}`, `unbound_answer_rcodes_total{rcode}`, `unbound_response_time_seconds` and the rest, once the reply has them; see [Metrics](../reference/metrics.md#unbound). Unbound leaves out a type, class or opcode no query has had yet, so their series come as the queries do. Keeping the counts costs Unbound some time per query, which is why the package leaves them off.
 
 ## Use another socket
 

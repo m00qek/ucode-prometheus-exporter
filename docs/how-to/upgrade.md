@@ -30,15 +30,34 @@ Adding the base package alone fails: the installed collectors still want the old
 
 ## From 0.2.1 to 0.3.0
 
-0.3.0 changes what 0.2.1 did in these ways, each marked **BREAKING** in the [CHANGELOG](https://github.com/m00qek/ucode-prometheus-exporter/blob/main/CHANGELOG.md):
+0.3.0 is the first release candidate for 1.0: the names and labels of its metrics are those 1.0 keeps. It changes what 0.2.1 did in these ways, each marked **BREAKING** in the [CHANGELOG](https://github.com/m00qek/ucode-prometheus-exporter/blob/main/CHANGELOG.md):
+
+- **snmp6 exports 13 fields of each device by default**, where it wrote every one, some 70. Gone by default: every `node_snmp6_*_total` but the device's `Ip6_InOctets`, `Ip6_OutOctets`, `Ip6_OutForwDatagrams`, `Ip6_InDiscards`, `Ip6_OutDiscards`, `Ip6_InNoRoutes`, `Ip6_OutNoRoutes`, `Ip6_InHdrErrors`, `Ip6_InAddrErrors`, `Ip6_InTooBigErrors`, `Icmp6_InMsgs`, `Icmp6_OutMsgs` and `Icmp6_InErrors`, and `node_snmp6_ifindex`, whose index netclass's `node_network_iface_id` has too. Its new option `fields`, a regular expression of `<Protocol>_<Field>`, takes others; `.*` exports every one, as 0.2.1 did:
+
+    ```sh
+    uci set prometheus-exporter.snmp6=collector
+    uci set prometheus-exporter.snmp6.fields='.*'
+    uci commit prometheus-exporter
+    ```
+
+- **nat_traffic labels its series `host`, one per host on this side of the router**, where 0.2.1 wrote one per pair of addresses, labeled `src` and `dst`. `node_nat_traffic_bytes{src,dst}` is `node_nat_traffic_bytes{host}`: the source of each connection, as `src` was, but for a port-forwarded connection the LAN host it reaches, where `src` was the remote address. A query by `src` is one by `host`, as `node_nat_traffic_bytes{host="192.168.1.10"}`; one by `dst` needs the pairs, which are back with the new option `peers`, labeled `host` and `peer`, as many series as 0.2.1 wrote, new with every connection; a Prometheus server keeps each for hours, so leave it off but for a short look:
+
+    ```sh
+    uci set prometheus-exporter.nat_traffic=collector
+    uci set prometheus-exporter.nat_traffic.peers=1
+    uci commit prometheus-exporter
+    ```
 
 - **The jail no longer runs as root.** uhttpd runs in it as the user and group `prometheus-exporter`, which the upgrade makes. The upgrade restarts a running service, which then grants that user what its enabled collectors declare, and nothing needs doing: its state directory is the user's, and starts empty, as at every restart; basic auth's file is written again for the user's group to read; the TLS key and certificate are copied for it, and the files themselves stay as they were, the key root's alone; the configs its collectors read are opened to its group, read-only. See [The jail](../reference/jail.md#the-services-user).
 - **textfile's files must be readable by the service's user.** A script that writes a `*.prom` file only root reads (mode 0600, as `mktemp` makes one) has it skipped, and logged: `chmod 0644` it before renaming it into place. See [How to publish metrics from scripts](textfile.md).
 - **A collector of another package that calls ubus must declare its calls**, in `meta.ubus`, as `ubus: { dnsmasq: [ 'metrics' ], rc: [ 'list' ] }` (`rc list` for the API's `services`): the loader refuses one that needs ubus without them, and a call it does not declare fails, `UBUS_NOT_ALLOWED`. One that reads a root-only file of `/proc`, needs a capability, or connects to a socket of another service's group declares it too: `proc_files`, `capabilities`, `groups`. Every collector of the exporter's packages does; check one of another package with `prometheus-exporter collector check`. See [Collector interface](../reference/collector-interface.md#meta).
 - **LuCI applies a new basic auth password on Save & Apply**, with the rest, and its rollback, where Save applied it at once. The app's ACL grants the ubus object's new `stage_password`, and writing `/etc/config/prometheus-exporter-auth`, never reading it, in place of `set_password`, which stays for scripts. A login another ACL grants, for its own pages, needs the same.
 
-These change what 0.2.1 did without breaking a configuration:
+These change what 0.2.1 did without breaking a query or a configuration:
 
+- **ethtool runs ethtool three times a device**, `-S`, `-i` and with no option, where it ran it once, for node_exporter's `node_ethtool_info` and link families. Its programs share the seconds of its `timeout` (the main section's `exec_timeout`, 5, by default): on a slow router with many ports, give it more if it fails with `COMMAND_TIMEOUT`. See [How to give programs more time](exec-timeout.md).
+- **The filesystem package installs an rpcd plugin**, the ubus object `prometheus-exporter.filesystem`, for the inodes of each mount, and reloads rpcd when it is installed or removed.
+- **The base package has a new collector, `pressure`**, which has nothing to observe on a kernel without PSI. `interrupts` is a package of its own, installed by no group.
 - **A collector refused what it needs fails `PERMISSION_DENIED`**, saying what grants it, where it would have found nothing to observe: a reload grants what the service granted when it started and was taken away since.
 - **`check` says the jail's user, its capabilities and its ubus ACL.** The ubus object's `describe` has each collector's calls, capabilities, groups and proc files, in its `jail`.
 

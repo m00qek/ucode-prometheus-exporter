@@ -625,8 +625,15 @@ function generate(dir, profile) {
 		put(root, `/proc/net/dev_snmp6/${l.dev}`, replace(revalue(snmp6, rand), /ifIndex[ \t]+[0-9]+/, `ifIndex                         \t${i + 1}`));
 
 		if (l.dev != 'lo') {
+			// The driver and link of a switch port, or of a radio's interface.
+			let like = match(l.dev, /^phy/) ? 'phy0-ap0' : 'lan1';
+
 			writefile(`${dir}/commands/ethtool-S-${l.dev}.txt`, ethtool(l.dev, rand));
 			world.commands[join(' ', map([ 'ethtool', '-S', l.dev ], (a) => `'${a}'`))] = `commands/ethtool-S-${l.dev}.txt`;
+			writefile(`${dir}/commands/ethtool-i-${l.dev}.txt`, fixture(`synthetic/commands/ethtool_i_${like}.txt`));
+			world.commands[join(' ', map([ 'ethtool', '-i', l.dev ], (a) => `'${a}'`))] = `commands/ethtool-i-${l.dev}.txt`;
+			writefile(`${dir}/commands/ethtool-${l.dev}.txt`, replace(fixture(`synthetic/commands/ethtool_${like}.txt`), like, l.dev));
+			world.commands[join(' ', map([ 'ethtool', l.dev ], (a) => `'${a}'`))] = `commands/ethtool-${l.dev}.txt`;
 		}
 	}
 	writefile(`${dir}/commands/nft.txt`, nft_counters(p, rand));
