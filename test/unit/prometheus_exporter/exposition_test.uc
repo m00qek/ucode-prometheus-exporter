@@ -267,6 +267,54 @@ describe('exposition: properties', () => {
 			assert.match((want == null) ? null : [ `g${want} 1`, `g${want} 2` ], written, sprintf('%J', labels));
 		});
 
+	// A family's name is checked with one match, and sanitized only when it
+	// is not valid as it is: sanitize()'s, whatever it is.
+	prop('names a family as sanitize() does', gen.oneof(gen.string({ charset: 'aZ_:0-. é', min_len: 0, max_len: 6 }),
+		gen.int(-3, 30), gen.elements(true, null, 1.5)), (name) => {
+		let out = exposition.recorder();
+
+		out.gauge(name)(null, 1);
+		out.batch('counter', [ [ name, null, 1 ] ]);
+		assert.match([ exposition.sanitize(name) ], map(out.families(), (f) => f.name));
+		assert.match([ exposition.sanitize(name) ], out.conflicts());
+	});
+
+	// batch() is a writer made and called for each row, without the calls:
+	// what a recorder holds after it, and what stops it, are theirs, for
+	// rows of names valid or not, twice or of two types, HELP texts UTF-8 or
+	// not, values numbers or not, and a sample limit.
+	prop('records what a writer for each row would, and stops where it would',
+		gen.tuple(gen.elements('counter', 'gauge', 'untyped'), gen.int(0, 6), gen.array(gen.tuple(
+			gen.elements('a', 'b', 'node_x_total', 'if-name', '1x', '', 'a:b'),
+			gen.elements(null, '', 'Help.', 'caf\xc3\xa9', 'caf\xe9', 'a\\b\nc', 'x'),
+			gen.oneof(gen.int(-3, 3), gen.elements('7', ' 0x1f\n', 'word', '', null, 0.5, 1 / 3.0, true, NaN))),
+			{ min_len: 0, max_len: 8 })), (t) => {
+			let mtype = t[0], max = t[1], rows = t[2];
+
+			// What a recorder holds after fill(out), and what fill threw.
+			function after(fill) {
+				let out = exposition.recorder(max);
+				let threw = null;
+
+				// Another type first, for rows that conflict with it.
+				try {
+					out.untyped('b')(null, 1);
+					fill(out);
+				} catch (e) {
+					threw = e.message;
+				}
+
+				return { threw, families: out.families(), conflicts: out.conflicts(), over: out.over(), invalid: out.invalid() };
+			}
+
+			let want = after(function(out) {
+				for (let r in rows)
+					out[mtype](r[0], r[1])(null, r[2]);
+			});
+
+			assert.match(want, after((out) => out.batch(mtype, rows)), sprintf('%J', t));
+		});
+
 	prop('renders a label value that parses back unchanged', gen.ascii({ min_len: 0, max_len: 24 }), (v) => {
 		let res = exposition.parse(text_of((out) => out.gauge('g')({ v }, 1)));
 

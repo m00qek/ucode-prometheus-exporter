@@ -30,7 +30,7 @@
 import * as Result from 'prometheus_exporter.result';
 import * as format from 'prometheus_exporter.exposition.format';
 import * as parser from 'prometheus_exporter.exposition.parse';
-import { METRIC_NAMES, LABEL_PREFIXES, SPECIAL, label_text, label_problem, utf8_valid, sample_line, header, add_family, family_set, families_of } from 'prometheus_exporter.exposition.format';
+import { METRIC_NAME, METRIC_NAMES, LABEL_PREFIXES, SPECIAL, label_text, label_problem, utf8_valid, sample_line, header, add_family, family_set, families_of } from 'prometheus_exporter.exposition.format';
 
 /**
  * A sample as parse() reads it: its name, its labels as [ name, value ]
@@ -70,6 +70,7 @@ import { METRIC_NAMES, LABEL_PREFIXES, SPECIAL, label_text, label_problem, utf8_
  *   counter: (name: string, help: ?string) => SampleWriter,
  *   gauge: (name: string, help: ?string) => SampleWriter,
  *   untyped: (name: string, help: ?string) => SampleWriter,
+ *   batch: (type: string, rows: Array<[string, ?string, *]>) => void,
  *   labels: (labels: ?Object) => string,
  *   parse: (text: string) => Result<null>,
  *   add: (families: Family[]) => void,
@@ -112,6 +113,12 @@ export const OVER_LIMIT = 'prometheus_exporter: over the sample limit';
  */
 export const INVALID = 'prometheus_exporter: text Prometheus refuses';
 
+// The types of the families a recorder writes, and a byte past ASCII, whose
+// UTF-8 is read. In a bracket a backslash is itself; ucode's C locale reads
+// bytes.
+const TYPES_RECORDED = [ 'counter', 'gauge', 'untyped' ];
+const HIGH_BYTE = regexp('[\x80-\xff]');
+
 // The samples of a family declared again with another type: dropped, as
 // conflicts() says.
 function dropped(labels, value) {
@@ -122,9 +129,12 @@ function dropped(labels, value) {
  * What a collector writes to. counter/gauge/untyped(name, help) returns
  * (labels, value) => itself, so samples chain; a value that is not a number is
  * skipped. labels(labels) is the labels for several samples (a station's,
- * a device's), written once: pass it where the labels go. parse(text) adds
- * exposition text, which must be valid as a whole; add(families) adds what
- * parse() gave.
+ * a device's), written once: pass it where the labels go. batch(type, rows)
+ * records families of one sample each, without labels, as meminfo and
+ * netstat write dozens: for each row [ name, help, value ], in order, what
+ * out[type](name, help)(null, value) records, without a writer made and
+ * called for each. parse(text) adds exposition text, which must be valid as
+ * a whole; add(families) adds what parse() gave.
  *
  * A family it records is { name, type, help, lines, values }: each sample as
  * the line the format writes, and for a counter the values, which render()'s
@@ -186,9 +196,12 @@ export function recorder(max) {
 	}
 
 	// As add_family() would add an empty family, without making it first:
-	// netstat and ethtool make hundreds of families.
+	// netstat and ethtool make hundreds of families. A name is sanitize()'s:
+	// one valid as it is, as nearly every one is, is taken after one match,
+	// without the call, which costs three times the match, nor a place in
+	// its memo, for a name a collector writes once.
 	function family(name, mtype, help) {
-		name = METRIC_NAMES[name] ?? sanitize(name);
+		name = METRIC_NAMES[name] ?? ((type(name) == 'string' && match(name, METRIC_NAME)) ? name : sanitize(name));
 
 		let target = set.by_name[name];
 
@@ -267,6 +280,54 @@ export function recorder(max) {
 		return sample;
 	}
 
+	// What `out[mtype](name, help)(null, value)` does for each row, in
+	// order, without a writer made and called for each: a family of one
+	// sample, as meminfo and netstat write dozens. The HELP texts are read
+	// as UTF-8 one at a time only when one has a byte past ASCII, which one
+	// match of them all tells.
+	function batch(mtype, rows) {
+		if (!(mtype in TYPES_RECORDED))
+			die(`batch: not a type of family a collector writes: ${mtype}`);
+
+		let helps = [];
+
+		for (let r in rows)
+			if (type(r[1]) == 'string')
+				push(helps, r[1]);
+
+		let read = match(join('', helps), HIGH_BYTE) != null;
+		let counter = (mtype == 'counter');
+
+		for (let r in rows) {
+			let name = r[0], help = r[1], value = r[2];
+
+			name = METRIC_NAMES[name] ?? ((type(name) == 'string' && match(name, METRIC_NAME)) ? name : sanitize(name));
+
+			let target = set.by_name[name];
+
+			if (!target) {
+				target = set.by_name[name] = { name, type: mtype, help: read ? help_of(name, help) : help, lines: [], values: [] };
+				push(set.list, target);
+			} else if (target.type != mtype) {
+				push(conflicts, name);
+				continue;
+			} else if (target.help == null && help != null) {
+				target.help = help_of(name, help);
+			}
+
+			let v = (type(value) == 'int') ? '' + value : format_value(value);
+
+			if (v == null)
+				continue;
+			if (++count > cap)
+				stop(name);
+
+			push(target.lines, name + ' ' + v);
+			if (counter)
+				push(target.values, v);
+		}
+	}
+
 	function add(families) {
 		for (let fam in families) {
 			count += length(fam.samples);
@@ -281,6 +342,7 @@ export function recorder(max) {
 		counter: (name, help) => family(name, 'counter', help),
 		gauge: (name, help) => family(name, 'gauge', help),
 		untyped: (name, help) => family(name, 'untyped', help),
+		batch,
 		labels: function(labels) {
 			let text = (type(labels) == 'object' || labels == null) ? label_text(labels) : null;
 

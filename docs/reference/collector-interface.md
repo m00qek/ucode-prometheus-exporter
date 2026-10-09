@@ -170,6 +170,7 @@ A need the system lacks (`nl80211`, `socket`) fails the collector with `NEED_MIS
 | Call | Does |
 | :--- | :--- |
 | `out.gauge(name, help)`, `out.counter(name, help)`, `out.untyped(name, help)` | Declares a family, and returns `(labels, value)`, which records a sample and returns itself, so calls chain. |
+| `out.batch(type, rows)` | Records families of one sample each, without labels: for each row `[ name, help, value ]`, in order, what `out[type](name, help)(null, value)` records, with less work for each. `type` is `'gauge'`, `'counter'` or `'untyped'`. |
 | `out.labels(labels)` | Makes a label set several samples share, once, to pass in place of the object. |
 | `out.parse(text)` | Adds exposition text, which must be valid as a whole: a Result, `EXPOSITION_INVALID` otherwise. |
 
