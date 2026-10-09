@@ -350,6 +350,63 @@ function reply(status, body) {
 	return { status, content_type: CONTENT_TYPE, body };
 }
 
+// The scrape's own families, their names and HELP texts: node_exporter's
+// four of each collector, and the exporter's version.
+const OWN_FAMILIES = [
+	[ 'node_scrape_collector_duration_seconds', 'node_exporter: Duration of a collector scrape.' ],
+	[ 'node_scrape_collector_success', 'node_exporter: Whether a collector succeeded.' ],
+	[ 'node_scrape_collector_observing',
+		'Whether a collector had something to observe: 0 when its hardware, kernel feature or service is not there.' ],
+	[ QUARANTINED, 'Whether a collector is quarantined: its circuit breaker tripped, and it is not run until its cool-down is over.' ],
+	[ BUILD_INFO, 'A metric with a constant \'1\' value labeled by the version of ucode-prometheus-exporter.' ],
+];
+
+function own_header(i) {
+	let f = OWN_FAMILIES[i];
+
+	return `# HELP ${f[0]} ${f[1]}\n# TYPE ${f[0]} gauge\n`;
+}
+
+/**
+ * The scrape's own families, as the reply ends with them: for each of
+ * `runs`, node_exporter's node_scrape_collector_duration_seconds,
+ * node_scrape_collector_success, node_scrape_collector_observing and the
+ * exporter's ucode_prometheus_exporter_collector_quarantined, and the
+ * exporter's ucode_prometheus_exporter_build_info, of `version`. Written as
+ * a recorder would write them, each collector's label once for its four
+ * samples, without a recorder's checks and calls: its families' names and
+ * HELP texts are these, and a collector's name is meta.name, valid.
+ *
+ * @param {Run[]} runs the scrape's runs, in the order of the reply.
+ * @param {string} version the exporter's version.
+ * @returns {string} their text, each line ended by a newline.
+ */
+export function own_text(runs, version) {
+	let parts = [ '', '', '', '' ];
+
+	for (let r in runs) {
+		let label = `{collector="${exposition.escape_label(r.name)}"} `;
+		let d = (type(r.duration) == 'int') ? '' + r.duration : exposition.format_value(r.duration);
+
+		if (d != null)
+			parts[0] += `node_scrape_collector_duration_seconds${label}${d}\n`;
+		parts[1] += `node_scrape_collector_success${label}${r.result.ok ? 1 : 0}\n`;
+		parts[2] += `node_scrape_collector_observing${label}${Result.is_none(r.result) ? 0 : 1}\n`;
+		parts[3] += `${QUARANTINED}${label}${(r.skipped == 'quarantine') ? 1 : 0}\n`;
+	}
+
+	let text = '';
+
+	for (let i, p in parts)
+		if (p != '')
+			text += own_header(i) + p;
+
+	// As a recorder leaves out a label without a value.
+	let label = (version != null) ? `{version="${exposition.escape_label('' + version)}"}` : '';
+
+	return text + own_header(4) + `${BUILD_INFO}${label} 1\n`;
+};
+
 // Whether the collector is to be left out at the deadline, on `l`'s word: the
 // time left before `cutoff`, when the reply must start being written, is not
 // enough for what it is expected to take, or there is none. Its result then,
@@ -602,37 +659,10 @@ export function scrape(env, collectors, query_string, opts) {
 		env.log('warning', late);
 
 	let t1 = env.clock();
-	let scrape_meta = exposition.recorder();
-	let duration = scrape_meta.gauge('node_scrape_collector_duration_seconds',
-		'node_exporter: Duration of a collector scrape.');
-	let success = scrape_meta.gauge('node_scrape_collector_success',
-		'node_exporter: Whether a collector succeeded.');
-
-	// Each collector's label, written once for its four samples.
-	let labels = map(runs, (r) => scrape_meta.labels({ collector: r.name }));
-
-	for (let i, r in runs)
-		duration(labels[i], r.duration);
-	for (let i, r in runs)
-		success(labels[i], r.result.ok);
-
-	let observing = scrape_meta.gauge('node_scrape_collector_observing',
-		'Whether a collector had something to observe: 0 when its hardware, kernel feature or service is not there.');
-	for (let i, r in runs)
-		observing(labels[i], !Result.is_none(r.result));
-
-	let held = scrape_meta.gauge(QUARANTINED,
-		'Whether a collector is quarantined: its circuit breaker tripped, and it is not run until its cool-down is over.');
-	for (let i, r in runs)
-		held(labels[i], r.skipped == 'quarantine');
-
-	// Whatever the query selects, as node_exporter's node_exporter_build_info.
-	scrape_meta.gauge(BUILD_INFO,
-		'A metric with a constant \'1\' value labeled by the version of ucode-prometheus-exporter.')({ version: env.version }, 1);
 
 	// A family is one collector's (ownership.own): the reply is each one's text,
 	// in the order selected, then the scrape's own.
-	let body = join('', map(runs, (r) => r.text ?? '')) + exposition.render(scrape_meta.families());
+	let body = join('', map(runs, (r) => r.text ?? '')) + own_text(runs, env.version);
 
 	progress?.finish();
 

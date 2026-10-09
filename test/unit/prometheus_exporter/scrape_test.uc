@@ -836,3 +836,47 @@ describe('scrape.scrape, with circuit breakers', () => {
 			assert.match(length(plan), runs);
 		});
 });
+
+describe('scrape.own_text', () => {
+	// What a recorder writes of the scrape's own families, as the scrape
+	// wrote them before it wrote them itself: what own_text must write.
+	function recorded(runs, version) {
+		let rec = exposition.recorder();
+		let duration = rec.gauge('node_scrape_collector_duration_seconds', 'node_exporter: Duration of a collector scrape.');
+		let success = rec.gauge('node_scrape_collector_success', 'node_exporter: Whether a collector succeeded.');
+		let labels = map(runs, (r) => rec.labels({ collector: r.name }));
+
+		for (let i, r in runs)
+			duration(labels[i], r.duration);
+		for (let i, r in runs)
+			success(labels[i], r.result.ok);
+
+		let observing = rec.gauge('node_scrape_collector_observing',
+			'Whether a collector had something to observe: 0 when its hardware, kernel feature or service is not there.');
+		for (let i, r in runs)
+			observing(labels[i], !Result.is_none(r.result));
+
+		let held = rec.gauge(scrape.QUARANTINED,
+			'Whether a collector is quarantined: its circuit breaker tripped, and it is not run until its cool-down is over.');
+		for (let i, r in runs)
+			held(labels[i], r.skipped == 'quarantine');
+
+		rec.gauge(scrape.BUILD_INFO,
+			'A metric with a constant \'1\' value labeled by the version of ucode-prometheus-exporter.')({ version }, 1);
+
+		return exposition.render(rec.families());
+	}
+
+	prop('writes what a recorder writes of the same runs',
+		gen.tuple(gen.array(gen.tuple(gen.string({ min_len: 1, max_len: 12, charset: 'abz09_-"\\\n' }),
+			gen.oneof(gen.int(0, 3), gen.float(0, 100), gen.constant(0.000123456789), gen.constant(1e15 / 3), gen.constant(null)),
+			gen.elements('ok', 'err', 'none'), gen.elements(null, 'quarantine', 'deadline')), { min_len: 0, max_len: 6 }),
+			gen.elements('dev', '0.2.1-r1', 'a"b\\c', null)), (t) => {
+			let runs = map(t[0], (x) => ({
+				name: x[0], duration: x[1], skipped: x[3],
+				result: { ok: Result.ok(), err: Result.err('SOURCE_INVALID'), none: Result.none('absent') }[x[2]],
+			}));
+
+			assert.match(recorded(runs, t[1]), scrape.own_text(runs, t[1]));
+		});
+});
