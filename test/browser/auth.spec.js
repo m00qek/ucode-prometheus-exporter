@@ -3,8 +3,9 @@ const h = require('./helpers');
 
 // Basic auth, on the HTTPS & login tab of Services → Prometheus exporter, and compress,
 // on its General tab. The password is typed, and handed on Save to the ubus object's
-// set_password, which saves its hash apart, in prometheus-exporter-auth, which the page
-// never reads; basic auth takes the TLS certificate and key.
+// stage_password, which stages its hash in the login's session, for
+// prometheus-exporter-auth, which the page never reads; Save & Apply applies it with the
+// rest. Basic auth takes the TLS certificate and key.
 
 // `uhttpd -m secret`, as test/fixtures/luci/auth/auth has it.
 const SAVED_HASH = '$1$$ysVNzQc4CTMkp5daOdZ.3/';
@@ -95,7 +96,7 @@ test.describe('Services → Prometheus exporter: basic auth and compress', () =>
       'HTTPS & login → Basic auth user: Basic auth user needs HTTPS: set TLS certificate and TLS key, or the password crosses the network in the clear',
     ]);
     expect(await h.readConfig(request)).toBe(before);
-    expect(calls.filter((c) => c.method === 'set_password')).toEqual([]);
+    expect(calls.filter((c) => c.method === 'stage_password')).toEqual([]);
     expect(await savedHash(request)).toBeUndefined();
   });
 
@@ -116,8 +117,8 @@ test.describe('Services → Prometheus exporter: basic auth and compress', () =>
     expect(hash).toMatch(/^\$6\$rounds=1000\$[./0-9A-Za-z]{16}\$[./0-9A-Za-z]{86}$/);
     expect(await h.readConfig(request)).not.toContain(PASSWORD);
     expect(await h.readAuth(request)).not.toContain(PASSWORD);
-    expect(calls.filter((c) => c.method === 'set_password')).toEqual([ { method: 'set_password', params: { password: PASSWORD } } ]);
-    expect(calls.filter((c) => c.method === 'hash_password')).toEqual([]);
+    expect(calls.filter((c) => c.method === 'stage_password')).toEqual([ { method: 'stage_password', params: { password: PASSWORD } } ]);
+    expect(calls.filter((c) => [ 'hash_password', 'set_password' ].includes(c.method))).toEqual([]);
     // What the page sent validate stood in for the password: it never saw it.
     expect(JSON.stringify(calls.filter((c) => c.method === 'validate'))).not.toContain(PASSWORD);
 
@@ -141,9 +142,34 @@ test.describe('Services → Prometheus exporter: basic auth and compress', () =>
 
     const main = await savedMain(request);
     expect([ main.listen_port, main.auth_user, await savedHash(request) ]).toEqual([ '9101', 'prom', SAVED_HASH ]);
-    expect(calls.filter((c) => c.method === 'set_password')).toEqual([]);
+    expect(calls.filter((c) => c.method === 'stage_password')).toEqual([]);
     // validate was given no hash: it checked the saved one, which the page never had.
     expect(JSON.stringify(calls.filter((c) => c.method === 'validate'))).not.toContain(SAVED_HASH);
+  });
+
+  // As every other setting: Save stages it, and Save & Apply applies it.
+  test('Save stages a new password, and Save & Apply applies it', async ({ page, request }) => {
+    await h.useConfig(request, 'auth');
+    await h.openSettings(page);
+    await h.showTab(page, 'https');
+    await field(page, 'auth_password').fill(PASSWORD);
+    await page.locator('#view .cbi-page-actions').getByText('Save', { exact: true }).click();
+    await expect(field(page, 'auth_password')).toHaveAttribute('placeholder', 'Applied on Save & Apply');
+    await expect(field(page, 'auth_password')).toHaveValue('');
+    expect(await savedHash(request)).toBe(SAVED_HASH);
+
+    // A Save of another setting does not take it for a user without a password.
+    await field(page, 'listen_port').fill('9101');
+    await page.locator('#view .cbi-page-actions').getByText('Save', { exact: true }).click();
+    await expect(h.saveError(page)).toBeHidden();
+    expect(await savedHash(request)).toBe(SAVED_HASH);
+
+    await saveAndApply(page);
+    await applied(page);
+    const hash = await savedHash(request);
+    expect(hash).toMatch(/^\$6\$rounds=1000\$/);
+    expect(hash).not.toBe(SAVED_HASH);
+    expect((await savedMain(request)).listen_port).toBe('9101');
   });
 
   test('a new password replaces the saved hash', async ({ page, request }) => {
@@ -238,13 +264,28 @@ test.describe('The hash, over rpcd', () => {
     await h.useConfig(request, 'default');
   });
 
-  test('a login with the app\'s ACL saves a password by set_password, and reads whether one is saved, never the hash', async ({ request }) => {
+  test('a login with the app\'s ACL stages a password in its session, which its apply commits, and reads whether one is saved, never the hash', async ({ request }) => {
+    const sid = await h.sessionOf(request, h.APP_USER);
     expect(await h.ubus(request, h.CONFIG, 'password', {}, h.APP_USER)).toEqual({ saved: false });
-    expect(await h.ubus(request, h.CONFIG, 'set_password', { password: PASSWORD }, h.APP_USER)).toEqual({ saved: true });
-    expect(await h.ubus(request, h.CONFIG, 'password', {}, h.APP_USER)).toEqual({ saved: true });
+    expect(await h.ubus(request, h.CONFIG, 'stage_password', { password: PASSWORD }, h.APP_USER)).toEqual({ staged: true });
+    // Staged: not saved, and in no change the session may list.
+    expect([ await savedHash(request), await h.ubus(request, h.CONFIG, 'password', {}, h.APP_USER) ]).toEqual([ undefined, { saved: false } ]);
+    expect(JSON.stringify(await h.ubus(request, 'uci', 'changes', {}, h.APP_USER))).not.toContain('auth_password');
+    await h.ubus(request, 'uci', 'apply', { rollback: false }, h.APP_USER);
     expect(await savedHash(request)).toMatch(/^\$6\$rounds=1000\$/);
-    expect(await h.ubus(request, h.CONFIG, 'set_password', { password: '' }, h.APP_USER)).toEqual({ saved: false });
+    expect(await h.ubus(request, h.CONFIG, 'password', {}, h.APP_USER)).toEqual({ saved: true });
+    expect(await h.ubus(request, h.CONFIG, 'stage_password', { password: '' }, h.APP_USER)).toEqual({ staged: false });
+    await h.ubus(request, 'uci', 'apply', { rollback: false }, h.APP_USER);
     expect(await savedHash(request)).toBeUndefined();
+    expect(h.denied(await h.rawCall(request, sid, h.CONFIG, 'set_password', { password: PASSWORD }))).toBe(true);
+  });
+
+  test('a password staged and rolled back leaves the saved hash', async ({ request }) => {
+    await h.useConfig(request, 'auth');
+    expect(await h.ubus(request, h.CONFIG, 'stage_password', { password: PASSWORD }, h.APP_USER)).toEqual({ staged: true });
+    await h.ubus(request, 'uci', 'apply', { rollback: true, timeout: 5 }, h.APP_USER);
+    expect(await savedHash(request)).not.toBe(SAVED_HASH);
+    await expect.poll(() => savedHash(request), { timeout: 20000 }).toBe(SAVED_HASH);
   });
 
   test('a login with the app\'s ACL cannot read the hash\'s config, nor hash_password', async ({ request }) => {
@@ -263,16 +304,18 @@ test.describe('The hash, over rpcd', () => {
     const sid = await h.sessionOf(request, h.VIEWER);
     expect(await h.ubus(request, h.CONFIG, 'password', {}, h.VIEWER)).toEqual({ saved: false });
     expect(h.denied(await h.rawCall(request, sid, h.CONFIG, 'set_password', { password: PASSWORD }))).toBe(true);
+    expect(h.denied(await h.rawCall(request, sid, h.CONFIG, 'stage_password', { password: PASSWORD }))).toBe(true);
     expect(await savedHash(request)).toBeUndefined();
   });
 
-  test('set_password refuses a password it does not take, without saying it', async ({ request }) => {
-    const res = await h.ubus(request, h.CONFIG, 'set_password', { password: 'a\tb' });
+  test('stage_password refuses a password it does not take, without saying it', async ({ request }) => {
+    const res = await h.ubus(request, h.CONFIG, 'stage_password', { password: 'a\tb' }, h.APP_USER);
     expect(res).toEqual({ error: 'ARGS_INVALID', message: 'password: expected a password without control characters' });
   });
 
-  test('hash_password is in no ACL of LuCI\'s: rpcd refuses it over HTTP, even to root', async ({ request }) => {
+  test('hash_password and set_password are in no ACL of LuCI\'s: rpcd refuses them over HTTP, even to root', async ({ request }) => {
     const sid = await h.sessionOf(request, { username: 'root', password: 'admin' });
     expect(h.denied(await h.rawCall(request, sid, h.CONFIG, 'hash_password', { password: PASSWORD }))).toBe(true);
+    expect(h.denied(await h.rawCall(request, sid, h.CONFIG, 'set_password', { password: PASSWORD }))).toBe(true);
   });
 });

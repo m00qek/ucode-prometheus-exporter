@@ -49,6 +49,12 @@ function filesystem(files, dirs, broken) {
 		error: () => 'Permission denied',
 		stat: (p) => (p in keys(files) || p in keys(dirs)) ? { type: (p in keys(dirs)) ? 'directory' : 'file' } : null,
 		mkdir: function(p, mode) { push(log, `mkdir ${p} ${sprintf('%o', mode)}`); if (fails('mkdir')) return null; dirs[p] = mode; return true; },
+		chown: function(p, uid, gid) {
+			push(log, `chown ${p} ${uid}:${gid}`);
+			if (fails('chown')) return null;
+			files[p].owner = `${uid}:${gid}`;
+			return true;
+		},
 		chmod: function(p, mode) {
 			push(log, `chmod ${p} ${sprintf('%o', mode)}`);
 			if (fails('chmod')) return null;
@@ -71,16 +77,16 @@ function filesystem(files, dirs, broken) {
 describe('auth.write_conf', () => {
 	const A = { user: 'prom', hash: HASH };
 
-	it('writes the file whole, 0600, in a directory of 0700, then renames it into place', () => {
+	it('writes the file whole, 0640, root\'s and the service\'s group\'s, in a directory of 0700, then renames it into place', () => {
 		let fs = filesystem({}, {});
 		let res = auth.write_conf(fs, A);
 
 		assert.match([ true, auth.FILE ], [ res.ok, res.data ]);
-		assert.match({ [auth.FILE]: { data: auth.conf('prom', HASH), mode: 0o600 } }, fs.files);
+		assert.match({ [auth.FILE]: { data: auth.conf('prom', HASH), mode: 0o640, owner: '0:prometheus-exporter' } }, fs.files);
 		assert.match({ [auth.DIR]: 0o700 }, fs.dirs);
 		assert.match([
 			`mkdir ${auth.DIR} 700`, `chmod ${auth.DIR} 700`, `unlink ${auth.FILE}.new`, `open ${auth.FILE}.new w 600`,
-			`chmod ${auth.FILE}.new 600`, `rename ${auth.FILE}.new ${auth.FILE}`,
+			`chown ${auth.FILE}.new 0:prometheus-exporter`, `chmod ${auth.FILE}.new 640`, `rename ${auth.FILE}.new ${auth.FILE}`,
 		], fs.log);
 	});
 
@@ -88,7 +94,7 @@ describe('auth.write_conf', () => {
 		let fs = filesystem({ [auth.FILE]: { data: 'old', mode: 0o644 } }, { [auth.DIR]: 0o755 });
 
 		assert.match(true, auth.write_conf(fs, A).ok);
-		assert.match([ auth.conf('prom', HASH), 0o600, 0o700 ], [ fs.files[auth.FILE].data, fs.files[auth.FILE].mode, fs.dirs[auth.DIR] ]);
+		assert.match([ auth.conf('prom', HASH), 0o640, 0o700 ], [ fs.files[auth.FILE].data, fs.files[auth.FILE].mode, fs.dirs[auth.DIR] ]);
 	});
 
 	it('removes the file without basic auth, and is content when there is none', () => {
@@ -108,7 +114,8 @@ describe('auth.write_conf', () => {
 			[ `FILE_UNWRITABLE: cannot make the directory of ${auth.FILE}: Permission denied`, [] ],
 			[ `FILE_UNWRITABLE: cannot write ${auth.FILE}: Permission denied`, [] ],
 			[ `FILE_UNWRITABLE: cannot write ${auth.FILE}: Permission denied`, [] ],
-		], [ write([ 'mkdir' ]), write([ 'open' ]), write([ 'rename' ]) ]);
+			[ `FILE_UNWRITABLE: cannot write ${auth.FILE}: Permission denied`, [] ],
+		], [ write([ 'mkdir' ]), write([ 'open' ]), write([ 'rename' ]), write([ 'chown' ]) ]);
 	});
 
 	it('never says the hash', () => {

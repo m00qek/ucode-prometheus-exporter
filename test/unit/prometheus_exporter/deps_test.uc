@@ -118,6 +118,49 @@ describe('deps.session', () => {
 		});
 	});
 
+	it('holds a collector\'s ubus calls to its meta.ubus, for its options', () => {
+		with_mods({ ubus: { data: { 'wireguard:status': {}, 'uci:get': {} } } }, (mods) => {
+			let s = deps.session(mods);
+			let meta = { name: 'wireguard', needs: [ 'ubus' ], ubus: { wireguard: [ 'status' ], uci: (o) => o.peer_names ? [ 'get' ] : [] } };
+			let call = (options, object, method) => s.for(meta, { options }).data.ubus.call(object, method).error;
+
+			assert.match([ null, 'UBUS_NOT_ALLOWED', null ], [
+				call({ peer_names: false }, 'wireguard', 'status'),
+				call({ peer_names: false }, 'uci', 'get'),
+				call({ peer_names: true }, 'uci', 'get'),
+			]);
+		});
+	});
+
+	it('fails with PERMISSION_DENIED where the process lacks a capability the collector declares', () => {
+		let status = (eff) => `Name:\tuhttpd\nCapEff:\t${eff}\n`;
+		let meta = { name: 'nft-counters', needs: [ 'exec' ], commands: [ 'nft' ], capabilities: [ 'CAP_NET_ADMIN' ] };
+
+		with_mods({ self_status: status('0000000000000000') }, (mods) => {
+			assert.match({ ok: false, error: 'PERMISSION_DENIED', details: 'this process lacks CAP_NET_ADMIN, which the service grants when it starts with nft-counters enabled' },
+				brief(deps.session(mods).for(meta)));
+		});
+		with_mods({ self_status: status('0000000000001000') }, (mods) => {
+			assert.match(true, deps.session(mods).for(meta).ok);
+		});
+	});
+
+	it('fails with PERMISSION_DENIED where the process may not read a config or a proc file the collector declares', () => {
+		with_mods({ unreadable: [ '/etc/config/dhcp', '/proc/net/nf_conntrack' ] }, (mods) => {
+			let s = deps.session(mods);
+
+			assert.match([
+				"/etc/config/dhcp: the service's group may not read it, as the service has it when it starts with uci_dhcp_host enabled",
+				"/proc/net/nf_conntrack: the service's group may not read it, as the service has it when it starts with nat_traffic enabled",
+				null,
+			], [
+				s.for({ name: 'uci_dhcp_host', needs: [ 'uci' ], configs: [ 'dhcp' ] }).details,
+				s.for({ name: 'nat_traffic', needs: [ 'fs' ], proc_files: [ '/proc/net/nf_conntrack' ] }).details,
+				s.for({ name: 'chrony', needs: [ 'uci' ], configs: [ 'chrony' ] }).details,
+			]);
+		});
+	});
+
 	it('names the collector in what it logs, and has no log without the exporter\'s', () => {
 		with_mods({}, (mods) => {
 			let seen = [];

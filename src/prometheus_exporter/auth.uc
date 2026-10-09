@@ -29,6 +29,7 @@ import * as crypt from 'prometheus_exporter.crypt';
 import * as state from 'prometheus_exporter.state';
 import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
+import { GROUP } from 'prometheus_exporter.privileges';
 
 /**
  * Basic auth as the config and uhttpd's file set it: the user, and the crypt
@@ -132,11 +133,13 @@ export function conf(user, hash) {
 };
 
 /**
- * Writes uhttpd's config file for `auth` ({ user, hash }) whole, mode 0600 in DIR
- * of mode 0700, and puts it in place by a rename, so the jail of a running
- * instance keeps the file it mounted; with `auth` null, removes it. A Result of
- * the path written, or of null. fs: { stat, mkdir, chmod, open, rename,
- * unlink, error }, as the fs module has them.
+ * Writes uhttpd's config file for `auth` ({ user, hash }) whole, mode 0640,
+ * root's and the service's group's (privileges.GROUP), which uhttpd and the
+ * handler run as in the jail, in DIR of mode 0700, and puts it in place by a
+ * rename, so the jail of a running instance keeps the file it mounted; with
+ * `auth` null, removes it. A Result of the path written, or of null. fs:
+ * { stat, mkdir, chmod, chown, open, rename, unlink, error }, as the fs module
+ * has them.
  *
  * @param {module:fs} fs the fs module, or an object of the functions named.
  * @param {?BasicAuth} auth basic auth, or null for none.
@@ -159,7 +162,7 @@ export function write_conf(fs, auth) {
 	let f = fs.open(tmp, 'w', 0o600);
 	let ok = f != null && f.write(conf(auth.user, auth.hash)) != null;
 
-	ok = (f?.close() ?? false) && ok && fs.chmod(tmp, 0o600) && fs.rename(tmp, FILE);
+	ok = (f?.close() ?? false) && ok && fs.chown(tmp, 0, GROUP) && fs.chmod(tmp, 0o640) && fs.rename(tmp, FILE);
 
 	if (!ok) {
 		let res = failed('write');

@@ -10,6 +10,7 @@ export const meta = {
 	title: 'dnsmasq DNS and DHCP',
 	help: 'DNS and DHCP counters of dnsmasq, from ubus dnsmasq metrics.',
 	needs: [ 'ubus' ],
+	ubus: { dnsmasq: [ 'metrics' ], rc: [ 'list' ] },
 };
 
 // What dnsmasq's metrics are (src/metrics.c and its uses): the high-water marks

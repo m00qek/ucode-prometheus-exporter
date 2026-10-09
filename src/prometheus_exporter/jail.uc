@@ -36,6 +36,7 @@
 
 import * as Result from 'prometheus_exporter.result';
 import * as config from 'prometheus_exporter.config';
+import * as privileges from 'prometheus_exporter.privileges';
 import { uci_handles } from 'prometheus_exporter.deps';
 import { DIR as STATE_DIR } from 'prometheus_exporter.state';
 
@@ -59,7 +60,11 @@ import { DIR as STATE_DIR } from 'prometheus_exporter.state';
  *   commands: Object<string, ?string>,
  *   mounts: string[],
  *   problems: string[],
- *   missing: string[]
+ *   missing: string[],
+ *   ubus: Object<string, string[]>,
+ *   capabilities: string[],
+ *   groups: string[],
+ *   proc_files: string[]
  * }} CollectorJail
  */
 
@@ -322,7 +327,9 @@ export function resolve_paths(meta, options, handles) {
 
 /**
  * What one collector gets in the jail: { enabled, options (a Result), configs,
- * paths, owned, commands ({ name: path or null }), mounts, problems, missing }.
+ * paths, owned, commands ({ name: path or null }), mounts, problems, missing },
+ * and what its user may do there (prometheus_exporter.privileges): ubus, the
+ * calls it declares for its options, capabilities, groups and proc_files.
  * `missing` are the paths not there now, which the mounts leave out; not the
  * owned ones, which the service makes before it mounts them.
  *
@@ -348,6 +355,12 @@ export function collector(c, sys) {
 		push(problems, `its paths are not known: ${Result.describe(options)}`);
 	}
 
+	// Its ubus calls for its options; with options not valid, which keep it
+	// from running, for none.
+	let calls = privileges.ubus_of(meta, options.ok ? options.data : {});
+
+	push(problems, ...calls.problems);
+
 	let missing = filter(paths, (p) => !(p in owned) && sys.fs.stat(p) == null);
 	let mounts = [ ...configs, ...filter(paths, (p) => !(p in missing)) ];
 
@@ -371,6 +384,10 @@ export function collector(c, sys) {
 		mounts: sort(uniq(mounts)),
 		problems,
 		missing,
+		ubus: calls.ubus,
+		capabilities: meta.capabilities ?? [],
+		groups: meta.groups ?? [],
+		proc_files: meta.proc_files ?? [],
 	};
 };
 
@@ -407,6 +424,62 @@ export function mounts(collectors, sys) {
 	}
 
 	return { mounts: sort(uniq(all)), problems, missing: sort(uniq(missing)), owned: sort(uniq(owned)) };
+};
+
+/**
+ * What the service's user may do in the jail of these installed collectors,
+ * for prometheus_exporter.privileges' make(): the ubus calls, capabilities,
+ * groups and proc files of the enabled ones, read access to the configs the
+ * jail mounts (the exporter's own among them), the TLS files when both are
+ * there, and the port it listens on; and what to take back, the groups and
+ * files of the installed collectors that are not enabled, that no enabled
+ * one has too. A problem names its collector.
+ *
+ * @param {Collector[]} collectors the installed collectors.
+ * @param {JailSys} sys the system.
+ * @returns {Grants} what to grant.
+ */
+export function grants(collectors, sys) {
+	let ubus = [], capabilities = [], groups = [], groups_off = [];
+	let files = [ OWN_CONFIG ], files_off = [], problems = [];
+
+	for (let c in collectors) {
+		let meta = c.meta;
+
+		if (!config.enabled(sys.uci, c.id)) {
+			push(groups_off, ...(meta.groups ?? []));
+			push(files_off, ...map(meta.configs ?? [], (n) => `${CONFIG_DIR}/${n}`), ...(meta.proc_files ?? []));
+			continue;
+		}
+
+		let j = collector(c, sys);
+
+		push(ubus, j.ubus);
+		push(capabilities, ...j.capabilities);
+		push(groups, ...j.groups);
+		push(files, ...j.configs, ...j.proc_files);
+		for (let p in j.problems)
+			push(problems, `${meta.name}: ${p}`);
+	}
+
+	let svc = config.service_values(sys.uci);
+	let cert = svc.ok ? svc.data.cert : '', key = svc.ok ? svc.data.key : '';
+	let tls = (cert != '' && key != '' && sys.fs.stat(cert) != null && sys.fs.stat(key) != null) ? { cert, key } : null;
+
+	files = sort(uniq(files));
+	groups = sort(uniq(groups));
+
+	return {
+		ubus: privileges.merge(ubus),
+		capabilities: sort(uniq(capabilities)),
+		groups,
+		groups_off: sort(uniq(filter(groups_off, (g) => !(g in groups)))),
+		files,
+		files_off: sort(uniq(filter(files_off, (p) => !(p in files)))),
+		tls,
+		port: svc.ok ? svc.data.listen_port : config.SERVICE_OPTIONS.listen_port.default,
+		problems,
+	};
 };
 
 /**

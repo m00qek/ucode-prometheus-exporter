@@ -164,10 +164,10 @@ describe('collectors.filesystem', () => {
 	});
 
 	it('passes on rpcd failing to read the host\'s /proc/mounts', () => {
-		let c = { ubus: { data: { 'prometheus-exporter.filesystem:mounts': with_inodes(ROUTER_POINTS) }, errors: { 'file:read': 'Permission denied' } } };
+		let c = { ubus: { data: { 'prometheus-exporter.filesystem:mounts': with_inodes(ROUTER_POINTS) }, errors: { 'file:read': 'Request timed out' } } };
 
 		with_collector(filesystem, c, (r) => {
-			assert.match({ error: 'UBUS_CALL_FAILED', details: 'file read: Permission denied' },
+			assert.match({ error: 'UBUS_CALL_FAILED', details: 'file read: Request timed out' },
 				{ error: r.result.error, details: r.result.details });
 			assert.match([], r.lines);
 		});

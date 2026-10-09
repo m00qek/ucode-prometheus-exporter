@@ -37,7 +37,7 @@ The tab's description says basic auth needs HTTPS: the certificate and key first
 | TLS certificate | `cert` | No placeholder; the description names uhttpd's own files, `/etc/uhttpd.crt` and `/etc/uhttpd.key`. |
 | TLS key | `key` | |
 | Basic auth user | `auth_user` | |
-| Basic auth password | `auth_password`, in `/etc/config/prometheus-exporter-auth` | Never filled in, and the page never reads the hash: the ubus object's `password` says whether one is saved, for the placeholder `Unchanged`. A password typed here is sent to `set_password` on Save, which saves its hash and reloads the service at once; the password itself is never stored. Empty, the saved hash stays; with the user emptied, it stays unused. |
+| Basic auth password | `auth_password`, in `/etc/config/prometheus-exporter-auth` | Never filled in, and the page never reads the hash: the ubus object's `password` says whether one is saved, for the placeholder `Unchanged`. A password typed here is sent to `stage_password` on Save, which stages its hash in the login's session, and the placeholder says `Applied on Save & Apply`; Save & Apply applies it with the rest, with LuCI's rollback. The password itself is never stored. Empty, the saved hash stays; with the user emptied, it stays unused. The staged hash is in no list of Unsaved Changes, and Revert leaves it: it lasts until the next Save & Apply, or the end of the login's session. |
 
 The basic auth fields show without the TLS files too: LuCI unsets a field it hides, which would drop the user and the hash on Save.
 
@@ -138,9 +138,9 @@ Without the ubus object, the page says so, as the settings page does.
 | Access | ubus methods of `prometheus-exporter` | uci |
 | :--- | :--- | :--- |
 | read | `collectors`, `interfaces`, `password`, `status`, `validate` | `prometheus-exporter` |
-| write | `set_password` | `prometheus-exporter` |
+| write | `stage_password` | `prometheus-exporter`, `prometheus-exporter-auth` |
 
-Nothing else: not `/etc/config/prometheus-exporter-auth`, which holds the hash.
+Nothing else: `/etc/config/prometheus-exporter-auth`, which holds the hash, may be written, for Save & Apply to commit the hash `stage_password` staged, and never read.
 
 ## Files
 

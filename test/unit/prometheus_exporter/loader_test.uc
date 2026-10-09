@@ -29,10 +29,10 @@ describe('loader.id_of', () => {
 
 describe('loader.validate', () => {
 	it('accepts a well-formed module and defaults its options', () => {
-		let res = loader.validate('ltq_dsl', module_named('ltq-dsl', { needs: [ 'ubus' ] }));
+		let res = loader.validate('ltq_dsl', module_named('ltq-dsl', { needs: [ 'ubus' ], ubus: { dsl: [ 'metrics' ] } }));
 
 		assert.match(true, res.ok);
-		assert.match({ name: 'ltq-dsl', title: 'Some thing', help: 'Something.', needs: [ 'ubus' ], options: {} }, res.data.meta);
+		assert.match({ name: 'ltq-dsl', title: 'Some thing', help: 'Something.', needs: [ 'ubus' ], ubus: { dsl: [ 'metrics' ] }, options: {} }, res.data.meta);
 		assert.match('ltq_dsl', res.data.id);
 	});
 
@@ -136,7 +136,7 @@ describe('loader.validate', () => {
 			problem('x', module_named('x', { needs: [ 'fs' ], paths: [ { path: 7, owned: true } ] })),
 			problem('x', module_named('x', { needs: [ 'fs' ], paths: [ { path: '/var/x', owned: true, mode: 0700 } ] })),
 			problem('x', module_named('x', { needs: [ 'fs' ], paths: [ { path: '/tmp', owned: true } ] })),
-			problem('x', module_named('x', { needs: [ 'ubus' ], paths: [ '/var/x' ] })),
+			problem('x', module_named('x', { needs: [ 'ubus' ], ubus: { system: [ 'board' ] }, paths: [ '/var/x' ] })),
 			problem('x', module_named('x', { needs: [ 'fs' ], paths: [ '{dir}' ] })),
 			problem('x', module_named('x', { needs: [ 'fs' ], options: { n: { default: 1, title: 'T', help: 'H.' } }, paths: [ '/var/{n}' ] })),
 			problem('x', module_named('x', { needs: [ 'fs' ], paths: [ 'relative' ] })),

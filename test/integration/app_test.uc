@@ -20,8 +20,11 @@ import * as commands from 'lib.commands';
 import * as lockable from 'lib.lockable';
 
 const SOURCES = 'src/prometheus_exporter/collectors';
+// As root on a router, with every capability: nft-counters declares
+// CAP_NET_ADMIN, which the session checks the process has.
+const ROOT_STATUS = 'Name:\tuhttpd\nUid:\t0\t0\t0\t0\nCapEff:\t000001ffffffffff\n';
 const ROUTER = {
-	files: fixtures.files('caju-router', [ '/proc/loadavg' ]),
+	files: { ...fixtures.files('caju-router', [ '/proc/loadavg' ]), '/proc/self/status': ROOT_STATUS },
 	board: fixtures.ubus('caju-router', 'system', 'board'),
 };
 

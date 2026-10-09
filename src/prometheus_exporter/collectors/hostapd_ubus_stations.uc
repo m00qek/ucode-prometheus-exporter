@@ -20,6 +20,8 @@ export const meta = {
 	title: 'hostapd station capabilities',
 	help: 'Radio measurement capabilities of hostapd\'s stations, from hostapd\'s ubus objects.',
 	needs: [ 'ubus' ],
+	// hostapd.<interface>, one object per access point.
+	ubus: { 'hostapd.*': [ 'get_clients' ] },
 };
 
 // [ family, help, octet, bit ] per capability, in Lua's order.

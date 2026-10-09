@@ -134,6 +134,21 @@ export const COMMAND_FAILED       = 'COMMAND_FAILED';
  */
 export const COMMAND_TIMEOUT      = 'COMMAND_TIMEOUT';
 
+/**
+ * The collector called a ubus object or method its meta.ubus does not list.
+ *
+ * @type {string}
+ */
+export const UBUS_NOT_ALLOWED     = 'UBUS_NOT_ALLOWED';
+
+/**
+ * The system refused the service's user what the collector declared: a
+ * capability, a file or socket it may not read, a ubus call outside its ACL.
+ *
+ * @type {string}
+ */
+export const PERMISSION_DENIED    = 'PERMISSION_DENIED';
+
 // The scrape
 
 /**

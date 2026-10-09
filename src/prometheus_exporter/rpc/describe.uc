@@ -4,7 +4,8 @@
  * from the configuration as saved, its package, and what its jail gives it.
  *
  *   collector: { name, id, title, help, enabled, package, base, options: [ option ],
- *                needs, configs, commands, jail: { paths, owned, commands, mounts, problems, missing }, error }
+ *                needs, configs, commands, jail: { paths, owned, commands, mounts, problems, missing,
+ *                ubus, capabilities, groups, proc_files }, error }
  *   option:    { name, core, title, type, default, help, datatype, value, set, error }
  *
  * options are the collector's own, in the order it declares them, then the
@@ -63,7 +64,8 @@ import { collector_value, message } from 'prometheus_exporter.rpc.validate';
  *   needs: string[],
  *   configs: string[],
  *   commands: string[],
- *   jail: { paths: string[], owned: string[], commands: Object<string, ?string>, mounts: string[], problems: string[], missing: string[] },
+ *   jail: { paths: string[], owned: string[], commands: Object<string, ?string>, mounts: string[], problems: string[], missing: string[],
+ *     ubus: Object<string, string[]>, capabilities: string[], groups: string[], proc_files: string[] },
  *   error: ?string
  * }} CollectorEntry
  */
@@ -213,7 +215,10 @@ function collector_entry(sys, c, owner_of) {
 		needs: meta.needs,
 		configs: meta.configs ?? [],
 		commands: meta.commands ?? [],
-		jail: { paths: j.paths, owned: j.owned, commands: j.commands, mounts: j.mounts, problems: j.problems, missing: j.missing },
+		jail: {
+			paths: j.paths, owned: j.owned, commands: j.commands, mounts: j.mounts, problems: j.problems, missing: j.missing,
+			ubus: j.ubus, capabilities: j.capabilities, groups: j.groups, proc_files: j.proc_files,
+		},
 		// The section's first invalid option (or enabled), as the exporter reports it.
 		error: j.options.ok ? null : Result.describe(j.options),
 	};

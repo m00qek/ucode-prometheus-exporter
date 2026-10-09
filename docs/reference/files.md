@@ -14,6 +14,8 @@ The exporter, its service, its ubus object and the [base collectors](collectors.
 
 It conflicts with `prometheus-node-exporter-ucode` and `prometheus-node-exporter-lua`: apk installs neither beside it, nor it beside either.
 
+It makes the user and group `prometheus-exporter`, which uhttpd runs as in the service's jail: see [The jail](jail.md#the-services-user).
+
 ### Files
 
 | Path | Content |
@@ -26,7 +28,7 @@ It conflicts with `prometheus-node-exporter-ucode` and `prometheus-node-exporter
 | `/usr/bin/prometheus-exporter` | The command; `service prometheus-exporter check` runs its `check`, and start and reload its `check --config`. See [The `prometheus-exporter` command](command.md). |
 | `/usr/libexec/prometheus-exporter/handler.uc` | uhttpd's handler for `/metrics`. |
 | `/usr/libexec/prometheus-exporter/status.uc` | What `status` prints of a running service. |
-| `/usr/libexec/prometheus-exporter/jail.uc` | The jail's mounts; `--missing`, the paths not there yet; `--make`, the directories the service makes. |
+| `/usr/libexec/prometheus-exporter/jail.uc` | The jail's mounts; `--missing`, the paths not there yet; `--make`, the directories the service makes, and what it grants its user; `--clean`, what it takes away when it stops. |
 | `/usr/libexec/prometheus-exporter/auth.uc` | Writes or removes basic auth's file. |
 | `/usr/libexec/prometheus-exporter/watch.uc` | The `watch` instance. |
 | `/usr/libexec/prometheus-exporter/import.uc` | The import the uci-defaults script runs. |
@@ -34,6 +36,7 @@ It conflicts with `prometheus-node-exporter-ucode` and `prometheus-node-exporter
 | `/usr/libexec/prometheus-exporter/trial.uc` | What runs in the service's jail for `check`, `status` and the command's `scrape`. |
 | `/usr/libexec/prometheus-exporter/probe.uc` | Loads collector modules in a process of its own, for rpcd, which loads none it has not seen load. |
 | `/usr/share/rpcd/ucode/prometheus-exporter.uc` | rpcd's plugin: the [ubus object](ubus.md). |
+| `/usr/share/acl.d/prometheus-exporter.json` | A link to `/var/run/prometheus-exporter.acl.json`, the service's ubus ACL, which ubusd reads. See [The jail](jail.md#the-ubus-acl). |
 | `/usr/share/ucode/prometheus_exporter/*.uc` | The exporter's modules. `version.uc` holds the package's version. |
 | `/usr/share/ucode/prometheus_exporter/config/*.uc` | The modules split out of `config.uc`: the options' types and datatypes. |
 | `/usr/share/ucode/prometheus_exporter/exposition/*.uc` | The modules split out of `exposition.uc`. |
@@ -45,8 +48,11 @@ It conflicts with `prometheus-node-exporter-ucode` and `prometheus-node-exporter
 
 | Path | Content |
 | :--- | :--- |
-| `/var/run/prometheus-exporter/` | Mode 0700. |
-| `/var/run/prometheus-exporter/uhttpd.conf` | Basic auth's file, mode 0600, while basic auth is on. |
+| `/var/run/prometheus-exporter/` | Mode 0700, root's. |
+| `/var/run/prometheus-exporter/uhttpd.conf` | Basic auth's file, mode 0640, root's and the service's group's, while basic auth is on. |
+| `/var/run/prometheus-exporter/tls.crt`, `tls.key` | Copies of `cert` and `key`, mode 0640, root's and the service's group's, while the service runs over HTTPS. |
+| `/var/run/prometheus-exporter/capabilities.json` | The capabilities of the jail, while the service runs. |
+| `/var/run/prometheus-exporter.acl.json` | The service's ubus ACL, while the service runs. |
 | `/var/run/prometheus-exporter/state/` | The handler's state, and each scrape's progress file and the file its collectors' runs cross by. See [The jail](jail.md#state). |
 | `/var/run/prometheus-exporter/timesync/ntpd` | busybox ntpd's last event. |
 

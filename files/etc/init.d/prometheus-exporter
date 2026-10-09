@@ -18,6 +18,13 @@ STATE=/var/run/$NAME/state
 # The ubus socket, as prometheus_exporter.jail names it among the mounts of a
 # collector that needs ubus: procd's jail option mounts it.
 UBUS_SOCKET=/var/run/ubus/ubus.sock
+# What jail.uc --make writes for the service's user, as
+# prometheus_exporter.privileges names it: the capabilities ujail gives the
+# jail, and the copies of the TLS files, which only root reads, readable by
+# the service's group.
+CAPABILITIES=/var/run/$NAME/capabilities.json
+TLS_CERT=/var/run/$NAME/tls.crt
+TLS_KEY=/var/run/$NAME/tls.key
 
 extra_command "check" "Check the configuration, list the collectors and run a scrape"
 
@@ -65,17 +72,30 @@ jail_mounts() {
 }
 
 # Makes the directories the collectors own (textfile's) and the state
-# directory, so the jail has them: what it made is logged at info, what it
-# could not at err.
+# directory, so the jail has them, and grants the service's user what the
+# enabled collectors declare (the ubus ACL, capabilities, groups, read access
+# to configs and proc files) and the TLS copies: what it did is logged at
+# info, what it could not at err.
 jail_make() {
 	{ "$LIBEXEC/jail.uc" --make 2>&1 >&3 | logger -t "$NAME" -p daemon.err; } 3>&1 |
 		logger -t "$NAME" -p daemon.info
 }
 
+# Takes away what only the running service needs: the ubus ACL, the
+# capabilities file and the TLS copies.
+jail_clean() {
+	"$LIBEXEC/jail.uc" --clean 2>&1 | logger -t "$NAME" -p daemon.err
+}
+
 start_service() {
-	service_enabled || return 0
+	service_enabled || { jail_clean; return 0; }
 	# reload has checked it already.
 	[ -n "$CONFIG_CHECKED" ] || config_valid "invalid configuration, not starting" || return 1
+	# uhttpd runs as the package's user, never as root.
+	user_exists "$NAME" && group_exists "$NAME" || {
+		logger -t "$NAME" -p daemon.err "no user or group $NAME: reinstall the package, which makes them; not starting"
+		return 1
+	}
 
 	. /lib/functions/network.sh
 
@@ -137,9 +157,10 @@ start_service() {
 	# and room for a few more, which bounds the requests that can wait.
 	procd_append_param command -n 3 -N 10
 
+	# The copies jail.uc --make made, which the service's group reads.
 	if [ -f "$cert" ] && [ -f "$key" ]; then
 		listen=-s
-		procd_append_param command -C "$cert" -K "$key"
+		procd_append_param command -C "$TLS_CERT" -K "$TLS_KEY"
 	else
 		listen=-p
 	fi
@@ -157,12 +178,18 @@ start_service() {
 	echo "$mounts" | grep -qx "$UBUS_SOCKET" && ubus=ubus
 	procd_add_jail "$NAME" log procfs sysfs $ubus
 	procd_add_jail_mount $(echo "$mounts" | grep -vx "$UBUS_SOCKET")
-	[ -n "$cert" ] && procd_add_jail_mount "$cert" "$key" /lib/libustream-*.so* /usr/lib/libustream-*.so*
+	[ "$listen" = -s ] && procd_add_jail_mount "$TLS_CERT" "$TLS_KEY" /lib/libustream-*.so* /usr/lib/libustream-*.so*
 	[ -n "$auth" ] && procd_add_jail_mount "$auth"
 	# What the handler keeps between requests (basic auth's cache), on tmpfs;
 	# each instance its own, so a restart starts without it.
 	procd_add_jail_mount_rw "$STATE"
 	procd_set_param no_new_privs 1
+	# Not root: the package's user and group, held by ubusd to the ACL
+	# jail.uc --make wrote, with the capabilities of the enabled collectors
+	# alone (none, mostly), in every set, so a program it runs has them too.
+	procd_set_param user "$NAME"
+	procd_set_param group "$NAME"
+	procd_set_param capabilities "$CAPABILITIES"
 
 	# What a collector may take of the router. Each of uhttpd's processes,
 	# the scrapes and the child processes their collectors run in, may take
@@ -176,9 +203,10 @@ start_service() {
 
 	# The jail binds files, which keep their old contents when a new file
 	# replaces them, as uci commit does: so a reload restarts the instance
-	# when a config it reads, a collector, basic auth's file or the TLS
-	# files change (a renewed certificate), or the TLS files come to be.
-	procd_set_param file $(echo "$mounts" | grep '^/etc/config/') "$COLLECTORS"/*.uc $auth ${cert:+"$cert"} ${key:+"$key"}
+	# when a config it reads, a collector, basic auth's file, the TLS files
+	# (a renewed certificate) or the capabilities change, or the TLS files
+	# come to be.
+	procd_set_param file $(echo "$mounts" | grep '^/etc/config/') "$COLLECTORS"/*.uc $auth ${cert:+"$cert"} ${key:+"$key"} "$CAPABILITIES"
 
 	procd_set_param stdout 1
 	procd_set_param stderr 1
@@ -189,7 +217,9 @@ start_service() {
 	# The jail leaves out a path a collector reads that is not there yet, such
 	# as unbound's socket directory, which unbound makes when it starts (after
 	# this service, at boot). The watch instance waits for it, and sends the
-	# event that reloads the service, which then mounts it.
+	# event that reloads the service, which then mounts it. It runs as root,
+	# unjailed: sending procd an event takes procd's service event, which the
+	# service's ACL does not grant, as it would let the jail send any.
 	[ -n "$missing" ] || return 0
 
 	procd_open_instance watch
@@ -198,6 +228,10 @@ start_service() {
 	procd_set_param stderr 1
 	procd_set_param respawn
 	procd_close_instance
+}
+
+service_stopped() {
+	jail_clean
 }
 
 # An invalid configuration keeps the running instance. Otherwise start again:

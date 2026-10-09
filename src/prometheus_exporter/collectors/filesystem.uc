@@ -38,6 +38,8 @@ export const meta = {
 	title: 'Filesystems',
 	help: 'Filesystem sizes, inodes and read-only flags, from the package\'s rpcd object (statvfs) and the host\'s /proc/mounts (rpcd\'s file read).',
 	needs: [ 'ubus' ],
+	// Its package's rpcd plugin, and luci's, where rpcd has not loaded it.
+	ubus: { 'prometheus-exporter.filesystem': [ 'mounts' ], file: [ 'read' ], luci: [ 'getMountPoints' ] },
 };
 
 const MOUNTS = '/proc/mounts';

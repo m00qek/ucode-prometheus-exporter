@@ -18,6 +18,7 @@ import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
 import { NEEDS } from 'prometheus_exporter.deps';
 import * as jail from 'prometheus_exporter.jail';
+import * as privileges from 'prometheus_exporter.privileges';
 import * as config from 'prometheus_exporter.config';
 import * as scan from 'prometheus_exporter.loader.imports';
 import * as collection from 'prometheus_exporter.collection';
@@ -257,6 +258,11 @@ export function validate(id, mod) {
 		if (!res.ok)
 			return res;
 	}
+
+	// What its user may do: ubus calls, capabilities, groups, proc files.
+	let why = privileges.meta_problem(meta);
+	if (why)
+		return invalid(id, why);
 
 	if (type(mod.collect) != 'function')
 		return invalid(id, 'exports no collect function');

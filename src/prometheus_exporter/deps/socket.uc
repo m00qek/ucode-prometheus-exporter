@@ -20,9 +20,15 @@ import * as errors from 'prometheus_exporter.errors';
 // 11 on every architecture OpenWrt builds for.
 const EAGAIN = 11;
 
+// What connect() fails with (errno) on a socket the process may not write
+// to: EACCES, 13 on every architecture OpenWrt builds for.
+const EACCES = 13;
+
 // A Unix stream socket's exchange: the message sent whole, then the reply read
 // until the server closes. Every wait (connect, send, each recv) is bounded by
-// `tv`; a failure is `path: <the socket module's error>`.
+// `tv`; a failure is `path: <the socket module's error>`. A socket the
+// service's user may not connect to is PERMISSION_DENIED, never a socket that
+// is not there: it is not in a group the socket is opened to (meta.groups).
 function exchange(mod, sock, path, message, tv, timeout_ms) {
 	let failed = () => Result.err(errors.SOCKET_FAILED, `${path}: ${mod.error()}`);
 
@@ -30,7 +36,9 @@ function exchange(mod, sock, path, message, tv, timeout_ms) {
 		return failed();
 
 	if (!sock.connect({ family: mod.AF_UNIX, path }))
-		return failed();
+		return (mod.error(true) == EACCES)
+			? Result.err(errors.PERMISSION_DENIED, `${path}: ${mod.error()}: the service's user is not in a group it is opened to (meta.groups), which the service joins it to when it starts`)
+			: failed();
 
 	// MSG_NOSIGNAL: a server gone before the message is sent is an EPIPE, not a
 	// SIGPIPE that would end uhttpd.

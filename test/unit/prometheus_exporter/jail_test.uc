@@ -5,6 +5,7 @@ import * as jail from 'prometheus_exporter.jail';
 import * as loader from 'prometheus_exporter.loader';
 import * as config from 'prometheus_exporter.config';
 import * as Result from 'prometheus_exporter.result';
+import * as privileges from 'prometheus_exporter.privileges';
 import { readfile } from 'fs';
 
 function collector(name, meta) {
@@ -343,7 +344,7 @@ describe('jail.COMMON', () => {
 		assert.match([
 			'procd_add_jail prometheus-exporter log procfs sysfs $ubus',
 			'procd_add_jail_mount $(echo $mounts | grep -vx $UBUS_SOCKET)',
-			'procd_add_jail_mount $cert $key /lib/libustream-*.so* /usr/lib/libustream-*.so*',
+			'procd_add_jail_mount $TLS_CERT $TLS_KEY /lib/libustream-*.so* /usr/lib/libustream-*.so*',
 			'procd_add_jail_mount $auth',
 			'procd_add_jail_mount_rw /var/run/prometheus-exporter/state',
 		], init_lines(text));
@@ -360,7 +361,7 @@ describe('jail.COMMON', () => {
 });
 
 describe('jail.mounts and ubus', () => {
-	const UBUS = collector('openwrt', { needs: [ 'ubus' ] });
+	const UBUS = collector('openwrt', { needs: [ 'ubus' ], ubus: { system: [ 'board' ] } });
 
 	it('the jail has it while a collector that needs ubus is enabled, and only then', () => {
 		with_sys({}, {}, null, (sys) => {
@@ -373,6 +374,103 @@ describe('jail.mounts and ubus', () => {
 
 	it('is no path of the service\'s own', () => {
 		assert.match(false, jail.UBUS_SOCKET in jail.COMMON);
+	});
+});
+
+describe('the init script, and the service\'s user', () => {
+	const TEXT = readfile('files/etc/init.d/prometheus-exporter');
+	const has = (line) => index(TEXT, `\n${line}\n`) >= 0;
+
+	it('names the files jail.uc --make writes where privileges does', () => {
+		assert.match([ true, true, true ], [
+			has(`CAPABILITIES=${replace(privileges.CAPABILITIES_FILE, config.NAME, '$NAME')}`),
+			has(`TLS_CERT=${replace(privileges.TLS_CERT, config.NAME, '$NAME')}`),
+			has(`TLS_KEY=${replace(privileges.TLS_KEY, config.NAME, '$NAME')}`),
+		]);
+	});
+
+	it('has procd run uhttpd as the package\'s user and group, with the capabilities file and no new privileges', () => {
+		assert.match([ true, true, true, true ], [
+			has('\tprocd_set_param user "$NAME"'), has('\tprocd_set_param group "$NAME"'),
+			has('\tprocd_set_param capabilities "$CAPABILITIES"'), has('\tprocd_set_param no_new_privs 1'),
+		]);
+		assert.match([ privileges.USER, privileges.GROUP ], [ config.NAME, config.NAME ]);
+	});
+
+	it('refuses to start without the user, serves TLS from the copies, and restarts when the capabilities change', () => {
+		assert.match([ true, true, true ], [
+			has('\tuser_exists "$NAME" && group_exists "$NAME" || {'),
+			has('\t\tprocd_append_param command -C "$TLS_CERT" -K "$TLS_KEY"'),
+			index(TEXT, '${key:+"$key"} "$CAPABILITIES"\n') > 0,
+		]);
+	});
+
+	it('grants before it starts, and takes back once stopped or disabled', () => {
+		assert.match([ true, true, true ], [
+			has('\t"$LIBEXEC/jail.uc" --clean 2>&1 | logger -t "$NAME" -p daemon.err'),
+			has('service_stopped() {\n\tjail_clean\n}'),
+			has('\tservice_enabled || { jail_clean; return 0; }'),
+		]);
+		assert.match(true, index(TEXT, '\tjail_make\n\tmounts=$(jail_mounts)\n') > 0);
+	});
+});
+
+describe('jail.grants', () => {
+	const DNSMASQ = collector('dnsmasq', { needs: [ 'ubus' ], ubus: { dnsmasq: [ 'metrics' ], rc: [ 'list' ] } });
+	const WIREGUARD = collector('wireguard', { needs: [ 'ubus' ], options: { peer_names: { default: false, title: 'P', help: 'P.' } },
+		ubus: { wireguard: [ 'status' ], uci: (o) => o.peer_names ? [ 'get' ] : [] } });
+	const NFT_ADMIN = collector('nft-counters', { needs: [ 'exec' ], commands: [ 'nft' ], capabilities: [ 'CAP_NET_ADMIN' ] });
+	const UNBOUND = collector('unbound', { needs: [ 'socket', 'ubus' ], ubus: { rc: [ 'list' ] }, groups: [ 'unbound' ] });
+	const NAT = collector('nat_traffic', { needs: [ 'fs' ], proc_files: [ '/proc/net/nf_conntrack' ] });
+	const CHRONY = collector('chrony', { needs: [ 'uci' ], configs: [ 'chrony' ] });
+
+	it('grants what the enabled collectors declare, and read access to the exporter\'s config and theirs', () => {
+		with_sys({}, {}, files([ '/usr/sbin/nft' ]), (sys) => {
+			assert.match({
+				ubus: { dnsmasq: [ 'metrics' ], rc: [ 'list' ], wireguard: [ 'status' ] },
+				capabilities: [ 'CAP_NET_ADMIN' ],
+				groups: [ 'unbound' ], groups_off: [],
+				files: [ '/etc/config/dhcp', jail.OWN_CONFIG, '/proc/net/nf_conntrack' ], files_off: [],
+				tls: null, port: 9100, problems: [],
+			}, jail.grants([ DNSMASQ, WIREGUARD, NFT_ADMIN, UNBOUND, NAT, DHCP, LOADAVG ], sys));
+		});
+	});
+
+	it('grants a call an option asks for only while it does', () => {
+		with_sys({ wireguard: { '.type': 'collector', peer_names: '1' } }, {}, null, (sys) => {
+			assert.match({ uci: [ 'get' ], wireguard: [ 'status' ] }, jail.grants([ WIREGUARD ], sys).ubus);
+		});
+	});
+
+	it('takes back what a disabled collector declares, unless an enabled one declares it too', () => {
+		let own = { unbound: { '.type': 'collector', enabled: '0' }, nat_traffic: { '.type': 'collector', enabled: '0' }, chrony: { '.type': 'collector', enabled: '0' },
+			dnsmasq: { '.type': 'collector', enabled: '0' } };
+
+		with_sys(own, {}, null, (sys) => {
+			let g = jail.grants([ UNBOUND, NAT, CHRONY, DHCP, DNSMASQ ], sys);
+
+			assert.match([ {}, [], [ 'unbound' ], [ '/etc/config/chrony', '/proc/net/nf_conntrack' ], [ '/etc/config/dhcp', jail.OWN_CONFIG ] ],
+				[ g.ubus, g.groups, g.groups_off, g.files_off, g.files ]);
+		});
+	});
+
+	it('copies the TLS files only when both are there, and names the port', () => {
+		let main = { main: { '.type': config.NAME, cert: '/etc/uhttpd.crt', key: '/etc/uhttpd.key', listen_port: '443' } };
+
+		with_sys(main, {}, files([ '/etc/uhttpd.crt', '/etc/uhttpd.key' ]), (sys) => {
+			assert.match([ { cert: '/etc/uhttpd.crt', key: '/etc/uhttpd.key' }, 443 ], [ jail.grants([], sys).tls, jail.grants([], sys).port ]);
+		});
+		with_sys(main, {}, files([ '/etc/uhttpd.crt' ]), (sys) => {
+			assert.match(null, jail.grants([], sys).tls);
+		});
+	});
+
+	it('says what a collector\'s ubus function gets wrong, naming it', () => {
+		let odd = collector('odd', { needs: [ 'ubus' ], ubus: { rc: () => die('boom') } });
+
+		with_sys({}, {}, null, (sys) => {
+			assert.match([ 'odd: meta.ubus: rc: its function failed: boom' ], jail.grants([ odd ], sys).problems);
+		});
 	});
 });
 

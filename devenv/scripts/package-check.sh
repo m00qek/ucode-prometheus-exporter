@@ -63,6 +63,8 @@ $(/exporter/devenv/scripts/package-info.sh groups)
 EOF
 check "keeps its config as a conffile" test -f /etc/config/$NAME
 check "and basic auth's hash's apart, mode 0600" sh -c "test -f /etc/config/$NAME-auth && ls -l /etc/config/$NAME-auth | grep -q '^-rw------- '"
+check "makes the user and group uhttpd runs as in its jail" sh -c "grep -q '^$NAME:x:[0-9]*:[0-9]*:' /etc/passwd && grep -q '^$NAME:x:[0-9]*:' /etc/group"
+check "ships ubusd's link to the ubus ACL the service writes" test "$(readlink /usr/share/acl.d/$NAME.json)" = "/var/run/$NAME.acl.json"
 check "runs its uci-defaults script once" test ! -e /etc/uci-defaults/$NAME-import
 check "the init script parses" sh -n /etc/init.d/$NAME
 
@@ -229,7 +231,7 @@ acl_is_ours() {
 		let want = { 'luci-app-$NAME': {
 			description: acl['luci-app-$NAME']?.description,
 			read: { ubus: { '$NAME': [ $APP_METHODS ] }, uci: [ '$NAME' ] },
-			write: { ubus: { '$NAME': [ 'set_password' ] }, uci: [ '$NAME' ] } } };
+			write: { ubus: { '$NAME': [ 'stage_password' ] }, uci: [ '$NAME', '$NAME-auth' ] } } };
 		exit(sprintf('%J', acl) == sprintf('%J', want) ? 0 : 1);" "$ACL"
 }
 plugin_kept() { for f in $PLUGIN $RPC_MODULE $STATUS_HELPER; do [ -f "$f" ] || return 1; done; }
@@ -246,7 +248,7 @@ for f in $APP_FILES; do
 	check "$f parses" parses "$f"
 done
 check "app depends on luci-base and the exporter alone" app_depends
-check "its ACL grants the ubus object's methods and the exporter's config only" acl_is_ours
+check "its ACL grants the ubus object's methods, the exporter's config, and writing basic auth's alone" acl_is_ours
 
 seed_luci_caches
 app_removed() {

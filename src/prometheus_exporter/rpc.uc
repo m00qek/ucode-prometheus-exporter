@@ -4,8 +4,8 @@
  * runs per request, and publishes nothing itself. It reads with the exporter's
  * own modules (loader, config, jail, scrape, check), so whoever asks (LuCI,
  * `ubus call` on the router, a script) sees what the exporter sees, and writes
- * nothing but the hash of basic auth's password (set_password): settings are
- * saved through uci.
+ * nothing but the hash of basic auth's password (set_password, or staged by
+ * stage_password): settings are saved through uci.
  *
  *   collectors {} -> { collectors: [ collector ], skipped: [ message ] }
  *   validate { main?, collectors? }
@@ -17,6 +17,7 @@
  *   hash_password { password } -> { hash }
  *   password {}   -> { saved }
  *   set_password { password } -> { saved }
+ *   stage_password { password } -> { staged }
  *
  * A collector and its options are as prometheus_exporter.rpc.describe
  * describes them, and validate checks values as prometheus_exporter.rpc.validate
@@ -57,14 +58,21 @@
  * there, or with '' removes it, commits it, and asks procd for the reload
  * that a commit of the config by uci's own tools would bring
  * (CONFIG_CHANGE). So a login may change the password without reading
- * the hash, and the service takes it at once.
+ * the hash, and the service takes it at once. stage_password does the same
+ * in uci's changes of the caller's rpcd session (ubus_rpc_session, which rpcd
+ * gives a call over HTTP), as LuCI's Save stages every other setting: its Save
+ * & Apply commits the hash with the rest, under its rollback, and the service
+ * takes it then. The session sees no change it may not read: LuCI's Revert,
+ * which reverts what `uci changes` lists, leaves it, and so does the end of
+ * the session, which drops what it staged.
  *
  * sys: { uci: a cursor, fs: { stat, glob, readfile }, path: the PATH commands are
  *        found on, dir: the collectors' directory, apk: apk's per-package file
  *        lists, collectors: the loaded ones, skipped: what the loader logged,
  *        env: a scrape env (prometheus_exporter.scrape), ubus: a ubus channel,
  *        random(n): n random bytes, ledger: the service's ledger, or null,
- *        uci_writer(): a cursor that commits }
+ *        uci_writer(): a cursor that commits, uci_session(sid): a cursor
+ *        that stages in rpcd session sid }
  *
  * @module prometheus_exporter_rpc
  */
@@ -447,6 +455,73 @@ export function set_password(sys, args) {
 	return { saved: res.data };
 };
 
+// An rpcd session's id.
+const SESSION = /^[0-9a-f]{32}$/;
+
+/**
+ * Stages `hash` as the saved one, '' removing it, in uci's changes of the rpcd
+ * session `sid`, as rpcd's uci set does: a Result. The package installs the
+ * config; one removed since is written again, mode 0600, with its section,
+ * for the session's apply to commit to.
+ *
+ * @param {RpcSys} sys the system: its fs and uci_session.
+ * @param {string} sid the session.
+ * @param {string} hash the hash, or ''.
+ * @returns {Result<boolean>} whether a hash is staged, or FILE_UNWRITABLE.
+ */
+export function stage_hash(sys, sid, hash) {
+	let failed = (why) => Result.err(errors.FILE_UNWRITABLE, `cannot stage ${config.AUTH_CONFIG} for the session: ${why}`);
+
+	if (sys.fs.stat(AUTH_FILE) == null &&
+	    (sys.fs.writefile(AUTH_FILE, `config ${config.AUTH_TYPE} '${config.AUTH_SECTION}'\n`) == null || !sys.fs.chmod(AUTH_FILE, 0o600)))
+		return failed(sys.fs.error?.() ?? 'unknown error');
+
+	let uci = sys.uci_session(sid);
+	let ok = uci.load(config.AUTH_CONFIG) && uci.set(config.AUTH_CONFIG, config.AUTH_SECTION, config.AUTH_TYPE);
+
+	if (ok && hash != '')
+		ok = uci.set(config.AUTH_CONFIG, config.AUTH_SECTION, 'auth_password', hash);
+	else if (ok && uci.get(config.AUTH_CONFIG, config.AUTH_SECTION, 'auth_password') != null)
+		ok = uci.delete(config.AUTH_CONFIG, config.AUTH_SECTION, 'auth_password');
+
+	if (!ok || !uci.save(config.AUTH_CONFIG))
+		return failed(uci.error() ?? 'unknown error');
+
+	return Result.ok(hash != '');
+};
+
+/**
+ * { staged } of stage_password: args.password hashed and staged in the
+ * caller's rpcd session (args.ubus_rpc_session, which rpcd gives a call over
+ * HTTP), or with '' the saved hash's removal staged. Nothing is committed,
+ * and the service is not reloaded: the session's apply does both.
+ *
+ * @param {RpcSys} sys the system: its random, fs and uci_session.
+ * @param {?Object} args the method's arguments: { password, ubus_rpc_session }.
+ * @returns {Object} { staged }, or { error, message }.
+ */
+export function stage_password(sys, args) {
+	let sid = args?.ubus_rpc_session;
+
+	if (type(sid) != 'string' || !match(sid, SESSION))
+		return invalid_args('ubus_rpc_session: expected the rpcd session to stage in, which rpcd gives a call over HTTP');
+
+	let password = args?.password;
+	let hash = '';
+
+	if (password !== '') {
+		let res = hash_password(sys, args);
+
+		if (res.error)
+			return res;
+		hash = res.hash;
+	}
+
+	let res = stage_hash(sys, sid, hash);
+
+	return res.ok ? { staged: res.data } : { error: res.error, message: Result.describe(res) };
+};
+
 /**
  * Runs `command` without blocking rpcd, and replies with the JSON object it
  * prints. io: { popen(command) -> a handle, or null; watch(handle, cb): calls
@@ -604,6 +679,10 @@ export function methods(make_sys, io) {
 				return out;
 			},
 		},
+		stage_password: {
+			args: { password: '' },
+			call: (req) => stage_password(make_sys({ collectors: false }), req.args),
+		},
 	};
 };
 
@@ -637,6 +716,7 @@ export function system(opts) {
 		ledger: st ? ledger.parse(st.read(ledger.NAME)) : null,
 		random: deps.urandom(mods.fs),
 		uci_writer: deps.writable_cursor,
+		uci_session: deps.session_cursor,
 	};
 
 	// In the service's jail, where it can be had (check.trial).

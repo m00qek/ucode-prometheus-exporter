@@ -10,6 +10,7 @@ export const meta = {
 	title: 'Realtek PoE',
 	help: 'PoE budget, consumption and port states of realtek-poe switches, from ubus poe info.',
 	needs: [ 'ubus' ],
+	ubus: { poe: [ 'info' ] },
 };
 
 // The port modes and states realtek-poe reports (src/main.c,

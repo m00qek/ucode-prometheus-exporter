@@ -6,9 +6,10 @@
  * prometheus_exporter.auth; the collectors' durations, breakers and counters,
  * see prometheus_exporter.ledger).
  *
- * DIR is on tmpfs, never on flash, mode 0700 (root's alone), inside the
- * directory of uhttpd's config file (also 0700). jail.uc --make makes it, and
- * the init script mounts it read-write in the jail, the one path there that is.
+ * DIR is on tmpfs, never on flash, mode 0700, the service's user's alone (the
+ * user uhttpd runs as in the jail), inside the directory of uhttpd's config
+ * file (0700, root's). jail.uc --make makes it, and the init script mounts it
+ * read-write in the jail, the one path there that is.
  *
  * State is the instance's own, and lost when the service restarts, not only at
  * reboot: the handler names its instance when uhttpd loads it, before any
@@ -177,17 +178,24 @@ export function pid_of(id) {
 
 /**
  * Makes DIR and RUN_DIR, as needed, and closes both to their owner (0700):
- * a Result-like { ok, problem }.
+ * a Result-like { ok, problem }. With `owner`, DIR is that user's and its
+ * group's: the service's (privileges.USER), which uhttpd runs as in the jail;
+ * RUN_DIR stays root's, which only root enters.
  *
  * @param {module:fs} fs the fs module, or an object of its stat, mkdir,
- *   chmod and error.
+ *   chmod, chown and error.
+ * @param {?string} owner the user, and group, DIR is given to; null keeps it
+ *   as it is.
  * @returns {{ ok: boolean, problem: ?string }} whether it made them, and
  *   what failed.
  */
-export function make(fs) {
+export function make(fs, owner) {
 	for (let d in [ RUN_DIR, DIR ])
 		if ((fs.stat(d) == null && !fs.mkdir(d, 0o700)) || !fs.chmod(d, 0o700))
 			return { ok: false, problem: `cannot make ${d}: ${fs.error() ?? 'unknown error'}` };
+
+	if (owner != null && !fs.chown(DIR, owner, owner))
+		return { ok: false, problem: `cannot give ${DIR} to ${owner}: ${fs.error() ?? 'unknown error'}` };
 
 	return { ok: true, problem: null };
 };

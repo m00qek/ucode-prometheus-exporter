@@ -5,8 +5,14 @@
  * the service (prometheus_exporter.jail's mounts of the enabled collectors, the
  * exporter's code and libraries, the state read-write), procfs, sysfs, the log
  * and, when an enabled collector needs it, ubus, at the service's priority
- * and memory limit: so what they find is what Prometheus gets. The collectors run in it as in the service, each in a
- * process of its own (prometheus_exporter.runner).
+ * and memory limit, as the service's user and group, with no new privileges
+ * and the capabilities the service has (prometheus_exporter.privileges'
+ * CAPABILITIES_FILE, which the service writes when it starts; none while it
+ * is stopped): so what they find is what Prometheus gets. They have what the
+ * service granted its user when it started, its ubus ACL among it: a
+ * collector enabled since fails, PERMISSION_DENIED, until a reload grants it.
+ * The collectors run in it as in the service, each in a process of its own
+ * (prometheus_exporter.runner).
  *
  * ujail needs root and a kernel that lets it make namespaces: where it is not
  * there, or fails, the caller runs them in its own process, outside the jail,
@@ -29,6 +35,7 @@ import * as config from 'prometheus_exporter.config';
 import * as jail from 'prometheus_exporter.jail';
 import { shell_quote } from 'prometheus_exporter.deps';
 import { DIR as STATE_DIR } from 'prometheus_exporter.state';
+import * as privileges from 'prometheus_exporter.privileges';
 
 /**
  * A run of the chosen collectors, as trial() gives it: whether it ran in the
@@ -126,9 +133,14 @@ export function command(sys, collectors, args) {
 	for (let pattern in LIBS)
 		push(ro, ...(sys.fs.glob(pattern) ?? []));
 
+	// As the service's procd instance has ujail run uhttpd: -U and -G its
+	// user, -C its capabilities, -c no new privileges.
+	let caps = (sys.fs.stat(privileges.CAPABILITIES_FILE) != null) ? ` -C ${shell_quote(privileges.CAPABILITIES_FILE)}` : '';
+
 	// ujail's -u mounts the ubus socket, as the init script's ubus option does.
-	return sprintf('ulimit -d %d && exec nice -n %d %s -n %s -p -s -l%s %s -w %s -- %s %s %s 2>/dev/null',
-		data_kb(sys), NICE, UJAIL, shell_quote(`${config.NAME}-trial`), (jail.UBUS_SOCKET in mounts) ? ' -u' : '',
+	return sprintf('ulimit -d %d && exec nice -n %d %s -n %s -U %s -G %s%s -c -p -s -l%s %s -w %s -- %s %s %s 2>/dev/null',
+		data_kb(sys), NICE, UJAIL, shell_quote(`${config.NAME}-trial`), shell_quote(privileges.USER), shell_quote(privileges.GROUP), caps,
+		(jail.UBUS_SOCKET in mounts) ? ' -u' : '',
 		join(' ', map(uniq(ro), (p) => '-r ' + shell_quote(p))), shell_quote(STATE_DIR),
 		UCODE, TRIAL, join(' ', map(args, shell_quote)));
 };

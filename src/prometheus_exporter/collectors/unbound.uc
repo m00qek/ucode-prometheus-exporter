@@ -50,6 +50,10 @@ export const meta = {
 	title: 'Unbound DNS resolver',
 	help: 'Unbound DNS resolver statistics, from its remote control socket.',
 	needs: [ 'socket', 'ubus' ],
+	// rc list: whether its service is enabled (the API's services).
+	ubus: { rc: [ 'list' ] },
+	// Unbound's control socket is srw-rw---- unbound:unbound.
+	groups: [ 'unbound' ],
 	// OpenWrt's unbound package never makes a Unix control socket: its UCI
 	// option unbound_control writes `control-interface: 127.0.0.1` and `::1`
 	// (levels 1 and 2) or all addresses (3 and 4), and nothing at all by default

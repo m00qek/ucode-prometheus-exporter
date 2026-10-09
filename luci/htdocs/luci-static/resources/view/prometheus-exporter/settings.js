@@ -19,10 +19,11 @@
 // What is saved states every setting: the main section's fields write their values even
 // at the defaults (but for the TLS files and basic auth, which are unset without them).
 // Basic auth's password is never saved, nor shown, nor its hash, which is saved apart from
-// the exporter's config, where the app's ACL does not reach: Save hands a password typed
-// in its field to the object's set_password, which saves its hash and has the service
-// reload; an empty field keeps the saved one, and a user emptied takes basic auth away,
-// the saved hash left unused. A collector's
+// the exporter's config, where the app's ACL lets a login write and not read: Save hands
+// a password typed in its field to the object's stage_password, which stages its hash in
+// the login's session, and Save & Apply commits it with the rest, as every other setting;
+// an empty field keeps the saved one, and a user emptied takes basic auth away, the saved
+// hash left unused. A collector's
 // `config collector '<module>'` section is there only while something differs from the
 // defaults, its switch included, or a timeout is set; while it is, it holds the switch
 // and every option the collector declares, each written out. timeout is written only
@@ -52,9 +53,10 @@ const blank = widgets.blank;
 // How long typing pauses before the values are checked, in ms.
 const CHECK_DELAY = widgets.CHECK_DELAY;
 
-// What the object's validate is given for a password typed and not yet hashed: a hash of
-// the form set_password makes (1000 rounds, which auth_password takes; one that names
-// none has 5000, which it refuses), so that the options that go with it are checked.
+// What the object's validate is given for a password typed and not yet hashed, or staged
+// and not yet applied: a hash of the form stage_password makes (1000 rounds, which
+// auth_password takes; one that names none has 5000, which it refuses), so that the
+// options that go with it are checked.
 const PENDING_HASH = '$6$rounds=1000$$' + '.'.repeat(86);
 
 // The longest password the object hashes, in bytes.
@@ -284,8 +286,9 @@ return view.extend({
 	},
 
 	// The form's values as the object's validate takes them: empty fields left out, as unset.
-	// Basic auth's password is a stand-in for a hash when a password is typed; otherwise it
-	// is left out, and the object checks the saved hash, which the page may not read.
+	// Basic auth's password is a stand-in for a hash when a password is typed, or staged by
+	// a Save; otherwise it is left out, and the object checks the saved hash, which the page
+	// may not read.
 	candidate() {
 		const main = {};
 
@@ -296,7 +299,7 @@ return view.extend({
 		}
 
 		delete main.auth_password;
-		if (main.auth_user != null && !blank(this.mainOptions.auth_password.formvalue('main')))
+		if (main.auth_user != null && (!blank(this.mainOptions.auth_password.formvalue('main')) || this.mainOptions.auth_password.hashStaged === true))
 			main.auth_password = PENDING_HASH;
 
 		return { main: main, collectors: this.table.candidate() };

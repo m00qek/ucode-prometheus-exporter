@@ -31,6 +31,8 @@ export const meta = {
 	title: 'hostapd stations',
 	help: 'Stations of each hostapd access point, from hostapd\'s ubus objects.',
 	needs: [ 'ubus' ],
+	// hostapd.<interface>, one object per access point.
+	ubus: { 'hostapd.*': [ 'get_clients', 'get_status' ], 'network.wireless': [ 'status' ] },
 };
 
 function metrics(out) {
