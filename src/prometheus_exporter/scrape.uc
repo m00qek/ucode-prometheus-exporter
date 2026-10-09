@@ -664,7 +664,8 @@ export function scrape(env, collectors, query_string, opts) {
 	if (st?.dead)
 		bury(env, st, collectors);
 
-	let l = ledger.parse(st?.read(ledger.NAME));
+	let kept = st?.read(ledger.NAME);
+	let l = ledger.parse(kept);
 	let progress = st?.progress ? st.progress() : null;
 	let by_id = collect(env, uci, l, sel.data, {
 		deadline: opts?.deadline, quarantine: true, collectors, pid: st ? pid_of(st.id) : null, kept: st != null,
@@ -697,7 +698,9 @@ export function scrape(env, collectors, query_string, opts) {
 
 		let recorded = st.update(ledger.NAME, function(text) {
 			events = [];
-			return ledger.serialize(ledger.record(ledger.parse(text), runs, written, ids, events), SIZE_MAX);
+			// Read again under the lock, as another scrape may have recorded
+			// itself since: parsed again only then. A ledger is never changed.
+			return ledger.serialize(ledger.record((text == kept) ? l : ledger.parse(text), runs, written, ids, events), SIZE_MAX);
 		});
 
 		// The next scrape then orders, times and quarantines by an old one.

@@ -343,7 +343,7 @@ export function outcome_of(run) {
 
 	if (run.skipped != null)
 		return [ 'neutral', null ];
-	if (res?.error in [ errors.COLLECTOR_CANCELLED, errors.COLLECTOR_KILLED ])
+	if (res?.error == errors.COLLECTOR_CANCELLED || res?.error == errors.COLLECTOR_KILLED)
 		return [ 'trip', Result.describe(res) ];
 	if (run.budget != null && run.duration > run.budget)
 		return [ 'trip', sprintf('%s (took %.2f s, over its budget of %d s)', errors.COLLECTOR_OVERRUN, run.duration, run.budget) ];
@@ -365,7 +365,7 @@ function count_failure(e, code) {
 		code = OTHER;
 
 	let fails = { ...(e.fails ?? {}) };
-	let key = (code in keys(fails) || length(fails) < REASONS_MAX) ? code : OTHER;
+	let key = (fails[code] != null || length(fails) < REASONS_MAX) ? code : OTHER;
 
 	fails[key] = (fails[key] ?? 0) + 1;
 	e.fails = fails;
@@ -419,15 +419,16 @@ export function record(ledger, runs, written, ids, events) {
 		if (r.skipped == 'deadline' && e.d != null)
 			e.d *= DEADLINE_DECAY;
 
+		// e is this record's own copy: its breaker changes it in place.
 		let o = outcome_of(r);
-		let b = breaker.after(e, o[0], n, (o[1] != null) ? substr(o[1], 0, WHY_MAX) : null);
+		let change = breaker.apply(e, o[0], n, (o[1] != null) ? substr(o[1], 0, WHY_MAX) : null);
 
-		if (events && (b.tripped || b.closed))
-			push(events, { name: r.name, tripped: b.tripped, closed: b.closed, cooldown: b.entry.cd, why: b.entry.why });
-		if (b.tripped)
-			b.entry.qn = (b.entry.qn ?? 0) + 1;
+		if (events && change != null)
+			push(events, { name: r.name, tripped: change == 'tripped', closed: change == 'closed', cooldown: e.cd, why: e.why });
+		if (change == 'tripped')
+			e.qn = (e.qn ?? 0) + 1;
 
-		c[r.id] = b.entry;
+		c[r.id] = e;
 	}
 
 	let k = ledger.k;
