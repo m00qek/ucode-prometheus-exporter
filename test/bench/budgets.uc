@@ -105,10 +105,16 @@ const HANDLER_SHARE = { 'typical/handler:base': 1.3, 'typical/handler:full': 0.6
 const RECORD_FACTOR = { 'typical/record:labels': 3.0, 'typical/record:double': 3.9 };
 
 // What a scrape may cost for each collector besides it (noop:), in seconds:
-// its settings, the round trip to the child process it runs in, and its
-// four samples of the scrape's own. Measured 0.13 ms in the devenv; a
-// scrape that forked a process for each collector would pass it.
+// its settings, its start and its run in the file the child process writes
+// and this one reads, and its four samples of the scrape's own. Measured
+// 0.077 ms in the devenv, 0.13 ms in 0.2.1; a scrape that forked a process
+// for each collector would pass it.
 const PER_COLLECTOR = 0.0005;
+
+// The same, in turns of an empty loop of the VM (calibrate:vm), which holds
+// on any machine: measured 330 in the devenv (0.077 ms of 0.234 us) and 310
+// on a Cortex-A53, where 0.2.1 took 570 and 510.
+const PER_COLLECTOR_TURNS = 450;
 
 // [ world/case, kB, what ]: how far a run's peak memory may rise, about three
 // times what was measured on x86_64 (a 32-bit router's is less), which a
@@ -121,6 +127,17 @@ const MEMORY = [
 	[ 'large/scrape:full', 48 * 1024, 'a busy router\'s full scrape' ],
 	// Measured 5.2 MB; 26 MB before.
 	[ 'large/collector:nat_traffic@20000', 16 * 1024, 'nat_traffic on 20k entries' ],
+];
+
+// [ world/case, kB, what ]: how much the handler's process may hold once it
+// loaded a set (rest:), which uhttpd holds for as long as it runs, and every
+// scrape's processes start from. Measured 1.47 MB for the base collectors and
+// 2.08 MB for every one on x86_64 (a 32-bit router's is less), where the
+// exporter before took 2.06 and 2.62: a regex of a count, or the loader kept,
+// would pass it.
+const REST = [
+	[ 'typical/rest:base', 1800, 'the handler with the base collectors, at rest' ],
+	[ 'typical/rest:full', 2400, 'the handler with every collector, at rest' ],
 ];
 
 // The noop: cases, scrapes of that many collectors that write nothing: the
@@ -225,9 +242,18 @@ export function check(results, absolute) {
 	if (absolute && each != null && each > PER_COLLECTOR)
 		push(over, sprintf('noop: %.3f ms a collector besides it, over %.3f ms', each * 1000, PER_COLLECTOR * 1000));
 
+	let vm = r['large/calibrate:vm'];
+
+	if (each != null && vm?.loop_us > 0 && each * 1000000 / vm.loop_us > PER_COLLECTOR_TURNS)
+		push(over, sprintf('noop: %.0f loop turns a collector besides it, over %d', each * 1000000 / vm.loop_us, PER_COLLECTOR_TURNS));
+
 	for (let b in MEMORY)
 		if (r[b[0]]?.growth_kb > b[1])
 			push(over, sprintf('%s (%s): grows %d kB, over %d kB', b[0], b[2], r[b[0]].growth_kb, b[1]));
+
+	for (let b in REST)
+		if (r[b[0]]?.held_kb > b[1])
+			push(over, sprintf('%s (%s): holds %d kB, over %d kB', b[0], b[2], r[b[0]].held_kb, b[1]));
 
 	if (absolute)
 		for (let b in TIME)
