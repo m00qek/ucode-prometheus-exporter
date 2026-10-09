@@ -84,6 +84,25 @@ describe('collectors.vmstat', () => {
 			});
 	});
 
+	// The default is checked without the regex, and an integer as the
+	// format spells it without INTEGER's: what either exports, and how
+	// either fails, is what the pattern, matched, and the match give.
+	prop('exports and fails as the default pattern, matched, does',
+		gen.array(gen.tuple(
+			gen.elements('pgfault', 'pgmajfault', 'pg_fault', 'pgfaul', 'xpgfault', 'pfault', 'pg', 'pgpgin', 'pgp', 'pswp', 'pswpout',
+				'oom_kill', 'oom_kil', 'oom_killx', 'nr_dirty', 'pgfault', 'pgsteal'),
+			gen.elements('0', '7', '-5', '-0', '007', '+3', '1e3', '0x10', 'x', '9223372036854775808', '')), { max_len: 10 }), (rows) => {
+			let seen = {};
+			rows = filter(rows, (r) => !seen[r[0]] && (seen[r[0]] = true));
+
+			let data = file(join('', map(rows, (r) => `${r[0]} ${r[1]}\n`)));
+			let looked, matched;
+
+			with_collector(vmstat, data, (r) => looked = [ r.result.ok, r.result.error, r.lines ]);
+			with_collector(vmstat, { ...data, options: { fields: `(${vmstat.DEFAULT_FIELDS})` } }, (r) => matched = [ r.result.ok, r.result.error, r.lines ]);
+			assert.match(matched, looked, sprintf('%J', rows));
+		});
+
 	prop('exports exactly the fields of the default pattern, with their values',
 		gen.array(gen.tuple(
 			gen.oneof(gen.elements('pgfault', 'pgmajfault', 'pgpgin', 'pswpout', 'oom_kill', 'pgsteal_kswapd'),

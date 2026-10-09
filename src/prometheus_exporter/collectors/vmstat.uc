@@ -30,36 +30,46 @@ export const meta = {
 
 export const PATH = '/proc/vmstat';
 
+// Whether DEFAULT_FIELDS matches a field: it starts with oom_kill, pgpg or
+// pswp, or with pg and has fault after. /proc/vmstat has 150 to 200 fields,
+// and the default, which nearly every router has, is checked with a call or
+// two of each rather than musl's regexec; any other pattern is matched.
+function default_field(name) {
+	let p = substr(name, 0, 4);
+
+	return p == 'pgpg' || p == 'pswp' || (p == 'oom_' && substr(name, 0, 8) == 'oom_kill') ||
+		(substr(p, 0, 2) == 'pg' && index(name, 'fault') >= 2);
+}
+
 export function collect(deps, out, options) {
-	let pattern;
+	let pattern = null;
 
 	try {
-		pattern = regexp(options.fields);
+		if (options.fields != DEFAULT_FIELDS)
+			pattern = regexp(options.fields);
 	} catch (e) {
 		return Result.err(errors.CONFIG_INVALID, `fields: ${e.message}`);
 	}
 
-	let rows = proc.lines(deps.fs, PATH);
+	let rows = proc.rows(deps.fs, PATH);
 	if (rows == null)
 		return Result.err(errors.SOURCE_UNREADABLE, PATH);
 
 	// node_exporter reads every value before it matches the name: a malformed
-	// line fails the scrape, whatever the pattern.
+	// line fails the scrape, whatever the pattern. An integer as the format
+	// spells it, as each of the kernel's is, needs no match.
 	let matched = [];
-	for (let i, line in rows) {
-		let f = proc.fields(line);
-
+	for (let i, f in rows) {
 		if (!length(f))
 			continue;
-		if (length(f) != 2 || !match(f[1], INTEGER))
-			return Result.err(errors.SOURCE_INVALID, `${PATH}: line ${i + 1}: ${sprintf('%J', line)}`);
+		if (length(f) != 2 || (('' + +f[1]) != f[1] && !match(f[1], INTEGER)))
+			return Result.err(errors.SOURCE_INVALID, `${PATH}: line ${i + 1}: ${sprintf('%J', join(' ', f))}`);
 
-		if (match(f[0], pattern))
-			push(matched, f);
+		if (pattern ? match(f[0], pattern) : default_field(f[0]))
+			push(matched, [ `node_vmstat_${f[0]}`, `/proc/vmstat information field ${f[0]}.`, f[1] ]);
 	}
 
-	for (let f in matched)
-		out.untyped(`node_vmstat_${f[0]}`, `/proc/vmstat information field ${f[0]}.`)(null, f[1]);
+	out.batch('untyped', matched);
 
 	return Result.ok();
 };
