@@ -6,6 +6,10 @@ What each release changes, for those who run the exporter and those who write co
 
 0.3.0 is the first release candidate for 1.0: the metric names and labels it has are those 1.0 keeps. Upgrading from 0.2.1 relabels or drops a few series: see [Upgrading the exporter](docs/how-to/upgrade.md#from-021-to-030).
 
+### Added
+
+- **hwmon writes the limits of a chip's temperatures and a meter's average power**, as node_exporter does: `node_hwmon_temp_max_celsius` and `node_hwmon_temp_crit_celsius` from `tempN_max` and `tempN_crit` (a Wi-Fi radio's throttling thresholds, as mt76's), `node_hwmon_temp_alarm` from `tempN_alarm`, and `node_hwmon_power_average_watt` from `powerN_average`, each labeled `chip` and `sensor`.
+
 ### Changed
 
 - **BREAKING: snmp6 exports 13 fields of each device by default**, where it wrote every one of `/proc/net/dev_snmp6/<device>`, some 70: 130 series on a router of 10 devices where it wrote 712. It keeps the device's octets, ICMP messages and the ICMP errors it received (node_exporter's netstat defaults, by device), the datagrams it forwarded, discarded or found no route for, and those it received with a bad header, a destination not its own or too big to forward. `node_snmp6_ifindex` is among those left out: netclass's `node_network_iface_id` is the same index. The new option `fields`, a regular expression of `<Protocol>_<Field>` as netstat's is, takes others: `option fields '.*'` exports every one, as before. See [Collectors](docs/reference/collectors.md#snmp6).

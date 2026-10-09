@@ -27,7 +27,7 @@ The labels are those seen on the captures; a collector leaves out a label it has
 | [`filesystem`](#filesystem) | 4 | an access point, a router | — |
 | [`hostapd_stations`](#hostapd_stations) | 15 | an access point | — |
 | [`hostapd_ubus_stations`](#hostapd_ubus_stations) | 7 | an access point | — |
-| [`hwmon`](#hwmon) | 13 | an access point, a router, made-up captures | — |
+| [`hwmon`](#hwmon) | 17 | an access point, a router, made-up captures | — |
 | [`loadavg`](#loadavg) | 3 | an access point, a router | — |
 | [`ltq-dsl`](#ltq-dsl) | 15 | made-up captures | — |
 | [`meminfo`](#meminfo) | 50 | an access point, a router | — |
@@ -362,6 +362,10 @@ Hardware sensors. [Collector](collectors.md#hwmon).
 | `node_hwmon_in_alarm` | gauge | `chip`, `sensor` | Hardware sensor alarm status (in) | — |
 | `node_hwmon_curr_amps` | gauge | `chip`, `sensor` | Hardware monitor for current (input) | — |
 | `node_hwmon_power_watt` | gauge | `chip`, `sensor` | Hardware monitor for power usage in watts (input) | — |
+| `node_hwmon_power_average_watt` | gauge | `chip`, `sensor` | Hardware monitor for power usage in watts (average) | — |
+| `node_hwmon_temp_max_celsius` | gauge | `chip`, `sensor` | Hardware monitor for temperature (max) | — |
+| `node_hwmon_temp_crit_celsius` | gauge | `chip`, `sensor` | Hardware monitor for temperature (crit) | — |
+| `node_hwmon_temp_alarm` | gauge | `chip`, `sensor` | Hardware sensor alarm status (temp) | — |
 
 ## `loadavg` {#loadavg}
 

@@ -9,7 +9,9 @@
 #   stopped below its minimum, so in alarm) and voltages (inN_input, _min,
 #   _max, _alarm, in millivolts after the driver's scaling), with the _beep
 #   and _pulses files the driver has besides: sysfs-interface.rst's "Fans"
-#   and "Voltages", and the attributes nct6775.rst lists.
+#   and "Voltages", and the attributes nct6775.rst lists. Its two first
+#   temperatures' limits: tempN_max and tempN_max_hyst (80 and 75 degrees)
+#   and tempN_alarm, as sysfs-interface.rst's "Temperatures" has them.
 # sys/class/hwmon/hwmon1
 #   A chip with neither a name file nor a device link, below 0 degrees.
 # sys/class/hwmon/hwmon2, links.json
@@ -20,6 +22,18 @@
 #   attributes of Documentation/hwmon/ina2xx.rst, the units of
 #   sysfs-interface.rst's "Voltages", "Currents" and "Power"; the device path
 #   as an I2C client's (bus-address) under its adapter.
+# sys/class/hwmon/hwmon3, links.json
+#   A MediaTek MT7915-family radio (mt76's mt7915 driver, which the MT7981's
+#   Wi-Fi uses) with its throttling limits: temp1_input, temp1_crit and
+#   temp1_max, the driver's 110 and 100 degrees (MT7915_CRIT_TEMP,
+#   MT7915_MAX_TEMP in mt7915.h; the attributes of mt7915_thermal_init() in
+#   init.c). The access point's captures hold its radios' temp1_input only.
+# sys/class/hwmon/hwmon4, links.json
+#   A TI LM25066 hot-swap controller on I2C bus 1 at 0x10, as on PoE boards:
+#   power1_input and its average (power1_average), power1_input_highest and
+#   power1_alarm, which the collector does not export, and curr1_input and
+#   in1_input of the same 12 V input. Attributes: Documentation/hwmon/lm25066.rst;
+#   units: sysfs-interface.rst's "Power" (uW).
 # proc/diskstats, sys/block/sda/queue/rotational
 #   Kernel 4.14's /proc/diskstats (OpenWrt 19.07's), 14 fields a line: before
 #   the discard statistics (4.18) and the flush ones (5.5). Format:

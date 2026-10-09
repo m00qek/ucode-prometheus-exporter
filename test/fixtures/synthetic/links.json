@@ -1,4 +1,6 @@
 {
 	"/sys/class/hwmon/hwmon0/device": "/sys/devices/platform/nct6775.656",
-	"/sys/class/hwmon/hwmon2/device": "/sys/devices/platform/soc/11007000.i2c/i2c-0/0-0040"
+	"/sys/class/hwmon/hwmon2/device": "/sys/devices/platform/soc/11007000.i2c/i2c-0/0-0040",
+	"/sys/class/hwmon/hwmon3/device": "/sys/devices/platform/soc/18000000.wifi/ieee80211/phy0",
+	"/sys/class/hwmon/hwmon4/device": "/sys/devices/platform/soc/11008000.i2c/i2c-1/1-0010"
 }
