@@ -141,6 +141,31 @@ uhttpd holds less too, which the benchmark's `rest:` cases measure: what the pro
 
 What is left is code: ucode keeps about a kilobyte for each function a program compiled and each object it made, so the handler's program, some 350 functions, holds about 0.95 MB, the native modules 0.35 MB, and the collectors 20 kB each besides the 100 kB of the collector API they share.
 
+## The collectors, in 0.3.0 {#collectors-in-030}
+
+On the YunCore AX835, an access point of 20 collectors and 838 samples, a scrape took 0.193 s, its collectors 137 ms of it, where the Lua exporter's took 0.083 s; netclass, netstat, netdev, wifi and the exporter collector were 100 ms of the 137. What each cost was rarely its source. A turn of the VM's loop and a builtin's call cost a microsecond or so there, and these collectors did a few of each for every field or file the kernel has, whether they wrote it or not:
+
+- **netstat** checked each of the kernel's 400 or so fields against node_exporter's default pattern, a turn and several calls each, to write 42 of them, and split each of `/proc/net/snmp6`'s 90 lines with a regex. It now looks for the fields the default takes in each section's names, an index() of each it names whole and one match of the names for the rest, which skips MPTcpExt's 70 at once; it splits a line of snmp6 on its tab, and leaves one the default does not take unread. Property tests hold both to the pattern and to proc.fields() with the protocols' regex.
+- **netclass** read 14 sysfs files a link, and a file of a router's sysfs costs as much as all else it does for the link. It reads 9 to 11: flags once, not twice; the alias from the link dump, which has it; carrier_changes as the sum of the up and down counts, which is what sysfs writes of it; iflink as the ifindex where the dump has no other link; and duplex only where speed could be read. The fixtures' sysfs holds each to what reading it gives.
+- **The exporter collector** read the auxiliary vector a byte at a time, a turn of a loop a byte, for the clock tick, and found `/proc/stat`'s btime with a regex that read its 2 kB of interrupt counts: it reads a word with one expression, and finds the line with an index(). vmstat checked each of 170 fields with two regexes, its default now with a call or two. netdev made an array for each statistic of each link.
+- **A family of one sample** cost a writer made and called, a call of sanitize() and a match of its HELP: meminfo, netstat and vmstat write dozens. `out.batch()` records them without a writer each, with one match of every HELP, and a name valid as it is is taken after one match; a property test holds a batch to what a writer for each row records.
+
+Each collector on the benchmark's large world (50 links, 3 radios of 3 networks and 200 stations), before (main of 2026-10-09) and now; the Cortex-A53's include the 3.5 ms its case costs a collector that writes one sample:
+
+| Collector | devenv | QEMU's 500-MIPS 24Kc | YunCore AX835 |
+| :--- | :--- | :--- | :--- |
+| netstat | 2.4 → 1.3 ms | 82 → 43 ms | 29.3 → 15.2 ms |
+| netclass | 12.0 → 10.0 ms | 274 → 237 ms | 108.9 → 90.4 ms |
+| netdev | 3.9 → 3.2 ms | 152 → 128 ms | 50.9 → 42.5 ms |
+| wifi | 10.2 → 9.4 ms | 362 → 354 ms | 126 → 124 ms |
+| the exporter collector | 1.05 → 0.77 ms | 19.6 → 14.2 ms | 9.3 → 6.6 ms |
+| meminfo | 0.97 → 0.79 ms | 25.0 → 22.5 ms | 9.8 → 8.7 ms |
+| vmstat | 0.93 → 0.58 ms | 15.0 → 13.8 ms | 7.7 → 5.4 ms |
+| a family of a sample (`record:family`) | 14.1 → 12.4 µs | 488 → 460 µs | 172 → 158 µs |
+| a scrape of the base collectors, typical (`scrape:base`) | 14.4 → 12.8 ms | 355 → 337 ms | 131 → 124 ms |
+
+The access point's own scrape, its 12 links and a few stations, takes these collectors' share of what it took less: netstat about 12 ms where it took 26.6, against the Lua exporter's 10.6; netclass and netdev together about 40 ms where they took 48, against Lua's 29.4; the exporter collector about 7 ms where it took 10.8. That is some 30 ms of the 193, a scrape of about 0.165 s. What is left is mostly what a sample and a family cost every collector, the VM's own work, and wifi's ubus call and nl80211's replies, which no change here touched.
+
 ## Loading {#loading}
 
 uhttpd loads the collectors when it starts, in the process every request is forked from, and holds them as long as it runs. A collector imports the collector API, which imports four modules of the core; ucode compiles a module once in a program, and keeps its source file open while the program lives. 0.2.0 compiled a program for each collector, so each had its own copy of those five modules, and six descriptors with its own: 37 collectors kept 268 open in the R3S's uhttpd, where a process may open 1024, which some 160 collectors would reach. The collectors are now compiled as one program, once each has loaded in a child process of its own (the probe, which still compiles each alone):
