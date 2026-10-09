@@ -5,6 +5,7 @@ import * as jail from 'prometheus_exporter.jail';
 import * as loader from 'prometheus_exporter.loader';
 import * as config from 'prometheus_exporter.config';
 import * as Result from 'prometheus_exporter.result';
+import * as privileges from 'prometheus_exporter.privileges';
 import { readfile } from 'fs';
 
 function collector(name, meta) {
@@ -343,7 +344,7 @@ describe('jail.COMMON', () => {
 		assert.match([
 			'procd_add_jail prometheus-exporter log procfs sysfs $ubus',
 			'procd_add_jail_mount $(echo $mounts | grep -vx $UBUS_SOCKET)',
-			'procd_add_jail_mount $cert $key /lib/libustream-*.so* /usr/lib/libustream-*.so*',
+			'procd_add_jail_mount $TLS_CERT $TLS_KEY /lib/libustream-*.so* /usr/lib/libustream-*.so*',
 			'procd_add_jail_mount $auth',
 			'procd_add_jail_mount_rw /var/run/prometheus-exporter/state',
 		], init_lines(text));
@@ -373,6 +374,44 @@ describe('jail.mounts and ubus', () => {
 
 	it('is no path of the service\'s own', () => {
 		assert.match(false, jail.UBUS_SOCKET in jail.COMMON);
+	});
+});
+
+describe('the init script, and the service\'s user', () => {
+	const TEXT = readfile('files/etc/init.d/prometheus-exporter');
+	const has = (line) => index(TEXT, `\n${line}\n`) >= 0;
+
+	it('names the files jail.uc --make writes where privileges does', () => {
+		assert.match([ true, true, true ], [
+			has(`CAPABILITIES=${replace(privileges.CAPABILITIES_FILE, config.NAME, '$NAME')}`),
+			has(`TLS_CERT=${replace(privileges.TLS_CERT, config.NAME, '$NAME')}`),
+			has(`TLS_KEY=${replace(privileges.TLS_KEY, config.NAME, '$NAME')}`),
+		]);
+	});
+
+	it('has procd run uhttpd as the package\'s user and group, with the capabilities file and no new privileges', () => {
+		assert.match([ true, true, true, true ], [
+			has('\tprocd_set_param user "$NAME"'), has('\tprocd_set_param group "$NAME"'),
+			has('\tprocd_set_param capabilities "$CAPABILITIES"'), has('\tprocd_set_param no_new_privs 1'),
+		]);
+		assert.match([ privileges.USER, privileges.GROUP ], [ config.NAME, config.NAME ]);
+	});
+
+	it('refuses to start without the user, serves TLS from the copies, and restarts when the capabilities change', () => {
+		assert.match([ true, true, true ], [
+			has('\tuser_exists "$NAME" && group_exists "$NAME" || {'),
+			has('\t\tprocd_append_param command -C "$TLS_CERT" -K "$TLS_KEY"'),
+			index(TEXT, '${key:+"$key"} "$CAPABILITIES"\n') > 0,
+		]);
+	});
+
+	it('grants before it starts, and takes back once stopped or disabled', () => {
+		assert.match([ true, true, true ], [
+			has('\t"$LIBEXEC/jail.uc" --clean 2>&1 | logger -t "$NAME" -p daemon.err'),
+			has('service_stopped() {\n\tjail_clean\n}'),
+			has('\tservice_enabled || { jail_clean; return 0; }'),
+		]);
+		assert.match(true, index(TEXT, '\tjail_make\n\tmounts=$(jail_mounts)\n') > 0);
 	});
 });
 

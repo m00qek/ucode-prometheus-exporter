@@ -115,6 +115,16 @@ describe('state.make', () => {
 		assert.match({ ok: false, problem: `cannot make ${state.RUN_DIR}: Permission denied` }, state.make(filesystem({}, {}, [ 'mkdir' ])));
 	});
 
+	it('gives the state directory, and not the run directory, to the service\'s user', () => {
+		let owned = [];
+		let fs = { ...filesystem({}, {}), chown: (p, u, g) => { push(owned, [ p, u, g ]); return true; } };
+
+		assert.match({ ok: true, problem: null }, state.make(fs, 'prometheus-exporter'));
+		assert.match([ [ state.DIR, 'prometheus-exporter', 'prometheus-exporter' ] ], owned);
+		assert.match({ ok: false, problem: `cannot give ${state.DIR} to prometheus-exporter: Permission denied` },
+			state.make({ ...filesystem({}, {}), chown: () => null }, 'prometheus-exporter'));
+	});
+
 	it('lives beside uhttpd\'s file of basic auth, never under /etc', () => {
 		assert.match([ auth.DIR, `${auth.DIR}/state`, false ], [ state.RUN_DIR, state.DIR, substr(state.DIR, 0, 5) == '/etc/' ]);
 	});

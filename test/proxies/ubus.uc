@@ -9,8 +9,8 @@
 // object it mentions, and `system`, which every OpenWrt has (the canary of the
 // service's ubus ACL, prometheus_exporter.privileges), with [ {} ] (its
 // methods' signatures are not modeled), and any other with null, 'Not
-// found'; or, for 'list:<path>' in errors, with null and that message, as
-// for an ACL ubusd has not loaded.
+// found'; or, for 'list:<path>' in errors, with [], as ubusd answers a lookup
+// of an object the caller's ACL allows nothing of (one ubusd has not loaded).
 return {
 	channels: [ 'errors' ],
 
@@ -67,10 +67,8 @@ return {
 
 					if (path != null) {
 						last_error = null;
-						if (ctx.has('errors', 'list:' + path)) {
-							last_error = ctx.get('errors', 'list:' + path);
-							return null;
-						}
+						if (ctx.has('errors', 'list:' + path))
+							return [];
 
 						for (let key in ctx.get_all_data_keys())
 							names[split(key, ':')[0]] = true;

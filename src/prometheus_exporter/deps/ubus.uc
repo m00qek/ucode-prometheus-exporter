@@ -70,8 +70,9 @@ export const UBUS_TIMEOUT = 30;
  * which ubusd says in two ways: a method it may not call is DENIED, and an
  * object it may call nothing of is NOT_FOUND, as one that is not there. So a
  * call ubusd refuses is PERMISSION_DENIED, and so is NOT_FOUND while the
- * ACL's canary (privileges.CANARY) is not there either: ubusd has not
- * loaded the ACL, and the object may well be there. A collector never takes
+ * ACL's canary (privileges.CANARY) is not there either (a lookup of it
+ * finds nothing): ubusd has not loaded the ACL, and the object may well be
+ * there. A collector never takes
  * either for nothing to observe. As root nothing is refused.
  *
  * limit(t): the calls after it wait for no reply past `t` (monotonic seconds,
@@ -143,9 +144,9 @@ export function ubus_channel(connect_fn, clock_fn) {
 				let status = e ? ubus_status(e) : null;
 
 				if (status == DENIED)
-					return Result.err(errors.PERMISSION_DENIED, `${object} ${method}: ${e}: the service's ubus ACL does not allow it`, { status });
-				if (status == NOT_FOUND && !(acl ??= (c.list(CANARY.object) != null)))
-					return Result.err(errors.PERMISSION_DENIED, `${object} ${method}: ${e}: ubusd has not loaded the service's ACL (${ACL_LINK})`, { status });
+					return Result.err(errors.PERMISSION_DENIED, `${object} ${method}: ${status}: the service's ubus ACL does not allow it`, { status });
+				if (status == NOT_FOUND && !(acl ??= (length(c.list(CANARY.object) ?? []) > 0)))
+					return Result.err(errors.PERMISSION_DENIED, `${object} ${method}: ${status}: ubusd has not loaded the service's ACL (${ACL_LINK})`, { status });
 				if (e)
 					return Result.err(errors.UBUS_CALL_FAILED, `${object} ${method}: ${e}`, { status });
 			}

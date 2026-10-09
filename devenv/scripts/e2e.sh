@@ -144,6 +144,38 @@ check "its mounts are what jail.uc prints" mounts_match_jail
 check "the jail has its own config and no other" test "$(jail_configs)" = "$NAME"
 check "no /etc/config/network in its mounts" not_mounted /etc/config/network
 
+# --- the service's user: uhttpd is not root in its jail
+# The package makes the user and group; ujail runs uhttpd as them, with the
+# capabilities of the enabled collectors (the base ones declare none) in every
+# set, and ubusd holds it to the ACL jail.uc --make wrote for them.
+ACL=/var/run/$NAME.acl.json
+id_of() { awk -F: -v n="$1" '$1 == n { print $3 }' "$2"; }
+of_uhttpd() { grep "^$1:" /proc/$(uhttpd_of)/status | cut -f2- | tr '\t' ' ' | sed 's/ *$//'; }
+caps_are() { [ "$(of_uhttpd CapEff)" = "$1" ] && [ "$(of_uhttpd CapBnd)" = "$1" ] && [ "$(of_uhttpd CapAmb)" = "$1" ]; }
+runs_as_user() {
+	u=$(id_of $NAME /etc/passwd); g=$(id_of $NAME /etc/group)
+	[ -n "$u" ] && [ "$(of_uhttpd Uid)" = "$u $u $u $u" ] && [ "$(of_uhttpd Gid)" = "$g $g $g $g" ]
+}
+user_made() { grep -q "^$NAME:" /etc/passwd && grep -q "^$NAME:" /etc/group; }
+acl_has() { jsonfilter -i "$ACL" -e "@.access['$1'].methods[*]" | grep -qx "$2"; }
+base_acl() { acl_has rc list && acl_has service list && acl_has network.interface dump && acl_has system board; }
+# ls -l's mode, owner and group of $1.
+owned() { ls -ld "$1" | awk '{ print $1, $3, $4 }'; }
+check "the package made the service's user and group" user_made
+check "uhttpd runs as them, not as root" runs_as_user
+check "with no capability at all, as no enabled collector declares one" caps_are 0000000000000000
+check "and no new privileges" test "$(of_uhttpd NoNewPrivs)" = 1
+check "ubusd's ACL directory links to the ACL jail.uc wrote" test "$(readlink /usr/share/acl.d/$NAME.json)" = "$ACL"
+check "which is root's and readable, as ubusd wants it" test "$(owned "$ACL")" = "-rw-r--r-- root root"
+check "and is the user's" test "$(jsonfilter -i "$ACL" -e '@.user')" = "$NAME"
+check "it allows what the enabled base collectors call" base_acl
+check "and nothing they do not" fails acl_has dnsmasq metrics
+check "ubusd loaded it" says "ubusd\[[0-9]*\]: loading /usr/share/acl.d/$NAME.json" logread
+check "the state directory is the user's" test "$(owned "$STATE")" = "drwx------ $NAME $NAME"
+check "the run directory above it is root's alone" test "$(owned /var/run/$NAME)" = "drwx------ root root"
+check "its config is its group's to read, and no one else's" test "$(owned /etc/config/$NAME)" = "-rw-r----- root $NAME"
+check "the jail's user may not send procd events, which the watch instance does as root" fails acl_has service event
+
 # --- ubus, in the jail only while an enabled collector needs it
 # Of the base collectors, timesync and openwrt_interfaces need it. The jail's
 # root is that of the uhttpd it runs.
@@ -269,6 +301,52 @@ echo 'e2e_textfile_value 42' >/var/prometheus/e2e.prom
 eventually "textfile reads its directory in the jail" metric 'e2e_textfile_value 42$'
 check "nft-counters runs nft in the jail" served nft-counters
 check "and reads the counters" metric 'nft_counter_packets_total{.*name="e2e_hits"'
+
+# --- the service's user, with every collector
+# nft's netlink dump takes CAP_NET_ADMIN (bit 12), which nft-counters
+# declares: the jail has it, in every set, and nothing else. nat_traffic's
+# table is root's alone (0440): the service's group may read it now. unbound's
+# control socket is srw-rw---- unbound:unbound: the user is in unbound's group.
+in_unbound() { grep -q "^unbound:.*[:,]$NAME\(,\|$\)" /etc/group && echo " $(of_uhttpd Groups) " | grep -q " $(id_of unbound /etc/group) "; }
+all_acl() { acl_has dnsmasq metrics && acl_has 'hostapd.*' get_clients && acl_has luci getMountPoints && acl_has dhcp ipv4leases; }
+check "uhttpd has CAP_NET_ADMIN alone, for nft-counters" caps_are 0000000000001000
+check "nat_traffic's table is the service's group's to read" test "$(owned /proc/net/nf_conntrack)" = "-r--r----- root $NAME"
+check "nat_traffic reads it in the jail" served nat_traffic
+check "the user is in unbound's group, and uhttpd with it" in_unbound
+check "the configs the jail mounts are the group's to read" test "$(owned /etc/config/dhcp) $(owned /etc/config/chrony)" = "-rw-r----- root $NAME -rw-r----- root $NAME"
+check "a config it does not mount stays root's alone" test "$(owned /etc/config/network)" = "-rw------- root root"
+check "the ACL now allows what every enabled collector calls" all_acl
+check "and wireguard's uci get only with peer_names" fails acl_has uci get
+# ubus's command line as the user, with the socket alone, as the jail has it:
+# ubusd answers what the ACL allows, and refuses the rest.
+as_user() { /sbin/ujail -n e2e-acl -U $NAME -G $NAME -c -u -r /bin/ubus -- /bin/ubus "$@" 2>&1 | grep -v '^jail: '; }
+user_lists() { as_user list | grep -qx "$1"; }
+check "as the user, a call the ACL allows answers" says '"interface"' as_user call network.interface dump
+check "a method of an allowed object it does not allow is refused" says 'Permission denied' as_user call system info
+check "and so is one that would change the system" says 'Permission denied' as_user call rc init '{"name":"dnsmasq","action":"stop"}'
+check "an object it allows nothing of is not there for it" says 'Not found' as_user call uci get '{"config":"network"}'
+check "nor in its listing" fails user_lists uci
+check "which has what it allows" user_lists network.interface
+
+# Fail closed: what the service granted taken away under it, the collectors
+# that need it fail, saying why, never with nothing to observe; a reload
+# grants it again.
+code_of() { fetch "collect[]=$1" >/dev/null; logread | grep "collector '$1': " | tail -1; }
+failing_now() { fetch "collect[]=$1" | grep -qx "node_scrape_collector_success{collector=\"$1\"} 0"; }
+rm -f "$ACL" && killall -HUP ubusd
+eventually "without the ACL loaded, a collector that calls ubus fails" failing_now openwrt
+check "with PERMISSION_DENIED, naming the ACL" says "collector 'openwrt': PERMISSION_DENIED (system board: Not found: ubusd has not loaded the service's ACL (/usr/share/acl.d/$NAME.json))" code_of openwrt
+check "and dnsmasq, which would have nothing to observe if it took that for its service's absence" says "collector 'dnsmasq': PERMISSION_DENIED" code_of dnsmasq
+"$INIT" reload
+eventually "a reload writes it again" served openwrt
+chgrp root /proc/net/nf_conntrack
+eventually "without read access to its table, nat_traffic fails" says "collector 'nat_traffic': PERMISSION_DENIED (/proc/net/nf_conntrack: the service's group may not read it" code_of nat_traffic
+"$INIT" reload
+eventually "a reload gives it again" served nat_traffic
+mv "/var/run/$NAME/capabilities.json" /tmp/e2e-caps.json
+check "a scrape in the jail without the capabilities file fails nft-counters" says "PERMISSION_DENIED (this process lacks CAP_NET_ADMIN" "$NAME" scrape nft-counters
+mv /tmp/e2e-caps.json "/var/run/$NAME/capabilities.json"
+check "with it the scrape has the counters" says '^nft_counter_packets_total{' "$NAME" scrape nft-counters
 
 # Every collector that succeeds, observing something, writes samples: one
 # that read the jail's view of what is the host's would succeed with
@@ -825,7 +903,12 @@ no_hash_in() { ! "$@" 2>&1 | grep -qF "$HASH"; }
 secret_free() { rpc status; rpc collectors; rpc password; "$INIT" check; "$INIT" status; logread; }
 AUTH_CONFIG=/etc/config/$NAME-auth
 auth_true() { rpc status | jsonfilter -e '@.service.auth' | grep -qx true; }
-private() { ls -l "$AUTH_FILE" | grep -q '^-rw------- ' && ls -ld "/var/run/$NAME" | grep -q '^drwx------ '; }
+private() { [ "$(owned "$AUTH_FILE")" = "-rw-r----- root $NAME" ] && [ "$(owned /var/run/$NAME)" = "drwx------ root root" ]; }
+# The TLS files only root reads, copied for the service's group, and served.
+tls_copied() {
+	[ "$(owned /var/run/$NAME/tls.key)" = "-rw-r----- root $NAME" ] && cmp -s "$KEY" /var/run/$NAME/tls.key &&
+		cmp -s "$CERT" /var/run/$NAME/tls.crt && says " -K /var/run/$NAME/tls.key " command_line
+}
 
 before=$(pid)
 set_config "$NAME.main.auth_user=prom" "$NAME-auth.main.auth_password=$HASH"
@@ -848,8 +931,13 @@ check "uhttpd reads basic auth's file" says " -c $AUTH_FILE " command_line
 check "with its realm" says " -r $NAME " command_line
 check "and listens on HTTPS alone" fails says ' -p ' command_line
 check "the file is uhttpd's line for /metrics" test "$(cat "$AUTH_FILE")" = "/metrics:prom:$HASH"
-check "mode 0600, in a directory of mode 0700" private
+check "mode 0640, root's and the service's group's, in a directory of mode 0700, root's" private
 check "the jail mounts it" mounted "$AUTH_FILE"
+chmod 0600 "$KEY"
+"$INIT" reload
+check "the TLS key, root's alone, is copied for the service's group to read, and served" tls_copied
+check "the key itself stays root's alone" test "$(owned "$KEY" | cut -d' ' -f1)" = "-rw-------"
+check "the jail mounts the copy, not the key" not_mounted "$KEY"
 check "a scrape without credentials is a 401" unauthorized
 check "and with a wrong password" unauthorized --user=prom --password=wrong
 check "and with a wrong user" unauthorized --user=other --password=e2e-secret
@@ -1011,11 +1099,22 @@ serving=$(($(installed) - 1))
 check "status says where it listens and what it serves" \
 	says "^listening on http://127.0.0.1:9100/metrics, gzip when asked, serving $serving collectors$" "$INIT" status
 check "info shows the jail" says '"jail"' "$INIT" info
+check "and its user" says '"user": "prometheus-exporter"' "$INIT" info
+check "check says the jail's user and its ubus ACL" says "^jail user: $NAME, capabilities: CAP_NET_ADMIN$" "$INIT" check
+check "the ubus object's status scrapes in the jail too, as the user, with its capability" sh -c \
+	"ubus -t 30 call $NAME status | jsonfilter -e \"@.collectors[@.name='nft-counters'].success\" | grep -qx true"
 set_config "$NAME.main.enabled=0"
 eventually "disabling the service stops it" fails "$INIT" running
 check "status says it is disabled" says '^disabled' "$INIT" status
+check "and takes the ubus ACL away" test ! -e "$ACL"
+check "the capabilities and the TLS copies too" sh -c "! ls /var/run/$NAME/capabilities.json /var/run/$NAME/tls.* 2>/dev/null"
 set_config "$NAME.main.enabled=1"
 eventually "enabling it starts it again" served loadavg
+check "with its ACL again" test -e "$ACL"
+"$INIT" stop
+check "stopping it takes the ACL away" test ! -e "$ACL"
+"$INIT" start
+eventually "and starting it brings it back" served loadavg
 
 if [ "$failures" -gt 0 ]; then
 	echo "--- service"; instance

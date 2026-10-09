@@ -43,6 +43,10 @@ define Package/$(PKG_NAME)
   # a dependency on !<name> is apk's conflict, refused either way round.
   CONFLICTS:=prometheus-node-exporter-ucode prometheus-node-exporter-lua
   EXTRA_DEPENDS:=!prometheus-node-exporter-ucode (>=0), !prometheus-node-exporter-lua (>=0)
+  # The user and group uhttpd runs as in the service's jail, never root:
+  # made on install and on an upgrade (apk's post-install and post-upgrade
+  # scripts), at the first free id from 32768.
+  USERID:=$(SERVICE):$(SERVICE)
 endef
 
 define Package/$(PKG_NAME)/description
@@ -88,6 +92,12 @@ define Package/$(PKG_NAME)/install
 	$(INSTALL_DIR) $(1)/usr/libexec/$(SERVICE)
 	$(INSTALL_DATA) ./files/usr/libexec/$(SERVICE)/handler.uc $(1)/usr/libexec/$(SERVICE)/
 	$(INSTALL_BIN) $(foreach f,jail status import watch rpc-status probe trial auth,./files/usr/libexec/$(SERVICE)/$(f).uc) $(1)/usr/libexec/$(SERVICE)/
+	# The ubus ACL of the service's user, which ubusd reads from acl.d: a link
+	# to the one jail.uc --make writes for the enabled collectors when the
+	# service starts (prometheus_exporter.privileges' ACL_FILE), which points
+	# nowhere while it is stopped.
+	$(INSTALL_DIR) $(1)/usr/share/acl.d
+	$(LN) /var/run/$(SERVICE).acl.json $(1)/usr/share/acl.d/$(SERVICE).json
 	# The service's ubus object, which rpcd serves (prometheus_exporter.rpc).
 	$(INSTALL_DIR) $(1)/usr/share/rpcd/ucode
 	$(INSTALL_DATA) ./files/usr/share/rpcd/ucode/$(SERVICE).uc $(1)/usr/share/rpcd/ucode/
