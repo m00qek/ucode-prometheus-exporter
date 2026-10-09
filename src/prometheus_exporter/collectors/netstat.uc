@@ -165,7 +165,7 @@ function record(rows, pattern, section, names, values, from) {
 // match (named apart, or with more names than values or fewer), which are left
 // out. Null when the file cannot be read.
 function parse_table(fs, rows, pattern, path) {
-	let l = proc.lines(fs, path);
+	let l = proc.rows(fs, path);
 
 	if (l == null)
 		return null;
@@ -173,8 +173,8 @@ function parse_table(fs, rows, pattern, path) {
 	let bad = [];
 
 	for (let i = 0; i + 1 < length(l); i += 2) {
-		let names = proc.fields(l[i]);
-		let values = proc.fields(l[i + 1]);
+		let names = l[i];
+		let values = l[i + 1];
 
 		if (!length(names) || names[0] != values[0] || length(names) != length(values)
 		    || substr(names[0], -1) != ':') {
@@ -186,7 +186,7 @@ function parse_table(fs, rows, pattern, path) {
 	}
 
 	if (length(l) % 2)
-		push(bad, proc.fields(l[-1])[0] ?? '');
+		push(bad, l[-1][0] ?? '');
 
 	return bad;
 }
