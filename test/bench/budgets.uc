@@ -280,7 +280,7 @@ export function check(results, absolute) {
 			push(over, sprintf('%s (%s): holds %d kB, over %d kB', b[0], b[2], r[b[0]].held_kb, b[1]));
 
 	for (let x in results)
-		if (x.kind == 'floor' && x.world == 'typical' && x.floor_mb > FLOOR_MB)
+		if (x.kind == 'floor' && x.floor_mb > FLOOR_MB)
 			push(over, sprintf('%s/%s: a scrape needs a memory_limit of %d MB, over memory_limit\'s least, %d MB',
 				x.world, x.case, x.floor_mb, FLOOR_MB));
 

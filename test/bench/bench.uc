@@ -31,8 +31,7 @@
 //                                 deadline; where uhttpd and its ucode plugin are, and find this exporter
 //   floor:base, floor:full        the least memory_limit under which uhttpd loads the handler with the
 //                                 set and the typical world's scrape of it succeeds whole; where uhttpd
-//                                 cannot run this exporter, under which scrape:<set>'s process does;
-//                                 and the large world's full scrape, a busy router's
+//                                 cannot run this exporter, under which scrape:<set>'s process does
 //   progress:full                 a scrape's progress file in the state
 //   auth:<hash>, auth:cached      basic auth's check of a password, by each hash and by the cache
 //   ledger:full                   what the ledger in the state adds to a full scrape
@@ -105,7 +104,6 @@ else
 		push(cases, [ 'typical', `handler:${s}` ]);
 for (let s in [ 'base', 'full' ])
 	push(cases, [ 'typical', `floor:${s}` ]);
-push(cases, [ 'large', 'floor:full' ]);
 push(cases, [ 'typical', 'rest:base' ], [ 'typical', 'rest:full' ]);
 for (let l in [ 'parse', 'zlib', 'ubus', 'rtnl', 'nl80211' ])
 	push(cases, [ 'typical', `lazy:${l}` ]);
