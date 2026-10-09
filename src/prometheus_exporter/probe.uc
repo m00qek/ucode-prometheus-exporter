@@ -16,9 +16,11 @@ import { seconds } from 'prometheus_exporter.deadline';
  * loaded, the first line of what loading it threw, whether it was stopped
  * for hanging, and the seconds it took; `unprobed` when no child could be
  * forked, and the module is to load where it is used, as before there was
- * one; `data`, with `report`, what loading it returned there.
+ * one; `data`, with `report`, what loading it returned there; `stopped`,
+ * the signal that asked this process to stop before the module was loaded
+ * (see probe()).
  *
- * @typedef {{ ok: boolean, error: ?string, hung: boolean, seconds: float, unprobed: ?boolean, data: ?Object }} ProbeOutcome
+ * @typedef {{ ok: boolean, error: ?string, hung: boolean, seconds: float, unprobed: ?boolean, data: ?Object, stopped: ?int }} ProbeOutcome
  */
 
 /**
@@ -61,6 +63,15 @@ export const LOAD_TIMEOUT = 5;
  * Only what loads here is then loaded in the process that serves the scrapes:
  * a module whose top level never returns would keep uhttpd from ever serving.
  * Each module is so compiled twice, once here and once there.
+ *
+ * While it waits for the child, uloop takes SIGTERM and SIGINT: one ends the
+ * wait, and is forgotten by the next uloop.run(), uhttpd's own, where it
+ * would have ended the process. uhttpd runs its handler before that, so
+ * procd's SIGTERM to an instance still loading its collectors (a reload in
+ * an upgrade of several packages, a package's after another's) left it
+ * serving, without them, until procd killed it 5 s later. Each module not
+ * loaded then has an outcome that says so, `stopped` the signal: the
+ * process was asked to stop, and its caller does (app's create).
  *
  * @param {string[]} ids the modules' names.
  * @param {function(string): CollectorModule} import_fn what loads a module.
@@ -177,8 +188,19 @@ export function probe(ids, import_fn, seconds, clock_fn, report) {
 	timer = uloop.timer(POLL_MS, tick);
 	spawn();
 
-	if (!st.done)
-		uloop.run();
+	let signal = st.done ? 0 : uloop.run();
+
+	// Ended before the probe was done: the child is stopped with what it was
+	// loading, and the rest is not loaded. By a signal, each says so; by
+	// anything else, which nothing here does, each is left without an
+	// outcome.
+	if (!st.done) {
+		if (st.task && !st.task.finished())
+			st.task.kill();
+		if (signal > 0)
+			for (let id in [ ...(st.id != null ? [ st.id ] : []), ...left ])
+				out[id] = { ok: false, error: `not loaded: this process was asked to stop (signal ${signal})`, hung: false, seconds: 0, stopped: signal };
+	}
 
 	timer.cancel();
 	uloop.done();

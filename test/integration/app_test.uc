@@ -4,7 +4,8 @@
 // patched globally, so the named imports of prometheus_exporter.deps reach the mocks.
 
 import { describe, it, afterEach, assert, contains, mock } from 'utest';
-import { create, handler, load_auth, auth_wanted, load_checked } from 'prometheus_exporter.app';
+import { create, handler, load_auth, auth_wanted, load_checked, load_probed } from 'prometheus_exporter.app';
+import * as app_mod from 'prometheus_exporter.app';
 import * as loader from 'prometheus_exporter.loader';
 import * as collection from 'prometheus_exporter.collection';
 import { inflate } from 'zlib';
@@ -62,6 +63,107 @@ describe('app', () => {
 			'notice', 'err', 'err',
 		], map(logs, (l) => l[0]));
 		assert.match("skipping collector: uname: not what it was when it was checked, in a process of its own", logs[1][1]);
+	});
+
+	// An upgrade of several packages: a collector's file changes between
+	// its check in the probe's child and its load here, as apk writes the
+	// next package while the service starts. Each module is a version of
+	// loadavg's meta: `versions[id]` is what its file holds at each read.
+	// They share loadavg's name, so their order is not checked.
+	describe('load_probed', () => {
+		const LOADAVG = loader.import_module('loadavg');
+
+		function version(n) {
+			return { meta: { ...LOADAVG.meta, help: `${LOADAVG.meta.help} ${n}` }, collect: LOADAVG.collect };
+		}
+
+		// The probe and the imports over files that change: each read of a
+		// module takes its file's next version, and stays at its last.
+		function world(versions) {
+			let reads = {};
+			let read = function(id) {
+				let n = reads[id] ?? 0;
+
+				reads[id] = n + 1;
+				return version(versions[id][min(n, length(versions[id]) - 1)]);
+			};
+			let probes = [];
+
+			return {
+				probes,
+				probe: function(ids) {
+					let out = {};
+
+					push(probes, ids);
+					for (let id in ids)
+						out[id] = { ok: true, error: null, hung: false, seconds: 0,
+							data: { meta: collection.fingerprint({ options: {}, ...read(id).meta }), own: true } };
+					return out;
+				},
+				imports: {
+					all: function(ids) {
+						let out = {};
+
+						for (let id in ids)
+							out[id] = read(id);
+						return out;
+					},
+					one: read,
+				},
+			};
+		}
+
+		it('checks again a module that changed between its check and its load, and loads it alone', () => {
+			let w = world({ a: [ 1, 1 ], b: [ 1, 2, 2 ] });
+			let logs = [];
+			let res = load_probed([ 'a', 'b' ], w.probe, (level, m) => push(logs, [ level, m ]), w.imports);
+
+			assert.match([ [ 'a', 'b' ], [ 'b' ] ], w.probes);
+			assert.match([ 'a', 'b' ], sort(map(res.collectors, (c) => c.id)));
+			assert.match(`${LOADAVG.meta.help} 2`, filter(res.collectors, (c) => c.id == 'b')[0].meta.help);
+			assert.match([ [ 'info', 'checking again what changed since it was checked, as in an upgrade: b' ] ], logs);
+		});
+
+		it('leaves out, at err, a module that changed at every check', () => {
+			let w = world({ a: [ 1, 1 ], b: [ 1, 2, 3, 4, 5, 6, 7 ] });
+			let logs = [];
+			let res = load_probed([ 'a', 'b' ], w.probe, (level, m) => push(logs, [ level, m ]), w.imports);
+
+			assert.match(app_mod.CHECK_ROUNDS, length(w.probes));
+			assert.match([ 'a' ], map(res.collectors, (c) => c.id));
+			assert.match([ 'err', `skipping collector: b: not what it was when it was checked, in a process of its own, ${app_mod.CHECK_ROUNDS} times: is it being upgraded?` ], logs[-1]);
+		});
+
+		// Before, a module without an outcome was taken as checked, with no
+		// meta, and every one of them was left out.
+		it('checks again a module the probe gave no outcome of', () => {
+			let w = world({ a: [ 1 ], b: [ 1 ] });
+			let first = true;
+			let probe = function(ids) {
+				let out = w.probe(ids);
+
+				if (first)
+					delete out.b;
+				first = false;
+				return out;
+			};
+			let res = load_probed([ 'a', 'b' ], probe, () => null, w.imports);
+
+			assert.match([ 'a', 'b' ], sort(map(res.collectors, (c) => c.id)));
+		});
+
+		it('loads nothing when this process was asked to stop while the probe loaded them', () => {
+			let w = world({ a: [ 1 ], b: [ 1 ] });
+			let probe = (ids) => ({ ...w.probe(ids), b: { ok: false, error: 'not loaded: this process was asked to stop (signal 15)', hung: false, seconds: 0, stopped: 15 } });
+
+			assert.match({ collectors: [], stopped: 15 }, load_probed([ 'a', 'b' ], probe, () => null, w.imports));
+		});
+
+		it('says when no child could check them', () => {
+			let probe = (ids) => ({ a: { ok: true, error: null, hung: false, seconds: 0, unprobed: true } });
+
+			assert.match({ collectors: [], unprobed: true }, load_probed([ 'a' ], probe, () => null, null));
+		});
 	});
 
 	it('scrapes the caju router', () => {

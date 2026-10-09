@@ -168,6 +168,63 @@ function loader_program() {
 }
 
 /**
+ * How many times a module is checked in the probe's child and loaded here,
+ * at most, when it is not, once loaded, what was checked: when its file
+ * changed in between, as in an upgrade of several packages.
+ *
+ * @type {int}
+ */
+export const CHECK_ROUNDS = 3;
+
+// The collectors of `checked` loaded here: as one program with import_all,
+// when given, else each alone with import_one; and each alone when that
+// throws. Each as the loader took it in the probe's child, its meta that
+// one (its fingerprint). One that is not is left out: its id pushed to
+// `changed`, when given, for it to be checked again, or else logged at err.
+function take(checked, log, import_all, import_one, changed) {
+	let ids = map(checked, (x) => x.id);
+	let together = null;
+	let out = [];
+
+	if (import_all && length(ids)) {
+		try {
+			together = import_all(ids);
+		} catch (e) {
+			log('notice', `cannot load the collectors as one program, so each is loaded alone: ${split(e.message, '\n')[0]}`);
+		}
+	}
+
+	for (let x in checked) {
+		let mod;
+
+		try {
+			mod = (together != null) ? together[x.id] : import_one(x.id);
+		} catch (e) {
+			log('err', `cannot load collector '${x.id}': ${split(e.message, '\n')[0]}`);
+			continue;
+		}
+
+		let meta = (type(mod?.meta) == 'object') ? { options: {}, ...mod.meta } : null;
+
+		if (meta == null || type(mod.collect) != 'function' || collection.fingerprint(meta) != x.meta) {
+			if (changed != null)
+				push(changed, x.id);
+			else
+				log('err', `skipping collector: ${x.id}: not what it was when it was checked, in a process of its own`);
+			continue;
+		}
+
+		push(out, { id: x.id, meta, collect: mod.collect, own: x.own });
+	}
+
+	return out;
+}
+
+function by_name(collectors) {
+	return sort(collectors, (a, b) => a.meta.name < b.meta.name ? -1 : 1);
+}
+
+/**
  * The collectors of `checked` (the loader's check), loaded here as one
  * program, or each alone when that throws: each as the loader took it in
  * the probe's child, its meta that one (its fingerprint), and left out,
@@ -179,39 +236,89 @@ function loader_program() {
  * @returns {Collector[]} the collectors.
  */
 export function load_checked(checked, log) {
-	let ids = map(checked, (x) => x.id);
-	let together = null;
-	let out = [];
+	return by_name(take(checked, log, collection.import_modules, collection.import_module));
+};
 
-	if (length(ids)) {
-		try {
-			together = collection.import_modules(ids);
-		} catch (e) {
-			log('notice', `cannot load the collectors as one program, so each is loaded alone: ${split(e.message, '\n')[0]}`);
+/**
+ * What load_probed() gives: the collectors, sorted by name; `stopped`, the
+ * signal that asked this process to stop while the probe loaded them, and
+ * then no collectors; `unprobed`, when no child process could be forked to
+ * check them, and then none either.
+ *
+ * @typedef {{ collectors: Collector[], stopped: ?int, unprobed: ?boolean }} ProbedLoad
+ */
+
+/**
+ * The collectors `ids`, each checked in the probe's child first
+ * (probe_fn(ids): the probe's outcomes, the loader's check_module's report
+ * their `data`), then loaded here, all as one program (imports.all), as it
+ * was checked there, or not at all.
+ *
+ * A module whose file changed between its check and its load, as in an
+ * upgrade of several packages, which reloads the service after each, is not
+ * what was checked: it is checked again and loaded alone (imports.one), up
+ * to CHECK_ROUNDS times, and left out, logged at err, only when it changed
+ * each time. So is a module the probe gave no outcome of. One the probe left
+ * out (it hung, did not load, or is not a valid collector) is logged at err.
+ *
+ * @param {string[]} ids the modules' names.
+ * @param {function(string[]): Object<string, ProbeOutcome>} probe_fn what
+ *   checks the modules in a child process.
+ * @param {Log} log the exporter's log.
+ * @param {?{ all: function(string[]): Object<string, CollectorModule>, one: function(string): CollectorModule }} imports
+ *   what loads the modules here: collection.import_modules and
+ *   import_module when null.
+ * @returns {ProbedLoad} the collectors, or why there are none.
+ */
+export function load_probed(ids, probe_fn, log, imports) {
+	let all = imports?.all ?? collection.import_modules;
+	let one = imports?.one ?? collection.import_module;
+	let collectors = [];
+	let pending = ids;
+
+	for (let round = 1; length(pending); round++) {
+		let probed = probe_fn(pending);
+		let checked = [];
+		let again = [];
+
+		for (let id in pending) {
+			let p = probed[id];
+
+			if (p?.stopped)
+				return { collectors: [], stopped: p.stopped };
+			if (p?.unprobed && round == 1)
+				return { collectors: [], unprobed: true };
+			if (p == null || p.unprobed) {
+				push(again, id);
+				continue;
+			}
+
+			let why = collection.left_out(id, p) ?? ((p.data?.invalid != null) ? `skipping collector: ${p.data.invalid}` : null);
+
+			if (why != null)
+				log('err', why);
+			else
+				push(checked, { id, meta: p.data?.meta, own: p.data?.own == true });
 		}
+
+		// The first round's as one program; a module checked again alone,
+		// compiled anew from what its file is now.
+		push(collectors, ...take(checked, log, (round == 1) ? all : null, one, again));
+
+		if (!length(again))
+			break;
+
+		if (round >= CHECK_ROUNDS) {
+			for (let id in again)
+				log('err', `skipping collector: ${id}: not what it was when it was checked, in a process of its own, ${round} times: is it being upgraded?`);
+			break;
+		}
+
+		log('info', `checking again what changed since it was checked, as in an upgrade: ${join(' ', again)}`);
+		pending = again;
 	}
 
-	for (let x in checked) {
-		let mod;
-
-		try {
-			mod = (together != null) ? together[x.id] : collection.import_module(x.id);
-		} catch (e) {
-			log('err', `cannot load collector '${x.id}': ${split(e.message, '\n')[0]}`);
-			continue;
-		}
-
-		let meta = (type(mod?.meta) == 'object') ? { options: {}, ...mod.meta } : null;
-
-		if (meta == null || type(mod.collect) != 'function' || collection.fingerprint(meta) != x.meta) {
-			log('err', `skipping collector: ${x.id}: not what it was when it was checked, in a process of its own`);
-			continue;
-		}
-
-		push(out, { id: x.id, meta, collect: mod.collect, own: x.own });
-	}
-
-	return sort(out, (a, b) => a.meta.name < b.meta.name ? -1 : 1);
+	return { collectors: by_name(collectors) };
 };
 
 /**
@@ -219,11 +326,17 @@ export function load_checked(checked, log) {
  * checked first in a process of its own (prometheus_exporter.probe), its
  * text and then its exports, as the loader checks them (its check_module),
  * unless opts.fork is false, and then all of them loaded as one program
- * (collection.import_modules), which compiles what they share once. The
- * loader is compiled in that process alone: uhttpd holds what its own
- * program loads for as long as it runs, and the loader serves no scrape.
- * Without a child, it is compiled here, as a program of its own, and checks
- * them here, as before there was one.
+ * (collection.import_modules), which compiles what they share once
+ * (load_probed). The loader is compiled in that process alone: uhttpd holds
+ * what its own program loads for as long as it runs, and the loader serves
+ * no scrape. Without a child, it is compiled here, as a program of its own,
+ * and checks them here, as before there was one.
+ *
+ * A process asked to stop (SIGTERM, SIGINT) while the probe waits for its
+ * child ends here, as the signal would have ended it: uloop takes the
+ * signal while it waits, and uhttpd, which runs the handler before its own
+ * loop, would forget it, and serve without collectors until procd killed
+ * it (prometheus_exporter.probe).
  *
  * @param {Modules} mods the modules.
  * @param {?string} dir the collectors' directory; collection.DIR when null.
@@ -235,27 +348,18 @@ export function load(mods, dir, log, opts) {
 	dir ??= collection.DIR;
 
 	if (opts?.fork ?? true) {
-		let ids = collection.discover(mods.fs, dir);
 		// Compiled in the probe's child, at its first module.
 		let loader = null;
-		let probed = probe_modules(ids,
-			(id) => (loader ??= loader_program()).check_module(mods.fs, dir, id, collection.import_module), null, null, true);
+		let check = (id) => (loader ??= loader_program()).check_module(mods.fs, dir, id, collection.import_module);
+		let res = load_probed(collection.discover(mods.fs, dir), (ids) => probe_modules(ids, check, null, null, true), log);
 
-		if (!length(filter(ids, (id) => probed[id]?.unprobed))) {
-			let checked = [];
-
-			for (let id in ids) {
-				let p = probed[id];
-				let why = collection.left_out(id, p) ?? ((p?.data?.invalid != null) ? `skipping collector: ${p.data.invalid}` : null);
-
-				if (why != null)
-					log('err', why);
-				else
-					push(checked, { id, meta: p?.data?.meta, own: p?.data?.own == true });
-			}
-
-			return load_checked(checked, log);
+		if (res.stopped) {
+			log('notice', `asked to stop (signal ${res.stopped}) while it loaded the collectors: stopping`);
+			exit(128 + res.stopped);
 		}
+
+		if (!res.unprobed)
+			return res.collectors;
 	}
 
 	return loader_program().load(mods.fs, dir, collection.import_module, log, null, collection.import_modules);
