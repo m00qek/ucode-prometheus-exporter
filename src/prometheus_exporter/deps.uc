@@ -1,14 +1,16 @@
 /**
  * The only module that touches the system, with the modules of its capabilities
  * (deps/<capability>.uc: ubus, netlink, socket, exec, exporter, uci, log). It
- * takes each native function by name, so one that OpenWrt 25.12's ucode lacks
- * fails this module's load rather than a scrape.
+ * takes each native function of fs and uci by name, so one that OpenWrt
+ * 25.12's ucode lacks fails this module's load rather than a scrape; ubus,
+ * rtnl, nl80211 and socket it loads when a collector needs them (native()),
+ * which lint loads on 25.12.
  *
  * It is the facade of deps/: the modules there are its own, and what others
  * take of them it exports, under the names below.
  *
- * modules(): the real fs, ubus, uci, rtnl, nl80211 and socket (these two when
- * installed), time and a monotonic clock. Of fs, writefile, rename, unlink and
+ * modules(): the real fs, ubus, uci, time and a monotonic clock, and native(),
+ * which loads rtnl, nl80211 and socket (these two when installed). Of fs, writefile, rename, unlink and
  * chmod are the handler's, for its state (prometheus_exporter.state),
  * mkstemp the runner's (prometheus_exporter.runner) and stdin the command
  * line's: no collector gets them (FS_API).
@@ -28,7 +30,6 @@
 'use strict';
 
 import { readfile, open, lsdir, glob, stat, realpath, popen, writefile, rename, unlink, chmod, mkstemp, stdin, access } from 'fs';
-import { connect } from 'ubus';
 import { cursor } from 'uci';
 import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
@@ -95,10 +96,11 @@ import * as privileges from 'prometheus_exporter.privileges';
 /**
  * The modules a session is made over (modules()'s, or utest's proxies): fs
  * as the fs module has it, ubus's connect and uci's cursor, the netlink and
- * socket modules when installed, the time, a monotonic clock, and the log a
- * session adds; and what the process may do: whether it may read a path that
- * is there (readable), and its /proc/self/status (self_status), each absent
- * where nothing is checked.
+ * socket modules, or `native`, which loads them when a collector needs one
+ * (native()), the time, a monotonic clock, and the log a session adds; and
+ * what the process may do: whether it may read a path that is there
+ * (readable), and its /proc/self/status (self_status), each absent where
+ * nothing is checked.
  *
  * @typedef {{
  *   fs: module:fs,
@@ -107,6 +109,7 @@ import * as privileges from 'prometheus_exporter.privileges';
  *   rtnl: ?NetlinkModule,
  *   nl80211: ?NetlinkModule,
  *   socket: ?module:socket,
+ *   native: ?function(string): ?Object,
  *   time: () => int,
  *   clock: () => int[],
  *   log: ?Log,
@@ -148,8 +151,10 @@ export const SYSTEM_FILES = exporter_module.SYSTEM_FILES;
 // uci: read-only handles over the configs a collector declares.
 export const uci_handles = uci_module.uci_handles;
 
-// ubus: a collector's channel, held to the calls it declares.
+// ubus: a collector's channel, held to the calls it declares, and the ubus
+// module by name, which native() loads.
 export const ubus_for = ubus_module.ubus_for;
+export const load_ubus = ubus_module.load_ubus;
 
 // log: the exporter's log, syslog at each level's priority, and what a
 // collector's run may log of it.
@@ -255,6 +260,15 @@ export function session(mods) {
 		};
 	}
 
+	// The channel `make` makes over the native module `need`: the session's
+	// own, or else the one native() loads, in this process, the first time a
+	// collector needs it; null when it is not installed.
+	function channel_of(need, make) {
+		let mod = mods[need] ?? mods.native?.(need);
+
+		return mod ? make(mod) : null;
+	}
+
 	function capability(need, meta, settings, cutoff, view) {
 		switch (need) {
 		// Copies: a collector that wrote over one of their functions would
@@ -262,9 +276,9 @@ export function session(mods) {
 		case 'fs':      return { ...fs };
 		case 'ubus':    return ubus_for(ubus, privileges.ubus_of(meta, settings?.options).ubus);
 		case 'uci':     return uci_handles(uci_cursor, meta.configs ?? []);
-		case 'rtnl':    return mods.rtnl ? rtnl_channel(mods.rtnl) : null;
-		case 'nl80211': return mods.nl80211 ? nl80211_channel(mods.nl80211) : null;
-		case 'socket':  return mods.socket ? socket_channel(mods.socket) : null;
+		case 'rtnl':    return channel_of('rtnl', rtnl_channel);
+		case 'nl80211': return channel_of('nl80211', nl80211_channel);
+		case 'socket':  return channel_of('socket', socket_channel);
 		case 'exec':    return exec_channel(mods.fs.popen, meta.commands ?? [], settings?.timeout ?? meta.timeout, mods.clock, cutoff);
 		case 'time':    return { now: mods.time };
 		case 'log':     return mods.log ? log_of(meta.name) : null;
@@ -380,45 +394,55 @@ export function session_cursor(sid) {
 	return cursor(null, `${SESSION_SAVEDIR}${sid}`);
 };
 
-/**
- * The native modules a collector may need besides fs, ubus and uci: rtnl,
- * nl80211 and socket (these two when installed), each loaded when a need of
- * `needs` names it, or every one when `needs` is null. Each costs a process
- * that loads it some 60 to 90 kB, which uhttpd holds for as long as it runs:
- * the handler loads those its collectors need.
- *
- * @param {?string[]} needs the needs (meta.needs) of the collectors, or null.
- * @returns {{ rtnl: ?NetlinkModule, nl80211: ?NetlinkModule, socket: ?module:socket }}
- *   the modules, null where none needs one, or it does not load.
- */
-export function natives(needs) {
-	let wanted = (n) => needs == null || n in needs;
+// What loads each native module a collector may need besides fs and uci.
+const NATIVES = {
+	ubus: load_ubus,
+	rtnl: load_rtnl,
+	nl80211: load_nl80211,
+	socket: load_socket,
+};
 
-	return {
-		rtnl: wanted('rtnl') ? load_rtnl() : null,
-		nl80211: wanted('nl80211') ? load_nl80211() : null,
-		socket: wanted('socket') ? load_socket() : null,
-	};
+// Those this process has loaded, by name: null for one that did not load.
+const loaded = {};
+
+/**
+ * The native module `name` a collector may need besides fs and uci: ubus,
+ * rtnl, nl80211 or socket (these two when installed), loaded the first time
+ * it is asked for, in the process that asks, and kept there. A scrape's
+ * collectors ask in their child process, so uhttpd, which every request is
+ * forked from and which holds what it loads for as long as it runs, holds
+ * none of them: each costs a process that loads it 60 to 90 kB, and the
+ * child some 0.1 to 0.25 ms to load it in the devenv.
+ *
+ * @param {string} name the module's name.
+ * @returns {?Object} the module (ubus's connect; rtnl's and nl80211's
+ *   NetlinkModule; socket's), or null when it is not installed, does not
+ *   load, or is none of these.
+ */
+export function native(name) {
+	if (!(name in loaded))
+		loaded[name] = (name in NATIVES) ? NATIVES[name]() : null;
+
+	return loaded[name];
 };
 
 /**
- * The real fs, ubus, uci, rtnl, nl80211 and socket (these two when
- * installed), time and a monotonic clock; of rtnl, nl80211 and socket only
- * those `needs` names, when given (natives()). Of fs, writefile, rename,
- * unlink and chmod are the handler's, for its state, mkstemp the runner's and
- * stdin the command line's: no collector gets them (FS_API). Cursors read
- * committed configuration only (UCI_NO_DELTAS).
+ * The real fs, ubus, uci, time and a monotonic clock, and native(), which
+ * loads rtnl, nl80211 and socket (these two when installed) when a
+ * collector needs one; ubus's connect loads ubus the first time it is
+ * called. Of fs, writefile, rename, unlink and chmod are the handler's, for
+ * its state, mkstemp the runner's and stdin the command line's: no collector
+ * gets them (FS_API). Cursors read committed configuration only
+ * (UCI_NO_DELTAS).
  *
- * @param {?string[]} needs the needs of the collectors to be run; null for
- *   every one.
  * @returns {Modules} the modules.
  */
-export function modules(needs) {
+export function modules() {
 	return {
 		fs: { readfile, open, lsdir, glob, stat, realpath, popen, writefile, rename, unlink, chmod, mkstemp, stdin },
-		ubus: { connect },
+		ubus: { connect: (...args) => native('ubus')?.connect(...args) },
 		uci: { cursor: () => cursor(null, UCI_NO_DELTAS) },
-		...natives(needs),
+		native,
 		time: () => time(),
 		clock: () => clock(true),
 		readable: (p) => stat(p) == null || !!access(p, 'r'),

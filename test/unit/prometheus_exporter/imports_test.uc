@@ -63,6 +63,19 @@ describe('what the programs load', () => {
 			(m) => m in loaded));
 	});
 
+	// Nor what only some scrapes, or some routers, need: basic auth and the
+	// hashes it computes (when the config sets it), the exposition parser
+	// (two collectors), and the native modules collectors need, which each
+	// loads where it runs (deps.native).
+	it('never keeps in the handler\'s program what it loads when it is needed', () => {
+		let loaded = loaded_by('files/usr/libexec/prometheus-exporter/handler.uc');
+
+		assert.match([], filter([
+			'prometheus_exporter.auth', 'prometheus_exporter.crypt', 'digest',
+			'prometheus_exporter.exposition.parse', 'ubus', 'rtnl', 'nl80211', 'socket',
+		], (m) => m in loaded));
+	});
+
 	it('never loads docopt in the handler, rpcd or the helpers rpcd runs', () => {
 		for (let path in [
 			'files/usr/libexec/prometheus-exporter/handler.uc',

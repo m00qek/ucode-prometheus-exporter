@@ -12,8 +12,6 @@
 
 'use strict';
 
-import { md5 } from 'digest';
-
 /**
  * The installed collectors' directory, as the packages install them.
  *
@@ -107,15 +105,17 @@ export function left_out(id, p) {
 };
 
 /**
- * A meta's fingerprint: the MD5 of its JSON, functions and all, as ucode
- * writes them (their signatures). The same module loaded twice gives the
- * same meta, and so the same fingerprint, unless what its top level does
- * changed in between.
+ * A meta's fingerprint: its JSON, functions and all, as ucode writes them
+ * (their signatures). The same module loaded twice gives the same meta, and
+ * so the same fingerprint, unless what its top level does changed in
+ * between. The text itself, not a digest of it: the handler compares them
+ * when it starts, and a digest would have it load ucode-mod-digest, which
+ * uhttpd would then hold for as long as it runs.
  *
  * @param {Meta} meta the meta, as the loader takes it (options {} when it
  *   declares none).
  * @returns {string} its fingerprint.
  */
 export function fingerprint(meta) {
-	return md5(sprintf('%J', meta));
+	return sprintf('%J', meta);
 };

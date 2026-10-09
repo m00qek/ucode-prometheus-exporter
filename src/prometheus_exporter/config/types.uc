@@ -10,9 +10,10 @@
 
 import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
-import * as crypt from 'prometheus_exporter.crypt';
 import * as problems from 'prometheus_exporter.config.problems';
-import { is_user, is_hash, ROUNDS_MAX } from 'prometheus_exporter.auth';
+// Not auth's, nor crypt's, which compute hashes: the handler reads the
+// config at every scrape, and holds what it compiled for as long as it runs.
+import { is_user, is_hash, is_auth_hash, AUTH_ROUNDS_MAX } from 'prometheus_exporter.hashes';
 
 /**
  * A datatype the core enforces: the value types it takes, the problem of a
@@ -106,8 +107,8 @@ function datatype_of(types, code, args, check, why) {
  */
 export const DATATYPES = {
 	username: datatype_of([ 'string' ], problems.USERNAME, null, is_user),
-	crypt: datatype_of([ 'string' ], problems.CRYPT, null, is_hash,
-		(v) => crypt.is_hash(v) ? problems.problem(problems.CRYPT_ROUNDS, { max: ROUNDS_MAX }) : null),
+	crypt: datatype_of([ 'string' ], problems.CRYPT, null, is_auth_hash,
+		(v) => is_hash(v) ? problems.problem(problems.CRYPT_ROUNDS, { max: AUTH_ROUNDS_MAX }) : null),
 	uinteger: datatype_of([ 'int' ], problems.UINTEGER, null, (v) => v >= 0),
 	directory: datatype_of([ 'string' ], problems.ABSOLUTE_PATH, null, absolute_path),
 	file: datatype_of([ 'string' ], problems.ABSOLUTE_PATH, null, absolute_path),

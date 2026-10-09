@@ -422,6 +422,52 @@ describe('app.handler', () => {
 		assert.match([ [ 'err', `${auth.FILE} is not there, and the config sets basic auth (auth_user): every request is denied` ] ], logs);
 	});
 
+	// Basic auth's module is compiled when the handler finds its file: should
+	// that fail, whatever the reason, the handler fails closed, as without
+	// the file, and never serves a request, the right credentials' included.
+	const UNLOADABLE = {
+		'its file is missing, or not mounted in the jail': "import * as auth from 'prometheus_exporter.no_such_module';\nreturn auth;",
+		'it is not there by its path': "import * as auth from '/nonexistent/prometheus_exporter/auth.uc';\nreturn auth;",
+		'it does not compile': 'return {',
+		'loading it runs out of memory': "die('out of memory');",
+		'it is not basic auth\'s module': 'return { parse_conf: () => null };',
+	};
+
+	it('denies every request when basic auth\'s module does not load, with the config\'s user or without it', () => {
+		for (let why, program in UNLOADABLE)
+			for (let main in [ null, { auth_user: 'prom', cert: '/etc/x.crt', key: '/etc/x.key' } ]) {
+				patch_main(main, { [auth.FILE]: auth.conf('prom', HASH) });
+
+				let logs = [];
+				let app = handler((level, m) => push(logs, [ level, m ]), SOURCES, null, { auth_program: program });
+
+				for (let req in [ request('collect[]=loadavg', { authorization: basic('prom:secret') }), request('collect[]=loadavg', {}) ])
+					assert.match('500 Internal Server Error', app.handle(req).status, why);
+				assert.match([ true, 'string' ], [ app.auth?.broken, type(app.auth?.unloaded) ], why);
+				assert.match([ 'err' ], map(logs, (l) => l[0]), why);
+				assert.match(true, index(logs[0][1], 'cannot load basic auth\'s module') == 0 && index(logs[0][1], 'every request is denied') > 0, why);
+			}
+	});
+
+	it('denies the request when basic auth\'s check fails, rather than letting it in', () => {
+		patch_main(null, { [auth.FILE]: auth.conf('prom', HASH) });
+
+		let program = "import * as auth from 'prometheus_exporter.auth';\nreturn { ...auth, allowed: () => die('out of memory') };";
+		let app = handler(() => null, SOURCES, null, { auth_program: program });
+
+		assert.match({ user: 'prom', hash: HASH }, app.auth);
+		assert.match('500 Internal Server Error', app.handle(request('collect[]=loadavg', { authorization: basic('prom:secret') })).status);
+	});
+
+	it('lets nothing in by a check that gives anything but true', () => {
+		patch_main(null, { [auth.FILE]: auth.conf('prom', HASH) });
+
+		let program = "import * as auth from 'prometheus_exporter.auth';\nreturn { ...auth, allowed: () => 1 };";
+
+		assert.match('401 Unauthorized', handler(() => null, SOURCES, null, { auth_program: program })
+			.handle(request('collect[]=loadavg', { authorization: basic('prom:secret') })).status);
+	});
+
 	it('serves without the file when the config sets no basic auth, an empty user included', () => {
 		for (let main in [ null, { auth_user: '' } ]) {
 			patch_main(main);
@@ -438,6 +484,18 @@ describe('app.load_auth and app.auth_wanted', () => {
 
 	it('is null without the file only when the config sets no basic auth', () => {
 		assert.match([ null, { broken: true, missing: true } ], [ load_auth(files(null), false), load_auth(files(null), true) ]);
+	});
+
+	it('names where uhttpd\'s file is as auth does', () => {
+		assert.match(auth.FILE, app_mod.AUTH_FILE);
+	});
+
+	it('denies everything when the file is there and basic auth\'s module does not load', () => {
+		for (let wanted in [ false, true ]) {
+			let res = load_auth(files(auth.conf('prom', HASH)), wanted, 'return {');
+
+			assert.match([ true, 'string' ], [ res.broken, type(res.unloaded) ]);
+		}
 	});
 
 	it('takes the file when it is there, whatever the config says, and denies a file that is not right', () => {

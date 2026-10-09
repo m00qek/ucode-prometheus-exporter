@@ -200,3 +200,20 @@ export function ubus_for(channel, declared) {
 		},
 	};
 };
+
+/**
+ * The ubus module, loaded by name at run time, as deps.native loads it: the
+ * first time a channel connects, in the process that connects, so uhttpd,
+ * which never calls ubus itself, holds none of it. Null when it does not
+ * load.
+ *
+ * @returns {?{ connect: function(?string, ?int): ?Object }} its connect; null
+ *   when it does not load.
+ */
+export function load_ubus() {
+	try {
+		return loadstring("import { connect } from 'ubus';\nreturn { connect };", { raw_mode: true })();
+	} catch (e) {
+		return null;
+	}
+};
