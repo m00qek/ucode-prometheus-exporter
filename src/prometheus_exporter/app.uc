@@ -16,7 +16,7 @@
 // tenth more than now, and each family more again.
 import * as exposition from 'prometheus_exporter.exposition';
 import * as deps from 'prometheus_exporter.deps';
-import * as loader from 'prometheus_exporter.loader';
+import * as collection from 'prometheus_exporter.collection';
 import * as scrape from 'prometheus_exporter.scrape';
 import * as config from 'prometheus_exporter.config';
 import * as auth from 'prometheus_exporter.auth';
@@ -161,22 +161,104 @@ export function scrape_env(mods, log, opts) {
 	};
 };
 
+// The loader (prometheus_exporter.loader), compiled as a program of its own:
+// it checks what each module may be, and serves no scrape.
+function loader_program() {
+	return loadstring("import * as loader from 'prometheus_exporter.loader';\nreturn loader;", { raw_mode: true })();
+}
+
 /**
- * The collectors in `dir` (loader.DIR), as the exporter loads them: each
- * probed first in a process of its own (prometheus_exporter.probe),
+ * The collectors of `checked` (the loader's check), loaded here as one
+ * program, or each alone when that throws: each as the loader took it in
+ * the probe's child, its meta that one (its fingerprint), and left out,
+ * logged at err, when it is not; sorted by name.
+ *
+ * @param {CheckedModule[]} checked the modules, as the loader's check gives
+ *   them.
+ * @param {Log} log the exporter's log.
+ * @returns {Collector[]} the collectors.
+ */
+export function load_checked(checked, log) {
+	let ids = map(checked, (x) => x.id);
+	let together = null;
+	let out = [];
+
+	if (length(ids)) {
+		try {
+			together = collection.import_modules(ids);
+		} catch (e) {
+			log('notice', `cannot load the collectors as one program, so each is loaded alone: ${split(e.message, '\n')[0]}`);
+		}
+	}
+
+	for (let x in checked) {
+		let mod;
+
+		try {
+			mod = (together != null) ? together[x.id] : collection.import_module(x.id);
+		} catch (e) {
+			log('err', `cannot load collector '${x.id}': ${split(e.message, '\n')[0]}`);
+			continue;
+		}
+
+		let meta = (type(mod?.meta) == 'object') ? { options: {}, ...mod.meta } : null;
+
+		if (meta == null || type(mod.collect) != 'function' || collection.fingerprint(meta) != x.meta) {
+			log('err', `skipping collector: ${x.id}: not what it was when it was checked, in a process of its own`);
+			continue;
+		}
+
+		push(out, { id: x.id, meta, collect: mod.collect, own: x.own });
+	}
+
+	return sort(out, (a, b) => a.meta.name < b.meta.name ? -1 : 1);
+};
+
+/**
+ * The collectors in `dir` (collection.DIR), as the exporter loads them: each
+ * checked first in a process of its own (prometheus_exporter.probe), its
+ * text and then its exports, as the loader checks them (its check_module),
  * unless opts.fork is false, and then all of them loaded as one program
- * (loader.import_modules), which compiles what they share once.
+ * (collection.import_modules), which compiles what they share once. The
+ * loader is compiled in that process alone: uhttpd holds what its own
+ * program loads for as long as it runs, and the loader serves no scrape.
+ * Without a child, it is compiled here, as a program of its own, and checks
+ * them here, as before there was one.
  *
  * @param {Modules} mods the modules.
- * @param {?string} dir the collectors' directory; loader.DIR when null.
+ * @param {?string} dir the collectors' directory; collection.DIR when null.
  * @param {Log} log the exporter's log.
  * @param {?{ fork: ?boolean }} opts the options.
  * @returns {Collector[]} the collectors.
  */
 export function load(mods, dir, log, opts) {
-	let probe = (opts?.fork ?? true) ? (ids) => probe_modules(ids, loader.import_module) : null;
+	dir ??= collection.DIR;
 
-	return loader.load(mods.fs, dir ?? loader.DIR, loader.import_module, log, probe, loader.import_modules);
+	if (opts?.fork ?? true) {
+		let ids = collection.discover(mods.fs, dir);
+		// Compiled in the probe's child, at its first module.
+		let loader = null;
+		let probed = probe_modules(ids,
+			(id) => (loader ??= loader_program()).check_module(mods.fs, dir, id, collection.import_module), null, null, true);
+
+		if (!length(filter(ids, (id) => probed[id]?.unprobed))) {
+			let checked = [];
+
+			for (let id in ids) {
+				let p = probed[id];
+				let why = collection.left_out(id, p) ?? ((p?.data?.invalid != null) ? `skipping collector: ${p.data.invalid}` : null);
+
+				if (why != null)
+					log('err', why);
+				else
+					push(checked, { id, meta: p?.data?.meta, own: p?.data?.own == true });
+			}
+
+			return load_checked(checked, log);
+		}
+	}
+
+	return loader_program().load(mods.fs, dir, collection.import_module, log, null, collection.import_modules);
 };
 
 /**
@@ -220,7 +302,7 @@ export function create(log, dir, opts) {
  * directory, for tests.
  *
  * @param {Log} log the exporter's log.
- * @param {?string} dir the collectors' directory; loader.DIR when null.
+ * @param {?string} dir the collectors' directory; collection.DIR when null.
  * @param {?string} state_dir the state's directory; state.DIR when null.
  * @param {?{ fork: ?boolean, observed: ?Modules }} opts the options: create()'s.
  * @returns {Handler} the handler.

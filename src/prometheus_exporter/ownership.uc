@@ -1,8 +1,8 @@
 /**
  * Whose each family of a scrape's reply is: the first collector's that writes
- * it, the exporter's own collectors (loader.OWN) before the others; and the
- * families the core keeps for itself, which no collector may write
- * (prometheus_exporter.scrape).
+ * it, the exporter's own collectors (a collector's `own`, loader.OWN's)
+ * before the others; and the families the core keeps for itself, which no
+ * collector may write (prometheus_exporter.scrape).
  *
  * @module prometheus_exporter_ownership
  */
@@ -11,7 +11,6 @@
 
 import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
-import * as loader from 'prometheus_exporter.loader';
 
 // The prefixes of the families the core writes: node_exporter's
 // node_scrape_collector_* of every collector, and the exporter's own, which
@@ -34,12 +33,6 @@ export const EXPORTER_PREFIX = 'ucode_prometheus_exporter_';
 
 const SCRAPE_LENGTH = length(SCRAPE_PREFIX);
 const EXPORTER_LENGTH = length(EXPORTER_PREFIX);
-
-// loader.OWN as a set: a scrape asks it of every run.
-const OWN = {};
-
-for (let id in loader.OWN)
-	OWN[id] = true;
 
 // Why the collector named `me` may not write family `name`, which `owners`
 // ({ family: collector name }) says who wrote first, or null when it may.
@@ -92,11 +85,11 @@ function clear(runs, by_id) {
  * order of the reply, `by_id` their collectors) that writes it: a run that
  * writes a family another wrote first, or one the core keeps for itself,
  * fails with FAMILY_CONFLICT, logged at warning, and none of its samples are
- * served. The exporter's own collectors (loader.OWN) come first, then the
- * others; each in the order of the reply, not the order they ran in, so the
- * same collector wins every scrape, and one of another package never takes
- * a family of the exporter's own. A family a collector writes is its own,
- * and the reply has each once.
+ * served. The exporter's own collectors (`own`, loader.OWN's) come first,
+ * then the others; each in the order of the reply, not the order they ran
+ * in, so the same collector wins every scrape, and one of another package
+ * never takes a family of the exporter's own. A family a collector writes is
+ * its own, and the reply has each once.
  *
  * A scrape's runs nearly always write each family once, and none of the
  * core's: that is checked first, of all the families at once, and only
@@ -113,9 +106,9 @@ export function own(env, runs, by_id) {
 		return runs;
 
 	let owners = {};
-	let first = filter(runs, (r) => OWN[r.id]);
+	let first = filter(runs, (r) => by_id[r.id].own);
 
-	for (let r in [ ...first, ...filter(runs, (r) => !OWN[r.id]) ]) {
+	for (let r in [ ...first, ...filter(runs, (r) => !by_id[r.id].own) ]) {
 		let me = r.name;
 		let exporter = 'exporter' in by_id[r.id].meta.needs;
 		let why = null;

@@ -53,7 +53,7 @@ function runs_of(spec) {
 		if (s[0] > 2 || by_id[id] != null)
 			id = `other${i}`;
 
-		by_id[id] = { id, meta: { name: id, needs: (id == 'exporter') ? [ 'exporter' ] : [] } };
+		by_id[id] = { id, meta: { name: id, needs: (id == 'exporter') ? [ 'exporter' ] : [] }, own: id in [ 'cpu', 'loadavg', 'exporter' ] };
 		return { name: id, id, result: Result.ok(), families: uniq(map(s[1], (k) => NAMES[k])), samples: 1, text: 'x\n' };
 	});
 

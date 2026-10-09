@@ -62,7 +62,6 @@ import * as query from 'prometheus_exporter.query';
 import { seconds as now_of, budget as deadline_budget } from 'prometheus_exporter.deadline';
 import * as ledger from 'prometheus_exporter.ledger';
 import * as runner from 'prometheus_exporter.runner';
-import * as loader from 'prometheus_exporter.loader';
 import { pid_of, SIZE_MAX } from 'prometheus_exporter.state';
 import { own } from 'prometheus_exporter.ownership';
 import { bury, log_breakers } from 'prometheus_exporter.progress';
@@ -425,11 +424,11 @@ function too_late(l, c, now, cutoff) {
 
 // Where a collector the ledger has not timed runs among the others it has
 // not (ledger.order), as on the first scrape after a restart: the exporter's
-// own (loader.OWN) first, then those of other packages, which may be a loop
-// under a budget longer than the scrape; and of each, one that declares itself
-// heavy (meta.cost) after the rest.
+// own (a collector's `own`, loader.OWN's) first, then those of other
+// packages, which may be a loop under a budget longer than the scrape; and of
+// each, one that declares itself heavy (meta.cost) after the rest.
 function untimed_rank(c) {
-	return 1 + ((c.id in loader.OWN) ? 0 : 2) + ((c.meta.cost == 'heavy') ? 1 : 0);
+	return 1 + (c.own ? 0 : 2) + ((c.meta.cost == 'heavy') ? 1 : 0);
 }
 
 // The runner of `chosen` for env (prometheus_exporter.runner): forked with

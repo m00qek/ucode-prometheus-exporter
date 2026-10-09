@@ -4,6 +4,7 @@ import { describe, it, prop, gen, assert, mock, regex, contains } from 'utest';
 import * as loader from 'prometheus_exporter.loader';
 import * as Result from 'prometheus_exporter.result';
 import * as config from 'prometheus_exporter.config';
+import * as collection from 'prometheus_exporter.collection';
 
 const OK = () => Result.ok();
 
@@ -438,6 +439,25 @@ describe('loader.discover and load', () => {
 				[ 'err', "cannot load collector 'broken': Unable to compile module" ],
 				[ 'err', 'skipping collector: COLLECTOR_INVALID (odd: exports no meta)' ],
 			], logs);
+		});
+	});
+
+	it('reports a module\'s meta by its fingerprint, as load() takes it, or why it is not valid', () => {
+		let res = loader.validate('loadavg', loader.import_module('loadavg'));
+
+		mock.inject('fs', { strict: true, data: { ...FILES, [DIR + '/loadavg.uc']: STRICT, [DIR + '/c.uc']: "'use strict' + 1;\n" } }, (fs) => {
+			let imported = [];
+			let import_fn = function(id) {
+				push(imported, id);
+				return (id == 'loadavg') ? loader.import_module(id) : { meta: 1 };
+			};
+
+			assert.match([
+				{ meta: collection.fingerprint(res.data.meta), own: true },
+				{ invalid: 'COLLECTOR_INVALID (odd: exports no meta)' },
+				{ invalid: "COLLECTOR_INVALID (c: not in strict mode: its first statement must be 'use strict')" },
+			], map([ 'loadavg', 'odd', 'c' ], (id) => loader.check_module(fs, DIR, id, import_fn)));
+			assert.match([ 'loadavg', 'odd' ], imported, 'what its text refuses, it never loads');
 		});
 	});
 
