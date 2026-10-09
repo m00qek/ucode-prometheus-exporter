@@ -318,6 +318,25 @@ describe('config.enabled', () => {
 		});
 });
 
+describe('config.disabled', () => {
+	// One read of the config for every collector, where enabled() reads
+	// each one's section: the same collectors.
+	prop('names those enabled() says are not',
+		gen.array(gen.tuple(gen.elements('cpu', 'wifi', 'netdev', 'main'), gen.elements('collector', 'interface', config.NAME),
+			gen.elements(null, '1', '0', 'off', 'yes', 'maybe', '')), { min_len: 0, max_len: 5 }), (spec) => {
+			let sections = {};
+
+			for (let s in spec)
+				sections[s[0]] = { '.type': s[1], ...((s[2] != null) ? { enabled: s[2] } : {}) };
+
+			with_uci(sections, (uci) => {
+				let ids = [ 'cpu', 'wifi', 'netdev', 'loadavg' ];
+
+				assert.match(filter(ids, (id) => !config.enabled(uci, id)), config.disabled(uci, ids), sprintf('%J', sections));
+			});
+		});
+});
+
 describe('config.main', () => {
 	it('reads omit_zero_values from the main section', () => {
 		with_uci({ main: { '.type': config.NAME, omit_zero_values: '1', listen_port: '9100' } }, (uci) => {

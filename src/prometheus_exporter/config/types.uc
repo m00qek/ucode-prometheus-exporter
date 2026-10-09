@@ -199,6 +199,11 @@ export function invalid(name, problem, value, spec) {
 	return Result.err(errors.CONFIG_INVALID, problems.message(name, p), { option: name, problem: p });
 };
 
+// An integer as uci spells one: a module constant, as a regex literal is
+// compiled each time it is evaluated, and a scrape reads every integer
+// option of the main section.
+const INTEGER = /^-?[0-9]+$/;
+
 // A uci value as the type of the option's default.
 function typed(name, value, spec) {
 	switch (type(spec.default)) {
@@ -210,7 +215,7 @@ function typed(name, value, spec) {
 		return invalid(name, problems.problem(problems.BOOLEAN), value, spec);
 
 	case 'int':
-		if (type(value) == 'string' && match(value, /^-?[0-9]+$/))
+		if (type(value) == 'string' && match(value, INTEGER))
 			return Result.ok(int(value));
 		return invalid(name, problems.problem(problems.INTEGER), value, spec);
 

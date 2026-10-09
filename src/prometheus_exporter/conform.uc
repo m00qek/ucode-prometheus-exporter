@@ -86,7 +86,7 @@ function writers(runs) {
 
 	for (let r in runs)
 		for (let f in r?.families ?? [])
-			push(out[f.name] ??= [], r.name);
+			push(out[f] ??= [], r.name);
 
 	return out;
 }
@@ -180,7 +180,7 @@ export function run(sys, path) {
 			((res.error in BROKEN) ? '' : ' (on this device: it may do its job on another)'));
 
 	if (length(r.families)) {
-		let names = map(r.families, (f) => f.name);
+		let names = r.families;
 		let shown = slice(names, 0, FAMILIES_SHOWN);
 
 		add('ok', `families: ${join(' ', shown)}` + ((length(names) > length(shown)) ? `, and ${length(names) - length(shown)} more` : ''));
@@ -195,8 +195,8 @@ export function run(sys, path) {
 		let written = writers(scrape.trial(sys.env, sys.uci, null, enabled, others));
 
 		for (let f in r.families)
-			if (written[f.name])
-				add('fail', `family ${f.name}: written by the installed ${join(', ', written[f.name])} too; the first of the reply keeps it`);
+			if (written[f])
+				add('fail', `family ${f}: written by the installed ${join(', ', written[f])} too; the first of the reply keeps it`);
 	}
 
 	return done();

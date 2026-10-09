@@ -16,9 +16,9 @@ import { seconds } from 'prometheus_exporter.deadline';
  * loaded, the first line of what loading it threw, whether it was stopped
  * for hanging, and the seconds it took; `unprobed` when no child could be
  * forked, and the module is to load where it is used, as before there was
- * one.
+ * one; `data`, with `report`, what loading it returned there.
  *
- * @typedef {{ ok: boolean, error: ?string, hung: boolean, seconds: float, unprobed: ?boolean }} ProbeOutcome
+ * @typedef {{ ok: boolean, error: ?string, hung: boolean, seconds: float, unprobed: ?boolean, data: ?Object }} ProbeOutcome
  */
 
 /**
@@ -53,7 +53,10 @@ export const LOAD_TIMEOUT = 5;
  * that does not load within `seconds` (LOAD_TIMEOUT) is stopped with its
  * process, and a new one loads the rest. { <id>: { ok, error, hung,
  * seconds } }: error, the first line of what loading it threw; hung, whether
- * it was stopped. clock_fn: [ s, ns ], monotonic.
+ * it was stopped. clock_fn: [ s, ns ], monotonic. With `report`, import_fn
+ * returns what to report of the module, data that crosses a pipe in a
+ * message of at most PIPE_BUF bytes (the loader's check_module), which its
+ * outcome holds as `data`.
  *
  * Only what loads here is then loaded in the process that serves the scrapes:
  * a module whose top level never returns would keep uhttpd from ever serving.
@@ -65,9 +68,10 @@ export const LOAD_TIMEOUT = 5;
  *   null.
  * @param {?function(): int[]} clock_fn a monotonic clock, [ s, ns ];
  *   clock(true) when null.
+ * @param {?boolean} report whether import_fn's value is reported.
  * @returns {Object<string, ProbeOutcome>} each module's, by name.
  */
-export function probe(ids, import_fn, seconds, clock_fn) {
+export function probe(ids, import_fn, seconds, clock_fn, report) {
 	let out = {};
 	let left = [ ...ids ];
 	let env = { clock: clock_fn ?? (() => clock(true)) };
@@ -83,16 +87,16 @@ export function probe(ids, import_fn, seconds, clock_fn) {
 	// it: the child drops each, and this process never has them.
 	function child(pipe) {
 		for (let id = pipe.receive(); type(id) == 'string'; id = pipe.receive()) {
-			let error = null;
+			let error = null, data = null;
 
 			try {
-				st.import_fn(id);
+				data = st.import_fn(id);
 			} catch (e) {
 				error = substr(split(e.message, '\n')[0], 0, 1024);
 			}
 
-			// No longer than PIPE_BUF, as child_of says.
-			pipe.send({ id, error });
+			// No longer than PIPE_BUF, as the runner's child_of says.
+			pipe.send({ id, error, data: report ? data : null });
 		}
 
 		return { end: true };
@@ -123,7 +127,7 @@ export function probe(ids, import_fn, seconds, clock_fn) {
 		}
 
 		if (msg?.id == st.id)
-			finish({ ok: msg.error == null, error: msg.error, hung: false });
+			finish({ ok: msg.error == null, error: msg.error, hung: false, ...(report ? { data: msg.data } : {}) });
 	}
 
 	function spawn() {

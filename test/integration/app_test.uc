@@ -4,7 +4,9 @@
 // patched globally, so the named imports of prometheus_exporter.deps reach the mocks.
 
 import { describe, it, afterEach, assert, contains, mock } from 'utest';
-import { create, handler, load_auth, auth_wanted } from 'prometheus_exporter.app';
+import { create, handler, load_auth, auth_wanted, load_checked } from 'prometheus_exporter.app';
+import * as loader from 'prometheus_exporter.loader';
+import * as collection from 'prometheus_exporter.collection';
 import { inflate } from 'zlib';
 import * as auth from 'prometheus_exporter.auth';
 import * as state from 'prometheus_exporter.state';
@@ -45,6 +47,24 @@ describe('app', () => {
 	it('loads the collectors of a directory', () => {
 		patch({}, {});
 		assert.match(contains([ 'loadavg', 'openwrt' ]), map(create(() => null, SOURCES).collectors(), (c) => c.meta.name));
+	});
+
+	// Checked in the probe's child, loaded here without the loader: each
+	// as it was there, or not at all.
+	it('loads a collector checked elsewhere only when its meta is what was checked', () => {
+		let meta = loader.validate('loadavg', loader.import_module('loadavg')).data.meta;
+		let logs = [];
+		let loaded = load_checked([
+			{ id: 'loadavg', meta: collection.fingerprint(meta), own: true },
+			{ id: 'uname', meta: collection.fingerprint(meta), own: true },
+			{ id: 'does_not_exist', meta: 'x', own: false },
+		], (level, m) => push(logs, [ level, m ]));
+
+		assert.match([ [ 'loadavg', true, meta ] ], map(loaded, (c) => [ c.id, c.own, c.meta ]));
+		assert.match([
+			'notice', 'err', 'err',
+		], map(logs, (l) => l[0]));
+		assert.match("skipping collector: uname: not what it was when it was checked, in a process of its own", logs[1][1]);
 	});
 
 	it('scrapes the caju router', () => {

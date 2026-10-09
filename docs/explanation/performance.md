@@ -48,14 +48,13 @@ It is in the `-network` and `-full` groups. On such a router, leave it out, [dis
 
 Each scrape runs its collectors in a child process, so that one that never returns, or ends its process, costs itself alone (see [About the architecture](architecture.md#a-process-of-its-own)). That has a price, which the benchmark measures as a scrape forked (`scrape:`) against the same scrape in one process (`inline:`):
 
-| Scrape | devenv | QEMU's 500-MIPS 24Kc |
-| :--- | :--- | :--- |
-| typical, base collectors (16) | 15.8 ms, 3.7 ms more | 387 ms, 55 ms more (+16%) |
-| typical, every collector (36) | 96.0 ms, 9.2 ms more (+11%) | 2.64 s, 266 ms more (+11%) |
-| large, base collectors | 34.6 ms, 4.5 ms more | 897 ms, 56 ms more (+7%) |
-| large, every collector | 513 ms, 41 ms more (+9%) | 17.8 s, 0.86 s more (+5%) |
+| Scrape | devenv | QEMU's 500-MIPS 24Kc | YunCore AX835 |
+| :--- | :--- | :--- | :--- |
+| typical, base collectors (17) | 14.5 ms, 1.9 ms more | 359 ms, 44 ms more (+14%) | 131 ms, 9 ms more (+7%) |
+| typical, every collector (37) | 114 ms, about as long | 2.51 s, 129 ms more (+5%) | 940 ms, 11 ms more (+1%) |
+| large, base collectors | 34.7 ms, 1.8 ms more | | |
 
-On the 24Kc, that is some 4 to 8 ms a collector: the round trip between the scrape and its child, and the pages the child copies from the scrape's as it writes them (copy-on-write). The progress file costs a scrape 3.6 ms there, a tenth of a percent.
+On the 24Kc, that is some 2.5 to 3.5 ms a collector, where it was 3 to 5 before 0.3.0: a fork, a line and a run in the file the child writes and the scrape reads, and the pages the child copies from the scrape's as it writes them (copy-on-write). The progress file costs a scrape 3.7 ms there, a tenth of a percent.
 
 So a scrape on a slow router costs a tenth to a fifth more than it would if its collectors could not stop it. That is the trade: a collector that loops, waits on a FIFO or runs out of memory then costs its own budget and nothing more, where it would hold every later scrape, or end the request with nothing answered.
 
@@ -84,7 +83,7 @@ What changed:
 - **A collector's settings.** Most collectors have no section in the config, and a scrape gives such a collector its defaults straight away, without the specs a section's values are checked against: 5 µs where it took 13, in the devenv.
 - **netstat's fields.** A scrape checks each of the kernel's 400 or so fields against the `fields` option, and musl takes as long to match one against node_exporter's default pattern as forty lookups. The default is checked with lookups instead, which tests hold to the pattern; any other is matched.
 
-What is left is mostly the VM's own work. A sample of labels is a loop over its object, a lookup, a type check and two concatenations a label, and one match: nat_traffic's 20,000 connections take 0.2 s in the devenv, where prebuilt label strings, which no longer reach the recorder, took 0.18. A family is its name and its HELP text checked, its writer made, and its header written: meminfo writes a family a sample, half a millisecond each on the 24Kc. A double is written by C's `%g` and read back by `strtod()`, which the 24Kc does in software: 70 µs. And a collector's round trip to its child process is a uloop task's, 0.43 ms on the 24Kc before the run is packed and read back.
+What is left is mostly the VM's own work. A sample of labels is a loop over its object, a lookup, a type check and two concatenations a label, and one match: nat_traffic's 20,000 connections take 0.2 s in the devenv, where prebuilt label strings, which no longer reach the recorder, took 0.18. A family is its name and its HELP text checked, its writer made, and its header written: meminfo writes a family a sample, half a millisecond each on the 24Kc. A double is written by C's `%g` and read back by `strtod()`, which the 24Kc does in software: 70 µs. What a scrape costs a collector besides it is mostly the VM's work too, 250 to 300 turns of its loop on any machine (see [In 0.3.0](#in-030)).
 
 ## Besides the collectors {#besides-the-collectors}
 
@@ -107,6 +106,41 @@ The benchmark measures that path too, so that it cannot grow unseen: its `handle
 
 Over HTTPS, a scrape that opens a connection of its own pays a TLS handshake too, whatever it asks for: 128 ms in the devenv's container with uclient-fetch, for a path that is not there as much as for a scrape, through the exporter's uhttpd or LuCI's. Prometheus keeps its connection open between scrapes (`http_keepalive`), and pays it once.
 
+## In 0.3.0 {#in-030}
+
+Traced step by step through uhttpd again, on the base collectors and those of an access point, what a scrape spent besides its collectors was mostly done for each collector, and the pages a process writes after a fork, which the kernel copies first. Each collector was three messages and two wakeups of the scrape: the child asked for it, the scrape worked out its settings and limit and answered, and read its run back once it was done. The child now goes through the plan itself, forked with it, and the scrape only holds the clock:
+
+- **The child goes through the plan.** It leaves out what the deadline, a breaker or the reply's sample limit keeps out as the scrape did, and writes, in one write a collector, the line that it starts, with its limit, and the run before it, to a file the scrape reads through a descriptor of its own, at its timer's turns, while the child goes on. The pipe tells the scrape only of a collector whose limit is near, or one after a few runs worth taking while the child goes on, and of the child's end. A child stopped or dead leaves its runs, and a new one goes on after them.
+- **A run's families are their names, checked all at once.** Who owns each family was a loop over every family of every run, with a lookup and two prefix checks each; it is now one `uniq()` of all the names and one `index()` of each run's, and a family at a time only when two runs write one, or one of the core's.
+- **The scrape's own four samples of each collector** are written as text, without a recorder: a fifth of what a collector that writes nothing cost.
+- **Once a scrape, not once a collector**: the config's collector sections are walked once for which are switched off, the ledger is parsed once and recorded with one copy of each entry, its order is a sort of text rather than a call of ours for each pair, and the exporter collector's counters record only the runs that count. A regex that ucode compiled at each call is a constant.
+
+Besides its collectors, a scrape (`scrape:`) and a scrape through uhttpd (`handler:`), on the same machines, before (main of 2026-10-08, the collectors of 0.3.0) and now:
+
+| | devenv | QEMU's 500-MIPS 24Kc | YunCore AX835 |
+| :--- | :--- | :--- | :--- |
+| through uhttpd, base collectors (`handler:base`) | 9.7 → 7.7 ms | 161 → 118 ms | |
+| through uhttpd, every collector (`handler:full`) | 28.9 → 18.5 ms | 518 → 378 ms | |
+| a scrape of the base collectors (`scrape:base`) | 7.4 → 3.9 ms | 130 → 96 ms | 49 → 32 ms |
+| a scrape of every collector (`scrape:full`) | 22.1 → 12.4 ms | 457 → 312 ms | 171 → 104 ms |
+| a collector besides it (`noop:`) | 0.152 → 0.081 ms | 4.38 → 3.52 ms | 1.50 → 0.89 ms |
+| the ledger (`ledger:full`) | 1.0 → 0.8 ms | 26.4 → 21.0 ms | 9.9 → 8.2 ms |
+| a family of a sample (`record:family`) | 16.4 → 14.4 µs | 506 → 488 µs | 181 → 172 µs |
+
+A sample costs what it did, 5.6 µs for two labels of an object in the devenv, and a family six of a `labels()` set's samples: its name and its HELP text checked, an object, a closure and two arrays, and its header. A collector that writes nothing is 250 to 300 turns of the VM's loop on any machine (0.081 ms of 0.29 µs in the devenv, 0.89 ms of 3.5 µs on the A53): its settings and its limit, its recorder, its start and its run packed in the child and read back here, and its four samples. The rest of what a scrape spends besides its collectors is rendering their families, which every exporter must, and the pages the request's process and the child copy as they write them; and the less a process holds, the fewer it copies.
+
+uhttpd holds less too, which the benchmark's `rest:` cases measure: what the process holds of its own (RssAnon) once it has compiled the handler's program and loaded a set's collectors, as the service's handler does, more than before. musl compiles a regex's count, as `[./0-9A-Za-z]{86}`, into a copy of what it counts for each, and the three hash formats of basic auth held 350 kB of it: they are checked by their lengths now. The loader, its jail's rules and its import scanner served no scrape: each module is checked in the probe's child, and the loader compiled there alone. And of the native modules a collector may need, rtnl, nl80211 and socket are loaded when a loaded collector needs them.
+
+| What uhttpd holds at rest | before | now |
+| :--- | :--- | :--- |
+| devenv, base collectors (`rest:base`) | 2.06 MB | 1.48 MB |
+| devenv, every collector (`rest:full`) | 2.62 MB | 2.08 MB |
+| YunCore AX835, base collectors | 2.01 MB | 1.48 MB |
+| QEMU's 24Kc (32-bit), base collectors | | 1.08 MB |
+| the service's uhttpd with an access point's 19 collectors, devenv (RssAnon) | 2.46 MB | 1.88 MB |
+
+What is left is code: ucode keeps about a kilobyte for each function a program compiled and each object it made, so the handler's program, some 350 functions, holds about 0.95 MB, the native modules 0.35 MB, and the collectors 20 kB each besides the 100 kB of the collector API they share.
+
 ## Loading {#loading}
 
 uhttpd loads the collectors when it starts, in the process every request is forked from, and holds them as long as it runs. A collector imports the collector API, which imports four modules of the core; ucode compiles a module once in a program, and keeps its source file open while the program lives. 0.2.0 compiled a program for each collector, so each had its own copy of those five modules, and six descriptors with its own: 37 collectors kept 268 open in the R3S's uhttpd, where a process may open 1024, which some 160 collectors would reach. The collectors are now compiled as one program, once each has loaded in a child process of its own (the probe, which still compiles each alone):
@@ -119,11 +153,11 @@ uhttpd loads the collectors when it starts, in the process every request is fork
 | the service's uhttpd, devenv's procd container, 45 collectors | 315 descriptors, 7.3 MB | 95 descriptors, 4.5 MB |
 | the service's uhttpd, QEMU, 36 collectors | 263 descriptors, 5.2 MB | 86 descriptors, 3.5 MB |
 
-A request's process and the collectors' child are forked from that uhttpd, so they start smaller too. Should the collectors not load as one program, which the probe makes unlikely, each is loaded alone, as before.
+A request's process and the collectors' child are forked from that uhttpd, so they start smaller too. Should the collectors not load as one program, which the probe makes unlikely, each is loaded alone, as before. What uhttpd holds once they are loaded is in [In 0.3.0](#in-030).
 
 ## The ledger
 
-Ordering the collectors and keeping their breakers costs a scrape a read of a small file when it starts, and a locked read and write when it ends (`make bench`'s `ledger:full`, 35 collectors, a ledger of 1.5 kB): 1.0 ms in the devenv and 21 ms on the 500-MIPS 24Kc, about 1% of a typical full scrape on both.
+Ordering the collectors and keeping their breakers costs a scrape a read of a small file when it starts, and a locked read and write when it ends (`make bench`'s `ledger:full`, 37 collectors, a ledger of 1.6 kB): 0.8 ms in the devenv and 21 ms on the 500-MIPS 24Kc, about 1% of a typical full scrape on both.
 
 ## Gzip
 

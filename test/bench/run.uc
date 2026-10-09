@@ -13,6 +13,8 @@
 //   load:<set>                compile and validate the set's collectors
 //   probe:<set>               the same, each module loaded in a child process first, as uhttpd does
 //                             when it starts (prometheus_exporter.probe)
+//   rest:<set>                what the handler's process holds once it loaded the set, as uhttpd
+//                             holds it while it runs: its RssAnon, less what it held before
 //   handler:<set>             a scrape of the set as Prometheus gets it: uhttpd running the
 //                             service's handler (handler.uc, on the world), asked by wget
 //   collector:<name>[@<n>]    one collector's run and its rendering; @n reads the n-entry conntrack table
@@ -81,6 +83,14 @@ function memory() {
 	}
 
 	return m;
+}
+
+// This process's private memory, RssAnon, in kB: what it holds of its own,
+// its heap and the pages of its libraries it wrote to.
+function anon_kb() {
+	let m = match(fs.readfile('/proc/self/status') ?? '', /RssAnon:\s+([0-9]+) kB/);
+
+	return m ? +m[1] : null;
 }
 
 // Frees what loading left and, where the kernel lets a process (Linux 4.0's
@@ -234,7 +244,7 @@ if (kind == 'calibrate') {
 	let mods = bench_world.modules(world, uniq(needs), { lazy: true });
 	let env = {
 		session: (to) => deps.session({ ...mods, log: to ?? log }), clock: () => clock(true), log, version: 'bench',
-		fork: kind == 'scrape', stats, mkstemp: fs.mkstemp, readfile: fs.readfile,
+		fork: kind == 'scrape', stats, mkstemp: fs.mkstemp, open: fs.open, readfile: fs.readfile,
 	};
 
 	mem_before = reset_peak();
@@ -272,6 +282,36 @@ if (kind == 'calibrate') {
 	result.child_hwm_kb = stats.child?.VmHWM;
 	result.child_data_kb = stats.child?.VmData;
 	result.data_kb = memory().VmData;
+} else if (kind == 'rest') {
+	// What the handler's process holds once it has loaded, which uhttpd
+	// holds for as long as it runs, and every request and collectors' child
+	// starts from: its private memory (RssAnon) after it compiled the
+	// handler's program and loaded the set's collectors, as the service's
+	// handler does (app.handler), less what it held before. The program is
+	// compiled anew, as uhttpd compiles it, beside the bench's own.
+	let names = sets[arg] ?? die(`no set ${arg}`);
+	let base = `${world_dir}/../rest-${arg}`;
+	let dir = `${base}/collectors`, state_dir = `${base}/state`;
+
+	system(sprintf("rm -rf '%s' && mkdir -p '%s' '%s' && chmod 700 '%s'", base, dir, state_dir, state_dir));
+	for (let n in names)
+		fs.symlink(`${COLLECTORS}/${loader.id_of(n)}.uc`, `${dir}/${loader.id_of(n)}.uc`);
+
+	gc();
+	mem_before = memory();
+
+	let before = anon_kb();
+	let t = now();
+	let make = loadstring("import { handler } from 'prometheus_exporter.app';\nreturn handler;", { raw_mode: true })();
+	let app = make((level, msg) => push(logs, `${level}: ${msg}`), dir, state_dir);
+
+	result.time = now() - t;
+	gc();
+	result.collectors = length(app.collectors());
+	result.ok = result.collectors == length(names);
+	result.error = result.ok ? null : `loaded ${result.collectors} of ${length(names)} collectors`;
+	result.held_kb = anon_kb() - before;
+	result.anon_kb = anon_kb();
 } else if (kind == 'handler') {
 	// The scrape as Prometheus gets it from the service: uhttpd running the
 	// handler (handler.uc here, the service's with the world), which loads
@@ -375,7 +415,7 @@ if (kind == 'calibrate') {
 	let mods = bench_world.modules(world, [], { lazy: true });
 	let env = {
 		session: (to) => deps.session({ ...mods, log: to ?? log }), clock: () => clock(true), log, version: 'bench',
-		fork: true, mkstemp: fs.mkstemp, readfile: fs.readfile,
+		fork: true, mkstemp: fs.mkstemp, open: fs.open, readfile: fs.readfile,
 	};
 
 	mem_before = reset_peak();
@@ -493,7 +533,7 @@ if (kind == 'calibrate') {
 	let mods = bench_world.modules(world, uniq(needs), { lazy: true, redirect: { '/proc/net/nf_conntrack': `${world_dir}/conntrack/${parts[1]}` } });
 	let env = {
 		session: (to) => deps.session({ ...mods, log: to ?? log }), clock: () => clock(true), log, version: 'bench',
-		fork: true, mkstemp: fs.mkstemp, readfile: fs.readfile,
+		fork: true, mkstemp: fs.mkstemp, open: fs.open, readfile: fs.readfile,
 	};
 	let dir = `${world_dir}/../state-deadline`;
 	let timeout = 10;

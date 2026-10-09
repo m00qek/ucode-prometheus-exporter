@@ -381,22 +381,44 @@ export function session_cursor(sid) {
 };
 
 /**
- * The real fs, ubus, uci, rtnl, nl80211 and socket (these two when
- * installed), time and a monotonic clock. Of fs, writefile, rename, unlink and
- * chmod are the handler's, for its state, mkstemp the runner's and stdin the
- * command line's: no collector gets them (FS_API). Cursors read committed
- * configuration only (UCI_NO_DELTAS).
+ * The native modules a collector may need besides fs, ubus and uci: rtnl,
+ * nl80211 and socket (these two when installed), each loaded when a need of
+ * `needs` names it, or every one when `needs` is null. Each costs a process
+ * that loads it some 60 to 90 kB, which uhttpd holds for as long as it runs:
+ * the handler loads those its collectors need.
  *
+ * @param {?string[]} needs the needs (meta.needs) of the collectors, or null.
+ * @returns {{ rtnl: ?NetlinkModule, nl80211: ?NetlinkModule, socket: ?module:socket }}
+ *   the modules, null where none needs one, or it does not load.
+ */
+export function natives(needs) {
+	let wanted = (n) => needs == null || n in needs;
+
+	return {
+		rtnl: wanted('rtnl') ? load_rtnl() : null,
+		nl80211: wanted('nl80211') ? load_nl80211() : null,
+		socket: wanted('socket') ? load_socket() : null,
+	};
+};
+
+/**
+ * The real fs, ubus, uci, rtnl, nl80211 and socket (these two when
+ * installed), time and a monotonic clock; of rtnl, nl80211 and socket only
+ * those `needs` names, when given (natives()). Of fs, writefile, rename,
+ * unlink and chmod are the handler's, for its state, mkstemp the runner's and
+ * stdin the command line's: no collector gets them (FS_API). Cursors read
+ * committed configuration only (UCI_NO_DELTAS).
+ *
+ * @param {?string[]} needs the needs of the collectors to be run; null for
+ *   every one.
  * @returns {Modules} the modules.
  */
-export function modules() {
+export function modules(needs) {
 	return {
 		fs: { readfile, open, lsdir, glob, stat, realpath, popen, writefile, rename, unlink, chmod, mkstemp, stdin },
 		ubus: { connect },
 		uci: { cursor: () => cursor(null, UCI_NO_DELTAS) },
-		rtnl: load_rtnl(),
-		nl80211: load_nl80211(),
-		socket: load_socket(),
+		...natives(needs),
 		time: () => time(),
 		clock: () => clock(true),
 		readable: (p) => stat(p) == null || !!access(p, 'r'),

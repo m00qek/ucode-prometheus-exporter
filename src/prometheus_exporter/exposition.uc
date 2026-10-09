@@ -337,8 +337,18 @@ export function render(families, opts) {
 			lines = kept;
 		}
 
-		if (length(lines))
+		if (!length(lines))
+			continue;
+
+		// header()'s, without its call or escape_help's for a text that
+		// has nothing to escape, as a family's HELP nearly never has: the
+		// call is a large share of what a family of a sample costs.
+		let help = fam.help;
+
+		if (help && (type(help) != 'string' || index(help, '\\') >= 0 || index(help, '\n') >= 0))
 			push(parts, header(fam), join('\n', lines));
+		else
+			push(parts, (help ? '# HELP ' + fam.name + ' ' + help + '\n# TYPE ' : '# TYPE ') + fam.name + ' ' + fam.type, join('\n', lines));
 	}
 
 	return length(parts) ? join('\n', parts) + '\n' : '';
@@ -346,23 +356,24 @@ export function render(families, opts) {
 
 /**
  * A collector's families as a scrape keeps its run: { families, text }, the
- * families' names and types, which a scrape needs to say whose each family
- * is (prometheus_exporter.ownership), and the text render() writes of them,
+ * families' names, which a scrape needs to say whose each family is
+ * (prometheus_exporter.ownership), and the text render() writes of them,
  * with `omit` (omit_zero_values). The reply is the text of each collector,
  * one after the other: a family is one collector's, so the reply has it once
  * without a merge.
  *
  * @param {RecordedFamily[]} families the collector's families.
  * @param {?boolean} omit omit_zero_values.
- * @returns {{ families: { name: string, type: string }[], text: string }} its
- *   families' names and types, and their text.
+ * @returns {{ families: string[], text: string }} its families' names, and
+ *   their text.
  */
 export function pack(families, omit) {
-	let named = [];
+	let names = [];
 
-	// A loop, not map(): a function call for each of hundreds of families.
+	// A loop, not map(): a function call for each of hundreds of families,
+	// and a name each, not an object, which costs ucode a table.
 	for (let f in families)
-		push(named, { name: f.name, type: f.type });
+		push(names, f.name);
 
-	return { families: named, text: render(families, { omit_zero_counters: omit }) };
+	return { families: names, text: render(families, { omit_zero_counters: omit }) };
 };

@@ -161,6 +161,68 @@ describe('ledger.order', () => {
 			for (let i = 1; i < length(got); i++)
 				assert.match(true, ledger.estimate(l, got[i - 1].id) <= ledger.estimate(l, got[i].id));
 		});
+
+	// It sorts text, not with a function of its own for each pair: it must
+	// order as comparing each key as a number does.
+	prop('orders as comparing whether last, rank, estimate and place, as numbers, does',
+		gen.array(gen.tuple(gen.bool(), gen.int(0, 4), gen.oneof(gen.constant(null), gen.float(0, 30), gen.int(0, 3))),
+			{ min_len: 0, max_len: 10 }), (spec) => {
+			let cs = map(spec, (s, i) => ({ id: `c${i}`, last: s[0], rank: s[1] }));
+			let d = {};
+
+			for (let i, s in spec)
+				if (s[2] != null)
+					d[`c${i}`] = s[2];
+
+			let l = with_durations(d);
+			let keyed = map(cs, (c, i) => [ c.last ? 1 : 0, (ledger.estimate(l, c.id) != null) ? 0 : c.rank, ledger.estimate(l, c.id) ?? 0, i, c ]);
+			let want = map(sort(keyed, function(a, b) {
+				for (let i = 0; i < 4; i++)
+					if (a[i] != b[i])
+						return (a[i] < b[i]) ? -1 : 1;
+				return 0;
+			}), (x) => x[4].id);
+
+			assert.match(want, ids(ledger.order(l, cs, (c) => c.last, (c) => c.rank)), sprintf('%J', spec));
+		});
+});
+
+describe('ledger.counters_with', () => {
+	// The exporter collector's counters at every scrape: recorded with the
+	// runs that count something alone, they must be those of all the runs.
+	const KINDS = {
+		ok: () => [ Result.ok(), 0.1, null ],
+		none: () => [ Result.none('absent'), 0.1, null ],
+		failed: () => [ Result.err('SOURCE_INVALID', 'x'), 0.1, null ],
+		timeout: () => [ Result.err('COMMAND_TIMEOUT', 'x'), 0.1, null ],
+		cancelled: () => [ Result.err('COLLECTOR_CANCELLED', 'x'), 6, null ],
+		overrun: () => [ Result.ok(), 7, null ],
+		late: () => [ Result.err('SCRAPE_DEADLINE', 'cut'), 0.2, null ],
+		left_out: () => [ Result.err('SCRAPE_DEADLINE', 'not run'), 0, 'deadline' ],
+		quarantined: () => [ Result.err('COLLECTOR_QUARANTINED', 'x'), 0, 'quarantine' ],
+	};
+
+	function runs_of(kinds) {
+		return map(kinds, function(k, i) {
+			let x = KINDS[k[1]]();
+
+			return { id: `c${k[0]}`, name: `c${k[0]}`, duration: x[1], samples: 1, result: x[0], budget: 5, skipped: x[2] };
+		});
+	}
+
+	prop('counts what counters(record()) counts, of any ledger and runs',
+		gen.tuple(gen.array(gen.array(gen.tuple(gen.int(0, 4), gen.elements(...keys(KINDS))), { min_len: 0, max_len: 5 }), { min_len: 0, max_len: 6 }),
+			gen.array(gen.tuple(gen.int(0, 5), gen.elements(...keys(KINDS))), { min_len: 0, max_len: 5 })), (t) => {
+			let ids = [ 'c0', 'c1', 'c2', 'c3', 'c4' ];
+			let l = ledger.empty();
+			let seen = {};
+			let runs = filter(runs_of(t[1]), (r) => !seen[r.id] && (seen[r.id] = true));
+
+			for (let scrape in t[0])
+				l = ledger.record(l, runs_of(scrape), null, ids);
+
+			assert.match(ledger.counters(ledger.record(l, runs, null, ids)), ledger.counters_with(l, runs, ids), sprintf('%J', t));
+		});
 });
 
 describe('ledger, the breakers', () => {
@@ -236,6 +298,16 @@ describe('ledger, the breakers', () => {
 		assert.match({ OTHER: 5, MY_OWN_CODE: 1 }, l.c.a.fails);
 		assert.match(true, length(ledger.serialize(l)) < 1000);
 	});
+
+	// Its length is counted, not matched as {0,63}, which musl compiles
+	// into 56 kB the handler would hold: it counts what that takes.
+	prop('counts by its code what an uppercase word of 1 to 64 characters, matched, is',
+		gen.string({ min_len: 0, max_len: 70, charset: 'AZ09_a-' }), (code) => {
+			let l = ledger.record(ledger.empty(), [ run_with('a', 0.1, Result.err(code)) ], null, [ 'a' ]);
+			let word = match(code, /^[A-Z][A-Z0-9_]{0,63}$/) != null;
+
+			assert.match(word ? { [code]: 1 } : { OTHER: 1 }, l.c.a.fails, code);
+		});
 
 	it('writes a ledger over `max` without breakers\' whys and failures by code, and keeps the rest', () => {
 		let ids = map([ 1, 2, 3 ], (i) => `c${i}`);

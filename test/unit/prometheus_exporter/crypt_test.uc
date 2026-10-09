@@ -102,6 +102,32 @@ describe('crypt.is_hash', () => {
 			assert.match(false, crypt.is_hash(s), s);
 	});
 
+	// is_hash counts lengths and matches the parts without a count, which
+	// musl compiles into hundreds of kB: it must take what these take.
+	const AS_ONE = [
+		/^\$1\$[.\/0-9A-Za-z]{0,8}\$[.\/0-9A-Za-z]{22}$/,
+		/^\$5\$(rounds=[1-9][0-9]{3,6}\$)?[.\/0-9A-Za-z]{0,16}\$[.\/0-9A-Za-z]{43}$/,
+		/^\$6\$(rounds=[1-9][0-9]{3,6}\$)?[.\/0-9A-Za-z]{0,16}\$[.\/0-9A-Za-z]{86}$/,
+	];
+
+	function as_one(s) {
+		return length(filter(AS_ONE, (re) => match(s, re))) > 0;
+	}
+
+	prop('takes what the formats as a regex each take, of hashes cut, grown or changed anywhere',
+		gen.tuple(HASH, gen.int(0, 200), gen.int(0, 3), gen.elements('$', '.', 'a', '0', ':', '\n', 'rounds=', '$1$', '$5$', '$6$', '')),
+		(t) => {
+			let h = t[0], i = t[1] % (length(h) + 1);
+			let cut = substr(h, 0, i) + t[3] + substr(h, i + t[2]);
+
+			assert.match(as_one(cut), crypt.is_hash(cut), cut);
+		});
+
+	prop('takes what the formats as a regex each take, of any text of $ and the alphabet',
+		gen.string({ min_len: 0, max_len: 120, charset: '$156.ab0rounds=9' }), (s) => {
+			assert.match(as_one(s), crypt.is_hash(s), s);
+		});
+
 	it('refuses DES, bcrypt, $p$, rounds musl would rewrite, and plain text', () => {
 		let digest86 = substr(KNOWN[4][1], 15);
 

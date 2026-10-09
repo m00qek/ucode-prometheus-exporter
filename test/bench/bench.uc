@@ -16,6 +16,8 @@
 //
 //   load:base, load:full          compiling the collectors
 //   probe:full                    the same, each loaded in a child process first, as uhttpd does when it starts
+//   rest:base, rest:full          what the handler's process holds once it loaded the set, as uhttpd
+//                                 holds it while it runs (RssAnon)
 //   collector:<name>              each collector of `full` and `extra` on the large world
 //   collector:nat_traffic@<n>     the n-entry conntrack tables (1k, 10k, 20k)
 //   scrape:base, scrape:full      whole scrapes, on the typical and the large world, as the service
@@ -94,6 +96,7 @@ if (no_handler)
 else
 	for (let s in [ 'base', 'full' ])
 		push(cases, [ 'typical', `handler:${s}` ]);
+push(cases, [ 'typical', 'rest:base' ], [ 'typical', 'rest:full' ]);
 push(cases, [ 'typical', 'progress:full' ]);
 // Basic auth's check of a password: MD5-crypt, SHA-512-crypt at the rounds
 // hash_password makes, SHA-crypt at the most auth_password takes, and a
@@ -226,6 +229,8 @@ for (let c in cases) {
 	}
 	if (r.kind == 'record' && r.ok !== false)
 		note = sprintf('%.3f us a sample', r.time.median / r.samples * 1000000);
+	if (r.kind == 'rest' && r.held_kb != null)
+		note = sprintf('%d collectors, holds %d kB, RssAnon %d kB', r.collectors, r.held_kb, r.anon_kb);
 	if (r.kind == 'load' || r.kind == 'probe')
 		note = sprintf('%d collectors, %d fds, RSS %d kB', r.collectors, r.fds, r.rss_kb);
 	if (r.kind == 'handler' && r.time)

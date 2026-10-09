@@ -2,6 +2,7 @@
 
 import { describe, it, prop, gen, assert, regex } from 'utest';
 import * as format from 'prometheus_exporter.exposition.format';
+import * as exposition from 'prometheus_exporter.exposition';
 
 const METRIC_NAME = /^[a-zA-Z_:][a-zA-Z0-9_:]*$/;
 
@@ -137,4 +138,16 @@ describe('exposition.format.label_text', () => {
 			null,
 		], map([ clash, latin1, 'eth0 up', [ 'x' ], { a: 'b' } ], format.label_problem));
 	});
+});
+
+describe('format.header, as render() writes it', () => {
+	// render() writes a header itself when its HELP has nothing to escape:
+	// it must write what header() writes.
+	prop('writes each family\'s header as header() does, whatever its HELP',
+		gen.array(gen.tuple(gen.oneof(gen.constant(null), gen.constant(''), gen.string({ min_len: 1, max_len: 12, charset: 'ab \\\n"' })),
+			gen.elements('gauge', 'counter', 'untyped')), { min_len: 1, max_len: 4 }), (spec) => {
+			let fams = map(spec, (s, i) => ({ name: `f${i}`, type: s[1], help: s[0], lines: [ `f${i} ${i}` ], values: [ `${i}` ] }));
+
+			assert.match(join('\n', map(fams, (f) => format.header(f) + '\n' + f.lines[0])) + '\n', exposition.render(fams));
+		});
 });

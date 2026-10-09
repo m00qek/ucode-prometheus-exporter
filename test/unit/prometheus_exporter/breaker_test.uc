@@ -146,3 +146,19 @@ describe('breaker, over any scrapes', () => {
 		assert.match(null, run(outcomes, null)[0].q);
 	});
 });
+
+describe('breaker.apply', () => {
+	// The ledger's, on an entry of its own: it must make of the entry what
+	// after() makes of a copy, and say what after() says.
+	prop('changes an entry as after() changes a copy of it, and leaves after()\'s alone',
+		gen.tuple(gen.array(gen.elements('ok', 'failed', 'trip', 'neutral'), { min_len: 0, max_len: 30 }), gen.elements('ok', 'failed', 'trip', 'neutral')),
+		(t) => {
+			let e = run(t[0], null)[0] ?? {};
+			let before = sprintf('%J', e);
+			let b = breaker.after(e, t[1], 40, 'why');
+			let own = { ...e };
+			let change = breaker.apply(own, t[1], 40, 'why');
+
+			assert.match([ before, b.entry, b.tripped ? 'tripped' : (b.closed ? 'closed' : null) ], [ sprintf('%J', e), own, change ]);
+		});
+});

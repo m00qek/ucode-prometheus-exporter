@@ -123,7 +123,7 @@ describe('exposition.recorder, refusing what Prometheus refuses a scrape for', (
 });
 
 describe('exposition.pack', () => {
-	it('gives the families\' names and types, and their text as render() writes it', () => {
+	it('gives the families\' names, and their text as render() writes it', () => {
 		let rec = exposition.recorder();
 
 		rec.gauge('a', 'A.')({ x: '1' }, 1)({ x: '2' }, 2);
@@ -131,7 +131,7 @@ describe('exposition.pack', () => {
 
 		let packed = exposition.pack(rec.families());
 
-		assert.match([ { name: 'a', type: 'gauge' }, { name: 'b_total', type: 'counter' } ], packed.families);
+		assert.match([ 'a', 'b_total' ], packed.families);
 		assert.match(exposition.render(rec.families()), packed.text);
 	});
 

@@ -53,6 +53,16 @@ describe('what the programs load', () => {
 		]);
 	});
 
+	// uhttpd holds what the handler's program loads for as long as it runs:
+	// the loader, which checks the collectors, it compiles as a program of
+	// its own, and lets go of (prometheus_exporter.app's load).
+	it('never keeps the loader in the handler\'s program, nor what only it needs', () => {
+		let loaded = loaded_by('files/usr/libexec/prometheus-exporter/handler.uc');
+
+		assert.match([], filter([ 'prometheus_exporter.loader', 'prometheus_exporter.jail', 'prometheus_exporter.loader.imports' ],
+			(m) => m in loaded));
+	});
+
 	it('never loads docopt in the handler, rpcd or the helpers rpcd runs', () => {
 		for (let path in [
 			'files/usr/libexec/prometheus-exporter/handler.uc',

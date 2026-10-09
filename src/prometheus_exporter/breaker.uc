@@ -92,6 +92,55 @@ export function next_cooldown(cd) {
 	return (cd == null) ? 1 : min(cd * 2, COOLDOWN_MAX);
 };
 
+// Trips the breaker of `entry`, as of scrape `n`; `held` whether it was open.
+function trip(entry, held, n, why) {
+	entry.cd = next_cooldown(held ? entry.cd : null);
+	entry.q = n + entry.cd;
+	entry.why = why;
+	delete entry.f;
+	return 'tripped';
+}
+
+/**
+ * What after() makes of `entry`, made of `entry` itself rather than of a
+ * copy: for the ledger, which records a scrape on a copy of its own of each
+ * entry, and spares a copy and an object for each collector.
+ *
+ * @param {LedgerEntry} entry the collector's entry, changed.
+ * @param {string} outcome 'ok', 'failed', 'trip' or 'neutral'.
+ * @param {int} n the scrape's number.
+ * @param {?string} why what tripped it, when it trips.
+ * @returns {?string} 'tripped' or 'closed' when the breaker did, else null.
+ */
+export function apply(entry, outcome, n, why) {
+	let held = (entry.q != null);
+
+	switch (outcome) {
+	case 'ok':
+		delete entry.f;
+		if (!held)
+			return null;
+
+		delete entry.q;
+		delete entry.cd;
+		delete entry.why;
+		return 'closed';
+
+	case 'trip':
+		return trip(entry, held, n, why);
+
+	case 'failed':
+		// A trial that fails trips again; a closed breaker after FAILURES.
+		if (held)
+			return trip(entry, held, n, why);
+
+		entry.f = (entry.f ?? 0) + 1;
+		return (entry.f >= FAILURES) ? trip(entry, held, n, why) : null;
+	}
+
+	return null;
+};
+
 /**
  * What scrape `n` makes of entry `previous` (left as it is) by an outcome:
  *   'ok'      the collector succeeded, within its budget
@@ -109,37 +158,7 @@ export function next_cooldown(cd) {
  */
 export function after(previous, outcome, n, why) {
 	let entry = { ...(previous ?? {}) };
-	let held = (entry.q != null);
+	let change = apply(entry, outcome, n, why);
 
-	function trip() {
-		entry.cd = next_cooldown(held ? entry.cd : null);
-		entry.q = n + entry.cd;
-		entry.why = why;
-		delete entry.f;
-		return { entry, tripped: true, closed: false };
-	}
-
-	switch (outcome) {
-	case 'ok':
-		delete entry.f;
-		if (held) {
-			delete entry.q;
-			delete entry.cd;
-			delete entry.why;
-		}
-		return { entry, tripped: false, closed: held };
-
-	case 'trip':
-		return trip();
-
-	case 'failed':
-		// A trial that fails trips again; a closed breaker after FAILURES.
-		if (held)
-			return trip();
-
-		entry.f = (entry.f ?? 0) + 1;
-		return (entry.f >= FAILURES) ? trip() : { entry, tripped: false, closed: false };
-	}
-
-	return { entry, tripped: false, closed: false };
+	return { entry, tripped: change == 'tripped', closed: change == 'closed' };
 };

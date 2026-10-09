@@ -275,4 +275,14 @@ describe('deps.modules', () => {
 		assert.match([ false, false, false, false ], map([ 'writefile', 'rename', 'unlink', 'chmod' ], (f) => f in deps.FS_API));
 		assert.match([ 'function', 'function', 'function' ], [ type(m.ubus.connect), type(m.uci.cursor), type(m.time) ]);
 	});
+
+	// uhttpd holds each it loads for as long as it runs.
+	it('loads the native modules the needs name, and no other', () => {
+		let none = deps.natives([]);
+		let some = deps.natives([ 'socket', 'fs' ]);
+
+		assert.match([ null, null, null ], [ none.rtnl, none.nl80211, none.socket ]);
+		assert.match([ null, null, 'function' ], [ some.rtnl, some.nl80211, type(some.socket?.create) ]);
+		assert.match([ null, null ], [ deps.modules([]).rtnl, deps.modules([]).socket ]);
+	});
 });

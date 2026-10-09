@@ -126,14 +126,23 @@ export const REASONS_MAX = 8;
 export const OTHER = 'OTHER';
 
 /**
- * What a failure's code must be to be counted by it: an uppercase word of at
- * most 64 characters, as errors.uc's are. A collector's own code is any string
- * it likes, and the ledger keeps every code it counts: one of a few kB would
- * take the state's room.
+ * What a failure's code must be to be counted by it: an uppercase word, as
+ * errors.uc's are, of at most CODE_MAX characters. A collector's own code is
+ * any string it likes, and the ledger keeps every code it counts: one of a
+ * few kB would take the state's room. The length is counted, not matched:
+ * musl compiles a count, as {0,63}, into a copy of what it counts for each,
+ * which the handler would hold, 56 kB of it, for as long as uhttpd runs.
  *
  * @type {RegExp}
  */
-export const CODE = /^[A-Z][A-Z0-9_]{0,63}$/;
+export const CODE = /^[A-Z][A-Z0-9_]*$/;
+
+/**
+ * The most characters of a code the ledger counts failures by (CODE).
+ *
+ * @type {int}
+ */
+export const CODE_MAX = 64;
 
 // The most of a breaker's why the ledger keeps.
 const WHY_MAX = 200;
@@ -275,14 +284,13 @@ export function samples(ledger, id) {
 	return ledger.c[id]?.n ?? 0;
 };
 
-// sort()'s order of [ last, never run, estimate, index ]: by each, as
-// numbers, which a difference of seconds, a fraction, would not give it.
-function by_keys(a, b) {
-	for (let i = 0; i < 4; i++)
-		if (a[i] != b[i])
-			return (a[i] < b[i]) ? -1 : 1;
-
-	return 0;
+// A collector's place in the order, as text sort() puts in that order with
+// no function of ours called for each pair: whether it runs last, its rank
+// when never run, its estimate to the picosecond, and its index, each as
+// many digits wide whatever its value. A rank is a small number, and an
+// estimate seconds, never below 0.
+function order_key(last, unknown, estimate, i) {
+	return sprintf('%d%06d%025.12f%06d', last, unknown, estimate, i);
 }
 
 /**
@@ -304,14 +312,18 @@ function by_keys(a, b) {
  * @returns {Collector[]} the collectors, in that order.
  */
 export function order(ledger, collectors, last, rank) {
-	let keyed = map(collectors, function(c, i) {
-		let known = estimate(ledger, c.id) != null;
-		let unknown = known ? 0 : (rank ? rank(c) : 1);
+	let places = [];
+	let by_key = {};
 
-		return [ (last && last(c)) ? 1 : 0, unknown, estimate(ledger, c.id) ?? 0, i, c ];
-	});
+	for (let i, c in collectors) {
+		let e = ledger.c[c.id]?.d;
+		let k = order_key((last && last(c)) ? 1 : 0, (e != null) ? 0 : (rank ? rank(c) : 1), e ?? 0, i);
 
-	return map(sort(keyed, by_keys), (x) => x[4]);
+		push(places, k);
+		by_key[k] = c;
+	}
+
+	return map(sort(places), (k) => by_key[k]);
 };
 
 function average(old, value) {
@@ -331,7 +343,7 @@ export function outcome_of(run) {
 
 	if (run.skipped != null)
 		return [ 'neutral', null ];
-	if (res?.error in [ errors.COLLECTOR_CANCELLED, errors.COLLECTOR_KILLED ])
+	if (res?.error == errors.COLLECTOR_CANCELLED || res?.error == errors.COLLECTOR_KILLED)
 		return [ 'trip', Result.describe(res) ];
 	if (run.budget != null && run.duration > run.budget)
 		return [ 'trip', sprintf('%s (took %.2f s, over its budget of %d s)', errors.COLLECTOR_OVERRUN, run.duration, run.budget) ];
@@ -349,11 +361,11 @@ export function outcome_of(run) {
 // One failure of collector `id` counted in `e` (an entry): by `code`, or as
 // OTHER past REASONS_MAX codes, or for a code that is not one (CODE).
 function count_failure(e, code) {
-	if (type(code) != 'string' || !match(code, CODE))
+	if (type(code) != 'string' || length(code) > CODE_MAX || !match(code, CODE))
 		code = OTHER;
 
 	let fails = { ...(e.fails ?? {}) };
-	let key = (code in keys(fails) || length(fails) < REASONS_MAX) ? code : OTHER;
+	let key = (fails[code] != null || length(fails) < REASONS_MAX) ? code : OTHER;
 
 	fails[key] = (fails[key] ?? 0) + 1;
 	e.fails = fails;
@@ -407,15 +419,16 @@ export function record(ledger, runs, written, ids, events) {
 		if (r.skipped == 'deadline' && e.d != null)
 			e.d *= DEADLINE_DECAY;
 
+		// e is this record's own copy: its breaker changes it in place.
 		let o = outcome_of(r);
-		let b = breaker.after(e, o[0], n, (o[1] != null) ? substr(o[1], 0, WHY_MAX) : null);
+		let change = breaker.apply(e, o[0], n, (o[1] != null) ? substr(o[1], 0, WHY_MAX) : null);
 
-		if (events && (b.tripped || b.closed))
-			push(events, { name: r.name, tripped: b.tripped, closed: b.closed, cooldown: b.entry.cd, why: b.entry.why });
-		if (b.tripped)
-			b.entry.qn = (b.entry.qn ?? 0) + 1;
+		if (events && change != null)
+			push(events, { name: r.name, tripped: change == 'tripped', closed: change == 'closed', cooldown: e.cd, why: e.why });
+		if (change == 'tripped')
+			e.qn = (e.qn ?? 0) + 1;
 
-		c[r.id] = b.entry;
+		c[r.id] = e;
 	}
 
 	let k = ledger.k;
@@ -479,6 +492,28 @@ export function counters(ledger) {
 
 	for (let id, e in ledger.c)
 		out.collectors[id] = { failures: e.fails ?? {}, timeouts: e.to ?? 0, quarantines: e.qn ?? 0, deadline_skips: e.dl ?? 0 };
+
+	return out;
+};
+
+/**
+ * What the ledger would count with `runs` recorded: counters(record(ledger,
+ * runs, null, ids)), for the exporter's own collector, which a scrape gives
+ * it at every scrape. A run that neither failed, nor was left out or cut,
+ * nor tripped its breaker counts nothing: only the others are recorded, and
+ * the collector of one of the rest that has no entry yet counts zeros.
+ *
+ * @param {Ledger} ledger the ledger.
+ * @param {Run[]} runs the scrape's runs so far.
+ * @param {string[]} ids the installed collectors' module names.
+ * @returns {LedgerCounters} the counters, each collector's by id.
+ */
+export function counters_with(ledger, runs, ids) {
+	let counting = filter(runs, (r) => r.result?.error != null || outcome_of(r)[0] == 'trip');
+	let out = counters(record(ledger, counting, null, ids));
+
+	for (let r in runs)
+		out.collectors[r.id] ??= { failures: {}, timeouts: 0, quarantines: 0, deadline_skips: 0 };
 
 	return out;
 };

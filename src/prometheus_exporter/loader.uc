@@ -21,21 +21,24 @@ import * as jail from 'prometheus_exporter.jail';
 import * as privileges from 'prometheus_exporter.privileges';
 import * as config from 'prometheus_exporter.config';
 import * as scan from 'prometheus_exporter.loader.imports';
+import * as collection from 'prometheus_exporter.collection';
 
 /**
  * A collector as the loader takes it (validate's): its module's name, its
- * meta, with options {} when it declares none, and its collect. What a
- * scrape, its runner and check run.
+ * meta, with options {} when it declares none, its collect, and whether it
+ * is one of the exporter's own (OWN). What a scrape, its runner and check
+ * run.
  *
- * @typedef {{ id: string, meta: Meta, collect: Collect }} Collector
+ * @typedef {{ id: string, meta: Meta, collect: Collect, own: boolean }} Collector
  */
 
 /**
- * The installed collectors' directory, as the packages install them.
+ * The installed collectors' directory, as the packages install them
+ * (prometheus_exporter.collection's).
  *
  * @type {string}
  */
-export const DIR = '/usr/share/ucode/prometheus_exporter/collectors';
+export const DIR = collection.DIR;
 
 const NAME = /^[a-z0-9][a-z0-9_-]*$/;
 const OPTION_TYPES = [ 'bool', 'int', 'string' ];
@@ -81,51 +84,11 @@ export const OWN = [
  */
 export const COSTS = [ 'light', 'heavy' ];
 
-/**
- * The module a collector's name lives in: a module name cannot hold '-'.
- *
- * @param {string} name a collector's name (meta.name).
- * @returns {string} its module's name: name with _ for -.
- */
-export function id_of(name) {
-	return replace(name, '-', '_');
-};
-
-/**
- * A module's exports, by name. require() cannot load an ES module, but a
- * script that imports one can.
- *
- * @param {string} id the module's name, in the collectors' directory.
- * @returns {CollectorModule} its exports; it throws what loading it throws.
- */
-export function import_module(id) {
-	return loadstring(sprintf('import * as c from %J;\nreturn c;', 'prometheus_exporter.collectors.' + id),
-		{ raw_mode: true })();
-};
-
-/**
- * The exports of each of the modules `ids`, by name, compiled as ONE
- * program: what they import, the collector API and the core's modules
- * behind it, is compiled once for them all, and kept once. import_module
- * compiles a program a module, and with it a copy of all it imports, whose
- * source files ucode keeps open while the copy lives: six files a collector.
- * One module that does not compile or load fails them all.
- *
- * @param {string[]} ids the modules' names, in the collectors' directory.
- * @returns {Object<string, CollectorModule>} each one's exports, by name; it
- *   throws what loading any of them throws.
- */
-export function import_modules(ids) {
-	let lines = map(ids, (id, i) => sprintf('import * as c%d from %J;', i, 'prometheus_exporter.collectors.' + id));
-	let mods = loadstring(join('\n', lines) + sprintf('\nreturn [ %s ];', join(', ', map(ids, (id, i) => `c${i}`))),
-		{ raw_mode: true })();
-	let out = {};
-
-	for (let i = 0; i < length(ids); i++)
-		out[ids[i]] = mods[i];
-
-	return out;
-};
+// A collector's module name, a module's exports, and the exports of
+// several as one program: prometheus_exporter.collection's.
+export const id_of = collection.id_of;
+export const import_module = collection.import_module;
+export const import_modules = collection.import_modules;
 
 function invalid(id, msg) {
 	return Result.err(errors.COLLECTOR_INVALID, `${id}: ${msg}`);
@@ -304,21 +267,11 @@ export function validate(id, mod) {
 	if (type(mod.collect) != 'function')
 		return invalid(id, 'exports no collect function');
 
-	return Result.ok({ id, meta: { options: {}, ...meta }, collect: mod.collect });
+	return Result.ok({ id, meta: { options: {}, ...meta }, collect: mod.collect, own: id in OWN });
 };
 
-/**
- * The module names in `dir`, sorted.
- *
- * @param {module:fs} fs what lists the directory: an object of fs's lsdir.
- * @param {string} dir the directory.
- * @returns {string[]} the names of its [a-z0-9_]+.uc files, without .uc.
- */
-export function discover(fs, dir) {
-	let files = filter(fs.lsdir(dir) ?? [], (f) => match(f, /^[a-z0-9_]+\.uc$/));
-
-	return sort(map(files, (f) => substr(f, 0, -3)));
-};
+// The module names in `dir`, sorted: prometheus_exporter.collection's.
+export const discover = collection.discover;
 
 // What comes before a module's first statement: blank space, comments, and a
 // first line that starts with #! (as ucode skips it).
@@ -464,6 +417,61 @@ export function refusal(text) {
 	return import_problem(text);
 };
 
+// The module names in `dir` its text does not refuse (refusal), sorted; those
+// it does, logged at err.
+function admitted(fs, dir, log) {
+	let ids = [];
+
+	for (let id in discover(fs, dir)) {
+		let why = refusal(fs.readfile(`${dir}/${id}.uc`));
+
+		if (why == null)
+			push(ids, id);
+		else
+			log('err', `skipping collector: ${Result.describe(invalid(id, why))}`);
+	}
+
+	return ids;
+}
+
+// Logs why a probe's outcome leaves its module out, at err; true for one it
+// does not.
+function probed_ok(id, p, log) {
+	let why = collection.left_out(id, p);
+
+	if (why != null)
+		log('err', why);
+
+	return why == null;
+}
+
+/**
+ * What a child process of the probe reports of module `id` of `dir`,
+ * checked there as load() checks it, so that the process that serves the
+ * scrapes needs nothing of the loader to load it (prometheus_exporter.app's
+ * load): { meta, own }, its meta's fingerprint (prometheus_exporter.
+ * collection's) and whether it is one of the exporter's own; or { invalid },
+ * why its text refuses it (refusal), before it is loaded, or why it is not a
+ * valid collector (validate), as load() logs it. What loading it throws, it
+ * throws.
+ *
+ * @param {module:fs} fs what reads the module: an object of fs's readfile.
+ * @param {string} dir the collectors' directory (DIR).
+ * @param {string} id the module's name.
+ * @param {function(string): CollectorModule} import_fn what loads it.
+ * @returns {{ meta: ?string, own: ?boolean, invalid: ?string }} the report.
+ */
+export function check_module(fs, dir, id, import_fn) {
+	let why = refusal(fs.readfile(`${dir}/${id}.uc`));
+
+	if (why != null)
+		return { invalid: Result.describe(invalid(id, why)) };
+
+	let res = validate(id, import_fn(id));
+
+	return res.ok ? { meta: collection.fingerprint(res.data.meta), own: res.data.own } : { invalid: Result.describe(res) };
+};
+
 /**
  * The valid collectors in `dir`, sorted by name; log(level, msg) takes, at err,
  * each that is left out and why. A module must be in strict mode and import
@@ -494,17 +502,7 @@ export function refusal(text) {
  */
 export function load(fs, dir, import_fn, log, probe, import_all) {
 	let collectors = [];
-	let ids = [];
-
-	for (let id in discover(fs, dir)) {
-		let why = refusal(fs.readfile(`${dir}/${id}.uc`));
-
-		if (why == null)
-			push(ids, id);
-		else
-			log('err', `skipping collector: ${Result.describe(invalid(id, why))}`);
-	}
-
+	let ids = admitted(fs, dir, log);
 	let probed = probe ? probe(ids) : {};
 	let ready = filter(ids, (id) => probed[id] == null || probed[id].ok);
 	let together = null;
@@ -518,18 +516,10 @@ export function load(fs, dir, import_fn, log, probe, import_all) {
 	}
 
 	for (let id in ids) {
-		let p = probed[id];
 		let mod;
 
-		if (p?.hung) {
-			log('err', `collector '${id}' hung at load: ${p.error}; it is left out`);
+		if (!probed_ok(id, probed[id], log))
 			continue;
-		}
-
-		if (p != null && !p.ok) {
-			log('err', `cannot load collector '${id}': ${p.error}`);
-			continue;
-		}
 
 		try {
 			mod = (together != null) ? together[id] : import_fn(id);
