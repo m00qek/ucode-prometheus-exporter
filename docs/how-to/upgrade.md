@@ -57,7 +57,7 @@ These change what 0.2.1 did without breaking a query or a configuration:
 
 - **ethtool runs ethtool three times a device**, `-S`, `-i` and with no option, where it ran it once, for node_exporter's `node_ethtool_info` and link families. Its programs share the seconds of its `timeout` (the main section's `exec_timeout`, 5, by default): on a slow router with many ports, give it more if it fails with `COMMAND_TIMEOUT`. See [How to give programs more time](exec-timeout.md).
 - **The filesystem package installs an rpcd plugin**, the ubus object `prometheus-exporter.filesystem`, for the inodes of each mount, and reloads rpcd when it is installed or removed.
-- **The base package has a new collector, `pressure`**, which has nothing to observe on a kernel without PSI. `interrupts` is a package of its own, installed by no group.
+- **Two new collectors, each a package of its own, installed by no group**: `pressure`, pressure stall information, which needs a kernel with `CONFIG_PSI` (OpenWrt's leave it off), and `interrupts`. Install the package to use one: `apk add ucode-prometheus-exporter-pressure`. See [How to choose collectors](choose-collectors.md#install-collectors).
 - **A collector refused what it needs fails `PERMISSION_DENIED`**, saying what grants it, where it would have found nothing to observe: a reload grants what the service granted when it started and was taken away since.
 - **`check` says the jail's user, its capabilities and its ubus ACL.** The ubus object's `describe` has each collector's calls, capabilities, groups and proc files, in its `jail`.
 

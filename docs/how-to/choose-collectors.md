@@ -13,10 +13,17 @@ apk add ucode-prometheus-exporter-network
 
 The service reloads with the new collector. [Collectors](../reference/collectors.md) lists each collector, its package, its groups and what it depends on.
 
-A collector in no group is installed only by its own package: those of particular hardware or services, and `interrupts`, which node_exporter has off by default for its many series, one per interrupt and CPU. Installing its package is turning it on:
+A collector in no group is installed only by its own package: those of particular hardware or services; `interrupts`, which node_exporter has off by default for its many series, one per interrupt and CPU; and `pressure`, which needs a kernel with `CONFIG_PSI`, which OpenWrt's kernels leave off. Installing its package is turning it on:
 
 ```sh
 apk add ucode-prometheus-exporter-interrupts
+```
+
+`pressure` has nothing to observe without `/proc/pressure`: install it on a kernel built with `CONFIG_PSI` (and not booted with `psi=0`):
+
+```sh
+ls /proc/pressure
+apk add ucode-prometheus-exporter-pressure
 ```
 
 ## Disable a collector

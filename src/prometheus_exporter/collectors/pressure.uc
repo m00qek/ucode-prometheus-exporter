@@ -24,6 +24,10 @@
 // With it, cpu, io and memory are always there: one that cannot be read
 // fails the collector, as does a line that is not "<some|full> ...
 // total=<n>". irq is read where it is there.
+//
+// node_exporter has it on by default, but OpenWrt's kernels leave CONFIG_PSI
+// off: in the base package it would cost every scrape for nothing. Here it
+// is a package of its own, in no group: installing it is turning it on.
 
 import { Result, errors, proc } from 'prometheus_exporter.api';
 
