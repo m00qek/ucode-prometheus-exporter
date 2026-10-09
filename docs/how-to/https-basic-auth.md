@@ -33,7 +33,7 @@ ubus call prometheus-exporter set_password '{"password":"…"}'
 
 In LuCI, **Change password…** on the **HTTPS & login** tab does the same, apart from Save & Apply: see [How to use the LuCI app](luci.md#change-basic-auths-password).
 
-Or save a hash yourself, from `prometheus-exporter hash-password`, which reads the password without echoing it:
+Or save a hash yourself, from `prometheus-exporter hash-password` (the command line's package, `ucode-prometheus-exporter-cli`), which reads the password without echoing it:
 
 ```sh
 uci set prometheus-exporter-auth.main.auth_password="$(prometheus-exporter hash-password)"

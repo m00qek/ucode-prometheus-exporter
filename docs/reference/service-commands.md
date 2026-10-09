@@ -8,7 +8,7 @@ The init script is `/etc/init.d/prometheus-exporter` (procd, `START=60`). Every 
 
 | Action | What it does |
 | :--- | :--- |
-| `start` | Unless `option enabled '0'`: checks the configuration (`prometheus-exporter check --config`), sets up basic auth's file, makes the directories the collectors own and the state directory, and hands procd the uhttpd instance, in its jail. Refuses an invalid configuration, logging why at `err`. Waits for the listen interface: with no address on it yet, it logs `deferring start until listen interface <interface> becomes ready` and starts once the interface comes up. |
+| `start` | Unless `option enabled '0'`: checks the configuration (`/usr/libexec/prometheus-exporter/check.uc --config`), sets up basic auth's file, makes the directories the collectors own and the state directory, and hands procd the uhttpd instance, in its jail. Refuses an invalid configuration, logging why at `err`. Waits for the listen interface: with no address on it yet, it logs `deferring start until listen interface <interface> becomes ready` and starts once the interface comes up. |
 | `stop` | Stops the instances. |
 | `restart` | `stop`, then `start`. The new instance starts without [state](jail.md#state). |
 | `reload` | Checks the configuration. Invalid, it keeps the running instance and logs why; valid, it runs `start` again, and procd restarts the instance only if its command line, mounts or watched files changed. |
@@ -38,7 +38,7 @@ listening on http://127.0.0.1:9100/metrics, gzip when asked, serving 16 collecto
 
 ## `check`
 
-`service prometheus-exporter check` runs `prometheus-exporter check` (see [The command](command.md#check)). It prints a line per finding, then every installed collector, then the jail's mounts:
+`service prometheus-exporter check` runs `/usr/libexec/prometheus-exporter/check.uc`, the base package's, which needs no command line; `prometheus-exporter check` (see [The command](command.md#check)) runs the same. It prints a line per finding, then every installed collector, then the jail's mounts:
 
 ```
 ok   main: HTTP on every address, port 9100, keepalive 70s, exec_timeout 5s, scrape_timeout 10s, collector_budget 5s, max_samples 20000, memory_limit 64 MB (a quarter of the RAM, at most 64), gzip when asked

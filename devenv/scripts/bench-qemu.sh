@@ -88,9 +88,10 @@ mkdir -p "$work/payload"
 cd /artifacts
 echo "$label" >"$work/payload/label"
 echo "${BENCH_ARGS:-}" >"$work/payload/args"
-# The base package and the -full group, with its collectors: the bench's sets.
+# The base package and the -full group, with its collectors: the bench's sets;
+# and the command line's package, which the checks scrape with, with
 # ucode-docopt, from its author's feed, which make bench-qemu fetched.
-apks="ucode-prometheus-exporter-$PKG_FULLVERSION.apk $(cd /artifacts && ls ucode-docopt-*.apk)"
+apks="ucode-prometheus-exporter-$PKG_FULLVERSION.apk ucode-prometheus-exporter-cli-$PKG_FULLVERSION.apk $(cd /artifacts && ls ucode-docopt-*.apk)"
 for p in full $(/exporter/devenv/scripts/package-info.sh groups | sed -n 's/^full //p'); do
 	apks="$apks ucode-prometheus-exporter-$p-$PKG_FULLVERSION.apk"
 done

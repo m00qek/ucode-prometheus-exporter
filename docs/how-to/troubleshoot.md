@@ -72,7 +72,7 @@ The log says `collector '<name>': ` and one of these, and the collector fails al
 | `FAMILY_CONFLICT` | It wrote a family another collector writes, or one the exporter keeps for itself: the detail names it. | Disable one of the two, or fix the collector's names. |
 | `hung at load` (at `err`) | Its module's top level did not return in 5 s: it is left out until the service restarts. | A bug of the module. |
 
-`prometheus-exporter collector check <module file>` runs a module as the service would and says which rule it breaks: see [Collector contract](../reference/collector-contract.md).
+`prometheus-exporter collector check <module file>` (`ucode-prometheus-exporter-cli`) runs a module as the service would and says which rule it breaks: see [Collector contract](../reference/collector-contract.md).
 
 ## Collectors are left out at the deadline
 

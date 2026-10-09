@@ -1,8 +1,12 @@
 /**
- * The command line, /usr/bin/prometheus-exporter. USAGE is its interface:
- * docopt (the ucode-docopt package) parses the arguments by it, and the
- * reference page is written from it (make docs-gen). Only the command line
- * loads docopt: neither the handler nor rpcd ever does.
+ * The command line, /usr/bin/prometheus-exporter, of the package
+ * ucode-prometheus-exporter-cli. USAGE is its interface: docopt (the
+ * ucode-docopt package, which only this package depends on) parses the
+ * arguments by it, and the reference page is written from it (make
+ * docs-gen). Only the command line loads docopt: neither the handler, nor
+ * rpcd, nor the init script ever does; the init script's check is the base
+ * package's (prometheus_exporter.check's system()), which this command's
+ * check runs too.
  *
  * @module prometheus_exporter_cli
  */
@@ -20,8 +24,6 @@ import * as check from 'prometheus_exporter.check';
 import * as conform from 'prometheus_exporter.conform';
 import * as runner from 'prometheus_exporter.runner';
 import * as probe from 'prometheus_exporter.probe';
-import * as state from 'prometheus_exporter.state';
-import * as ledger from 'prometheus_exporter.ledger';
 import * as jail from 'prometheus_exporter.jail';
 import * as jailed from 'prometheus_exporter.jailed';
 
@@ -266,24 +268,7 @@ export function system() {
 
 			return jailed.run({ uci: mods.uci.cursor(), fs: mods.fs, path: jail.PATH }, collectors, [ 'scrape', query ]);
 		},
-		check: function(opts) {
-			let skipped = [];
-			let collectors = app.load(mods, null, (level, msg) => push(skipped, msg));
-			// The running instance's: the service's own scrapes.
-			let st = state.latest(mods.fs, state.DIR);
-			let sys = {
-				uci: mods.uci.cursor(),
-				fs: mods.fs,
-				path: jail.PATH,
-				collectors,
-				skipped,
-				ledger: st ? ledger.parse(st.read(ledger.NAME)) : null,
-				env: app.scrape_env(mods, quiet),
-			};
-
-			sys.trial = (chosen, here) => jailed.trial(sys, collectors, chosen, here);
-			return check.run(sys, opts);
-		},
+		check: (opts) => check.run(check.system(), opts),
 		conform: (path) => conform.run({
 			fs: mods.fs,
 			uci: mods.uci.cursor(),

@@ -11,7 +11,7 @@ Add the feed the exporter is published in, install the base package, then the co
 
 ## 1. Add the feed
 
-The exporter's packages are in the [packages.ucode.dev](https://github.com/m00qek/packages.ucode.dev) feed, and so is `ucode-docopt`, which the base package depends on and OpenWrt's own feeds do not have. Its other dependencies, `uhttpd`, `ucode` modules and `rpcd-mod-ucode`, come from the release's own feeds. Add the feed and its signing key:
+The exporter's packages are in the [packages.ucode.dev](https://github.com/m00qek/packages.ucode.dev) feed, and so is `ucode-docopt`, which the command line's package depends on and OpenWrt's own feeds do not have. The base package's dependencies, `uhttpd`, `ucode` modules and `rpcd-mod-ucode`, come from the release's own feeds. Add the feed and its signing key:
 
 ```sh
 feed=https://m00qek.github.io/packages.ucode.dev/25.12
@@ -28,6 +28,7 @@ apk then checks every package of the feed against that key, as it checks OpenWrt
 - A collector's package, `ucode-prometheus-exporter-<name>`, for each other collector you want: `-wifi`, `-dnsmasq`, `-wireguard`.
 - Or a group: `-network`, `-wireless`, `-hardware`, or `-full` for all three and the services every router has.
 - `luci-app-prometheus-exporter`, for its pages in LuCI.
+- `ucode-prometheus-exporter-cli`, for the [`prometheus-exporter` command](../reference/command.md): a scrape on standard output, the hash of a password, a collector checked before it is installed. The service and LuCI need none of it; on a router short of flash, leave it out (see [Files and packages](../reference/files.md#ucode-prometheus-exporter-cli)).
 
 [Collectors](../reference/collectors.md) lists every collector, its package and its groups.
 
@@ -37,18 +38,20 @@ From the feed:
 
 ```sh
 apk update
-apk add ucode-prometheus-exporter ucode-prometheus-exporter-full luci-app-prometheus-exporter
+apk add ucode-prometheus-exporter ucode-prometheus-exporter-full luci-app-prometheus-exporter ucode-prometheus-exporter-cli
 ```
 
-Or from `.apk` files, which `make package` builds into `bin/` (see [Make targets](../reference/make-targets.md#packages-and-the-device)), copied to the device's `/tmp`. `ucode-docopt` still comes from the feed of step 1, unless its own file is among them. Set `version` to the files' version, as their names end:
+Or from `.apk` files, which `make package` builds into `bin/` (see [Make targets](../reference/make-targets.md#packages-and-the-device)), copied to the device's `/tmp`. Set `version` to the files' version, as their names end:
 
 ```sh
-version=0.2.0-r1
+version=0.3.0-r1
 apk update
-apk add --allow-untrusted ucode-docopt /tmp/ucode-prometheus-exporter-$version.apk \
+apk add --allow-untrusted /tmp/ucode-prometheus-exporter-$version.apk \
     /tmp/ucode-prometheus-exporter-wifi-$version.apk \
     /tmp/luci-app-prometheus-exporter-$version.apk
 ```
+
+The command line's file, `ucode-prometheus-exporter-cli-$version.apk`, also needs `ucode-docopt`, which comes from the feed of step 1, unless its own file is among them.
 
 A group's file brings nothing without its collectors' files: install them together. Every package must be of the same version as the base package.
 

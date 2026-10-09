@@ -6,7 +6,7 @@ Metrics of OpenWrt for Prometheus, written in ucode and served by uhttpd at `/me
 
 ## Install
 
-The packages, and `ucode-docopt`, which the base package depends on, are in the [packages.ucode.dev](https://github.com/m00qek/packages.ucode.dev) feed: add it and its key, then install.
+The packages, and `ucode-docopt`, which the command line's package depends on, are in the [packages.ucode.dev](https://github.com/m00qek/packages.ucode.dev) feed: add it and its key, then install.
 
 ```sh
 feed=https://m00qek.github.io/packages.ucode.dev/25.12
@@ -18,7 +18,7 @@ wget -qO- http://127.0.0.1:9100/metrics
 service prometheus-exporter check
 ```
 
-The base package has the collectors every device can use; each other collector is a package of its own, and the `-network`, `-wireless`, `-hardware` and `-full` groups install several. It conflicts with the feed's exporters and takes over their settings: see [Moving from the feed's exporters](https://m00qek.github.io/ucode-prometheus-exporter/latest/how-to/migrate-from-feed/).
+The base package has the service and the collectors every device can use; each other collector is a package of its own, and the `-network`, `-wireless`, `-hardware` and `-full` groups install several. The `prometheus-exporter` command is `ucode-prometheus-exporter-cli`'s, which the service does not need. It conflicts with the feed's exporters and takes over their settings: see [Moving from the feed's exporters](https://m00qek.github.io/ucode-prometheus-exporter/latest/how-to/migrate-from-feed/).
 
 ## Develop
 

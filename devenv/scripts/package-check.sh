@@ -11,6 +11,9 @@ PKG=ucode-prometheus-exporter
 NAME=prometheus-exporter
 COLLECTORS=/usr/share/ucode/prometheus_exporter/collectors
 BASE=/artifacts/$PKG-$PKG_FULLVERSION.apk
+# The command line, a package of its own, and its modules.
+CLI=/artifacts/$PKG-cli-$PKG_FULLVERSION.apk
+CLI_FILES="/usr/bin/$NAME /usr/share/ucode/prometheus_exporter/cli.uc /usr/share/ucode/prometheus_exporter/conform.uc"
 URL=http://127.0.0.1:9100/metrics
 failures=0
 
@@ -23,7 +26,7 @@ check() {
 
 [ -f "$BASE" ] || { echo "no $BASE (run make package)" >&2; exit 1; }
 GROUPS=$(/exporter/devenv/scripts/package-info.sh groups | cut -d' ' -f1)
-SUBS=$(ls /artifacts/$PKG-*-$PKG_FULLVERSION.apk 2>/dev/null)
+SUBS=$(ls /artifacts/$PKG-*-$PKG_FULLVERSION.apk 2>/dev/null | grep -vx "$CLI")
 is_group() { for g in $GROUPS; do [ "$1" = "/artifacts/$PKG-$g-$PKG_FULLVERSION.apk" ] && return 0; done; return 1; }
 COLLECTOR_PKGS=$(for s in $SUBS; do is_group "$s" || echo "$s"; done)
 echo "checking $BASE" $SUBS
@@ -67,6 +70,23 @@ check "makes the user and group uhttpd runs as in its jail" sh -c "grep -q '^$NA
 check "ships ubusd's link to the ubus ACL the service writes" test "$(readlink /usr/share/acl.d/$NAME.json)" = "/var/run/$NAME.acl.json"
 check "runs its uci-defaults script once" test ! -e /etc/uci-defaults/$NAME-import
 check "the init script parses" sh -n /etc/init.d/$NAME
+
+# The base package, without the command line: no command, no ucode-docopt,
+# and its own check, which the init script runs.
+CHECK_HELPER=/usr/libexec/$NAME/check.uc
+no_cli_files() { for f in $CLI_FILES; do [ ! -e "$f" ] || return 1; done; }
+check "the base package has no command line" no_cli_files
+check "and does not depend on ucode-docopt" sh -c "! apk info -R $PKG | grep -q '^ucode-docopt'"
+check "it ships the init script's check, $CHECK_HELPER, 0755" sh -c "grep -qx '$CHECK_HELPER' /lib/apk/packages/$PKG.list && [ -n \"\$(find '$CHECK_HELPER' -prune -perm 755)\" ]"
+check "which takes the installed config" sh -c "$CHECK_HELPER --config | grep -q '^ok   main: '"
+
+[ -f "$CLI" ] || fail "no $CLI (run make package)"
+check "the command line's package installs offline" apk add --allow-untrusted --no-network "$CLI"
+cli_ships() { [ "$(grep . /lib/apk/packages/$PKG-cli.list | sort)" = "$(printf '%s\n' $CLI_FILES | sort)" ]; }
+check "it ships the command and its modules alone" cli_ships
+check "it depends on the exporter and ucode-docopt" sh -c "[ \"\$(apk info -R $PKG-cli | tail -n +2 | sed 's/[<>=~].*//' | grep -v '^\$' | sort -u | tr '\n' ' ')\" = 'libc ucode-docopt $PKG ' ]"
+check "and pins the exporter's version" sh -c "apk adbdump '$CLI' | grep -qx '    - $PKG=$PKG_FULLVERSION'"
+check "the command is 0755" sh -c "[ -n \"\$(find /usr/bin/$NAME -prune -perm 755)\" ]"
 
 check "every installed collector loads" test "$($NAME collector list 2>/dev/null | wc -l)" -eq "$(installed)"
 check "the command line scrapes" sh -c "$NAME scrape loadavg | grep -q '^node_load1 '"
@@ -153,7 +173,7 @@ for f in $PLUGIN $RPC_MODULE $STATUS_HELPER; do
 done
 # Every module of the source tree but the collectors, the subdirectories split
 # out of a module (exposition/ ...) included: shipped, and each loads.
-library() { cd /exporter/src && find prometheus_exporter -name '*.uc' ! -path 'prometheus_exporter/collectors/*' | sort; }
+library() { cd /exporter/src && find prometheus_exporter -name '*.uc' ! -path 'prometheus_exporter/collectors/*' ! -name cli.uc ! -name conform.uc | sort; }
 ships_library() { for f in $(library); do grep -qx "/usr/share/ucode/$f" "$BASE_LIST" || return 1; done; }
 library_loads() { for f in $(library); do parses "/usr/share/ucode/$f" || return 1; done; }
 check "the base package ships every module of the exporter, in their directories" ships_library

@@ -85,6 +85,35 @@ describe('what the programs load', () => {
 		])
 			assert.match(false, 'docopt' in loaded_by(path), path);
 	});
+
+	// The command line is a package of its own, ucode-prometheus-exporter-cli,
+	// with its modules and docopt: what the base package ships runs without
+	// it, the init script's check included.
+	it('never loads the command line\'s modules, nor docopt, in what the base package ships', () => {
+		let cli = [ 'docopt', 'prometheus_exporter.cli', 'prometheus_exporter.conform' ];
+		let programs = [
+			...map(filter(lsdir('files/usr/libexec/prometheus-exporter') ?? [], (f) => match(f, /\.uc$/)), (f) => `files/usr/libexec/prometheus-exporter/${f}`),
+			...map(lsdir('files/usr/share/rpcd/ucode') ?? [], (f) => `files/usr/share/rpcd/ucode/${f}`),
+			...map(filter(lsdir('src/prometheus_exporter') ?? [], (f) => match(f, /\.uc$/) && !(f in [ 'cli.uc', 'conform.uc' ])),
+				(f) => `src/prometheus_exporter/${f}`),
+		];
+		let problems = [];
+
+		for (let path in programs)
+			for (let m in cli)
+				if (m in loaded_by(path))
+					push(problems, `${path} loads ${m}`);
+
+		assert.match([], problems);
+		assert.match(true, 'files/usr/libexec/prometheus-exporter/check.uc' in programs);
+		assert.match(true, 'prometheus_exporter.conform' in loaded_by('files/usr/bin/prometheus-exporter'));
+	});
+
+	it('runs the init script\'s check without the command line', () => {
+		let init = readfile('files/etc/init.d/prometheus-exporter');
+
+		assert.match([ null, true ], [ match(init, /\/usr\/bin\/|\$COMMAND/), index(init, 'CHECK=$LIBEXEC/check.uc') >= 0 ]);
+	});
 });
 
 // A module split into a directory of its own (exposition.uc and exposition/)

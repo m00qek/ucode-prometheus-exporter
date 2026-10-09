@@ -3,8 +3,8 @@ ARG OPENWRT_VERSION=25.12.5
 FROM ghcr.io/openwrt/rootfs:${OPENWRT_ARCH}-${OPENWRT_VERSION}
 
 ARG OPENWRT_VERSION
-# utest and the command line's parser, a dependency of the base package, come
-# from their author's feed, pinned to a version and release: apk installs that
+# utest and the command line's parser, a dependency of the command line's
+# package (ucode-prometheus-exporter-cli), come from their author's feed, pinned to a version and release: apk installs that
 # one or fails, so a newer one in the feed changes nothing here until the pin
 # is moved. The luci and pkgcheck images pin ucode-docopt to the same.
 ARG UTEST_VERSION=1.5.1-r1
@@ -13,9 +13,9 @@ ARG UTEST_FEED=https://m00qek.github.io/packages.ucode.dev
 
 # ucode-mod-nl80211 and ucode-mod-socket are optional on a router, but installed
 # here so lint can load the named imports deps.uc takes from them; ucode-mod-zlib,
-# ucode-mod-digest, ucode-mod-uloop and ucode-docopt are the base package's
-# (gzip, the crypt of basic auth, the processes collectors run in, and the
-# command line). quickjs parses the LuCI app's views.
+# ucode-mod-digest and ucode-mod-uloop are the base package's (gzip, the crypt
+# of basic auth, the processes collectors run in), and ucode-docopt the
+# command line's package's. quickjs parses the LuCI app's views.
 RUN mkdir -p /var/lock /etc/apk/keys /etc/apk/repositories.d && \
     feed="$UTEST_FEED/$(echo "$OPENWRT_VERSION" | cut -d. -f1,2)" && \
     wget -qO /etc/apk/keys/packages.ucode.dev.pem "$feed/feed.pub.pem" && \
