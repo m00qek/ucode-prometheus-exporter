@@ -1,0 +1,799 @@
+# The "OpenWrt exporter health" dashboard for Perses: ucode-prometheus-exporter
+# itself. Apply it to a project of yours:
+#   percli apply -f exporter-health.yaml --project <project>
+# See docs/how-to/dashboards-and-alerts.md.
+
+kind: Dashboard
+metadata:
+  name: openwrt-exporter-health
+spec:
+  display:
+    name: OpenWrt exporter health
+    description: 'ucode-prometheus-exporter itself: its scrapes against the scraper''s timeout, each collector''s success, duration and samples, its circuit breakers and deadline, and the process that serves it. The counters are the exporter collector''s, and start again at 0 when the service restarts.'
+  duration: 6h
+  refreshInterval: 1m
+  variables:
+  - kind: ListVariable
+    spec:
+      name: datasource
+      display:
+        name: Data source
+        hidden: false
+      allowAllValue: false
+      allowMultiple: false
+      plugin:
+        kind: DatasourceVariable
+        spec:
+          datasourcePluginKind: PrometheusDatasource
+  - kind: ListVariable
+    spec:
+      name: job
+      display:
+        name: Job
+        hidden: false
+      allowAllValue: false
+      allowMultiple: false
+      plugin:
+        kind: PrometheusLabelValuesVariable
+        spec:
+          datasource: $datasource
+          labelName: job
+          matchers:
+          - node_scrape_collector_success
+  - kind: ListVariable
+    spec:
+      name: instance
+      display:
+        name: Instance
+        hidden: false
+      allowAllValue: false
+      allowMultiple: false
+      plugin:
+        kind: PrometheusLabelValuesVariable
+        spec:
+          datasource: $datasource
+          labelName: instance
+          matchers:
+          - node_scrape_collector_success{job="$job"}
+  panels:
+    up:
+      kind: Panel
+      spec:
+        display:
+          name: Scrape
+          description: Whether the scraper's last scrape of the exporter succeeded.
+        plugin:
+          kind: StatChart
+          spec:
+            calculation: last-number
+            format:
+              unit: decimal
+            mappings:
+            - kind: Value
+              spec:
+                value: '1'
+                result:
+                  value: Up
+                  color: '#2e7d32'
+            - kind: Value
+              spec:
+                value: '0'
+                result:
+                  value: Down
+                  color: '#c62828'
+        queries:
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: up{job="$job", instance="$instance"}
+    version:
+      kind: Panel
+      spec:
+        display:
+          name: Version
+          description: The version of ucode-prometheus-exporter.
+        plugin:
+          kind: StatChart
+          spec:
+            calculation: last-number
+            format:
+              unit: decimal
+            metricLabel: version
+            colorMode: none
+        queries:
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: ucode_prometheus_exporter_build_info{job="$job", instance="$instance"}
+                seriesNameFormat: '{{version}}'
+    failing:
+      kind: Panel
+      spec:
+        display:
+          name: Collectors failing
+          description: 'Collectors that failed in the last scrape: quarantined and left out at the deadline included.'
+        plugin:
+          kind: StatChart
+          spec:
+            calculation: last-number
+            format:
+              unit: decimal
+            thresholds:
+              mode: absolute
+              defaultColor: '#2e7d32'
+              steps:
+              - value: 1
+                color: '#c62828'
+        queries:
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: count(node_scrape_collector_success{job="$job", instance="$instance"} == 0) or vector(0)
+    quarantined:
+      kind: Panel
+      spec:
+        display:
+          name: Collectors quarantined
+          description: Collectors whose circuit breaker is open.
+        plugin:
+          kind: StatChart
+          spec:
+            calculation: last-number
+            format:
+              unit: decimal
+            thresholds:
+              mode: absolute
+              defaultColor: '#2e7d32'
+              steps:
+              - value: 1
+                color: '#ef6c00'
+        queries:
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: sum(ucode_prometheus_exporter_collector_quarantined{job="$job", instance="$instance"})
+    scrape_duration:
+      kind: Panel
+      spec:
+        display:
+          name: Scrape duration
+          description: How long the scraper's last scrape took.
+        plugin:
+          kind: StatChart
+          spec:
+            calculation: last-number
+            format:
+              unit: seconds
+              decimalPlaces: 2
+        queries:
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: scrape_duration_seconds{job="$job", instance="$instance"}
+    rss:
+      kind: Panel
+      spec:
+        display:
+          name: Resident memory
+          description: 'The resident memory of the uhttpd instance that serves the scrapes: the exporter collector.'
+        plugin:
+          kind: StatChart
+          spec:
+            calculation: last-number
+            format:
+              unit: bytes
+        queries:
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: process_resident_memory_bytes{job="$job", instance="$instance"}
+    duration_vs_timeout:
+      kind: Panel
+      spec:
+        display:
+          name: Scrape duration and timeout
+          description: 'How long each scrape took, against the scraper''s timeout: the exporter answers before it, leaving out the collectors that do not fit. The timeout is scrape_timeout_seconds, which vmagent writes, and Prometheus with --enable-feature=extra-scrape-metrics.'
+        plugin:
+          kind: TimeSeriesChart
+          spec:
+            legend:
+              position: bottom
+              mode: list
+            yAxis:
+              format:
+                unit: seconds
+            visual:
+              display: line
+              lineWidth: 1.25
+              areaOpacity: 0.1
+              connectNulls: false
+              palette:
+                mode: auto
+            querySettings:
+            - queryIndex: 1
+              lineStyle: dashed
+              areaOpacity: 0
+        queries:
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: scrape_duration_seconds{job="$job", instance="$instance"}
+                seriesNameFormat: Duration
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: scrape_timeout_seconds{job="$job", instance="$instance"}
+                seriesNameFormat: Timeout
+    collector_duration:
+      kind: Panel
+      spec:
+        display:
+          name: Time in each collector
+          description: 'How long each collector took in the last scrape, stacked: their sum is the time in collectors.'
+        plugin:
+          kind: TimeSeriesChart
+          spec:
+            legend:
+              position: right
+              mode: table
+              size: small
+              values:
+              - last-number
+            yAxis:
+              format:
+                unit: seconds
+            visual:
+              display: line
+              lineWidth: 1.25
+              areaOpacity: 0.6
+              connectNulls: false
+              palette:
+                mode: auto
+              stack: all
+        queries:
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: node_scrape_collector_duration_seconds{job="$job", instance="$instance"}
+                seriesNameFormat: '{{collector}}'
+    scrapes:
+      kind: Panel
+      spec:
+        display:
+          name: Scrapes answered
+          description: Scrapes the exporter answered per minute, every scraper's, LuCI's and check's included.
+        plugin:
+          kind: TimeSeriesChart
+          spec:
+            legend:
+              position: bottom
+              mode: list
+            yAxis:
+              format:
+                unit: decimal
+            visual:
+              display: line
+              lineWidth: 1.25
+              areaOpacity: 0.1
+              connectNulls: false
+              palette:
+                mode: auto
+        queries:
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: rate(ucode_prometheus_exporter_scrapes_total{job="$job", instance="$instance"}[$__rate_interval]) * 60
+                seriesNameFormat: Scrapes per minute
+    deadline_skips:
+      kind: Panel
+      spec:
+        display:
+          name: Left out at the deadline
+          description: Collectors the scrape deadline left out, or whose program it killed.
+        plugin:
+          kind: TimeSeriesChart
+          spec:
+            legend:
+              position: bottom
+              mode: list
+            yAxis:
+              format:
+                unit: decimal
+            visual:
+              display: bar
+              lineWidth: 1.25
+              areaOpacity: 0.1
+              connectNulls: false
+              palette:
+                mode: auto
+        queries:
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: increase(ucode_prometheus_exporter_deadline_skips_total{job="$job", instance="$instance"}[$__rate_interval]) > 0
+                seriesNameFormat: '{{collector}}'
+    auth_failures:
+      kind: Panel
+      spec:
+        display:
+          name: Basic auth failures
+          description: Requests basic auth refused.
+        plugin:
+          kind: TimeSeriesChart
+          spec:
+            legend:
+              position: bottom
+              mode: list
+            yAxis:
+              format:
+                unit: decimal
+            visual:
+              display: bar
+              lineWidth: 1.25
+              areaOpacity: 0.1
+              connectNulls: false
+              palette:
+                mode: auto
+        queries:
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: increase(ucode_prometheus_exporter_auth_failures_total{job="$job", instance="$instance"}[$__rate_interval])
+                seriesNameFormat: Refused
+    success:
+      kind: Panel
+      spec:
+        display:
+          name: Success
+          description: Whether each collector succeeded in each scrape. One with nothing to observe succeeds.
+        plugin:
+          kind: StatusHistoryChart
+          spec:
+            legend:
+              position: bottom
+              mode: list
+            mappings:
+            - kind: Value
+              spec:
+                value: '1'
+                result:
+                  value: Succeeded
+                  color: '#2e7d32'
+            - kind: Value
+              spec:
+                value: '0'
+                result:
+                  value: Failed
+                  color: '#c62828'
+        queries:
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: node_scrape_collector_success{job="$job", instance="$instance"}
+                seriesNameFormat: '{{collector}}'
+    samples:
+      kind: Panel
+      spec:
+        display:
+          name: Samples
+          description: The samples each collector wrote in the last scrape.
+        plugin:
+          kind: TimeSeriesChart
+          spec:
+            legend:
+              position: right
+              mode: table
+              size: small
+              values:
+              - last-number
+            yAxis:
+              format:
+                unit: decimal
+            visual:
+              display: line
+              lineWidth: 1.25
+              areaOpacity: 0.1
+              connectNulls: false
+              palette:
+                mode: auto
+        queries:
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: ucode_prometheus_exporter_collector_samples{job="$job", instance="$instance"}
+                seriesNameFormat: '{{collector}}'
+    failures:
+      kind: Panel
+      spec:
+        display:
+          name: Failures by error code
+          description: 'Each collector''s failures, by their error code: see the error codes in the documentation.'
+        plugin:
+          kind: TimeSeriesChart
+          spec:
+            legend:
+              position: bottom
+              mode: list
+            yAxis:
+              format:
+                unit: decimal
+            visual:
+              display: bar
+              lineWidth: 1.25
+              areaOpacity: 0.1
+              connectNulls: false
+              palette:
+                mode: auto
+        queries:
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: sum by (collector, reason) (increase(ucode_prometheus_exporter_collector_failures_total{job="$job", instance="$instance"}[$__rate_interval])) > 0
+                seriesNameFormat: '{{collector}} {{reason}}'
+    quarantined_now:
+      kind: Panel
+      spec:
+        display:
+          name: Quarantined
+          description: The collectors whose circuit breaker was open.
+        plugin:
+          kind: TimeSeriesChart
+          spec:
+            legend:
+              position: bottom
+              mode: list
+            yAxis:
+              format:
+                unit: decimal
+            visual:
+              display: bar
+              lineWidth: 1.25
+              areaOpacity: 0.1
+              connectNulls: false
+              palette:
+                mode: auto
+        queries:
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: ucode_prometheus_exporter_collector_quarantined{job="$job", instance="$instance"} == 1
+                seriesNameFormat: '{{collector}}'
+    trips:
+      kind: Panel
+      spec:
+        display:
+          name: Breaker trips and program timeouts
+          description: Times each collector's circuit breaker tripped, and programs of it killed at their timeout.
+        plugin:
+          kind: TimeSeriesChart
+          spec:
+            legend:
+              position: bottom
+              mode: list
+            yAxis:
+              format:
+                unit: decimal
+            visual:
+              display: bar
+              lineWidth: 1.25
+              areaOpacity: 0.1
+              connectNulls: false
+              palette:
+                mode: auto
+        queries:
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: increase(ucode_prometheus_exporter_quarantines_total{job="$job", instance="$instance"}[$__rate_interval]) > 0
+                seriesNameFormat: '{{collector}} tripped'
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: increase(ucode_prometheus_exporter_program_timeouts_total{job="$job", instance="$instance"}[$__rate_interval]) > 0
+                seriesNameFormat: '{{collector}} program timed out'
+    process_memory:
+      kind: Panel
+      spec:
+        display:
+          name: Memory
+          description: 'The memory of the uhttpd instance that serves the scrapes: the exporter collector.'
+        plugin:
+          kind: TimeSeriesChart
+          spec:
+            legend:
+              position: bottom
+              mode: list
+            yAxis:
+              format:
+                unit: bytes
+            visual:
+              display: line
+              lineWidth: 1.25
+              areaOpacity: 0.1
+              connectNulls: false
+              palette:
+                mode: auto
+        queries:
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: process_resident_memory_bytes{job="$job", instance="$instance"}
+                seriesNameFormat: Resident
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: process_virtual_memory_bytes{job="$job", instance="$instance"}
+                seriesNameFormat: Virtual
+    process_cpu:
+      kind: Panel
+      spec:
+        display:
+          name: CPU
+          description: The CPU the exporter takes, its scrapes' processes included, as a share of one CPU.
+        plugin:
+          kind: TimeSeriesChart
+          spec:
+            legend:
+              position: bottom
+              mode: list
+            yAxis:
+              format:
+                unit: percent-decimal
+            visual:
+              display: line
+              lineWidth: 1.25
+              areaOpacity: 0.1
+              connectNulls: false
+              palette:
+                mode: auto
+        queries:
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: rate(process_cpu_seconds_total{job="$job", instance="$instance"}[$__rate_interval])
+                seriesNameFormat: CPU
+    process_fds:
+      kind: Panel
+      spec:
+        display:
+          name: File descriptors
+          description: The descriptors the serving process has open, and its limit.
+        plugin:
+          kind: TimeSeriesChart
+          spec:
+            legend:
+              position: bottom
+              mode: list
+            yAxis:
+              format:
+                unit: decimal
+            visual:
+              display: line
+              lineWidth: 1.25
+              areaOpacity: 0.1
+              connectNulls: false
+              palette:
+                mode: auto
+        queries:
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: process_open_fds{job="$job", instance="$instance"}
+                seriesNameFormat: Open
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: process_max_fds{job="$job", instance="$instance"}
+                seriesNameFormat: Limit
+  layouts:
+  - kind: Grid
+    spec:
+      display:
+        title: Overview
+        collapse:
+          open: true
+      items:
+      - x: 0
+        y: 0
+        width: 4
+        height: 4
+        content:
+          $ref: '#/spec/panels/up'
+      - x: 4
+        y: 0
+        width: 4
+        height: 4
+        content:
+          $ref: '#/spec/panels/version'
+      - x: 8
+        y: 0
+        width: 4
+        height: 4
+        content:
+          $ref: '#/spec/panels/failing'
+      - x: 12
+        y: 0
+        width: 4
+        height: 4
+        content:
+          $ref: '#/spec/panels/quarantined'
+      - x: 16
+        y: 0
+        width: 4
+        height: 4
+        content:
+          $ref: '#/spec/panels/scrape_duration'
+      - x: 20
+        y: 0
+        width: 4
+        height: 4
+        content:
+          $ref: '#/spec/panels/rss'
+  - kind: Grid
+    spec:
+      display:
+        title: Scrapes
+        collapse:
+          open: true
+      items:
+      - x: 0
+        y: 0
+        width: 12
+        height: 8
+        content:
+          $ref: '#/spec/panels/duration_vs_timeout'
+      - x: 12
+        y: 0
+        width: 12
+        height: 8
+        content:
+          $ref: '#/spec/panels/collector_duration'
+      - x: 0
+        y: 8
+        width: 8
+        height: 8
+        content:
+          $ref: '#/spec/panels/scrapes'
+      - x: 8
+        y: 8
+        width: 8
+        height: 8
+        content:
+          $ref: '#/spec/panels/deadline_skips'
+      - x: 16
+        y: 8
+        width: 8
+        height: 8
+        content:
+          $ref: '#/spec/panels/auth_failures'
+  - kind: Grid
+    spec:
+      display:
+        title: Collectors
+        collapse:
+          open: true
+      items:
+      - x: 0
+        y: 0
+        width: 24
+        height: 20
+        content:
+          $ref: '#/spec/panels/success'
+      - x: 0
+        y: 20
+        width: 12
+        height: 8
+        content:
+          $ref: '#/spec/panels/samples'
+      - x: 12
+        y: 20
+        width: 12
+        height: 8
+        content:
+          $ref: '#/spec/panels/failures'
+      - x: 0
+        y: 28
+        width: 12
+        height: 8
+        content:
+          $ref: '#/spec/panels/quarantined_now'
+      - x: 12
+        y: 28
+        width: 12
+        height: 8
+        content:
+          $ref: '#/spec/panels/trips'
+  - kind: Grid
+    spec:
+      display:
+        title: Process
+        collapse:
+          open: true
+      items:
+      - x: 0
+        y: 0
+        width: 8
+        height: 8
+        content:
+          $ref: '#/spec/panels/process_memory'
+      - x: 8
+        y: 0
+        width: 8
+        height: 8
+        content:
+          $ref: '#/spec/panels/process_cpu'
+      - x: 16
+        y: 0
+        width: 8
+        height: 8
+        content:
+          $ref: '#/spec/panels/process_fds'

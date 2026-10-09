@@ -25,8 +25,8 @@ jobs:
       - run: make test
       - run: make package-check
 
-  # The alerting rules of monitoring/: their metrics against the reference,
-  # promtool and vmalert on the rules and their tests.
+  # The alerting rules and dashboards of monitoring/: their metrics against the
+  # reference, promtool and vmalert on the rules and their tests, percli lint.
   monitoring:
     runs-on: ubuntu-latest
     timeout-minutes: 10

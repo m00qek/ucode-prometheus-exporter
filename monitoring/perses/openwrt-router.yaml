@@ -1,0 +1,1220 @@
+# The "OpenWrt router" dashboard for Perses: a router or access point, from
+# ucode-prometheus-exporter. Apply it to a project of yours:
+#   percli apply -f openwrt-router.yaml --project <project>
+# See docs/how-to/dashboards-and-alerts.md.
+
+kind: Dashboard
+metadata:
+  name: openwrt-router
+spec:
+  display:
+    name: OpenWrt router
+    description: 'A router or access point, from ucode-prometheus-exporter: CPU, memory, interfaces, Wi-Fi, connections, temperatures, storage, DHCP, WireGuard and time. A panel whose collector is not installed shows no data.'
+  duration: 6h
+  refreshInterval: 1m
+  variables:
+  - kind: ListVariable
+    spec:
+      name: datasource
+      display:
+        name: Data source
+        hidden: false
+      allowAllValue: false
+      allowMultiple: false
+      plugin:
+        kind: DatasourceVariable
+        spec:
+          datasourcePluginKind: PrometheusDatasource
+  - kind: ListVariable
+    spec:
+      name: job
+      display:
+        name: Job
+        hidden: false
+      allowAllValue: false
+      allowMultiple: false
+      plugin:
+        kind: PrometheusLabelValuesVariable
+        spec:
+          datasource: $datasource
+          labelName: job
+          matchers:
+          - node_scrape_collector_success
+  - kind: ListVariable
+    spec:
+      name: instance
+      display:
+        name: Instance
+        hidden: false
+      allowAllValue: false
+      allowMultiple: false
+      plugin:
+        kind: PrometheusLabelValuesVariable
+        spec:
+          datasource: $datasource
+          labelName: instance
+          matchers:
+          - node_scrape_collector_success{job="$job"}
+  panels:
+    uptime:
+      kind: Panel
+      spec:
+        display:
+          name: Uptime
+          description: 'Time since the router booted: time and cpu.'
+        plugin:
+          kind: StatChart
+          spec:
+            calculation: last-number
+            format:
+              unit: seconds
+        queries:
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: node_time_seconds{job="$job", instance="$instance"} - node_boot_time_seconds{job="$job", instance="$instance"}
+    clock:
+      kind: Panel
+      spec:
+        display:
+          name: Clock
+          description: 'Whether the NTP daemon has synchronized the clock: timesync.'
+        plugin:
+          kind: StatChart
+          spec:
+            calculation: last-number
+            format:
+              unit: decimal
+            mappings:
+            - kind: Value
+              spec:
+                value: '1'
+                result:
+                  value: Synchronized
+                  color: '#2e7d32'
+            - kind: Value
+              spec:
+                value: '0'
+                result:
+                  value: Not synchronized
+                  color: '#c62828'
+        queries:
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: node_timesync_synchronized{job="$job", instance="$instance"}
+                seriesNameFormat: '{{daemon}}'
+    load1:
+      kind: Panel
+      spec:
+        display:
+          name: Load, 1 minute
+          description: 'The 1-minute load average: loadavg.'
+        plugin:
+          kind: StatChart
+          spec:
+            calculation: last-number
+            format:
+              unit: decimal
+              decimalPlaces: 2
+        queries:
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: node_load1{job="$job", instance="$instance"}
+    memory_available:
+      kind: Panel
+      spec:
+        display:
+          name: Memory available
+          description: 'The share of memory available to new work: meminfo.'
+        plugin:
+          kind: StatChart
+          spec:
+            calculation: last-number
+            format:
+              unit: percent-decimal
+            thresholds:
+              mode: absolute
+              defaultColor: '#c62828'
+              steps:
+              - value: 0.1
+                color: '#ef6c00'
+              - value: 0.2
+                color: '#2e7d32'
+        queries:
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: node_memory_MemAvailable_bytes{job="$job", instance="$instance"} / node_memory_MemTotal_bytes{job="$job", instance="$instance"}
+    conntrack_use:
+      kind: Panel
+      spec:
+        display:
+          name: Connection table
+          description: 'How full the connection tracking table is: conntrack.'
+        plugin:
+          kind: StatChart
+          spec:
+            calculation: last-number
+            format:
+              unit: percent-decimal
+            thresholds:
+              mode: absolute
+              defaultColor: '#2e7d32'
+              steps:
+              - value: 0.8
+                color: '#ef6c00'
+              - value: 0.9
+                color: '#c62828'
+        queries:
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: node_nf_conntrack_entries{job="$job", instance="$instance"} / node_nf_conntrack_entries_limit{job="$job", instance="$instance"}
+    release:
+      kind: Panel
+      spec:
+        display:
+          name: OpenWrt
+          description: 'The OpenWrt release: openwrt.'
+        plugin:
+          kind: StatChart
+          spec:
+            calculation: last-number
+            format:
+              unit: decimal
+            metricLabel: release
+            colorMode: none
+        queries:
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: node_openwrt_info{job="$job", instance="$instance"}
+                seriesNameFormat: '{{release}}'
+    cpu:
+      kind: Panel
+      spec:
+        display:
+          name: CPU
+          description: 'The share of CPU time in each mode but idle, over every CPU: cpu.'
+        plugin:
+          kind: TimeSeriesChart
+          spec:
+            legend:
+              position: bottom
+              mode: list
+            yAxis:
+              format:
+                unit: percent-decimal
+            visual:
+              display: line
+              lineWidth: 1.25
+              areaOpacity: 0.6
+              connectNulls: false
+              palette:
+                mode: auto
+              stack: all
+        queries:
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: avg by (mode) (rate(node_cpu_seconds_total{job="$job", instance="$instance", mode!="idle"}[$__rate_interval]))
+                seriesNameFormat: '{{mode}}'
+    load:
+      kind: Panel
+      spec:
+        display:
+          name: Load average
+          description: 'The load averages, beside the number of CPUs: loadavg and cpu.'
+        plugin:
+          kind: TimeSeriesChart
+          spec:
+            legend:
+              position: bottom
+              mode: list
+            yAxis:
+              format:
+                unit: decimal
+            visual:
+              display: line
+              lineWidth: 1.25
+              areaOpacity: 0.1
+              connectNulls: false
+              palette:
+                mode: auto
+        queries:
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: node_load1{job="$job", instance="$instance"}
+                seriesNameFormat: 1 minute
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: node_load5{job="$job", instance="$instance"}
+                seriesNameFormat: 5 minutes
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: node_load15{job="$job", instance="$instance"}
+                seriesNameFormat: 15 minutes
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: count(count by (cpu) (node_cpu_seconds_total{job="$job", instance="$instance"}))
+                seriesNameFormat: CPUs
+    memory:
+      kind: Panel
+      spec:
+        display:
+          name: Memory
+          description: 'Memory used, held by caches and buffers, and available: meminfo. /tmp is memory too.'
+        plugin:
+          kind: TimeSeriesChart
+          spec:
+            legend:
+              position: bottom
+              mode: list
+            yAxis:
+              format:
+                unit: bytes
+            visual:
+              display: line
+              lineWidth: 1.25
+              areaOpacity: 0.1
+              connectNulls: false
+              palette:
+                mode: auto
+        queries:
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: node_memory_MemTotal_bytes{job="$job", instance="$instance"} - node_memory_MemAvailable_bytes{job="$job", instance="$instance"}
+                seriesNameFormat: Used
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: node_memory_Cached_bytes{job="$job", instance="$instance"} + node_memory_Buffers_bytes{job="$job", instance="$instance"}
+                seriesNameFormat: Caches and buffers
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: node_memory_MemAvailable_bytes{job="$job", instance="$instance"}
+                seriesNameFormat: Available
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: node_memory_MemTotal_bytes{job="$job", instance="$instance"}
+                seriesNameFormat: Total
+    receive:
+      kind: Panel
+      spec:
+        display:
+          name: Received
+          description: 'Traffic each network device received: netdev.'
+        plugin:
+          kind: TimeSeriesChart
+          spec:
+            legend:
+              position: bottom
+              mode: list
+            yAxis:
+              format:
+                unit: bits/sec
+            visual:
+              display: line
+              lineWidth: 1.25
+              areaOpacity: 0.1
+              connectNulls: false
+              palette:
+                mode: auto
+        queries:
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: rate(node_network_receive_bytes_total{job="$job", instance="$instance", device!="lo"}[$__rate_interval]) * 8
+                seriesNameFormat: '{{device}}'
+    transmit:
+      kind: Panel
+      spec:
+        display:
+          name: Transmitted
+          description: 'Traffic each network device transmitted: netdev.'
+        plugin:
+          kind: TimeSeriesChart
+          spec:
+            legend:
+              position: bottom
+              mode: list
+            yAxis:
+              format:
+                unit: bits/sec
+            visual:
+              display: line
+              lineWidth: 1.25
+              areaOpacity: 0.1
+              connectNulls: false
+              palette:
+                mode: auto
+        queries:
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: rate(node_network_transmit_bytes_total{job="$job", instance="$instance", device!="lo"}[$__rate_interval]) * 8
+                seriesNameFormat: '{{device}}'
+    errors:
+      kind: Panel
+      spec:
+        display:
+          name: Errors
+          description: 'Packets with errors, by device and direction: netdev.'
+        plugin:
+          kind: TimeSeriesChart
+          spec:
+            legend:
+              position: bottom
+              mode: list
+            yAxis:
+              format:
+                unit: packets/sec
+            visual:
+              display: line
+              lineWidth: 1.25
+              areaOpacity: 0.1
+              connectNulls: false
+              palette:
+                mode: auto
+        queries:
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: rate(node_network_receive_errs_total{job="$job", instance="$instance", device!="lo"}[$__rate_interval])
+                seriesNameFormat: '{{device}} received'
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: rate(node_network_transmit_errs_total{job="$job", instance="$instance", device!="lo"}[$__rate_interval])
+                seriesNameFormat: '{{device}} transmitted'
+    drops:
+      kind: Panel
+      spec:
+        display:
+          name: Drops
+          description: 'Packets dropped, by device and direction: netdev.'
+        plugin:
+          kind: TimeSeriesChart
+          spec:
+            legend:
+              position: bottom
+              mode: list
+            yAxis:
+              format:
+                unit: packets/sec
+            visual:
+              display: line
+              lineWidth: 1.25
+              areaOpacity: 0.1
+              connectNulls: false
+              palette:
+                mode: auto
+        queries:
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: rate(node_network_receive_drop_total{job="$job", instance="$instance", device!="lo"}[$__rate_interval])
+                seriesNameFormat: '{{device}} received'
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: rate(node_network_transmit_drop_total{job="$job", instance="$instance", device!="lo"}[$__rate_interval])
+                seriesNameFormat: '{{device}} transmitted'
+    interfaces:
+      kind: Panel
+      spec:
+        display:
+          name: Interfaces
+          description: 'Whether each logical interface is up: openwrt_interfaces.'
+        plugin:
+          kind: StatusHistoryChart
+          spec:
+            legend:
+              position: bottom
+              mode: list
+            mappings:
+            - kind: Value
+              spec:
+                value: '1'
+                result:
+                  value: Up
+                  color: '#2e7d32'
+            - kind: Value
+              spec:
+                value: '0'
+                result:
+                  value: Down
+                  color: '#c62828'
+        queries:
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: node_openwrt_interface_up{job="$job", instance="$instance"}
+                seriesNameFormat: '{{interface}}'
+    wifi_clients:
+      kind: Panel
+      spec:
+        display:
+          name: Clients
+          description: 'Stations associated with each Wi-Fi interface: wifi, or hostapd_stations.'
+        plugin:
+          kind: TimeSeriesChart
+          spec:
+            legend:
+              position: bottom
+              mode: list
+            yAxis:
+              format:
+                unit: decimal
+            visual:
+              display: line
+              lineWidth: 1.25
+              areaOpacity: 0.1
+              connectNulls: false
+              palette:
+                mode: auto
+        queries:
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: node_wifi_stations{job="$job", instance="$instance"}
+                seriesNameFormat: '{{device}} ({{radio}})'
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: count by (vif) (hostapd_station_info{job="$job", instance="$instance"})
+                seriesNameFormat: '{{vif}} (hostapd)'
+    wifi_signal:
+      kind: Panel
+      spec:
+        display:
+          name: Signal of the clients
+          description: 'The signal each station is heard at: wifi with its `stations` option, or hostapd_stations.'
+        plugin:
+          kind: TimeSeriesChart
+          spec:
+            legend:
+              position: bottom
+              mode: list
+            yAxis:
+              format:
+                unit: decimal
+            visual:
+              display: line
+              lineWidth: 1.25
+              areaOpacity: 0.1
+              connectNulls: false
+              palette:
+                mode: auto
+        queries:
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: node_wifi_station_signal_dbm{job="$job", instance="$instance"}
+                seriesNameFormat: '{{device}} {{mac_address}}'
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: hostapd_station_signal_dbm{job="$job", instance="$instance"}
+                seriesNameFormat: '{{vif}} {{station}}'
+    wifi_busy:
+      kind: Panel
+      spec:
+        display:
+          name: Channel busy
+          description: 'The share of time each radio sensed its channel busy: wifi, where the driver surveys the channel.'
+        plugin:
+          kind: TimeSeriesChart
+          spec:
+            legend:
+              position: bottom
+              mode: list
+            yAxis:
+              format:
+                unit: percent-decimal
+            visual:
+              display: line
+              lineWidth: 1.25
+              areaOpacity: 0.1
+              connectNulls: false
+              palette:
+                mode: auto
+        queries:
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: max by (radio) (rate(node_wifi_channel_busy_seconds_total{job="$job", instance="$instance"}[$__rate_interval])) / max by (radio) (rate(node_wifi_channel_active_seconds_total{job="$job", instance="$instance"}[$__rate_interval]))
+                seriesNameFormat: '{{radio}}'
+    conntrack:
+      kind: Panel
+      spec:
+        display:
+          name: Connection table
+          description: 'Connections tracked, and the most the table holds: conntrack.'
+        plugin:
+          kind: TimeSeriesChart
+          spec:
+            legend:
+              position: bottom
+              mode: list
+            yAxis:
+              format:
+                unit: decimal
+            visual:
+              display: line
+              lineWidth: 1.25
+              areaOpacity: 0.1
+              connectNulls: false
+              palette:
+                mode: auto
+        queries:
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: node_nf_conntrack_entries{job="$job", instance="$instance"}
+                seriesNameFormat: Entries
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: node_nf_conntrack_entries_limit{job="$job", instance="$instance"}
+                seriesNameFormat: Limit
+    nat_traffic:
+      kind: Panel
+      spec:
+        display:
+          name: Traffic per host
+          description: 'Bytes of the connections each host on this side of the router has open now, both directions, the 10 largest: nat_traffic. It needs conntrack accounting (net.netfilter.nf_conntrack_acct).'
+        plugin:
+          kind: TimeSeriesChart
+          spec:
+            legend:
+              position: bottom
+              mode: list
+            yAxis:
+              format:
+                unit: bytes
+            visual:
+              display: line
+              lineWidth: 1.25
+              areaOpacity: 0.1
+              connectNulls: false
+              palette:
+                mode: auto
+        queries:
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: topk(10, sum by (host) (node_nat_traffic_bytes{job="$job", instance="$instance"}))
+                seriesNameFormat: '{{host}}'
+    hwmon:
+      kind: Panel
+      spec:
+        display:
+          name: Sensors
+          description: 'Each temperature sensor of the hardware monitor: hwmon.'
+        plugin:
+          kind: TimeSeriesChart
+          spec:
+            legend:
+              position: right
+              mode: table
+              size: small
+              values:
+              - last-number
+            yAxis:
+              format:
+                unit: celsius
+            visual:
+              display: line
+              lineWidth: 1.25
+              areaOpacity: 0.1
+              connectNulls: false
+              palette:
+                mode: auto
+        queries:
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: node_hwmon_temp_celsius{job="$job", instance="$instance"}
+                seriesNameFormat: '{{chip}} {{sensor}}'
+    thermal:
+      kind: Panel
+      spec:
+        display:
+          name: Thermal zones
+          description: 'Each thermal zone of the kernel: thermal.'
+        plugin:
+          kind: TimeSeriesChart
+          spec:
+            legend:
+              position: bottom
+              mode: list
+            yAxis:
+              format:
+                unit: celsius
+            visual:
+              display: line
+              lineWidth: 1.25
+              areaOpacity: 0.1
+              connectNulls: false
+              palette:
+                mode: auto
+        queries:
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: node_thermal_zone_temp{job="$job", instance="$instance"}
+                seriesNameFormat: '{{type}} {{zone}}'
+    fs_space:
+      kind: Panel
+      spec:
+        display:
+          name: Space used
+          description: 'The share of each writable filesystem''s space in use: filesystem.'
+        plugin:
+          kind: BarChart
+          spec:
+            calculation: last-number
+            format:
+              unit: percent-decimal
+            sort: desc
+            mode: value
+        queries:
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: (1 - node_filesystem_avail_bytes{job="$job", instance="$instance"} / node_filesystem_size_bytes{job="$job", instance="$instance"}) and node_filesystem_readonly{job="$job", instance="$instance"} == 0
+                seriesNameFormat: '{{mountpoint}}'
+    fs_inodes:
+      kind: Panel
+      spec:
+        display:
+          name: Inodes used
+          description: 'The share of each writable filesystem''s inodes in use, where it counts them: filesystem.'
+        plugin:
+          kind: BarChart
+          spec:
+            calculation: last-number
+            format:
+              unit: percent-decimal
+            sort: desc
+            mode: value
+        queries:
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: (1 - node_filesystem_files_free{job="$job", instance="$instance"} / node_filesystem_files{job="$job", instance="$instance"}) and node_filesystem_files{job="$job", instance="$instance"} > 0 and node_filesystem_readonly{job="$job", instance="$instance"} == 0
+                seriesNameFormat: '{{mountpoint}}'
+    dhcp_leases:
+      kind: Panel
+      spec:
+        display:
+          name: DHCP leases
+          description: 'Active leases, by interface, family and server: dhcp_leases.'
+        plugin:
+          kind: TimeSeriesChart
+          spec:
+            legend:
+              position: bottom
+              mode: list
+            yAxis:
+              format:
+                unit: decimal
+            visual:
+              display: line
+              lineWidth: 1.25
+              areaOpacity: 0.1
+              connectNulls: false
+              palette:
+                mode: auto
+        queries:
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: node_openwrt_dhcp_leases{job="$job", instance="$instance"}
+                seriesNameFormat: '{{interface}} {{family}} ({{server}})'
+    wg_handshake:
+      kind: Panel
+      spec:
+        display:
+          name: Since each peer's handshake
+          description: 'Time since each WireGuard peer''s last handshake, for peers that had one: wireguard. More than 2 minutes means no traffic, or no peer.'
+        plugin:
+          kind: TimeSeriesChart
+          spec:
+            legend:
+              position: bottom
+              mode: list
+            yAxis:
+              format:
+                unit: seconds
+            visual:
+              display: line
+              lineWidth: 1.25
+              areaOpacity: 0.1
+              connectNulls: false
+              palette:
+                mode: auto
+        queries:
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: time() - (wireguard_latest_handshake_seconds{job="$job", instance="$instance"} > 0)
+                seriesNameFormat: '{{interface}} {{public_key}}'
+    wg_traffic:
+      kind: Panel
+      spec:
+        display:
+          name: WireGuard traffic
+          description: 'Traffic each WireGuard peer received and was sent: wireguard.'
+        plugin:
+          kind: TimeSeriesChart
+          spec:
+            legend:
+              position: bottom
+              mode: list
+            yAxis:
+              format:
+                unit: bits/sec
+            visual:
+              display: line
+              lineWidth: 1.25
+              areaOpacity: 0.1
+              connectNulls: false
+              palette:
+                mode: auto
+        queries:
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: rate(wireguard_received_bytes_total{job="$job", instance="$instance"}[$__rate_interval]) * 8
+                seriesNameFormat: '{{interface}} {{public_key}} received'
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: rate(wireguard_sent_bytes_total{job="$job", instance="$instance"}[$__rate_interval]) * 8
+                seriesNameFormat: '{{interface}} {{public_key}} sent'
+    clock_offset:
+      kind: Panel
+      spec:
+        display:
+          name: Clock offset
+          description: 'The clock''s offset from the NTP daemon''s reference at its last update, while it is synchronized: timesync.'
+        plugin:
+          kind: TimeSeriesChart
+          spec:
+            legend:
+              position: bottom
+              mode: list
+            yAxis:
+              format:
+                unit: seconds
+            visual:
+              display: line
+              lineWidth: 1.25
+              areaOpacity: 0.1
+              connectNulls: false
+              palette:
+                mode: auto
+        queries:
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: node_timesync_offset_seconds{job="$job", instance="$instance"}
+                seriesNameFormat: '{{daemon}}'
+    since_update:
+      kind: Panel
+      spec:
+        display:
+          name: Since the clock's last update
+          description: 'Time since the NTP daemon last updated the clock (chronyd) or reported on it (busybox ntpd): timesync.'
+        plugin:
+          kind: TimeSeriesChart
+          spec:
+            legend:
+              position: bottom
+              mode: list
+            yAxis:
+              format:
+                unit: seconds
+            visual:
+              display: line
+              lineWidth: 1.25
+              areaOpacity: 0.1
+              connectNulls: false
+              palette:
+                mode: auto
+        queries:
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: time() - node_timesync_last_update_timestamp_seconds{job="$job", instance="$instance"}
+                seriesNameFormat: '{{daemon}}'
+  layouts:
+  - kind: Grid
+    spec:
+      display:
+        title: Overview
+        collapse:
+          open: true
+      items:
+      - x: 0
+        y: 0
+        width: 4
+        height: 4
+        content:
+          $ref: '#/spec/panels/uptime'
+      - x: 4
+        y: 0
+        width: 4
+        height: 4
+        content:
+          $ref: '#/spec/panels/clock'
+      - x: 8
+        y: 0
+        width: 4
+        height: 4
+        content:
+          $ref: '#/spec/panels/load1'
+      - x: 12
+        y: 0
+        width: 4
+        height: 4
+        content:
+          $ref: '#/spec/panels/memory_available'
+      - x: 16
+        y: 0
+        width: 4
+        height: 4
+        content:
+          $ref: '#/spec/panels/conntrack_use'
+      - x: 20
+        y: 0
+        width: 4
+        height: 4
+        content:
+          $ref: '#/spec/panels/release'
+  - kind: Grid
+    spec:
+      display:
+        title: CPU and load
+        collapse:
+          open: true
+      items:
+      - x: 0
+        y: 0
+        width: 12
+        height: 8
+        content:
+          $ref: '#/spec/panels/cpu'
+      - x: 12
+        y: 0
+        width: 12
+        height: 8
+        content:
+          $ref: '#/spec/panels/load'
+  - kind: Grid
+    spec:
+      display:
+        title: Memory
+        collapse:
+          open: true
+      items:
+      - x: 0
+        y: 0
+        width: 24
+        height: 8
+        content:
+          $ref: '#/spec/panels/memory'
+  - kind: Grid
+    spec:
+      display:
+        title: Network
+        collapse:
+          open: true
+      items:
+      - x: 0
+        y: 0
+        width: 12
+        height: 8
+        content:
+          $ref: '#/spec/panels/receive'
+      - x: 12
+        y: 0
+        width: 12
+        height: 8
+        content:
+          $ref: '#/spec/panels/transmit'
+      - x: 0
+        y: 8
+        width: 8
+        height: 8
+        content:
+          $ref: '#/spec/panels/errors'
+      - x: 8
+        y: 8
+        width: 8
+        height: 8
+        content:
+          $ref: '#/spec/panels/drops'
+      - x: 16
+        y: 8
+        width: 8
+        height: 8
+        content:
+          $ref: '#/spec/panels/interfaces'
+  - kind: Grid
+    spec:
+      display:
+        title: Wi-Fi
+        collapse:
+          open: true
+      items:
+      - x: 0
+        y: 0
+        width: 8
+        height: 8
+        content:
+          $ref: '#/spec/panels/wifi_clients'
+      - x: 8
+        y: 0
+        width: 8
+        height: 8
+        content:
+          $ref: '#/spec/panels/wifi_signal'
+      - x: 16
+        y: 0
+        width: 8
+        height: 8
+        content:
+          $ref: '#/spec/panels/wifi_busy'
+  - kind: Grid
+    spec:
+      display:
+        title: Connections
+        collapse:
+          open: true
+      items:
+      - x: 0
+        y: 0
+        width: 12
+        height: 8
+        content:
+          $ref: '#/spec/panels/conntrack'
+      - x: 12
+        y: 0
+        width: 12
+        height: 8
+        content:
+          $ref: '#/spec/panels/nat_traffic'
+  - kind: Grid
+    spec:
+      display:
+        title: Temperatures
+        collapse:
+          open: true
+      items:
+      - x: 0
+        y: 0
+        width: 12
+        height: 8
+        content:
+          $ref: '#/spec/panels/hwmon'
+      - x: 12
+        y: 0
+        width: 12
+        height: 8
+        content:
+          $ref: '#/spec/panels/thermal'
+  - kind: Grid
+    spec:
+      display:
+        title: Storage
+        collapse:
+          open: true
+      items:
+      - x: 0
+        y: 0
+        width: 12
+        height: 8
+        content:
+          $ref: '#/spec/panels/fs_space'
+      - x: 12
+        y: 0
+        width: 12
+        height: 8
+        content:
+          $ref: '#/spec/panels/fs_inodes'
+  - kind: Grid
+    spec:
+      display:
+        title: DHCP and WireGuard
+        collapse:
+          open: true
+      items:
+      - x: 0
+        y: 0
+        width: 8
+        height: 8
+        content:
+          $ref: '#/spec/panels/dhcp_leases'
+      - x: 8
+        y: 0
+        width: 8
+        height: 8
+        content:
+          $ref: '#/spec/panels/wg_handshake'
+      - x: 16
+        y: 0
+        width: 8
+        height: 8
+        content:
+          $ref: '#/spec/panels/wg_traffic'
+  - kind: Grid
+    spec:
+      display:
+        title: Time
+        collapse:
+          open: true
+      items:
+      - x: 0
+        y: 0
+        width: 12
+        height: 8
+        content:
+          $ref: '#/spec/panels/clock_offset'
+      - x: 12
+        y: 0
+        width: 12
+        height: 8
+        content:
+          $ref: '#/spec/panels/since_update'

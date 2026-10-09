@@ -46,7 +46,7 @@ Every target runs in Docker, but `feed-makefile`, a shell script with `curl`; no
 
 | Target | Description |
 | :--- | :--- |
-| `monitoring-check` | Checks `monitoring/`: that every metric family and label its rules and their tests name is in [Metrics](metrics.md) (`devenv/scripts/monitoring-refs.py`, in the docs' mkdocs image); `promtool check rules` and `promtool test rules`; `vmalert -dryRun` and `vmalert-tool unittest` on the same files. Each in its official image, without the network. The metric check is also shown something it must refuse. |
+| `monitoring-check` | Checks `monitoring/`: that every metric family and label its rules, their tests and its dashboards name is in [Metrics](metrics.md) (`devenv/scripts/monitoring-refs.py`, in the docs' mkdocs image); `promtool check rules` and `promtool test rules`; `vmalert -dryRun` and `vmalert-tool unittest` on the same files; `percli lint` of the Perses dashboards against the plugins the Perses image ships; and that the Grafana dashboards take their data source from a variable. Each in its official image, without the network. The metric check and the lint are also shown something they must refuse. |
 
 ### Release
 

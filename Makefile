@@ -217,14 +217,15 @@ I18N_IMAGE := ucode-prometheus-exporter-i18n:$(shell sha256sum devenv/services/i
 pot: ; @I18N_IMAGE=$(I18N_IMAGE) devenv/scripts/pot.sh
 
 # ---- monitoring ----------------------------------------------------------------
-# The alerting rules of monitoring/, checked with the official
+# The alerting rules and dashboards of monitoring/, checked with the official
 # images of what loads them; see devenv/scripts/monitoring-check.sh. The
 # metric names are checked in the docs' mkdocs image, for its Python.
 PROMETHEUS_IMAGE   := prom/prometheus:v3.15.0
 VMALERT_IMAGE      := victoriametrics/vmalert:v1.152.0
 VMALERT_TOOL_IMAGE := victoriametrics/vmalert-tool:v1.152.0
+PERSES_IMAGE       := persesdev/perses:v0.54.0
 PYTHON_IMAGE       := squidfunk/mkdocs-material:9.5.17
-export PROMETHEUS_IMAGE VMALERT_IMAGE VMALERT_TOOL_IMAGE PYTHON_IMAGE
+export PROMETHEUS_IMAGE VMALERT_IMAGE VMALERT_TOOL_IMAGE PERSES_IMAGE PYTHON_IMAGE
 
 monitoring-check: ; @devenv/scripts/monitoring-check.sh
 
