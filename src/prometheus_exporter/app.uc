@@ -272,15 +272,22 @@ export function load(mods, dir, log, opts) {
  * collectors changed (see the init script).
  *
  * @param {Log} log the exporter's log.
- * @param {?string} dir the collectors' directory; loader.DIR when null.
+ * @param {?string} dir the collectors' directory; collection.DIR when null.
  * @param {?{ fork: ?boolean, tmp: ?string, observed: ?Modules }} opts the
  *   options: scrape_env()'s.
  * @returns {App} the exporter.
  */
 export function create(log, dir, opts) {
-	let mods = deps.modules();
+	let mods = deps.modules([]);
 	let env = scrape_env(mods, log, opts);
 	let loaded = load(mods, dir, log, opts);
+	let needs = [];
+
+	// The native modules the collectors need, and only those.
+	for (let c in loaded)
+		push(needs, ...c.meta.needs);
+	for (let name, m in deps.natives(uniq(needs)))
+		mods[name] = m;
 
 	return {
 		collectors: () => loaded,
