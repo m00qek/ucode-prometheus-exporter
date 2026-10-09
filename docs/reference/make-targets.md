@@ -49,6 +49,7 @@ Every target runs in Docker, but `feed-makefile`, a shell script with `curl`; no
 | `monitoring-check` | Checks `monitoring/`: that every metric family and label its rules, their tests and its dashboards name is in [Metrics](metrics.md) (`devenv/scripts/monitoring-refs.py`, in the docs' mkdocs image); `promtool check rules` and `promtool test rules`; `vmalert -dryRun` and `vmalert-tool unittest` on the same files; `percli lint` of the Perses dashboards against the plugins the Perses image ships; and that the Grafana dashboards take their data source from a variable. Each in its official image, without the network. The metric check and the lint are also shown something they must refuse. |
 | `monitoring-lab` | Prometheus, Grafana and Perses on the running lab (`LAB_NAME`), with `monitoring/`'s rules and dashboards: the dashboards applied to Perses with `percli lint --online` and `percli apply`, every panel's queries run through Grafana's and Perses's APIs after `MONITORING_WAIT` seconds, a report in `bin/monitoring/report.txt` and screenshots in `bin/monitoring/screenshots/`. Left running. See [How to use the lab](../how-to/developer/lab.md#watch-it-with-prometheus-grafana-and-perses). |
 | `monitoring-lab-down` | Removes `monitoring-lab`'s containers and network. |
+| `failure-demo` | `package`, then this exporter and the feed's Lua exporter when what they read breaks, as a Prometheus server (the official image, `prom/prometheus`) scrapes them every 15 s with its 10 s timeout: a hung ubus daemon, a program that never exits, a label that is not UTF-8, each exporter in an unprivileged container of its own; and a conntrack table of `FD_CONNTRACK` connections on QEMU's malta, each exporter booted under procd. Prints a table, kept with the logs and the JSON in `bin/failure-demo/`. Some 25 minutes, with the network; not in CI. See [What happens when a collector breaks](../explanation/when-a-collector-breaks.md#reproduce). |
 
 ### Release
 
@@ -101,6 +102,10 @@ Every target runs in Docker, but `feed-makefile`, a shell script with `curl`; no
 | `QEMU_SHIFT` | `1` | `bench-qemu` | The guest runs at 1000/2^`QEMU_SHIFT` MIPS: 1 is 500, 2 is 250. |
 | `QEMU_MEMORY` | `128` | `bench-qemu` | The guest's memory, in MB. |
 | `BENCH_QEMU_LABEL` | `qemu-malta-shift<N>`, `qemu-malta-be-shift<N>` big-endian | `bench-qemu` | The name of the result. |
+| `FD_SCENARIOS` | all | `failure-demo` | The scenarios to run, of `healthy`, `hung-ubus`, `stuck-nft`, `bad-utf8` and `conntrack`. |
+| `FD_SCRAPES` | `8` | `failure-demo` | The scrapes Prometheus makes of each exporter in a scenario. |
+| `FD_CONNTRACK` | `20000` | `failure-demo` | The connections of `conntrack`'s table. |
+| `FD_QEMU_CPUS` | `0.65` | `failure-demo` | The share of a host CPU `conntrack`'s QEMU gets, without `-icount`, so that the guest's time is Prometheus's: pick the share that makes the guest's loop turn, which it prints, near 9.9 µs, `bench-qemu`'s 500-MIPS 24Kc. |
 | `VERSION` | — | `feed-makefile` | The release, `X.Y.Z`, without the `v`. |
 | `OUT` | — | `feed-makefile` | Where to write the Makefile. |
 | `TARBALL` | — | `feed-makefile` | The tag's tarball, already on disk, instead of downloading it. |

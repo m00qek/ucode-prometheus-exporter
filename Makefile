@@ -10,7 +10,7 @@ RUN          = $(COMPOSE) --progress quiet run --rm $(if $(CI),-T) openwrt
 IMAGE_STAMP := devenv/.built-$(IMAGE_TAG)
 TEST_ARGS    = $(if $(FILTER),-f '$(FILTER)') $(if $(VERBOSE),-v) $(if $(TEST_TIMEOUT),-t $(TEST_TIMEOUT)) $(MODULES)
 
-.PHONY: test unit integration watch lint shell image fixtures package template-package pkgcheck-image package-check e2e lab lab-down browser pot bench bench-src bench-worlds bench-device bench-qemu docs docs-mike docs-test docs-serve docs-gen feed-makefile monitoring-check monitoring-lab monitoring-lab-down
+.PHONY: test unit integration watch lint shell image fixtures package template-package pkgcheck-image package-check e2e lab lab-down browser pot bench bench-src bench-worlds bench-device bench-qemu failure-demo docs docs-mike docs-test docs-serve docs-gen feed-makefile monitoring-check monitoring-lab monitoring-lab-down
 
 test:        $(IMAGE_STAMP) ; @$(RUN) devenv/scripts/test.sh all $(TEST_ARGS)
 unit:        $(IMAGE_STAMP) ; @$(RUN) devenv/scripts/test.sh unit $(TEST_ARGS)
@@ -196,6 +196,28 @@ bench-qemu: package bench-worlds pkgcheck-image
 bench-device: bench-worlds bench-src
 	@devenv/scripts/bench-device.sh '$(HOST)' '$(BENCH_DEVICE_LABEL)' -c $(if $(FILTER),-f '$(FILTER)') $(BENCH_ARGS)
 
+# ---- failure demo ----------------------------------------------------------------
+# This exporter and the feed's Lua exporter when what they read breaks, as a
+# real Prometheus server (the official image) scrapes them: each scenario of
+# FD_SCENARIOS (all by default) in containers, conntrack in QEMU, a table at
+# the end; see devenv/scripts/failure-demo.sh. Some 25 minutes, with network;
+# not in CI. The Lua exporter with each collector package of it that installs
+# no service: FD_LUA.
+FD_SCENARIOS     ?=
+FD_LUA           := dawn ethtool filesystem hostapd_stations hostapd_ubus_stations hwmon nat_traffic netstat \
+	nft-counters openwrt snmp6 textfile thermal uci_dhcp_host wifi wifi_stations
+FD_IMAGE         := ucode-prometheus-exporter-failure-demo:$(shell { cat devenv/services/failure-demo/Dockerfile; echo $(PKGCHECK_IMAGE) $(FD_LUA); } | sha256sum | cut -c1-12)
+PROMETHEUS_IMAGE := prom/prometheus:v3.15.0
+
+failure-demo: package pkgcheck-image
+	docker build -q -t $(FD_IMAGE) --build-arg BASE=$(PKGCHECK_IMAGE) \
+		--build-arg LUA_PACKAGES="prometheus-node-exporter-lua $(addprefix prometheus-node-exporter-lua-,$(FD_LUA))" \
+		devenv/services/failure-demo >/dev/null
+	docker build -q -t $(QEMU_IMAGE) devenv/services/qemu >/dev/null
+	@FD_IMAGE=$(FD_IMAGE) FD_NAME=ucode-prometheus-exporter-fd-$(CHECKOUT) PROMETHEUS_IMAGE=$(PROMETHEUS_IMAGE) \
+		QEMU_IMAGE=$(QEMU_IMAGE) PKG_FULLVERSION=$(PKG_FULLVERSION) FD_LUA='$(FD_LUA)' \
+		devenv/scripts/failure-demo.sh $(FD_SCENARIOS)
+
 # ---- luci-app-prometheus-exporter --------------------------------------------
 LUCI_IMAGE    := ucode-prometheus-exporter-luci:$(OPENWRT_ARCH)-$(OPENWRT_VERSION)-$(call INPUTS_OF,devenv/services/luci/Dockerfile)
 BROWSER_IMAGE := ucode-prometheus-exporter-browser:$(shell sed -n 's/.*"@playwright\/test": "\(.*\)".*/\1/p' devenv/services/browser/package.json)
@@ -275,3 +297,4 @@ docs-gen: $(IMAGE_STAMP)
 	@$(COMPOSE) --progress quiet run --rm $(if $(CI),-T) --user $$(id -u):$$(id -g) \
 		-v $(CURDIR)/docs/reference:/exporter/docs/reference openwrt \
 		ucode -L /exporter/src -L /exporter/devenv/scripts devenv/scripts/docs-gen.uc
+

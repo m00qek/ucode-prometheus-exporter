@@ -123,6 +123,7 @@ nav:
       - Security Model: explanation/security.md
       - Nothing to Observe: explanation/nothing-to-observe.md
       - Deadlines and Circuit Breakers: explanation/deadlines-and-breakers.md
+      - When a Collector Breaks: explanation/when-a-collector-breaks.md
       - Metric Names: explanation/metric-names.md
       - Performance on Small Routers: explanation/performance.md
       - About Versions: explanation/versions.md

@@ -44,7 +44,7 @@ done
 rm -f "$importer"
 
 # Programs: the utest configs and the devkit's proxies return at top level; the handlers are templates.
-for f in test/utest.config.uc devkit/template/test/utest.config.uc src/prometheus_exporter/devkit/proxies/*.uc devenv/scripts/*.uc; do
+for f in test/utest.config.uc devkit/template/test/utest.config.uc src/prometheus_exporter/devkit/proxies/*.uc devenv/scripts/*.uc devenv/scripts/failure-demo/*.uc; do
 	ucode -L "$src" -L "$scripts" -c -o /dev/null "$f" || fail "$f"
 done
 ucode -L "$src" -T -c -o /dev/null files/usr/libexec/prometheus-exporter/handler.uc ||
@@ -58,7 +58,7 @@ done
 ucode -L "$src" files/usr/bin/prometheus-exporter -h >/dev/null ||
 	fail files/usr/bin/prometheus-exporter
 
-for f in files/etc/init.d/* files/etc/uci-defaults/* files/etc/hotplug.d/*/* devenv/scripts/*.sh devenv/services/lab/*.sh test/feed/*.sh; do
+for f in files/etc/init.d/* files/etc/uci-defaults/* files/etc/hotplug.d/*/* devenv/scripts/*.sh devenv/scripts/failure-demo/*.sh devenv/services/lab/*.sh test/feed/*.sh; do
 	sh -n "$f" || fail "$f"
 done
 

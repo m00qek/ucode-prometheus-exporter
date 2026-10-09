@@ -70,6 +70,7 @@ The `exporter` collector, in the base package, counts what happened since the se
 
 ## See also
 
+- [What happens when a collector breaks](when-a-collector-breaks.md): these mechanisms against the Lua exporter's, measured.
 - [How to troubleshoot](../how-to/troubleshoot.md#a-collector-is-quarantined)
 - [Performance on small routers](performance.md)
 - [UCI configuration](../reference/uci-config.md): `scrape_timeout`, `collector_budget` and `budget`.
