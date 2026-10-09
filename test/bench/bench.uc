@@ -18,6 +18,9 @@
 //   probe:full                    the same, each loaded in a child process first, as uhttpd does when it starts
 //   rest:base, rest:full          what the handler's process holds once it loaded the set, as uhttpd
 //                                 holds it while it runs (RssAnon)
+//   lazy:<what>                   what a scrape's process pays to load what uhttpd no longer holds,
+//                                 the first time it needs it: the exposition parser, zlib, and the
+//                                 native modules ubus, rtnl and nl80211
 //   collector:<name>              each collector of `full` and `extra` on the large world
 //   collector:nat_traffic@<n>     the n-entry conntrack tables (1k, 10k, 20k)
 //   scrape:base, scrape:full      whole scrapes, on the typical and the large world, as the service
@@ -26,6 +29,10 @@
 //   handler:base, handler:full    the typical world's scrapes as Prometheus gets them: through uhttpd
 //                                 and the service's handler, the ledger, the progress file and the
 //                                 deadline; where uhttpd and its ucode plugin are, and find this exporter
+//   floor:base, floor:full        the least memory_limit under which uhttpd loads the handler with the
+//                                 set and the typical world's scrape of it succeeds whole; where uhttpd
+//                                 cannot run this exporter, under which scrape:<set>'s process does;
+//                                 and the large world's full scrape, a busy router's
 //   progress:full                 a scrape's progress file in the state
 //   auth:<hash>, auth:cached      basic auth's check of a password, by each hash and by the cache
 //   ledger:full                   what the ledger in the state adds to a full scrape
@@ -96,7 +103,12 @@ if (no_handler)
 else
 	for (let s in [ 'base', 'full' ])
 		push(cases, [ 'typical', `handler:${s}` ]);
+for (let s in [ 'base', 'full' ])
+	push(cases, [ 'typical', `floor:${s}` ]);
+push(cases, [ 'large', 'floor:full' ]);
 push(cases, [ 'typical', 'rest:base' ], [ 'typical', 'rest:full' ]);
+for (let l in [ 'parse', 'zlib', 'ubus', 'rtnl', 'nl80211' ])
+	push(cases, [ 'typical', `lazy:${l}` ]);
 push(cases, [ 'typical', 'progress:full' ]);
 // Basic auth's check of a password: MD5-crypt, SHA-512-crypt at the rounds
 // hash_password makes, SHA-crypt at the most auth_password takes, and a
@@ -229,6 +241,10 @@ for (let c in cases) {
 	}
 	if (r.kind == 'record' && r.ok !== false)
 		note = sprintf('%.3f us a sample', r.time.median / r.samples * 1000000);
+	if (r.kind == 'floor' && r.floor_mb != null)
+		note = sprintf('%d collectors, memory_limit %d MB, by %s (tried %s)', r.collectors, r.floor_mb, r.via, join(' ', r.tried));
+	if (r.kind == 'lazy' && r.ok !== false)
+		note = r.loaded ? '' : 'not installed';
 	if (r.kind == 'rest' && r.held_kb != null)
 		note = sprintf('%d collectors, holds %d kB, RssAnon %d kB', r.collectors, r.held_kb, r.anon_kb);
 	if (r.kind == 'load' || r.kind == 'probe')

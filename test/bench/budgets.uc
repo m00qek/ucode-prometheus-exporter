@@ -14,6 +14,8 @@
 // (2026.09.30-r2) took 9.2 s for 20k conntrack entries, 3.8 s for ethtool
 // on 17 ports and 2.2 s for a typical full scrape.
 
+import { MEMORY_LIMIT_MIN } from 'prometheus_exporter.config';
+
 // A case's time per entry may grow this much from the smallest table to the
 // largest: linear is 1 (measured 0.95), n log n about 1.4 from 1k to 20k, and
 // quadratic 20.
@@ -145,14 +147,22 @@ const MEMORY = [
 
 // [ world/case, kB, what ]: how much the handler's process may hold once it
 // loaded a set (rest:), which uhttpd holds for as long as it runs, and every
-// scrape's processes start from. Measured 1.47 MB for the base collectors and
-// 2.08 MB for every one on x86_64 (a 32-bit router's is less), where the
-// exporter before took 2.06 and 2.62: a regex of a count, or the loader kept,
-// would pass it.
+// scrape's processes start from. Measured 1.36 MB for the base collectors and
+// 1.99 MB for every one on x86_64 (a 32-bit router's is less), where 0.2.1
+// took 2.06 and 2.62, and main of 2026-10-09 1.58 and 2.23 (with basic
+// auth, the parser, ubus, zlib and the grants held): any of those held
+// again, a regex of a count, or the loader kept, would pass it.
 const REST = [
-	[ 'typical/rest:base', 1800, 'the handler with the base collectors, at rest' ],
-	[ 'typical/rest:full', 2400, 'the handler with every collector, at rest' ],
+	[ 'typical/rest:base', 1600, 'the handler with the base collectors, at rest' ],
+	[ 'typical/rest:full', 2300, 'the handler with every collector, at rest' ],
 ];
+
+// The most the floor: cases may find, in MB: memory_limit's least
+// (prometheus_exporter.config's MEMORY_LIMIT_MIN), which the config takes
+// as enough for the handler to load every collector and serve a typical
+// scrape of them. Measured 4 MB for the base collectors and 7 for every one
+// on x86_64, and less on a 32-bit router.
+export const FLOOR_MB = MEMORY_LIMIT_MIN;
 
 // The noop: cases, scrapes of that many collectors that write nothing: the
 // difference is what a scrape costs per collector besides it.
@@ -268,6 +278,11 @@ export function check(results, absolute) {
 	for (let b in REST)
 		if (r[b[0]]?.held_kb > b[1])
 			push(over, sprintf('%s (%s): holds %d kB, over %d kB', b[0], b[2], r[b[0]].held_kb, b[1]));
+
+	for (let x in results)
+		if (x.kind == 'floor' && x.world == 'typical' && x.floor_mb > FLOOR_MB)
+			push(over, sprintf('%s/%s: a scrape needs a memory_limit of %d MB, over memory_limit\'s least, %d MB',
+				x.world, x.case, x.floor_mb, FLOOR_MB));
 
 	if (absolute)
 		for (let b in TIME)

@@ -15,8 +15,17 @@
 //                             when it starts (prometheus_exporter.probe)
 //   rest:<set>                what the handler's process holds once it loaded the set, as uhttpd
 //                             holds it while it runs: its RssAnon, less what it held before
+//   lazy:<what>               what a scrape's process pays the first time it needs what uhttpd
+//                             no longer holds: parse (the exposition parser, compiled), zlib (by
+//                             http.gzip), ubus, rtnl, nl80211 (by deps.native)
 //   handler:<set>             a scrape of the set as Prometheus gets it: uhttpd running the
 //                             service's handler (handler.uc, on the world), asked by wget
+//   floor:<set>               the least memory_limit, in MB, under which uhttpd loads the handler
+//                             with the set and a scrape of it succeeds whole: each of uhttpd's
+//                             processes limited (RLIMIT_DATA) as procd limits the service's;
+//                             where uhttpd cannot run this exporter (a device with another
+//                             installed), the same of scrape:<set>'s process, which lacks
+//                             uhttpd's own data: on x86_64 the same, or 1 MB under it
 //   collector:<name>[@<n>]    one collector's run and its rendering; @n reads the n-entry conntrack table
 //   scrape:<set>              a whole scrape of the set, as uhttpd answers /metrics: each collector
 //                             in a child process (prometheus_exporter.runner's forked)
@@ -58,6 +67,7 @@ import * as crypt from 'prometheus_exporter.crypt';
 import * as state from 'prometheus_exporter.state';
 import * as ledger from 'prometheus_exporter.ledger';
 import * as deadline from 'prometheus_exporter.deadline';
+import * as http from 'prometheus_exporter.http';
 import * as runner from 'prometheus_exporter.runner';
 import { probe as probe_modules } from 'prometheus_exporter.probe';
 import * as bench_world from 'bench.world';
@@ -66,6 +76,10 @@ import * as uhttpd from 'bench.server';
 const STATUS = /^(VmHWM|VmRSS|VmData):\s+([0-9]+) kB/;
 const DURATION = /^node_scrape_collector_duration_seconds\{collector="([^"]+)"\} (.*)$/;
 const FAILED = /^node_scrape_collector_success\{collector="([^"]+)"\} 0$/;
+
+// The most memory_limit the floor: cases try, in MB: the service's most
+// (prometheus_exporter.config's MEMORY_LIMIT_MAX).
+const FLOOR_MB_MAX = 64;
 
 function now() {
 	let t = clock(true);
@@ -312,6 +326,119 @@ if (kind == 'calibrate') {
 	result.error = result.ok ? null : `loaded ${result.collectors} of ${length(names)} collectors`;
 	result.held_kb = anon_kb() - before;
 	result.anon_kb = anon_kb();
+} else if (kind == 'lazy') {
+	// A scrape's process forked from uhttpd, which holds none of these, the
+	// first time one of its collectors needs one, as each scrape's child
+	// does: its time, and how far its peak rose. A native module the system
+	// lacks (nl80211 on a router without Wi-Fi) is said, not failed.
+	mem_before = reset_peak();
+
+	let t = now(), loaded;
+
+	switch (arg) {
+	case 'parse': loaded = exposition.parse('# TYPE e counter\ne 1\n').ok; break;
+	case 'zlib': loaded = http.gzip('e') != null; break;
+	default: loaded = (deps.native ?? die('no deps.native: a revision that loads natives in uhttpd'))(arg) != null;
+	}
+
+	result.time = now() - t;
+	result.loaded = loaded;
+	result.ok = loaded || !(arg in [ 'parse', 'zlib' ]);
+	result.error = result.ok ? null : `${arg} did not load`;
+} else if (kind == 'floor') {
+	// memory_limit is each of uhttpd's processes' RLIMIT_DATA: the process
+	// that loads the handler and the collectors, a scrape's, and the child
+	// its collectors run in. Under too little, uhttpd does not load the
+	// handler (the service crash-loops), or a scrape, or a collector's child,
+	// runs out: the least limit, in whole MB, under which uhttpd serves and
+	// its second scrape, as the handler: case's, has every collector of the
+	// set succeed. Searched by halves from FLOOR_MB_MAX down to 1 MB.
+	let names = sets[arg] ?? die(`no set ${arg}`);
+	let base = `${world_dir}/../floor-${arg}`;
+	let dir = `${base}/collectors`, state_dir = `${base}/state`;
+	let src = fs.realpath(`${fs.dirname(sourcepath())}/../../src`);
+	let test = fs.realpath(`${fs.dirname(sourcepath())}/..`);
+	let cfg = `${base}/handler.json`;
+	let via = uhttpd.missing(src) ? 'scrape' : 'handler';
+
+	// Where uhttpd cannot run this exporter, scrape:<set> in a process of
+	// its own, under the limit: it holds the loader and the bench, and
+	// lacks uhttpd's own data, so its floor is near the handler's, the same
+	// or 1 MB under it on x86_64.
+	function scrapes(mb) {
+		let p = fs.popen(sprintf("ulimit -d %d && ucode %s-L '%s' '%s' '%s' 'scrape:%s' 2>/dev/null",
+			mb * 1024, src ? `-L '${src}' ` : '', test, sourcepath(), world_dir, arg), 'r');
+		let lines = filter(split(p?.read('all') ?? '', '\n'), length);
+		let res = null;
+
+		p?.close();
+		try {
+			res = json(lines[-1] ?? 'null');
+		} catch (e) {
+			res = null;
+		}
+
+		return res?.ok === true && res.collectors == length(names);
+	}
+
+	function serves(mb) {
+		if (via == 'scrape')
+			return scrapes(mb);
+
+		system(sprintf("rm -rf '%s' && mkdir -p '%s' '%s' && chmod 700 '%s'", base, dir, state_dir, state_dir));
+		for (let n in names)
+			fs.symlink(`${COLLECTORS}/${loader.id_of(n)}.uc`, `${dir}/${loader.id_of(n)}.uc`);
+		fs.writefile(cfg, sprintf('%J', {
+			search: [ `${test}/*.uc`, ...(src ? [ `${src}/*.uc` ] : []), '/usr/share/ucode/*.uc', '/usr/lib/ucode/*.so' ],
+			world: world_dir, collectors: dir, state: state_dir,
+		}));
+
+		let server = uhttpd.start(`${test}/bench/handler.uc`, cfg, `${base}/uhttpd.pid`, mb * 1024);
+
+		if (!server.ok)
+			return false;
+
+		uhttpd.get(server.port, `${base}/reply`);
+
+		let res = uhttpd.get(server.port, `${base}/reply`);
+		let alive = fs.stat(`/proc/${server.pid}`) != null;
+
+		uhttpd.stop(server.pid);
+
+		let ok = 0;
+
+		for (let line in split(res.body, '\n'))
+			if (match(line, /^node_scrape_collector_success\{collector="[^"]+"\} 1$/))
+				ok++;
+
+		return alive && res.status == '200 OK' && ok == length(names);
+	}
+
+	mem_before = memory();
+
+	let t = now();
+	let lo = 0, hi = FLOOR_MB_MAX, tried = [];
+
+	if (!serves(hi))
+		die(`no scrape of every collector under ${hi} MB`);
+
+	// The least that serves is in (lo, hi].
+	while (hi - lo > 1) {
+		let mid = (lo + hi) / 2;
+		let ok = serves(mid);
+
+		push(tried, `${mid}:${ok ? 'ok' : 'no'}`);
+		if (ok)
+			hi = mid;
+		else
+			lo = mid;
+	}
+
+	result.time = now() - t;
+	result.floor_mb = hi;
+	result.via = via;
+	result.tried = tried;
+	result.collectors = length(names);
 } else if (kind == 'handler') {
 	// The scrape as Prometheus gets it from the service: uhttpd running the
 	// handler (handler.uc here, the service's with the world), which loads
