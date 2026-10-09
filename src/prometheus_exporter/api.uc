@@ -166,6 +166,7 @@ export const proc = {
 	lines: procfs.lines,
 	each_line: procfs.each_line,
 	fields: procfs.fields,
+	rows: procfs.rows,
 	auxv: procfs.auxv,
 	AT_PAGESZ: procfs.AT_PAGESZ,
 	AT_CLKTCK: procfs.AT_CLKTCK,

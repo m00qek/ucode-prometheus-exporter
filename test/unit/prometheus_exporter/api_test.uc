@@ -34,7 +34,7 @@ describe('prometheus_exporter.api', () => {
 	it('gives services\' and proc\'s functions and constants', () => {
 		assert.match([ 'DISABLED', 'ENABLED', 'NOT_FOUND', 'NOT_INSTALLED', 'idle', 'object_missing', 'state', 'unless_disabled' ],
 			sort(keys(api.services)));
-		assert.match([ 'AT_CLKTCK', 'AT_PAGESZ', 'auxv', 'each_line', 'fields', 'first_line', 'lines' ], sort(keys(api.proc)));
+		assert.match([ 'AT_CLKTCK', 'AT_PAGESZ', 'auxv', 'each_line', 'fields', 'first_line', 'lines', 'rows' ], sort(keys(api.proc)));
 
 		for (let k in keys(api.services))
 			assert.match(true, api.services[k] === services[k], k);

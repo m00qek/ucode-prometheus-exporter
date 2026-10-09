@@ -160,3 +160,40 @@ export function fields(line) {
 
 	return split(line, SPACE_RUN);
 };
+
+/**
+ * The whitespace-separated fields of every line, [] for a blank one; null
+ * when the file cannot be read: what fields() gives of each of lines().
+ *
+ * A file whose fields are separated by single spaces, without spaces at a
+ * line's ends or any other whitespace, as most of /proc and sysfs (vmstat,
+ * stat, softnet_stat, the netstat tables), is looked at once, by a few
+ * index() of its whole text, and each line split on ' ': fields() looks at
+ * each line, three calls before its split, and a scrape reads hundreds.
+ *
+ * @param {FsCapability} fs the collector's deps.fs.
+ * @param {string} path the file.
+ * @returns {?string[][]} each line's fields.
+ */
+export function rows(fs, path) {
+	let s = fs.readfile(path);
+
+	if (s == null)
+		return null;
+
+	let l = split(s, '\n');
+
+	if (l[-1] == '')
+		pop(l);
+
+	if (index(s, '  ') >= 0 || index(s, '\t') >= 0 || index(s, '\v') >= 0 || index(s, '\f') >= 0 || index(s, '\r') >= 0 ||
+	    index(s, ' \n') >= 0 || index(s, '\n ') >= 0 || substr(s, 0, 1) == ' ' || substr(s, -1) == ' ')
+		return map(l, fields);
+
+	let out = [];
+
+	for (let line in l)
+		push(out, (line == '') ? [] : split(line, ' '));
+
+	return out;
+};

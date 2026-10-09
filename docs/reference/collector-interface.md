@@ -128,6 +128,7 @@ The collector API's, for a collector to tell nothing to observe from a failure, 
 | | `lines(fs, path)` | Every line, without newlines; null when it cannot be read. |
 | | `each_line(fs, path, cb)` | `cb(line)` for each line, read one at a time; false when it cannot be read. |
 | | `fields(line)` | The whitespace-separated fields of a line; `[]` for none or for null. |
+| | `rows(fs, path)` | The fields of every line, `[]` for a blank one, as `fields()` gives them; null when it cannot be read. Cheaper than `fields()` of each line for a file of single spaces. |
 | | `auxv(text)`, `AT_PAGESZ`, `AT_CLKTCK` | An auxiliary vector as `/proc/self/auxv` gives it, `{ type: value }`, or null; two of its types. |
 | `exposition` | `parse(text)` | Exposition text read strictly, as a Result of its families (`EXPOSITION_INVALID`). |
 | | `format_value(v)` | A value as the format spells it, or null for one that is not a number. |

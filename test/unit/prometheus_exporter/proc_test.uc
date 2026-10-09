@@ -78,6 +78,25 @@ describe('proc.fields', () => {
 		});
 });
 
+describe('proc.rows', () => {
+	it('is the fields of each line, [] for a blank one, and null for a file that cannot be read', () => {
+		with_fs({ '/f': 'a b\n\nc  d\te\n', '/g': 'a b\n\nc d\n', '/gone': null }, (fs) => {
+			assert.match([ [ [ 'a', 'b' ], [], [ 'c', 'd', 'e' ] ], [ [ 'a', 'b' ], [], [ 'c', 'd' ] ], null ],
+				[ proc.rows(fs, '/f'), proc.rows(fs, '/g'), proc.rows(fs, '/gone') ]);
+		});
+	});
+
+	// rows() splits each line on ' ' when one look at the whole text says
+	// it can: it must give what fields() gives of each of lines(), of any
+	// text.
+	prop('gives what fields() gives of each line, of any text',
+		gen.array(gen.elements('a', 'b7', ' ', '  ', '\t', '\n', '\n', '\v', '\f', '\r', ' \n', '\n '), { min_len: 0, max_len: 16 }), (parts) => {
+			let text = join('', parts);
+
+			with_fs({ '/f': text }, (fs) => assert.match(map(proc.lines(fs, '/f'), proc.fields), proc.rows(fs, '/f'), sprintf('%J', text)));
+		});
+});
+
 // An auxiliary vector of `pairs`, then AT_NULL, in words of `size` bytes.
 function vector(pairs, size, le) {
 	let s = '';
