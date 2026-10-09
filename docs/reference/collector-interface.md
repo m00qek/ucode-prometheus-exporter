@@ -60,6 +60,12 @@ uhttpd loads them once, when it starts; a scrape runs what was loaded. Installin
 | `cost` | no | string | `light` (the default) or `heavy`: until the ledger has timed it, a heavy collector runs after the others not yet timed. |
 | `options` | no | object | Its own options, `{ <name>: { default, title, help, datatype } }`. See [Options](#options). |
 | `paths` | no | array | What it reads outside procfs and sysfs, with `fs`, `socket` or `exec` in `needs`. See [The jail](jail.md#paths). |
+| `ubus` | with `ubus` | object | The ubus objects and methods it calls, `{ <object>: [ <method> ] }`, each object once; `<name>.*` for every object whose name starts with `<name>.` (hostapd's `hostapd.*`), and in place of a list a function of its options that gives one, where an option decides (`[]` for none). A call it does not list is `UBUS_NOT_ALLOWED`; the service's ubus ACL allows what the enabled collectors list. Not allowed without `ubus`. |
+| `capabilities` | no | array | The capabilities its reads or programs need: `CAP_NET_ADMIN` (nftables, ctnetlink), `CAP_NET_RAW`. |
+| `groups` | no | array | The groups whose sockets it connects to, as unbound's `unbound`, whose control socket is `srw-rw----`. |
+| `proc_files` | with `fs` | array | The files of `/proc` that only root reads, which it reads, as `/proc/net/nf_conntrack`. |
+
+What `ubus`, `capabilities`, `groups` and `proc_files` grant, and when, is in [The jail](jail.md#the-services-user).
 
 ### Options
 
@@ -116,7 +122,7 @@ The collector API's, for a collector to tell nothing to observe from a failure, 
 | :--- | :--- | :--- |
 | `Result` | `ok`, `err`, `none`, `is`, `is_none`, `describe` | See [Results](#results). |
 | `errors` | `SOURCE_UNREADABLE`, `SOURCE_INVALID`, `CONFIG_INVALID` | What a collector fails with, of its own. |
-| | `UBUS_CONNECT_FAILED`, `UBUS_CALL_FAILED`, `NL80211_FAILED`, `RTNL_FAILED`, `SOCKET_FAILED`, `COMMAND_NOT_ALLOWED`, `COMMAND_FAILED`, `COMMAND_TIMEOUT`, `SCRAPE_DEADLINE`, `EXPOSITION_INVALID` | What its capabilities and `out.parse` fail with. See [Error codes](error-codes.md). |
+| | `UBUS_CONNECT_FAILED`, `UBUS_CALL_FAILED`, `UBUS_NOT_ALLOWED`, `NL80211_FAILED`, `RTNL_FAILED`, `SOCKET_FAILED`, `COMMAND_NOT_ALLOWED`, `COMMAND_FAILED`, `COMMAND_TIMEOUT`, `PERMISSION_DENIED`, `SCRAPE_DEADLINE`, `EXPOSITION_INVALID` | What its capabilities and `out.parse` fail with. See [Error codes](error-codes.md). |
 | `services` | `state`, `idle`, `unless_disabled`, `object_missing`, `ENABLED`, `DISABLED`, `NOT_INSTALLED`, `NOT_FOUND` | See [`services`](#services). |
 | `proc` | `first_line(fs, path)` | The first line of a file, without its newline; null when it cannot be read. |
 | | `lines(fs, path)` | Every line, without newlines; null when it cannot be read. |
@@ -138,7 +144,7 @@ Only `prometheus_exporter.deps`, with its modules of each capability (`prometheu
 | Need | `deps.<need>` |
 | :--- | :--- |
 | `fs` | `readfile`, `open`, `lsdir`, `glob`, `stat`, `realpath` of the fs module. Nothing that writes. |
-| `ubus` | `call(object, method, args)` and `list()`, as Results. A failed call is `UBUS_CALL_FAILED` with `data.status`, libubus's text, as `Not found`. |
+| `ubus` | `call(object, method, args)` and `list()`, as Results. A call `meta.ubus` does not list is `UBUS_NOT_ALLOWED`, without calling. A failed call is `UBUS_CALL_FAILED` with `data.status`, libubus's text, as `Not found`; one the service's ubus ACL refuses is `PERMISSION_DENIED`, and so is an object not found while ubusd has not loaded the ACL. `list()` names the objects the ACL lets the service call. |
 | `uci` | `deps.uci.<config>` for each of `meta.configs`, read-only, the committed configuration only: `loaded()`, `get(section, option)`, `get_all(section)`, `sections(type)`, `foreach(type, cb)`. |
 | `rtnl` | `request(cmd, flags, attrs)` as a Result (`RTNL_FAILED`), and `const`. |
 | `nl80211` | The same, for nl80211 (`NL80211_FAILED`). Needs ucode-mod-nl80211. |
@@ -148,7 +154,7 @@ Only `prometheus_exporter.deps`, with its modules of each capability (`prometheu
 | `log` | `log(msg)`: a line at `warning`, `collector '<name>': <msg>`, for what a collector that succeeds still has to say. At most 10 lines a run, each cut at 512 bytes; past them, one line once the run is over says how many more were left out. |
 | `exporter` | The exporter itself, read-only: `process(file)`, the serving uhttpd's `/proc/<pid>/stat`, `status` or `limits`; `fds()`, how many descriptors it has open; `system(file)`, `/proc/stat` or `/proc/self/auxv`; `counters()`, what the instance's ledger counts, this scrape so far included, or null outside the handler; `samples()`, `{ collector: samples }` of this scrape so far. A collector that needs it runs after every other. The `exporter` collector's. |
 
-A need the system lacks (`nl80211`, `socket`) fails the collector with `NEED_MISSING`.
+A need the system lacks (`nl80211`, `socket`) fails the collector with `NEED_MISSING`, without running it. So does `PERMISSION_DENIED`, when the process lacks a capability of `meta.capabilities`, or may not read a config of `meta.configs` or a file of `meta.proc_files` that is there: read as anyone else, the file would be missing, and the collector would find nothing to observe. A Unix socket it may not connect to (`EACCES`) is `PERMISSION_DENIED` too.
 
 ### Programs
 

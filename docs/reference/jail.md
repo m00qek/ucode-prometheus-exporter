@@ -1,6 +1,6 @@
 # The Jail
 
-uhttpd, and with it the exporter, runs in procd's jail (ujail), named `prometheus-exporter`, with `no_new_privs`. The jail holds what the exporter needs, what its installed and enabled collectors declare, and nothing else. `src/prometheus_exporter/jail.uc` works out the mounts; `/usr/libexec/prometheus-exporter/jail.uc` prints them for the init script.
+uhttpd, and with it the exporter, runs in procd's jail (ujail), named `prometheus-exporter`, with `no_new_privs`, as the user and group `prometheus-exporter`, never root. The jail holds what the exporter needs, what its installed and enabled collectors declare, and nothing else, and the user may do only what they declare besides: see [The service's user](#the-services-user). `src/prometheus_exporter/jail.uc` works out the mounts, and `src/prometheus_exporter/privileges.uc` what the user is granted; `/usr/libexec/prometheus-exporter/jail.uc` prints the mounts for the init script, and grants the rest.
 
 ---
 
@@ -11,7 +11,7 @@ uhttpd, and with it the exporter, runs in procd's jail (ujail), named `prometheu
 | The jail's options | procfs, sysfs, `/dev/log`. |
 | The exporter (`jail.uc`, before the collectors' mounts) | `/usr/lib/uhttpd_ucode.so`, `/lib/libubus.so*`, `/lib/libuci.so*`, `/usr/lib/libnl*.so*`, `/usr/lib/libz.so*`, `/usr/lib/ucode`, `/usr/share/ucode/prometheus_exporter`, `/usr/libexec/prometheus-exporter/handler.uc`; `/bin/sh`, whose `kill` a scrape uses to end a collector's process a dead scrape left running. |
 | The configuration | `/etc/config/prometheus-exporter`. |
-| HTTPS, with `cert` set | `cert`, `key`, `/lib/libustream-*.so*`, `/usr/lib/libustream-*.so*`. |
+| HTTPS, with `cert` and `key` there | Their copies, `/var/run/prometheus-exporter/tls.crt` and `tls.key`; `/lib/libustream-*.so*`, `/usr/lib/libustream-*.so*`. |
 | Basic auth | Its file, `/var/run/prometheus-exporter/uhttpd.conf`. |
 | The state | `/var/run/prometheus-exporter/state`, read-write. |
 
@@ -33,6 +33,50 @@ For each installed collector that is enabled:
 | `paths` | Each path: see [below](#paths). |
 
 A disabled collector gets nothing. Nothing of `/etc/config` is there but the configs the enabled collectors name and the exporter's own. Which mounts each collector gets is in [Collectors](collectors.md) and in `check`.
+
+## The service's user {#the-services-user}
+
+The package makes the user and group `prometheus-exporter` (its `USERID`, at the first free id from 32768), on install and on upgrade. procd has ujail run uhttpd as them (`-U`, `-G`), with no new privileges (`-c`), and with the capabilities file `/var/run/prometheus-exporter/capabilities.json` (`-C`). As anyone but root, the process reads only what the files' modes let it, ubusd holds it to an ACL, and it has no capability it is not given. The init script refuses to start without the user, saying so at `err`.
+
+When the service starts, `jail.uc --make`, as root, grants the user what the installed and enabled collectors declare, and takes back what the installed collectors that are not enabled declare, unless an enabled one declares it too:
+
+| Declared in `meta` | Granted |
+| :--- | :--- |
+| `ubus: { dnsmasq: [ 'metrics' ] }` | The call, in the service's [ubus ACL](#the-ubus-acl). Taken back: the ACL is written anew. |
+| `capabilities: [ 'CAP_NET_ADMIN' ]` | The capability, in every set of the capabilities file (bounding, effective, permitted, inheritable, ambient), so the programs the jail runs have it too. |
+| `groups: [ 'unbound' ]` | The user's membership of the group, in `/etc/group`, under OpenWrt's lock (`/var/lock/passwd`), when the group is there. Taken back: the membership is removed. |
+| `proc_files: [ '/proc/net/nf_conntrack' ]` | Read access for the group: the file's group is `prometheus-exporter`, and its group bits `r--`. Taken back: its group is root's again. |
+| `configs: [ 'dhcp' ]`, and the exporter's own config | The same, for `/etc/config/<config>`. |
+
+What the enabled collectors declare now:
+
+| Collector | Granted |
+| :--- | :--- |
+| `nft-counters` | `CAP_NET_ADMIN`: nftables answers a netlink dump to it alone. |
+| `nat_traffic` | Reading `/proc/net/nf_conntrack`, `r--r-----` root's. |
+| `unbound` | The group `unbound`: unbound's control socket is `srw-rw----` `unbound:unbound`. |
+| Those that read a config (`chrony`, `dhcp_leases`, `uci_dhcp_host`, ...) | Reading it: OpenWrt's configs are mostly root's alone (0600). |
+| Those that call ubus | Their calls: see [Collectors](collectors.md) (**Calls over ubus**). |
+
+And the service's own: `CAP_NET_BIND_SERVICE` while `listen_port` is under 1024. No collector may declare a capability but `CAP_NET_ADMIN` and `CAP_NET_RAW`: not `CAP_DAC_READ_SEARCH` or `CAP_DAC_OVERRIDE`, which would read past the jail's mounts (a file opened by handle) or write `/proc` (the jail's procfs is writable).
+
+`uci commit` replaces a config with a file of root's group (it keeps the mode): the reload it triggers grants it again before procd restarts uhttpd, which until then reads the file it mounted. `/proc` files are the kernel's: a module loaded again gives them back to root.
+
+`check`, the ubus object's `status` and `prometheus-exporter scrape` run their collectors in a jail of the same user, with no new privileges and the capabilities file the service wrote: what the service granted when it started. While the service is stopped, they have no capability and no ACL.
+
+What stays root's: the init script and `jail.uc`, rpcd's ubus object, and the `watch` instance (see [Missing paths](#missing-paths)), unjailed, which sends procd the event that reloads the service: sending an event takes procd's `service event`, which would let whoever calls it send any.
+
+### The ubus ACL {#the-ubus-acl}
+
+ubusd reads its ACLs from `/usr/share/acl.d`: the package installs there `prometheus-exporter.json`, a link to `/var/run/prometheus-exporter.acl.json`, which `jail.uc --make` writes when the service starts, for the user `prometheus-exporter`, of the calls the enabled collectors declare (their `meta.ubus`, for their options), and has ubusd read again (SIGHUP) when it changed. It is root's, mode 0644, outside the service's run directory, which only root enters: ubusd runs as its own user. Stopped or disabled, the service removes it, and the link points nowhere.
+
+It is written for the enabled collectors, not installed with the packages for all of them, because ubusd's ACL names objects and methods, never arguments: `file read`, which `filesystem` calls for `/proc/mounts`, lets the caller have rpcd read any file, and `uci get`, which `wireguard` calls with `peer_names` for the network config's peer sections, any config. So a grant as wide as that is there only while the collector that needs it is enabled, with the option that needs it.
+
+A call the ACL does not allow, ubusd refuses: `Permission denied` for a method of an object the user may call other methods of, `Not found` for an object it may call nothing of, which it does not list either. So the ACL always allows `system board`, the canary: a collector whose object is not found asks for it, and while it is not there either, ubusd has not loaded the ACL, and the call is `PERMISSION_DENIED`, never nothing to observe.
+
+### What fails, and how
+
+Nothing the user lacks is taken for nothing to observe. A collector fails `PERMISSION_DENIED`, saying what and what grants it, when its process lacks a capability it declares, may not read a config or `/proc` file it declares, may not connect to a Unix socket (`EACCES`), or ubusd refuses a call; a call its `meta.ubus` does not list is refused before ubusd sees it, `UBUS_NOT_ALLOWED`. See [Error codes](error-codes.md). A reload grants again what was taken away under the service.
 
 ## Paths
 
@@ -75,7 +119,7 @@ A path the service owns is never missing: it makes it first.
 
 ## State
 
-`/var/run/prometheus-exporter/state` is the one path the jail mounts read-write. It is on tmpfs, mode 0700, inside `/var/run/prometheus-exporter`, also 0700; `jail.uc --make` makes both when the service starts.
+`/var/run/prometheus-exporter/state` is the one path the jail mounts read-write. It is on tmpfs, mode 0700, the service's user's, inside `/var/run/prometheus-exporter`, 0700 and root's; `jail.uc --make` makes both when the service starts.
 
 | | |
 | :--- | :--- |
@@ -114,16 +158,21 @@ A collector no longer installed is dropped from it.
 
 | Path | Mode | Written by | Mounted |
 | :--- | :--- | :--- | :--- |
-| `/var/run/prometheus-exporter/` | 0700 | `jail.uc --make`, `auth.uc` | No |
-| `/var/run/prometheus-exporter/uhttpd.conf` | 0600 | `auth.uc`, at each start: one line, `/metrics:<user>:<hash>`; removed without basic auth | Read-only, with basic auth |
-| `/var/run/prometheus-exporter/state/` | 0700 | `jail.uc --make` | Read-write |
+| `/var/run/prometheus-exporter/` | 0700, root's | `jail.uc --make`, `auth.uc` | No |
+| `/var/run/prometheus-exporter/uhttpd.conf` | 0640, root's and the service's group's | `auth.uc`, at each start: one line, `/metrics:<user>:<hash>`; removed without basic auth | Read-only, with basic auth |
+| `/var/run/prometheus-exporter/tls.crt`, `tls.key` | 0640, root's and the service's group's | `jail.uc --make`, at each start, copies of `cert` and `key`; removed when the service stops | Read-only, with both there |
+| `/var/run/prometheus-exporter/capabilities.json` | 0644 | `jail.uc --make`, at each start; removed when the service stops | No: procd hands it to ujail |
+| `/var/run/prometheus-exporter.acl.json` | 0644 | `jail.uc --make`, at each start; removed when the service stops | No: ubusd reads it |
+| `/var/run/prometheus-exporter/state/` | 0700, the service's user's | `jail.uc --make` | Read-write |
 | `/var/run/prometheus-exporter/timesync/` | 0755 | `jail.uc --make` (timesync's owned path), or the hotplug script | Read-only |
 | `/var/run/prometheus-exporter/timesync/ntpd` | 0644 | `/etc/hotplug.d/ntp/90-prometheus-exporter`, on each event of busybox ntpd, outside the jail | With its directory |
 | `/var/prometheus/` (textfile's `directory`) | 0755 | `jail.uc --make` | Read-only |
 
+The jail reads them as the service's user: textfile's `*.prom` files must be readable by it, as a file a script writes is (0644), or by its group; one only root reads is skipped, and logged.
+
 ## Restarts
 
-procd binds files into the jail. A file replaced by a new one, as `uci commit` replaces a config, stays the old one inside. So procd watches, for the uhttpd instance, the configs it mounts from `/etc/config`, every collector module and basic auth's file, and restarts the instance on `reload` when one changed.
+procd binds files into the jail. A file replaced by a new one, as `uci commit` replaces a config, stays the old one inside. So procd watches, for the uhttpd instance, the configs it mounts from `/etc/config`, every collector module, basic auth's file, the TLS files and the capabilities file, and restarts the instance on `reload` when one changed.
 
 ## See also
 

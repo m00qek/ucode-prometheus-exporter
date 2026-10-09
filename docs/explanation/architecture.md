@@ -24,7 +24,7 @@ flowchart LR
 - **The library.** `/usr/share/ucode/prometheus_exporter/` holds the modules the handler, the command line, `check` and the ubus object share: the loader, the configuration, the scrape, the exposition format, the jail's rules.
 - **The collectors.** One module each, in `collectors/`, installed by the base package or a package of its own.
 - **The ubus object.** rpcd serves `prometheus-exporter` from a ucode plugin. It is how LuCI, or a script, asks the exporter what it would do: which collectors are installed, whether a value is valid, how each collector does.
-- **The init script.** It checks the configuration, works out the jail from what the collectors declare, and hands procd the uhttpd instance.
+- **The init script.** It checks the configuration, works out the jail from what the collectors declare, grants the jail's user what they need (its ubus ACL, capabilities, groups, read access), and hands procd the uhttpd instance, which runs as that user, never root.
 
 ## A process per request
 

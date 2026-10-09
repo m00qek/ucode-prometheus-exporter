@@ -100,6 +100,7 @@ The bmx7 mesh node, its links and tunnels, from its JSON status files.
 - **Package:** `ucode-prometheus-exporter-bmx7`
 - **Section:** `config collector 'bmx7'`
 - **Needs:** `fs`, `ubus`
+- **Calls over ubus:** `rc list`
 - **Jail paths:** `/var/run/bmx7/json`
 - **Nothing to observe:** bmx7 disabled, or not installed. See [Nothing to observe](#nothing-to-observe).
 - **Metrics:** [bmx7](metrics.md#bmx7)
@@ -118,6 +119,7 @@ chronyd's tracking and sources, and its server statistics where it serves time, 
 - **Needs:** `ubus`, `uci`, `fs`, `exec`
 - **Reads the configs:** `/etc/config/chrony`
 - **Runs:** `chronyc` (only where it is installed), with `/bin/sh`
+- **Calls over ubus:** `rc list`
 - **Seconds for its programs:** The main section's `exec_timeout`, unless its section sets `timeout`
 - **Nothing to observe:** chronyd disabled, or not installed. See [Nothing to observe](#nothing-to-observe).
 - **Metrics:** [chrony](metrics.md#chrony)
@@ -164,6 +166,7 @@ Access points and client signal from the DAWN Wi-Fi controller.
 - **Package:** `ucode-prometheus-exporter-dawn`
 - **Section:** `config collector 'dawn'`
 - **Needs:** `ubus`
+- **Calls over ubus:** `dawn get_network`, `rc list`
 - **Nothing to observe:** DAWN disabled, or not installed. See [Nothing to observe](#nothing-to-observe).
 - **Metrics:** [dawn](metrics.md#dawn)
 
@@ -181,6 +184,7 @@ Active DHCP leases of dnsmasq and odhcpd, by interface and family.
 - **Section:** `config collector 'dhcp_leases'`
 - **Needs:** `fs`, `ubus`, `uci`, `time`
 - **Reads the configs:** `/etc/config/dhcp`
+- **Calls over ubus:** `dhcp ipv4leases|ipv6leases`, `network.interface dump`, `rc list`
 - **Jail paths:** The lease file of each `dnsmasq` section of `/etc/config/dhcp`: its `leasefile`, or `/tmp/dhcp.leases`.
 - **Nothing to observe:** dnsmasq (or no dnsmasq instance in `/etc/config/dhcp`) and odhcpd both disabled or not installed. With one of them enabled, it observes that one. See [Nothing to observe](#nothing-to-observe).
 - **Metrics:** [dhcp\_leases](metrics.md#dhcp_leases)
@@ -216,6 +220,7 @@ DNS and DHCP counters of dnsmasq, from ubus dnsmasq metrics.
 - **In the groups:** `ucode-prometheus-exporter-full`
 - **Section:** `config collector 'dnsmasq'`
 - **Needs:** `ubus`
+- **Calls over ubus:** `dnsmasq metrics`, `rc list`
 - **Nothing to observe:** dnsmasq disabled, or not installed. See [Nothing to observe](#nothing-to-observe).
 - **Metrics:** [dnsmasq](metrics.md#dnsmasq)
 
@@ -295,6 +300,7 @@ Filesystem sizes and read-only flags, from luci getMountPoints and the host's /p
 - **Depends on:** `luci-base`
 - **Section:** `config collector 'filesystem'`
 - **Needs:** `ubus`
+- **Calls over ubus:** `file read`, `luci getMountPoints`
 - **Metrics:** [filesystem](metrics.md#filesystem)
 
 | Option | Title | Type | Default | Datatype | Description |
@@ -310,6 +316,7 @@ Stations of each hostapd access point, from hostapd's ubus objects.
 - **In the groups:** `ucode-prometheus-exporter-wireless`, `ucode-prometheus-exporter-full`
 - **Section:** `config collector 'hostapd_stations'`
 - **Needs:** `ubus`
+- **Calls over ubus:** `hostapd.* get_clients|get_status`, `network.wireless status`
 - **Nothing to observe:** As wifi, or no `hostapd.<ifname>` object for any interface. See [Nothing to observe](#nothing-to-observe).
 - **Metrics:** [hostapd\_stations](metrics.md#hostapd_stations)
 
@@ -326,6 +333,7 @@ Radio measurement capabilities of hostapd's stations, from hostapd's ubus object
 - **In the groups:** `ucode-prometheus-exporter-wireless`, `ucode-prometheus-exporter-full`
 - **Section:** `config collector 'hostapd_ubus_stations'`
 - **Needs:** `ubus`
+- **Calls over ubus:** `hostapd.* get_clients`
 - **Nothing to observe:** No `hostapd.*` object. See [Nothing to observe](#nothing-to-observe).
 - **Metrics:** [hostapd\_ubus\_stations](metrics.md#hostapd_ubus_stations)
 
@@ -370,6 +378,7 @@ Lantiq DSL line state, rates and errors, from ubus dsl metrics.
 - **Package:** `ucode-prometheus-exporter-ltq-dsl`
 - **Section:** `config collector 'ltq_dsl'`
 - **Needs:** `ubus`
+- **Calls over ubus:** `dsl metrics`
 - **Nothing to observe:** No `dsl` object. See [Nothing to observe](#nothing-to-observe).
 - **Metrics:** [ltq-dsl](metrics.md#ltq-dsl)
 
@@ -400,6 +409,7 @@ Signal quality and strength of cellular modems, from mmcli.
 - **Section:** `config collector 'modemmanager'`
 - **Needs:** `exec`, `ubus`
 - **Runs:** `mmcli` (only where it is installed), with `/bin/sh`
+- **Calls over ubus:** `rc list`
 - **Jail paths:** `/var/run/dbus`
 - **Seconds for its programs:** The main section's `exec_timeout`, unless its section sets `timeout`
 - **Nothing to observe:** ModemManager disabled or not installed, or it lists no modem. See [Nothing to observe](#nothing-to-observe).
@@ -418,6 +428,7 @@ mwan3 interface tracking, from ubus mwan3 status.
 - **Package:** `ucode-prometheus-exporter-mwan3`
 - **Section:** `config collector 'mwan3'`
 - **Needs:** `ubus`
+- **Calls over ubus:** `mwan3 status`, `rc list`
 - **Nothing to observe:** mwan3 disabled, or not installed. See [Nothing to observe](#nothing-to-observe).
 - **Metrics:** [mwan3](metrics.md#mwan3)
 
@@ -434,6 +445,7 @@ Bytes per source and destination address, from /proc/net/nf\_conntrack.
 - **In the groups:** `ucode-prometheus-exporter-network`, `ucode-prometheus-exporter-full`
 - **Section:** `config collector 'nat_traffic'`
 - **Needs:** `fs`
+- **Reads, of root's alone:** `/proc/net/nf_conntrack` (the service's group, while it is enabled)
 - **Samples it may write:** 65536, its own (`meta.max_samples`), unless its section sets `max_samples`
 - **Cost:** heavy (`meta.cost`): until the ledger has timed it, it runs after the others
 - **Nothing to observe:** nf\_conntrack not loaded: no `/proc/net/nf_conntrack`. See [Nothing to observe](#nothing-to-observe).
@@ -498,6 +510,7 @@ Packets and bytes of the named nftables counters.
 - **Section:** `config collector 'nft_counters'`
 - **Needs:** `exec`
 - **Runs:** `nft`, with `/bin/sh`
+- **Capabilities:** `CAP_NET_ADMIN`
 - **Seconds for its programs:** The main section's `exec_timeout`, unless its section sets `timeout`
 - **Metrics:** [nft-counters](metrics.md#nft-counters)
 
@@ -515,6 +528,7 @@ The OpenWrt release and board, from ubus system board.
 - **In the groups:** `ucode-prometheus-exporter-full`
 - **Section:** `config collector 'openwrt'`
 - **Needs:** `ubus`
+- **Calls over ubus:** `system board`
 - **Metrics:** [openwrt](metrics.md#openwrt)
 
 | Option | Title | Type | Default | Datatype | Description |
@@ -529,6 +543,7 @@ OpenWrt logical interfaces (wan, lan, ...): state, uptime, devices and address c
 - **Package:** `ucode-prometheus-exporter` (base)
 - **Section:** `config collector 'openwrt_interfaces'`
 - **Needs:** `ubus`
+- **Calls over ubus:** `network.interface dump`
 - **Metrics:** [openwrt\_interfaces](metrics.md#openwrt_interfaces)
 
 | Option | Title | Type | Default | Datatype | Description |
@@ -562,6 +577,7 @@ PoE budget, consumption and port states of realtek-poe switches, from ubus poe i
 - **Package:** `ucode-prometheus-exporter-realtek-poe`
 - **Section:** `config collector 'realtek_poe'`
 - **Needs:** `ubus`
+- **Calls over ubus:** `poe info`
 - **Nothing to observe:** No `poe` object. See [Nothing to observe](#nothing-to-observe).
 - **Metrics:** [realtek-poe](metrics.md#realtek-poe)
 
@@ -683,6 +699,7 @@ Whether busybox ntpd or chronyd keeps the clock synchronized: stratum, offset an
 - **Section:** `config collector 'timesync'`
 - **Needs:** `ubus`, `fs`, `exec`
 - **Runs:** `chronyc` (only where it is installed), with `/bin/sh`
+- **Calls over ubus:** `rc list`, `service list`
 - **Jail paths:** `/var/run/prometheus-exporter/timesync`, which the service makes when it is not there
 - **Seconds for its programs:** The main section's `exec_timeout`, unless its section sets `timeout`
 - **Nothing to observe:** Neither busybox ntpd nor chronyd runs, as procd's instances say: sysntpd runs ntpd only while `/etc/config/system` turns NTP on. With one running, it observes that one. See [Nothing to observe](#nothing-to-observe).
@@ -751,6 +768,8 @@ Unbound DNS resolver statistics, from its remote control socket.
 - **Depends on:** `ucode-mod-socket`
 - **Section:** `config collector 'unbound'`
 - **Needs:** `socket`, `ubus`
+- **Calls over ubus:** `rc list`
+- **Its user joins:** `unbound` (the service's user, while it is enabled)
 - **Jail paths:** The directory of the `socket` option: `/var/lib/unbound` by default.
 - **Nothing to observe:** unbound disabled, or not installed. See [Nothing to observe](#nothing-to-observe).
 - **Metrics:** [unbound](metrics.md#unbound)
@@ -785,6 +804,7 @@ Wi-Fi radios, networks and stations, from ubus network.wireless and nl80211.
 - **Depends on:** `ucode-mod-nl80211`
 - **Section:** `config collector 'wifi'`
 - **Needs:** `ubus`, `nl80211`
+- **Calls over ubus:** `network.wireless status`
 - **Nothing to observe:** No `network.wireless` object, or one without radios. See [Nothing to observe](#nothing-to-observe).
 - **Metrics:** [wifi](metrics.md#wifi)
 
@@ -802,6 +822,7 @@ WireGuard interfaces and peers, from ubus wireguard status.
 - **In the groups:** `ucode-prometheus-exporter-full`
 - **Section:** `config collector 'wireguard'`
 - **Needs:** `ubus`
+- **Calls over ubus:** `uci` (the methods its options call for), `wireguard status`
 - **Nothing to observe:** rpcd has no `wireguard` object: rpcd-mod-wireguard not installed. See [Nothing to observe](#nothing-to-observe).
 - **Metrics:** [wireguard](metrics.md#wireguard)
 

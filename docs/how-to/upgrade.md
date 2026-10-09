@@ -28,6 +28,20 @@ apk add --allow-untrusted /tmp/ucode-prometheus-exporter-*$version.apk /tmp/luci
 
 Adding the base package alone fails: the installed collectors still want the old version. A dependency the new version adds comes from the feeds the device has: `ucode-docopt`, which 0.2 added, from the exporter's feed.
 
+## From 0.2.1 to 0.3.0
+
+0.3.0 changes what 0.2.1 did in these ways, each marked **BREAKING** in the [CHANGELOG](https://github.com/m00qek/ucode-prometheus-exporter/blob/main/CHANGELOG.md):
+
+- **The jail no longer runs as root.** uhttpd runs in it as the user and group `prometheus-exporter`, which the upgrade makes. The upgrade restarts a running service, which then grants that user what its enabled collectors declare, and nothing needs doing: its state directory is the user's, and starts empty, as at every restart; basic auth's file is written again for the user's group to read; the TLS key and certificate are copied for it, and the files themselves stay as they were, the key root's alone; the configs its collectors read are opened to its group, read-only. See [The jail](../reference/jail.md#the-services-user).
+- **textfile's files must be readable by the service's user.** A script that writes a `*.prom` file only root reads (mode 0600, as `mktemp` makes one) has it skipped, and logged: `chmod 0644` it before renaming it into place. See [How to publish metrics from scripts](textfile.md).
+- **A collector of another package that calls ubus must declare its calls**, in `meta.ubus`, as `ubus: { dnsmasq: [ 'metrics' ], rc: [ 'list' ] }` (`rc list` for the API's `services`): the loader refuses one that needs ubus without them, and a call it does not declare fails, `UBUS_NOT_ALLOWED`. One that reads a root-only file of `/proc`, needs a capability, or connects to a socket of another service's group declares it too: `proc_files`, `capabilities`, `groups`. Every collector of the exporter's packages does; check one of another package with `prometheus-exporter collector check`. See [Collector interface](../reference/collector-interface.md#meta).
+- **LuCI applies a new basic auth password on Save & Apply**, with the rest, and its rollback, where Save applied it at once. The app's ACL grants the ubus object's new `stage_password`, and writing `/etc/config/prometheus-exporter-auth`, never reading it, in place of `set_password`, which stays for scripts. A login another ACL grants, for its own pages, needs the same.
+
+These change what 0.2.1 did without breaking a configuration:
+
+- **A collector refused what it needs fails `PERMISSION_DENIED`**, saying what grants it, where it would have found nothing to observe: a reload grants what the service granted when it started and was taken away since.
+- **`check` says the jail's user, its capabilities and its ubus ACL.** The ubus object's `describe` has each collector's calls, capabilities, groups and proc files, in its `jail`.
+
 ## From 0.2.0 to 0.2.1
 
 0.2.1 changes what 0.2.0 did in these ways, each marked **BREAKING** in the [CHANGELOG](https://github.com/m00qek/ucode-prometheus-exporter/blob/main/CHANGELOG.md):

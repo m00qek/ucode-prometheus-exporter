@@ -4,6 +4,20 @@ What each release changes, for those who run the exporter and those who write co
 
 ## [Unreleased]
 
+Upgrading from 0.2.1 runs the jail as a user of its own, and wants collectors of other packages to declare their ubus calls: see [Upgrading the exporter](docs/how-to/upgrade.md#from-021-to-030).
+
+### Added
+
+- **The collectors declare what their user needs besides their mounts**, in their `meta`: `ubus`, the objects and methods they call, `{ object: [ method ] }`, `hostapd.*` for hostapd's, methods a function of their options where one decides (wireguard's `uci get`, with `peer_names`); `capabilities` (nft-counters' `CAP_NET_ADMIN`); `groups` (unbound's); `proc_files` (nat_traffic's `/proc/net/nf_conntrack`). The loader checks them, and [Collectors](docs/reference/collectors.md) lists each collector's. See [Collector interface](docs/reference/collector-interface.md#meta).
+- **The error codes `UBUS_NOT_ALLOWED` and `PERMISSION_DENIED`.** A ubus call a collector does not declare is refused without calling it, as root too, and `with_collector` fails a test whose collector makes one. What the system refuses the service's user fails `PERMISSION_DENIED`, saying what grants it, never nothing to observe: a capability its process lacks, a config or `/proc` file it may not read, a socket it may not connect to, a call ubusd refuses, or an object not found while ubusd has not loaded the service's ACL. See [Error codes](docs/reference/error-codes.md).
+- The ubus object's `stage_password`, which hashes a password and stages the hash in the caller's rpcd session, for its `uci apply` to commit; `describe`'s `jail` has each collector's `ubus`, `capabilities`, `groups` and `proc_files`; `check` says the jail's user, its capabilities and its ubus ACL.
+
+### Changed
+
+- **BREAKING: the jail no longer runs as root.** With the ubus socket in the jail, ubusd let it call every object, as root; and it read every file it had, and had every capability. uhttpd now runs in the jail as the user and group `prometheus-exporter`, which the package makes, with no new privileges, and the service grants it, when it starts, what the enabled collectors declare, and takes back what the others do: a ubus ACL of their calls, which ubusd reads through a link the package installs in `/usr/share/acl.d`; their capabilities, in every set, and `CAP_NET_BIND_SERVICE` for a port under 1024; membership of their groups; read access for its group to their proc files and to the configs the jail mounts. The ACL is written for the enabled collectors, not installed for all of them, as ubusd's ACL cannot narrow a call's arguments, and `file read` and `uci get` read anything. Basic auth's file is the group's to read; the TLS key and certificate are read from copies made for the group at each start, removed when it stops. `check`, `status` and the command line's scrape run as the same user. The `watch` instance stays root's. textfile's files must be readable by the user. See [The jail](docs/reference/jail.md#the-services-user) and [About the security model](docs/explanation/security.md#not-root).
+- **BREAKING: a collector that needs ubus must declare its calls** (`meta.ubus`): the loader refuses one without them.
+- **LuCI applies a new basic auth password on Save & Apply**, with the rest and under its rollback: Save stages its hash in the login's session, through `stage_password`, where it committed it through `set_password` and reloaded the service at once. The app's ACL grants `stage_password` and writing the hash's config, never reading it, in place of `set_password`.
+
 ## [0.2.1] - 2026-10-08
 
 Upgrading from 0.2.0 relabels the series of three collectors, moves basic auth's hash to a config of its own, and refuses a few values and collectors 0.2.0 took: see [Upgrading the exporter](https://m00qek.github.io/ucode-prometheus-exporter/0.2/how-to/upgrade/#from-020-to-021).

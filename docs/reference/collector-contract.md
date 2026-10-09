@@ -47,7 +47,8 @@ Each module refused is named with what to use instead: the capability, for a mod
 | Files and directories | Procfs, sysfs, and what `meta.configs` and `meta.paths` declare. The jail has nothing else a collector would read: see [The jail](jail.md). |
 | Unix sockets | Those in a directory of `meta.paths`. |
 | Programs | Those of `meta.commands`. |
-| ubus, uci, netlink | Through `deps.ubus`, `deps.uci` (the configs of `meta.configs`), `deps.rtnl`, `deps.nl80211`. |
+| ubus, uci, netlink | Through `deps.ubus` (the calls of `meta.ubus`), `deps.uci` (the configs of `meta.configs`), `deps.rtnl`, `deps.nl80211`. |
+| Privileges | As the service's user: the capabilities of `meta.capabilities`, the groups of `meta.groups`, the root-only files of `/proc` of `meta.proc_files`. See [The jail](jail.md#the-services-user). |
 
 Nothing it may read is writable.
 
@@ -64,6 +65,7 @@ Nothing it may read is writable.
 | `open` to write, of any path | `null`: the mounts are read-only |
 | `deps.socket.unix_request` | `SOCKET_FAILED`, `connect(): No such file or directory` |
 | `deps.exec.run` of a program not in `meta.commands` | `COMMAND_NOT_ALLOWED`, as everywhere |
+| `deps.ubus.call` of a method `meta.ubus` does not list | `UBUS_NOT_ALLOWED`, as everywhere, as the service's ubus ACL would refuse it |
 
 Each such access is recorded, and once the collector has run the test fails, by `assert.fail()` (a failure, which a property test shrinks), not from inside the run, where the collector's error boundary would take it for a crash and a collector that falls back on a default would pass:
 
@@ -115,6 +117,8 @@ A `meta` the loader refuses, and text that is not valid exposition, fail the tes
 | It is done by the scrape's deadline: the scraper's timeout less half a second, and what writing the reply takes. | 9.5 s of Prometheus's 10 | the scraper, `scrape_timeout` | `SCRAPE_DEADLINE`: not run, or stopped; none of its samples served. | Unchanged |
 | Its programs end in time. One still running is killed, with every process it started. | 5 s, in all, per scrape | `exec_timeout`, `meta.timeout`, its section's `timeout` | `COMMAND_TIMEOUT` | Trips |
 | Its ubus calls are answered by its own limit (its budget, or the deadline). | as its budget | — | `UBUS_CALL_FAILED` | A failure |
+| It calls over ubus only what `meta.ubus` lists. | — | — | `UBUS_NOT_ALLOWED`, without calling. | A failure |
+| The service's user has what it declares: its capabilities, read access to its configs and proc files, its socket's group, its ubus calls. | — | the service, when it starts | `PERMISSION_DENIED`, saying what grants it. | A failure |
 | It writes at most its samples. The recorder stops it at the next. | 20,000 | `max_samples`, `meta.max_samples`, its section's `max_samples` | `SAMPLE_LIMIT`, saying how far it got; none of its samples served. | A failure |
 | The collectors of a reply write at most its samples in all. The recorder stops the one that would go past them, and none starts once they are written. | 200,000 | `max_scrape_samples` | `SAMPLE_LIMIT`, saying how many were left; none of its samples served. | Unchanged |
 | What it writes is what Prometheus takes: label values and HELP text in UTF-8, label names that stay apart once sanitized, labels that are an object or what `out.labels()` made. The recorder stops it at the first that is not. | — | — | `EXPOSITION_INVALID`, naming the family and the label; none of its samples served. | A failure |

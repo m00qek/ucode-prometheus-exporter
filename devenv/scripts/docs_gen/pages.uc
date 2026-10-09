@@ -142,6 +142,21 @@ function collector_section(ctx, c, problems) {
 		push(facts, `- **Runs:** ${join(', ', map(meta.commands, (cmd) => md.code(cmd) +
 			((cmd in (meta.optional_commands ?? [])) ? ' (only where it is installed)' : '')))}, with ${md.code(jail.SHELL)}`);
 
+	// What the service's user may do for it (prometheus_exporter.privileges):
+	// a method a function of its options gives, as its options decide.
+	let calls = map(sort(keys(meta.ubus ?? {})), (o) => (type(meta.ubus[o]) == 'function')
+		? `${md.code(o)} (the methods its options call for)`
+		: md.code(`${o} ${join('|', meta.ubus[o])}`));
+
+	if (length(calls))
+		push(facts, `- **Calls over ubus:** ${join(', ', calls)}`);
+	if (length(meta.capabilities ?? []))
+		push(facts, `- **Capabilities:** ${md.codes(meta.capabilities)}`);
+	if (length(meta.groups ?? []))
+		push(facts, `- **Its user joins:** ${md.codes(meta.groups)} (the service's user, while it is enabled)`);
+	if (length(meta.proc_files ?? []))
+		push(facts, `- **Reads, of root's alone:** ${md.codes(meta.proc_files)} (the service's group, while it is enabled)`);
+
 	let paths = path_cells(c, ctx.notes, problems);
 
 	if (length(paths))
