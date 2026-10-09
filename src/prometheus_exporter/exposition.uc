@@ -337,8 +337,18 @@ export function render(families, opts) {
 			lines = kept;
 		}
 
-		if (length(lines))
+		if (!length(lines))
+			continue;
+
+		// header()'s, without its call or escape_help's for a text that
+		// has nothing to escape, as a family's HELP nearly never has: the
+		// call is a large share of what a family of a sample costs.
+		let help = fam.help;
+
+		if (help && (type(help) != 'string' || index(help, '\\') >= 0 || index(help, '\n') >= 0))
 			push(parts, header(fam), join('\n', lines));
+		else
+			push(parts, (help ? '# HELP ' + fam.name + ' ' + help + '\n# TYPE ' : '# TYPE ') + fam.name + ' ' + fam.type, join('\n', lines));
 	}
 
 	return length(parts) ? join('\n', parts) + '\n' : '';
