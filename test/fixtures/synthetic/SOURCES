@@ -42,6 +42,19 @@
 #   transmit throttling, named after its wiphy (phy0; max_state 99,
 #   MT7915_CDEV_THROTTLE_MAX of mt76's mt7915.h). Attributes:
 #   Documentation/driver-api/thermal/sysfs-api.rst, "Cooling device attributes".
+# commands/ethtool_{eth0,lan1,phy0-ap0}.txt, commands/ethtool_i_{eth0,lan1,phy0-ap0}.txt
+#   `ethtool <device>` and `ethtool -i <device>` (ethtool 6.x, netlink) of
+#   what the devices' ethtool -S captures are of, which no capture holds: a
+#   Realtek RTL8125B (r8169, 10 Mb/s to 2.5 Gb/s over twisted pair) linked at
+#   1 Gb/s to a partner without 2.5G, the r8169 firmware's name and date; a
+#   DSA port of an MT7531 switch with no link, advertising no pause frames;
+#   and a radio's interface, whose mac80211 driver reports no link modes.
+#   Layout: dump_link_modes(), dump_pause() and the "Supported ports: [ "
+#   of ethtool's netlink/settings.c (the tab after the first port is its
+#   own), and do_gdrv()'s "key: value" lines (ethtool.c); the r8169's
+#   firmware file name (rtl_chip_infos in r8169_main.c), mac80211's
+#   driver, version and bus-info (ieee80211_get_drvinfo() in
+#   net/mac80211/ethtool.c, the wiphy's parent device).
 # proc/interrupts
 #   An MT7981 access point's (two Cortex-A53s, a GICv3, OpenWrt 25.12's 6.12),
 #   which neither device's captures hold: the timer, UART, SPI, I2C, the

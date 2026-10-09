@@ -190,6 +190,19 @@ export const family_notes = {
 // refuses a family here that the fixtures show, or that the collector's code
 // does not declare.
 export const unharvested = {
+	'ethtool': [
+		{ name: 'node_ethtool_info', labels: [ 'bus_info', 'device', 'driver', 'expansion_rom_version', 'firmware_version', 'version' ], why: 'From `ethtool -i <device>`, which no device\'s captures hold: its tests run on made-up outputs (test/fixtures/synthetic/commands).' },
+		{ name: 'node_network_supported_port_info', labels: [ 'device', 'type' ], why: 'From `ethtool <device>`\'s `Supported ports`, as node_ethtool_info: one series per port type (TP, AUI, BNC, MII, FIBRE, Backplane).' },
+		{ name: 'node_network_supported_speed_bytes', labels: [ 'device', 'duplex', 'mode' ], why: 'From `ethtool <device>`\'s `Supported link modes`, as node_ethtool_info: one series per mode, `1000baseT/Full` as mode `1000baseT`, duplex `full`, in bytes per second.' },
+		{ name: 'node_network_advertised_speed_bytes', labels: [ 'device', 'duplex', 'mode' ], why: 'From its `Advertised link modes`, as the supported ones.' },
+		{ name: 'node_network_autonegotiate_supported', labels: [ 'device' ], why: 'From its `Supports auto-negotiation`, as node_ethtool_info.' },
+		{ name: 'node_network_pause_supported', labels: [ 'device' ], why: 'From its `Supported pause frame use`: 1 where it says `Symmetric`.' },
+		{ name: 'node_network_asymmetricpause_supported', labels: [ 'device' ], why: 'From its `Supported pause frame use`: 1 where it says `Receive-only` or `Transmit-only`.' },
+		{ name: 'node_network_autonegotiate_advertised', labels: [ 'device' ], why: 'From its `Advertised auto-negotiation`.' },
+		{ name: 'node_network_pause_advertised', labels: [ 'device' ], why: 'From its `Advertised pause frame use`, as the supported one.' },
+		{ name: 'node_network_asymmetricpause_advertised', labels: [ 'device' ], why: 'From its `Advertised pause frame use`, as the supported one.' },
+		{ name: 'node_network_autonegotiate', labels: [ 'device' ], why: 'From its `Auto-negotiation`: 1 where it is `on`.' },
+	],
 	'exporter': [
 		{ name: 'process_cpu_seconds_total', labels: [], why: 'The exporter\'s own, from the serving uhttpd\'s /proc/<pid>/stat, which no capture holds: its CPU and its reaped scrapes\'.' },
 		{ name: 'process_virtual_memory_bytes', labels: [], why: 'As process_cpu_seconds_total.' },

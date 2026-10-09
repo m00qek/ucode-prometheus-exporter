@@ -21,7 +21,7 @@ The labels are those seen on the captures; a collector leaves out a label it has
 | [`diskstats`](#diskstats) | 18 | a second router, made-up captures | — |
 | [`dnsmasq`](#dnsmasq) | 30 | a router | — |
 | [`entropy`](#entropy) | 2 | an access point, a router | — |
-| [`ethtool`](#ethtool) | 259 | an access point, a router | — |
+| [`ethtool`](#ethtool) | 259 | an access point, a router | `node_ethtool_info`, `node_network_supported_port_info`, `node_network_supported_speed_bytes`, `node_network_advertised_speed_bytes`, `node_network_autonegotiate_supported`, `node_network_pause_supported`, `node_network_asymmetricpause_supported`, `node_network_autonegotiate_advertised`, `node_network_pause_advertised`, `node_network_asymmetricpause_advertised`, `node_network_autonegotiate` |
 | [`exporter`](#exporter) | 0 | none | `process_cpu_seconds_total`, `process_virtual_memory_bytes`, `process_resident_memory_bytes`, `process_start_time_seconds`, `process_open_fds`, `process_max_fds`, `ucode_prometheus_exporter_scrapes_total`, `ucode_prometheus_exporter_auth_failures_total`, `ucode_prometheus_exporter_collector_failures_total`, `ucode_prometheus_exporter_program_timeouts_total`, `ucode_prometheus_exporter_quarantines_total`, `ucode_prometheus_exporter_deadline_skips_total`, `ucode_prometheus_exporter_collector_samples` |
 | [`filefd`](#filefd) | 2 | an access point, a router | — |
 | [`filesystem`](#filesystem) | 4 | an access point, a router | — |
@@ -256,7 +256,7 @@ Kernel entropy. [Collector](collectors.md#entropy).
 
 ## `ethtool` {#ethtool}
 
-Network driver statistics. [Collector](collectors.md#ethtool).
+Network drivers and links. [Collector](collectors.md#ethtool).
 
 | Family | Type | Labels | Help | Notes |
 | :--- | :--- | :--- | :--- | :--- |
@@ -268,6 +268,17 @@ Network driver statistics. [Collector](collectors.md#ethtool).
 | `node_ethtool_received_dropped_total` | untyped | `device` | Number of received frames dropped | — |
 | `node_ethtool_received_errors_total` | untyped | `device` | Number of received frames with errors | — |
 | `node_ethtool_transmitted_errors_total` | untyped | `device` | Number of sent frames with errors | — |
+| `node_ethtool_info` | gauge | `bus_info`, `device`, `driver`, `expansion_rom_version`, `firmware_version`, `version` | A metric with a constant '1' value labeled by bus\_info, device, driver, expansion\_rom\_version, firmware\_version, version. | Listed from the code: From `ethtool -i <device>`, which no device's captures hold: its tests run on made-up outputs (test/fixtures/synthetic/commands). |
+| `node_network_supported_port_info` | gauge | `device`, `type` | Type of ports or PHYs supported by network device | Listed from the code: From `ethtool <device>`'s `Supported ports`, as node\_ethtool\_info: one series per port type (TP, AUI, BNC, MII, FIBRE, Backplane). |
+| `node_network_supported_speed_bytes` | gauge | `device`, `duplex`, `mode` | Combination of speeds and features supported by network device | Listed from the code: From `ethtool <device>`'s `Supported link modes`, as node\_ethtool\_info: one series per mode, `1000baseT/Full` as mode `1000baseT`, duplex `full`, in bytes per second. |
+| `node_network_advertised_speed_bytes` | gauge | `device`, `duplex`, `mode` | Combination of speeds and features offered by network device | Listed from the code: From its `Advertised link modes`, as the supported ones. |
+| `node_network_autonegotiate_supported` | gauge | `device` | If this port device supports autonegotiate | Listed from the code: From its `Supports auto-negotiation`, as node\_ethtool\_info. |
+| `node_network_pause_supported` | gauge | `device` | If this port device supports pause frames | Listed from the code: From its `Supported pause frame use`: 1 where it says `Symmetric`. |
+| `node_network_asymmetricpause_supported` | gauge | `device` | If this port device supports asymmetric pause frames | Listed from the code: From its `Supported pause frame use`: 1 where it says `Receive-only` or `Transmit-only`. |
+| `node_network_autonegotiate_advertised` | gauge | `device` | If this port device offers autonegotiate | Listed from the code: From its `Advertised auto-negotiation`. |
+| `node_network_pause_advertised` | gauge | `device` | If this port device offers pause capability | Listed from the code: From its `Advertised pause frame use`, as the supported one. |
+| `node_network_asymmetricpause_advertised` | gauge | `device` | If this port device offers asymmetric pause capability | Listed from the code: From its `Advertised pause frame use`, as the supported one. |
+| `node_network_autonegotiate` | gauge | `device` | If this port is using autonegotiate | Listed from the code: From its `Auto-negotiation`: 1 where it is `on`. |
 
 ## `exporter` {#exporter}
 

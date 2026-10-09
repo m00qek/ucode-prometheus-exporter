@@ -1,0 +1,10 @@
+driver: mt798x-wmac
+version: 6.12.94
+firmware-version: ____000000-20240823091407
+expansion-rom-version:
+bus-info: platform:18000000.wifi
+supports-statistics: yes
+supports-test: no
+supports-eeprom-access: no
+supports-register-dump: no
+supports-priv-flags: no

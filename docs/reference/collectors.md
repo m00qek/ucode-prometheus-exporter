@@ -15,7 +15,7 @@ Every collector of `ucode-prometheus-exporter 0.2.1`. A collector's name is what
 | [`diskstats`](#diskstats) | Disk I/O | `ucode-prometheus-exporter-diskstats` | `ucode-prometheus-exporter-hardware`, `ucode-prometheus-exporter-full` |
 | [`dnsmasq`](#dnsmasq) | dnsmasq DNS and DHCP | `ucode-prometheus-exporter-dnsmasq` | `ucode-prometheus-exporter-full` |
 | [`entropy`](#entropy) | Kernel entropy | `ucode-prometheus-exporter` (base) | — |
-| [`ethtool`](#ethtool) | Network driver statistics | `ucode-prometheus-exporter-ethtool` | `ucode-prometheus-exporter-network`, `ucode-prometheus-exporter-full` |
+| [`ethtool`](#ethtool) | Network drivers and links | `ucode-prometheus-exporter-ethtool` | `ucode-prometheus-exporter-network`, `ucode-prometheus-exporter-full` |
 | [`exporter`](#exporter) | The exporter itself | `ucode-prometheus-exporter` (base) | — |
 | [`filefd`](#filefd) | File descriptors | `ucode-prometheus-exporter` (base) | — |
 | [`filesystem`](#filesystem) | Filesystems | `ucode-prometheus-exporter-filesystem` | `ucode-prometheus-exporter-hardware`, `ucode-prometheus-exporter-full` |
@@ -242,9 +242,9 @@ The entropy available to the kernel random number generator, from /proc/sys/kern
 
 ## `ethtool` {#ethtool}
 
-Network driver statistics from ethtool -S.
+Network driver statistics, driver information and link modes, from ethtool -S, -i and ethtool &lt;device&gt;.
 
-- **Title:** Network driver statistics
+- **Title:** Network drivers and links
 - **Package:** `ucode-prometheus-exporter-ethtool`
 - **In the groups:** `ucode-prometheus-exporter-network`, `ucode-prometheus-exporter-full`
 - **Depends on:** `ethtool`

@@ -1,0 +1,10 @@
+driver: dsa
+version: 6.12.94
+firmware-version: N/A
+expansion-rom-version:
+bus-info: platform
+supports-statistics: yes
+supports-test: no
+supports-eeprom-access: no
+supports-register-dump: yes
+supports-priv-flags: no
