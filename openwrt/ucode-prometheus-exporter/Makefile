@@ -22,7 +22,7 @@ COLLECTORS_DIR:=$(MODULES_DIR)/collectors
 MODULE_SUBDIRS:=config deps exposition loader rpc
 
 # Installed with the exporter itself; every other collector is a subpackage.
-BASE_COLLECTORS:=conntrack cpu entropy exporter filefd loadavg meminfo netclass netdev openwrt_interfaces selinux softnet time timesync uname vmstat
+BASE_COLLECTORS:=conntrack cpu entropy exporter filefd loadavg meminfo netclass netdev openwrt_interfaces pressure selinux softnet time timesync uname vmstat
 
 define Package/$(PKG_NAME)/Default
   SECTION:=utils

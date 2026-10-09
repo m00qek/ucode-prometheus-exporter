@@ -42,6 +42,13 @@
 #   transmit throttling, named after its wiphy (phy0; max_state 99,
 #   MT7915_CDEV_THROTTLE_MAX of mt76's mt7915.h). Attributes:
 #   Documentation/driver-api/thermal/sysfs-api.rst, "Cooling device attributes".
+# proc/pressure/{cpu,io,memory,irq}
+#   Pressure stall information of a kernel with CONFIG_PSI and
+#   CONFIG_IRQ_TIME_ACCOUNTING (6.12, OpenWrt 25.12's), which neither device's
+#   captures hold, after a day's uptime: a `some` and a `full` line of cpu,
+#   io and memory (cpu's full is 0 system-wide), and irq's `full` alone.
+#   Format: psi_show() in kernel/sched/psi.c ("%s avg10=%lu.%02lu avg60=...
+#   total=%llu", microseconds); Documentation/accounting/psi.rst.
 # proc/diskstats, sys/block/sda/queue/rotational
 #   Kernel 4.14's /proc/diskstats (OpenWrt 19.07's), 14 fields a line: before
 #   the discard statistics (4.18) and the flush ones (5.5). Format:

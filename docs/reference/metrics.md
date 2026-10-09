@@ -40,6 +40,7 @@ The labels are those seen on the captures; a collector leaves out a label it has
 | [`nft-counters`](#nft-counters) | 2 | a router, made-up captures | — |
 | [`openwrt`](#openwrt) | 3 | an access point, a router | — |
 | [`openwrt_interfaces`](#openwrt_interfaces) | 10 | an access point, a router, made-up captures | — |
+| [`pressure`](#pressure) | 7 | made-up captures | — |
 | [`qdisc`](#qdisc) | 23 | a router, a second router, made-up captures | — |
 | [`realtek-poe`](#realtek-poe) | 7 | made-up captures | — |
 | [`selinux`](#selinux) | 2 | made-up captures | — |
@@ -536,6 +537,20 @@ OpenWrt interfaces. [Collector](collectors.md#openwrt_interfaces).
 | `node_openwrt_interface_routes` | gauge | `interface`, `family` | The routes of the interface, by family. | — |
 | `node_openwrt_interface_ipv6_prefixes` | gauge | `interface` | The IPv6 prefixes delegated to the interface. | — |
 | `node_openwrt_interface_errors` | gauge | `interface` | The errors netifd holds for the interface until it is up again. | — |
+
+## `pressure` {#pressure}
+
+Pressure stall information. [Collector](collectors.md#pressure).
+
+| Family | Type | Labels | Help | Notes |
+| :--- | :--- | :--- | :--- | :--- |
+| `node_pressure_cpu_waiting_seconds_total` | counter | — | Total time in seconds that processes have waited for CPU time | — |
+| `node_pressure_cpu_stalled_seconds_total` | counter | — | Total time in seconds no process could make progress due to CPU congestion | — |
+| `node_pressure_io_waiting_seconds_total` | counter | — | Total time in seconds that processes have waited due to IO congestion | — |
+| `node_pressure_io_stalled_seconds_total` | counter | — | Total time in seconds no process could make progress due to IO congestion | — |
+| `node_pressure_memory_waiting_seconds_total` | counter | — | Total time in seconds that processes have waited for memory | — |
+| `node_pressure_memory_stalled_seconds_total` | counter | — | Total time in seconds no process could make progress due to memory congestion | — |
+| `node_pressure_irq_stalled_seconds_total` | counter | — | Total time in seconds no process could make progress due to IRQ congestion | — |
 
 ## `qdisc` {#qdisc}
 

@@ -10,6 +10,7 @@ What each release changes, for those who run the exporter and those who write co
 
 - **hwmon writes the limits of a chip's temperatures and a meter's average power**, as node_exporter does: `node_hwmon_temp_max_celsius` and `node_hwmon_temp_crit_celsius` from `tempN_max` and `tempN_crit` (a Wi-Fi radio's throttling thresholds, as mt76's), `node_hwmon_temp_alarm` from `tempN_alarm`, and `node_hwmon_power_average_watt` from `powerN_average`, each labeled `chip` and `sensor`.
 - **thermal writes the state of each cooling device**, `node_cooling_device_cur_state{name,type}` and `node_cooling_device_max_state{name,type}`, as node_exporter's thermal_zone collector does beside the zones: a fan's step, a CPU's frequency step, a radio's transmit throttling. Its title is **Thermal zones and cooling devices**.
+- **The `pressure` collector, in the base package: pressure stall information**, as node_exporter's pressure collector has it, from `/proc/pressure`: `node_pressure_{cpu,io,memory}_waiting_seconds_total`, the time some task waited for the resource, and `node_pressure_{cpu,io,memory,irq}_stalled_seconds_total`, the time every task was stalled on it. A kernel without `CONFIG_PSI` has nothing to observe.
 
 ### Changed
 

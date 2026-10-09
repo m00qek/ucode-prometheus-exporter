@@ -54,6 +54,10 @@ export const nothing_to_observe = {
 		when: 'nf_conntrack not loaded: no `/proc/net/nf_conntrack`.',
 		failure: 'The file there and unreadable.',
 	},
+	'pressure': {
+		when: 'No `/proc/pressure`: a kernel without `CONFIG_PSI`, or booted with `psi=0`.',
+		failure: '`/proc/pressure` there, and its `cpu`, `io` or `memory` unreadable or not as the kernel writes it.',
+	},
 	'snmp6': {
 		when: 'No `/proc/net/dev_snmp6` (IPv6 disabled).',
 		failure: 'The directory there and unreadable.',

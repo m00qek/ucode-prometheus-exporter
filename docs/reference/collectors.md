@@ -34,6 +34,7 @@ Every collector of `ucode-prometheus-exporter 0.2.1`. A collector's name is what
 | [`nft-counters`](#nft-counters) | nftables counters | `ucode-prometheus-exporter-nft-counters` | `ucode-prometheus-exporter-network`, `ucode-prometheus-exporter-full` |
 | [`openwrt`](#openwrt) | OpenWrt release and board | `ucode-prometheus-exporter-openwrt` | `ucode-prometheus-exporter-full` |
 | [`openwrt_interfaces`](#openwrt_interfaces) | OpenWrt interfaces | `ucode-prometheus-exporter` (base) | — |
+| [`pressure`](#pressure) | Pressure stall information | `ucode-prometheus-exporter` (base) | — |
 | [`qdisc`](#qdisc) | Traffic control queues | `ucode-prometheus-exporter-qdisc` | `ucode-prometheus-exporter-network`, `ucode-prometheus-exporter-full` |
 | [`realtek-poe`](#realtek-poe) | Realtek PoE | `ucode-prometheus-exporter-realtek-poe` | — |
 | [`selinux`](#selinux) | SELinux | `ucode-prometheus-exporter` (base) | — |
@@ -54,7 +55,7 @@ Every collector of `ucode-prometheus-exporter 0.2.1`. A collector's name is what
 
 ## Packages {#packages}
 
-The base package, `ucode-prometheus-exporter`, installs `conntrack`, `cpu`, `entropy`, `exporter`, `filefd`, `loadavg`, `meminfo`, `netclass`, `netdev`, `openwrt_interfaces`, `selinux`, `softnet`, `time`, `timesync`, `uname`, `vmstat`. Every other collector is a package of its own, `ucode-prometheus-exporter-<name>`, which depends on the base package of the same release. A group package installs no files, only its collectors.
+The base package, `ucode-prometheus-exporter`, installs `conntrack`, `cpu`, `entropy`, `exporter`, `filefd`, `loadavg`, `meminfo`, `netclass`, `netdev`, `openwrt_interfaces`, `pressure`, `selinux`, `softnet`, `time`, `timesync`, `uname`, `vmstat`. Every other collector is a package of its own, `ucode-prometheus-exporter-<name>`, which depends on the base package of the same release. A group package installs no files, only its collectors.
 
 | Group package | For | Collectors |
 | :--- | :--- | :--- |
@@ -84,6 +85,7 @@ These collectors can have nothing to observe: they succeed without samples, and 
 | [`modemmanager`](#modemmanager) | ModemManager disabled or not installed, or it lists no modem. | `ModemManager lists no modems`, `modemmanager is disabled`, `modemmanager is not installed` | `mmcli` failing or running out of time with ModemManager enabled. |
 | [`mwan3`](#mwan3) | mwan3 disabled, or not installed. | `mwan3 is disabled`, `mwan3 is not installed` | Its `mwan3` object failing. Enabled and stopped is a reading: `mwan3_interface_running 0`. |
 | [`nat_traffic`](#nat_traffic) | nf\_conntrack not loaded: no `/proc/net/nf_conntrack`. | `no connection tracking (nf_conntrack is not loaded)` | The file there and unreadable. |
+| [`pressure`](#pressure) | No `/proc/pressure`: a kernel without `CONFIG_PSI`, or booted with `psi=0`. | `no PSI (no /proc/pressure: a kernel without CONFIG_PSI, or booted with psi=0)` | `/proc/pressure` there, and its `cpu`, `io` or `memory` unreadable or not as the kernel writes it. |
 | [`realtek-poe`](#realtek-poe) | No `poe` object. | `no PoE switch (no poe on ubus)` | A `poe` object that does not answer. |
 | [`snmp6`](#snmp6) | No `/proc/net/dev_snmp6` (IPv6 disabled). | `no IPv6 (no /proc/net/dev_snmp6)` | The directory there and unreadable. |
 | [`timesync`](#timesync) | Neither busybox ntpd nor chronyd runs, as procd's instances say: sysntpd runs ntpd only while `/etc/config/system` turns NTP on. With one running, it observes that one. | `neither ntpd nor chronyd runs` | chronyd enabled and not running, or `chronyc` failing; busybox ntpd's event file unreadable. |
@@ -531,6 +533,21 @@ OpenWrt logical interfaces (wan, lan, ...): state, uptime, devices and address c
 - **Section:** `config collector 'openwrt_interfaces'`
 - **Needs:** `ubus`
 - **Metrics:** [openwrt\_interfaces](metrics.md#openwrt_interfaces)
+
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+
+## `pressure` {#pressure}
+
+Time tasks waited for or were stalled on CPU, I/O, memory and IRQs, from /proc/pressure.
+
+- **Title:** Pressure stall information
+- **Package:** `ucode-prometheus-exporter` (base)
+- **Section:** `config collector 'pressure'`
+- **Needs:** `fs`
+- **Nothing to observe:** No `/proc/pressure`: a kernel without `CONFIG_PSI`, or booted with `psi=0`. See [Nothing to observe](#nothing-to-observe).
+- **Metrics:** [pressure](metrics.md#pressure)
 
 | Option | Title | Type | Default | Datatype | Description |
 | :--- | :--- | :--- | :--- | :--- | :--- |
