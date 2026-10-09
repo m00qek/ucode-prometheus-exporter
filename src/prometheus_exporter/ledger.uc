@@ -497,6 +497,28 @@ export function counters(ledger) {
 };
 
 /**
+ * What the ledger would count with `runs` recorded: counters(record(ledger,
+ * runs, null, ids)), for the exporter's own collector, which a scrape gives
+ * it at every scrape. A run that neither failed, nor was left out or cut,
+ * nor tripped its breaker counts nothing: only the others are recorded, and
+ * the collector of one of the rest that has no entry yet counts zeros.
+ *
+ * @param {Ledger} ledger the ledger.
+ * @param {Run[]} runs the scrape's runs so far.
+ * @param {string[]} ids the installed collectors' module names.
+ * @returns {LedgerCounters} the counters, each collector's by id.
+ */
+export function counters_with(ledger, runs, ids) {
+	let counting = filter(runs, (r) => r.result?.error != null || outcome_of(r)[0] == 'trip');
+	let out = counters(record(ledger, counting, null, ids));
+
+	for (let r in runs)
+		out.collectors[r.id] ??= { failures: {}, timeouts: 0, quarantines: 0, deadline_skips: 0 };
+
+	return out;
+};
+
+/**
  * Collector `id`'s breaker at scrape number `m`: 'closed', 'open' or 'trial'.
  *
  * @param {Ledger} ledger the ledger.

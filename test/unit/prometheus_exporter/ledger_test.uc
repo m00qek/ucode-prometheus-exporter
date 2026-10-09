@@ -187,6 +187,44 @@ describe('ledger.order', () => {
 		});
 });
 
+describe('ledger.counters_with', () => {
+	// The exporter collector's counters at every scrape: recorded with the
+	// runs that count something alone, they must be those of all the runs.
+	const KINDS = {
+		ok: () => [ Result.ok(), 0.1, null ],
+		none: () => [ Result.none('absent'), 0.1, null ],
+		failed: () => [ Result.err('SOURCE_INVALID', 'x'), 0.1, null ],
+		timeout: () => [ Result.err('COMMAND_TIMEOUT', 'x'), 0.1, null ],
+		cancelled: () => [ Result.err('COLLECTOR_CANCELLED', 'x'), 6, null ],
+		overrun: () => [ Result.ok(), 7, null ],
+		late: () => [ Result.err('SCRAPE_DEADLINE', 'cut'), 0.2, null ],
+		left_out: () => [ Result.err('SCRAPE_DEADLINE', 'not run'), 0, 'deadline' ],
+		quarantined: () => [ Result.err('COLLECTOR_QUARANTINED', 'x'), 0, 'quarantine' ],
+	};
+
+	function runs_of(kinds) {
+		return map(kinds, function(k, i) {
+			let x = KINDS[k[1]]();
+
+			return { id: `c${k[0]}`, name: `c${k[0]}`, duration: x[1], samples: 1, result: x[0], budget: 5, skipped: x[2] };
+		});
+	}
+
+	prop('counts what counters(record()) counts, of any ledger and runs',
+		gen.tuple(gen.array(gen.array(gen.tuple(gen.int(0, 4), gen.elements(...keys(KINDS))), { min_len: 0, max_len: 5 }), { min_len: 0, max_len: 6 }),
+			gen.array(gen.tuple(gen.int(0, 5), gen.elements(...keys(KINDS))), { min_len: 0, max_len: 5 })), (t) => {
+			let ids = [ 'c0', 'c1', 'c2', 'c3', 'c4' ];
+			let l = ledger.empty();
+			let seen = {};
+			let runs = filter(runs_of(t[1]), (r) => !seen[r.id] && (seen[r.id] = true));
+
+			for (let scrape in t[0])
+				l = ledger.record(l, runs_of(scrape), null, ids);
+
+			assert.match(ledger.counters(ledger.record(l, runs, null, ids)), ledger.counters_with(l, runs, ids), sprintf('%J', t));
+		});
+});
+
 describe('ledger, the breakers', () => {
 	function run_with(id, duration, result, budget) {
 		return { id, name: id, duration, samples: 1, result: result ?? Result.ok(), budget: budget ?? 5 };

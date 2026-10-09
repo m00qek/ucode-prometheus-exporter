@@ -503,7 +503,7 @@ export function collect(env, uci, l, chosen, opts) {
 		let counters = null;
 
 		if (opts?.kept) {
-			let n = ledger.counters(ledger.record(l, values(by_id), null, ids));
+			let n = ledger.counters_with(l, values(by_id), ids);
 			let named = {};
 
 			for (let c in installed)
