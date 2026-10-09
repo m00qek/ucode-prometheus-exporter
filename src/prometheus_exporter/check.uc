@@ -32,6 +32,7 @@
 import * as Result from 'prometheus_exporter.result';
 import * as config from 'prometheus_exporter.config';
 import * as jail from 'prometheus_exporter.jail';
+import * as privileges from 'prometheus_exporter.privileges';
 import * as scrape from 'prometheus_exporter.scrape';
 import * as ledger from 'prometheus_exporter.ledger';
 
@@ -182,6 +183,10 @@ function describe_collector(sys, c, j) {
 	row('paths', j.paths);
 	row('makes', j.owned);
 	row('commands', map(sort(keys(j.commands)), (k) => `${k}=${j.commands[k] ?? '(not found)'}`));
+	row('ubus', map(keys(j.ubus), (o) => `${o}:${join(',', j.ubus[o])}`));
+	row('caps', j.capabilities);
+	row('groups', j.groups);
+	row('reads', j.proc_files);
 	if (j.enabled)
 		row('mounts', j.mounts);
 
@@ -282,12 +287,15 @@ export function run(sys, opts) {
 		let described = [];
 		let enabled = describe_collectors(sys, (l) => push(described, l), add);
 		let mounts = jail.mounts(sys.collectors, sys).mounts;
+		let g = jail.grants(sys.collectors, sys);
 
 		check_scrape(sys, add);
 		check_service(sys, add);
 
 		push(lines, '', `collectors: ${length(sys.collectors)} installed, ${enabled} enabled`, ...map(described, (l) => '  ' + l));
 		push(lines, '', 'jail mounts:', ...map(mounts, (m) => '  ' + m));
+		push(lines, '', `jail user: ${privileges.USER}, capabilities: ${join(' ', privileges.service_capabilities(g)) || 'none'}`,
+			'ubus ACL:', ...map(keys(g.ubus), (o) => `  ${o} ${join(' ', g.ubus[o])}`));
 	}
 
 	return { ok, report: join('\n', lines) };

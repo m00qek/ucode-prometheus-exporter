@@ -50,6 +50,16 @@ describe('deps.socket.socket_channel', () => {
 		});
 	});
 
+	// srw-rw---- unbound:unbound, the service's user not in unbound's group.
+	it('fails with PERMISSION_DENIED on a socket the process may not connect to', () => {
+		mock.inject('socket', { errors: { [CTL]: 'connect(): Permission denied' } }, (socket) => {
+			let res = deps_socket.socket_channel(socket).unix_request(CTL, 'x', 1000);
+
+			assert.match([ 'PERMISSION_DENIED', 1 ], [ res.error, length(calls(socket, 'sock.close')) ]);
+			assert.match(true, index(res.details, `${CTL}: connect(): Permission denied: `) == 0, res.details);
+		});
+	});
+
 	it('fails with SOCKET_FAILED when the reply stops coming before the server closes', () => {
 		mock.inject('socket', { strict: true, data: { [CTL]: 'a=1\n' }, hangs: { [CTL]: true, '/run/silent.ctl': true } }, (socket) => {
 			let ch = deps_socket.socket_channel(socket);

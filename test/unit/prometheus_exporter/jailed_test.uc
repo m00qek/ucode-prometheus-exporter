@@ -9,7 +9,7 @@ import { with_mods } from 'context';
 
 const NFT = loader.validate('nft_counters', { meta: { name: 'nft-counters', title: 'N', help: 'N.', needs: [ 'exec' ], commands: [ 'nft' ] },
 	collect: () => Result.ok() }).data;
-const OPENWRT = loader.validate('openwrt', { meta: { name: 'openwrt', title: 'O', help: 'O.', needs: [ 'ubus' ] }, collect: () => Result.ok() }).data;
+const OPENWRT = loader.validate('openwrt', { meta: { name: 'openwrt', title: 'O', help: 'O.', needs: [ 'ubus' ], ubus: { system: [ 'board' ] } }, collect: () => Result.ok() }).data;
 const LOADAVG = loader.validate('loadavg', { meta: { name: 'loadavg', title: 'L', help: 'L.', needs: [ 'fs' ] }, collect: () => Result.ok() }).data;
 
 // A system of `files` (path: text), every other path there as a directory,

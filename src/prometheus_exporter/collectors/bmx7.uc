@@ -12,6 +12,8 @@ export const meta = {
 	title: 'bmx7 mesh',
 	help: 'The bmx7 mesh node, its links and tunnels, from its JSON status files.',
 	needs: [ 'fs', 'ubus' ],
+	// rc list: whether its service is enabled (the API's services).
+	ubus: { rc: [ 'list' ] },
 	paths: [ DIR ],
 };
 

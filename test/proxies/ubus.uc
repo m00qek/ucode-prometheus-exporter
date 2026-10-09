@@ -5,7 +5,12 @@
 //         args that returns one (as the built-in proxy).
 // errors: 'object:method' or 'object' -> the message error() reports after a
 //         call that fails with a null reply, as a real failed call does.
-// list() names every object the data channel mentions.
+// list() names every object the data channel mentions. list(path) answers an
+// object it mentions, and `system`, which every OpenWrt has (the canary of the
+// service's ubus ACL, prometheus_exporter.privileges), with [ {} ] (its
+// methods' signatures are not modeled), and any other with null, 'Not
+// found'; or, for 'list:<path>' in errors, with null and that message, as
+// for an ACL ubusd has not loaded.
 return {
 	channels: [ 'errors' ],
 
@@ -58,10 +63,25 @@ return {
 					if (override)
 						return override(path);
 
-					if (path != null)
-						die('ubus mock: list(path), which answers method signatures, is not modeled');
-
 					let names = {};
+
+					if (path != null) {
+						last_error = null;
+						if (ctx.has('errors', 'list:' + path)) {
+							last_error = ctx.get('errors', 'list:' + path);
+							return null;
+						}
+
+						for (let key in ctx.get_all_data_keys())
+							names[split(key, ':')[0]] = true;
+
+						if (path == 'system' || names[path])
+							return [ {} ];
+
+						last_error = 'Not found';
+						return null;
+					}
+
 					for (let key in ctx.get_all_data_keys())
 						names[split(key, ':')[0]] = true;
 

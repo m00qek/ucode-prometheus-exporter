@@ -15,6 +15,8 @@ export const meta = {
 	title: 'Cellular modems',
 	help: 'Signal quality and strength of cellular modems, from mmcli.',
 	needs: [ 'exec', 'ubus' ],
+	// rc list: whether its service is enabled (the API's services).
+	ubus: { rc: [ 'list' ] },
 	commands: [ 'mmcli' ],
 	// ModemManager is what it watches, not what it needs: without it, nothing to observe.
 	optional_commands: [ 'mmcli' ],

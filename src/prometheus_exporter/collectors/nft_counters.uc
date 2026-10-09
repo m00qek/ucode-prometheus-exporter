@@ -13,6 +13,8 @@ export const meta = {
 	title: 'nftables counters',
 	help: 'Packets and bytes of the named nftables counters.',
 	needs: [ 'exec' ],
+	// nftables answers netlink dumps to CAP_NET_ADMIN alone.
+	capabilities: [ 'CAP_NET_ADMIN' ],
 	commands: [ 'nft' ],
 };
 

@@ -42,6 +42,7 @@ export const meta = {
 	title: 'OpenWrt interfaces',
 	help: 'OpenWrt logical interfaces (wan, lan, ...): state, uptime, devices and address counts, from netifd over ubus.',
 	needs: [ 'ubus' ],
+	ubus: { 'network.interface': [ 'dump' ] },
 };
 
 const OBJECT = 'network.interface';

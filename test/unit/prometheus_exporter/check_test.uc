@@ -20,10 +20,10 @@ function collector(name, collect, meta) {
 }
 
 const OK = collector('loadavg', () => Result.ok(), { needs: [ 'fs' ] });
-const FAILING = collector('openwrt', () => Result.err('UBUS_CALL_FAILED', 'system board: Not found'), { needs: [ 'ubus' ] });
+const FAILING = collector('openwrt', () => Result.err('UBUS_CALL_FAILED', 'system board: Not found'), { needs: [ 'ubus' ], ubus: { system: [ 'board' ] } });
 const TEXTFILE = collector('textfile', () => Result.ok(), { needs: [ 'fs' ], options: { directory: { default: '/var/prometheus', datatype: 'directory', title: 'T', help: 'Where.' } }, paths: [ '{directory}' ] });
 const NFT = collector('nft-counters', () => Result.ok(), { needs: [ 'exec' ], commands: [ 'nft' ] });
-const IDLE = collector('dnsmasq', () => Result.none('dnsmasq is disabled'), { needs: [ 'ubus' ] });
+const IDLE = collector('dnsmasq', () => Result.none('dnsmasq is disabled'), { needs: [ 'ubus' ], ubus: { dnsmasq: [ 'metrics' ], rc: [ 'list' ] } });
 
 // `uhttpd -m secret`.
 const HASH = '$1$$ysVNzQc4CTMkp5daOdZ.3/';
@@ -223,6 +223,7 @@ describe('check.run', () => {
 			'  openwrt (Test): section \'openwrt\', enabled',
 			'      budget   5s # the main section\'s collector_budget',
 			'      needs    ubus',
+			'      ubus     system:board',
 			'  textfile (Test): section \'textfile\', enabled',
 			'      option   directory="/srv/prom" # Where.',
 			'      budget   5s # the main section\'s collector_budget',
@@ -236,6 +237,10 @@ describe('check.run', () => {
 			'  /srv/prom',
 			'  /usr/sbin/nft',
 			'  /var/run/ubus/ubus.sock',
+			'',
+			'jail user: prometheus-exporter, capabilities: none',
+			'ubus ACL:',
+			'  system board',
 		], r.lines);
 	});
 
@@ -262,7 +267,8 @@ describe('check.run', () => {
 			'      commands nft=(not found)',
 			'  openwrt (Test): section \'openwrt\', disabled',
 		]), r.lines);
-		assert.match([ '  /bin/sh', '  /etc/config/prometheus-exporter' ], slice(r.lines, -2));
+		assert.match([ 'jail mounts:', '  /bin/sh', '  /etc/config/prometheus-exporter', '' ], slice(r.lines, -6, -2));
+		assert.match([ 'ubus ACL:', 'jail user: prometheus-exporter, capabilities: none' ], [ r.lines[-1], r.lines[-2] ]);
 	});
 
 	it('warns of a path that is not there, as the jail leaves it out', () => {

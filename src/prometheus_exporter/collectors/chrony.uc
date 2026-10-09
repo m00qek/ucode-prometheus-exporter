@@ -34,6 +34,8 @@ export const meta = {
 	title: 'chrony NTP daemon',
 	help: 'chronyd\'s tracking and sources, and its server statistics where it serves time, from chronyc.',
 	needs: [ 'ubus', 'uci', 'fs', 'exec' ],
+	// rc list: whether its service is enabled (the API's services).
+	ubus: { rc: [ 'list' ] },
 	configs: [ 'chrony' ],
 	commands: [ 'chronyc' ],
 	// chrony is what it watches, not what it needs: without it, nothing to observe.

@@ -20,7 +20,8 @@
 //   whatever the fs mock holds; so does a connection to a socket outside them
 //   ('No such file or directory'). An open for writing fails, as the jail's
 //   mounts are read-only. And a program not in meta.commands is refused
-//   (COMMAND_NOT_ALLOWED), as it always is.
+//   (COMMAND_NOT_ALLOWED), as it always is, and so is a ubus call not in
+//   meta.ubus (UBUS_NOT_ALLOWED), as the service's ubus ACL would.
 // Each such access is recorded, and the test fails after the run, saying what
 // the collector touched and how to declare it. Not from inside the run: the
 // collector's error boundary would take a failure there for a crash, and a
@@ -38,6 +39,9 @@
 //      options: the collector's `config collector` section;
 //      main: the main section; no_nl80211, no_rtnl, no_socket: as if that module were missing;
 //      time: what deps.time.now() returns;
+//      self_status: the text of /proc/self/status the session checks
+//      meta.capabilities against; unreadable: the paths the process may not
+//      read (a config, a proc file); without them nothing is checked;
 //      outside_jail: paths a collector looks for knowing the service's jail never has
 //      them, for what it does where it runs outside the jail (chrony's command socket):
 //      the mocks answer them as they hold them, and the contract check lets them be.
@@ -94,6 +98,8 @@ export function with_mods(cfg, cb, id) {
 		nl80211: cfg.no_nl80211 ? null : p.nl80211,
 		socket: cfg.no_socket ? null : p.socket,
 		time: () => cfg.time ?? 0,
+		readable: cfg.unreadable ? (path) => !(path in cfg.unreadable) : null,
+		self_status: (cfg.self_status != null) ? () => cfg.self_status : null,
 	}));
 };
 
@@ -281,8 +287,8 @@ function jailed_socket(mod, mounts, touched) {
 	};
 }
 
-// The session for a collector's run, whose exec capability records a program
-// it refuses as not declared.
+// The session for a collector's run, whose exec and ubus capabilities record
+// a program or a ubus call they refuse as not declared.
 function watched_session(session, touched) {
 	return {
 		...session,
@@ -290,13 +296,15 @@ function watched_session(session, touched) {
 		for: function(...args) {
 			let res = session.for(...args);
 			let exec = res.ok ? res.data.exec : null;
+			let ubus = res.ok ? res.data.ubus : null;
 
-			if (exec == null)
+			if (exec == null && ubus == null)
 				return res;
 
-			return Result.ok({
-				...res.data,
-				exec: {
+			let d = { ...res.data };
+
+			if (exec)
+				d.exec = {
 					...exec,
 					run: function(argv, ...rest) {
 						let r = exec.run(argv, ...rest);
@@ -306,8 +314,22 @@ function watched_session(session, touched) {
 
 						return r;
 					},
-				},
-			});
+				};
+
+			if (ubus)
+				d.ubus = {
+					...ubus,
+					call: function(object, method, ...rest) {
+						let r = ubus.call(object, method, ...rest);
+
+						if (!r.ok && r.error == errors.UBUS_NOT_ALLOWED)
+							touched({ kind: 'ubus', object, method });
+
+						return r;
+					},
+				};
+
+			return Result.ok(d);
 		},
 	};
 }
@@ -354,9 +376,18 @@ function json_of(v) {
 }
 
 // The message of one access, for collector `name` whose declared paths are
-// `declared` and programs `commands`.
-function message(name, a, declared, commands) {
+// `declared`, programs `commands` and ubus calls `calls`.
+function message(name, a, declared, commands, calls) {
 	let paths = `Declared: ${join(', ', declared)}`;
+
+	if (a.kind == 'ubus')
+		return join('\n', [
+			`collector '${name}' called ubus ${a.object} ${a.method}, which its meta.ubus does not list.`,
+			'The exporter refuses it, in the jail or not: call() returns UBUS_NOT_ALLOWED without calling it, as it did here; ' +
+			"the service's ubus ACL, made of what its collectors declare, would refuse it too. A test that expects the collector to fail may pass by accident.",
+			`Declare it in meta.ubus, as { '${a.object}': [ '${a.method}' ] }, with 'ubus' in meta.needs, or stop calling it.`,
+			`Declared calls: ${length(calls) ? join(', ', map(keys(calls), (o) => `${o} ${join('|', calls[o])}`)) : 'none'}`,
+		]);
 
 	if (a.kind == 'exec')
 		return join('\n', [
@@ -410,7 +441,7 @@ function message(name, a, declared, commands) {
 
 // The message of everything a run touched outside its contract, each once, or
 // null.
-function contract_failure(name, touched, declared, commands) {
+function contract_failure(name, touched, declared, commands, calls) {
 	let seen = {};
 	let out = [];
 
@@ -420,7 +451,7 @@ function contract_failure(name, touched, declared, commands) {
 		if (seen[key])
 			continue;
 		seen[key] = true;
-		push(out, message(name, a, declared, commands));
+		push(out, message(name, a, declared, commands, calls));
 	}
 
 	return length(out) ? join('\n\n', out) : null;
@@ -455,7 +486,7 @@ export function with_collector(mod, cfg, cb) {
 
 		session.close();
 
-		let failure = contract_failure(mod.meta.name, touched, [ '/proc', '/sys', ...j.configs, ...j.paths ], mod.meta.commands ?? []);
+		let failure = contract_failure(mod.meta.name, touched, [ '/proc', '/sys', ...j.configs, ...j.paths ], mod.meta.commands ?? [], j.ubus);
 
 		if (failure != null)
 			assert.fail(failure);

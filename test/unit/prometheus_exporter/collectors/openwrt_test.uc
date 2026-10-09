@@ -38,8 +38,8 @@ describe('collectors.openwrt', () => {
 	});
 
 	it('passes a failed ubus call on as the collector result', () => {
-		with_collector(openwrt, { ubus: { errors: { 'system:board': 'Permission denied' } } }, (r) => {
-			assert.match({ ok: false, error: 'UBUS_CALL_FAILED', details: 'system board: Permission denied' },
+		with_collector(openwrt, { ubus: { errors: { 'system:board': 'Request timed out' } } }, (r) => {
+			assert.match({ ok: false, error: 'UBUS_CALL_FAILED', details: 'system board: Request timed out' },
 				{ ok: r.result.ok, error: r.result.error, details: r.result.details });
 			assert.match([], r.lines);
 		});

@@ -52,6 +52,7 @@ export const meta = {
 	title: 'Time synchronization',
 	help: 'Whether busybox ntpd or chronyd keeps the clock synchronized: stratum, offset and last update.',
 	needs: [ 'ubus', 'fs', 'exec' ],
+	ubus: { service: [ 'list' ], rc: [ 'list' ] },
 	commands: [ 'chronyc' ],
 	optional_commands: [ 'chronyc' ],
 	paths: [ { path: STATE_DIR, owned: true } ],

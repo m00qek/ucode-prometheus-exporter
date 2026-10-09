@@ -32,6 +32,7 @@ export const meta = {
 	title: 'Filesystems',
 	help: 'Filesystem sizes and read-only flags, from luci getMountPoints and the host\'s /proc/mounts (rpcd\'s file read).',
 	needs: [ 'ubus' ],
+	ubus: { file: [ 'read' ], luci: [ 'getMountPoints' ] },
 };
 
 const MOUNTS = '/proc/mounts';

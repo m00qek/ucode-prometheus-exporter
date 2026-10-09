@@ -85,6 +85,31 @@ describe('with_collector\'s contract check', () => {
 		]) }, run(runner));
 	});
 
+	it('fails one that calls a ubus method its meta.ubus does not list, which the service\'s ACL would refuse', () => {
+		let got = null;
+		let caller = collector('caller', { needs: [ 'ubus' ], ubus: { dnsmasq: [ 'metrics' ], rc: [ 'list' ] } }, function(deps) {
+			got = deps.ubus.call('system', 'info');
+			return got;
+		});
+
+		assert.match({ kind: 'fail', message: join('\n', [
+			"collector 'caller' called ubus system info, which its meta.ubus does not list.",
+			'The exporter refuses it, in the jail or not: call() returns UBUS_NOT_ALLOWED without calling it, as it did here; ' +
+			"the service's ubus ACL, made of what its collectors declare, would refuse it too. A test that expects the collector to fail may pass by accident.",
+			"Declare it in meta.ubus, as { 'system': [ 'info' ] }, with 'ubus' in meta.needs, or stop calling it.",
+			'Declared calls: dnsmasq metrics, rc list',
+		]) }, run(caller, { ubus: { data: { 'system:info': {} } } }));
+		assert.match([ false, 'UBUS_NOT_ALLOWED' ], [ got.ok, got.error ]);
+	});
+
+	it('lets a collector call what it declares for its options', () => {
+		let calls = collector('calls', { needs: [ 'ubus' ], options: { names: { default: false, title: 'N', help: 'N.' } },
+			ubus: { uci: (o) => o.names ? [ 'get' ] : [] } }, (deps) => deps.ubus.call('uci', 'get', { config: 'network' }));
+
+		assert.match({ ran: true }, run(calls, { options: { names: '1' }, ubus: { data: { 'uci:get': {} } } }));
+		assert.match('fail', run(calls, { ubus: { data: { 'uci:get': {} } } }).kind);
+	});
+
 	it('answers a directory above the mounts as the jail makes it, and a glob, a stat, a realpath and a write as there', () => {
 		let seen = {};
 		let nosy = collector('nosy', { needs: [ 'fs', 'uci' ], configs: [ 'foo' ] }, function(deps) {

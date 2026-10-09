@@ -61,6 +61,14 @@ import * as procfs from 'prometheus_exporter.proc';
  *                      (whose {option}s name string options), { path,
  *                      owned: true }, or a function of its options and uci
  *                      handles that gives paths (prometheus_exporter.jail)
+ *   ubus               with ubus: the objects and methods it calls,
+ *                      { object: [ method ] }; an object 'name.*' for every
+ *                      object whose name starts with 'name.', methods a
+ *                      function of its options where an option decides
+ *   capabilities       the capabilities it needs: CAP_NET_ADMIN, CAP_NET_RAW
+ *   groups             the groups whose sockets it connects to
+ *   proc_files         with fs: the files of /proc that only root reads,
+ *                      which it reads (prometheus_exporter.privileges)
  *
  * @typedef {{
  *   name: string,
@@ -74,7 +82,11 @@ import * as procfs from 'prometheus_exporter.proc';
  *   max_samples: ?int,
  *   cost: ?string,
  *   options: ?Object<string, OptionSpec>,
- *   paths: ?(string|{ path: string, owned: boolean }|function(Object, Object<string, UciHandle>): string[])[]
+ *   paths: ?(string|{ path: string, owned: boolean }|function(Object, Object<string, UciHandle>): string[])[],
+ *   ubus: ?Object<string, (string[]|function(Object): string[])>,
+ *   capabilities: ?string[],
+ *   groups: ?string[],
+ *   proc_files: ?string[]
  * }} Meta
  */
 
@@ -125,6 +137,8 @@ export const errors = {
 	COMMAND_NOT_ALLOWED: codes.COMMAND_NOT_ALLOWED,
 	COMMAND_FAILED: codes.COMMAND_FAILED,
 	COMMAND_TIMEOUT: codes.COMMAND_TIMEOUT,
+	UBUS_NOT_ALLOWED: codes.UBUS_NOT_ALLOWED,
+	PERMISSION_DENIED: codes.PERMISSION_DENIED,
 	SCRAPE_DEADLINE: codes.SCRAPE_DEADLINE,
 	EXPOSITION_INVALID: codes.EXPOSITION_INVALID,
 };

@@ -150,7 +150,7 @@ describe('collectors.timesync', () => {
 	});
 
 	it('passes on a ubus that cannot say what procd runs', () => {
-		with_collector(timesync, { ubus: { data: {}, errors: { 'service:list': 'Permission denied' } } }, (r) => {
+		with_collector(timesync, { ubus: { data: {}, errors: { 'service:list': 'Request timed out' } } }, (r) => {
 			assert.match([ false, 'UBUS_CALL_FAILED' ], [ r.result.ok, r.result.error ]);
 		});
 	});

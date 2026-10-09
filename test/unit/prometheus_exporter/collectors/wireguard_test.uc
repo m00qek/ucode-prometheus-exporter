@@ -166,8 +166,8 @@ describe('collectors.wireguard', () => {
 	});
 
 	it('passes on any other ubus error', () => {
-		with_collector(wireguard, { ubus: { errors: { 'wireguard:status': 'Permission denied' } } }, (r) => {
-			assert.match({ ok: false, error: 'UBUS_CALL_FAILED', details: 'wireguard status: Permission denied' },
+		with_collector(wireguard, { ubus: { errors: { 'wireguard:status': 'Request timed out' } } }, (r) => {
+			assert.match({ ok: false, error: 'UBUS_CALL_FAILED', details: 'wireguard status: Request timed out' },
 				{ ok: r.result.ok, error: r.result.error, details: r.result.details });
 		});
 	});

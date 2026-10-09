@@ -646,7 +646,7 @@ describe('scrape.scrape', () => {
 
 	it('closes the ubus connection its collectors opened', () => {
 		let conns = [];
-		let pinger = collector('pinger', (d) => d.ubus.call('system', 'board'), { needs: [ 'ubus' ] });
+		let pinger = collector('pinger', (d) => d.ubus.call('system', 'board'), { needs: [ 'ubus' ], ubus: { system: [ 'board' ] } });
 
 		with_mods({ ubus: { data: { 'system:board': {} } } }, (mods) => {
 			let connect = mods.ubus.connect;

@@ -21,6 +21,8 @@ export const meta = {
 	title: 'Traffic per address pair',
 	help: 'Bytes per source and destination address, from /proc/net/nf_conntrack.',
 	needs: [ 'fs' ],
+	// The table is r--r----- root:root: the service gives its group read access.
+	proc_files: [ '/proc/net/nf_conntrack' ],
 	// The connection table, which on a busy router holds tens of thousands:
 	// a 500-MIPS router takes seconds over 20,000 of them. Before the ledger
 	// times it, it runs after the others, so that a first scrape after a

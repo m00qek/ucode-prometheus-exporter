@@ -10,6 +10,7 @@ export const meta = {
 	title: 'Lantiq DSL line',
 	help: 'Lantiq DSL line state, rates and errors, from ubus dsl metrics.',
 	needs: [ 'ubus' ],
+	ubus: { dsl: [ 'metrics' ] },
 };
 
 // The downstream and upstream samples of one family, from x.{down,up}stream[key].

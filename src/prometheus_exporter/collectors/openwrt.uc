@@ -11,6 +11,7 @@ export const meta = {
 	title: 'OpenWrt release and board',
 	help: 'The OpenWrt release and board, from ubus system board.',
 	needs: [ 'ubus' ],
+	ubus: { system: [ 'board' ] },
 };
 
 // The major.minor part of a version, as node_exporter reads VERSION_ID: "25.12.5"

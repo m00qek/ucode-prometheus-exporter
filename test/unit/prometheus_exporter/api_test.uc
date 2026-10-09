@@ -24,8 +24,8 @@ describe('prometheus_exporter.api', () => {
 	it('gives the codes a collector fails with, and those of its capabilities, not the core\'s own', () => {
 		assert.match([
 			'COMMAND_FAILED', 'COMMAND_NOT_ALLOWED', 'COMMAND_TIMEOUT', 'CONFIG_INVALID', 'EXPOSITION_INVALID',
-			'NL80211_FAILED', 'RTNL_FAILED', 'SCRAPE_DEADLINE', 'SOCKET_FAILED', 'SOURCE_INVALID', 'SOURCE_UNREADABLE',
-			'UBUS_CALL_FAILED', 'UBUS_CONNECT_FAILED',
+			'NL80211_FAILED', 'PERMISSION_DENIED', 'RTNL_FAILED', 'SCRAPE_DEADLINE', 'SOCKET_FAILED', 'SOURCE_INVALID', 'SOURCE_UNREADABLE',
+			'UBUS_CALL_FAILED', 'UBUS_CONNECT_FAILED', 'UBUS_NOT_ALLOWED',
 		], sort(keys(api.errors)));
 		for (let k, v in api.errors)
 			assert.match(errors[k], v, k);

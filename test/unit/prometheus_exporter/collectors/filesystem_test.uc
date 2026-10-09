@@ -105,17 +105,17 @@ describe('collectors.filesystem', () => {
 	});
 
 	it('fails with SOURCE_INVALID when getMountPoints reports an error', () => {
-		with_collector(filesystem, cfg(ROUTER_MOUNTS, { error: 'Permission denied' }), (r) => {
-			assert.match({ error: 'SOURCE_INVALID', details: 'luci getMountPoints: Permission denied' },
+		with_collector(filesystem, cfg(ROUTER_MOUNTS, { error: 'Request timed out' }), (r) => {
+			assert.match({ error: 'SOURCE_INVALID', details: 'luci getMountPoints: Request timed out' },
 				{ error: r.result.error, details: r.result.details });
 		});
 	});
 
 	it('passes on rpcd failing to read the host\'s /proc/mounts', () => {
-		let c = { ubus: { data: { 'luci:getMountPoints': ROUTER_POINTS }, errors: { 'file:read': 'Permission denied' } } };
+		let c = { ubus: { data: { 'luci:getMountPoints': ROUTER_POINTS }, errors: { 'file:read': 'Request timed out' } } };
 
 		with_collector(filesystem, c, (r) => {
-			assert.match({ error: 'UBUS_CALL_FAILED', details: 'file read: Permission denied' },
+			assert.match({ error: 'UBUS_CALL_FAILED', details: 'file read: Request timed out' },
 				{ error: r.result.error, details: r.result.details });
 			assert.match([], r.lines);
 		});

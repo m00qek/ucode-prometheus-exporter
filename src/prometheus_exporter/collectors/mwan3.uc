@@ -10,6 +10,7 @@ export const meta = {
 	title: 'mwan3 multi-WAN',
 	help: 'mwan3 interface tracking, from ubus mwan3 status.',
 	needs: [ 'ubus' ],
+	ubus: { mwan3: [ 'status' ], rc: [ 'list' ] },
 };
 
 // What mwan3track writes to an interface's STATUS file; mwan3's rpcd plugin

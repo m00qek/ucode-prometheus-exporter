@@ -27,7 +27,7 @@
 
 'use strict';
 
-import { readfile, open, lsdir, glob, stat, realpath, popen, writefile, rename, unlink, chmod, mkstemp, stdin } from 'fs';
+import { readfile, open, lsdir, glob, stat, realpath, popen, writefile, rename, unlink, chmod, mkstemp, stdin, access } from 'fs';
 import { connect } from 'ubus';
 import { cursor } from 'uci';
 import * as Result from 'prometheus_exporter.result';
@@ -39,6 +39,7 @@ import * as exec_module from 'prometheus_exporter.deps.exec';
 import * as exporter_module from 'prometheus_exporter.deps.exporter';
 import * as uci_module from 'prometheus_exporter.deps.uci';
 import * as log_module from 'prometheus_exporter.deps.log';
+import * as privileges from 'prometheus_exporter.privileges';
 
 /**
  * deps.fs: the functions of the fs module a collector may use (FS_API), as
@@ -95,7 +96,9 @@ import * as log_module from 'prometheus_exporter.deps.log';
  * The modules a session is made over (modules()'s, or utest's proxies): fs
  * as the fs module has it, ubus's connect and uci's cursor, the netlink and
  * socket modules when installed, the time, a monotonic clock, and the log a
- * session adds.
+ * session adds; and what the process may do: whether it may read a path that
+ * is there (readable), and its /proc/self/status (self_status), each absent
+ * where nothing is checked.
  *
  * @typedef {{
  *   fs: module:fs,
@@ -106,7 +109,9 @@ import * as log_module from 'prometheus_exporter.deps.log';
  *   socket: ?module:socket,
  *   time: () => int,
  *   clock: () => int[],
- *   log: ?Log
+ *   log: ?Log,
+ *   readable: ?function(string): boolean,
+ *   self_status: ?function(): ?string
  * }} Modules
  */
 
@@ -143,6 +148,9 @@ export const SYSTEM_FILES = exporter_module.SYSTEM_FILES;
 // uci: read-only handles over the configs a collector declares.
 export const uci_handles = uci_module.uci_handles;
 
+// ubus: a collector's channel, held to the calls it declares.
+export const ubus_for = ubus_module.ubus_for;
+
 // log: the exporter's log, syslog at each level's priority, and what a
 // collector's run may log of it.
 export const LEVELS = log_module.LEVELS;
@@ -167,12 +175,26 @@ export const NEEDS = [ 'fs', 'ubus', 'uci', 'rtnl', 'nl80211', 'socket', 'exec',
 export const FS_API = [ 'readfile', 'open', 'lsdir', 'glob', 'stat', 'realpath' ];
 
 /**
+ * Where uci's configs are, which a collector's meta.configs name.
+ *
+ * @type {string}
+ */
+export const CONFIG_DIR = '/etc/config';
+
+/**
  * One scrape's capabilities: a ubus connection and a uci cursor shared by its
  * collectors, and closed once it is over. mods.log, the exporter's log(level,
  * msg), takes what collectors log, each line naming its collector, at warning:
  * what a collector that succeeds still has to say is something it could not
  * read. A run's log takes LOG_LINES lines of LOG_BYTES at most; done(), once
  * the run is over, says how many more it left out.
+ *
+ * A collector gets nothing, and fails PERMISSION_DENIED, when the process
+ * lacks what the service grants its user for it when it starts
+ * (prometheus_exporter.privileges): a capability of meta.capabilities, or
+ * read access to a config of meta.configs or a file of meta.proc_files that
+ * is there. Read as anyone else, such a file would be missing, and the
+ * collector would find nothing to observe.
  *
  * @param {Modules} mods the modules: modules()'s, or utest's proxies.
  * @returns {Session} the session.
@@ -184,9 +206,31 @@ export function session(mods) {
 	// The log of the run for() last made deps for: its collector's name, the
 	// lines it logged, and those it left out.
 	let run_log = null;
+	// The process's /proc/self/status, read once a collector declares a
+	// capability.
+	let status = null;
 
 	for (let name in FS_API)
 		fs[name] = mods.fs[name];
+
+	// Why the process may not do what `meta` declares, or null.
+	function denied(meta) {
+		if (length(meta.capabilities ?? []) && mods.self_status) {
+			status ??= mods.self_status();
+
+			let lack = privileges.lacking(status, meta.capabilities);
+
+			if (length(lack))
+				return `this process lacks ${join(', ', lack)}, which the service grants when it starts with ${meta.name} enabled`;
+		}
+
+		if (mods.readable)
+			for (let p in [ ...map(meta.configs ?? [], (c) => `${CONFIG_DIR}/${c}`), ...(meta.proc_files ?? []) ])
+				if (!mods.readable(p))
+					return `${p}: the service's group may not read it, as the service has it when it starts with ${meta.name} enabled`;
+
+		return null;
+	}
 
 	function uci_cursor() {
 		uci ??= mods.uci.cursor();
@@ -216,7 +260,7 @@ export function session(mods) {
 		// Copies: a collector that wrote over one of their functions would
 		// change it for the collectors after it, as the others are made anew.
 		case 'fs':      return { ...fs };
-		case 'ubus':    return { ...ubus };
+		case 'ubus':    return ubus_for(ubus, privileges.ubus_of(meta, settings?.options).ubus);
 		case 'uci':     return uci_handles(uci_cursor, meta.configs ?? []);
 		case 'rtnl':    return mods.rtnl ? rtnl_channel(mods.rtnl) : null;
 		case 'nl80211': return mods.nl80211 ? nl80211_channel(mods.nl80211) : null;
@@ -233,7 +277,8 @@ export function session(mods) {
 
 		// The deps object for a collector with this meta, or NEED_MISSING when
 		// the system lacks one of its needs (nl80211 and socket are separate
-		// packages). Each call's is its own, each capability with it: what one
+		// packages), PERMISSION_DENIED when the process lacks what the
+		// service grants it (denied()). Each call's is its own, each capability with it: what one
 		// collector does to its deps no other sees. settings: what its config says (config.settings): exec's
 		// programs get settings.timeout seconds, else meta.timeout's, and
 		// never run past `cutoff` (exec_channel). `view`: the scrape's, for
@@ -241,6 +286,10 @@ export function session(mods) {
 		// stopped, which its ubus calls wait no longer than (ubus_channel).
 		for: function(meta, settings, cutoff, view, limit) {
 			let deps = {};
+			let why = denied(meta);
+
+			if (why)
+				return Result.err(errors.PERMISSION_DENIED, why);
 
 			ubus.limit(limit);
 
@@ -328,5 +377,7 @@ export function modules() {
 		socket: load_socket(),
 		time: () => time(),
 		clock: () => clock(true),
+		readable: (p) => stat(p) == null || !!access(p, 'r'),
+		self_status: () => readfile('/proc/self/status'),
 	};
 };

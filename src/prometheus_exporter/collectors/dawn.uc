@@ -16,6 +16,7 @@ export const meta = {
 	title: 'DAWN band steering',
 	help: 'Access points and client signal from the DAWN Wi-Fi controller.',
 	needs: [ 'ubus' ],
+	ubus: { dawn: [ 'get_network' ], rc: [ 'list' ] },
 };
 
 function bit(v) {

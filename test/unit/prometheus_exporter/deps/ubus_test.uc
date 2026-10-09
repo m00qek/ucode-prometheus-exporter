@@ -108,4 +108,72 @@ describe('deps.ubus.ubus_channel', () => {
 			assert.match([ 1, 0 ], map(conns, (c) => length(c.__utest__.calls.disconnect)));
 		});
 	});
+
+	// ubusd holds the service's user to its ACL: DENIED for a method it may not
+	// call, NOT_FOUND for an object it may call nothing of, as for one that is
+	// not there; the canary tells the two apart.
+	it('fails a call ubusd denies with PERMISSION_DENIED, never as a failed call', () => {
+		mock.inject('ubus', { strict: true, data: {}, errors: { 'system:info': 'Permission denied' } }, (ubus) => {
+			assert.match({ ok: false, error: 'PERMISSION_DENIED', details: "system info: Permission denied: the service's ubus ACL does not allow it" },
+				brief(deps_ubus.ubus_channel(ubus.connect).call('system', 'info')));
+		});
+	});
+
+	it('fails a call to an object not there with PERMISSION_DENIED while ubusd has not loaded the ACL, and as a failed call while it has', () => {
+		let cfg = (loaded) => ({ strict: true, data: {}, errors: { 'dsl:metrics': 'Not found', ...(loaded ? {} : { 'list:system': 'Not found' }) } });
+
+		mock.inject('ubus', cfg(false), (ubus) => {
+			assert.match({ ok: false, error: 'PERMISSION_DENIED', details: "dsl metrics: Not found: ubusd has not loaded the service's ACL (/usr/share/acl.d/prometheus-exporter.json)" },
+				brief(deps_ubus.ubus_channel(ubus.connect).call('dsl', 'metrics')));
+		});
+		mock.inject('ubus', cfg(true), (ubus) => {
+			let res = deps_ubus.ubus_channel(ubus.connect).call('dsl', 'metrics');
+
+			assert.match([ 'UBUS_CALL_FAILED', 'dsl metrics: Not found', 'Not found' ], [ res.error, res.details, res.data.status ]);
+		});
+	});
+
+	it('looks for the canary once a connection, and only once a call finds no object', () => {
+		mock.inject('ubus', { strict: true, data: { 'a:b': 1 }, errors: { 'dsl:metrics': 'Not found' } }, (ubus) => {
+			let conns = [];
+			let ch = deps_ubus.ubus_channel(() => { let c = ubus.connect(); push(conns, c); return c; });
+
+			ch.call('a', 'b');
+			assert.match([], conns[0].__utest__.calls.list);
+			ch.call('dsl', 'metrics');
+			ch.call('dsl', 'metrics');
+			assert.match([ [ 'system' ] ], conns[0].__utest__.calls.list);
+			ch.close();
+			ch.call('dsl', 'metrics');
+			assert.match([ [ 'system' ] ], conns[1].__utest__.calls.list);
+		});
+	});
+});
+
+describe('deps.ubus.ubus_for', () => {
+	it('calls what the collector declares, an object of a prefix too', () => {
+		mock.inject('ubus', { strict: true, data: { 'dnsmasq:metrics': { a: 1 }, 'hostapd.wlan0:get_clients': { b: 2 } } }, (ubus) => {
+			let ch = deps_ubus.ubus_for(deps_ubus.ubus_channel(ubus.connect), { dnsmasq: [ 'metrics' ], 'hostapd.*': [ 'get_clients' ] });
+
+			assert.match([ { ok: true, data: { a: 1 } }, { ok: true, data: { b: 2 } } ],
+				[ brief(ch.call('dnsmasq', 'metrics')), brief(ch.call('hostapd.wlan0', 'get_clients')) ]);
+		});
+	});
+
+	it('refuses, without calling it, what the collector does not declare', () => {
+		mock.inject('ubus', { strict: true, data: { 'dnsmasq:metrics': {} } }, (ubus) => {
+			let conns = [];
+			let ch = deps_ubus.ubus_for(deps_ubus.ubus_channel(() => { let c = ubus.connect(); push(conns, c); return c; }), { rc: [ 'list' ] });
+
+			assert.match({ ok: false, error: 'UBUS_NOT_ALLOWED', details: 'dnsmasq metrics: not in meta.ubus' }, brief(ch.call('dnsmasq', 'metrics')));
+			assert.match({ ok: false, error: 'UBUS_NOT_ALLOWED', details: 'rc init: not in meta.ubus' }, brief(ch.call('rc', 'init', { name: 'x' })));
+			assert.match(0, length(conns));
+		});
+	});
+
+	it('lists the objects as the channel does', () => {
+		mock.inject('ubus', { strict: true, data: { 'system:board': {} } }, (ubus) => {
+			assert.match([ 'system' ], deps_ubus.ubus_for(deps_ubus.ubus_channel(ubus.connect), {}).list().data);
+		});
+	});
 });

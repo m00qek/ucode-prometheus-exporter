@@ -58,6 +58,7 @@ export const meta = {
 	title: 'DHCP leases',
 	help: 'Active DHCP leases of dnsmasq and odhcpd, by interface and family.',
 	needs: [ 'fs', 'ubus', 'uci', 'time' ],
+	ubus: { dhcp: [ 'ipv4leases', 'ipv6leases' ], 'network.interface': [ 'dump' ], rc: [ 'list' ] },
 	configs: [ 'dhcp' ],
 	options: {
 		leases: { default: false, title: 'Lease series', help: 'A series per lease, with its address, MAC, hostname and expiry.' },

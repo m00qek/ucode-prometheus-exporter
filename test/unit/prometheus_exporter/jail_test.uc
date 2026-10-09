@@ -360,7 +360,7 @@ describe('jail.COMMON', () => {
 });
 
 describe('jail.mounts and ubus', () => {
-	const UBUS = collector('openwrt', { needs: [ 'ubus' ] });
+	const UBUS = collector('openwrt', { needs: [ 'ubus' ], ubus: { system: [ 'board' ] } });
 
 	it('the jail has it while a collector that needs ubus is enabled, and only then', () => {
 		with_sys({}, {}, null, (sys) => {
@@ -373,6 +373,65 @@ describe('jail.mounts and ubus', () => {
 
 	it('is no path of the service\'s own', () => {
 		assert.match(false, jail.UBUS_SOCKET in jail.COMMON);
+	});
+});
+
+describe('jail.grants', () => {
+	const DNSMASQ = collector('dnsmasq', { needs: [ 'ubus' ], ubus: { dnsmasq: [ 'metrics' ], rc: [ 'list' ] } });
+	const WIREGUARD = collector('wireguard', { needs: [ 'ubus' ], options: { peer_names: { default: false, title: 'P', help: 'P.' } },
+		ubus: { wireguard: [ 'status' ], uci: (o) => o.peer_names ? [ 'get' ] : [] } });
+	const NFT_ADMIN = collector('nft-counters', { needs: [ 'exec' ], commands: [ 'nft' ], capabilities: [ 'CAP_NET_ADMIN' ] });
+	const UNBOUND = collector('unbound', { needs: [ 'socket', 'ubus' ], ubus: { rc: [ 'list' ] }, groups: [ 'unbound' ] });
+	const NAT = collector('nat_traffic', { needs: [ 'fs' ], proc_files: [ '/proc/net/nf_conntrack' ] });
+	const CHRONY = collector('chrony', { needs: [ 'uci' ], configs: [ 'chrony' ] });
+
+	it('grants what the enabled collectors declare, and read access to the exporter\'s config and theirs', () => {
+		with_sys({}, {}, files([ '/usr/sbin/nft' ]), (sys) => {
+			assert.match({
+				ubus: { dnsmasq: [ 'metrics' ], rc: [ 'list' ], wireguard: [ 'status' ] },
+				capabilities: [ 'CAP_NET_ADMIN' ],
+				groups: [ 'unbound' ], groups_off: [],
+				files: [ '/etc/config/dhcp', jail.OWN_CONFIG, '/proc/net/nf_conntrack' ], files_off: [],
+				tls: null, port: 9100, problems: [],
+			}, jail.grants([ DNSMASQ, WIREGUARD, NFT_ADMIN, UNBOUND, NAT, DHCP, LOADAVG ], sys));
+		});
+	});
+
+	it('grants a call an option asks for only while it does', () => {
+		with_sys({ wireguard: { '.type': 'collector', peer_names: '1' } }, {}, null, (sys) => {
+			assert.match({ uci: [ 'get' ], wireguard: [ 'status' ] }, jail.grants([ WIREGUARD ], sys).ubus);
+		});
+	});
+
+	it('takes back what a disabled collector declares, unless an enabled one declares it too', () => {
+		let own = { unbound: { '.type': 'collector', enabled: '0' }, nat_traffic: { '.type': 'collector', enabled: '0' }, chrony: { '.type': 'collector', enabled: '0' },
+			dnsmasq: { '.type': 'collector', enabled: '0' } };
+
+		with_sys(own, {}, null, (sys) => {
+			let g = jail.grants([ UNBOUND, NAT, CHRONY, DHCP, DNSMASQ ], sys);
+
+			assert.match([ {}, [], [ 'unbound' ], [ '/etc/config/chrony', '/proc/net/nf_conntrack' ], [ '/etc/config/dhcp', jail.OWN_CONFIG ] ],
+				[ g.ubus, g.groups, g.groups_off, g.files_off, g.files ]);
+		});
+	});
+
+	it('copies the TLS files only when both are there, and names the port', () => {
+		let main = { main: { '.type': config.NAME, cert: '/etc/uhttpd.crt', key: '/etc/uhttpd.key', listen_port: '443' } };
+
+		with_sys(main, {}, files([ '/etc/uhttpd.crt', '/etc/uhttpd.key' ]), (sys) => {
+			assert.match([ { cert: '/etc/uhttpd.crt', key: '/etc/uhttpd.key' }, 443 ], [ jail.grants([], sys).tls, jail.grants([], sys).port ]);
+		});
+		with_sys(main, {}, files([ '/etc/uhttpd.crt' ]), (sys) => {
+			assert.match(null, jail.grants([], sys).tls);
+		});
+	});
+
+	it('says what a collector\'s ubus function gets wrong, naming it', () => {
+		let odd = collector('odd', { needs: [ 'ubus' ], ubus: { rc: () => die('boom') } });
+
+		with_sys({}, {}, null, (sys) => {
+			assert.match([ 'odd: meta.ubus: rc: its function failed: boom' ], jail.grants([ odd ], sys).problems);
+		});
 	});
 });
 

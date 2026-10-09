@@ -41,9 +41,9 @@ export function collector(name, meta, collect) {
 };
 
 export const LOADAVG = collector('loadavg', { needs: [ 'fs' ] });
-export const WIFI = collector('wifi', { needs: [ 'ubus' ], options: { stations: true } });
+export const WIFI = collector('wifi', { needs: [ 'ubus' ], ubus: { 'network.wireless': [ 'status' ] }, options: { stations: true } });
 export const TEXTFILE = collector('textfile', { needs: [ 'fs' ], options: { directory: '/var/prometheus' }, paths: [ '{directory}' ] });
-export const WIREGUARD = collector('wireguard', { needs: [ 'ubus', 'uci' ], configs: [ 'network' ] });
+export const WIREGUARD = collector('wireguard', { needs: [ 'ubus', 'uci' ], ubus: { wireguard: [ 'status' ] }, configs: [ 'network' ] });
 export const NFT = collector('nft-counters', { needs: [ 'exec' ], commands: [ 'nft' ] });
 export const SAMPLER = collector('sampler', { needs: [], options: { retries: 3, verbose: false, label: 'x' } });
 export const FAILING = collector('openwrt', { needs: [] }, () => Result.err('UBUS_CALL_FAILED', 'system board: Not found'));

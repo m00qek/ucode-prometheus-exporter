@@ -24,6 +24,8 @@ export const meta = {
 	title: 'WireGuard',
 	help: 'WireGuard interfaces and peers, from ubus wireguard status.',
 	needs: [ 'ubus' ],
+	// rpcd's uci get, of the network config, only for peer_names.
+	ubus: { wireguard: [ 'status' ], uci: (options) => options.peer_names ? [ 'get' ] : [] },
 	options: {
 		peer_names: {
 			default: false,
