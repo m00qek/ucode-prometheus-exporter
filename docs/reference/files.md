@@ -56,6 +56,8 @@ All are on tmpfs: none survives a reboot.
 
 `ucode-prometheus-exporter-<name>`, one per collector not in the base package. Each installs `/usr/share/ucode/prometheus_exporter/collectors/<module>.uc` and depends on the base package and on what its collector needs: see [Collectors](collectors.md). Installing or removing one reloads an enabled service.
 
+`ucode-prometheus-exporter-filesystem` installs besides an rpcd plugin, `/usr/share/rpcd/ucode/prometheus-exporter-filesystem.uc`: the ubus object `prometheus-exporter.filesystem`, whose `mounts` is luci's `getMountPoints` with each mount's inodes, `{ result: [ { device, mount, size, free, avail, files, ffree } ] }`, the statvfs() of the host's mounts the jail cannot make. Installing or removing the package reloads rpcd too. See [ubus object](ubus.md#prometheus-exporterfilesystem).
+
 ## Group packages
 
 `ucode-prometheus-exporter-network`, `-wireless`, `-hardware` and `-full` install no files: each depends on its collectors' packages. Removing a group from a device's world lets apk remove its collectors too. Which collectors each holds is in [Collectors](collectors.md#packages).

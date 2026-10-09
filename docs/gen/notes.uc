@@ -208,6 +208,10 @@ export const unharvested = {
 		{ name: 'node_network_asymmetricpause_advertised', labels: [ 'device' ], why: 'From its `Advertised pause frame use`, as the supported one.' },
 		{ name: 'node_network_autonegotiate', labels: [ 'device' ], why: 'From its `Auto-negotiation`: 1 where it is `on`.' },
 	],
+	'filesystem': [
+		{ name: 'node_filesystem_files', labels: [ 'device', 'fstype', 'mountpoint' ], why: 'From the package\'s rpcd plugin, `ubus call prometheus-exporter.filesystem mounts`, which no device\'s captures hold: where rpcd has not loaded it, the collector asks luci\'s `getMountPoints`, which has no inode counts, and writes the sizes alone.' },
+		{ name: 'node_filesystem_files_free', labels: [ 'device', 'fstype', 'mountpoint' ], why: 'As node_filesystem_files.' },
+	],
 	'exporter': [
 		{ name: 'process_cpu_seconds_total', labels: [], why: 'The exporter\'s own, from the serving uhttpd\'s /proc/<pid>/stat, which no capture holds: its CPU and its reaped scrapes\'.' },
 		{ name: 'process_virtual_memory_bytes', labels: [], why: 'As process_cpu_seconds_total.' },

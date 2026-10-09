@@ -24,7 +24,7 @@ The labels are those seen on the captures; a collector leaves out a label it has
 | [`ethtool`](#ethtool) | 259 | an access point, a router | `node_ethtool_info`, `node_network_supported_port_info`, `node_network_supported_speed_bytes`, `node_network_advertised_speed_bytes`, `node_network_autonegotiate_supported`, `node_network_pause_supported`, `node_network_asymmetricpause_supported`, `node_network_autonegotiate_advertised`, `node_network_pause_advertised`, `node_network_asymmetricpause_advertised`, `node_network_autonegotiate` |
 | [`exporter`](#exporter) | 0 | none | `process_cpu_seconds_total`, `process_virtual_memory_bytes`, `process_resident_memory_bytes`, `process_start_time_seconds`, `process_open_fds`, `process_max_fds`, `ucode_prometheus_exporter_scrapes_total`, `ucode_prometheus_exporter_auth_failures_total`, `ucode_prometheus_exporter_collector_failures_total`, `ucode_prometheus_exporter_program_timeouts_total`, `ucode_prometheus_exporter_quarantines_total`, `ucode_prometheus_exporter_deadline_skips_total`, `ucode_prometheus_exporter_collector_samples` |
 | [`filefd`](#filefd) | 2 | an access point, a router | — |
-| [`filesystem`](#filesystem) | 4 | an access point, a router | — |
+| [`filesystem`](#filesystem) | 4 | an access point, a router | `node_filesystem_files`, `node_filesystem_files_free` |
 | [`hostapd_stations`](#hostapd_stations) | 15 | an access point | — |
 | [`hostapd_ubus_stations`](#hostapd_ubus_stations) | 7 | an access point | — |
 | [`hwmon`](#hwmon) | 17 | an access point, a router, made-up captures | — |
@@ -319,6 +319,8 @@ Filesystems. [Collector](collectors.md#filesystem).
 | `node_filesystem_free_bytes` | gauge | `device`, `fstype`, `mountpoint` | Filesystem free space in bytes. | — |
 | `node_filesystem_avail_bytes` | gauge | `device`, `fstype`, `mountpoint` | Filesystem space available to non-root users in bytes. | — |
 | `node_filesystem_readonly` | gauge | `device`, `fstype`, `mountpoint` | Filesystem read-only status. | — |
+| `node_filesystem_files` | gauge | `device`, `fstype`, `mountpoint` | Filesystem total file nodes. | Listed from the code: From the package's rpcd plugin, `ubus call prometheus-exporter.filesystem mounts`, which no device's captures hold: where rpcd has not loaded it, the collector asks luci's `getMountPoints`, which has no inode counts, and writes the sizes alone. |
+| `node_filesystem_files_free` | gauge | `device`, `fstype`, `mountpoint` | Filesystem total free file nodes. | Listed from the code: As node\_filesystem\_files. |
 
 ## `hostapd_stations` {#hostapd_stations}
 

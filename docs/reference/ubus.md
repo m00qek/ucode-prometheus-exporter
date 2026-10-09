@@ -211,6 +211,17 @@ Basic auth is on while the main section's `auth_user` is set: a hash saved witho
 
 ubus itself refuses arguments of the wrong type, as a string for `main`, with `Invalid argument`.
 
+## `prometheus-exporter.filesystem`
+
+The filesystem collector's own object, which its package serves from the rpcd plugin `/usr/share/rpcd/ucode/prometheus-exporter-filesystem.uc`: the base package has none. Its one method, `mounts`, takes no arguments, and answers what luci's `getMountPoints` does, with each mount's inodes besides: of each mount of `/proc/mounts` that statvfs() finds blocks in, `{ device, mount, size, free, avail, files, ffree }`, sizes in bytes. statvfs() is luci-base's, of `luci.core`; without it, or without `/proc/mounts`, it answers `{ error }`. The collector asks it from the jail, whose own mounts are not the host's; where rpcd has not loaded it, the collector asks `getMountPoints`, and writes the sizes alone.
+
+```
+$ ubus call prometheus-exporter.filesystem mounts
+{ "result": [ { "device": "tmpfs", "mount": "/tmp", "size": 122658816, "free": 122286080, "avail": 122286080, "files": 29946, "ffree": 29890 }, ... ] }
+```
+
+As getMountPoints does, it statvfs()es every mount, a network mount that hangs included, in rpcd's process.
+
 ## Access
 
 Over HTTP, through uhttpd-mod-ubus, a session needs the methods in its ACL. The LuCI app's ACL, `luci-app-prometheus-exporter`, grants `collectors`, `interfaces`, `password`, `status` and `validate` to read, and `set_password` to write. See [LuCI app](luci.md#acl).
