@@ -11,7 +11,7 @@
 // allmulti counts dropped) and sysfs's the device's own. The output is what
 // reading every attribute from sysfs gives.
 
-import { Result, errors, proc } from 'prometheus_exporter.api';
+import { Result, errors } from 'prometheus_exporter.api';
 
 // Regexes are constants: ucode compiles a regex literal each time it is evaluated.
 const FLAGS = /^0[xX][0-9a-fA-F]+$|^[0-9]+$/;
@@ -78,6 +78,63 @@ function links(rtnl) {
 		(a, b) => a.dev < b.dev ? -1 : 1));
 }
 
+// A sysfs attribute's first line, or null when the kernel refuses it.
+function attr(fs, dir, name) {
+	let s = fs.readfile(dir + name);
+
+	return (s == null) ? null : split(s, '\n')[0];
+}
+
+// The integer a sysfs attribute holds, as the format spells it, or null.
+function count(s) {
+	let n = +s;
+
+	return (type(n) == 'int' && '' + n == s) ? n : null;
+}
+
+// The sysfs attributes of a link, by name, as reading each would give them.
+// A file on a router's sysfs costs as much as all else netclass does for a
+// link, so it reads 9 to 11 where reading every one is 14, and takes the
+// rest from what tells the same:
+//   - flags, once for the adminstate and its family;
+//   - ifalias from the dump, which has it (IFLA_IFALIAS) when the link has
+//     one, and sysfs an empty line when not;
+//   - carrier_changes, carrier_up_count plus carrier_down_count, which is
+//     what sysfs writes of it (since Linux 4.16, when they came);
+//   - iflink, the link's ifindex when the dump has no IFLA_LINK, nor
+//     IFLA_LINK_NETNSID for one in another namespace, whose name it cannot
+//     give: the kernel leaves IFLA_LINK out when the two are the same;
+//   - speed and duplex, which sysfs refuses alike, of a link not up and of
+//     one whose driver cannot tell (EINVAL): duplex is read only when speed
+//     could be.
+function sysfs(fs, link) {
+	let dir = `${ROOT}/${link.dev}/`;
+	let up = attr(fs, dir, 'carrier_up_count'), down = attr(fs, dir, 'carrier_down_count');
+	let ups = count(up), downs = count(down);
+	let ifindex = attr(fs, dir, 'ifindex');
+	let speed = (link.flags & IFF_UP) ? attr(fs, dir, 'speed') : null;
+	let alias = link.ifalias;
+
+	return {
+		addr_assign_type: attr(fs, dir, 'addr_assign_type'),
+		carrier_changes: (ups != null && downs != null) ? ups + downs : attr(fs, dir, 'carrier_changes'),
+		carrier_down_count: down,
+		carrier_up_count: up,
+		dev_id: attr(fs, dir, 'dev_id'),
+		dormant: attr(fs, dir, 'dormant'),
+		duplex: (speed != null) ? attr(fs, dir, 'duplex') : null,
+		flags: attr(fs, dir, 'flags'),
+		ifalias: (alias == null) ? '' : split('' + alias, '\n')[0],
+		ifindex,
+		iflink: (link.link == null && link.link_netnsid == null) ? ifindex : attr(fs, dir, 'iflink'),
+		name_assign_type: attr(fs, dir, 'name_assign_type'),
+		speed,
+	};
+}
+
+// Whether each of PROPERTIES is the dump's, a function of the link.
+const FROM_DUMP = map(PROPERTIES, (p) => type(p[2]) == 'function');
+
 // A sysfs attribute the kernel refuses (EINVAL: the speed of a link that is
 // down) reads as null and is left out, as one the device does not have.
 export function collect(deps, out) {
@@ -93,8 +150,7 @@ export function collect(deps, out) {
 
 	for (let link in res.data) {
 		let device = link.dev;
-		let dir = `${ROOT}/${device}`;
-		let sysfs = (attr) => proc.first_line(deps.fs, `${dir}/${attr}`);
+		let v = sysfs(deps.fs, link);
 
 		let labels = out.labels({ device });
 		let operstate = OPERSTATES[link.operstate];
@@ -106,20 +162,20 @@ export function collect(deps, out) {
 			device,
 			address: link.address ?? '',
 			broadcast: link.broadcast ?? '',
-			duplex: sysfs('duplex'),
+			duplex: v.duplex,
 			operstate,
-			adminstate: adminstate(sysfs('flags')),
-			ifalias: sysfs('ifalias'),
+			adminstate: adminstate(v.flags),
+			ifalias: v.ifalias,
 		}, 1);
 
 		// Mb/s; -1 or unreadable when the link is down, which node_exporter
 		// leaves out with --collector.netclass.ignore-invalid-speed (its 2.x default).
-		let mbps = int(sysfs('speed') ?? '');
+		let mbps = int(v.speed ?? '');
 		if (mbps >= 0)
 			speed(labels, mbps * 125000);
 
 		for (let i, p in PROPERTIES)
-			families[i](labels, type(p[2]) == 'function' ? p[2](link) : sysfs(p[2]));
+			families[i](labels, FROM_DUMP[i] ? p[2](link) : v[p[2]]);
 	}
 
 	return Result.ok();
