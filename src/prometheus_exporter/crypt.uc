@@ -56,11 +56,17 @@ export const KEY_MAX = 256;
 // match. Not DES's 13 characters, which a plain password could be (uhttpd
 // compares a value without a leading $ as plain text), nor bcrypt, which
 // ucode cannot compute in the time of a scrape.
-const FORMATS = [
-	/^\$1\$[.\/0-9A-Za-z]{0,8}\$[.\/0-9A-Za-z]{22}$/,
-	/^\$5\$(rounds=[1-9][0-9]{3,6}\$)?[.\/0-9A-Za-z]{0,16}\$[.\/0-9A-Za-z]{43}$/,
-	/^\$6\$(rounds=[1-9][0-9]{3,6}\$)?[.\/0-9A-Za-z]{0,16}\$[.\/0-9A-Za-z]{86}$/,
-];
+//
+// Each is checked as its parts between the $s, their lengths counted and
+// their characters matched without a count: musl compiles a count, as
+// [...]{86}, into a copy of what it counts for each, and the three formats
+// as one regex each held 350 kB of the handler's memory, for as long as
+// uhttpd runs. By the format's id: the salt's most characters, and the
+// digest's.
+const FORMATS = { '1': [ 8, 22 ], '5': [ 16, 43 ], '6': [ 16, 86 ] };
+const ALPHABET = /^[.\/0-9A-Za-z]*$/;
+// rounds= and 4 to 7 digits, the first not 0.
+const ROUNDS = /^rounds=[1-9][0-9]*$/;
 
 // n characters of the crypt alphabet for the low bits of v, the lowest first.
 function to64(v, n) {
@@ -202,11 +208,26 @@ export function is_hash(value) {
 	if (type(value) != 'string')
 		return false;
 
-	for (let re in FORMATS)
-		if (match(value, re))
-			return true;
+	// '', the id, rounds= when it names them, the salt and the digest.
+	let parts = split(value, '$');
+	let n = length(parts);
+	let f = (n >= 4 && parts[0] == '') ? FORMATS[parts[1]] : null;
 
-	return false;
+	if (f == null)
+		return false;
+
+	if (n == 5) {
+		let r = parts[2];
+
+		if (parts[1] == '1' || length(r) < 11 || length(r) > 14 || !match(r, ROUNDS))
+			return false;
+	} else if (n != 4) {
+		return false;
+	}
+
+	let s = parts[n - 2], d = parts[n - 1];
+
+	return length(s) <= f[0] && length(d) == f[1] && match(s + d, ALPHABET) != null;
 };
 
 /**

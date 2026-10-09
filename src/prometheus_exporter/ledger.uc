@@ -126,14 +126,23 @@ export const REASONS_MAX = 8;
 export const OTHER = 'OTHER';
 
 /**
- * What a failure's code must be to be counted by it: an uppercase word of at
- * most 64 characters, as errors.uc's are. A collector's own code is any string
- * it likes, and the ledger keeps every code it counts: one of a few kB would
- * take the state's room.
+ * What a failure's code must be to be counted by it: an uppercase word, as
+ * errors.uc's are, of at most CODE_MAX characters. A collector's own code is
+ * any string it likes, and the ledger keeps every code it counts: one of a
+ * few kB would take the state's room. The length is counted, not matched:
+ * musl compiles a count, as {0,63}, into a copy of what it counts for each,
+ * which the handler would hold, 56 kB of it, for as long as uhttpd runs.
  *
  * @type {RegExp}
  */
-export const CODE = /^[A-Z][A-Z0-9_]{0,63}$/;
+export const CODE = /^[A-Z][A-Z0-9_]*$/;
+
+/**
+ * The most characters of a code the ledger counts failures by (CODE).
+ *
+ * @type {int}
+ */
+export const CODE_MAX = 64;
 
 // The most of a breaker's why the ledger keeps.
 const WHY_MAX = 200;
@@ -349,7 +358,7 @@ export function outcome_of(run) {
 // One failure of collector `id` counted in `e` (an entry): by `code`, or as
 // OTHER past REASONS_MAX codes, or for a code that is not one (CODE).
 function count_failure(e, code) {
-	if (type(code) != 'string' || !match(code, CODE))
+	if (type(code) != 'string' || length(code) > CODE_MAX || !match(code, CODE))
 		code = OTHER;
 
 	let fails = { ...(e.fails ?? {}) };

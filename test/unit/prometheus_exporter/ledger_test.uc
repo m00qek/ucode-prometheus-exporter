@@ -237,6 +237,16 @@ describe('ledger, the breakers', () => {
 		assert.match(true, length(ledger.serialize(l)) < 1000);
 	});
 
+	// Its length is counted, not matched as {0,63}, which musl compiles
+	// into 56 kB the handler would hold: it counts what that takes.
+	prop('counts by its code what an uppercase word of 1 to 64 characters, matched, is',
+		gen.string({ min_len: 0, max_len: 70, charset: 'AZ09_a-' }), (code) => {
+			let l = ledger.record(ledger.empty(), [ run_with('a', 0.1, Result.err(code)) ], null, [ 'a' ]);
+			let word = match(code, /^[A-Z][A-Z0-9_]{0,63}$/) != null;
+
+			assert.match(word ? { [code]: 1 } : { OTHER: 1 }, l.c.a.fails, code);
+		});
+
 	it('writes a ledger over `max` without breakers\' whys and failures by code, and keeps the rest', () => {
 		let ids = map([ 1, 2, 3 ], (i) => `c${i}`);
 		let l = ledger.record(ledger.empty(), map(ids, (id) => run_with(id, 2.5, Result.err('SOURCE_INVALID', sprintf('%0150d', 0)))), null, ids);
