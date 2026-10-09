@@ -37,6 +37,11 @@ const BTIME = /(^|\n)btime ([0-9]+)/;
 const VMRSS = /(^|\n)VmRSS:\s+([0-9]+) kB/;
 const MAX_FILES = /(^|\n)Max open files\s+([0-9]+|unlimited)\s/;
 
+// What follows each line's name in it, matched after the line is found.
+const BTIME_REST = /^ ([0-9]+)/;
+const VMRSS_REST = /^\s+([0-9]+) kB/;
+const MAX_FILES_REST = /^\s+([0-9]+|unlimited)\s/;
+
 // The fields of /proc/<pid>/stat after the command, from the 3rd: { cpu (in
 // ticks: user, system, and the children's), start (ticks after boot),
 // vsize (bytes) }, or null.
@@ -55,8 +60,24 @@ export function parse_stat(text) {
 	return { cpu: n[11] + n[12] + n[13] + n[14], start: n[19], vsize: n[20] };
 };
 
-function number_of(text, re) {
-	let m = (type(text) == 'string') ? match(text, re) : null;
+// What `re` captures second of the text, the number after a line's name:
+// the first line that starts with `name` found with an index(), and its rest
+// matched, as musl's regexec takes longer to read the 2 kB of /proc/stat
+// (its interrupts' counts) for a line than all else here. When that line's
+// rest is not what `re` takes, `re` reads the text, as it would have.
+function number_of(text, name, rest, re) {
+	if (type(text) != 'string')
+		return null;
+
+	let i = (substr(text, 0, length(name)) == name) ? 0 : index(text, '\n' + name);
+	let m = (i < 0) ? null : match(substr(text, i + ((i > 0) ? 1 : 0) + length(name), 64), rest);
+
+	if (m)
+		return m[1];
+	if (i < 0)
+		return null;
+
+	m = match(text, re);
 
 	return m ? m[2] : null;
 }
@@ -69,28 +90,32 @@ function process(deps, out) {
 		return Result.err(errors.SOURCE_UNREADABLE, 'the serving process\'s /proc/<pid>/stat');
 
 	let tick = proc.auxv(ex.system('/proc/self/auxv'))?.[proc.AT_CLKTCK] || CLOCK_TICKS;
-	let btime = number_of(ex.system('/proc/stat'), BTIME);
-	let rss = number_of(ex.process('status'), VMRSS);
-	let max_fds = number_of(ex.process('limits'), MAX_FILES);
+	let btime = number_of(ex.system('/proc/stat'), 'btime', BTIME_REST, BTIME);
+	let rss = number_of(ex.process('status'), 'VmRSS:', VMRSS_REST, VMRSS);
+	let max_fds = number_of(ex.process('limits'), 'Max open files', MAX_FILES_REST, MAX_FILES);
 	let fds = ex.fds();
 
-	out.counter('process_cpu_seconds_total', 'Total user and system CPU time spent in seconds, the scrapes it answered in processes of their own included.')(null, stat.cpu / (tick * 1.0));
-	out.gauge('process_virtual_memory_bytes', 'Virtual memory size in bytes.')(null, stat.vsize);
-	if (rss != null)
-		out.gauge('process_resident_memory_bytes', 'Resident memory size in bytes.')(null, +rss * 1024);
-	if (btime != null)
-		out.gauge('process_start_time_seconds', 'Start time of the process since unix epoch in seconds.')(null, +btime + stat.start / (tick * 1.0));
-	if (fds != null)
-		out.gauge('process_open_fds', 'Number of open file descriptors.')(null, fds);
-	if (max_fds != null && max_fds != 'unlimited')
-		out.gauge('process_max_fds', 'Maximum number of open file descriptors.')(null, +max_fds);
+	// A value left out is null, which the batch skips: its family is then
+	// written without a sample, which is to say not at all.
+	out.batch('counter', [
+		[ 'process_cpu_seconds_total', 'Total user and system CPU time spent in seconds, the scrapes it answered in processes of their own included.', stat.cpu / (tick * 1.0) ],
+	]);
+	out.batch('gauge', [
+		[ 'process_virtual_memory_bytes', 'Virtual memory size in bytes.', stat.vsize ],
+		[ 'process_resident_memory_bytes', 'Resident memory size in bytes.', (rss != null) ? +rss * 1024 : null ],
+		[ 'process_start_time_seconds', 'Start time of the process since unix epoch in seconds.', (btime != null) ? +btime + stat.start / (tick * 1.0) : null ],
+		[ 'process_open_fds', 'Number of open file descriptors.', fds ],
+		[ 'process_max_fds', 'Maximum number of open file descriptors.', (max_fds != 'unlimited') ? max_fds : null ],
+	]);
 
 	return Result.ok();
 }
 
 function counters(n, out) {
-	out.counter('ucode_prometheus_exporter_scrapes_total', 'Scrapes the exporter answered since the service started.')(null, n.scrapes);
-	out.counter('ucode_prometheus_exporter_auth_failures_total', 'Requests basic auth refused since the service started.')(null, n.auth_failures);
+	out.batch('counter', [
+		[ 'ucode_prometheus_exporter_scrapes_total', 'Scrapes the exporter answered since the service started.', n.scrapes ],
+		[ 'ucode_prometheus_exporter_auth_failures_total', 'Requests basic auth refused since the service started.', n.auth_failures ],
+	]);
 
 	let failures = out.counter('ucode_prometheus_exporter_collector_failures_total', 'Scrapes in which a collector failed, by its error code, since the service started.');
 	let timeouts = out.counter('ucode_prometheus_exporter_program_timeouts_total', 'Programs of a collector killed at their timeout since the service started.');

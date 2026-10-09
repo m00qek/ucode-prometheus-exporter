@@ -6,12 +6,19 @@
 // codes of errors.uc and where they are raised.
 
 const DECLARATION = /out\.(gauge|counter|untyped)\(\s*'([a-zA-Z_:][a-zA-Z0-9_:]*)'(\s*,\s*'(([^'\\]|\\.)*)'\s*\))?/g;
+// out.batch('gauge', [ [ 'node_x', 'Help.', value ], ... ]): the call, its
+// type and its rows, up to the bracket that closes them; and each row's
+// literal name and help in them.
+const BATCH = /out\.batch\(\s*'(gauge|counter|untyped)'\s*,\s*\[(([^\]]|\][^)])*)\]\s*\)/g;
+const BATCH_ROW = /\[\s*'([a-zA-Z_:][a-zA-Z0-9_:]*)'\s*,\s*'(([^'\\]|\\.)*)'/g;
 const NONE = /Result\.none\(\s*'([^'\\]*)'/g;
 const SERVICE = /services\.(unless_disabled|idle)\(\s*[^,]+,\s*'([^']+)'/g;
 
 // [ { name, type, help } ] of the families `text` declares with a literal name,
 // as out.gauge('node_load1', '1m load average.') does, once each, in order;
-// help is null unless it is a literal too.
+// help is null unless it is a literal too. Then those of out.batch()
+// calls, a row [ 'node_x', 'Help.', value ] each, whose name and help are
+// literals.
 export function declared(text) {
 	let out = [];
 	let seen = {};
@@ -22,6 +29,14 @@ export function declared(text) {
 		seen[m[2]] = true;
 		push(out, { name: m[2], type: m[1], help: (m[4] != null) ? replace(m[4], /\\(.)/g, '$1') : null });
 	}
+
+	for (let b in match(text, BATCH) ?? [])
+		for (let r in match(b[2], BATCH_ROW) ?? []) {
+			if (seen[r[1]])
+				continue;
+			seen[r[1]] = true;
+			push(out, { name: r[1], type: b[1], help: replace(r[2], /\\(.)/g, '$1') });
+		}
 
 	return out;
 };
