@@ -37,9 +37,18 @@ The tab's description says basic auth needs HTTPS: the certificate and key first
 | TLS certificate | `cert` | No placeholder; the description names uhttpd's own files, `/etc/uhttpd.crt` and `/etc/uhttpd.key`. |
 | TLS key | `key` | |
 | Basic auth user | `auth_user` | |
-| Basic auth password | `auth_password`, in `/etc/config/prometheus-exporter-auth` | Never filled in, and the page never reads the hash: the ubus object's `password` says whether one is saved, for the placeholder `Unchanged`. A password typed here is sent to `stage_password` on Save, which stages its hash in the login's session, and the placeholder says `Applied on Save & Apply`; Save & Apply applies it with the rest, with LuCI's rollback. The password itself is never stored. Empty, the saved hash stays; with the user emptied, it stays unused. The staged hash is in no list of Unsaved Changes, and Revert leaves it: it lasts until the next Save & Apply, or the end of the login's session. |
+| Basic auth password | `auth_password`, in `/etc/config/prometheus-exporter-auth` | No field of the form: Save, Save & Apply and Revert never touch it, and the page never reads the hash. The row says **Set** or **Not set**, as the ubus object's `password` answers, and has two buttons, which act at once. See [Basic auth password](#basic-auth-password). |
 
-The basic auth fields show without the TLS files too: LuCI unsets a field it hides, which would drop the user and the hash on Save.
+The basic auth fields show without the TLS files too: LuCI unsets a field it hides, which would drop the user on Save.
+
+#### Basic auth password
+
+As LuCI's own router password, the password is changed apart from the form, and at once:
+
+- **Change password…** opens a dialog: **New password**, and **Confirmation**, which must match, 1 to 256 bytes without control characters. Its **Change password** hands the password to the ubus object's `set_password`, which saves its hash and reloads the service; **Cancel**, or Escape, changes nothing. The dialog says that the password applies at once, and that every scraper must send it from then on. The button needs **TLS certificate** and **TLS key** filled in, as basic auth does; without them the row says so.
+- **Remove password**, shown while a hash is saved, asks, then hands `set_password` an empty password, which removes the hash and reloads the service. It needs **Basic auth user** empty: a user without a password is refused, so the row says to empty the user and Save & Apply first.
+
+Either says in a notification that it was done, or in its dialog why it failed. The password itself is never stored, nor sent but to `set_password`. A login that may only read sees whether a password is saved, its buttons disabled.
 
 ### Limits tab
 
@@ -56,7 +65,7 @@ The tab's description says the limits keep a slow or broken collector from costi
 ### Main section
 
 - Every field is written, at its default too (`option enabled '1'`), but for the TLS files and basic auth, which are left out while empty. Emptying another field is refused.
-- Emptying the user takes basic auth away, its hash with it.
+- Emptying the user takes basic auth away, the saved hash left unused.
 - Basic auth without both TLS files, and a user without a password, are refused.
 
 ### Collectors tab
@@ -138,9 +147,9 @@ Without the ubus object, the page says so, as the settings page does.
 | Access | ubus methods of `prometheus-exporter` | uci |
 | :--- | :--- | :--- |
 | read | `collectors`, `interfaces`, `password`, `status`, `validate` | `prometheus-exporter` |
-| write | `stage_password` | `prometheus-exporter`, `prometheus-exporter-auth` |
+| write | `set_password` | `prometheus-exporter` |
 
-Nothing else: `/etc/config/prometheus-exporter-auth`, which holds the hash, may be written, for Save & Apply to commit the hash `stage_password` staged, and never read.
+Nothing else: not `/etc/config/prometheus-exporter-auth`, which holds the hash, to read or to write. `set_password`, which writes it, is granted to a login that may write alone.
 
 ## Files
 
@@ -149,7 +158,7 @@ Nothing else: `/etc/config/prometheus-exporter-auth`, which holds the hash, may 
 | `/www/luci-static/resources/view/prometheus-exporter/settings.js` | Services → Prometheus exporter. |
 | `/www/luci-static/resources/view/prometheus-exporter/status.js` | Status → Prometheus exporter. |
 | `/www/luci-static/resources/prometheus-exporter.js` | What both pages share. |
-| `/www/luci-static/resources/prometheus-exporter/widgets.js` | The settings page's widgets: the listen interface's picker, basic auth's password, and the Collectors tab's table and its Edit dialog. |
+| `/www/luci-static/resources/prometheus-exporter/widgets.js` | The settings page's widgets: the listen interface's picker, basic auth's password and its dialogs, and the Collectors tab's table and its Edit dialog. |
 | `/usr/share/luci/menu.d/luci-app-prometheus-exporter.json` | The menu entries. |
 | `/usr/share/rpcd/acl.d/luci-app-prometheus-exporter.json` | The ACL. |
 

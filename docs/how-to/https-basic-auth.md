@@ -31,6 +31,8 @@ ubus call prometheus-exporter set_password '{"password":"…"}'
 }
 ```
 
+In LuCI, **Change password…** on the **HTTPS & login** tab does the same, apart from Save & Apply: see [How to use the LuCI app](luci.md#change-basic-auths-password).
+
 Or save a hash yourself, from `prometheus-exporter hash-password`, which reads the password without echoing it:
 
 ```sh
@@ -114,7 +116,7 @@ ubus call prometheus-exporter set_password '{"password":""}'
 service prometheus-exporter reload
 ```
 
-The empty password removes the saved hash; without a user it would be unused all the same.
+The empty password removes the saved hash; without a user it would be unused all the same. In LuCI: empty **Basic auth user**, **Save & Apply**, then **Remove password**.
 
 With `cert` and `key` left, it serves HTTPS without a login; delete them too for HTTP.
 
@@ -122,4 +124,4 @@ With `cert` and `key` left, it serves HTTPS without a login; delete them too for
 
 - [HTTP endpoint](../reference/http.md#basic-auth): the replies.
 - [About the security model](../explanation/security.md): why HTTPS only, and why the handler checks the password itself.
-- In LuCI: the **HTTPS & login** tab's fields hash the password for you. See [How to use the LuCI app](luci.md).
+- In LuCI: the **HTTPS & login** tab's **Change password…** hashes the password for you, and saves the hash at once. See [How to use the LuCI app](luci.md#change-basic-auths-password).

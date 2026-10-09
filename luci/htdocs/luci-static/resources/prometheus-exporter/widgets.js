@@ -7,8 +7,8 @@
 'require prometheus-exporter as exporter';
 
 // The settings page's own widgets (view/prometheus-exporter/settings.js): the
-// listen interface's picker, basic auth's password, and the Collectors tab's table,
-// a row per installed collector with its switch, and its Edit dialog.
+// listen interface's picker, basic auth's password and its dialogs, and the Collectors
+// tab's table, a row per installed collector with its switch, and its Edit dialog.
 //
 // Collector names and help, package names, interfaces and paths come from the router: they
 // reach E() only inside arrays, and never a form title or description, which LuCI renders
@@ -114,57 +114,261 @@ const ListenSelect = form.ListValue.extend({
 	}
 });
 
-// Basic auth's password. The field holds what is typed, never the saved hash, which is
-// saved apart from the exporter's config, where the page may not read it: `hashSaved`
-// says whether one is, as the object's `password` answered when the page loaded. Save
-// hands what is typed to the object's stage_password, which hashes it and stages the hash
-// in the login's session, as Save stages every other setting; Save & Apply commits it
-// with the rest, under LuCI's rollback, and the service takes it then. `hashStaged` says
-// one is, until the page is loaded again. The session's changes do not list it (the page
-// may not read its config), nor does Revert drop it: it lasts until it is applied, or the
-// session ends. Left empty, the saved hash stays; without a user there is no basic auth,
-// and a saved hash stays unused. `user` is the option of basic auth's user.
-const PasswordValue = form.Value.extend({
+// The longest password the object hashes, in bytes.
+const PASSWORD_MAX = 256;
+
+// Basic auth's password, which is no field of the form: Save, Save & Apply and Revert
+// never touch it. The row says whether a hash is saved (`hashSaved`, as the object's
+// `password` answered when the page loaded; the page never reads the hash, which is saved
+// apart from the exporter's config, where the app's ACL does not reach), and has two
+// buttons, as LuCI's own root password has its page: Change password opens a dialog that
+// takes the new one twice and hands it to the object's set_password, which hashes it,
+// saves the hash and has the service reload, at once; Remove password has it remove the
+// saved hash. Change takes the TLS certificate and key, as basic auth does (`tls`, their
+// options); Remove takes Basic auth user empty (`user`, its option), as a user without a
+// password is refused. What the object's validate refuses of the password (`refusal()`,
+// the page's sentence, or null) marks Change, which counts in its tab, as an invalid
+// field does. The row's buttons follow the fields as they are typed: `update()`.
+const PasswordAction = form.Value.extend({
 	__name__: 'CBI.PrometheusExporterPassword',
+
+	__init__(...args) {
+		this.super('__init__', args);
+		this.hashSaved = false;
+		this.tls = [];
+		this.user = null;
+		this.refusal = () => null;
+		this.nodes = null;
+	},
 
 	cfgvalue(section_id) {
 		return null;
 	},
 
-	// Whether a hash is saved, or staged by a Save of this page.
-	saved(section_id) {
-		return this.hashSaved === true || this.hashStaged === true;
+	formvalue(section_id) {
+		return null;
+	},
+
+	// Writes nothing to uci.
+	parse(section_id) {
+		return Promise.resolve();
+	},
+
+	write(section_id, value) {},
+
+	remove(section_id) {},
+
+	isValid(section_id) {
+		return true;
+	},
+
+	getValidationError(section_id) {
+		return '';
+	},
+
+	// Marks Change with what the object refused, and follows the fields.
+	triggerValidation(section_id) {
+		this.update(section_id);
+		return true;
+	},
+
+	readonlyMap() {
+		return (this.readonly != null) ? this.readonly : this.map.readonly;
+	},
+
+	// Whether the form, as typed, has the TLS certificate and key.
+	hasTls(section_id) {
+		return this.tls.length > 0 && this.tls.every((o) => !blank(o.formvalue(section_id)));
 	},
 
 	renderWidget(section_id, option_index, cfgvalue) {
-		this.placeholder = (this.hashStaged === true) ? _('Applied on Save & Apply') : (this.saved(section_id) ? _('Unchanged') : '');
-		return this.super('renderWidget', [ section_id, option_index, cfgvalue ]);
+		const state = E('strong', { 'class': 'exporter-password-state' }, []);
+		const change = E('button', {
+			'class': 'btn cbi-button cbi-button-action',
+			'id': 'widget.' + this.cbid(section_id),
+			'click': ui.createHandlerFn(this, 'openChange', section_id)
+		}, [ _('Change password…') ]);
+		const remove = E('button', {
+			'class': 'btn cbi-button cbi-button-negative',
+			'click': ui.createHandlerFn(this, 'openRemove', section_id)
+		}, [ _('Remove password') ]);
+		const note = E('div', { 'class': 'cbi-value-description exporter-password-note' }, []);
+
+		this.nodes = { state: state, change: change, remove: remove, note: note };
+		this.update(section_id);
+
+		return E('div', { 'class': 'exporter-password' }, [ state, ' ', change, ' ', remove, note ]);
 	},
 
-	// Writes nothing to the exporter's config: the object stages the hash of what is
-	// typed, or nothing is.
-	parse(section_id) {
-		const typed = this.formvalue(section_id);
+	// The row as the saved hash and the fields have it now.
+	update(section_id) {
+		const n = this.nodes;
 
-		if (blank(this.user.formvalue(section_id)))
-			return Promise.resolve();
+		if (n == null)
+			return;
 
-		if (!this.isValid(section_id))
-			return Promise.reject(new TypeError(_('Basic auth password:') + ' ' + this.getValidationError(section_id)));
+		const readonly = this.readonlyMap();
+		const tls = this.hasTls(section_id);
+		const user = this.user != null && !blank(this.user.formvalue(section_id));
+		const refusal = this.refusal();
+		const notes = [];
 
-		if (blank(typed))
-			return Promise.resolve();
+		dom.content(n.state, [ this.hashSaved ? _('Set') : _('Not set') ]);
+		n.change.disabled = readonly || !tls;
+		n.remove.disabled = readonly || user;
+		n.remove.style.display = this.hashSaved ? '' : 'none';
+		n.change.classList.toggle('cbi-input-invalid', refusal != null);
 
-		const failed = (why) => new Error(_('The password could not be saved:') + ' ' + why);
+		if (refusal != null)
+			notes.push(E('div', { 'class': 'exporter-password-refusal' }, [ refusal ]));
+		if (!readonly && !tls)
+			notes.push(E('div', {}, [ _('Set TLS certificate and TLS key first: basic auth needs HTTPS.') ]));
+		if (!readonly && this.hashSaved && user)
+			notes.push(E('div', {}, [ _('To remove the password, empty Basic auth user and Save & Apply first: a user needs a password.') ]));
 
-		return exporter.stagePassword(typed).then((res) => {
-			if (!L.isObject(res) || res.staged !== true)
-				throw failed(exporter.describeError(res));
+		dom.content(n.note, notes);
+	},
 
-			this.hashStaged = true;
-		}, (err) => {
-			throw failed(exporter.describeError(err));
+	// Tells the page a hash was saved or removed, which it checks the form again for.
+	changed(section_id, saved) {
+		this.hashSaved = saved;
+		this.update(section_id);
+		this.nodes?.change.dispatchEvent(new CustomEvent('widget-change', { bubbles: true }));
+	},
+
+	// Hides a dialog, and gives the focus back to the button that opened it.
+	dismiss(from) {
+		ui.hideModal();
+		if (from && !from.disabled)
+			from.focus();
+		else
+			this.nodes?.change.focus();
+	},
+
+	// What went wrong, in the dialog: a list of pieces, or a text.
+	failed(problem, why) {
+		dom.content(problem, alertBox('error', Array.isArray(why) ? why : [ why ]));
+	},
+
+	// The dialog of a new password: typed twice, checked as the object checks it, and handed
+	// to set_password, which saves its hash and reloads the service at once.
+	openChange(section_id) {
+		if (this.readonlyMap() || !this.hasTls(section_id))
+			return;
+
+		const problem = E('div', {}, []);
+		const first = new ui.Textfield('', {
+			id: 'exporter-password-new',
+			password: true,
+			validate: (value) => {
+				if (blank(value))
+					return _('Expecting a password');
+				if (new TextEncoder().encode(value).length > PASSWORD_MAX)
+					return _('At most %d bytes').format(PASSWORD_MAX);
+				if (/[\x00-\x1f\x7f]/.test(value))
+					return _('No control characters');
+				return true;
+			}
 		});
+		const second = new ui.Textfield('', {
+			id: 'exporter-password-confirm',
+			password: true,
+			validate: (value) => (value === first.getValue()) ? true : _('The passwords do not match')
+		});
+		const field = (widget, title) => {
+			const node = widget.render();
+			const input = node.querySelector('input:not([type="hidden"])');
+
+			return E('div', { 'class': 'cbi-value' }, [
+				E('label', { 'class': 'cbi-value-title', 'for': input?.id ?? null }, [ title ]),
+				E('div', { 'class': 'cbi-value-field' }, [ node ])
+			]);
+		};
+		const save = () => {
+			first.triggerValidation();
+			second.triggerValidation();
+
+			if (!first.isValid() || !second.isValid()) {
+				this.failed(problem, (!first.isValid() ? first : second).getValidationError());
+				return Promise.resolve(null);
+			}
+
+			dom.content(problem, []);
+
+			return exporter.setPassword(first.getValue()).then((res) => {
+				if (!L.isObject(res) || res.saved !== true)
+					return this.failed(problem, [ _('The password could not be changed:'), ' ', exporter.describeError(res) ]);
+
+				this.dismiss(this.nodes?.change);
+				this.changed(section_id, true);
+				ui.addNotification(null, E('p', {}, [ _('The basic auth password was changed, and the exporter reloads with it. Give every scraper the new one.') ]), 'info');
+			}, (err) => {
+				this.failed(problem, [ _('The password could not be changed:'), ' ', exporter.describeError(err) ]);
+			});
+		};
+		const node = E('div', { 'class': 'exporter-password-dialog' }, [
+			E('p', {}, [ _('The new password applies at once, apart from Save & Apply and Revert: the exporter reloads with it, and every scraper must send it from then on.') ]),
+			E('div', { 'class': 'cbi-section' }, [
+				E('div', { 'class': 'cbi-section-node' }, [
+					field(first, _('New password')),
+					field(second, _('Confirmation'))
+				])
+			]),
+			problem
+		]);
+
+		// As LuCI's own dialogs, Escape presses the first button of the row, Cancel.
+		const buttons = E('div', { 'class': 'button-row' }, [
+			E('button', { 'class': 'btn cbi-button', 'click': () => this.dismiss(this.nodes?.change) }, [ _('Cancel') ]),
+			' ',
+			E('button', { 'class': 'btn cbi-button cbi-button-positive important', 'click': ui.createHandlerFn(this, save) }, [ _('Change password') ])
+		]);
+
+		// Enter in either field changes it; the confirmation is checked again as the first
+		// changes.
+		node.addEventListener('keydown', (ev) => {
+			if (ev.key === 'Enter') {
+				ev.preventDefault();
+				buttons.querySelector('.cbi-button-positive').click();
+			}
+		});
+		node.addEventListener('input', () => {
+			if (second.getValue() !== '')
+				second.triggerValidation();
+		});
+
+		ui.showModal(_('Change the basic auth password'), [ node, buttons ], 'cbi-modal');
+		node.querySelector('input:not([type="hidden"])')?.focus();
+	},
+
+	// The dialog that removes the saved hash, through set_password with no password, at once.
+	openRemove(section_id) {
+		if (this.readonlyMap() || (this.user != null && !blank(this.user.formvalue(section_id))))
+			return;
+
+		const problem = E('div', {}, []);
+		const remove = () => exporter.setPassword('').then((res) => {
+			if (!L.isObject(res) || res.saved !== false)
+				return this.failed(problem, [ _('The password could not be removed:'), ' ', exporter.describeError(res) ]);
+
+			this.dismiss(this.nodes?.change);
+			this.changed(section_id, false);
+			ui.addNotification(null, E('p', {}, [ _('The basic auth password was removed.') ]), 'info');
+		}, (err) => {
+			this.failed(problem, [ _('The password could not be removed:'), ' ', exporter.describeError(err) ]);
+		});
+		const buttons = E('div', { 'class': 'button-row' }, [
+			E('button', { 'class': 'btn cbi-button', 'click': () => this.dismiss(this.nodes?.remove) }, [ _('Cancel') ]),
+			' ',
+			E('button', { 'class': 'btn cbi-button cbi-button-negative important', 'click': ui.createHandlerFn(this, remove) }, [ _('Remove password') ])
+		]);
+
+		ui.showModal(_('Remove the basic auth password'), [
+			E('p', {}, [ _('The saved password is removed at once, apart from Save & Apply and Revert.') ]),
+			problem,
+			buttons
+		], 'cbi-modal');
+		buttons.querySelector('button').focus();
 	}
 });
 
@@ -664,6 +868,6 @@ return baseclass.extend({
 	blank: blank,
 
 	ListenSelect: ListenSelect,
-	PasswordValue: PasswordValue,
+	PasswordAction: PasswordAction,
 	CollectorTable: CollectorTable
 });

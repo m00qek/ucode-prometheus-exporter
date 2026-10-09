@@ -142,86 +142,6 @@ describe('rpc.password and rpc.set_password', () => {
 	});
 });
 
-describe('rpc.stage_password', () => {
-	const HASH = '$1$$ysVNzQc4CTMkp5daOdZ.3/';
-	const SID = '0123456789abcdef0123456789abcdef';
-
-	// A sys whose session cursors record what they are asked: the session's
-	// id, and each call to set, delete, save and commit.
-	function with_session_sys(hash, cb) {
-		let data = { [config.AUTH_CONFIG]: (hash != null) ? { main: { '.type': config.AUTH_TYPE, auth_password: hash } } : { main: { '.type': config.AUTH_TYPE } } };
-		let seen = { sessions: [], calls: [], events: [] };
-
-		mock.inject('uci', { data }, (uci) => {
-			let c = uci.cursor();
-			let cursor = {
-				load: (n) => c.load(n),
-				get: (...a) => c.get(...a),
-				error: () => c.error(),
-				set: function(...a) { push(seen.calls, [ 'set', ...a ]); return c.set(...a); },
-				delete: function(...a) { push(seen.calls, [ 'delete', ...a ]); return c.delete(...a); },
-				save: function(n) { push(seen.calls, [ 'save', n ]); return true; },
-				commit: function(n) { push(seen.calls, [ 'commit', n ]); return true; },
-			};
-			let sys = {
-				uci_session: function(sid) { push(seen.sessions, sid); return cursor; },
-				random: (n) => substr('abcdefghijklmnopqrstuvwxyz', 0, n),
-				fs: { stat: () => ({ type: 'file' }) },
-				ubus: { call: function(...a) { push(seen.events, a); return Result.ok(null); } },
-			};
-
-			cb(sys, seen, () => c.get(config.AUTH_CONFIG, config.AUTH_SECTION, 'auth_password'));
-		});
-	}
-
-	it('hashes a password and stages the hash in the caller\'s session, committing nothing and reloading nothing', () => {
-		with_session_sys(HASH, (sys, seen, staged) => {
-			let res = rpc.stage_password(sys, { password: 'secret', ubus_rpc_session: SID });
-
-			assert.match({ staged: true }, res);
-			assert.match([ true, [ SID ], [] ], [ crypt.verify('secret', staged()), seen.sessions, seen.events ]);
-			assert.match([ 'save', config.AUTH_CONFIG ], seen.calls[-1]);
-			assert.match([], filter(seen.calls, (c) => c[0] == 'commit'));
-			assert.match(-1, index(sprintf('%J', res), staged()));
-		});
-	});
-
-	it('stages the saved hash\'s removal for an empty password', () => {
-		with_session_sys(HASH, (sys, seen, staged) => {
-			assert.match([ { staged: false }, null ], [ rpc.stage_password(sys, { password: '', ubus_rpc_session: SID }), staged() ]);
-		});
-	});
-
-	it('wants the rpcd session it stages in, as rpcd gives a call over HTTP', () => {
-		with_session_sys(HASH, (sys, seen) => {
-			let refusal = { error: rpc.ARGS_INVALID, message: 'ubus_rpc_session: expected the rpcd session to stage in, which rpcd gives a call over HTTP' };
-
-			assert.match([ refusal, refusal, refusal ], [
-				rpc.stage_password(sys, { password: 'secret' }),
-				rpc.stage_password(sys, { password: 'secret', ubus_rpc_session: '../../etc' }),
-				rpc.stage_password(sys, { password: 'secret', ubus_rpc_session: 42 }),
-			]);
-			assert.match([ [], [] ], [ seen.sessions, seen.calls ]);
-		});
-	});
-
-	it('refuses a password it does not take, staging nothing', () => {
-		with_session_sys(HASH, (sys, seen, staged) => {
-			assert.match({ error: rpc.ARGS_INVALID, message: 'password: expected a password without control characters' },
-				rpc.stage_password(sys, { password: 'a\tb', ubus_rpc_session: SID }));
-			assert.match([ HASH, [] ], [ staged(), seen.calls ]);
-		});
-	});
-
-	it('is served, on a sys without collectors', () => {
-		let opts = [];
-		let m = rpc.methods(function(o) { push(opts, o); return {}; }, null);
-
-		assert.match([ { error: rpc.ARGS_INVALID, message: 'ubus_rpc_session: expected the rpcd session to stage in, which rpcd gives a call over HTTP' }, [ { collectors: false } ] ],
-			[ m.stage_password.call({ args: { password: 'x' } }), opts ]);
-	});
-});
-
 describe('rpc.service', () => {
 	const RUNNING = { [NAME]: { instances: { instance1: { running: true,
 		command: [ '/usr/sbin/uhttpd', '-f', '-p', '192.168.1.1:9100', '-p', '[fd00::1]:9100' ] } } } };
@@ -529,7 +449,7 @@ describe('rpc.methods', () => {
 			watch: () => null,
 		});
 
-		assert.match([ 'collectors', 'hash_password', 'interfaces', 'password', 'set_password', 'stage_password', 'status', 'validate' ], sort(keys(m)));
+		assert.match([ 'collectors', 'hash_password', 'interfaces', 'password', 'set_password', 'status', 'validate' ], sort(keys(m)));
 		assert.match({ collectors: [], skipped: [] }, m.collectors.call({ args: {} }));
 		assert.match({ ok: true, errors: { main: {}, collectors: {} } }, m.validate.call({ args: { main: { listen_port: '80' } } }));
 		assert.match(2, made);

@@ -54,13 +54,13 @@ const callPassword = rpc.declare({
 	reject: true
 });
 
-// Hashes a password and stages the hash in the login's session, as Save stages every
-// other setting: Save & Apply commits it, with LuCI's rollback, and the service takes it
-// then. The password never reaches a config, nor the hash the page; the app's ACL lets the
-// login write the hash's config, never read it.
-const callStagePassword = rpc.declare({
+// Hashes a password and saves the hash, or with '' removes the saved one, and has the
+// service reload: at once, apart from Save & Apply, as LuCI's own root password is
+// changed. The password never reaches a config, nor the hash the page; the app's ACL
+// grants nothing of the hash's config.
+const callSetPassword = rpc.declare({
 	object: CONFIG,
-	method: 'stage_password',
+	method: 'set_password',
 	params: [ 'password' ],
 	reject: true
 });
@@ -258,8 +258,8 @@ return baseclass.extend({
 		return callPassword();
 	},
 
-	stagePassword(password) {
-		return callStagePassword(password);
+	setPassword(password) {
+		return callSetPassword(password);
 	},
 
 	// A collector's title, with its name when that differs.
