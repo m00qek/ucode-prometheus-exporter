@@ -253,16 +253,22 @@ function refused(bad) {
  */
 export function run_one(env, session, collector, job) {
 	let t1 = env.clock();
-	let res = job?.settings ? Result.ok(job.settings) : config.settings(session.uci(), collector.id, collector.meta);
-	let budget = res.ok ? res.data.budget : null;
-	let max = res.ok ? res.data.max_samples : null;
+	// Its settings, as its job has them, or read here; or why they cannot be.
+	let settings = job?.settings;
+	let res = null;
+
+	if (settings == null) {
+		res = config.settings(session.uci(), collector.id, collector.meta);
+		settings = res.ok ? res.data : null;
+	}
+
+	let budget = settings?.budget;
+	let max = settings?.max_samples;
 	let left = job?.left;
 	let reply_cap = (left != null && (max == null || left < max));
 	let rec = exposition.recorder(reply_cap ? left : max);
 
-	if (res.ok) {
-		let settings = res.data;
-
+	if (settings != null) {
 		res = session.for(collector.meta, settings, job?.cutoff, job?.view, job?.limit);
 		if (res.ok) {
 			try {
@@ -382,24 +388,37 @@ function own_header(i) {
  * @returns {string} their text, each line ended by a newline.
  */
 export function own_text(runs, version) {
-	let parts = [ '', '', '', '' ];
+	let parts = [ [], [], [], [] ];
 
+	// Each line is pushed, and each family's joined once: a string added to
+	// is copied whole. What escape_label and format_value would make of a
+	// name and a duration is checked here, without a call, for those that
+	// need neither: every name, and nearly every duration.
 	for (let r in runs) {
-		let label = `{collector="${exposition.escape_label(r.name)}"} `;
-		let d = (type(r.duration) == 'int') ? '' + r.duration : exposition.format_value(r.duration);
+		let name = r.name;
+
+		if (index(name, '\\') >= 0 || index(name, '"') >= 0 || index(name, '\n') >= 0)
+			name = exposition.escape_label(name);
+
+		let label = '{collector="' + name + '"} ';
+		let v = r.duration;
+		let d = '' + v;
+
+		if (type(v) != 'int' && (type(v) != 'double' || +d != v || v - v != 0))
+			d = exposition.format_value(v);
 
 		if (d != null)
-			parts[0] += `node_scrape_collector_duration_seconds${label}${d}\n`;
-		parts[1] += `node_scrape_collector_success${label}${r.result.ok ? 1 : 0}\n`;
-		parts[2] += `node_scrape_collector_observing${label}${Result.is_none(r.result) ? 0 : 1}\n`;
-		parts[3] += `${QUARANTINED}${label}${(r.skipped == 'quarantine') ? 1 : 0}\n`;
+			push(parts[0], 'node_scrape_collector_duration_seconds' + label + d);
+		push(parts[1], 'node_scrape_collector_success' + label + (r.result.ok ? '1' : '0'));
+		push(parts[2], 'node_scrape_collector_observing' + label + ((r.result.ok === true && r.result.none != null) ? '0' : '1'));
+		push(parts[3], QUARANTINED + label + ((r.skipped == 'quarantine') ? '1' : '0'));
 	}
 
 	let text = '';
 
 	for (let i, p in parts)
-		if (p != '')
-			text += own_header(i) + p;
+		if (length(p))
+			text += own_header(i) + join('\n', p) + '\n';
 
 	// As a recorder leaves out a label without a value.
 	let label = (version != null) ? `{version="${exposition.escape_label('' + version)}"}` : '';
