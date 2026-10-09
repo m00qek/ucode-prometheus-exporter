@@ -139,7 +139,7 @@ uhttpd holds less too, which the benchmark's `rest:` cases measure: what the pro
 | QEMU's 24Kc (32-bit), base collectors | | 1.08 MB |
 | the service's uhttpd with an access point's 19 collectors, devenv (RssAnon) | 2.46 MB | 1.88 MB |
 
-What is left is code: ucode keeps about a kilobyte for each function a program compiled and each object it made, so the handler's program, some 350 functions, holds about 0.95 MB, the native modules 0.35 MB, and the collectors 20 kB each besides the 100 kB of the collector API they share.
+What is left is code: ucode keeps about a kilobyte for each function a program compiled and each object it made, so the handler's program, some 350 functions, holds about 0.95 MB, the native modules 0.35 MB, and the collectors 20 kB each besides the 100 kB of the collector API they share. What it holds since, and what is left of it, is in [What uhttpd holds at rest](#at-rest).
 
 ## The collectors, in 0.3.0 {#collectors-in-030}
 
@@ -165,6 +165,114 @@ Each collector on the benchmark's large world (50 links, 3 radios of 3 networks 
 | a scrape of the base collectors, typical (`scrape:base`) | 14.4 → 12.8 ms | 355 → 337 ms | 131 → 124 ms |
 
 The access point's own scrape, its 12 links and a few stations, takes these collectors' share of what it took less: netstat about 12 ms where it took 26.6, against the Lua exporter's 10.6; netclass and netdev together about 40 ms where they took 48, against Lua's 29.4; the exporter collector about 7 ms where it took 10.8. That is some 30 ms of the 193, a scrape of about 0.165 s. What is left is mostly what a sample and a family cost every collector, the VM's own work, and wifi's ubus call and nl80211's replies, which no change here touched.
+
+## What uhttpd holds at rest {#at-rest}
+
+uhttpd holds what the handler's program compiled and loaded for as long as it runs, and every request's process and every collectors' child is forked from it. What a scrape needs of it only now and then, it now loads where it needs it, in the process that needs it, and keeps there:
+
+- **ubus, rtnl and nl80211**, the native modules collectors read with, are loaded the first time a collector's deps ask for one (`deps.native`), in the scrape's child. uhttpd, which never calls them itself, held them all: some 150 kB with an access point's collectors.
+- **Basic auth's module, crypt and ucode-mod-digest** are compiled when the handler finds uhttpd's auth file, and kept then; without basic auth, never. The config's datatypes take what a user and a hash may be from a module of their own, `hashes.uc`, and a meta's fingerprint is its JSON, not its MD5. 50 kB. Should basic auth's module not load, whatever the reason, every request is denied, as without its file.
+- **The exposition parser** is compiled the first time a collector parses: unbound and textfile, in the child. 60 kB.
+- **zlib** is loaded in the request's process the first time it gzips a reply, which is sent plain should zlib not load; and what the service grants its user when it starts (the ubus ACL, the groups, the capabilities, the TLS copies) moved from `privileges.uc`, which a scrape checks against, to `grant.uc`, which only `jail.uc` loads. 45 kB together.
+
+What a scrape pays for them instead, the first time it needs each (`make bench`'s `lazy:` cases, each a process of its own):
+
+| Loaded where it is needed | devenv | QEMU's 500-MIPS 24Kc | YunCore AX835 |
+| :--- | :--- | :--- | :--- |
+| the exposition parser, compiled (`lazy:parse`) | 1.2 ms | 30.5 ms | 10.4 ms |
+| zlib (`lazy:zlib`) | 0.2 ms | 1.4 ms | 1.1 ms |
+| ubus (`lazy:ubus`) | 0.2 ms | 1.4 ms | 1.1 ms |
+| rtnl (`lazy:rtnl`) | 0.2 ms | 2.4 ms | 1.3 ms |
+| nl80211 (`lazy:nl80211`) | 0.2 ms | 1.8 ms | 1.1 ms |
+
+An access point's scrape needs all but the parser: 4.6 ms more of its 0.17 s on the AX835, for 0.25 MB less held for as long as uhttpd runs. A scrape with unbound pays the parser too; textfile's paid it before.
+
+What uhttpd holds, before (main of 2026-10-09) and now:
+
+| | before | now |
+| :--- | :--- | :--- |
+| devenv, the handler with the base collectors (`rest:base`) | 1.58 MB | 1.38 MB |
+| devenv, with every collector (`rest:full`) | 2.23 MB | 2.02 MB |
+| YunCore AX835, base collectors (`rest:base`) | 1.58 MB | 1.39 MB |
+| YunCore AX835, every collector (`rest:full`) | 2.22 MB | 2.03 MB |
+| QEMU's 24Kc (32-bit), base collectors (`rest:base`) | 1.08 MB | 1.02 MB |
+| QEMU's 24Kc, every collector (`rest:full`) | | 1.46 MB |
+| the service's uhttpd in the devenv's procd container (RssAnon): base collectors | 1.90 MB | 1.63 MB |
+| the same, an access point's 19 collectors | 2.07 MB | 1.74 MB |
+| the same, the base package and the `-full` group (36) | 2.54 MB | 2.26 MB |
+| the service's uhttpd in QEMU's 24Kc, the base package and the `-full` group (36) | | 1.70 MB |
+
+The `rest:` cases run in the benchmark's own process, which has loaded some native modules itself: they show less of what a native module saves than the service does. On the access point, the service's uhttpd held 2.21 MB with 0.2.1-r4, against the Lua exporter's 0.52 MB; by the container's 16% less, about 1.86 MB now.
+
+### What is left {#what-is-left}
+
+What uhttpd holds now is mostly what ucode keeps of a program it compiled from source, and what compiling it left behind:
+
+- **A function** costs ucode some 0.8 kB however small, a kilobyte with a few locals, more with many: its bytecode, and the debug information of its locals and its lines, which a runtime error's message is written from. The handler's program has some 380 functions; the collectors 5 to 20 each.
+- **An object** a module makes when it loads, an option's spec or a table of names, costs another 0.6 kB or so, and its strings twice: once in the program, once in the object.
+- **The source text**, comments included, costs a sixth of its bytes: some 50 kB for the handler's program's 290 kB.
+- **Compiling** leaves about a quarter more, freed but not given back: musl's malloc keeps freed memory a process will reuse.
+
+Loading the same program as precompiled bytecode stripped of its debug information (`ucode -c -s`) shows how much of it is that information. The handler's program, which holds 1076 kB compiled from source in the devenv, holds 612 kB loaded that way, and loads in a sixth of the time; the collectors' program would shrink much the same. That would take a service of an access point's collectors under 1.5 MB on the AX835. It would also take every runtime error's line and file, which a collector's `COLLECTOR_CRASHED` and the log say, and change how the exporter loads and checks its modules and collectors: it is not done.
+
+## memory_limit's floor {#memory-floor}
+
+`memory_limit` limits each of uhttpd's processes (RLIMIT_DATA): the one that loads the handler and the collectors, each request's, and the child its collectors run in. Under too little, uhttpd does not load the handler, and procd starts it again and again; a scrape, or a collector, runs out. The least it takes is 8 MB (MEMORY_LIMIT_MIN), which the config refuses less than. `make bench`'s `floor:` cases find the least limit, in whole MB, under which uhttpd loads the handler with a set's collectors and the typical world's scrape of them has every collector succeed:
+
+| Machine | base collectors (16) | every collector (36) |
+| :--- | :--- | :--- |
+| devenv (x86_64) | 4 MB | 7 MB |
+| QEMU's 24Kc (32-bit MIPS) | 3 MB | 5 MB |
+| YunCore AX835 (Cortex-A53), by the benchmark's scrape process | 3 MB | 7 MB |
+
+On the access point, whose installed exporter is not the source tree's, uhttpd cannot run this one: the case limits the benchmark's scrape process instead, which lacks uhttpd's own data, and found the same as uhttpd does in the devenv for every collector, and 1 MB less for the base ones. So 8 MB holds on each, 32-bit and 64-bit, with room for a collector or two of another package. A busy router's scrape takes more: the benchmark's large world, 20,000 connections and every collector, needs 29 MB in the devenv, 27 MB on the A53; `memory_limit` 0, a quarter of the RAM, at most 64 MB, gives it that on a router of 128 MB or more.
+
+## What each collector costs {#each-collector}
+
+What a collector adds to what uhttpd holds (compiled with the collector API, in the devenv, to 4 kB), and its run on the benchmark's large world (50 links, 3 radios of 3 networks and 200 stations, 2,000 DHCP leases), in each case's process:
+
+| Collector | held at rest | devenv | QEMU's 500-MIPS 24Kc | YunCore AX835 |
+| :--- | :--- | :--- | :--- | :--- |
+| chrony | 48 kB | 7.2 ms | - | 33.0 ms |
+| conntrack | 20 kB | 0.6 ms | 14.3 ms | 6.3 ms |
+| cpu | 12 kB | 0.8 ms | 22.5 ms | 8.9 ms |
+| dhcp_leases | 48 kB | 55.1 ms | 2141 ms | 680 ms |
+| diskstats | 24 kB | 1.8 ms | 46.2 ms | 17.9 ms |
+| dnsmasq | 16 kB | 0.7 ms | 17.3 ms | 6.6 ms |
+| entropy | 12 kB | 0.4 ms | 6.9 ms | 3.5 ms |
+| ethtool | 52 kB | 93.5 ms | 1387 ms | 594 ms |
+| exporter | 36 kB | 0.8 ms | 14.0 ms | 6.4 ms |
+| filefd | 8 kB | 0.3 ms | 6.9 ms | 3.1 ms |
+| filesystem | 28 kB | 0.8 ms | 20.1 ms | 7.5 ms |
+| hostapd_stations | 16 kB | 13.2 ms | 523 ms | 167 ms |
+| hostapd_ubus_stations | 16 kB | 6.4 ms | 259 ms | 83.2 ms |
+| hwmon | 44 kB | 5.4 ms | 124 ms | 52.1 ms |
+| loadavg | 12 kB | 0.4 ms | 7.5 ms | 3.4 ms |
+| meminfo | 8 kB | 0.8 ms | 22.2 ms | 8.4 ms |
+| netclass | 28 kB | 9.9 ms | 235 ms | 91.2 ms |
+| netdev | 20 kB | 3.3 ms | 128 ms | 44.2 ms |
+| netstat | 44 kB | 1.4 ms | 43.1 ms | 16.2 ms |
+| nft-counters | 8 kB | 5.0 ms | 124 ms | 44.4 ms |
+| openwrt | 8 kB | 0.5 ms | 9.6 ms | 4.0 ms |
+| openwrt_interfaces | 20 kB | 1.5 ms | 54.6 ms | 18.9 ms |
+| qdisc | 16 kB | 3.5 ms | 56.3 ms | 22.0 ms |
+| selinux | 12 kB | 0.4 ms | 7.0 ms | 3.2 ms |
+| snmp6 | 8 kB | 16.7 ms | 576 ms | 212 ms |
+| sockstat | 20 kB | 0.8 ms | 19.4 ms | 8.2 ms |
+| softnet | 12 kB | 0.6 ms | 16.5 ms | 7.0 ms |
+| textfile | 16 kB | 24.4 ms | 795 ms | 275 ms |
+| thermal | 16 kB | 0.9 ms | 15.1 ms | 7.4 ms |
+| time | 4 kB | 0.3 ms | 6.3 ms | 2.9 ms |
+| timesync | 20 kB | 0.5 ms | 10.1 ms | 4.2 ms |
+| uci_dhcp_host | 16 kB | 3.4 ms | 123 ms | 43.3 ms |
+| uname | 8 kB | 0.5 ms | 7.8 ms | 3.6 ms |
+| vmstat | 16 kB | 0.5 ms | 13.5 ms | 5.4 ms |
+| wifi | 40 kB | 10.4 ms | 353 ms | 124 ms |
+| wireguard | 16 kB | 2.3 ms | 62.8 ms | 21.8 ms |
+| nat_traffic, 1,000 connections | 12 kB | 8.1 ms | 308 ms | 110 ms |
+| nat_traffic, 20,000 connections | 12 kB | 142 ms | 5609 ms | 1953 ms |
+
+The collector API they share holds 110 kB more, once. On a slow router, the time of a collector that reads a table is that of the table: nat_traffic's, dhcp_leases' leases, ethtool's ports (it runs `ethtool` three times a port), textfile's files. Some packages bring programs that take flash too: ethtool's `ethtool` (72 KiB on mipsel), qdisc's `tc-tiny` and `kmod-sched-core` (279 and 172 KiB). See [How to run the exporter on a small device](../how-to/small-device.md).
 
 ## Loading {#loading}
 

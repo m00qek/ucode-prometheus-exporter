@@ -376,12 +376,12 @@ export function main(uci) {
 
 /**
  * The least memory_limit but 0, in MB: under it uhttpd cannot load the
- * handler, and so crash-loops, though the configuration is valid. Loading it
- * with every collector of the exporter's packages, 45, takes 6 MB of data
- * (RLIMIT_DATA) on x86_64, the base package's 16 take 4 MB, and a 32-bit
- * MIPS router less; 8 leaves 2 MB more for a scrape's own child processes
- * of the base collectors, and past that a collector that takes more fails
- * alone.
+ * handler, and so crash-loops, though the configuration is valid. The least
+ * under which uhttpd loads the handler and a typical scrape of every
+ * collector succeeds (make bench's floor: cases) is 7 MB on x86_64 and on a
+ * Cortex-A53, 5 MB on a 32-bit MIPS 24Kc (QEMU), and for the base package's
+ * collectors 4 and 3 MB: 8 holds on each, with room for a collector or two of
+ * another package, and past that a collector that takes more fails alone.
  *
  * @type {int}
  */

@@ -65,6 +65,7 @@ nav:
           - Removing the Exporter: how-to/uninstall.md
           - Moving from the Feed's Exporters: how-to/migrate-from-feed.md
           - Choosing Collectors: how-to/choose-collectors.md
+          - Running on a Small Device: how-to/small-device.md
           - Listening on the LAN: how-to/listen-on-lan.md
           - Serving HTTPS with Basic Auth: how-to/https-basic-auth.md
           - Compressing Scrapes: how-to/gzip.md

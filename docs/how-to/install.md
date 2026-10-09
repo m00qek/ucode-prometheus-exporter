@@ -28,7 +28,7 @@ apk then checks every package of the feed against that key, as it checks OpenWrt
 - A collector's package, `ucode-prometheus-exporter-<name>`, for each other collector you want: `-wifi`, `-dnsmasq`, `-wireguard`.
 - Or a group: `-network`, `-wireless`, `-hardware`, or `-full` for all three and the services every router has.
 - `luci-app-prometheus-exporter`, for its pages in LuCI.
-- `ucode-prometheus-exporter-cli`, for the [`prometheus-exporter` command](../reference/command.md): a scrape on standard output, the hash of a password, a collector checked before it is installed. The service and LuCI need none of it; on a router short of flash, leave it out (see [Files and packages](../reference/files.md#ucode-prometheus-exporter-cli)).
+- `ucode-prometheus-exporter-cli`, for the [`prometheus-exporter` command](../reference/command.md): a scrape on standard output, the hash of a password, a collector checked before it is installed. The service and LuCI need none of it; on a router short of flash, leave it out (see [How to run the exporter on a small device](small-device.md)).
 
 [Collectors](../reference/collectors.md) lists every collector, its package and its groups.
 
