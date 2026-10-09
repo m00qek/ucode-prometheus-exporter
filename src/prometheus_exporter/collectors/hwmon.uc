@@ -6,9 +6,12 @@
 // The Lua exporter's hwmon collector: every chip under /sys/class/hwmon, its
 // sensor labels, temperatures and PWM duty cycles, named and labeled as
 // node_exporter's hwmon collector (collector/hwmon_linux.go) has them; and, as
-// node_exporter has them too, its fans, voltages, currents and power (READINGS),
-// in base units: the kernel's millivolts, milliamperes and microwatts
-// (Documentation/hwmon/sysfs-interface.rst) as volts, amperes and watts.
+// node_exporter has them too, its fans, voltages, currents and power, the max
+// and crit limits of its temperatures and their alarm, and the average power
+// of a meter that keeps one (READINGS), in base units: the kernel's millidegrees,
+// millivolts, milliamperes and microwatts
+// (Documentation/hwmon/sysfs-interface.rst) as degrees, volts, amperes and
+// watts.
 //
 // A chip is named as node_exporter names it: the type and name of the device
 // its `device` link resolves to, `<type>_<name>` (as thermal_thermal_zone0 or
@@ -45,12 +48,16 @@ const READINGS = {
 	in_alarm: [ 'node_hwmon_in_alarm', 'Hardware sensor alarm status (in)', 1 ],
 	curr_input: [ 'node_hwmon_curr_amps', 'Hardware monitor for current (input)', 1000 ],
 	power_input: [ 'node_hwmon_power_watt', 'Hardware monitor for power usage in watts (input)', 1000000 ],
+	power_average: [ 'node_hwmon_power_average_watt', 'Hardware monitor for power usage in watts (average)', 1000000 ],
+	temp_max: [ 'node_hwmon_temp_max_celsius', 'Hardware monitor for temperature (max)', 1000 ],
+	temp_crit: [ 'node_hwmon_temp_crit_celsius', 'Hardware monitor for temperature (crit)', 1000 ],
+	temp_alarm: [ 'node_hwmon_temp_alarm', 'Hardware sensor alarm status (temp)', 1 ],
 };
 
 export const meta = {
 	name: 'hwmon',
 	title: 'Hardware sensors',
-	help: 'Hardware monitor chips: sensor labels, temperatures, PWM, fans, voltages, currents and power, from /sys/class/hwmon.',
+	help: 'Hardware monitor chips: sensor labels, temperatures and their limits, PWM, fans, voltages, currents and power, from /sys/class/hwmon.',
 	needs: [ 'fs' ],
 };
 

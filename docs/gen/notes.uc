@@ -54,6 +54,10 @@ export const nothing_to_observe = {
 		when: 'nf_conntrack not loaded: no `/proc/net/nf_conntrack`.',
 		failure: 'The file there and unreadable.',
 	},
+	'pressure': {
+		when: 'No `/proc/pressure`: a kernel without `CONFIG_PSI`, or booted with `psi=0`.',
+		failure: '`/proc/pressure` there, and its `cpu`, `io` or `memory` unreadable or not as the kernel writes it.',
+	},
 	'snmp6': {
 		when: 'No `/proc/net/dev_snmp6` (IPv6 disabled).',
 		failure: 'The directory there and unreadable.',
@@ -145,7 +149,7 @@ export const metric_patterns = {
 	} ],
 	'snmp6': [ {
 		name: 'node_snmp6_<Protocol>_<Field>_total',
-		help: 'IPv6 statistic <Protocol><Field> of the device: each of `/proc/net/dev_snmp6/<device>`.',
+		help: 'IPv6 statistic <Protocol><Field> of the device: each field of `/proc/net/dev_snmp6/<device>` the `fields` option matches, by default 13 of about 70.',
 		match: (n) => match(n, /^node_snmp6_.*_total$/),
 	} ],
 	'vmstat': [ {
@@ -170,6 +174,15 @@ export const metric_patterns = {
 // What a family's row says besides, by collector: `note` for each family
 // `match(name)` takes. Every entry must take a family the fixtures show.
 export const family_notes = {
+	'nat_traffic': [ {
+		match: (n) => n == 'node_nat_traffic_bytes',
+		note: '`peer` with the `peers` option only: a series per host and peer, which come and go with the connections.',
+	} ],
+	'unbound': [ {
+		match: (n) => match(n, /^unbound_(memory_|answer|rrset_|unwanted_|msg_cache|infra_cache|key_cache|response_time|rpz_)/) ||
+			(match(n, /^unbound_query_/) && n != 'unbound_query_queue_time_seconds_max'),
+		note: 'With `extended-statistics: yes` in unbound\'s config only (the UCI\'s `extended_stats`); see [How to monitor Unbound](../how-to/unbound.md#extended-statistics).',
+	} ],
 	'chrony': [ {
 		match: (n) => match(n, /^chrony_serverstats_/),
 		note: 'Never at `/metrics`: written outside the jail only, as by the `prometheus-exporter` command, where chronyd serves time (an `allow` section in `/etc/config/chrony`).',
@@ -182,6 +195,23 @@ export const family_notes = {
 // refuses a family here that the fixtures show, or that the collector's code
 // does not declare.
 export const unharvested = {
+	'ethtool': [
+		{ name: 'node_ethtool_info', labels: [ 'bus_info', 'device', 'driver', 'expansion_rom_version', 'firmware_version', 'version' ], why: 'From `ethtool -i <device>`, which no device\'s captures hold: its tests run on made-up outputs (test/fixtures/synthetic/commands).' },
+		{ name: 'node_network_supported_port_info', labels: [ 'device', 'type' ], why: 'From `ethtool <device>`\'s `Supported ports`, as node_ethtool_info: one series per port type (TP, AUI, BNC, MII, FIBRE, Backplane).' },
+		{ name: 'node_network_supported_speed_bytes', labels: [ 'device', 'duplex', 'mode' ], why: 'From `ethtool <device>`\'s `Supported link modes`, as node_ethtool_info: one series per mode, `1000baseT/Full` as mode `1000baseT`, duplex `full`, in bytes per second.' },
+		{ name: 'node_network_advertised_speed_bytes', labels: [ 'device', 'duplex', 'mode' ], why: 'From its `Advertised link modes`, as the supported ones.' },
+		{ name: 'node_network_autonegotiate_supported', labels: [ 'device' ], why: 'From its `Supports auto-negotiation`, as node_ethtool_info.' },
+		{ name: 'node_network_pause_supported', labels: [ 'device' ], why: 'From its `Supported pause frame use`: 1 where it says `Symmetric`.' },
+		{ name: 'node_network_asymmetricpause_supported', labels: [ 'device' ], why: 'From its `Supported pause frame use`: 1 where it says `Receive-only` or `Transmit-only`.' },
+		{ name: 'node_network_autonegotiate_advertised', labels: [ 'device' ], why: 'From its `Advertised auto-negotiation`.' },
+		{ name: 'node_network_pause_advertised', labels: [ 'device' ], why: 'From its `Advertised pause frame use`, as the supported one.' },
+		{ name: 'node_network_asymmetricpause_advertised', labels: [ 'device' ], why: 'From its `Advertised pause frame use`, as the supported one.' },
+		{ name: 'node_network_autonegotiate', labels: [ 'device' ], why: 'From its `Auto-negotiation`: 1 where it is `on`.' },
+	],
+	'filesystem': [
+		{ name: 'node_filesystem_files', labels: [ 'device', 'fstype', 'mountpoint' ], why: 'From the package\'s rpcd plugin, `ubus call prometheus-exporter.filesystem mounts`, which no device\'s captures hold: where rpcd has not loaded it, the collector asks luci\'s `getMountPoints`, which has no inode counts, and writes the sizes alone.' },
+		{ name: 'node_filesystem_files_free', labels: [ 'device', 'fstype', 'mountpoint' ], why: 'As node_filesystem_files.' },
+	],
 	'exporter': [
 		{ name: 'process_cpu_seconds_total', labels: [], why: 'The exporter\'s own, from the serving uhttpd\'s /proc/<pid>/stat, which no capture holds: its CPU and its reaped scrapes\'.' },
 		{ name: 'process_virtual_memory_bytes', labels: [], why: 'As process_cpu_seconds_total.' },
@@ -196,6 +226,9 @@ export const unharvested = {
 		{ name: 'ucode_prometheus_exporter_quarantines_total', labels: [ 'collector' ], why: 'As scrapes_total: times a collector\'s circuit breaker tripped.' },
 		{ name: 'ucode_prometheus_exporter_deadline_skips_total', labels: [ 'collector' ], why: 'As scrapes_total: times the deadline left a collector out or killed its program.' },
 		{ name: 'ucode_prometheus_exporter_collector_samples', labels: [ 'collector' ], why: 'This scrape\'s: the samples each collector that ran before it wrote.' },
+	],
+	'snmp6': [
+		{ name: 'node_snmp6_ifindex', labels: [ 'device' ], why: 'Written where the `fields` option matches `ifIndex`, which its default does not: netclass\'s `node_network_iface_id` is the same index.' },
 	],
 	'thermal': [
 		{ name: 'node_thermal_zone_passive_celsius', labels: [ 'zone', 'type' ], why: 'Written for a zone with a passive trip point; no captured zone has one.' },

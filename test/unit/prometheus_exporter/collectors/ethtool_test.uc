@@ -60,11 +60,40 @@ function devices(backed) {
 	};
 }
 
+// What ethtool does for a device of no driver information or link settings,
+// as a test gives none: `ethtool -i` fails with 71, `ethtool <device>` with
+// 75 ("No data available").
+function without_link(links, outputs) {
+	let all = { ...outputs };
+
+	for (let l in links) {
+		all[commands.line([ 'ethtool', '-i', l.dev ])] ??= { out: '', status: 71 };
+		all[commands.line([ 'ethtool', l.dev ])] ??= { out: '', status: 75 };
+	}
+
+	return all;
+}
+
 // A device backs every link unless `backed` says which.
 function with_ethtool(links, outputs, cb, backed) {
 	let stat = devices(backed ?? map(links, (l) => l.dev));
 
-	with_collector(ethtool, { rtnl: { data: { RTM_GETLINK: links } }, fs: commands.fs(outputs, { behavior: { stat } }) }, cb);
+	with_collector(ethtool, { rtnl: { data: { RTM_GETLINK: links } }, fs: commands.fs(without_link(links, outputs), { behavior: { stat } }) }, cb);
+}
+
+// The made-up `ethtool <device>` and `ethtool -i <device>` of
+// test/fixtures/synthetic/SOURCES: a 2.5G NIC at 1G, a switch port without a
+// link, a radio's interface.
+function link_outputs(devs) {
+	let out = {};
+
+	for (let dev in devs) {
+		out[commands.line([ 'ethtool', '-S', dev ])] = { out: 'NIC statistics:\n     rx_packets: 1\n', status: 0 };
+		out[commands.line([ 'ethtool', '-i', dev ])] = { out: fixtures.file('synthetic', `/commands/ethtool_i_${dev}.txt`), status: 0 };
+		out[commands.line([ 'ethtool', dev ])] = { out: fixtures.file('synthetic', `/commands/ethtool_${dev}.txt`), status: 0 };
+	}
+
+	return out;
 }
 
 function samples(lines) {
@@ -206,6 +235,148 @@ describe('collectors.ethtool', () => {
 		});
 	});
 
+	// Its driver and link families come first, as declared; the statistics', named as they come, after.
+	it("exports each device's driver and link as node_exporter's ethtool collector does", () => {
+		let links = [ { dev: 'eth0' }, { dev: 'lan1' }, { dev: 'phy0-ap0' } ];
+
+		with_ethtool(links, link_outputs([ 'eth0', 'lan1', 'phy0-ap0' ]), (r) => {
+			assert.match(true, r.result.ok);
+			assert.match([
+				"# HELP node_ethtool_info A metric with a constant '1' value labeled by bus_info, device, driver, expansion_rom_version, firmware_version, version.",
+				'# TYPE node_ethtool_info gauge',
+				'node_ethtool_info{bus_info="0000:01:00.0",device="eth0",driver="r8169",expansion_rom_version="",firmware_version="rtl8125b-2_0.0.2 07/13/20",version="6.12.94"} 1',
+				'node_ethtool_info{bus_info="platform",device="lan1",driver="dsa",expansion_rom_version="",firmware_version="N/A",version="6.12.94"} 1',
+				'node_ethtool_info{bus_info="platform:18000000.wifi",device="phy0-ap0",driver="mt798x-wmac",expansion_rom_version="",firmware_version="____000000-20240823091407",version="6.12.94"} 1',
+				'# HELP node_network_supported_port_info Type of ports or PHYs supported by network device',
+				'# TYPE node_network_supported_port_info gauge',
+				'node_network_supported_port_info{device="eth0",type="TP"} 1',
+				'node_network_supported_port_info{device="eth0",type="MII"} 1',
+				'node_network_supported_port_info{device="lan1",type="TP"} 1',
+				'node_network_supported_port_info{device="lan1",type="MII"} 1',
+				'# HELP node_network_supported_speed_bytes Combination of speeds and features supported by network device',
+				'# TYPE node_network_supported_speed_bytes gauge',
+				'node_network_supported_speed_bytes{device="eth0",duplex="half",mode="10baseT"} 1250000',
+				'node_network_supported_speed_bytes{device="eth0",duplex="full",mode="10baseT"} 1250000',
+				'node_network_supported_speed_bytes{device="eth0",duplex="half",mode="100baseT"} 12500000',
+				'node_network_supported_speed_bytes{device="eth0",duplex="full",mode="100baseT"} 12500000',
+				'node_network_supported_speed_bytes{device="eth0",duplex="full",mode="1000baseT"} 125000000',
+				'node_network_supported_speed_bytes{device="eth0",duplex="full",mode="2500baseT"} 312500000',
+				'node_network_supported_speed_bytes{device="lan1",duplex="half",mode="10baseT"} 1250000',
+				'node_network_supported_speed_bytes{device="lan1",duplex="full",mode="10baseT"} 1250000',
+				'node_network_supported_speed_bytes{device="lan1",duplex="half",mode="100baseT"} 12500000',
+				'node_network_supported_speed_bytes{device="lan1",duplex="full",mode="100baseT"} 12500000',
+				'node_network_supported_speed_bytes{device="lan1",duplex="full",mode="1000baseT"} 125000000',
+				'# HELP node_network_advertised_speed_bytes Combination of speeds and features offered by network device',
+				'# TYPE node_network_advertised_speed_bytes gauge',
+				'node_network_advertised_speed_bytes{device="eth0",duplex="half",mode="10baseT"} 1250000',
+				'node_network_advertised_speed_bytes{device="eth0",duplex="full",mode="10baseT"} 1250000',
+				'node_network_advertised_speed_bytes{device="eth0",duplex="half",mode="100baseT"} 12500000',
+				'node_network_advertised_speed_bytes{device="eth0",duplex="full",mode="100baseT"} 12500000',
+				'node_network_advertised_speed_bytes{device="eth0",duplex="full",mode="1000baseT"} 125000000',
+				'node_network_advertised_speed_bytes{device="eth0",duplex="full",mode="2500baseT"} 312500000',
+				'node_network_advertised_speed_bytes{device="lan1",duplex="half",mode="10baseT"} 1250000',
+				'node_network_advertised_speed_bytes{device="lan1",duplex="full",mode="10baseT"} 1250000',
+				'node_network_advertised_speed_bytes{device="lan1",duplex="half",mode="100baseT"} 12500000',
+				'node_network_advertised_speed_bytes{device="lan1",duplex="full",mode="100baseT"} 12500000',
+				'node_network_advertised_speed_bytes{device="lan1",duplex="full",mode="1000baseT"} 125000000',
+				'# HELP node_network_autonegotiate_supported If this port device supports autonegotiate',
+				'# TYPE node_network_autonegotiate_supported gauge',
+				'node_network_autonegotiate_supported{device="eth0"} 1',
+				'node_network_autonegotiate_supported{device="lan1"} 1',
+				'# HELP node_network_pause_supported If this port device supports pause frames',
+				'# TYPE node_network_pause_supported gauge',
+				'node_network_pause_supported{device="eth0"} 1',
+				'node_network_pause_supported{device="lan1"} 1',
+				'# HELP node_network_asymmetricpause_supported If this port device supports asymmetric pause frames',
+				'# TYPE node_network_asymmetricpause_supported gauge',
+				'node_network_asymmetricpause_supported{device="eth0"} 1',
+				'node_network_asymmetricpause_supported{device="lan1"} 1',
+				'# HELP node_network_autonegotiate_advertised If this port device offers autonegotiate',
+				'# TYPE node_network_autonegotiate_advertised gauge',
+				'node_network_autonegotiate_advertised{device="eth0"} 1',
+				'node_network_autonegotiate_advertised{device="lan1"} 1',
+				'# HELP node_network_pause_advertised If this port device offers pause capability',
+				'# TYPE node_network_pause_advertised gauge',
+				'node_network_pause_advertised{device="eth0"} 1',
+				'node_network_pause_advertised{device="lan1"} 0',
+				'# HELP node_network_asymmetricpause_advertised If this port device offers asymmetric pause capability',
+				'# TYPE node_network_asymmetricpause_advertised gauge',
+				'node_network_asymmetricpause_advertised{device="eth0"} 1',
+				'node_network_asymmetricpause_advertised{device="lan1"} 0',
+				'# HELP node_network_autonegotiate If this port is using autonegotiate',
+				'# TYPE node_network_autonegotiate gauge',
+				'node_network_autonegotiate{device="eth0"} 1',
+				'node_network_autonegotiate{device="lan1"} 1',
+				'# HELP node_ethtool_received_packets_total Network interface packets received',
+				'# TYPE node_ethtool_received_packets_total untyped',
+				'node_ethtool_received_packets_total{device="eth0"} 1',
+				'node_ethtool_received_packets_total{device="lan1"} 1',
+				'node_ethtool_received_packets_total{device="phy0-ap0"} 1',
+			], r.lines);
+		});
+	});
+
+	it("reads ethtool's pause frame use as node_exporter's pause and asymmetric pause bits", () => {
+		let pause = (v) => ethtool.link_settings(`Settings for eth0:\n\tSupported pause frame use: ${v}\n`).supported;
+
+		assert.match([ [ false, false ], [ true, false ], [ false, true ], [ true, true ] ],
+			map([ 'No', 'Symmetric', 'Transmit-only', 'Symmetric Receive-only' ], (v) => [ pause(v).pause, pause(v).asymmetric_pause ]));
+	});
+
+	it('reads link modes over lines of their own, and leaves out what is not a mode', () => {
+		let s = ethtool.link_settings('Settings for sfp1:\n\tSupported ports: [ FIBRE ]\n' +
+			'\tSupported link modes:   1000baseX/Full\n\t                        2500baseX/Full\n\t                        10000baseSR/Full\n' +
+			'\tSupported FEC modes: Not reported\n\tAdvertised link modes:  Not reported\n' +
+			'\tLink partner advertised link modes:  1000baseX/Full\n\t                                     100baseT/Half\n\tAuto-negotiation: off\n');
+
+		assert.match({
+			supported: { ports: [ 'FIBRE' ], modes: [ [ '1000baseX', 'full', 1000 ], [ '2500baseX', 'full', 2500 ], [ '10000baseSR', 'full', 10000 ] ],
+				pause: null, asymmetric_pause: null, autonegotiate: null },
+			advertised: { modes: [], pause: null, asymmetric_pause: null, autonegotiate: null },
+			autonegotiate: false,
+		}, s);
+	});
+
+	it("reads ethtool -i's keys as node_exporter labels them, empty where it has none", () => {
+		assert.match({ bus_info: '0000:01:00.0', driver: 'r8169', expansion_rom_version: '', firmware_version: 'rtl8125b-2_0.0.2 07/13/20', version: '6.12.94' },
+			ethtool.driver_info(fixtures.file('synthetic', '/commands/ethtool_i_eth0.txt')));
+		assert.match({ bus_info: '', driver: 'x', expansion_rom_version: '', firmware_version: '', version: '' }, ethtool.driver_info('driver: x\nnonsense\n'));
+	});
+
+	it('still writes the link of a device without statistics, and the statistics of one without a link', () => {
+		let out = link_outputs([ 'eth0' ]);
+
+		out[run('eth0')] = { out: '', status: 94 };
+		out[run('lan')] = { out: stat('rx_packets', 3), status: 0 };
+
+		with_ethtool([ { dev: 'eth0' }, { dev: 'lan' } ], out, (r) => {
+			assert.match(true, r.result.ok);
+			assert.match(contains([
+				'node_network_autonegotiate{device="eth0"} 1',
+				'node_ethtool_received_packets_total{device="lan"} 3',
+			]), r.lines);
+			assert.match(false, index(r.text, 'node_ethtool_received_packets_total{device="eth0"}') >= 0);
+			assert.match(false, index(r.text, 'device="lan",') >= 0);
+		});
+	});
+
+	it("leaves out a driver's statistic named info, which node_ethtool_info is", () => {
+		with_ethtool([ { dev: 'eth0' } ], { [run('eth0')]: { out: stat('info', 5) + '     rx_x: 3\n' } }, (r) => {
+			assert.match(true, r.result.ok);
+			assert.match([ 'node_ethtool_received_x{device="eth0"} 3' ], samples(r.lines));
+		});
+	});
+
+	it('fails with COMMAND_FAILED when ethtool -i cannot start, keeping what it read', () => {
+		let out = { [run('eth0')]: { out: stat('rx_packets', 7) }, [commands.line([ 'ethtool', '-i', 'eth0' ])]: { out: '', status: 127 } };
+
+		with_ethtool([ { dev: 'eth0' } ], out, (r) => {
+			assert.match({ ok: false, error: 'COMMAND_FAILED', details: 'ethtool: exit status 127' },
+				{ ok: r.result.ok, error: r.result.error, details: r.result.details });
+			assert.match([ 'node_ethtool_received_packets_total{device="eth0"} 7' ], samples(r.lines));
+		});
+	});
+
 	it('exports nothing where no link has statistics', () => {
 		with_ethtool([ { dev: 'lo' } ], { [run('lo')]: { out: '', status: 94 } }, (r) => {
 			assert.match(true, r.result.ok);
@@ -276,7 +447,10 @@ describe('collectors.ethtool', () => {
 			with_collector(ethtool, { rtnl: { data: { RTM_GETLINK: links } }, fs }, (r) => {
 				assert.match(true, r.result.ok);
 			});
-			assert.match(map(backed, run), ran);
+			let want = [];
+			for (let dev in backed)
+				push(want, run(dev), commands.line([ 'ethtool', '-i', dev ]), commands.line([ 'ethtool', dev ]));
+			assert.match(want, ran);
 		});
 
 	it('asks sysfs whether a device backs a link', () => {

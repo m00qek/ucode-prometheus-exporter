@@ -20,6 +20,12 @@ FROM ghcr.io/openwrt/rootfs:${OPENWRT_ARCH}-${OPENWRT_VERSION}
 # pinned to the version and release that image pins it to
 # (devenv/services/openwrt/Dockerfile). The pinned name comes after
 # FEED_DEPENDS, which names it bare: apk keeps the last.
+#
+# The release's packages feed is rebuilt after the release, its index with
+# it: a package that installed when an image was built may not when the next
+# one is (unbound-daemon was reported to). When apk refuses the set, each of
+# FEED_DEPENDS it would not install alone is named, with what apk says of it
+# and the versions the feeds have.
 ARG OPENWRT_VERSION
 ARG UCODE_FEED=https://m00qek.github.io/packages.ucode.dev
 ARG DOCOPT_VERSION=1.0.2-r1
@@ -31,7 +37,10 @@ RUN mkdir -p /var/lock /var/run /etc/apk/keys /etc/apk/repositories.d && \
     mkdir -p /var/lock /var/run /opt/feed && \
     apk update && \
     { apk add $FEED_DEPENDS ucode-mod-uloop "ucode-docopt=$DOCOPT_VERSION" || \
-      { echo "pinned: ucode-docopt $DOCOPT_VERSION; the feed has:" >&2; apk search -a -x ucode-docopt >&2; exit 1; }; } && \
+      { echo "pinned: ucode-docopt $DOCOPT_VERSION; the feed has:" >&2; apk search -a -x ucode-docopt >&2; \
+        for p in $FEED_DEPENDS; do apk add --simulate "$p" >/dev/null 2>&1 || \
+          { echo "not installable alone from the feeds: $p" >&2; apk add --simulate "$p" >&2; apk policy "$p" >&2; }; done; \
+        exit 1; }; } && \
     apk fetch -o /opt/feed prometheus-node-exporter-ucode && \
     { [ ! -x /etc/init.d/unbound ] || /etc/init.d/unbound disable; } && \
     { [ ! -x /etc/init.d/chronyd ] || /etc/init.d/chronyd disable; }

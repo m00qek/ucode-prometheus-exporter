@@ -9,7 +9,9 @@
 #   stopped below its minimum, so in alarm) and voltages (inN_input, _min,
 #   _max, _alarm, in millivolts after the driver's scaling), with the _beep
 #   and _pulses files the driver has besides: sysfs-interface.rst's "Fans"
-#   and "Voltages", and the attributes nct6775.rst lists.
+#   and "Voltages", and the attributes nct6775.rst lists. Its two first
+#   temperatures' limits: tempN_max and tempN_max_hyst (80 and 75 degrees)
+#   and tempN_alarm, as sysfs-interface.rst's "Temperatures" has them.
 # sys/class/hwmon/hwmon1
 #   A chip with neither a name file nor a device link, below 0 degrees.
 # sys/class/hwmon/hwmon2, links.json
@@ -20,6 +22,55 @@
 #   attributes of Documentation/hwmon/ina2xx.rst, the units of
 #   sysfs-interface.rst's "Voltages", "Currents" and "Power"; the device path
 #   as an I2C client's (bus-address) under its adapter.
+# sys/class/hwmon/hwmon3, links.json
+#   A MediaTek MT7915-family radio (mt76's mt7915 driver, which the MT7981's
+#   Wi-Fi uses) with its throttling limits: temp1_input, temp1_crit and
+#   temp1_max, the driver's 110 and 100 degrees (MT7915_CRIT_TEMP,
+#   MT7915_MAX_TEMP in mt7915.h; the attributes of mt7915_thermal_init() in
+#   init.c). The access point's captures hold its radios' temp1_input only.
+# sys/class/hwmon/hwmon4, links.json
+#   A TI LM25066 hot-swap controller on I2C bus 1 at 0x10, as on PoE boards:
+#   power1_input and its average (power1_average), power1_input_highest and
+#   power1_alarm, which the collector does not export, and curr1_input and
+#   in1_input of the same 12 V input. Attributes: Documentation/hwmon/lm25066.rst;
+#   units: sysfs-interface.rst's "Power" (uW).
+# sys/class/thermal/cooling_device{0,1,2}
+#   The cooling devices of an ARM board with a fan and an MT7915-family radio,
+#   which neither device's captures hold: a CPU's frequency steps
+#   (cpufreq-cpu0, of drivers/thermal/cpufreq_cooling.c), a PWM fan at its
+#   first of four steps (pwm-fan, drivers/hwmon/pwm-fan.c) and the radio's
+#   transmit throttling, named after its wiphy (phy0; max_state 99,
+#   MT7915_CDEV_THROTTLE_MAX of mt76's mt7915.h). Attributes:
+#   Documentation/driver-api/thermal/sysfs-api.rst, "Cooling device attributes".
+# commands/ethtool_{eth0,lan1,phy0-ap0}.txt, commands/ethtool_i_{eth0,lan1,phy0-ap0}.txt
+#   `ethtool <device>` and `ethtool -i <device>` (ethtool 6.x, netlink) of
+#   what the devices' ethtool -S captures are of, which no capture holds: a
+#   Realtek RTL8125B (r8169, 10 Mb/s to 2.5 Gb/s over twisted pair) linked at
+#   1 Gb/s to a partner without 2.5G, the r8169 firmware's name and date; a
+#   DSA port of an MT7531 switch with no link, advertising no pause frames;
+#   and a radio's interface, whose mac80211 driver reports no link modes.
+#   Layout: dump_link_modes(), dump_pause() and the "Supported ports: [ "
+#   of ethtool's netlink/settings.c (the tab after the first port is its
+#   own), and do_gdrv()'s "key: value" lines (ethtool.c); the r8169's
+#   firmware file name (rtl_chip_infos in r8169_main.c), mac80211's
+#   driver, version and bus-info (ieee80211_get_drvinfo() in
+#   net/mac80211/ethtool.c, the wiphy's parent device).
+# proc/interrupts
+#   An MT7981 access point's (two Cortex-A53s, a GICv3, OpenWrt 25.12's 6.12),
+#   which neither device's captures hold: the timer, UART, SPI, I2C, the
+#   Ethernet frame engine's two queues, the switch, USB, the radio, and a GPIO
+#   button on the pinctrl's EINT. Layout: show_interrupts() in
+#   kernel/irq/proc.c (a "%*d:" name, "%10u " per CPU, the chip, its hwirq,
+#   the trigger and the actions' names) and arm64's arch_show_interrupts()
+#   in arch/arm64/kernel/smp.c (IPI0 to IPI7 and their descriptions, and Err
+#   with a single count).
+# proc/pressure/{cpu,io,memory,irq}
+#   Pressure stall information of a kernel with CONFIG_PSI and
+#   CONFIG_IRQ_TIME_ACCOUNTING (6.12, OpenWrt 25.12's), which neither device's
+#   captures hold, after a day's uptime: a `some` and a `full` line of cpu,
+#   io and memory (cpu's full is 0 system-wide), and irq's `full` alone.
+#   Format: psi_show() in kernel/sched/psi.c ("%s avg10=%lu.%02lu avg60=...
+#   total=%llu", microseconds); Documentation/accounting/psi.rst.
 # proc/diskstats, sys/block/sda/queue/rotational
 #   Kernel 4.14's /proc/diskstats (OpenWrt 19.07's), 14 fields a line: before
 #   the discard statistics (4.18) and the flush ones (5.5). Format:
@@ -35,9 +86,15 @@
 # sockets/unbound.stats_noreset.txt
 #   Unbound 1.26.1's (OpenWrt 25.12's) reply to `UBCT1 stats_noreset` on its
 #   control socket, what `unbound-control stats_noreset` prints: num-threads 2
-#   (the UCI's num_threads), no dnscrypt and no extended-statistics (OpenWrt's
-#   defaults). Lines and number formats: daemon/remote.c's do_stats(),
-#   print_stats() and print_uptime(); the totals as daemon/stats.c's
+#   (the UCI's num_threads), no dnscrypt, and extended-statistics (the UCI's
+#   extended_stats '1'; OpenWrt's default is '0', which ends the reply at
+#   time.elapsed). Lines and number formats: daemon/remote.c's do_stats(),
+#   print_stats(), print_uptime(), and with extended-statistics print_mem(),
+#   print_hist() (40 buckets of util/timehist.c, doubling from 1 us, each a
+#   range: the recursion times of the 6106 recursive replies) and print_ext()
+#   (the types, classes, opcodes and rcodes no query had left out, as
+#   stat_inhibit_zero does but for rcodes 0 to 5; the queries' types and
+#   rcodes summing to total.num.queries); the totals as daemon/stats.c's
 #   server_stats_add() makes them (sums, the maximum for the .max counters,
 #   the mean of the thread medians); the counters' meaning:
 #   doc/unbound-control.rst, "Statistic Counters".

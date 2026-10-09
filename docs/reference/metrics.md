@@ -21,13 +21,14 @@ The labels are those seen on the captures; a collector leaves out a label it has
 | [`diskstats`](#diskstats) | 18 | a second router, made-up captures | — |
 | [`dnsmasq`](#dnsmasq) | 30 | a router | — |
 | [`entropy`](#entropy) | 2 | an access point, a router | — |
-| [`ethtool`](#ethtool) | 259 | an access point, a router | — |
+| [`ethtool`](#ethtool) | 259 | an access point, a router | `node_ethtool_info`, `node_network_supported_port_info`, `node_network_supported_speed_bytes`, `node_network_advertised_speed_bytes`, `node_network_autonegotiate_supported`, `node_network_pause_supported`, `node_network_asymmetricpause_supported`, `node_network_autonegotiate_advertised`, `node_network_pause_advertised`, `node_network_asymmetricpause_advertised`, `node_network_autonegotiate` |
 | [`exporter`](#exporter) | 0 | none | `process_cpu_seconds_total`, `process_virtual_memory_bytes`, `process_resident_memory_bytes`, `process_start_time_seconds`, `process_open_fds`, `process_max_fds`, `ucode_prometheus_exporter_scrapes_total`, `ucode_prometheus_exporter_auth_failures_total`, `ucode_prometheus_exporter_collector_failures_total`, `ucode_prometheus_exporter_program_timeouts_total`, `ucode_prometheus_exporter_quarantines_total`, `ucode_prometheus_exporter_deadline_skips_total`, `ucode_prometheus_exporter_collector_samples` |
 | [`filefd`](#filefd) | 2 | an access point, a router | — |
-| [`filesystem`](#filesystem) | 4 | an access point, a router | — |
+| [`filesystem`](#filesystem) | 4 | an access point, a router | `node_filesystem_files`, `node_filesystem_files_free` |
 | [`hostapd_stations`](#hostapd_stations) | 15 | an access point | — |
 | [`hostapd_ubus_stations`](#hostapd_ubus_stations) | 7 | an access point | — |
-| [`hwmon`](#hwmon) | 13 | an access point, a router, made-up captures | — |
+| [`hwmon`](#hwmon) | 17 | an access point, a router, made-up captures | — |
+| [`interrupts`](#interrupts) | 1 | made-up captures | — |
 | [`loadavg`](#loadavg) | 3 | an access point, a router | — |
 | [`ltq-dsl`](#ltq-dsl) | 15 | made-up captures | — |
 | [`meminfo`](#meminfo) | 50 | an access point, a router | — |
@@ -40,20 +41,21 @@ The labels are those seen on the captures; a collector leaves out a label it has
 | [`nft-counters`](#nft-counters) | 2 | a router, made-up captures | — |
 | [`openwrt`](#openwrt) | 3 | an access point, a router | — |
 | [`openwrt_interfaces`](#openwrt_interfaces) | 10 | an access point, a router, made-up captures | — |
+| [`pressure`](#pressure) | 7 | made-up captures | — |
 | [`qdisc`](#qdisc) | 23 | a router, a second router, made-up captures | — |
 | [`realtek-poe`](#realtek-poe) | 7 | made-up captures | — |
 | [`selinux`](#selinux) | 2 | made-up captures | — |
-| [`snmp6`](#snmp6) | 80 | an access point, a router | — |
+| [`snmp6`](#snmp6) | 13 | an access point, a router | `node_snmp6_ifindex` |
 | [`sockstat`](#sockstat) | 20 | an access point, a second router | — |
 | [`softnet`](#softnet) | 7 | an access point, a router | — |
 | [`textfile`](#textfile) | 6 | an access point, a router, a second router, made-up captures | — |
-| [`thermal`](#thermal) | 2 | an access point, a router | `node_thermal_zone_passive_celsius` |
+| [`thermal`](#thermal) | 4 | an access point, a router, made-up captures | `node_thermal_zone_passive_celsius` |
 | [`time`](#time) | 1 | an access point, a router, a second router, made-up captures | — |
 | [`timesync`](#timesync) | 4 | a second router | — |
 | [`ubnt-manager`](#ubnt-manager) | 43 | made-up captures | — |
 | [`uci_dhcp_host`](#uci_dhcp_host) | 1 | a router | — |
 | [`uname`](#uname) | 1 | an access point, a router | — |
-| [`unbound`](#unbound) | 25 | made-up captures | — |
+| [`unbound`](#unbound) | 54 | made-up captures | — |
 | [`vmstat`](#vmstat) | 7 | a router | — |
 | [`wifi`](#wifi) | 24 | an access point | `node_wifi_station_beacon_loss_total` |
 | [`wireguard`](#wireguard) | 5 | a router | — |
@@ -254,7 +256,7 @@ Kernel entropy. [Collector](collectors.md#entropy).
 
 ## `ethtool` {#ethtool}
 
-Network driver statistics. [Collector](collectors.md#ethtool).
+Network drivers and links. [Collector](collectors.md#ethtool).
 
 | Family | Type | Labels | Help | Notes |
 | :--- | :--- | :--- | :--- | :--- |
@@ -266,6 +268,17 @@ Network driver statistics. [Collector](collectors.md#ethtool).
 | `node_ethtool_received_dropped_total` | untyped | `device` | Number of received frames dropped | — |
 | `node_ethtool_received_errors_total` | untyped | `device` | Number of received frames with errors | — |
 | `node_ethtool_transmitted_errors_total` | untyped | `device` | Number of sent frames with errors | — |
+| `node_ethtool_info` | gauge | `bus_info`, `device`, `driver`, `expansion_rom_version`, `firmware_version`, `version` | A metric with a constant '1' value labeled by bus\_info, device, driver, expansion\_rom\_version, firmware\_version, version. | Listed from the code: From `ethtool -i <device>`, which no device's captures hold: its tests run on made-up outputs (test/fixtures/synthetic/commands). |
+| `node_network_supported_port_info` | gauge | `device`, `type` | Type of ports or PHYs supported by network device | Listed from the code: From `ethtool <device>`'s `Supported ports`, as node\_ethtool\_info: one series per port type (TP, AUI, BNC, MII, FIBRE, Backplane). |
+| `node_network_supported_speed_bytes` | gauge | `device`, `duplex`, `mode` | Combination of speeds and features supported by network device | Listed from the code: From `ethtool <device>`'s `Supported link modes`, as node\_ethtool\_info: one series per mode, `1000baseT/Full` as mode `1000baseT`, duplex `full`, in bytes per second. |
+| `node_network_advertised_speed_bytes` | gauge | `device`, `duplex`, `mode` | Combination of speeds and features offered by network device | Listed from the code: From its `Advertised link modes`, as the supported ones. |
+| `node_network_autonegotiate_supported` | gauge | `device` | If this port device supports autonegotiate | Listed from the code: From its `Supports auto-negotiation`, as node\_ethtool\_info. |
+| `node_network_pause_supported` | gauge | `device` | If this port device supports pause frames | Listed from the code: From its `Supported pause frame use`: 1 where it says `Symmetric`. |
+| `node_network_asymmetricpause_supported` | gauge | `device` | If this port device supports asymmetric pause frames | Listed from the code: From its `Supported pause frame use`: 1 where it says `Receive-only` or `Transmit-only`. |
+| `node_network_autonegotiate_advertised` | gauge | `device` | If this port device offers autonegotiate | Listed from the code: From its `Advertised auto-negotiation`. |
+| `node_network_pause_advertised` | gauge | `device` | If this port device offers pause capability | Listed from the code: From its `Advertised pause frame use`, as the supported one. |
+| `node_network_asymmetricpause_advertised` | gauge | `device` | If this port device offers asymmetric pause capability | Listed from the code: From its `Advertised pause frame use`, as the supported one. |
+| `node_network_autonegotiate` | gauge | `device` | If this port is using autonegotiate | Listed from the code: From its `Auto-negotiation`: 1 where it is `on`. |
 
 ## `exporter` {#exporter}
 
@@ -306,6 +319,8 @@ Filesystems. [Collector](collectors.md#filesystem).
 | `node_filesystem_free_bytes` | gauge | `device`, `fstype`, `mountpoint` | Filesystem free space in bytes. | — |
 | `node_filesystem_avail_bytes` | gauge | `device`, `fstype`, `mountpoint` | Filesystem space available to non-root users in bytes. | — |
 | `node_filesystem_readonly` | gauge | `device`, `fstype`, `mountpoint` | Filesystem read-only status. | — |
+| `node_filesystem_files` | gauge | `device`, `fstype`, `mountpoint` | Filesystem total file nodes. | Listed from the code: From the package's rpcd plugin, `ubus call prometheus-exporter.filesystem mounts`, which no device's captures hold: where rpcd has not loaded it, the collector asks luci's `getMountPoints`, which has no inode counts, and writes the sizes alone. |
+| `node_filesystem_files_free` | gauge | `device`, `fstype`, `mountpoint` | Filesystem total free file nodes. | Listed from the code: As node\_filesystem\_files. |
 
 ## `hostapd_stations` {#hostapd_stations}
 
@@ -362,6 +377,18 @@ Hardware sensors. [Collector](collectors.md#hwmon).
 | `node_hwmon_in_alarm` | gauge | `chip`, `sensor` | Hardware sensor alarm status (in) | — |
 | `node_hwmon_curr_amps` | gauge | `chip`, `sensor` | Hardware monitor for current (input) | — |
 | `node_hwmon_power_watt` | gauge | `chip`, `sensor` | Hardware monitor for power usage in watts (input) | — |
+| `node_hwmon_power_average_watt` | gauge | `chip`, `sensor` | Hardware monitor for power usage in watts (average) | — |
+| `node_hwmon_temp_max_celsius` | gauge | `chip`, `sensor` | Hardware monitor for temperature (max) | — |
+| `node_hwmon_temp_crit_celsius` | gauge | `chip`, `sensor` | Hardware monitor for temperature (crit) | — |
+| `node_hwmon_temp_alarm` | gauge | `chip`, `sensor` | Hardware sensor alarm status (temp) | — |
+
+## `interrupts` {#interrupts}
+
+Interrupts. [Collector](collectors.md#interrupts).
+
+| Family | Type | Labels | Help | Notes |
+| :--- | :--- | :--- | :--- | :--- |
+| `node_interrupts_total` | counter | `cpu`, `type`, `info`, `devices` | Interrupt details. | — |
 
 ## `loadavg` {#loadavg}
 
@@ -437,7 +464,7 @@ Traffic per address pair. [Collector](collectors.md#nat_traffic).
 
 | Family | Type | Labels | Help | Notes |
 | :--- | :--- | :--- | :--- | :--- |
-| `node_nat_traffic_bytes` | gauge | `src`, `dst` | Bytes of the connections from src to dst, both directions. | — |
+| `node_nat_traffic_bytes` | gauge | `host`, `peer` | Bytes of the connections of a host on this side of the router, both directions. | `peer` with the `peers` option only: a series per host and peer, which come and go with the connections. |
 
 ## `netclass` {#netclass}
 
@@ -533,6 +560,20 @@ OpenWrt interfaces. [Collector](collectors.md#openwrt_interfaces).
 | `node_openwrt_interface_ipv6_prefixes` | gauge | `interface` | The IPv6 prefixes delegated to the interface. | — |
 | `node_openwrt_interface_errors` | gauge | `interface` | The errors netifd holds for the interface until it is up again. | — |
 
+## `pressure` {#pressure}
+
+Pressure stall information. [Collector](collectors.md#pressure).
+
+| Family | Type | Labels | Help | Notes |
+| :--- | :--- | :--- | :--- | :--- |
+| `node_pressure_cpu_waiting_seconds_total` | counter | — | Total time in seconds that processes have waited for CPU time | — |
+| `node_pressure_cpu_stalled_seconds_total` | counter | — | Total time in seconds no process could make progress due to CPU congestion | — |
+| `node_pressure_io_waiting_seconds_total` | counter | — | Total time in seconds that processes have waited due to IO congestion | — |
+| `node_pressure_io_stalled_seconds_total` | counter | — | Total time in seconds no process could make progress due to IO congestion | — |
+| `node_pressure_memory_waiting_seconds_total` | counter | — | Total time in seconds that processes have waited for memory | — |
+| `node_pressure_memory_stalled_seconds_total` | counter | — | Total time in seconds no process could make progress due to memory congestion | — |
+| `node_pressure_irq_stalled_seconds_total` | counter | — | Total time in seconds no process could make progress due to IRQ congestion | — |
+
 ## `qdisc` {#qdisc}
 
 Traffic control queues. [Collector](collectors.md#qdisc).
@@ -592,8 +633,8 @@ IPv6 statistics per device. [Collector](collectors.md#snmp6).
 
 | Family | Type | Labels | Help | Notes |
 | :--- | :--- | :--- | :--- | :--- |
-| `node_snmp6_ifindex` | gauge | `device` | Interface index of the device. | — |
-| `node_snmp6_<Protocol>_<Field>_total` | counter | `device` | IPv6 statistic &lt;Protocol&gt;&lt;Field&gt; of the device: each of `/proc/net/dev_snmp6/<device>`. | 79 on the captures |
+| `node_snmp6_<Protocol>_<Field>_total` | counter | `device` | IPv6 statistic &lt;Protocol&gt;&lt;Field&gt; of the device: each field of `/proc/net/dev_snmp6/<device>` the `fields` option matches, by default 13 of about 70. | 13 on the captures |
+| `node_snmp6_ifindex` | gauge | `device` | Interface index of the device. | Listed from the code: Written where the `fields` option matches `ifIndex`, which its default does not: netclass's `node_network_iface_id` is the same index. |
 
 ## `sockstat` {#sockstat}
 
@@ -648,12 +689,14 @@ Text files. [Collector](collectors.md#textfile).
 
 ## `thermal` {#thermal}
 
-Thermal zones. [Collector](collectors.md#thermal).
+Thermal zones and cooling devices. [Collector](collectors.md#thermal).
 
 | Family | Type | Labels | Help | Notes |
 | :--- | :--- | :--- | :--- | :--- |
 | `node_thermal_zone_temp` | gauge | `zone`, `type` | Zone temperature in Celsius | — |
 | `node_thermal_zone_info` | gauge | `zone`, `type`, `policy`, `mode` | A thermal zone, by its policy and mode. | — |
+| `node_cooling_device_cur_state` | gauge | `name`, `type` | Current throttle state of the cooling device | — |
+| `node_cooling_device_max_state` | gauge | `name`, `type` | Maximum throttle state of the cooling device | — |
 | `node_thermal_zone_passive_celsius` | gauge | `zone`, `type` | Passive trip point of the zone, in Celsius. | Listed from the code: Written for a zone with a passive trip point; no captured zone has one. |
 
 ## `time` {#time}
@@ -772,6 +815,35 @@ Unbound DNS resolver. [Collector](collectors.md#unbound).
 | `unbound_request_list_current_replies` | gauge | `thread` | Current count of the number of reply entries waiting on request list entries. | — |
 | `unbound_recursion_time_seconds_avg` | gauge | — | Average time it took to answer queries that needed recursive processing (does not include in-cache requests). | — |
 | `unbound_recursion_time_seconds_median` | gauge | — | The median of the time it took to answer queries that needed recursive processing. | — |
+| `unbound_memory_caches_bytes` | gauge | `cache` | Memory in bytes in use by caches. | With `extended-statistics: yes` in unbound's config only (the UCI's `extended_stats`); see [How to monitor Unbound](../how-to/unbound.md#extended-statistics). |
+| `unbound_memory_modules_bytes` | gauge | `module` | Memory in bytes in use by modules. | With `extended-statistics: yes` in unbound's config only (the UCI's `extended_stats`); see [How to monitor Unbound](../how-to/unbound.md#extended-statistics). |
+| `unbound_query_types_total` | counter | `type` | Total number of queries with a given query type. | With `extended-statistics: yes` in unbound's config only (the UCI's `extended_stats`); see [How to monitor Unbound](../how-to/unbound.md#extended-statistics). |
+| `unbound_query_classes_total` | counter | `class` | Total number of queries with a given query class. | With `extended-statistics: yes` in unbound's config only (the UCI's `extended_stats`); see [How to monitor Unbound](../how-to/unbound.md#extended-statistics). |
+| `unbound_query_opcodes_total` | counter | `opcode` | Total number of queries with a given query opcode. | With `extended-statistics: yes` in unbound's config only (the UCI's `extended_stats`); see [How to monitor Unbound](../how-to/unbound.md#extended-statistics). |
+| `unbound_query_tcp_total` | counter | — | Total number of queries that were made using TCP towards the Unbound server. | With `extended-statistics: yes` in unbound's config only (the UCI's `extended_stats`); see [How to monitor Unbound](../how-to/unbound.md#extended-statistics). |
+| `unbound_query_tcpout_total` | counter | — | Total number of queries that the Unbound server made using TCP outgoing towards other servers. | With `extended-statistics: yes` in unbound's config only (the UCI's `extended_stats`); see [How to monitor Unbound](../how-to/unbound.md#extended-statistics). |
+| `unbound_query_udpout_total` | counter | — | Total number of queries that the Unbound server made using UDP outgoing towards other servers. | With `extended-statistics: yes` in unbound's config only (the UCI's `extended_stats`); see [How to monitor Unbound](../how-to/unbound.md#extended-statistics). |
+| `unbound_query_tls_total` | counter | — | Total number of queries that were made using TCP TLS towards the Unbound server. | With `extended-statistics: yes` in unbound's config only (the UCI's `extended_stats`); see [How to monitor Unbound](../how-to/unbound.md#extended-statistics). |
+| `unbound_query_tls_resume_total` | counter | — | Total number of queries that were made using TCP TLS Resume towards the Unbound server. | With `extended-statistics: yes` in unbound's config only (the UCI's `extended_stats`); see [How to monitor Unbound](../how-to/unbound.md#extended-statistics). |
+| `unbound_query_https_total` | counter | — | Total number of queries that were made using HTTPS towards the Unbound server. | With `extended-statistics: yes` in unbound's config only (the UCI's `extended_stats`); see [How to monitor Unbound](../how-to/unbound.md#extended-statistics). |
+| `unbound_query_ipv6_total` | counter | — | Total number of queries that were made using IPv6 towards the Unbound server. | With `extended-statistics: yes` in unbound's config only (the UCI's `extended_stats`); see [How to monitor Unbound](../how-to/unbound.md#extended-statistics). |
+| `unbound_query_flags_total` | counter | `flag` | Total number of queries that had a given flag set in the header. | With `extended-statistics: yes` in unbound's config only (the UCI's `extended_stats`); see [How to monitor Unbound](../how-to/unbound.md#extended-statistics). |
+| `unbound_query_edns_present_total` | counter | — | Total number of queries that had an EDNS OPT record present. | With `extended-statistics: yes` in unbound's config only (the UCI's `extended_stats`); see [How to monitor Unbound](../how-to/unbound.md#extended-statistics). |
+| `unbound_query_edns_DO_total` | counter | — | Total number of queries that had an EDNS OPT record with the DO (DNSSEC OK) bit set present. | With `extended-statistics: yes` in unbound's config only (the UCI's `extended_stats`); see [How to monitor Unbound](../how-to/unbound.md#extended-statistics). |
+| `unbound_answer_rcodes_total` | counter | `rcode` | Total number of answers to queries, from cache or from recursion, by response code. | With `extended-statistics: yes` in unbound's config only (the UCI's `extended_stats`); see [How to monitor Unbound](../how-to/unbound.md#extended-statistics). |
+| `unbound_answers_secure_total` | counter | — | Total number of answers that were secure. | With `extended-statistics: yes` in unbound's config only (the UCI's `extended_stats`); see [How to monitor Unbound](../how-to/unbound.md#extended-statistics). |
+| `unbound_answers_bogus_total` | counter | — | Total number of answers that were bogus. | With `extended-statistics: yes` in unbound's config only (the UCI's `extended_stats`); see [How to monitor Unbound](../how-to/unbound.md#extended-statistics). |
+| `unbound_rrset_bogus_total` | counter | — | Total number of rrsets marked bogus by the validator. | With `extended-statistics: yes` in unbound's config only (the UCI's `extended_stats`); see [How to monitor Unbound](../how-to/unbound.md#extended-statistics). |
+| `unbound_query_aggressive_nsec_total` | counter | `rcode` | Total number of queries that the Unbound server generated response using Aggressive NSEC. | With `extended-statistics: yes` in unbound's config only (the UCI's `extended_stats`); see [How to monitor Unbound](../how-to/unbound.md#extended-statistics). |
+| `unbound_unwanted_queries_total` | counter | — | Total number of queries that were refused or dropped because they failed the access control settings. | With `extended-statistics: yes` in unbound's config only (the UCI's `extended_stats`); see [How to monitor Unbound](../how-to/unbound.md#extended-statistics). |
+| `unbound_unwanted_replies_total` | counter | — | Total number of replies that were unwanted or unsolicited. | With `extended-statistics: yes` in unbound's config only (the UCI's `extended_stats`); see [How to monitor Unbound](../how-to/unbound.md#extended-statistics). |
+| `unbound_msg_cache_count` | gauge | — | The Number of Messages cached | With `extended-statistics: yes` in unbound's config only (the UCI's `extended_stats`); see [How to monitor Unbound](../how-to/unbound.md#extended-statistics). |
+| `unbound_rrset_cache_count` | gauge | — | The Number of rrset cached | With `extended-statistics: yes` in unbound's config only (the UCI's `extended_stats`); see [How to monitor Unbound](../how-to/unbound.md#extended-statistics). |
+| `unbound_infra_cache_count` | gauge | — | The number of infra cache entries | With `extended-statistics: yes` in unbound's config only (the UCI's `extended_stats`); see [How to monitor Unbound](../how-to/unbound.md#extended-statistics). |
+| `unbound_key_cache_count` | gauge | — | The number of key cache entries | With `extended-statistics: yes` in unbound's config only (the UCI's `extended_stats`); see [How to monitor Unbound](../how-to/unbound.md#extended-statistics). |
+| `unbound_query_authzone_up_total` | counter | — | Total number of queries answered from auth-zone data, upstream queries. | With `extended-statistics: yes` in unbound's config only (the UCI's `extended_stats`); see [How to monitor Unbound](../how-to/unbound.md#extended-statistics). |
+| `unbound_query_authzone_down_total` | counter | — | Total number of queries answered from auth-zone data, downstream queries. | With `extended-statistics: yes` in unbound's config only (the UCI's `extended_stats`); see [How to monitor Unbound](../how-to/unbound.md#extended-statistics). |
+| `unbound_response_time_seconds` | histogram | `le` | Query response time in seconds. | With `extended-statistics: yes` in unbound's config only (the UCI's `extended_stats`); see [How to monitor Unbound](../how-to/unbound.md#extended-statistics). |
 
 ## `vmstat` {#vmstat}
 

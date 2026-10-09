@@ -300,6 +300,8 @@ check "every collector that observes something here writes samples, in the jail 
 # the jail's own mount table, filesystem found a docker bind mount
 # or two to size, and none of the host's own.
 check "filesystem sizes the host's mounts, not the jail's" metric 'node_filesystem_size_bytes{.*mountpoint="/exporter"}'
+# Through its package's rpcd plugin, which installing it had rpcd load.
+check "and counts their inodes" metric 'node_filesystem_files{.*mountpoint="/exporter"}'
 
 # What exec's watchdog costs a program: the mean milliseconds of a program's
 # run by a plain popen (itself a shell running it) and through the watchdog
@@ -720,6 +722,14 @@ before=$(pid)
 /etc/init.d/unbound restart >/dev/null 2>&1
 eventually "a restarted unbound's new socket is read in the same jail" served unbound
 check "without restarting the exporter" test "$(pid)" = "$before"
+# With extended-statistics (the UCI's extended_stats): unbound's own lines,
+# as the collector reads them. Its histogram, the caches' memory and rcodes 0
+# to 5 are there before any query.
+uci set unbound.ub_main.extended_stats=1 && uci commit unbound
+/etc/init.d/unbound restart >/dev/null 2>&1
+eventually "unbound's extended statistics are read" metric 'unbound_response_time_seconds_count '
+check "the caches' memory" metric 'unbound_memory_caches_bytes{cache="rrset"} '
+check "and the answers by rcode" metric 'unbound_answer_rcodes_total{rcode="NOERROR"} '
 
 # --- the config
 before=$(pid)

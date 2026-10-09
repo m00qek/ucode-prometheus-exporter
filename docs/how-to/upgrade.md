@@ -28,6 +28,32 @@ apk add --allow-untrusted /tmp/ucode-prometheus-exporter-*$version.apk /tmp/luci
 
 Adding the base package alone fails: the installed collectors still want the old version. A dependency the new version adds comes from the feeds the device has: `ucode-docopt`, which 0.2 added, from the exporter's feed.
 
+## From 0.2.1 to 0.3.0
+
+0.3.0 is the first release candidate for 1.0: the names and labels of its metrics are those 1.0 keeps. It changes what 0.2.1 did in these ways, each marked **BREAKING** in the [CHANGELOG](https://github.com/m00qek/ucode-prometheus-exporter/blob/main/CHANGELOG.md):
+
+- **snmp6 exports 13 fields of each device by default**, where it wrote every one, some 70. Gone by default: every `node_snmp6_*_total` but the device's `Ip6_InOctets`, `Ip6_OutOctets`, `Ip6_OutForwDatagrams`, `Ip6_InDiscards`, `Ip6_OutDiscards`, `Ip6_InNoRoutes`, `Ip6_OutNoRoutes`, `Ip6_InHdrErrors`, `Ip6_InAddrErrors`, `Ip6_InTooBigErrors`, `Icmp6_InMsgs`, `Icmp6_OutMsgs` and `Icmp6_InErrors`, and `node_snmp6_ifindex`, whose index netclass's `node_network_iface_id` has too. Its new option `fields`, a regular expression of `<Protocol>_<Field>`, takes others; `.*` exports every one, as 0.2.1 did:
+
+    ```sh
+    uci set prometheus-exporter.snmp6=collector
+    uci set prometheus-exporter.snmp6.fields='.*'
+    uci commit prometheus-exporter
+    ```
+
+- **nat_traffic labels its series `host`, one per host on this side of the router**, where 0.2.1 wrote one per pair of addresses, labeled `src` and `dst`. `node_nat_traffic_bytes{src,dst}` is `node_nat_traffic_bytes{host}`: the source of each connection, as `src` was, but for a port-forwarded connection the LAN host it reaches, where `src` was the remote address. A query by `src` is one by `host`, as `node_nat_traffic_bytes{host="192.168.1.10"}`; one by `dst` needs the pairs, which are back with the new option `peers`, labeled `host` and `peer`, as many series as 0.2.1 wrote, new with every connection; a Prometheus server keeps each for hours, so leave it off but for a short look:
+
+    ```sh
+    uci set prometheus-exporter.nat_traffic=collector
+    uci set prometheus-exporter.nat_traffic.peers=1
+    uci commit prometheus-exporter
+    ```
+
+These change what 0.2.1 did without breaking a query or a configuration:
+
+- **ethtool runs ethtool three times a device**, `-S`, `-i` and with no option, where it ran it once, for node_exporter's `node_ethtool_info` and link families. Its programs share the seconds of its `timeout` (the main section's `exec_timeout`, 5, by default): on a slow router with many ports, give it more if it fails with `COMMAND_TIMEOUT`. See [How to give programs more time](exec-timeout.md).
+- **The filesystem package installs an rpcd plugin**, the ubus object `prometheus-exporter.filesystem`, for the inodes of each mount, and reloads rpcd when it is installed or removed.
+- **The base package has a new collector, `pressure`**, which has nothing to observe on a kernel without PSI. `interrupts` is a package of its own, installed by no group.
+
 ## From 0.2.0 to 0.2.1
 
 0.2.1 changes what 0.2.0 did in these ways, each marked **BREAKING** in the [CHANGELOG](https://github.com/m00qek/ucode-prometheus-exporter/blob/main/CHANGELOG.md):

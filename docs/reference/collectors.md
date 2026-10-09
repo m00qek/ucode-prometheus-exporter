@@ -15,13 +15,14 @@ Every collector of `ucode-prometheus-exporter 0.2.1`. A collector's name is what
 | [`diskstats`](#diskstats) | Disk I/O | `ucode-prometheus-exporter-diskstats` | `ucode-prometheus-exporter-hardware`, `ucode-prometheus-exporter-full` |
 | [`dnsmasq`](#dnsmasq) | dnsmasq DNS and DHCP | `ucode-prometheus-exporter-dnsmasq` | `ucode-prometheus-exporter-full` |
 | [`entropy`](#entropy) | Kernel entropy | `ucode-prometheus-exporter` (base) | — |
-| [`ethtool`](#ethtool) | Network driver statistics | `ucode-prometheus-exporter-ethtool` | `ucode-prometheus-exporter-network`, `ucode-prometheus-exporter-full` |
+| [`ethtool`](#ethtool) | Network drivers and links | `ucode-prometheus-exporter-ethtool` | `ucode-prometheus-exporter-network`, `ucode-prometheus-exporter-full` |
 | [`exporter`](#exporter) | The exporter itself | `ucode-prometheus-exporter` (base) | — |
 | [`filefd`](#filefd) | File descriptors | `ucode-prometheus-exporter` (base) | — |
 | [`filesystem`](#filesystem) | Filesystems | `ucode-prometheus-exporter-filesystem` | `ucode-prometheus-exporter-hardware`, `ucode-prometheus-exporter-full` |
 | [`hostapd_stations`](#hostapd_stations) | hostapd stations | `ucode-prometheus-exporter-hostapd_stations` | `ucode-prometheus-exporter-wireless`, `ucode-prometheus-exporter-full` |
 | [`hostapd_ubus_stations`](#hostapd_ubus_stations) | hostapd station capabilities | `ucode-prometheus-exporter-hostapd_ubus_stations` | `ucode-prometheus-exporter-wireless`, `ucode-prometheus-exporter-full` |
 | [`hwmon`](#hwmon) | Hardware sensors | `ucode-prometheus-exporter-hwmon` | `ucode-prometheus-exporter-hardware`, `ucode-prometheus-exporter-full` |
+| [`interrupts`](#interrupts) | Interrupts | `ucode-prometheus-exporter-interrupts` | — |
 | [`loadavg`](#loadavg) | Load average | `ucode-prometheus-exporter` (base) | — |
 | [`ltq-dsl`](#ltq-dsl) | Lantiq DSL line | `ucode-prometheus-exporter-ltq-dsl` | — |
 | [`meminfo`](#meminfo) | Memory | `ucode-prometheus-exporter` (base) | — |
@@ -34,6 +35,7 @@ Every collector of `ucode-prometheus-exporter 0.2.1`. A collector's name is what
 | [`nft-counters`](#nft-counters) | nftables counters | `ucode-prometheus-exporter-nft-counters` | `ucode-prometheus-exporter-network`, `ucode-prometheus-exporter-full` |
 | [`openwrt`](#openwrt) | OpenWrt release and board | `ucode-prometheus-exporter-openwrt` | `ucode-prometheus-exporter-full` |
 | [`openwrt_interfaces`](#openwrt_interfaces) | OpenWrt interfaces | `ucode-prometheus-exporter` (base) | — |
+| [`pressure`](#pressure) | Pressure stall information | `ucode-prometheus-exporter` (base) | — |
 | [`qdisc`](#qdisc) | Traffic control queues | `ucode-prometheus-exporter-qdisc` | `ucode-prometheus-exporter-network`, `ucode-prometheus-exporter-full` |
 | [`realtek-poe`](#realtek-poe) | Realtek PoE | `ucode-prometheus-exporter-realtek-poe` | — |
 | [`selinux`](#selinux) | SELinux | `ucode-prometheus-exporter` (base) | — |
@@ -41,7 +43,7 @@ Every collector of `ucode-prometheus-exporter 0.2.1`. A collector's name is what
 | [`sockstat`](#sockstat) | Sockets | `ucode-prometheus-exporter-sockstat` | `ucode-prometheus-exporter-network`, `ucode-prometheus-exporter-full` |
 | [`softnet`](#softnet) | Network softirq statistics | `ucode-prometheus-exporter` (base) | — |
 | [`textfile`](#textfile) | Text files | `ucode-prometheus-exporter-textfile` | `ucode-prometheus-exporter-full` |
-| [`thermal`](#thermal) | Thermal zones | `ucode-prometheus-exporter-thermal` | `ucode-prometheus-exporter-hardware`, `ucode-prometheus-exporter-full` |
+| [`thermal`](#thermal) | Thermal zones and cooling devices | `ucode-prometheus-exporter-thermal` | `ucode-prometheus-exporter-hardware`, `ucode-prometheus-exporter-full` |
 | [`time`](#time) | System time | `ucode-prometheus-exporter` (base) | — |
 | [`timesync`](#timesync) | Time synchronization | `ucode-prometheus-exporter` (base) | — |
 | [`ubnt-manager`](#ubnt-manager) | Ubiquiti airOS radios | `ucode-prometheus-exporter-ubnt-manager` | — |
@@ -54,7 +56,7 @@ Every collector of `ucode-prometheus-exporter 0.2.1`. A collector's name is what
 
 ## Packages {#packages}
 
-The base package, `ucode-prometheus-exporter`, installs `conntrack`, `cpu`, `entropy`, `exporter`, `filefd`, `loadavg`, `meminfo`, `netclass`, `netdev`, `openwrt_interfaces`, `selinux`, `softnet`, `time`, `timesync`, `uname`, `vmstat`. Every other collector is a package of its own, `ucode-prometheus-exporter-<name>`, which depends on the base package of the same release. A group package installs no files, only its collectors.
+The base package, `ucode-prometheus-exporter`, installs `conntrack`, `cpu`, `entropy`, `exporter`, `filefd`, `loadavg`, `meminfo`, `netclass`, `netdev`, `openwrt_interfaces`, `pressure`, `selinux`, `softnet`, `time`, `timesync`, `uname`, `vmstat`. Every other collector is a package of its own, `ucode-prometheus-exporter-<name>`, which depends on the base package of the same release. A group package installs no files, only its collectors.
 
 | Group package | For | Collectors |
 | :--- | :--- | :--- |
@@ -63,7 +65,7 @@ The base package, `ucode-prometheus-exporter`, installs `conntrack`, `cpu`, `ent
 | `ucode-prometheus-exporter-hardware` | hardware and filesystems | `diskstats`, `filesystem`, `hwmon`, `thermal` |
 | `ucode-prometheus-exporter-full` | a router or access point | `ethtool`, `nat_traffic`, `netstat`, `nft-counters`, `qdisc`, `snmp6`, `sockstat`, `hostapd_stations`, `hostapd_ubus_stations`, `wifi`, `diskstats`, `filesystem`, `hwmon`, `thermal`, `dhcp_leases`, `dnsmasq`, `openwrt`, `textfile`, `uci_dhcp_host`, `wireguard` |
 
-In no group: `bmx7`, `chrony`, `dawn`, `ltq-dsl`, `modemmanager`, `mwan3`, `realtek-poe`, `ubnt-manager`, `unbound`.
+In no group: `bmx7`, `chrony`, `dawn`, `interrupts`, `ltq-dsl`, `modemmanager`, `mwan3`, `realtek-poe`, `ubnt-manager`, `unbound`.
 
 ## Nothing to observe {#nothing-to-observe}
 
@@ -84,6 +86,7 @@ These collectors can have nothing to observe: they succeed without samples, and 
 | [`modemmanager`](#modemmanager) | ModemManager disabled or not installed, or it lists no modem. | `ModemManager lists no modems`, `modemmanager is disabled`, `modemmanager is not installed` | `mmcli` failing or running out of time with ModemManager enabled. |
 | [`mwan3`](#mwan3) | mwan3 disabled, or not installed. | `mwan3 is disabled`, `mwan3 is not installed` | Its `mwan3` object failing. Enabled and stopped is a reading: `mwan3_interface_running 0`. |
 | [`nat_traffic`](#nat_traffic) | nf\_conntrack not loaded: no `/proc/net/nf_conntrack`. | `no connection tracking (nf_conntrack is not loaded)` | The file there and unreadable. |
+| [`pressure`](#pressure) | No `/proc/pressure`: a kernel without `CONFIG_PSI`, or booted with `psi=0`. | `no PSI (no /proc/pressure: a kernel without CONFIG_PSI, or booted with psi=0)` | `/proc/pressure` there, and its `cpu`, `io` or `memory` unreadable or not as the kernel writes it. |
 | [`realtek-poe`](#realtek-poe) | No `poe` object. | `no PoE switch (no poe on ubus)` | A `poe` object that does not answer. |
 | [`snmp6`](#snmp6) | No `/proc/net/dev_snmp6` (IPv6 disabled). | `no IPv6 (no /proc/net/dev_snmp6)` | The directory there and unreadable. |
 | [`timesync`](#timesync) | Neither busybox ntpd nor chronyd runs, as procd's instances say: sysntpd runs ntpd only while `/etc/config/system` turns NTP on. With one running, it observes that one. | `neither ntpd nor chronyd runs` | chronyd enabled and not running, or `chronyc` failing; busybox ntpd's event file unreadable. |
@@ -239,9 +242,9 @@ The entropy available to the kernel random number generator, from /proc/sys/kern
 
 ## `ethtool` {#ethtool}
 
-Network driver statistics from ethtool -S.
+Network driver statistics, driver information and link modes, from ethtool -S, -i and ethtool &lt;device&gt;.
 
-- **Title:** Network driver statistics
+- **Title:** Network drivers and links
 - **Package:** `ucode-prometheus-exporter-ethtool`
 - **In the groups:** `ucode-prometheus-exporter-network`, `ucode-prometheus-exporter-full`
 - **Depends on:** `ethtool`
@@ -287,7 +290,7 @@ File descriptors allocated and the most there may be, from /proc/sys/fs/file-nr.
 
 ## `filesystem` {#filesystem}
 
-Filesystem sizes and read-only flags, from luci getMountPoints and the host's /proc/mounts (rpcd's file read).
+Filesystem sizes, inodes and read-only flags, from the package's rpcd object (statvfs) and the host's /proc/mounts (rpcd's file read).
 
 - **Title:** Filesystems
 - **Package:** `ucode-prometheus-exporter-filesystem`
@@ -335,7 +338,7 @@ Radio measurement capabilities of hostapd's stations, from hostapd's ubus object
 
 ## `hwmon` {#hwmon}
 
-Hardware monitor chips: sensor labels, temperatures, PWM, fans, voltages, currents and power, from /sys/class/hwmon.
+Hardware monitor chips: sensor labels, temperatures and their limits, PWM, fans, voltages, currents and power, from /sys/class/hwmon.
 
 - **Title:** Hardware sensors
 - **Package:** `ucode-prometheus-exporter-hwmon`
@@ -343,6 +346,20 @@ Hardware monitor chips: sensor labels, temperatures, PWM, fans, voltages, curren
 - **Section:** `config collector 'hwmon'`
 - **Needs:** `fs`
 - **Metrics:** [hwmon](metrics.md#hwmon)
+
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+
+## `interrupts` {#interrupts}
+
+Interrupts per CPU, from /proc/interrupts, as node\_exporter's interrupts collector counts them.
+
+- **Title:** Interrupts
+- **Package:** `ucode-prometheus-exporter-interrupts`
+- **Section:** `config collector 'interrupts'`
+- **Needs:** `fs`
+- **Metrics:** [interrupts](metrics.md#interrupts)
 
 | Option | Title | Type | Default | Datatype | Description |
 | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -441,6 +458,7 @@ Bytes per source and destination address, from /proc/net/nf\_conntrack.
 
 | Option | Title | Type | Default | Datatype | Description |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| `peers` | Series per peer | boolean | `0` | — | Label each host's bytes by the address at the other end too: a series per host and peer, as many as the connections and new with each, which a Prometheus server keeps for hours. |
 | `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
 ## `netclass` {#netclass}
@@ -535,6 +553,21 @@ OpenWrt logical interfaces (wan, lan, ...): state, uptime, devices and address c
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
+## `pressure` {#pressure}
+
+Time tasks waited for or were stalled on CPU, I/O, memory and IRQs, from /proc/pressure.
+
+- **Title:** Pressure stall information
+- **Package:** `ucode-prometheus-exporter` (base)
+- **Section:** `config collector 'pressure'`
+- **Needs:** `fs`
+- **Nothing to observe:** No `/proc/pressure`: a kernel without `CONFIG_PSI`, or booted with `psi=0`. See [Nothing to observe](#nothing-to-observe).
+- **Metrics:** [pressure](metrics.md#pressure)
+
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+
 ## `qdisc` {#qdisc}
 
 Statistics of each network device's root queueing discipline, and CAKE's per tin, from tc.
@@ -597,6 +630,7 @@ Per-device IPv6 statistics from /proc/net/dev\_snmp6.
 
 | Option | Title | Type | Default | Datatype | Description |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| `fields` | Exported fields | string | `^(Ip6_(InOctets|OutOctets|OutForwDatagrams|InDiscards|OutDiscards|InNoRoutes|OutNoRoutes|InHdrErrors|InAddrErrors|InTooBigErrors)|Icmp6_(InMsgs|OutMsgs|InErrors))$` | `regex` | A regular expression of the &lt;protocol&gt;\_&lt;name&gt; fields to export (13 of the 70 or so of a device by default; .\* for every one). |
 | `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
 ## `sockstat` {#sockstat}
@@ -647,9 +681,9 @@ Metrics from \*.prom files in a directory, as node\_exporter's textfile collecto
 
 ## `thermal` {#thermal}
 
-Thermal zone temperatures from /sys/class/thermal.
+Thermal zone temperatures and cooling device states, from /sys/class/thermal.
 
-- **Title:** Thermal zones
+- **Title:** Thermal zones and cooling devices
 - **Package:** `ucode-prometheus-exporter-thermal`
 - **In the groups:** `ucode-prometheus-exporter-hardware`, `ucode-prometheus-exporter-full`
 - **Section:** `config collector 'thermal'`
