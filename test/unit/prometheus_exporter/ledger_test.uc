@@ -161,6 +161,30 @@ describe('ledger.order', () => {
 			for (let i = 1; i < length(got); i++)
 				assert.match(true, ledger.estimate(l, got[i - 1].id) <= ledger.estimate(l, got[i].id));
 		});
+
+	// It sorts text, not with a function of its own for each pair: it must
+	// order as comparing each key as a number does.
+	prop('orders as comparing whether last, rank, estimate and place, as numbers, does',
+		gen.array(gen.tuple(gen.bool(), gen.int(0, 4), gen.oneof(gen.constant(null), gen.float(0, 30), gen.int(0, 3))),
+			{ min_len: 0, max_len: 10 }), (spec) => {
+			let cs = map(spec, (s, i) => ({ id: `c${i}`, last: s[0], rank: s[1] }));
+			let d = {};
+
+			for (let i, s in spec)
+				if (s[2] != null)
+					d[`c${i}`] = s[2];
+
+			let l = with_durations(d);
+			let keyed = map(cs, (c, i) => [ c.last ? 1 : 0, (ledger.estimate(l, c.id) != null) ? 0 : c.rank, ledger.estimate(l, c.id) ?? 0, i, c ]);
+			let want = map(sort(keyed, function(a, b) {
+				for (let i = 0; i < 4; i++)
+					if (a[i] != b[i])
+						return (a[i] < b[i]) ? -1 : 1;
+				return 0;
+			}), (x) => x[4].id);
+
+			assert.match(want, ids(ledger.order(l, cs, (c) => c.last, (c) => c.rank)), sprintf('%J', spec));
+		});
 });
 
 describe('ledger, the breakers', () => {

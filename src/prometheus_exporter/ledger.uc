@@ -284,14 +284,13 @@ export function samples(ledger, id) {
 	return ledger.c[id]?.n ?? 0;
 };
 
-// sort()'s order of [ last, never run, estimate, index ]: by each, as
-// numbers, which a difference of seconds, a fraction, would not give it.
-function by_keys(a, b) {
-	for (let i = 0; i < 4; i++)
-		if (a[i] != b[i])
-			return (a[i] < b[i]) ? -1 : 1;
-
-	return 0;
+// A collector's place in the order, as text sort() puts in that order with
+// no function of ours called for each pair: whether it runs last, its rank
+// when never run, its estimate to the picosecond, and its index, each as
+// many digits wide whatever its value. A rank is a small number, and an
+// estimate seconds, never below 0.
+function order_key(last, unknown, estimate, i) {
+	return sprintf('%d%06d%025.12f%06d', last, unknown, estimate, i);
 }
 
 /**
@@ -313,14 +312,18 @@ function by_keys(a, b) {
  * @returns {Collector[]} the collectors, in that order.
  */
 export function order(ledger, collectors, last, rank) {
-	let keyed = map(collectors, function(c, i) {
-		let known = estimate(ledger, c.id) != null;
-		let unknown = known ? 0 : (rank ? rank(c) : 1);
+	let places = [];
+	let by_key = {};
 
-		return [ (last && last(c)) ? 1 : 0, unknown, estimate(ledger, c.id) ?? 0, i, c ];
-	});
+	for (let i, c in collectors) {
+		let e = ledger.c[c.id]?.d;
+		let k = order_key((last && last(c)) ? 1 : 0, (e != null) ? 0 : (rank ? rank(c) : 1), e ?? 0, i);
 
-	return map(sort(keyed, by_keys), (x) => x[4]);
+		push(places, k);
+		by_key[k] = c;
+	}
+
+	return map(sort(places), (k) => by_key[k]);
 };
 
 function average(old, value) {
