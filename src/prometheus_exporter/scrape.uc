@@ -564,7 +564,7 @@ export function trial(env, uci, l, chosen, installed) {
 export function scrape(env, collectors, query_string, opts) {
 	let session = env.session();
 	let uci = session.uci();
-	let disabled = map(filter(collectors, (c) => !config.enabled(uci, c.id)), (c) => c.id);
+	let disabled = config.disabled(uci, map(collectors, (c) => c.id));
 	let sel = select(collectors, query_string, disabled);
 
 	if (!sel.ok) {

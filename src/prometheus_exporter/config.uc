@@ -755,3 +755,28 @@ export function enabled(uci, id) {
 
 	return !res.ok || res.data.enabled;
 };
+
+/**
+ * Those of the collectors `ids` that are not enabled (enabled()), with one
+ * read of the config for them all: a scrape asks it of every collector
+ * installed.
+ *
+ * @param {UciCursor} uci the cursor.
+ * @param {string[]} ids the collectors' module names, their sections' names.
+ * @returns {string[]} those switched off, in the order of `ids`.
+ */
+export function disabled(uci, ids) {
+	let off = {};
+
+	uci.foreach(NAME, 'collector', function(s) {
+		if (!('enabled' in s))
+			return;
+
+		let res = convert('enabled', s.enabled, ENABLED);
+
+		if (res.ok && !res.data)
+			off[s['.name']] = true;
+	});
+
+	return filter(ids, (id) => off[id]);
+};
