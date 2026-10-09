@@ -6,7 +6,9 @@
 // error-codes.md and command.md) from the collectors' meta, the package Makefile,
 // config.uc (and config/types.uc) and errors.uc, with docs/gen/notes.uc for
 // what the code does not say. The metrics are what the collectors write on the fixture sets of
-// test/fixtures/. Run from the repository root, on OpenWrt's ucode:
+// test/fixtures/. And docs/reference/migration.md, from docs/gen/migration.md and
+// migration.uc, with what the feed's exporters write (docs/gen/feed-exporters.json,
+// make feed-inventory). Run from the repository root, on OpenWrt's ucode:
 //
 //   ucode -L src -L test -L devenv/scripts devenv/scripts/docs-gen.uc [--check]
 //

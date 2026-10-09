@@ -8,6 +8,7 @@ import { USAGE } from 'prometheus_exporter.cli';
 import * as package from 'docs_gen.package';
 import * as harvest from 'docs_gen.harvest';
 import * as pages from 'docs_gen.pages';
+import * as migration from 'docs_gen.migration';
 
 export const OUT = 'docs/reference';
 export const NOTES = 'docs/gen/notes.uc';
@@ -34,11 +35,23 @@ export function load_collectors(fs, problems) {
 		(level, msg) => push(problems, `the loader left a collector out: ${msg}`));
 };
 
-// { pages: { path: text }, problems: [ message ] } of the checkout in the
-// current directory: fs is the fs module; notes, the notes module. `loaded`
+// What the migration page is written from: { notes, inventory, template },
+// docs/gen/migration.uc, docs/gen/feed-exporters.json and docs/gen/migration.md.
+export function load_migration(fs) {
+	return {
+		notes: load_notes(`${fs.getcwd()}/${migration.NOTES}`),
+		inventory: json(fs.readfile(migration.INVENTORY) ?? die(`no ${migration.INVENTORY}`)),
+		template: fs.readfile(migration.TEMPLATE) ?? die(`no ${migration.TEMPLATE}`),
+	};
+};
+
+// What the pages are written from (the ctx of docs_gen.pages), of the
+// checkout in the current directory, and the problems found gathering it:
+// { ctx, problems }. fs is the fs module; notes, the notes module. `loaded`
 // is load_collectors()'s, to load them once for several runs: ucode keeps the
-// source of each module a load compiles open.
-export function run(fs, notes, loaded) {
+// source of each module a load compiles open. `migrating` is load_migration()'s,
+// read when null.
+export function context(fs, notes, loaded, migrating) {
 	let pkg = package.parse(fs.readfile(package.MAKEFILE) ?? die(`no ${package.MAKEFILE}`));
 	let problems = [];
 	let collectors = loaded ?? load_collectors(fs, problems);
@@ -67,8 +80,17 @@ export function run(fs, notes, loaded) {
 		harvest: harvest.harvest(fs, harvest.ROOT, collectors),
 		errors: fs.readfile('src/prometheus_exporter/errors.uc'),
 		usage: USAGE,
+		migration: migrating ?? load_migration(fs),
 	};
 
+	return { ctx, problems };
+};
+
+// { pages: { path: text }, problems: [ message ] } of the checkout in the
+// current directory, as context() takes its arguments.
+export function run(fs, notes, loaded, migrating) {
+	let gathered = context(fs, notes, loaded, migrating);
+	let ctx = gathered.ctx, problems = gathered.problems;
 	let out = {};
 
 	for (let p in [
@@ -77,6 +99,7 @@ export function run(fs, notes, loaded) {
 		[ 'uci-config.md', pages.uci_page ],
 		[ 'error-codes.md', pages.errors_page ],
 		[ 'command.md', pages.command_page ],
+		[ 'migration.md', migration.migration_page ],
 	]) {
 		let res = p[1](ctx);
 

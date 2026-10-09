@@ -1,0 +1,2061 @@
+{
+	"source": "openwrt/packages@705e1cc3beb7a0cb3ef53ba18a3ba1fed8f4342c",
+	"exporters": {
+		"lua": {
+			"package": "prometheus-node-exporter-lua",
+			"version": "2026.06.05-r1",
+			"packages": {
+				"prometheus-node-exporter-lua": [
+					"cpu",
+					"conntrack",
+					"entropy",
+					"filefd",
+					"loadavg",
+					"meminfo",
+					"netdev",
+					"selinux",
+					"time",
+					"uname",
+					"netclass"
+				],
+				"prometheus-node-exporter-lua-bmx7": [
+					"bmx7"
+				],
+				"prometheus-node-exporter-lua-dawn": [
+					"dawn"
+				],
+				"prometheus-node-exporter-lua-filesystem": [
+					"filesystem"
+				],
+				"prometheus-node-exporter-lua-hostapd_stations": [
+					"hostapd_stations"
+				],
+				"prometheus-node-exporter-lua-hostapd_ubus_stations": [
+					"hostapd_ubus_stations"
+				],
+				"prometheus-node-exporter-lua-hwmon": [
+					"hwmon"
+				],
+				"prometheus-node-exporter-lua-ltq-dsl": [
+					"ltq-dsl"
+				],
+				"prometheus-node-exporter-lua-nat_traffic": [
+					"nat_traffic"
+				],
+				"prometheus-node-exporter-lua-netstat": [
+					"netstat"
+				],
+				"prometheus-node-exporter-lua-openwrt": [
+					"openwrt"
+				],
+				"prometheus-node-exporter-lua-textfile": [
+					"textfile"
+				],
+				"prometheus-node-exporter-lua-thermal": [
+					"thermal"
+				],
+				"prometheus-node-exporter-lua-ubnt-manager": [
+					"ubnt-manager"
+				],
+				"prometheus-node-exporter-lua-uci_dhcp_host": [
+					"uci_dhcp_host"
+				],
+				"prometheus-node-exporter-lua-wifi": [
+					"wifi"
+				],
+				"prometheus-node-exporter-lua-wifi_stations": [
+					"wifi_stations"
+				],
+				"prometheus-node-exporter-lua-snmp6": [
+					"snmp6"
+				],
+				"prometheus-node-exporter-lua-realtek-poe": [
+					"realtek-poe"
+				],
+				"prometheus-node-exporter-lua-mwan3": [
+					"mwan3"
+				],
+				"prometheus-node-exporter-lua-ethtool": [
+					"ethtool"
+				],
+				"prometheus-node-exporter-lua-nft-counters": [
+					"nft_counters"
+				],
+				"prometheus-node-exporter-lua-modemmanager": [
+					"modemmanager"
+				],
+				"prometheus-node-exporter-lua-unbound": [
+					"unbound"
+				]
+			},
+			"collectors": {
+				"cpu": {
+					"sha256": "d2b0da5185b13b8c14e16dd5ed30b04c270970098200443f04defeefaad4c0aa",
+					"families": [
+						{
+							"name": "node_boot_time_seconds",
+							"type": "gauge"
+						},
+						{
+							"name": "node_context_switches_total",
+							"type": "counter"
+						},
+						{
+							"name": "node_cpu_seconds_total",
+							"type": "counter"
+						},
+						{
+							"name": "node_forks_total",
+							"type": "counter"
+						},
+						{
+							"name": "node_intr_total",
+							"type": "counter"
+						},
+						{
+							"name": "node_procs_blocked_total",
+							"type": "gauge"
+						},
+						{
+							"name": "node_procs_running_total",
+							"type": "gauge"
+						}
+					],
+					"keys": [
+						"cpu",
+						"mode",
+						"scrape"
+					]
+				},
+				"conntrack": {
+					"sha256": "9aa0ead060050f8469f2e47190b17a1999cde59eabadc1f558621f2364628f16",
+					"families": [
+						{
+							"name": "node_nf_conntrack_entries",
+							"type": "gauge"
+						},
+						{
+							"name": "node_nf_conntrack_entries_limit",
+							"type": "gauge"
+						}
+					],
+					"keys": [
+						"scrape"
+					]
+				},
+				"entropy": {
+					"sha256": "7bed9843a5f3c6780d568aec453e0ca092c35033be287c74dfa2c455a193fa9a",
+					"families": [
+						{
+							"name": "node_entropy_available_bits",
+							"type": "gauge"
+						},
+						{
+							"name": "node_entropy_pool_size_bits",
+							"type": "gauge"
+						}
+					],
+					"keys": [
+						"scrape"
+					]
+				},
+				"filefd": {
+					"sha256": "d1f755de64cfa4ba9ed35d82ad7b411d2002ffa74956023ed5014e7a9bcf43b8",
+					"families": [
+						{
+							"name": "node_filefd_allocated",
+							"type": "gauge"
+						},
+						{
+							"name": "node_filefd_maximum",
+							"type": "gauge"
+						}
+					],
+					"keys": [
+						"scrape"
+					]
+				},
+				"loadavg": {
+					"sha256": "e231dc1378cc139a6973a33f3ca01ccd1eb51a72803f962991fb83fbf17ba09d",
+					"families": [
+						{
+							"name": "node_load1",
+							"type": "gauge"
+						},
+						{
+							"name": "node_load15",
+							"type": "gauge"
+						},
+						{
+							"name": "node_load5",
+							"type": "gauge"
+						}
+					],
+					"keys": [
+						"scrape"
+					]
+				},
+				"meminfo": {
+					"sha256": "ca233b4c920a25b4c11390d71501943d92b9be4bbfdf65467efb266f2657e354",
+					"families": [
+						{
+							"name": "node_memory_<>_bytes",
+							"type": "gauge"
+						}
+					],
+					"keys": [
+						"scrape"
+					]
+				},
+				"netdev": {
+					"sha256": "32f32c7eec85aa83b7e530939e79052d128177ce0a91057f6a47380d9ee03271",
+					"families": [
+						{
+							"name": "node_network_<>",
+							"type": "counter"
+						}
+					],
+					"keys": [
+						"device",
+						"scrape"
+					]
+				},
+				"selinux": {
+					"sha256": "7bb9fbe18772cdafb5dff97772e052c8f89a1140d3ebf50f6a79cdd2dd84acd2",
+					"families": [
+						{
+							"name": "node_selinux_current_mode",
+							"type": "gauge"
+						},
+						{
+							"name": "node_selinux_enabled",
+							"type": "gauge"
+						}
+					],
+					"keys": [
+						"scrape"
+					]
+				},
+				"time": {
+					"sha256": "6f7529201736e9f2b05f037100936319a6dd666e902db6a7f9aaddae8ac29b83",
+					"families": [
+						{
+							"name": "node_time_seconds",
+							"type": "gauge"
+						}
+					],
+					"keys": [
+						"scrape"
+					]
+				},
+				"uname": {
+					"sha256": "91d3b4177ad30b19281a099b1005451bfd00fdf1ac138f9770f3c9076f4a3bcd",
+					"families": [
+						{
+							"name": "node_uname_info",
+							"type": "gauge"
+						}
+					],
+					"keys": [
+						"domainname",
+						"machine",
+						"nodename",
+						"release",
+						"scrape",
+						"sysname",
+						"version"
+					]
+				},
+				"netclass": {
+					"sha256": "755e1e81752ae66fc2c1185edff63c4073a0123e02c75b0f4baa8600c0913e5f",
+					"families": [
+						{
+							"name": "node_network_address_assign_type",
+							"type": "gauge"
+						},
+						{
+							"name": "node_network_carrier",
+							"type": "gauge"
+						},
+						{
+							"name": "node_network_carrier_changes_total",
+							"type": "counter"
+						},
+						{
+							"name": "node_network_carrier_down_changes_total",
+							"type": "counter"
+						},
+						{
+							"name": "node_network_carrier_up_changes_total",
+							"type": "counter"
+						},
+						{
+							"name": "node_network_device_id",
+							"type": "gauge"
+						},
+						{
+							"name": "node_network_dormant",
+							"type": "gauge"
+						},
+						{
+							"name": "node_network_flags",
+							"type": "gauge"
+						},
+						{
+							"name": "node_network_iface_id",
+							"type": "gauge"
+						},
+						{
+							"name": "node_network_iface_link",
+							"type": "gauge"
+						},
+						{
+							"name": "node_network_iface_link_mode",
+							"type": "gauge"
+						},
+						{
+							"name": "node_network_info",
+							"type": "gauge"
+						},
+						{
+							"name": "node_network_mtu_bytes",
+							"type": "gauge"
+						},
+						{
+							"name": "node_network_name_assign_type",
+							"type": "gauge"
+						},
+						{
+							"name": "node_network_net_dev_group",
+							"type": "gauge"
+						},
+						{
+							"name": "node_network_protocol_type",
+							"type": "gauge"
+						},
+						{
+							"name": "node_network_speed_bytes",
+							"type": "gauge"
+						},
+						{
+							"name": "node_network_transmit_queue_length",
+							"type": "gauge"
+						}
+					],
+					"keys": [
+						"addr_assign_type",
+						"address",
+						"address_assign_type",
+						"broadcast",
+						"carrier",
+						"carrier_changes",
+						"carrier_changes_total",
+						"carrier_down_changes_total",
+						"carrier_down_count",
+						"carrier_up_changes_total",
+						"carrier_up_count",
+						"dev_id",
+						"device",
+						"device_id",
+						"dormant",
+						"duplex",
+						"flags",
+						"iface_id",
+						"iface_link",
+						"iface_link_mode",
+						"ifalias",
+						"ifindex",
+						"iflink",
+						"info",
+						"link_mode",
+						"mtu",
+						"mtu_bytes",
+						"name_assign_type",
+						"net_dev_group",
+						"netdev_group",
+						"operstate",
+						"protocol_type",
+						"scrape",
+						"speed_bytes",
+						"transmit_queue_length",
+						"tx_queue_len",
+						"type"
+					]
+				},
+				"bmx7": {
+					"sha256": "3157eabcd15cc081288732d9552ca1056a368d6324a190bef0bf04b29d34273d",
+					"families": [
+						{
+							"name": "bmx7_cpu_usage",
+							"type": "gauge"
+						},
+						{
+							"name": "bmx7_link_rxRate",
+							"type": "gauge"
+						},
+						{
+							"name": "bmx7_link_txRate",
+							"type": "gauge"
+						},
+						{
+							"name": "bmx7_mem_usage",
+							"type": "gauge"
+						},
+						{
+							"name": "bmx7_plugin",
+							"type": "gauge"
+						},
+						{
+							"name": "bmx7_status",
+							"type": "gauge"
+						},
+						{
+							"name": "bmx7_tunIn",
+							"type": "gauge"
+						}
+					],
+					"keys": [
+						"address",
+						"dev",
+						"id",
+						"name",
+						"network",
+						"revision",
+						"scrape",
+						"source",
+						"target"
+					]
+				},
+				"dawn": {
+					"sha256": "e598015256fad6e099f6f6ff001c8168bc00e826d681237e5e094840aed1d599",
+					"families": [
+						{
+							"name": "dawn_ap_channel_utilization_ratio",
+							"type": "gauge"
+						},
+						{
+							"name": "dawn_ap_stations_total",
+							"type": "gauge"
+						},
+						{
+							"name": "dawn_station_signal_dbm",
+							"type": "gauge"
+						}
+					],
+					"keys": [
+						"bssid",
+						"freq",
+						"hostname",
+						"ht_support",
+						"mac",
+						"neighbor_report",
+						"scrape",
+						"ssid",
+						"vht_support"
+					]
+				},
+				"filesystem": {
+					"sha256": "b620c129c157eeb3ed8714e1b02fe858332df00d81076f68fe1fe75abc47274e",
+					"families": [
+						{
+							"name": "node_filesystem_avail_bytes",
+							"type": "gauge"
+						},
+						{
+							"name": "node_filesystem_files",
+							"type": "gauge"
+						},
+						{
+							"name": "node_filesystem_files_free",
+							"type": "gauge"
+						},
+						{
+							"name": "node_filesystem_free_bytes",
+							"type": "gauge"
+						},
+						{
+							"name": "node_filesystem_readonly",
+							"type": "gauge"
+						},
+						{
+							"name": "node_filesystem_size_bytes",
+							"type": "gauge"
+						}
+					],
+					"keys": [
+						"device",
+						"fstype",
+						"mountpoint",
+						"scrape"
+					]
+				},
+				"hostapd_stations": {
+					"sha256": "03487f2e26c519592c48b0338f04a0cc4ce78d53bc48789f1488b647c901171e",
+					"families": [
+						{
+							"name": "hostapd_station_connected_seconds_total",
+							"type": "counter"
+						},
+						{
+							"name": "hostapd_station_flag_assoc",
+							"type": "gauge"
+						},
+						{
+							"name": "hostapd_station_flag_auth",
+							"type": "gauge"
+						},
+						{
+							"name": "hostapd_station_flag_he",
+							"type": "gauge"
+						},
+						{
+							"name": "hostapd_station_flag_ht",
+							"type": "gauge"
+						},
+						{
+							"name": "hostapd_station_flag_mfp",
+							"type": "gauge"
+						},
+						{
+							"name": "hostapd_station_flag_short_preamble",
+							"type": "gauge"
+						},
+						{
+							"name": "hostapd_station_flag_vht",
+							"type": "gauge"
+						},
+						{
+							"name": "hostapd_station_flag_wmm",
+							"type": "gauge"
+						},
+						{
+							"name": "hostapd_station_inactive_seconds",
+							"type": "gauge"
+						},
+						{
+							"name": "hostapd_station_receive_bytes_total",
+							"type": "counter"
+						},
+						{
+							"name": "hostapd_station_receive_packets_total",
+							"type": "counter"
+						},
+						{
+							"name": "hostapd_station_sae_group",
+							"type": "gauge"
+						},
+						{
+							"name": "hostapd_station_signal_dbm",
+							"type": "gauge"
+						},
+						{
+							"name": "hostapd_station_transmit_bytes_total",
+							"type": "counter"
+						},
+						{
+							"name": "hostapd_station_transmit_packets_total",
+							"type": "counter"
+						},
+						{
+							"name": "hostapd_station_vht_capb_mu_beamformee",
+							"type": "gauge"
+						},
+						{
+							"name": "hostapd_station_vht_capb_su_beamformee",
+							"type": "gauge"
+						}
+					],
+					"keys": [
+						"bssid",
+						"channel",
+						"encryption",
+						"frequency",
+						"scrape",
+						"ssid",
+						"station",
+						"vif"
+					]
+				},
+				"hostapd_ubus_stations": {
+					"sha256": "1f5438d379fde9ef0fc4bb4778a669b832aaa4f0e53315f72b631f461203d456",
+					"families": [
+						{
+							"name": "hostapd_ubus_station_rrm_caps_beacon_report_active",
+							"type": "gauge"
+						},
+						{
+							"name": "hostapd_ubus_station_rrm_caps_beacon_report_passive",
+							"type": "gauge"
+						},
+						{
+							"name": "hostapd_ubus_station_rrm_caps_beacon_report_table",
+							"type": "gauge"
+						},
+						{
+							"name": "hostapd_ubus_station_rrm_caps_ftm_range_report",
+							"type": "gauge"
+						},
+						{
+							"name": "hostapd_ubus_station_rrm_caps_lci_measurement",
+							"type": "gauge"
+						},
+						{
+							"name": "hostapd_ubus_station_rrm_caps_link_measurement",
+							"type": "gauge"
+						},
+						{
+							"name": "hostapd_ubus_station_rrm_caps_neighbor_report",
+							"type": "gauge"
+						}
+					],
+					"keys": [
+						"freq",
+						"ifname",
+						"scrape",
+						"station"
+					]
+				},
+				"hwmon": {
+					"sha256": "ab62ee3edb0d0adf61f163709e6340932d757982973d246c7144524af87df2bc",
+					"families": [
+						{
+							"name": "node_hwmon_chip_names",
+							"type": "gauge"
+						},
+						{
+							"name": "node_hwmon_pwm",
+							"type": "gauge"
+						},
+						{
+							"name": "node_hwmon_sensor_label",
+							"type": "gauge"
+						},
+						{
+							"name": "node_hwmon_temp_celsius",
+							"type": "gauge"
+						}
+					],
+					"keys": [
+						"chip",
+						"chip_name",
+						"label",
+						"scrape",
+						"sensor"
+					]
+				},
+				"ltq-dsl": {
+					"sha256": "9cf41cfedbbb65b31e85db0d61452b3f950535a2dc07b2b70d664059e8440ea9",
+					"families": [
+						{
+							"name": "dsl_aggregated_transmit_power_db",
+							"type": "gauge"
+						},
+						{
+							"name": "dsl_datarate",
+							"type": "gauge"
+						},
+						{
+							"name": "dsl_erb_total",
+							"type": "counter"
+						},
+						{
+							"name": "dsl_error_seconds_total",
+							"type": "counter"
+						},
+						{
+							"name": "dsl_errors_total",
+							"type": "counter"
+						},
+						{
+							"name": "dsl_info",
+							"type": "gauge"
+						},
+						{
+							"name": "dsl_latency_seconds",
+							"type": "gauge"
+						},
+						{
+							"name": "dsl_line_attenuation_db",
+							"type": "gauge"
+						},
+						{
+							"name": "dsl_line_info",
+							"type": "gauge"
+						},
+						{
+							"name": "dsl_max_datarate",
+							"type": "gauge"
+						},
+						{
+							"name": "dsl_signal_attenuation_db",
+							"type": "gauge"
+						},
+						{
+							"name": "dsl_signal_to_noise_margin_db",
+							"type": "gauge"
+						},
+						{
+							"name": "dsl_up",
+							"type": "gauge"
+						},
+						{
+							"name": "dsl_uptime_seconds",
+							"type": "gauge"
+						}
+					],
+					"keys": [
+						"annex",
+						"api_version",
+						"atuc_system_vendor",
+						"atuc_vendor",
+						"chipset",
+						"counter",
+						"detail",
+						"direction",
+						"driver_version",
+						"err",
+						"firmware_version",
+						"loc",
+						"mode",
+						"profile",
+						"scrape",
+						"standard"
+					]
+				},
+				"nat_traffic": {
+					"sha256": "309c72719ff74f9f1a8f2e9840b1a9e9575ceb11a5852362b67ae0d550580499",
+					"families": [
+						{
+							"name": "node_nat_traffic",
+							"type": "gauge"
+						}
+					],
+					"keys": [
+						"__index",
+						"dest",
+						"scrape",
+						"src"
+					]
+				},
+				"netstat": {
+					"sha256": "f2de6c0ea0fc7253b3b8effefac8ba2bf7a4c46e65b9a1d114be37626d701a33",
+					"families": [
+						{
+							"name": "node_netstat_<>_<>",
+							"type": "gauge"
+						}
+					],
+					"keys": [
+						"scrape"
+					]
+				},
+				"openwrt": {
+					"sha256": "998014abbf0dba99d45cfc1cb2b2dca0ab53d20f8db8e08c442de2d307a41d7c",
+					"families": [
+						{
+							"name": "node_openwrt_info",
+							"type": "gauge"
+						},
+						{
+							"name": "node_os_info",
+							"type": "gauge"
+						}
+					],
+					"keys": [
+						"board_name",
+						"build_id",
+						"id",
+						"model",
+						"name",
+						"pretty_name",
+						"release",
+						"revision",
+						"scrape",
+						"system",
+						"target",
+						"version",
+						"version_id"
+					]
+				},
+				"textfile": {
+					"sha256": "8c1e8c14fc1bb134a6e0f092e2fcb57c849801040380e4c137965289533fcd5c",
+					"families": [
+						{
+							"name": "node_textfile_mtime_seconds",
+							"type": "gauge"
+						}
+					],
+					"keys": [
+						"file",
+						"scrape"
+					]
+				},
+				"thermal": {
+					"sha256": "74e6d4b6fad02a9889c30420851c10992dc91f1ca8a26e38791e84e3a4deebcb",
+					"families": [
+						{
+							"name": "node_thermal_zone_temp",
+							"type": "gauge"
+						}
+					],
+					"keys": [
+						"mode",
+						"passive",
+						"policy",
+						"scrape",
+						"type",
+						"zone"
+					]
+				},
+				"ubnt-manager": {
+					"sha256": "4e5e5f48530911c89db41f3d3ce121bb9b5903093e3328454f935354cf79d3d5",
+					"families": [
+						{
+							"name": "ubnt_aprepeater",
+							"type": "gauge"
+						},
+						{
+							"name": "ubnt_atpc_status",
+							"type": "gauge"
+						},
+						{
+							"name": "ubnt_band",
+							"type": "gauge"
+						},
+						{
+							"name": "ubnt_cac_state",
+							"type": "gauge"
+						},
+						{
+							"name": "ubnt_cac_timeout",
+							"type": "gauge"
+						},
+						{
+							"name": "ubnt_center1_freq",
+							"type": "gauge"
+						},
+						{
+							"name": "ubnt_chanbw",
+							"type": "gauge"
+						},
+						{
+							"name": "ubnt_channel",
+							"type": "gauge"
+						},
+						{
+							"name": "ubnt_count",
+							"type": "gauge"
+						},
+						{
+							"name": "ubnt_cpubusy",
+							"type": "gauge"
+						},
+						{
+							"name": "ubnt_cpuload",
+							"type": "gauge"
+						},
+						{
+							"name": "ubnt_cputotal",
+							"type": "gauge"
+						},
+						{
+							"name": "ubnt_dfs",
+							"type": "gauge"
+						},
+						{
+							"name": "ubnt_distance",
+							"type": "gauge"
+						},
+						{
+							"name": "ubnt_freeram",
+							"type": "gauge"
+						},
+						{
+							"name": "ubnt_frequency",
+							"type": "gauge"
+						},
+						{
+							"name": "ubnt_loadavg",
+							"type": "gauge"
+						},
+						{
+							"name": "ubnt_noisef",
+							"type": "gauge"
+						},
+						{
+							"name": "ubnt_polling_cb_capacity",
+							"type": "gauge"
+						},
+						{
+							"name": "ubnt_polling_dl_capacity",
+							"type": "gauge"
+						},
+						{
+							"name": "ubnt_polling_ul_capacity",
+							"type": "gauge"
+						},
+						{
+							"name": "ubnt_rssi",
+							"type": "gauge"
+						},
+						{
+							"name": "ubnt_rstatus",
+							"type": "gauge"
+						},
+						{
+							"name": "ubnt_rx_chainmask",
+							"type": "gauge"
+						},
+						{
+							"name": "ubnt_rx_idx",
+							"type": "gauge"
+						},
+						{
+							"name": "ubnt_rx_nss",
+							"type": "gauge"
+						},
+						{
+							"name": "ubnt_rx_use",
+							"type": "gauge"
+						},
+						{
+							"name": "ubnt_rxrate",
+							"type": "gauge"
+						},
+						{
+							"name": "ubnt_signal",
+							"type": "gauge"
+						},
+						{
+							"name": "ubnt_temperature",
+							"type": "gauge"
+						},
+						{
+							"name": "ubnt_throughput_rx",
+							"type": "gauge"
+						},
+						{
+							"name": "ubnt_throughput_tx",
+							"type": "gauge"
+						},
+						{
+							"name": "ubnt_timestamp",
+							"type": "counter"
+						},
+						{
+							"name": "ubnt_totalram",
+							"type": "gauge"
+						},
+						{
+							"name": "ubnt_tx_chainmask",
+							"type": "gauge"
+						},
+						{
+							"name": "ubnt_tx_idx",
+							"type": "gauge"
+						},
+						{
+							"name": "ubnt_tx_nss",
+							"type": "gauge"
+						},
+						{
+							"name": "ubnt_tx_use",
+							"type": "gauge"
+						},
+						{
+							"name": "ubnt_txpower",
+							"type": "gauge"
+						},
+						{
+							"name": "ubnt_txrate",
+							"type": "gauge"
+						},
+						{
+							"name": "ubnt_uptime",
+							"type": "counter"
+						},
+						{
+							"name": "ubnt_use",
+							"type": "gauge"
+						}
+					],
+					"keys": [
+						"device",
+						"devmodel",
+						"essid",
+						"fwversion",
+						"hostname",
+						"scrape"
+					]
+				},
+				"uci_dhcp_host": {
+					"sha256": "eb5bf6333d37172bbf3a600aa3fa4db373b45be70c5e5c756a171ef7a371b620",
+					"families": [
+						{
+							"name": "uci_dhcp_host",
+							"type": "gauge"
+						}
+					],
+					"keys": [
+						"dns",
+						"duid",
+						"ip",
+						"mac",
+						"name",
+						"scrape"
+					]
+				},
+				"wifi": {
+					"sha256": "f9d4b0bf402bb3a1d0480090cec63b2e4f32a5e13e6e8b598af39b2473ed8f57",
+					"families": [
+						{
+							"name": "wifi_network_bitrate",
+							"type": "gauge"
+						},
+						{
+							"name": "wifi_network_noise_dbm",
+							"type": "gauge"
+						},
+						{
+							"name": "wifi_network_quality",
+							"type": "gauge"
+						},
+						{
+							"name": "wifi_network_signal_dbm",
+							"type": "gauge"
+						}
+					],
+					"keys": [
+						"bssid",
+						"channel",
+						"country",
+						"device",
+						"frequency",
+						"ifname",
+						"mode",
+						"scrape",
+						"ssid"
+					]
+				},
+				"wifi_stations": {
+					"sha256": "ab6deb81aa02961b9da01ec340745eddd9bb425f62aab0a7273aed7f83026da6",
+					"families": [
+						{
+							"name": "wifi_station_expected_throughput_kilobits_per_second",
+							"type": "gauge"
+						},
+						{
+							"name": "wifi_station_inactive_milliseconds",
+							"type": "gauge"
+						},
+						{
+							"name": "wifi_station_receive_bytes_total",
+							"type": "counter"
+						},
+						{
+							"name": "wifi_station_receive_kilobits_per_second",
+							"type": "gauge"
+						},
+						{
+							"name": "wifi_station_receive_packets_total",
+							"type": "counter"
+						},
+						{
+							"name": "wifi_station_signal_dbm",
+							"type": "gauge"
+						},
+						{
+							"name": "wifi_station_transmit_bytes_total",
+							"type": "counter"
+						},
+						{
+							"name": "wifi_station_transmit_kilobits_per_second",
+							"type": "gauge"
+						},
+						{
+							"name": "wifi_station_transmit_packets_total",
+							"type": "counter"
+						},
+						{
+							"name": "wifi_stations",
+							"type": "gauge"
+						}
+					],
+					"keys": [
+						"ifname",
+						"mac",
+						"scrape"
+					]
+				},
+				"snmp6": {
+					"sha256": "ff21b0551c45a13fcdbfe8af7e63f6107242b166c79d31ac58c3721ddf8b9233",
+					"families": [
+						{
+							"name": "snmp6_<>",
+							"type": "counter"
+						}
+					],
+					"keys": [
+						"device",
+						"scrape"
+					]
+				},
+				"realtek-poe": {
+					"sha256": "744376f134d78f893c06927dab4c4cfa7b9405190a2795573f6d321d8adb7de1",
+					"families": [
+						{
+							"name": "realtek_poe_port_consumption_watts",
+							"type": "gauge"
+						},
+						{
+							"name": "realtek_poe_port_mode",
+							"type": "gauge"
+						},
+						{
+							"name": "realtek_poe_port_priority",
+							"type": "gauge"
+						},
+						{
+							"name": "realtek_poe_port_state",
+							"type": "gauge"
+						},
+						{
+							"name": "realtek_poe_switch_budget_watts",
+							"type": "gauge"
+						},
+						{
+							"name": "realtek_poe_switch_consumption_watts",
+							"type": "gauge"
+						},
+						{
+							"name": "realtek_poe_switch_info",
+							"type": "gauge"
+						}
+					],
+					"keys": [
+						"device",
+						"firmware",
+						"mcu",
+						"mode",
+						"scrape",
+						"state"
+					]
+				},
+				"mwan3": {
+					"sha256": "796a6e55ff0a0c02502b64564616f751b1b17f571ee1941f1ce2918238ab44c4",
+					"families": [
+						{
+							"name": "mwan3_interface_age",
+							"type": "counter"
+						},
+						{
+							"name": "mwan3_interface_enabled",
+							"type": "gauge"
+						},
+						{
+							"name": "mwan3_interface_lost",
+							"type": "counter"
+						},
+						{
+							"name": "mwan3_interface_offline",
+							"type": "counter"
+						},
+						{
+							"name": "mwan3_interface_online",
+							"type": "counter"
+						},
+						{
+							"name": "mwan3_interface_running",
+							"type": "gauge"
+						},
+						{
+							"name": "mwan3_interface_score",
+							"type": "gauge"
+						},
+						{
+							"name": "mwan3_interface_status",
+							"type": "gauge"
+						},
+						{
+							"name": "mwan3_interface_turn",
+							"type": "counter"
+						},
+						{
+							"name": "mwan3_interface_up",
+							"type": "gauge"
+						},
+						{
+							"name": "mwan3_interface_uptime",
+							"type": "counter"
+						}
+					],
+					"keys": [
+						"interface",
+						"scrape",
+						"section",
+						"status"
+					]
+				},
+				"ethtool": {
+					"sha256": "2adc22cc9c6637812b3ccc7892f7f229f85db00f7a4dc2bccd3cc33a938f4a08",
+					"families": [
+						{
+							"name": "<>",
+							"type": "untyped"
+						}
+					],
+					"keys": [
+						"advertised_asymmetricpause",
+						"advertised_autonegotiate",
+						"advertised_pause",
+						"advertised_speed",
+						"autonegotiate",
+						"device",
+						"rx",
+						"rx_bytes",
+						"rx_dropped",
+						"rx_errors",
+						"rx_packets",
+						"scrape",
+						"supported_asymmetricpause",
+						"supported_autonegotiate",
+						"supported_pause",
+						"supported_port",
+						"supported_speed",
+						"tx",
+						"tx_bytes",
+						"tx_errors",
+						"tx_packets"
+					]
+				},
+				"nft_counters": {
+					"sha256": "ae26fd184d2c0a30c6d3d8276e8ea8a874a8d9ccfc19162974c3081b903863ab",
+					"families": [
+						{
+							"name": "nft_counter_bytes",
+							"type": "counter"
+						},
+						{
+							"name": "nft_counter_packets",
+							"type": "counter"
+						}
+					],
+					"keys": [
+						"comment",
+						"family",
+						"name",
+						"scrape",
+						"table"
+					]
+				},
+				"modemmanager": {
+					"sha256": "abe0194470b4b531e40041a6562d96e07dcbc1ffa393c35550b81097d5c74769",
+					"families": [
+						{
+							"name": "modemmanager_signal_<>_<>",
+							"type": "gauge"
+						},
+						{
+							"name": "modemmanager_signal_quality",
+							"type": "gauge"
+						}
+					],
+					"keys": [
+						"modem",
+						"scrape"
+					]
+				},
+				"unbound": {
+					"sha256": "c5de3ea3b88174991f1993c00bb0b87f485baec241c5d9de207d8e7f54380faf",
+					"families": [
+						{
+							"name": "unbound_cachehits_total",
+							"type": "counter"
+						},
+						{
+							"name": "unbound_cachemiss_total",
+							"type": "counter"
+						},
+						{
+							"name": "unbound_num_dns_error_reports_total",
+							"type": "counter"
+						},
+						{
+							"name": "unbound_num_expired_total",
+							"type": "counter"
+						},
+						{
+							"name": "unbound_num_queries_cookie_client_total",
+							"type": "counter"
+						},
+						{
+							"name": "unbound_num_queries_cookie_invalid_total",
+							"type": "counter"
+						},
+						{
+							"name": "unbound_num_queries_cookie_valid_total",
+							"type": "counter"
+						},
+						{
+							"name": "unbound_num_queries_discard_timeout_total",
+							"type": "counter"
+						},
+						{
+							"name": "unbound_num_queries_ip_ratelimited_total",
+							"type": "counter"
+						},
+						{
+							"name": "unbound_num_queries_timed_out_total",
+							"type": "counter"
+						},
+						{
+							"name": "unbound_num_queries_total",
+							"type": "counter"
+						},
+						{
+							"name": "unbound_num_queries_wait_limit_total",
+							"type": "counter"
+						},
+						{
+							"name": "unbound_num_recursivereplies_total",
+							"type": "counter"
+						},
+						{
+							"name": "unbound_prefetch_total",
+							"type": "counter"
+						},
+						{
+							"name": "unbound_query_queue_time_us_max",
+							"type": "gauge"
+						},
+						{
+							"name": "unbound_recursion_time_avg",
+							"type": "gauge"
+						},
+						{
+							"name": "unbound_recursion_time_median",
+							"type": "gauge"
+						},
+						{
+							"name": "unbound_requestlist_avg",
+							"type": "gauge"
+						},
+						{
+							"name": "unbound_requestlist_current_all",
+							"type": "gauge"
+						},
+						{
+							"name": "unbound_requestlist_current_user",
+							"type": "gauge"
+						},
+						{
+							"name": "unbound_requestlist_exceeded_total",
+							"type": "counter"
+						},
+						{
+							"name": "unbound_requestlist_max",
+							"type": "gauge"
+						},
+						{
+							"name": "unbound_requestlist_overwritten_total",
+							"type": "counter"
+						}
+					],
+					"keys": [
+						"scrape"
+					]
+				},
+				"(scrape)": {
+					"sha256": "640acc0799177e7969ce249c531dda90d6156d2fe0a705ef01b55e5c0bc26240",
+					"families": [
+						{
+							"name": "node_scrape_collector_duration_seconds",
+							"type": "gauge"
+						},
+						{
+							"name": "node_scrape_collector_success",
+							"type": "gauge"
+						}
+					],
+					"keys": [
+						"collector",
+						"label",
+						"value"
+					]
+				}
+			}
+		},
+		"ucode": {
+			"package": "prometheus-node-exporter-ucode",
+			"version": "2024.02.07-r2",
+			"packages": {
+				"prometheus-node-exporter-ucode": [
+					"conntrack",
+					"cpu",
+					"entropy",
+					"filefd",
+					"loadavg",
+					"meminfo",
+					"netclass",
+					"netdev",
+					"selinux",
+					"time",
+					"uname"
+				],
+				"prometheus-node-exporter-ucode-dnsmasq": [
+					"dnsmasq"
+				],
+				"prometheus-node-exporter-ucode-ltq-dsl": [
+					"ltq-dsl"
+				],
+				"prometheus-node-exporter-ucode-netstat": [
+					"netstat"
+				],
+				"prometheus-node-exporter-ucode-openwrt": [
+					"openwrt"
+				],
+				"prometheus-node-exporter-ucode-snmp6": [
+					"snmp6"
+				],
+				"prometheus-node-exporter-ucode-uci_dhcp_host": [
+					"uci_dhcp_host"
+				],
+				"prometheus-node-exporter-ucode-wifi": [
+					"wifi"
+				],
+				"prometheus-node-exporter-ucode-wireguard": [
+					"wireguard"
+				]
+			},
+			"collectors": {
+				"conntrack": {
+					"sha256": "4024c9b34c57c4b1cf9f6079834ddb99a23ec36823125f8ab82096468905b98b",
+					"families": [
+						{
+							"name": "node_nf_conntrack_entries",
+							"type": "gauge"
+						},
+						{
+							"name": "node_nf_conntrack_entries_limit",
+							"type": "gauge"
+						}
+					],
+					"keys": [
+					]
+				},
+				"cpu": {
+					"sha256": "cf383d336f4e5b9a3a1d6b2c1e76d1b3779f341a90c613b7ffda535d216207a9",
+					"families": [
+						{
+							"name": "node_boot_time_seconds",
+							"type": "gauge"
+						},
+						{
+							"name": "node_context_switches_total",
+							"type": "counter"
+						},
+						{
+							"name": "node_cpu_seconds_total",
+							"type": "counter"
+						},
+						{
+							"name": "node_forks_total",
+							"type": "counter"
+						},
+						{
+							"name": "node_intr_total",
+							"type": "counter"
+						},
+						{
+							"name": "node_procs_blocked_total",
+							"type": "gauge"
+						},
+						{
+							"name": "node_procs_running_total",
+							"type": "gauge"
+						}
+					],
+					"keys": [
+						"cpu",
+						"mode"
+					]
+				},
+				"entropy": {
+					"sha256": "d0077072760c216d55a35c1e212bf3dca93cf5f287e2b47fc0198506a608c942",
+					"families": [
+						{
+							"name": "node_entropy_available_bits",
+							"type": "gauge"
+						},
+						{
+							"name": "node_entropy_pool_size_bits",
+							"type": "gauge"
+						}
+					],
+					"keys": [
+					]
+				},
+				"filefd": {
+					"sha256": "271f7dfc8b36ff678a8a2b2eed9133d1acb494bb9b18bce4de16106f59f9bb82",
+					"families": [
+						{
+							"name": "node_filefd_allocated",
+							"type": "gauge"
+						},
+						{
+							"name": "node_filefd_maximum",
+							"type": "gauge"
+						}
+					],
+					"keys": [
+					]
+				},
+				"loadavg": {
+					"sha256": "03a49b6acb5dcab4f813c23029b233318aafc96496090f5edaaed5c8684c225e",
+					"families": [
+						{
+							"name": "node_load1",
+							"type": "gauge"
+						},
+						{
+							"name": "node_load15",
+							"type": "gauge"
+						},
+						{
+							"name": "node_load5",
+							"type": "gauge"
+						}
+					],
+					"keys": [
+					]
+				},
+				"meminfo": {
+					"sha256": "4feb8531e2c24059e8036cc2d5b6c9731307af980d4fe7008e5d859b34b33bea",
+					"families": [
+						{
+							"name": "node_memory_<>_bytes",
+							"type": "gauge"
+						}
+					],
+					"keys": [
+						"name"
+					]
+				},
+				"netclass": {
+					"sha256": "0af2dac8c378df529c053528a89041795618b327ea8c8de5af0b5294536662e9",
+					"families": [
+						{
+							"name": "node_network_address_assign_type",
+							"type": "gauge"
+						},
+						{
+							"name": "node_network_carrier",
+							"type": "gauge"
+						},
+						{
+							"name": "node_network_carrier_changes_total",
+							"type": "counter"
+						},
+						{
+							"name": "node_network_carrier_down_changes_total",
+							"type": "counter"
+						},
+						{
+							"name": "node_network_carrier_up_changes_total",
+							"type": "counter"
+						},
+						{
+							"name": "node_network_device_id",
+							"type": "gauge"
+						},
+						{
+							"name": "node_network_dormant",
+							"type": "gauge"
+						},
+						{
+							"name": "node_network_flags",
+							"type": "gauge"
+						},
+						{
+							"name": "node_network_iface_id",
+							"type": "gauge"
+						},
+						{
+							"name": "node_network_iface_link",
+							"type": "gauge"
+						},
+						{
+							"name": "node_network_iface_link_mode",
+							"type": "gauge"
+						},
+						{
+							"name": "node_network_info",
+							"type": "gauge"
+						},
+						{
+							"name": "node_network_mtu_bytes",
+							"type": "gauge"
+						},
+						{
+							"name": "node_network_name_assign_type",
+							"type": "gauge"
+						},
+						{
+							"name": "node_network_net_dev_group",
+							"type": "gauge"
+						},
+						{
+							"name": "node_network_protocol_type",
+							"type": "gauge"
+						},
+						{
+							"name": "node_network_speed_bytes",
+							"type": "gauge"
+						},
+						{
+							"name": "node_network_transmit_queue_length",
+							"type": "gauge"
+						}
+					],
+					"keys": [
+						"addr_assign_type",
+						"address",
+						"broadcast",
+						"carrier",
+						"carrier_changes",
+						"carrier_down_count",
+						"carrier_up_count",
+						"dev_id",
+						"device",
+						"dormant",
+						"duplex",
+						"flags",
+						"ifalias",
+						"ifindex",
+						"iflink",
+						"link_mode",
+						"mtu",
+						"name_assign_type",
+						"netdev_group",
+						"operstate",
+						"tx_queue_len",
+						"type"
+					]
+				},
+				"netdev": {
+					"sha256": "2d48f65884df951910121e62df3161487d9c305ea657b8da435b8fbcf34fadc6",
+					"families": [
+						{
+							"name": "node_network_receive_bytes_total",
+							"type": "counter"
+						},
+						{
+							"name": "node_network_receive_compressed_total",
+							"type": "counter"
+						},
+						{
+							"name": "node_network_receive_drop_total",
+							"type": "counter"
+						},
+						{
+							"name": "node_network_receive_errs_total",
+							"type": "counter"
+						},
+						{
+							"name": "node_network_receive_fifo_total",
+							"type": "counter"
+						},
+						{
+							"name": "node_network_receive_frame_total",
+							"type": "counter"
+						},
+						{
+							"name": "node_network_receive_multicast_total",
+							"type": "counter"
+						},
+						{
+							"name": "node_network_receive_packets_total",
+							"type": "counter"
+						},
+						{
+							"name": "node_network_transmit_bytes_total",
+							"type": "counter"
+						},
+						{
+							"name": "node_network_transmit_carrier_total",
+							"type": "counter"
+						},
+						{
+							"name": "node_network_transmit_colls_total",
+							"type": "counter"
+						},
+						{
+							"name": "node_network_transmit_compressed_total",
+							"type": "counter"
+						},
+						{
+							"name": "node_network_transmit_drop_total",
+							"type": "counter"
+						},
+						{
+							"name": "node_network_transmit_errs_total",
+							"type": "counter"
+						},
+						{
+							"name": "node_network_transmit_fifo_total",
+							"type": "counter"
+						},
+						{
+							"name": "node_network_transmit_packets_total",
+							"type": "counter"
+						}
+					],
+					"keys": [
+						"device"
+					]
+				},
+				"selinux": {
+					"sha256": "6e73a1c2863e92e09c4e5703eb25c5785e5ee0c736be11daa0452921e7f09312",
+					"families": [
+						{
+							"name": "node_selinux_current_mode",
+							"type": "gauge"
+						},
+						{
+							"name": "node_selinux_enabled",
+							"type": "gauge"
+						}
+					],
+					"keys": [
+					]
+				},
+				"time": {
+					"sha256": "08fdaff56569c0d1a2b94b8b635bfc47400904ee303537d86f05b6c2fced705c",
+					"families": [
+						{
+							"name": "node_time_seconds",
+							"type": "gauge"
+						}
+					],
+					"keys": [
+					]
+				},
+				"uname": {
+					"sha256": "c08111908e0adb80b4feae82c202e65d9060f396cfb8d7edcdb891ed4d830722",
+					"families": [
+						{
+							"name": "node_uname_info",
+							"type": "gauge"
+						}
+					],
+					"keys": [
+						"domainname",
+						"machine",
+						"nodename",
+						"release",
+						"sysname",
+						"version"
+					]
+				},
+				"dnsmasq": {
+					"sha256": "1fa541fd9d747544570831fa907d4d1ca0898bd5f1a1f4b846915f15fda06244",
+					"families": [
+						{
+							"name": "dnsmasq_<>_total",
+							"type": "gauge"
+						}
+					],
+					"keys": [
+						"i"
+					]
+				},
+				"ltq-dsl": {
+					"sha256": "af463015c580a26b2e7e0df45ffcaf01d823908548c3c5ad17d6200acbcd8b8a",
+					"families": [
+						{
+							"name": "dsl_aggregated_transmit_power_db",
+							"type": "gauge"
+						},
+						{
+							"name": "dsl_datarate",
+							"type": "gauge"
+						},
+						{
+							"name": "dsl_erb_total",
+							"type": "counter"
+						},
+						{
+							"name": "dsl_error_seconds_total",
+							"type": "counter"
+						},
+						{
+							"name": "dsl_errors_total",
+							"type": "counter"
+						},
+						{
+							"name": "dsl_info",
+							"type": "gauge"
+						},
+						{
+							"name": "dsl_latency_seconds",
+							"type": "gauge"
+						},
+						{
+							"name": "dsl_line_attenuation_db",
+							"type": "gauge"
+						},
+						{
+							"name": "dsl_line_info",
+							"type": "gauge"
+						},
+						{
+							"name": "dsl_max_datarate",
+							"type": "gauge"
+						},
+						{
+							"name": "dsl_signal_attenuation_db",
+							"type": "gauge"
+						},
+						{
+							"name": "dsl_signal_to_noise_margin_db",
+							"type": "gauge"
+						},
+						{
+							"name": "dsl_up",
+							"type": "gauge"
+						},
+						{
+							"name": "dsl_uptime_seconds",
+							"type": "gauge"
+						}
+					],
+					"keys": [
+						"annex",
+						"api_version",
+						"atuc_system_vendor",
+						"atuc_vendor",
+						"chipset",
+						"counter",
+						"detail",
+						"direction",
+						"driver_version",
+						"err",
+						"firmware_version",
+						"loc",
+						"mode",
+						"profile",
+						"standard"
+					]
+				},
+				"netstat": {
+					"sha256": "8c13e6f951b71f78b751dde48eb5849e520b422e3ad29d43ce82e5e863b38eb9",
+					"families": [
+						{
+							"name": "node_netstat_<>_<>",
+							"type": "gauge"
+						}
+					],
+					"keys": [
+						"prefix"
+					]
+				},
+				"openwrt": {
+					"sha256": "1cbc508f0a82958a9e6a5b55ad89afe5f5ab9af1d1073bd7e5cd6919a1811db6",
+					"families": [
+						{
+							"name": "node_openwrt_info",
+							"type": "gauge"
+						}
+					],
+					"keys": [
+						"board_name",
+						"id",
+						"model",
+						"release",
+						"revision",
+						"system",
+						"target"
+					]
+				},
+				"snmp6": {
+					"sha256": "b0224a7b23242d4791c8de1db8516b99087adaa8daf4101cb1f2833f455cf460",
+					"families": [
+						{
+							"name": "snmp6_<>",
+							"type": "counter"
+						}
+					],
+					"keys": [
+						"device"
+					]
+				},
+				"uci_dhcp_host": {
+					"sha256": "d0ff8fd6f527686fcac80fdb09632560e94edcf0779c1a378d9cfc1ee5b7c527",
+					"families": [
+						{
+							"name": "dhcp_host_info",
+							"type": "gauge"
+						}
+					],
+					"keys": [
+						"cursor",
+						"ip",
+						"mac",
+						"name"
+					]
+				},
+				"wifi": {
+					"sha256": "c33e01d8946e980802ed2489f34433d8686a82dee2ea7ceae167c46ec942a26e",
+					"families": [
+						{
+							"name": "wifi_network_bitrate",
+							"type": "gauge"
+						},
+						{
+							"name": "wifi_network_info",
+							"type": "gauge"
+						},
+						{
+							"name": "wifi_network_noise_dbm",
+							"type": "gauge"
+						},
+						{
+							"name": "wifi_network_quality",
+							"type": "gauge"
+						},
+						{
+							"name": "wifi_network_signal_dbm",
+							"type": "gauge"
+						},
+						{
+							"name": "wifi_radio_info",
+							"type": "gauge"
+						},
+						{
+							"name": "wifi_station_expected_throughput_kilobits_per_second",
+							"type": "gauge"
+						},
+						{
+							"name": "wifi_station_inactive_milliseconds",
+							"type": "gauge"
+						},
+						{
+							"name": "wifi_station_receive_bytes_total",
+							"type": "counter"
+						},
+						{
+							"name": "wifi_station_receive_kilobits_per_second",
+							"type": "gauge"
+						},
+						{
+							"name": "wifi_station_receive_packets_total",
+							"type": "counter"
+						},
+						{
+							"name": "wifi_station_signal_dbm",
+							"type": "gauge"
+						},
+						{
+							"name": "wifi_station_transmit_bytes_total",
+							"type": "counter"
+						},
+						{
+							"name": "wifi_station_transmit_kilobits_per_second",
+							"type": "gauge"
+						},
+						{
+							"name": "wifi_station_transmit_packets_total",
+							"type": "counter"
+						},
+						{
+							"name": "wifi_stations_total",
+							"type": "counter"
+						}
+					],
+					"keys": [
+						"bssid",
+						"channel",
+						"country",
+						"dev",
+						"htmode",
+						"ifname",
+						"mac",
+						"mode",
+						"radio",
+						"request",
+						"ssid"
+					]
+				},
+				"wireguard": {
+					"sha256": "adf5d92fe3c48a40813fa0ab6aba7e96f96d85f86246a6010947c889a357bcc3",
+					"families": [
+						{
+							"name": "wireguard_interface_info",
+							"type": "gauge"
+						},
+						{
+							"name": "wireguard_latest_handshake_seconds",
+							"type": "gauge"
+						},
+						{
+							"name": "wireguard_peer_info",
+							"type": "gauge"
+						},
+						{
+							"name": "wireguard_received_bytes_total",
+							"type": "gauge"
+						},
+						{
+							"name": "wireguard_sent_bytes_total",
+							"type": "gauge"
+						}
+					],
+					"keys": [
+						"cursor",
+						"description",
+						"endpoint",
+						"fwmark",
+						"iface",
+						"interface",
+						"listen_port",
+						"name",
+						"persistent_keepalive_interval",
+						"public_key"
+					]
+				},
+				"(scrape)": {
+					"sha256": "13acb074a41b16ebac4b5cbe287d5921d4f6cdd86a18bcbc68a2fee83b1fc44d",
+					"families": [
+						{
+							"name": "node_scrape_collector_duration_seconds",
+							"type": "gauge"
+						},
+						{
+							"name": "node_scrape_collector_success",
+							"type": "gauge"
+						}
+					],
+					"keys": [
+						"QUERY_STRING",
+						"col",
+						"collector",
+						"config",
+						"connect",
+						"cursor",
+						"func",
+						"help",
+						"name",
+						"null",
+						"ok",
+						"raw_mode",
+						"s",
+						"status",
+						"strict_declarations",
+						"v",
+						"value"
+					]
+				}
+			}
+		}
+	}
+}

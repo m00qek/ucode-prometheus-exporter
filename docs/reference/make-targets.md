@@ -65,7 +65,8 @@ Every target runs in Docker, but `feed-makefile`, a shell script with `curl`; no
 | `docs-mike` | `make -C docs build-mike`. |
 | `docs-test` | `make -C docs test`. |
 | `docs-serve` | `make -C docs serve`. |
-| `docs-gen` | Writes the generated reference pages, `docs/reference/collectors.md`, `metrics.md`, `uci-config.md` and `error-codes.md`, from the code, the fixtures and `docs/gen/notes.uc`, in the development image. Fails, writing nothing, when the notes contradict the code. See [How to write documentation](../how-to/developer/documentation.md#generated-pages). |
+| `docs-gen` | Writes the generated reference pages, `docs/reference/collectors.md`, `metrics.md`, `uci-config.md`, `error-codes.md`, `command.md` and `migration.md`, from the code, the fixtures, `docs/gen/notes.uc`, and for `migration.md` `docs/gen/migration.md`, `migration.uc` and `feed-exporters.json`, in the development image. Fails, writing nothing, when the notes contradict the code, or the migration's mapping the feed's exporters or the collectors. See [How to write documentation](../how-to/developer/documentation.md#generated-pages). |
+| `feed-inventory` | Writes `docs/gen/feed-exporters.json`, what the feed's Lua and ucode exporters write and how they are packaged, from their sources in openwrt/packages at `FEED_PACKAGES_REF`, which it downloads from GitHub; `docs-gen` writes the migration page from it. With `CHECK=1`, writes nothing and fails when the feed is not what the file says. |
 
 `test`, `unit`, `integration`, `watch`, `lint`, `shell` and `docs-gen` run in the image `ucode-prometheus-exporter-openwrt:<arch>-<version>-<hash>`, built on first use from `devenv/services/openwrt/Dockerfile`; `<hash>` is the Dockerfile's, so worktrees with different Dockerfiles do not overwrite each other's image. The container has no network and sees the checkout read-only; `docs-gen` alone may write, to `docs/reference/`.
 
@@ -106,6 +107,8 @@ Every target runs in Docker, but `feed-makefile`, a shell script with `curl`; no
 | `FD_SCRAPES` | `8` | `failure-demo` | The scrapes Prometheus makes of each exporter in a scenario. |
 | `FD_CONNTRACK` | `20000` | `failure-demo` | The connections of `conntrack`'s table. |
 | `FD_QEMU_CPUS` | `0.65` | `failure-demo` | The share of a host CPU `conntrack`'s QEMU gets, without `-icount`, so that the guest's time is Prometheus's: pick the share that makes the guest's loop turn, which it prints, near 9.9 µs, `bench-qemu`'s 500-MIPS 24Kc. |
+| `FEED_PACKAGES_REF` | a commit of `openwrt-25.12` | `feed-inventory` | The openwrt/packages commit, or branch, to read the feed's exporters from. |
+| `CHECK` | — | `feed-inventory` | Check `docs/gen/feed-exporters.json` against the feed, writing nothing. |
 | `VERSION` | — | `feed-makefile` | The release, `X.Y.Z`, without the `v`. |
 | `OUT` | — | `feed-makefile` | Where to write the Makefile. |
 | `TARBALL` | — | `feed-makefile` | The tag's tarball, already on disk, instead of downloading it. |

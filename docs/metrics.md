@@ -12,7 +12,7 @@ Each service keeps its own prefix (`dnsmasq_`, `dsl_`, `wireguard_`, `mwan3_`, `
 
 There is no option to get the old names back. The table below lists, per collector, every family whose name, type, labels or unit changed, from the names of the exporters this one replaces to this one's; a family not listed has kept its name. In the Type column, `a → b` is a type that changed.
 
-Every family as the collectors write it now is in [Metrics](reference/metrics.md); why the names are what they are, in [About metric names](explanation/metric-names.md).
+Every family as the collectors write it now is in [Metrics](reference/metrics.md), and every family of the feed's exporters with this exporter's for it in [Migrate from prometheus-node-exporter-lua/-ucode](reference/migration.md); why the names are what they are, in [About metric names](explanation/metric-names.md).
 
 ## Base collectors
 
@@ -43,7 +43,7 @@ conntrack, entropy, filefd, loadavg, time and uname already had node_exporter's 
 | `node_ethtool_{received,transmitted}_*_total` (7 common statistics) | unchanged | untyped | node_exporter's help texts (`Network interface bytes received`, ...). |
 | — | `node_ethtool_info{bus_info,device,driver,expansion_rom_version,firmware_version,version}` | gauge | New: node_exporter's, from `ethtool -i <device>`. |
 | — | `node_network_supported_port_info{device,type}`, `node_network_{supported,advertised}_speed_bytes{device,duplex,mode}`, `node_network_{autonegotiate,pause,asymmetricpause}_{supported,advertised}{device}`, `node_network_autonegotiate{device}` | gauge | New: node_exporter's ethtool collector's link information, from `ethtool <device>`: each link mode `1000baseT/Full` as `mode="1000baseT",duplex="full"`, in bytes per second, pause frames and autonegotiation 0 or 1. The link's speed and duplex are netclass's `node_network_speed_bytes` and `node_network_info`, as they are node_exporter's netclass collector's. |
-| `node_nat_traffic{src,dst}` | `node_nat_traffic_bytes{host}`; `node_nat_traffic_bytes{host,peer}` with the option `peers` | gauge | Base unit in the name. A gauge: a sum over the connections there are now. By host on this side of the router (the source of a connection, or the LAN host a port forward reaches), which a LAN bounds: a series per pair of addresses came and went with every connection. `peers` adds the address at the other end, off by default for that churn. |
+| `node_nat_traffic{src,dest}` | `node_nat_traffic_bytes{host}`; `node_nat_traffic_bytes{host,peer}` with the option `peers` | gauge | Base unit in the name. A gauge: a sum over the connections there are now. By host on this side of the router (the source of a connection, or the LAN host a port forward reaches), which a LAN bounds: a series per pair of addresses came and went with every connection. `peers` adds the address at the other end, off by default for that churn. |
 | `nft_counter_packets` | `nft_counter_packets_total` | counter | A counter ends in `_total`. |
 | `nft_counter_bytes` | `nft_counter_bytes_total` | counter | A counter ends in `_total`. |
 
@@ -91,7 +91,8 @@ The hostapd_ubus_stations families already followed the conventions and are unch
 | — (label `passive`, in millidegrees) | `node_thermal_zone_passive_celsius{zone,type}` | gauge | The passive trip point as a value, in degrees. |
 | `node_os_info` | unchanged | gauge | node_exporter's help text. |
 | — | `node_os_version{id,name}` | gauge | New: node_exporter's, the major.minor of the release (none for a snapshot). |
-| `dhcp_host_info{name,mac,ip}` | `node_openwrt_dhcp_host_info{name,mac,ip}` | gauge | In OpenWrt's own namespace. |
+| `dhcp_host_info{name,mac,ip}` (ucode) | `node_openwrt_dhcp_host_info{name,mac,ip}` | gauge | In OpenWrt's own namespace. |
+| `uci_dhcp_host{name,dns,ip,duid,mac}` (Lua) | `node_openwrt_dhcp_host_info{name,mac,ip}` | gauge | As the ucode exporter's: `dns` and `duid` are not written. |
 
 filesystem and textfile already had node_exporter's names; `node_openwrt_info` is unchanged.
 
@@ -122,9 +123,9 @@ The other `dsl_*` families are unchanged.
 
 | Before | After | Type | Why |
 |---|---|---|---|
-| `wireguard_sent_bytes_total{interface,public_key}` | `wireguard_sent_bytes_total{interface,public_key,allowed_ips,friendly_name}` | counter | prometheus_wireguard_exporter's labels and help. |
-| `wireguard_received_bytes_total{interface,public_key}` | `wireguard_received_bytes_total{interface,public_key,allowed_ips,friendly_name}` | counter | prometheus_wireguard_exporter's labels and help. |
-| `wireguard_latest_handshake_seconds{interface,public_key}` | `wireguard_latest_handshake_seconds{interface,public_key,allowed_ips,friendly_name}` | gauge | prometheus_wireguard_exporter's labels and help. |
+| `wireguard_sent_bytes_total{public_key}` | `wireguard_sent_bytes_total{interface,public_key,allowed_ips,friendly_name}` | gauge → counter | prometheus_wireguard_exporter's labels and help. |
+| `wireguard_received_bytes_total{public_key}` | `wireguard_received_bytes_total{interface,public_key,allowed_ips,friendly_name}` | gauge → counter | prometheus_wireguard_exporter's labels and help. |
+| `wireguard_latest_handshake_seconds{public_key}` | `wireguard_latest_handshake_seconds{interface,public_key,allowed_ips,friendly_name}` | gauge | prometheus_wireguard_exporter's labels and help. |
 | `wireguard_interface_info{name,public_key,listen_port,fwmark}` | `wireguard_interface_info{interface,public_key,listen_port,fwmark}` | gauge | `interface`, as in the other families; an unset fwmark is left out, not `NaN`. |
 | `wireguard_peer_info{interface,public_key,description,endpoint,persistent_keepalive_interval}` | `wireguard_peer_info{interface,public_key,friendly_name,endpoint,persistent_keepalive_interval}` | gauge | `friendly_name`, as in the other families, and only with the collector's `peer_names` (the old one always had `description`); an unset keepalive is left out, not `NaN`. |
 

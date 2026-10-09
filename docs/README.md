@@ -18,7 +18,7 @@ make docs-gen            # Write the generated reference pages (from the reposit
 
 ## Generated pages
 
-`reference/collectors.md`, `reference/metrics.md`, `reference/uci-config.md` and `reference/error-codes.md` are written by `make docs-gen` from the code, with `gen/notes.uc` for what the code does not say. Never edit them by hand: `make lint` fails while one is out of date. See [how-to/developer/documentation.md](how-to/developer/documentation.md).
+`reference/collectors.md`, `reference/metrics.md`, `reference/uci-config.md`, `reference/error-codes.md`, `reference/command.md` and `reference/migration.md` are written by `make docs-gen` from the code, with `gen/notes.uc` for what the code does not say, and `gen/migration.md`, `gen/migration.uc` and `gen/feed-exporters.json` (`make feed-inventory`) for the migration page. Never edit them by hand: `make lint` fails while one is out of date. See [how-to/developer/documentation.md](how-to/developer/documentation.md).
 
 ## Publishing
 

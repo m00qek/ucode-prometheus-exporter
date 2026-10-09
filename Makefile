@@ -10,7 +10,7 @@ RUN          = $(COMPOSE) --progress quiet run --rm $(if $(CI),-T) openwrt
 IMAGE_STAMP := devenv/.built-$(IMAGE_TAG)
 TEST_ARGS    = $(if $(FILTER),-f '$(FILTER)') $(if $(VERBOSE),-v) $(if $(TEST_TIMEOUT),-t $(TEST_TIMEOUT)) $(MODULES)
 
-.PHONY: test unit integration watch lint shell image fixtures package template-package pkgcheck-image package-check e2e lab lab-down browser pot bench bench-src bench-worlds bench-device bench-qemu failure-demo docs docs-mike docs-test docs-serve docs-gen feed-makefile monitoring-check monitoring-lab monitoring-lab-down
+.PHONY: test unit integration watch lint shell image fixtures package template-package pkgcheck-image package-check e2e lab lab-down browser pot bench bench-src bench-worlds bench-device bench-qemu failure-demo docs docs-mike docs-test docs-serve docs-gen feed-inventory feed-makefile monitoring-check monitoring-lab monitoring-lab-down
 
 test:        $(IMAGE_STAMP) ; @$(RUN) devenv/scripts/test.sh all $(TEST_ARGS)
 unit:        $(IMAGE_STAMP) ; @$(RUN) devenv/scripts/test.sh unit $(TEST_ARGS)
@@ -290,11 +290,23 @@ docs-test:  ; @$(MAKE) -C docs test
 docs-serve: ; @$(MAKE) -C docs serve
 
 # The reference pages the code holds as data (docs/reference/collectors.md,
-# metrics.md, uci-config.md, error-codes.md, command.md), from the code, the fixtures and
-# docs/gen/notes.uc; make lint fails while one is out of date. Only
+# metrics.md, uci-config.md, error-codes.md, command.md, migration.md), from the code,
+# the fixtures and docs/gen/notes.uc, and migration.md from docs/gen/migration.md,
+# migration.uc and feed-exporters.json; make lint fails while one is out of date. Only
 # docs/reference is writable, and the files stay the invoking user's.
 docs-gen: $(IMAGE_STAMP)
 	@$(COMPOSE) --progress quiet run --rm $(if $(CI),-T) --user $$(id -u):$$(id -g) \
 		-v $(CURDIR)/docs/reference:/exporter/docs/reference openwrt \
 		ucode -L /exporter/src -L /exporter/devenv/scripts devenv/scripts/docs-gen.uc
 
+# What the packages feed's Lua and ucode exporters write and how they are
+# packaged, from their sources in openwrt/packages at FEED_PACKAGES_REF (the
+# openwrt-25.12 branch, whose builds the release's feed has), into
+# docs/gen/feed-exporters.json, which make docs-gen writes the migration page
+# from. With network; CHECK=1 writes nothing, and fails when the feed is not
+# what the file says.
+FEED_PACKAGES_REF ?= 705e1cc3beb7a0cb3ef53ba18a3ba1fed8f4342c
+
+feed-inventory: $(IMAGE_STAMP)
+	@docker run --rm -u $$(id -u):$$(id -g) --tmpfs /tmp:mode=1777 -v $(CURDIR):/exporter -w /exporter \
+		ucode-prometheus-exporter-openwrt:$(IMAGE_TAG) sh devenv/scripts/feed-inventory.sh '$(FEED_PACKAGES_REF)' $(if $(CHECK),--check)

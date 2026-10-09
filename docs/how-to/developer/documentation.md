@@ -39,7 +39,7 @@ The reasoning a reader needs lives in the explanation pages: when a change rests
 
 ## Generated pages
 
-Five reference pages are written from the code by `make docs-gen`, and never by hand:
+Six reference pages are written from the code by `make docs-gen`, and never by hand:
 
 | Page | From |
 | :--- | :--- |
@@ -48,6 +48,7 @@ Five reference pages are written from the code by `make docs-gen`, and never by 
 | `docs/reference/uci-config.md` | `config.uc`'s option specs, and `config/types.uc`'s datatypes. |
 | `docs/reference/error-codes.md` | `errors.uc`, and where each code is raised. |
 | `docs/reference/command.md` | The command's usage, `cli.uc`'s `USAGE`, which docopt parses its arguments by. |
+| `docs/reference/migration.md` | `docs/gen/migration.md`, its text, with the tables of the feed exporters' packages and families and this exporter's for each: from `docs/gen/feed-exporters.json`, what `make feed-inventory` read of their sources, `docs/gen/migration.uc`, the mapping, and what the collectors write, as for `metrics.md`. |
 
 What the code does not say is in `docs/gen/notes.uc`: when each collector has nothing to observe, what a computed jail path is, the patterns that fold a driver's statistics into one row, the families no fixture shows, the meaning of each error code, what each command of the command line does, and a name for each fixture set. The generator checks the notes against the code and refuses, writing nothing, an entry the code contradicts.
 
@@ -80,7 +81,8 @@ Reference pages describe the code as it is. When you change one of these, update
 | `files/`, the package Makefile | [Files and packages](../../reference/files.md) |
 | The root `Makefile`, `docs/Makefile` | [Make targets](../../reference/make-targets.md) |
 | `docs/Makefile`, `devenv/scripts/docs-*.sh`, `.github/workflows/docs.yml`, `mkdocs.mike.yml`, `docs/overrides/`, `devenv/gh-pages/`, `devenv/services/docs/` | [Documentation publishing](../../reference/docs-publishing.md) |
-| `migrate.uc` | [How to move from the feed's exporters](../migrate-from-feed.md) |
+| `migrate.uc` | [How to move from the feed's exporters](../migrate-from-feed.md), and [Migrate from prometheus-node-exporter-lua/-ucode](../../reference/migration.md#configuration): its text is `docs/gen/migration.md` |
+| A collector's families, or the feed's exporters (`make feed-inventory`) | [Migrate from prometheus-node-exporter-lua/-ucode](../../reference/migration.md): `make docs-gen` refuses a family of the feed's that `docs/gen/migration.uc` does not map, and a mapping to a family no collector writes |
 | `monitoring/`: a rule, a threshold, a panel | [How to monitor a router with the bundled dashboards and alerts](../dashboards-and-alerts.md), and its screenshots: `make monitoring-lab` |
 | A renamed metric | [Renamed metrics](../../metrics.md) |
 

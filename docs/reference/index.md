@@ -1,6 +1,6 @@
 # Reference
 
-Technical descriptions of the exporter, to consult while you work. Four pages are generated from the code by `make docs-gen`: [Collectors](collectors.md), [Metrics](metrics.md), [UCI configuration](uci-config.md) and [Error codes](error-codes.md).
+Technical descriptions of the exporter, to consult while you work. Six pages are generated from the code by `make docs-gen`: [Collectors](collectors.md), [Metrics](metrics.md), [UCI configuration](uci-config.md), [Error codes](error-codes.md), [The `prometheus-exporter` command](command.md) and [Migrate from prometheus-node-exporter-lua/-ucode](migration.md).
 
 ## What it collects
 
@@ -9,6 +9,7 @@ Technical descriptions of the exporter, to consult while you work. Four pages ar
 | [Collectors](collectors.md) | Every collector: its package and groups, options, configs, programs, jail paths, and when it has nothing to observe. |
 | [Metrics](metrics.md) | Every metric family, by collector: type, labels and help. |
 | [Renamed metrics](../metrics.md) | The names that changed from the feed's exporters, and why. |
+| [Migrate from prometheus-node-exporter-lua/-ucode](migration.md) | Every package and metric family of the feed's exporters, and this exporter's for each; PromQL rewrites, a relabeling for a transition, and what the configuration import takes over. |
 
 ## Configuring and running it
 

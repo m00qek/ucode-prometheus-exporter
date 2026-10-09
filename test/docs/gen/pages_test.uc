@@ -34,9 +34,9 @@ describe('docs_gen.main.run', () => {
 		assert.match([], RUN.problems);
 	});
 
-	it('writes the five pages', () => {
+	it('writes the six pages', () => {
 		assert.match([ 'docs/reference/collectors.md', 'docs/reference/command.md', 'docs/reference/error-codes.md', 'docs/reference/metrics.md',
-			'docs/reference/uci-config.md' ], sort(keys(RUN.pages)));
+			'docs/reference/migration.md', 'docs/reference/uci-config.md' ], sort(keys(RUN.pages)));
 	});
 
 	it('writes the command\'s usage as it is, and a section for each of its commands', () => {

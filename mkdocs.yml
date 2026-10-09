@@ -101,6 +101,7 @@ nav:
       - Collectors: reference/collectors.md
       - Metrics: reference/metrics.md
       - Renamed Metrics: metrics.md
+      - Migrate from prometheus-node-exporter-lua/-ucode: reference/migration.md
       - UCI Configuration: reference/uci-config.md
       - Service Commands: reference/service-commands.md
       - The prometheus-exporter Command: reference/command.md
