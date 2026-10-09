@@ -349,6 +349,154 @@ describe('runner.forked', () => {
 		}, { runs: 8 });
 });
 
+// A child that went wrong: its plan, which runs in it, gives limits the
+// deadline does not bound, or runs on past it. The deadline is this process's
+// (opts.deadline), which the child's plan does not know.
+describe('runner.forked, a child that went wrong, held to the deadline', () => {
+	const BACKSTOP = 'the process running the collectors ran past the scrape\'s deadline, past the limits it gave: stopped there, the rest left out';
+
+	// This process's pid, or a child's, asked where it runs.
+	function pid() {
+		return split(fs.readfile('/proc/self/stat'), ' ')[0];
+	}
+
+	// A collector that takes `s` seconds, and writes a sample.
+	function slow(name, s) {
+		return collector(name, function(d, out) {
+			let end = now() + s;
+
+			while (now() < end)
+				;
+			out.gauge(`${name}_value`)(null, 1);
+			return Result.ok();
+		});
+	}
+
+	// The live children of this process, as 'leaves no child behind' finds
+	// them.
+	function children() {
+		let me = pid();
+
+		return filter(fs.glob('/proc/[0-9]*/stat'), function(f) {
+			let rest = split(fs.readfile(f) ?? '', ') ')[1];
+
+			return rest != null && split(rest, ' ')[1] == me && split(rest, ' ')[0] != 'Z';
+		});
+	}
+
+	// Runs `collectors` with the forked runner and the deadline `after`
+	// seconds from now, each job job(c), in the child: the runs, what was
+	// logged, the children forked, and the seconds the run took past the
+	// deadline.
+	function run_late(collectors, after, job, plan) {
+		let logs = [];
+		let runs = [];
+		let stats = {};
+		let deadline = now() + after;
+
+		plan ??= plan_of(collectors, job, runs);
+		// readfile: a child that runs to its end reads its memory for
+		// stats, and one that cannot ends before it says so.
+		runner.forked({ ...env_of(logs), readfile: fs.readfile, kill: (p) => deps.kill_tree(fs.popen, p) }, scrape.run_one,
+			{ collectors, stats, deadline }).run(plan);
+
+		return { runs, logs, children: stats.children, past: now() - deadline };
+	}
+
+	function job_of(limit) {
+		return (c) => ({ c, cutoff: null, limit: limit(), at_deadline: false, budget: 5, settings: { budget: 5, max_samples: 10, options: {} } });
+	}
+
+	// Stopped at the deadline, give or take a turn of the timer.
+	function on_time(r) {
+		assert.match(true, r.past > -0.05 && r.past < runner.GRACE + 0.25, `${r.past} s past the deadline`);
+	}
+
+	function left_out(r) {
+		return [ r.name, r.result.error, r.skipped ];
+	}
+
+	it('stops a collector it gave no limit at the deadline, forks no other child, and leaves the rest out there', () => {
+		let r = run_late([ gauge('a', 1), LOOP, gauge('c', 3), gauge('d', 4) ], 0.3, job_of(() => null));
+
+		on_time(r);
+		assert.match([ [ 'a', 'ok' ], [ 'loop', 'SCRAPE_DEADLINE' ], [ 'c', 'SCRAPE_DEADLINE' ], [ 'd', 'SCRAPE_DEADLINE' ] ], map(r.runs, summary));
+		assert.match(true, index(r.runs[1].result.details, 'still running at the scrape\'s deadline') == 0, r.runs[1].result.details);
+		assert.match([ [ 'c', 'SCRAPE_DEADLINE', 'deadline' ], [ 'd', 'SCRAPE_DEADLINE', 'deadline' ] ], map(slice(r.runs, 2), left_out));
+		assert.match([ 1, [ [ 'warning', BACKSTOP ] ], [] ], [ r.children, r.logs, children() ]);
+	});
+
+	it('stops one at the deadline whose limit it gave past it', () => {
+		let r = run_late([ LOOP, gauge('b', 2) ], 0.3, job_of(() => now() + 60));
+
+		on_time(r);
+		assert.match([ [ 'loop', 'SCRAPE_DEADLINE' ], [ 'b', 'SCRAPE_DEADLINE', 'deadline' ] ], [ summary(r.runs[0]), left_out(r.runs[1]) ]);
+		assert.match([ 1, [ [ 'warning', BACKSTOP ] ] ], [ r.children, r.logs ]);
+	});
+
+	it('honours a limit it gave before the deadline, as it would any', () => {
+		let r = run_late([ LOOP, gauge('b', 2) ], 2, job_of(() => now() + 0.2));
+
+		assert.match([ [ 'loop', 'COLLECTOR_CANCELLED' ], [ 'b', 'ok' ] ], map(r.runs, summary));
+		assert.match([ 2, [ [ 'warning', `collector 'loop': ${Result.describe(r.runs[0].result)}` ] ] ], [ r.children, r.logs ]);
+	});
+
+	it('stops a child that goes on starting collectors past the deadline, and keeps the runs it ended', () => {
+		let made = map([ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 ], (i) => slow(`s${i}`, 0.06));
+		let r = run_late(made, 0.3, job_of(() => now() + 5));
+		let ok = filter(r.runs, (x) => x.result.ok);
+		let rest = slice(r.runs, length(ok));
+
+		on_time(r);
+		assert.match(map(made, (c) => c.meta.name), map(r.runs, (x) => x.name), 'one run each, in their order');
+		assert.match(true, length(ok) >= 3 && length(rest) >= 4, `${length(ok)} ran`);
+		assert.match(map(rest, () => 'SCRAPE_DEADLINE'), map(rest, (x) => x.result.error));
+		assert.match([ 'deadline', 'deadline' ], [ rest[-2].skipped, rest[-1].skipped ]);
+		assert.match([ 1, [ [ 'warning', BACKSTOP ] ] ], [ r.children, r.logs ]);
+	});
+
+	// The run before a collector it starts is written with its start: so
+	// a child that hangs after a collector holds this process to that one.
+	it('stops a child that hangs between collectors, with none started, a turn of the timer past the deadline', () => {
+		let me = pid();
+		let runs = [];
+		let collectors = [ gauge('a', 1), gauge('b', 2), gauge('c', 3) ];
+		let at = 0;
+		// Its next() hangs before the first collector, in the child alone.
+		let plan = {
+			next: function() {
+				if (at == 0 && pid() != me)
+					while (true)
+						;
+
+				return (at < length(collectors)) ? job_of(() => now() + 5)(collectors[at++]) : null;
+			},
+			done: function(j, r) {
+				at = max(at, index(collectors, j.c) + 1);
+				push(runs, r);
+			},
+		};
+		let r = run_late(collectors, 0.3, null, plan);
+
+		on_time(r);
+		assert.match(true, r.past >= runner.GRACE - 0.02, `${r.past} s past the deadline`);
+		assert.match([ [ 'a', 'SCRAPE_DEADLINE', 'deadline' ], [ 'b', 'SCRAPE_DEADLINE', 'deadline' ], [ 'c', 'SCRAPE_DEADLINE', 'deadline' ] ],
+			map(runs, left_out));
+		assert.match([ 1, [ [ 'warning', BACKSTOP ] ], [] ], [ r.children, r.logs, children() ]);
+	});
+
+	it('never stops a child that keeps to its limits, which ends before the deadline or stops its collector there', () => {
+		let quick = run_late([ gauge('a', 1), gauge('b', 2) ], 0.5, job_of(() => now() + 5));
+		let t = now();
+		let held = run_late([ gauge('a', 1), LOOP ], 0.3, job_of(() => t + 0.3));
+
+		assert.match([ [ [ 'a', 'ok' ], [ 'b', 'ok' ] ], 1, [] ], [ map(quick.runs, summary), quick.children, quick.logs ]);
+		assert.match(true, quick.past < 0, 'it did not wait for the deadline');
+		assert.match([ [ [ 'a', 'ok' ], [ 'loop', 'COLLECTOR_CANCELLED' ] ], [] ],
+			[ map(held.runs, summary), filter(held.logs, (l) => l[1] == BACKSTOP) ]);
+	});
+});
+
 describe('scrape.collect, forked', () => {
 	// The limit a collector is stopped at is its budget's end (5 s by
 	// default), or the deadline when that comes first.
@@ -366,6 +514,24 @@ describe('scrape.collect, forked', () => {
 
 		assert.match('SCRAPE_DEADLINE', runs.loop.result.error);
 		assert.match(true, took < 2, `took ${took} s`);
+	});
+
+	// The child's limits are the deadline at the latest, and it leaves the
+	// rest out there itself: the runner's own hold on it is never what stops it.
+	it('stops the child of a scrape that keeps to its limits as it says, never at the deadline over it', () => {
+		let logs = [];
+		let stats = {};
+		let runs;
+
+		with_mods({}, (mods) => {
+			let env = { ...env_of(logs), readfile: fs.readfile, session: (to) => deps.session({ ...mods, log: to }), fork: true, stats };
+
+			runs = scrape.collect(env, mods.uci.cursor(), ledger.empty(), [ gauge('a', 1), LOOP, gauge('c', 3) ], { deadline: now() + 0.4 });
+		});
+
+		assert.match([ 'ok', 'SCRAPE_DEADLINE', 'SCRAPE_DEADLINE' ], [ runs.a.result.ok ? 'ok' : runs.a.result.error, runs.loop.result.error, runs.c.result.error ]);
+		assert.match([ 'deadline', 2 ], [ runs.c.skipped, stats.children ]);
+		assert.match([], filter(logs, (l) => index(l[1], 'past the limits it gave') >= 0));
 	});
 });
 
