@@ -81,6 +81,7 @@ Reference pages describe the code as it is. When you change one of these, update
 | The root `Makefile`, `docs/Makefile` | [Make targets](../../reference/make-targets.md) |
 | `docs/Makefile`, `devenv/scripts/docs-*.sh`, `.github/workflows/docs.yml`, `mkdocs.mike.yml`, `docs/overrides/`, `devenv/gh-pages/`, `devenv/services/docs/` | [Documentation publishing](../../reference/docs-publishing.md) |
 | `migrate.uc` | [How to move from the feed's exporters](../migrate-from-feed.md) |
+| `monitoring/`: a rule, a threshold, a panel | [How to monitor a router with the bundled dashboards and alerts](../dashboards-and-alerts.md), and its screenshots: `make monitoring-lab` |
 | A renamed metric | [Renamed metrics](../../metrics.md) |
 
 ## Examples

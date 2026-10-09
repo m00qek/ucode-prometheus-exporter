@@ -18,6 +18,7 @@ Directions for a goal you already have. Each assumes the exporter is installed, 
 | [Setting a collector's options](collector-options.md) | Change what a collector writes. |
 | [Publishing metrics from scripts](textfile.md) | Serve your own metrics through textfile. |
 | [Pushing metrics from the router](push-metrics.md) | Send a scrape from cron to a Pushgateway or VictoriaMetrics. |
+| [Monitoring with the bundled dashboards and alerts](dashboards-and-alerts.md) | Load the alerting rules into Prometheus or vmalert, and the dashboards into Grafana or Perses. |
 | [Monitoring Unbound](unbound.md) | Give Unbound a control socket the exporter can read. |
 | [Monitoring chrony](chrony.md) | Watch chronyd's synchronization, sources and server. |
 | [Monitoring SQM and CAKE](sqm-cake.md) | Watch SQM's shaping: drops, delays, ECN marks. |

@@ -72,6 +72,7 @@ nav:
           - Setting a Collector's Options: how-to/collector-options.md
           - Publishing Metrics from Scripts: how-to/textfile.md
           - Pushing Metrics from the Router: how-to/push-metrics.md
+          - Monitoring with the Bundled Dashboards and Alerts: how-to/dashboards-and-alerts.md
           - Monitoring Unbound: how-to/unbound.md
           - Monitoring chrony: how-to/chrony.md
           - Monitoring SQM and CAKE: how-to/sqm-cake.md

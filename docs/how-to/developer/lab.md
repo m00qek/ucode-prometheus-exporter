@@ -57,7 +57,7 @@ Monitoring the lab ucode-prometheus-exporter-lab:
   stop it     make monitoring-lab-down
 ```
 
-Give the same `LAB_NAME` as the lab's, and other ports if those are taken: `make monitoring-lab LAB_NAME=my-lab GRAFANA_PORT=13000`.
+The screenshots of [How to monitor a router with the bundled dashboards and alerts](../dashboards-and-alerts.md) are these, taken with `MONITORING_WAIT=960`, so that the last 15 minutes they show are all the lab's. Give the same `LAB_NAME` as the lab's, and other ports if those are taken: `make monitoring-lab LAB_NAME=my-lab GRAFANA_PORT=13000`.
 
 ## Stop it
 

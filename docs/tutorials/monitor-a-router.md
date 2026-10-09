@@ -204,6 +204,7 @@ We installed the exporter, read a scrape on the router, opened it to the LAN, ha
 ## Next
 
 - [How to install the exporter](../how-to/install.md), with more collectors: Wi-Fi, WireGuard, the network groups.
+- [How to monitor a router with the bundled dashboards and alerts](../how-to/dashboards-and-alerts.md), for a Grafana or Perses dashboard of the router and alerts on it.
 - [How to serve HTTPS with basic auth](../how-to/https-basic-auth.md), before the router is scraped from anywhere you do not trust.
 - [Metrics](../reference/metrics.md), for every metric there is to graph.
 - [About the exporter](../explanation/about.md), for where it comes from.

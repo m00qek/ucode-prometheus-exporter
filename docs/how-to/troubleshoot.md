@@ -126,4 +126,4 @@ What the jail holds is in [The jail](../reference/jail.md).
 node_scrape_collector_success == 0
 ```
 
-alerts on a failing collector, and leaves alone one with nothing to observe.
+alerts on a failing collector, and leaves alone one with nothing to observe. The bundled rules alert on it and on the rest of the exporter's health: see [How to monitor a router with the bundled dashboards and alerts](dashboards-and-alerts.md#what-each-alert-means).
