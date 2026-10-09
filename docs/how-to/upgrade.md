@@ -40,13 +40,19 @@ Adding the base package alone fails: the installed collectors still want the old
     uci commit prometheus-exporter
     ```
 
-- **nat_traffic labels its series `host`, one per host on this side of the router**, where 0.2.1 wrote one per pair of addresses, labeled `src` and `dst`. `node_nat_traffic_bytes{src,dst}` is `node_nat_traffic_bytes{host}`: the source of each connection, as `src` was, but for a port-forwarded connection the LAN host it reaches, where `src` was the remote address. A query by `src` is one by `host`: `sum by (host) (node_nat_traffic_bytes)`. The pairs are back with the new option `peers`, labeled `host` and `peer`, as many series as 0.2.1 wrote, new with every connection; a Prometheus server keeps each for hours, so leave it off but for a short look:
+- **nat_traffic labels its series `host`, one per host on this side of the router**, where 0.2.1 wrote one per pair of addresses, labeled `src` and `dst`. `node_nat_traffic_bytes{src,dst}` is `node_nat_traffic_bytes{host}`: the source of each connection, as `src` was, but for a port-forwarded connection the LAN host it reaches, where `src` was the remote address. A query by `src` is one by `host`, as `node_nat_traffic_bytes{host="192.168.1.10"}`; one by `dst` needs the pairs, which are back with the new option `peers`, labeled `host` and `peer`, as many series as 0.2.1 wrote, new with every connection; a Prometheus server keeps each for hours, so leave it off but for a short look:
 
     ```sh
     uci set prometheus-exporter.nat_traffic=collector
     uci set prometheus-exporter.nat_traffic.peers=1
     uci commit prometheus-exporter
     ```
+
+These change what 0.2.1 did without breaking a query or a configuration:
+
+- **ethtool runs ethtool three times a device**, `-S`, `-i` and with no option, where it ran it once, for node_exporter's `node_ethtool_info` and link families. Its programs share the seconds of its `timeout` (the main section's `exec_timeout`, 5, by default): on a slow router with many ports, give it more if it fails with `COMMAND_TIMEOUT`. See [How to give programs more time](exec-timeout.md).
+- **The filesystem package installs an rpcd plugin**, the ubus object `prometheus-exporter.filesystem`, for the inodes of each mount, and reloads rpcd when it is installed or removed.
+- **The base package has a new collector, `pressure`**, which has nothing to observe on a kernel without PSI. `interrupts` is a package of its own, installed by no group.
 
 ## From 0.2.0 to 0.2.1
 
