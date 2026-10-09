@@ -19,7 +19,7 @@ A failure carries an uppercase code, from `src/prometheus_exporter/errors.uc`, a
 | Code | Meaning | Raised by |
 | :--- | :--- | :--- |
 | `CONFIG_INVALID` | An option has a value the exporter does not take, or options that go together are not set together. The detail is `<option>: expected <what>, got <value>` (never the value of `auth_password`), or what is missing. | `auth.uc`, `config.uc`, `config/types.uc`, `conform.uc`; the collectors `diskstats`, `netstat`, `vmstat` |
-| `FILE_UNWRITABLE` | The init script could not write or remove uhttpd's basic auth file, `/var/run/prometheus-exporter/uhttpd.conf`; or the ubus object's `set_password` could not write the hash's config, `/etc/config/prometheus-exporter-auth`. | `auth.uc`, `rpc.uc` |
+| `FILE_UNWRITABLE` | The init script could not write or remove uhttpd's basic auth file, `/var/run/prometheus-exporter/uhttpd.conf`; or the ubus object's `set_password` could not write the hash's config, `/etc/config/prometheus-exporter-auth`, or `stage_password` could not stage it. | `auth.uc`, `rpc.uc` |
 
 ## Capabilities
 

@@ -359,6 +359,28 @@ export function writable_cursor() {
 };
 
 /**
+ * Where rpcd keeps the uci changes a session stages (rpcd's
+ * RPC_UCI_SAVEDIR_PREFIX): one directory per session, by its id, which its
+ * `uci apply` commits, with rollback, and `uci revert` drops.
+ *
+ * @type {string}
+ */
+export const SESSION_SAVEDIR = '/var/run/rpcd/uci-';
+
+/**
+ * A uci cursor that stages changes in the rpcd session `sid`, as rpcd's uci
+ * set does: the ubus object's stage_password, for the hash's config
+ * (config.AUTH_CONFIG), which LuCI's Save & Apply then commits. rpcd cannot
+ * be asked over ubus from inside one of its own methods.
+ *
+ * @param {string} sid the session's id, 32 hexadecimal digits.
+ * @returns {UciCursor} the cursor.
+ */
+export function session_cursor(sid) {
+	return cursor(null, `${SESSION_SAVEDIR}${sid}`);
+};
+
+/**
  * The real fs, ubus, uci, rtnl, nl80211 and socket (these two when
  * installed), time and a monotonic clock. Of fs, writefile, rename, unlink and
  * chmod are the handler's, for its state, mkstemp the runner's and stdin the

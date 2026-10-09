@@ -2,7 +2,7 @@
 
 The ubus object `prometheus-exporter` belongs to the base package. rpcd serves it, from the ucode plugin `/usr/share/rpcd/ucode/prometheus-exporter.uc`, over `src/prometheus_exporter/rpc.uc` and its modules `rpc/describe.uc` and `rpc/validate.uc`, whether or not the service runs. rpcd loads it when it starts or reloads; the package reloads rpcd when it is installed, upgraded or removed.
 
-The object reads with the exporter's own modules, and writes nothing but the hash of basic auth's password, through `set_password`. Each call reads the committed configuration and the installed collectors afresh.
+The object reads with the exporter's own modules, and writes nothing but the hash of basic auth's password, through `set_password`, or staged in a LuCI session by `stage_password`. Each call reads the committed configuration and the installed collectors afresh.
 
 ```
 $ ubus -v list prometheus-exporter
@@ -14,6 +14,7 @@ $ ubus -v list prometheus-exporter
 	"hash_password":{"password":"String"}
 	"password":{}
 	"set_password":{"password":"String"}
+	"stage_password":{"password":"String"}
 ```
 
 ---
@@ -29,6 +30,7 @@ $ ubus -v list prometheus-exporter
 | [`hash_password`](#hash_password) | `{ password }` | `{ hash }` |
 | [`password`](#password) | none | `{ saved }` |
 | [`set_password`](#set_password) | `{ password }` | `{ saved }` |
+| [`stage_password`](#stage_password) | `{ password }`, and the caller's rpcd session | `{ staged }` |
 
 A call with malformed arguments, and one that fails, is answered `{ error, message }`. See [Errors](#errors).
 
@@ -197,17 +199,26 @@ $ ubus call prometheus-exporter set_password '{"password":"…"}'
 }
 ```
 
-Basic auth is on while the main section's `auth_user` is set: a hash saved without one is unused. This is how LuCI saves a password: its ACL grants this method, and never reading the hash's config.
+Basic auth is on while the main section's `auth_user` is set: a hash saved without one is unused. For scripts and the command line: LuCI's ACL does not grant it.
+
+## `stage_password`
+
+Hashes `password` as `hash_password` does, and stages the hash in uci's changes of the caller's rpcd session, as rpcd's own `uci set` stages a change: `{ "staged": true }`. An empty `password` stages the saved hash's removal: `{ "staged": false }`. Nothing is committed, and the service is not reloaded: the session's `uci apply` does both, as for every other config the session changed, with rollback when asked for it. The reply never holds the hash.
+
+The session is the one rpcd names in a call over HTTP (`ubus_rpc_session`), as LuCI's calls are: called from the command line, without one, it answers `ARGS_INVALID`.
+
+This is how LuCI saves a password: Save stages it, Save & Apply applies it with the rest. LuCI's ACL grants this method and writing `/etc/config/prometheus-exporter-auth`, never reading it; so the session's `uci changes`, which lists what it may read, does not list the staged hash, and LuCI's Revert, which reverts what `uci changes` lists, leaves it. It lasts until the session applies its changes, or ends.
 
 ## Errors
 
 | `error` | `message` | When |
 | :--- | :--- | :--- |
 | `ARGS_INVALID` | `main and collectors must be objects`, `collectors.<module> must be an object` | `validate` was given something else. |
-| `ARGS_INVALID` | `password: expected a password`, `password: expected a password of at most 256 bytes`, `password: expected a password without control characters` | `hash_password` or `set_password` was given a password it does not take. |
-| `FILE_UNWRITABLE` | `FILE_UNWRITABLE (cannot write /etc/config/prometheus-exporter-auth: ...)` | `set_password` could not save the hash. |
+| `ARGS_INVALID` | `password: expected a password`, `password: expected a password of at most 256 bytes`, `password: expected a password without control characters` | `hash_password`, `set_password` or `stage_password` was given a password it does not take. |
+| `ARGS_INVALID` | `ubus_rpc_session: expected the rpcd session to stage in, which rpcd gives a call over HTTP` | `stage_password` was called without a session, as from the command line. |
+| `FILE_UNWRITABLE` | `FILE_UNWRITABLE (cannot write /etc/config/prometheus-exporter-auth: ...)`, `FILE_UNWRITABLE (cannot stage prometheus-exporter-auth for the session: ...)` | `set_password` could not save the hash, or `stage_password` stage it. |
 | `STATUS_FAILED` | `cannot run /usr/libexec/prometheus-exporter/rpc-status.uc`, `... printed no reply` | `status` could not run its scrape, or the scrape printed no reply (or was killed at 60 s). |
-| A [code](error-codes.md) | `CODE (detail)` | `interfaces` could not ask netifd; `hash_password` or `set_password` had no random bytes. |
+| A [code](error-codes.md) | `CODE (detail)` | `interfaces` could not ask netifd; `hash_password`, `set_password` or `stage_password` had no random bytes. |
 
 ubus itself refuses arguments of the wrong type, as a string for `main`, with `Invalid argument`.
 

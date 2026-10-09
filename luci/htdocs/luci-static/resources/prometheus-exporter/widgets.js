@@ -117,10 +117,13 @@ const ListenSelect = form.ListValue.extend({
 // Basic auth's password. The field holds what is typed, never the saved hash, which is
 // saved apart from the exporter's config, where the page may not read it: `hashSaved`
 // says whether one is, as the object's `password` answered when the page loaded. Save
-// hands what is typed to the object's set_password, which hashes it, saves the hash and
-// has the service reload; the page writes nothing of it to uci. Left empty, the saved
-// hash stays; without a user there is no basic auth, and a saved hash stays unused.
-// `user` is the option of basic auth's user.
+// hands what is typed to the object's stage_password, which hashes it and stages the hash
+// in the login's session, as Save stages every other setting; Save & Apply commits it
+// with the rest, under LuCI's rollback, and the service takes it then. `hashStaged` says
+// one is, until the page is loaded again. The session's changes do not list it (the page
+// may not read its config), nor does Revert drop it: it lasts until it is applied, or the
+// session ends. Left empty, the saved hash stays; without a user there is no basic auth,
+// and a saved hash stays unused. `user` is the option of basic auth's user.
 const PasswordValue = form.Value.extend({
 	__name__: 'CBI.PrometheusExporterPassword',
 
@@ -128,17 +131,18 @@ const PasswordValue = form.Value.extend({
 		return null;
 	},
 
-	// Whether a hash is saved.
+	// Whether a hash is saved, or staged by a Save of this page.
 	saved(section_id) {
-		return this.hashSaved === true;
+		return this.hashSaved === true || this.hashStaged === true;
 	},
 
 	renderWidget(section_id, option_index, cfgvalue) {
-		this.placeholder = this.saved(section_id) ? _('Unchanged') : '';
+		this.placeholder = (this.hashStaged === true) ? _('Applied on Save & Apply') : (this.saved(section_id) ? _('Unchanged') : '');
 		return this.super('renderWidget', [ section_id, option_index, cfgvalue ]);
 	},
 
-	// Writes nothing to uci: the object saves the hash of what is typed, or nothing is.
+	// Writes nothing to the exporter's config: the object stages the hash of what is
+	// typed, or nothing is.
 	parse(section_id) {
 		const typed = this.formvalue(section_id);
 
@@ -153,11 +157,11 @@ const PasswordValue = form.Value.extend({
 
 		const failed = (why) => new Error(_('The password could not be saved:') + ' ' + why);
 
-		return exporter.setPassword(typed).then((res) => {
-			if (!L.isObject(res) || res.saved !== true)
+		return exporter.stagePassword(typed).then((res) => {
+			if (!L.isObject(res) || res.staged !== true)
 				throw failed(exporter.describeError(res));
 
-			this.hashSaved = true;
+			this.hashStaged = true;
 		}, (err) => {
 			throw failed(exporter.describeError(err));
 		});
