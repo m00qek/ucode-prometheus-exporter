@@ -82,6 +82,15 @@ export const SOON = 2 * POLL_MS / 1000.0;
 export const WAKE = 4;
 
 /**
+ * The child tells this process of the next collector it starts too once
+ * the runs it has not told of hold this many bytes of text: the larger a
+ * run, the more there is to take of it while the child goes on.
+ *
+ * @type {int}
+ */
+export const WAKE_BYTES = 16384;
+
+/**
  * A job, as the module's top comment says: what a plan's next() returns;
  * `skipped`, the run of a collector it does not run.
  *
@@ -365,7 +374,8 @@ export function memory(readfile) {
 // as it goes, at its timer's turns (absorb), and holds a timer on the
 // collector each start names. The pipe tells it of a collector whose limit
 // is less than SOON away, which it could be past before that turn, of every
-// WAKE-th, and of every one when this process has no reader of the file. A
+// WAKE-th, of the next once the runs before hold WAKE_BYTES, and of every
+// one when this process has no reader of the file. A
 // message must be no longer than PIPE_BUF (4096 bytes), as what ucode's
 // uloop reads of the pipe without blocking: a longer one may be half there
 // when this process reads it, and ucode then loses it whole.
@@ -376,7 +386,7 @@ function child_of(st) {
 		let child_env = { ...st.env, log };
 		let session = st.env.session(log);
 		let out = st.out;
-		let told = (st.reader == null), started_n = 0;
+		let told = (st.reader == null), started_n = 0, pending = 0;
 		// This process's pid, which a start gives the plan (the progress
 		// file's line).
 		let pid = int(split(st.env.readfile?.('/proc/self/stat') ?? '', ' ')[0]);
@@ -393,13 +403,18 @@ function child_of(st) {
 				st.plan.started?.(job, pid);
 				out.write(started(job, t));
 				out.flush();
-				if (told || (++started_n % WAKE) == 0 || (job.limit != null && job.limit - t < SOON))
+				if (told || (++started_n % WAKE) == 0 || pending >= WAKE_BYTES || (job.limit != null && job.limit - t < SOON)) {
 					pipe.send({ start: [ job.c.id, job.limit, job.at_deadline, job.budget, t ] });
+					pending = 0;
+				}
 				r = run_packed(child_env, st.run_fn, session, job, st.omit);
 			}
 
+			let text = pack(r, logs);
+
 			st.plan.done(job, r);
-			out.write(pack(r, logs));
+			out.write(text);
+			pending += length(text);
 			logs = [];
 		}
 

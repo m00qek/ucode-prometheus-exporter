@@ -110,6 +110,8 @@ export const SIZE_MAX = 32768;
 
 const NAME = /^[a-z][a-z0-9_]*$/;
 const DIGITS = /^[0-9]+$/;
+// An instance id, its pid captured.
+const ID = /^([0-9]+)-[0-9]+$/;
 // A state file's name: <pid>-<start time>.<name>, or its .new while written.
 const FILE = /^([0-9]+)-([0-9]+)\.[a-z][a-z0-9_]*(\.new)?$/;
 // The lock's name, which no state takes.
@@ -168,7 +170,7 @@ export function start_of(fs, pid) {
  * @returns {?int} the pid, or null for what is not an id.
  */
 export function pid_of(id) {
-	let m = (type(id) == 'string') ? match(id, /^([0-9]+)-[0-9]+$/) : null;
+	let m = (type(id) == 'string') ? match(id, ID) : null;
 
 	return m ? +m[1] : null;
 };
