@@ -10,7 +10,7 @@ if (length(ARGV) > 1 || (length(ARGV) == 1 && !config_only)) {
 	exit(2);
 }
 
-const res = check.run(check.system(), { config_only });
+const res = check.run(check.system({ config_only }), { config_only });
 
 print(res.report, '\n');
 exit(res.ok ? 0 : 1);

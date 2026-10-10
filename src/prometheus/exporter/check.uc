@@ -331,15 +331,16 @@ export function status(command, collectors, uci) {
 };
 
 /**
- * sys on the real system, for run().
+ * sys on the real system, for run(); the ledger is not read for `config_only`.
  *
+ * @param {?{ config_only: ?boolean }} opts
  * @returns {CheckSys}
  */
-export function system() {
+export function system(opts) {
 	let mods = deps.modules();
 	let skipped = [];
 	let collectors = app.load(mods, null, (level, msg) => push(skipped, msg));
-	let st = state.latest(mods.fs, state.DIR);
+	let st = opts?.config_only ? null : state.latest(mods.fs, state.DIR);
 	let sys = {
 		uci: mods.uci.cursor(),
 		fs: mods.fs,

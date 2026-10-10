@@ -130,13 +130,14 @@ A path the service owns is never missing: it makes it first.
 | Owner | A uhttpd instance: the handler names it when uhttpd loads it, before any request, by the pid and start time of that process. |
 | Files | `<pid>-<start time>.<name>`, mode 0600, at most 32768 bytes each, written whole: to `<file>.new`, then renamed. |
 | Lock | `<pid>-<start time>.lock`: every write holds an exclusive `flock()` of it; a read takes none. |
+| Read by root | `check` and the ubus object's `status`, nothing else of the object, read the ledger, as root: only a regular file of the state's owner with one link and at most 32768 bytes, never a link, a FIFO or a device in its place, and without blocking. See [About the implementation](../explanation/internals.md#ucode). |
 | Other instances' files | Removed when the handler loads. |
 | Lifetime | Until the instance stops: a restart starts without state, a reload that keeps the instance keeps it. |
 | Used for | Basic auth's cache, `<instance>.auth`: one digest of the last `Authorization` header let in. The ledger, `<instance>.scrape`: below. Each scrape's progress file, `<instance>.p<pid>_<start time>`, named by its process: a line `start <collector> <child pid>-<start time>` appended before each collector, `collected` once they are done, removed when the reply is written; one left by a dead process names the collector it was running, for the next scrape. The file a scrape's collectors' runs cross by, made with `mkstemp` and removed at once. |
 
 ### The ledger
 
-`<instance>.scrape` is JSON, which every scrape of the handler reads when it starts and records itself in when it ends, re-reading it under the lock. `check` and the ubus object's `status` read the ledger of the instance that started last.
+`<instance>.scrape` is JSON, which every scrape of the handler reads when it starts and records itself in when it ends, re-reading it under the lock. `check` and the ubus object's `status` read the ledger of the instance that started last; `check --config`, which start and reload run, and the object's other methods do not.
 
 | Field | Content |
 | :--- | :--- |

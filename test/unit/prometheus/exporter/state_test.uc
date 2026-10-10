@@ -17,9 +17,20 @@ function filesystem(files, dirs, broken, stat, procs) {
 
 	fs = {
 		files, dirs,
+		opened: [],
 		locks: [],
 		held: null,
 		open: function(p, mode) {
+			if (mode == 'r+') {
+				if (fails('open') || files[p] == null)
+					return null;
+				push(fs.opened, p);
+				return {
+					fileno: () => 9,
+					read: (n) => substr(files[p].data, 0, n),
+					close: function() { fs.reading = null; return true; },
+				};
+			}
 			if (fails('open') || mode != 'a')
 				return null;
 			files[p] ??= { data: '', mode: 0o644 };
@@ -36,7 +47,19 @@ function filesystem(files, dirs, broken, stat, procs) {
 			};
 		},
 		error: () => 'Permission denied',
-		stat: (p) => (p in keys(files) || p in keys(dirs)) ? { type: (p in keys(dirs)) ? 'directory' : 'file' } : null,
+		stat: function(p) {
+			if (p == '/proc/self/fd/9')
+				return files[fs.opened[-1]]?.swapped ?? fs.lstat(fs.opened[-1]);
+			return (p in keys(files) || p in keys(dirs)) ? { type: (p in keys(dirs)) ? 'directory' : 'file' } : null;
+		},
+		lstat: function(p) {
+			if (p in keys(dirs))
+				return { type: 'directory', uid: 32768 };
+			if (!(p in keys(files)))
+				return null;
+			let f = files[p];
+			return { type: f.type ?? 'file', size: length(f.data), nlink: f.nlink ?? 1, uid: f.uid ?? 32768, inode: f.inode ?? 7, dev: { major: 0, minor: 1 } };
+		},
 		mkdir: function(p, mode) { if (fails('mkdir')) return null; dirs[p] = mode; return true; },
 		chmod: function(p, mode) {
 			if (fails('chmod')) return null;
@@ -369,6 +392,30 @@ describe('state.latest', () => {
 		assert.match([ '2-300', 'newer', null ], [ st.id, st.read('scrape'), st.read('auth') ]);
 		assert.match(4, length(fs.files));
 		assert.match(null, st.write);
+	});
+
+	it('reads only a regular file of the directory\'s owner, with one link, of at most SIZE_MAX bytes', () => {
+		let read = (file) => state.latest(filesystem({ [`${DIR}/2-300.scrape`]: { data: '{}', ...file } }, { [DIR]: 0o700 }), DIR).read('scrape');
+
+		assert.match([ '{}', null, null, null, null, null ], [
+			read({}),
+			read({ type: 'fifo' }),
+			read({ type: 'link' }),
+			read({ uid: 0 }),
+			read({ nlink: 2 }),
+			read({ data: sprintf(`%0${state.SIZE_MAX + 1}d`, 0) }),
+		]);
+	});
+
+	it('opens it without blocking, and reads nothing when what it opened is not what it looked at', () => {
+		let files = { [`${DIR}/2-300.scrape`]: { data: '{}', swapped: { type: 'fifo', inode: 7, dev: { major: 0, minor: 1 } } } };
+		let fs = filesystem(files, { [DIR]: 0o700 });
+
+		assert.match(null, state.latest(fs, DIR).read('scrape'));
+		assert.match([ `${DIR}/2-300.scrape` ], fs.opened);
+
+		files[`${DIR}/2-300.scrape`].swapped = { type: 'file', inode: 8, dev: { major: 0, minor: 1 } };
+		assert.match(null, state.latest(fs, DIR).read('scrape'));
 	});
 
 	it('is null when no instance has state, or there is no directory', () => {

@@ -70,6 +70,28 @@ describe('state, written by processes at once', () => {
 		remove(dir);
 	});
 
+	// What root reads of the state, which the service's user owns: a FIFO in
+	// place of the ledger must not block it, nor a link take it elsewhere.
+	it('reads neither a FIFO nor a link in place of a state file, without blocking', () => {
+		let dir = scratch();
+		let secret = `${dir}.secret`;
+
+		fs.writefile(secret, '{"secret":true}');
+		assert.match(0, system([ 'mkfifo', `${dir}/5-50.scrape` ]));
+		assert.match([ '5-50', null ], [ state.latest(fs, dir).id, state.latest(fs, dir).read('scrape') ]);
+
+		fs.unlink(`${dir}/5-50.scrape`);
+		fs.symlink(secret, `${dir}/5-50.scrape`);
+		assert.match([ '5-50', null ], [ state.latest(fs, dir).id, state.latest(fs, dir).read('scrape') ]);
+
+		fs.unlink(`${dir}/5-50.scrape`);
+		fs.writefile(`${dir}/5-50.scrape`, '{"n":1}');
+		assert.match('{"n":1}', state.latest(fs, dir).read('scrape'));
+
+		fs.unlink(secret);
+		remove(dir);
+	});
+
 	it('removes the files of the instance before, its lock too', () => {
 		let dir = scratch();
 		let old = state.open(fs, dir, '1-10');

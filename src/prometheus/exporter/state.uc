@@ -264,6 +264,34 @@ export function open(fs, dir, id) {
 };
 
 /**
+ * At most `max` bytes of `path`, a regular file of `uid` with one link, opened so that no FIFO blocks; else null.
+ *
+ * @param {module:fs} fs
+ * @param {string} path
+ * @param {int} max
+ * @param {?int} uid
+ * @returns {?string}
+ */
+export function read_closed(fs, path, max, uid) {
+	let st = fs.lstat(path);
+
+	if (st?.type != 'file' || st.nlink != 1 || st.size > max || (uid != null && st.uid != uid))
+		return null;
+
+	let f = fs.open(path, 'r+');
+
+	if (!f)
+		return null;
+
+	let at = fs.stat(`/proc/self/fd/${f.fileno()}`);
+	let text = (at?.type == 'file' && at.inode == st.inode && at.dev?.major == st.dev?.major && at.dev?.minor == st.dev?.minor)
+		? f.read(max) : null;
+
+	f.close();
+	return (text == null) ? null : substr(text, 0, max);
+};
+
+/**
  * The state of the instance that started last in `dir`, to read only.
  *
  * @param {module:fs} fs
@@ -272,6 +300,10 @@ export function open(fs, dir, id) {
  */
 export function latest(fs, dir) {
 	let best = null, start = -1;
+	let owner = fs.lstat(dir);
+
+	if (owner?.type != 'directory')
+		return null;
 
 	for (let f in fs.lsdir(dir) ?? []) {
 		let m = match(f, FILE);
@@ -290,7 +322,7 @@ export function latest(fs, dir) {
 		read: function(name) {
 			let p = file_of(dir, best, name);
 
-			return p ? fs.readfile(p, SIZE_MAX) : null;
+			return p ? read_closed(fs, p, SIZE_MAX, owner.uid) : null;
 		},
 	};
 };

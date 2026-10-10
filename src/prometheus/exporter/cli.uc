@@ -228,7 +228,7 @@ export function system() {
 
 			return jailed.run({ uci: mods.uci.cursor(), fs: mods.fs, path: jail.PATH }, collectors, [ 'scrape', query ]);
 		},
-		check: (opts) => check.run(check.system(), opts),
+		check: (opts) => check.run(check.system(opts), opts),
 		conform: (path) => conform.run({
 			fs: mods.fs,
 			uci: mods.uci.cursor(),

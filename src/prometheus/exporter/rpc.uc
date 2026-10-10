@@ -458,9 +458,9 @@ export function methods(make_sys, io) {
 };
 
 /**
- * sys on the real system.
+ * sys on the real system; the ledger is read only for `ledger`.
  *
- * @param {?{ collectors: ?boolean, probe: ?function(string[]): Object<string, ProbeOutcome> }} opts
+ * @param {?{ collectors: ?boolean, ledger: ?boolean, probe: ?function(string[]): Object<string, ProbeOutcome> }} opts
  * @returns {RpcSys}
  */
 export function system(opts) {
@@ -468,7 +468,7 @@ export function system(opts) {
 	let skipped = [];
 	let quiet = () => null;
 	let load = opts?.collectors !== false;
-	let st = state.latest(mods.fs, state.DIR);
+	let st = opts?.ledger ? state.latest(mods.fs, state.DIR) : null;
 
 	let sys = {
 		uci: mods.uci.cursor(),
