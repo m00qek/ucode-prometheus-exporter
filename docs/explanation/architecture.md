@@ -74,6 +74,8 @@ The loader takes every module of the collectors' directory, refuses one that is 
 
 While the probe waits for its child, uloop takes SIGTERM and SIGINT, and uhttpd's own loop, which starts after the handler, would never see them: procd's SIGTERM to an instance still loading its collectors, as in an upgrade of several packages, would leave it serving without them until procd killed it. So each module not yet loaded is reported stopped, and the handler ends, as the signal would have ended it.
 
+A scrape waits for its collectors' child in a loop of uloop's too, and so do `check`, the ubus object's `status` and the command line's scrape: SIGTERM or SIGINT, procd stopping a request or Ctrl-C at a terminal, ends the wait. The scrape then kills the child, with every process under it, keeps the runs that ended, takes none of the rest for a collector's failure, removes its progress file, so that the next scrape blames no collector for it, and ends, as the signal would have ended it.
+
 ## Why the ubus object lives in rpcd
 
 The handler only runs inside a request, and only in the jail. Something has to answer questions about the exporter when nobody scrapes, outside the jail, and to LuCI: rpcd, which every image runs, and which already serves LuCI's other objects. Its plugin reads with the exporter's own modules, so it sees what the exporter sees.

@@ -32,7 +32,8 @@ import { bury, log_breakers } from 'prometheus.exporter.progress';
  *   mkstemp: ?function(string): ?FsFile,
  *   open: ?function(string, ?string): ?FsFile,
  *   readfile: ?function(string): ?string,
- *   kill: ?function(int): void
+ *   kill: ?function(int): void,
+ *   exit: ?function(int): void
  * }} ScrapeEnv
  */
 
@@ -434,14 +435,24 @@ export function collect(env, uci, l, chosen, opts) {
 		},
 	};
 
-	runner_of(env, chosen, opts?.omit, deadline).run(plan);
+	let signal = runner_of(env, chosen, opts?.omit, deadline).run(plan);
+
+	if (signal) {
+		let quit = env.exit ?? exit;
+
+		env.log('notice', `asked to stop (signal ${signal}) while it ran the collectors: stopping`);
+		opts?.progress?.finish();
+		quit(128 + signal);
+	}
 
 	let by_c = {};
 
-	for (let c in chosen)
+	for (let c in chosen) {
 		by_c[c.id] = c;
+		by_id[c.id] ??= not_run(c, Result.err(errors.COLLECTOR_NOT_RUN, 'not run: the scrape was handed no run of it'), 'runner');
+	}
 
-	own(env, map(filter(chosen, (c) => by_id[c.id] != null), (c) => by_id[c.id]), by_c);
+	own(env, map(chosen, (c) => by_id[c.id]), by_c);
 
 	return by_id;
 };

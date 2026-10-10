@@ -12,6 +12,7 @@ import * as Result from 'prometheus.exporter.result';
 import * as api from 'prometheus.exporter';
 import * as exposition from 'prometheus.exporter.exposition';
 import * as ledger from 'prometheus.exporter.ledger';
+import * as state from 'prometheus.exporter.state';
 import { seconds } from 'prometheus.exporter.deadline';
 import * as fs from 'fs';
 import { with_mods } from 'prometheus.exporter.devkit.collector';
@@ -81,6 +82,13 @@ const LOOP = collector('loop', function() {
 });
 
 const QUITTER = collector('quitter', () => exit(3));
+
+// Whether process `pid` runs: there, and not a zombie.
+function alive(pid) {
+	let rest = split(fs.readfile(`/proc/${pid}/stat`) ?? '', ') ')[1];
+
+	return rest != null && split(rest, ' ')[0] != 'Z';
+}
 
 function summary(r) {
 	return [ r.name, r.result.ok ? 'ok' : r.result.error ];
@@ -224,6 +232,38 @@ describe('runner.forked', () => {
 
 		assert.match(1, kills, 'one kill: late overran, and nothing else');
 		assert.match([ [ 'late', 'late', 'ok' ], [ 'next', 'next', 'ok' ], [ 'c', 'c', 'ok' ] ], done);
+	});
+
+	// uloop takes SIGTERM and SIGINT while the runner waits: what procd sends a
+	// request's process, or Ctrl-C the command line's scrape. The runner
+	// stops the child, keeps the runs it finished, and blames no collector.
+	it('stops its child when this process is asked to stop, keeps the runs that ended, and blames none of the rest', () => {
+		let me = fs.readlink('/proc/self');
+		let child = null;
+		let sender = collector('sender', function() {
+			system([ 'kill', '-TERM', me ]);
+			while (true)
+				;
+		});
+		let logs = [];
+		let runs = [];
+		let collectors = [ gauge('a', 1), sender, gauge('c', 3) ];
+		let plan = plan_of(collectors, (c) => ({ c, cutoff: null, limit: now() + 5, at_deadline: false, budget: 5, settings: { budget: 5, max_samples: 10, options: {} } }), runs);
+		let env = { ...env_of(logs), kill: function(pid) { child = pid; deps.kill_tree(fs.popen, pid); } };
+		let t = now();
+		let signal = runner.forked(env, scrape.run_one, { collectors }).run(plan);
+		let took = now() - t;
+
+		assert.match(15, signal);
+		assert.match(true, took < 2, `took ${took} s`);
+		assert.match([ [ 'a', 'ok' ], [ 'sender', 'COLLECTOR_NOT_RUN' ], [ 'c', 'COLLECTOR_NOT_RUN' ] ], map(runs, summary));
+		assert.match([
+			[ 'signal', 'stopped: this process was asked to stop (signal 15)', { signal: 15 } ],
+			[ 'signal', 'not run: this process was asked to stop (signal 15)', { signal: 15 } ],
+		], map(slice(runs, 1), (r) => [ r.skipped, r.result.details, r.result.data ]));
+		assert.match([ 'neutral', 'neutral' ], map(slice(runs, 1), (r) => ledger.outcome_of(r)[0]));
+		assert.match([ true, false ], [ child != null, alive(child) ]);
+		assert.match([], logs);
 	});
 
 	it('stops it at the deadline as SCRAPE_DEADLINE, which the scrape logs in its line', () => {
@@ -594,6 +634,76 @@ describe('scrape.collect, forked', () => {
 		assert.match([ 'ok', 'SCRAPE_DEADLINE', 'SCRAPE_DEADLINE' ], [ runs.a.result.ok ? 'ok' : runs.a.result.error, runs.loop.result.error, runs.c.result.error ]);
 		assert.match([ 'deadline', 2 ], [ runs.c.skipped, stats.children ]);
 		assert.match([], filter(logs, (l) => index(l[1], 'past the limits it gave') >= 0));
+	});
+});
+
+// A scrape asked to stop while its collectors run, as Ctrl-C stops the command
+// line's: it ends as the signal would have ended it, its progress file
+// removed first, so the next scrape blames no collector for it. exit is the
+// seam: here it throws, as nothing after it may run.
+describe('scrape.scrape, asked to stop', () => {
+	it('stops its child, removes its progress file and exits 128 + the signal, blaming no collector', () => {
+		let dir = fs.mkdtemp('/tmp/scrape-signal-XXXXXX');
+		let me = fs.readlink('/proc/self');
+		let st = state.open(fs, dir, '1-1');
+		let sender = collector('sender', function() {
+			system([ 'kill', '-TERM', me ]);
+			while (true)
+				;
+		});
+		let logs = [];
+		let exits = [];
+		let left = null;
+		let error = null;
+
+		with_mods({}, (mods) => {
+			let env = {
+				...env_of(logs), readfile: fs.readfile, kill: (p) => deps.kill_tree(fs.popen, p),
+				session: (to) => deps.session({ ...mods, log: to }), fork: true, tmp: dir,
+				exit: function(code) {
+					push(exits, code);
+					left = filter(fs.lsdir(dir), (f) => f != 'lock');
+					die('exited');
+				},
+			};
+
+			try {
+				scrape.scrape(env, [ gauge('a', 1), sender ], '', { deadline: now() + 5, budget: 5, state: st });
+			} catch (e) {
+				error = e.message;
+			}
+		});
+
+		for (let f in fs.lsdir(dir))
+			fs.unlink(`${dir}/${f}`);
+		fs.rmdir(dir);
+
+		assert.match([ [ 143 ], 'exited', [] ], [ exits, error, left ]);
+		assert.match([ [ 'notice', 'asked to stop (signal 15) while it ran the collectors: stopping' ] ], logs);
+	});
+
+	it('serves every collector it was asked for, should exit return', () => {
+		let me = fs.readlink('/proc/self');
+		let sender = collector('sender', function() {
+			system([ 'kill', '-TERM', me ]);
+			while (true)
+				;
+		});
+		let exits = [];
+		let res;
+
+		with_mods({}, (mods) => {
+			let env = {
+				...env_of([]), kill: (p) => deps.kill_tree(fs.popen, p),
+				session: (to) => deps.session({ ...mods, log: to }), fork: true, exit: (code) => push(exits, code),
+			};
+
+			res = scrape.scrape(env, [ gauge('a', 1), sender, gauge('c', 3) ], '', { deadline: now() + 5, budget: 5 });
+		});
+
+		assert.match([ [ 143 ], '200 OK' ], [ exits, res.status ]);
+		assert.match(contains([ 'a_value 1', 'node_scrape_collector_success{collector="sender"} 0', 'node_scrape_collector_success{collector="c"} 0' ]),
+			split(res.body, '\n'));
 	});
 });
 
