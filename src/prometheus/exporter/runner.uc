@@ -52,9 +52,9 @@ export const GRACE = POLL_MS / 1000.0;
  */
 
 /**
- * A runner, inline()'s or forked()'s: run(plan) runs a plan's collectors.
+ * A runner, inline()'s or forked()'s: run(plan) runs a plan's collectors, and gives the signal that stopped it, or null.
  *
- * @typedef {{ run: (plan: Plan) => void }} Runner
+ * @typedef {{ run: (plan: Plan) => ?int }} Runner
  */
 
 /**
@@ -118,6 +118,19 @@ export function not_run(job) {
  */
 export function late(job) {
 	return { ...stopped(job, Result.err(errors.SCRAPE_DEADLINE, 'not run: the scrape\'s time was spent'), 0), skipped: 'deadline' };
+};
+
+/**
+ * The run of a collector stopped, or not run, as this process was asked to stop.
+ *
+ * @param {Job} job
+ * @param {int} signal
+ * @param {boolean} running
+ * @returns {Run}
+ */
+export function signalled(job, signal, running) {
+	return { ...stopped(job, Result.err(errors.COLLECTOR_NOT_RUN,
+		sprintf('%s: this process was asked to stop (signal %d)', running ? 'stopped' : 'not run', signal), { signal }), 0), skipped: 'signal' };
 };
 
 /** The digits of a packed run's head's length, in hex. */
@@ -244,6 +257,7 @@ export function inline(env, run_fn, opts) {
 			}
 
 			session.close();
+			return null;
 		},
 	};
 };
@@ -333,6 +347,7 @@ export function forked(env, run_fn, opts) {
 			let st = {
 				env, run_fn, by_id, plan, omit: opts?.omit, stats: opts?.stats,
 				task: null, timer: null, gen: 0, job: null, started: null, done: false, lost: 0, out: null, reader: null, read_at: 0, ran: {},
+				stopped: null,
 			};
 			let child = child_of(st);
 
@@ -344,11 +359,18 @@ export function forked(env, run_fn, opts) {
 					uloop.end();
 			}
 
-			function finish(r) {
-				let job = st.job;
-
-				st.job = null;
+			function finish(job, r) {
+				if (st.job?.c == job.c)
+					st.job = null;
 				st.plan.done(job, r);
+			}
+
+			function stop_child() {
+				if (st.task == null || st.task.finished())
+					return;
+				if (st.env.kill)
+					st.env.kill(st.task.pid());
+				st.task.kill();
 			}
 
 			function hold(s) {
@@ -476,18 +498,27 @@ export function forked(env, run_fn, opts) {
 			}
 
 			function backstop() {
-				if (st.env.kill)
-					st.env.kill(st.task.pid());
-				st.task.kill();
+				stop_child();
 				absorb(true);
 				if (st.job != null)
-					finish(cancelled({ ...st.job, at_deadline: true }, now(st.env) - st.started));
+					finish(st.job, cancelled({ ...st.job, at_deadline: true }, now(st.env) - st.started));
 
 				st.env.log('warning', 'the process running the collectors ran past the scrape\'s deadline, past the limits it gave: stopped there, the rest left out');
 				for (let job = st.plan.next(st.env.log); job != null; job = st.plan.next(st.env.log))
 					st.plan.done(job, job.skipped ?? late(job));
 				st.done = true;
 				uloop.end();
+			}
+
+			function interrupted(signal) {
+				stop_child();
+				absorb(true);
+				if (st.job != null)
+					finish(st.job, signalled(st.job, signal, true));
+				for (let job = st.plan.next(st.env.log); job != null; job = st.plan.next(st.env.log))
+					st.plan.done(job, job.skipped ?? signalled(job, signal, false));
+				st.stopped = (signal > 0) ? signal : null;
+				st.done = true;
 			}
 
 			function tick() {
@@ -501,7 +532,7 @@ export function forked(env, run_fn, opts) {
 						let r = killed(st.job, now(st.env) - st.started);
 
 						log_stopped(st.env, r);
-						finish(r);
+						finish(st.job, r);
 						st.lost = 0;
 						return spawn();
 					}
@@ -535,16 +566,15 @@ export function forked(env, run_fn, opts) {
 				let limit = st.job?.limit;
 
 				if (limit != null && t >= limit && (deadline == null || limit <= deadline)) {
-					let r = cancelled(st.job, t - st.started);
+					let job = st.job, took = t - st.started;
 
-					if (st.env.kill)
-						st.env.kill(st.task.pid());
-					st.task.kill();
-
+					stop_child();
 					absorb(true);
-					if (st.job != null) {
+					if (!st.ran[job.c.id]) {
+						let r = cancelled(job, took);
+
 						log_stopped(st.env, r);
-						finish(r);
+						finish(job, r);
 					}
 
 					return spawn();
@@ -560,17 +590,23 @@ export function forked(env, run_fn, opts) {
 			st.timer = uloop.timer(POLL_MS, tick);
 			spawn();
 
+			let signal = st.done ? 0 : uloop.run();
+
 			if (!st.done)
-				uloop.run();
+				interrupted(signal);
 
 			st.timer.cancel();
 			uloop.done();
 			st.reader?.close();
 			st.out?.close();
 
+			let stopped = st.stopped;
+
 			for (let k in [ 'env', 'run_fn', 'by_id', 'plan', 'task', 'timer', 'job', 'stats', 'out', 'reader', 'ran' ])
 				st[k] = null;
 			st.done = true;
+
+			return stopped;
 		},
 	};
 };

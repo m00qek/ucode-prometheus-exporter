@@ -452,10 +452,20 @@ export function metrics_page(ctx) {
 	push(blocks, md.heading(2, 'Coverage', 'coverage'));
 	push(blocks, md.table([ 'Collector', 'Families on the captures', 'Seen on', 'Listed from the code' ], coverage));
 
+	let own_names = map(ctx.harvest.own, (f) => f.name);
+
+	for (let f in ctx.harvest.own)
+		f.note = ctx.notes.scrape_notes[f.name];
+	for (let name in keys(ctx.notes.scrape_notes))
+		if (!(name in own_names))
+			push(problems, `scrape_notes: a scrape writes no ${name}`);
+
 	push(blocks, md.heading(2, 'The scrape\'s own', 'scrape'));
 	push(blocks,
 		'Every scrape ends with these, whatever `collect[]` selects: node_exporter\'s families of each collector that ran, ' +
-		'and the exporter\'s version.');
+		'and the exporter\'s version. While the `exporter` collector is selected, the scrape writes the instance\'s counters ' +
+		'and each collector\'s samples too, after the exporter collector\'s own families, whether that collector ran or not: ' +
+		'the deadline, a breaker or a crash cannot leave them out.');
 	push(blocks, family_table(ctx.harvest.own));
 
 	push(blocks, ...sections);

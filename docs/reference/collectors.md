@@ -267,7 +267,7 @@ Network driver statistics, driver information and link modes, from ethtool -S, -
 
 ## `exporter` {#exporter}
 
-The CPU, memory and descriptors of the uhttpd instance that serves the scrapes, its scrapes, and what went wrong in them: failures, programs killed, quarantines, collectors left out at the deadline.
+The CPU, memory and descriptors of the uhttpd instance that serves the scrapes; and, which the scrape writes itself whatever this collector does, its scrapes and what went wrong in them: failures, programs killed, quarantines, collectors left out at the deadline, and each collector's samples.
 
 - **Title:** The exporter itself
 - **Package:** `ucode-prometheus-exporter` (base)

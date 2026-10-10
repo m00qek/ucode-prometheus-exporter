@@ -22,7 +22,7 @@ The labels are those seen on the captures; a collector leaves out a label it has
 | [`dnsmasq`](#dnsmasq) | 30 | a router | — |
 | [`entropy`](#entropy) | 2 | an access point, a router | — |
 | [`ethtool`](#ethtool) | 259 | an access point, a router | `node_ethtool_info`, `node_network_supported_port_info`, `node_network_supported_speed_bytes`, `node_network_advertised_speed_bytes`, `node_network_autonegotiate_supported`, `node_network_pause_supported`, `node_network_asymmetricpause_supported`, `node_network_autonegotiate_advertised`, `node_network_pause_advertised`, `node_network_asymmetricpause_advertised`, `node_network_autonegotiate` |
-| [`exporter`](#exporter) | 0 | none | `process_cpu_seconds_total`, `process_virtual_memory_bytes`, `process_resident_memory_bytes`, `process_start_time_seconds`, `process_open_fds`, `process_max_fds`, `ucode_prometheus_exporter_scrapes_total`, `ucode_prometheus_exporter_auth_failures_total`, `ucode_prometheus_exporter_collector_failures_total`, `ucode_prometheus_exporter_program_timeouts_total`, `ucode_prometheus_exporter_quarantines_total`, `ucode_prometheus_exporter_deadline_skips_total`, `ucode_prometheus_exporter_collector_samples` |
+| [`exporter`](#exporter) | 0 | none | `process_cpu_seconds_total`, `process_virtual_memory_bytes`, `process_resident_memory_bytes`, `process_start_time_seconds`, `process_open_fds`, `process_max_fds` |
 | [`filefd`](#filefd) | 2 | an access point, a router | — |
 | [`filesystem`](#filesystem) | 4 | an access point, a router | `node_filesystem_files`, `node_filesystem_files_free` |
 | [`hostapd_stations`](#hostapd_stations) | 15 | an access point | — |
@@ -62,10 +62,17 @@ The labels are those seen on the captures; a collector leaves out a label it has
 
 ## The scrape's own {#scrape}
 
-Every scrape ends with these, whatever `collect[]` selects: node_exporter's families of each collector that ran, and the exporter's version.
+Every scrape ends with these, whatever `collect[]` selects: node_exporter's families of each collector that ran, and the exporter's version. While the `exporter` collector is selected, the scrape writes the instance's counters and each collector's samples too, after the exporter collector's own families, whether that collector ran or not: the deadline, a breaker or a crash cannot leave them out.
 
 | Family | Type | Labels | Help | Notes |
 | :--- | :--- | :--- | :--- | :--- |
+| `ucode_prometheus_exporter_scrapes_total` | counter | — | Scrapes the exporter answered since the service started. | While the `exporter` collector is selected, in the service's scrapes, which keep the instance's ledger; reset when the service restarts. |
+| `ucode_prometheus_exporter_auth_failures_total` | counter | — | Requests basic auth refused since the service started. | As scrapes\_total: the requests basic auth refused (401). |
+| `ucode_prometheus_exporter_collector_failures_total` | counter | `collector`, `reason` | Scrapes in which a collector failed, by its error code, since the service started. | As scrapes\_total: a collector's failures by error code. |
+| `ucode_prometheus_exporter_program_timeouts_total` | counter | `collector` | Programs of a collector killed at their timeout since the service started. | As scrapes\_total: programs killed at their timeout. |
+| `ucode_prometheus_exporter_quarantines_total` | counter | `collector` | Times a collector's circuit breaker tripped since the service started. | As scrapes\_total: times a collector's circuit breaker tripped. |
+| `ucode_prometheus_exporter_deadline_skips_total` | counter | `collector` | Scrapes whose deadline left a collector out, or killed its program, since the service started. | As scrapes\_total: times the deadline left a collector out or killed its program, this scrape's included. |
+| `ucode_prometheus_exporter_collector_samples` | gauge | `collector` | Samples a collector wrote in this scrape. | While the `exporter` collector is selected: the samples each collector wrote in this scrape, `check` and the command line's scrape included. |
 | `node_scrape_collector_duration_seconds` | gauge | `collector` | node\_exporter: Duration of a collector scrape. | — |
 | `node_scrape_collector_success` | gauge | `collector` | node\_exporter: Whether a collector succeeded. | — |
 | `node_scrape_collector_observing` | gauge | `collector` | Whether a collector had something to observe: 0 when its hardware, kernel feature or service is not there. | — |
@@ -293,13 +300,6 @@ The exporter itself. [Collector](collectors.md#exporter).
 | `process_start_time_seconds` | gauge | — | Start time of the process since unix epoch in seconds. | Listed from the code: From its /proc/&lt;pid&gt;/stat and /proc/stat's btime. |
 | `process_open_fds` | gauge | — | Number of open file descriptors. | Listed from the code: Its /proc/&lt;pid&gt;/fd. |
 | `process_max_fds` | gauge | — | Maximum number of open file descriptors. | Listed from the code: Its /proc/&lt;pid&gt;/limits; left out where unlimited. |
-| `ucode_prometheus_exporter_scrapes_total` | counter | — | Scrapes the exporter answered since the service started. | Listed from the code: Counted in the instance's ledger, which only the handler's scrapes keep; reset when the service restarts. |
-| `ucode_prometheus_exporter_auth_failures_total` | counter | — | Requests basic auth refused since the service started. | Listed from the code: As scrapes\_total: the requests basic auth refused (401). |
-| `ucode_prometheus_exporter_collector_failures_total` | counter | `collector`, `reason` | Scrapes in which a collector failed, by its error code, since the service started. | Listed from the code: As scrapes\_total: a collector's failures by error code. |
-| `ucode_prometheus_exporter_program_timeouts_total` | counter | `collector` | Programs of a collector killed at their timeout since the service started. | Listed from the code: As scrapes\_total: programs killed at their timeout. |
-| `ucode_prometheus_exporter_quarantines_total` | counter | `collector` | Times a collector's circuit breaker tripped since the service started. | Listed from the code: As scrapes\_total: times a collector's circuit breaker tripped. |
-| `ucode_prometheus_exporter_deadline_skips_total` | counter | `collector` | Scrapes whose deadline left a collector out, or killed its program, since the service started. | Listed from the code: As scrapes\_total: times the deadline left a collector out or killed its program. |
-| `ucode_prometheus_exporter_collector_samples` | gauge | `collector` | Samples a collector wrote in this scrape. | Listed from the code: This scrape's: the samples each collector that ran before it wrote. |
 
 ## `filefd` {#filefd}
 

@@ -41,6 +41,7 @@ import { version } from 'prometheus.exporter.version';
  * @typedef {{
  *   collectors: () => Collector[],
  *   auth: ?(BasicAuth|BrokenAuth),
+ *   natives: string[],
  *   compress: boolean,
  *   scrape_timeout: int,
  *   handle: (req: Object) => HttpReply
@@ -335,6 +336,72 @@ export function load(mods, dir, log, opts) {
 	return loader_program().load(mods.fs, dir, collection.import_module, log, null, collection.import_modules);
 };
 
+/** The native modules uhttpd loads when it starts, where an enabled collector needs one: scrapes then load none. */
+export const NATIVES = [ 'ubus', 'rtnl', 'nl80211' ];
+
+/** What uhttpd loads when it starts whatever the collectors need: zlib, for gzip. */
+export const ALWAYS = [ 'zlib' ];
+
+/**
+ * The native modules of NATIVES that the enabled collectors of `collectors` need, in NATIVES' order.
+ *
+ * @param {Collector[]} collectors
+ * @param {?string[]} disabled
+ * @returns {string[]}
+ */
+export function natives_of(collectors, disabled) {
+	let wanted = {};
+
+	for (let c in collectors)
+		if (!(c.id in (disabled ?? [])))
+			for (let need in c.meta.needs)
+				wanted[need] = true;
+
+	return filter(NATIVES, (n) => wanted[n]);
+};
+
+/**
+ * What preload() gives: the modules it loaded here, and the signal that stopped it.
+ *
+ * @typedef {{ loaded: string[], stopped: ?int }} Preloaded
+ */
+
+/**
+ * The modules `names`, each loaded in the probe's child first, then here when it loaded there.
+ *
+ * @param {string[]} names
+ * @param {?function(string[]): Object<string, ProbeOutcome>} probe_fn
+ * @param {function(string): boolean} load
+ * @param {Log} log
+ * @returns {Preloaded}
+ */
+export function preload(names, probe_fn, load, log) {
+	let probed = (probe_fn && length(names)) ? probe_fn(names) : null;
+	let loaded = [];
+
+	for (let name in names) {
+		let p = probed?.[name];
+
+		if (p?.stopped)
+			return { loaded, stopped: p.stopped };
+
+		if (probed != null && !(p?.ok && p.data === true)) {
+			if (p != null && !p.ok)
+				log('warning', `native module '${name}' did not load in a process of its own: ${p.error}; each scrape loads it where it needs it`);
+			continue;
+		}
+
+		if (load(name))
+			push(loaded, name);
+	}
+
+	return { loaded, stopped: null };
+};
+
+function load_native(native, name) {
+	return (name == 'zlib') ? http.load_zlib() : (native?.(name) != null);
+}
+
 /**
  * { collectors(), scrape(query_string) }.
  *
@@ -372,6 +439,15 @@ export function handler(log, dir, state_dir, opts) {
 	let program = opts?.auth_program;
 	let credentials = load_auth(app.mods.fs, auth_wanted(app.mods.uci.cursor()), program);
 	let instance = state.open(app.mods.fs, state_dir ?? state.DIR, state.instance_id(app.mods.fs));
+	let native = (opts?.observed ?? app.mods).native;
+	let names = [ ...(native ? natives_of(app.collectors(), config.disabled(app.mods.uci.cursor(), map(app.collectors(), (c) => c.id))) : []), ...ALWAYS ];
+	let probe_fn = (opts?.fork ?? true) ? (pending) => probe_modules(pending, (name) => load_native(native, name), null, null, true) : null;
+	let natives = preload(names, probe_fn, (name) => load_native(native, name), log);
+
+	if (natives.stopped) {
+		log('notice', `asked to stop (signal ${natives.stopped}) while it loaded the collectors: stopping`);
+		exit(128 + natives.stopped);
+	}
 
 	if (credentials?.missing)
 		log('err', `${AUTH_FILE} is not there, and the config sets basic auth (auth_user): every request is denied`);
@@ -383,6 +459,7 @@ export function handler(log, dir, state_dir, opts) {
 	return {
 		collectors: app.collectors,
 		auth: credentials,
+		natives: natives.loaded,
 		compress,
 		scrape_timeout,
 		handle: function(req) {

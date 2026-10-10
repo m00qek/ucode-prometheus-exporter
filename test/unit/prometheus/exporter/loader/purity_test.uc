@@ -93,6 +93,16 @@ describe('loader.purity.problem', () => {
 			'const X = (f)(2);\nexport default print(1);\n'));
 	});
 
+	// A Result's prototype is one every collector shares; push(), sort() and
+	// the other functions that change their argument reach only the module's
+	// own values at its top level, the collector API's being constant.
+	it('names proto() as reaching what the collectors share, and lets the functions that change their own arrays through', () => {
+		assert.match([ "its top level calls proto() (line 5): proto() reads or sets a prototype, which for a Result is one every collector shares" ],
+			problems("const P = proto(Result.ok(), {});\n"));
+		assert.match(null, problem("const A = [ 3, 1 ];\nconst B = push(A, 2), C = sort(A), D = splice(A, 0, 1), E = pop(A), F = shift(A), G = unshift(A, 0);\n"));
+		assert.match(false, 'proto' in purity.PURE);
+	});
+
 	it('reads a template\'s ${} as code', () => {
 		assert.match([ "its top level calls getenv() (line 5): getenv() reads the environment, which is not the same in each process that loads it" ],
 			problems("const T = `home: ${ getenv('HOME') } and ${ { a: 1 }.a }`;\n"));

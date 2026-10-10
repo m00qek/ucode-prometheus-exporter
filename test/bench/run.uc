@@ -15,9 +15,10 @@
 //                             when it starts (prometheus.exporter.probe)
 //   rest:<set>                what the handler's process holds once it loaded the set, as uhttpd
 //                             holds it while it runs: its RssAnon, less what it held before
-//   lazy:<what>               what a scrape's process pays the first time it needs what uhttpd
-//                             no longer holds: parse (the exposition parser, compiled), zlib (by
-//                             http.gzip), ubus, rtnl, nl80211 (by deps.native)
+//   lazy:<what>               what a process pays the first time it needs what it did not load:
+//                             parse (the exposition parser, compiled), which a scrape loads; zlib
+//                             (by http.gzip), ubus, rtnl, nl80211 (by deps.native), which uhttpd
+//                             loads when it starts, and so a scrape no more
 //   handler:<set>             a scrape of the set as Prometheus gets it: uhttpd running the
 //                             service's handler (handler.uc, on the world), asked by wget
 //   floor:<set>               the least memory_limit, in MB, under which uhttpd loads the handler

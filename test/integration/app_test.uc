@@ -18,6 +18,8 @@ import * as config from 'prometheus.exporter.config';
 import * as fixtures from 'lib.fixtures';
 import * as commands from 'prometheus.exporter.devkit.commands';
 import * as lockable from 'lib.lockable';
+import * as probe from 'prometheus.exporter.probe';
+import * as fs_mod from 'fs';
 
 const SOURCES = 'src/prometheus/collectors';
 // As root on a router, with every capability: nft-counters declares
@@ -270,6 +272,50 @@ describe('app.handler', () => {
 		mock.global.patch('uci', { strict: true, data: { [config.NAME]: main ? { main: { '.type': config.NAME, ...main } } : {} } });
 	}
 
+	// Loaded when uhttpd starts, every scrape is forked with them: none loads
+	// them again. zlib whatever the collectors need. The native modules are
+	// the scrapes' (`observed`), here a stand-in that loads each, in this
+	// process or the probe's child, as utest's proxies do not.
+	function with_natives(cb) {
+		let mods = deps.modules();
+
+		return cb({ ...mods, native: (name) => (name in app_mod.NATIVES) ? {} : null });
+	}
+
+	it('loads the native modules the enabled collectors need, and zlib, when it starts', () => {
+		patch_main(null);
+		assert.match([ 'ubus', 'rtnl', 'nl80211', 'zlib' ], with_natives((observed) => handler(() => null, SOURCES, null, { observed }).natives));
+
+		let text = fs_mod.readfile(`${SOURCES}/loadavg.uc`);
+
+		mock.global.unpatch('fs');
+		patch_main(null, { '/one/loadavg.uc': text });
+		gc();
+		let one = with_natives((observed) => handler(() => null, '/one', null, { observed }));
+
+		assert.match([ [ 'loadavg' ], [ 'zlib' ] ], [ map(one.collectors(), (c) => c.id), one.natives ]);
+	});
+
+	it('leaves out the native modules only disabled collectors need', () => {
+		let off = {};
+
+		for (let id in [ 'wifi', 'hostapd_stations', 'hostapd_ubus_stations', 'dawn' ])
+			off[id] = { '.type': 'collector', enabled: '0' };
+		mock.global.patch('fs', { data: ROUTER.files, behavior: lockable.behavior });
+		mock.global.patch('ubus', { strict: true, data: {} });
+		mock.global.patch('uci', { strict: true, data: { [config.NAME]: off } });
+
+		let app = with_natives((observed) => handler(() => null, SOURCES, null, { observed }));
+		let want = [ ...app_mod.natives_of(app.collectors(), keys(off)), 'zlib' ];
+
+		assert.match([ false, want ], [ 'nl80211' in want, app.natives ]);
+	});
+
+	it('loads them all here where it forks no child, as in the tests', () => {
+		patch_main(null);
+		assert.match([ 'ubus', 'rtnl', 'nl80211', 'zlib' ], with_natives((observed) => handler(() => null, SOURCES, null, { observed, fork: false }).natives));
+	});
+
 	it('serves a scrape plain, without basic auth\'s file', () => {
 		patch_main(null);
 
@@ -437,6 +483,7 @@ describe('app.handler', () => {
 		for (let why, program in UNLOADABLE)
 			for (let main in [ null, { auth_user: 'prom', cert: '/etc/ssl/x.crt', key: '/etc/ssl/x.key' } ]) {
 				patch_main(main, { [auth.FILE]: auth.conf('prom', HASH) });
+				gc();
 
 				let logs = [];
 				let app = handler((level, m) => push(logs, [ level, m ]), SOURCES, null, { auth_program: program });
@@ -476,6 +523,65 @@ describe('app.handler', () => {
 
 			assert.match([ null, '200 OK' ], [ app.auth, app.handle(request('collect[]=loadavg', {}, true)).status ], main);
 		}
+	});
+});
+
+// The native modules uhttpd loads when it starts: those of NATIVES the
+// enabled collectors need, and zlib, each loaded in the probe's child first.
+describe('app.natives_of and app.preload', () => {
+	function needing(id, needs) {
+		return { id, meta: { name: id, needs } };
+	}
+
+	it('takes the native modules the enabled collectors need, in NATIVES\' order, and only those', () => {
+		let collectors = [ needing('wifi', [ 'ubus', 'nl80211' ]), needing('netclass', [ 'fs', 'rtnl' ]), needing('chrony', [ 'socket' ]) ];
+
+		assert.match([ 'ubus', 'rtnl', 'nl80211' ], app_mod.natives_of(collectors));
+		assert.match([ 'rtnl' ], app_mod.natives_of(collectors, [ 'wifi' ]));
+		assert.match([], app_mod.natives_of([ needing('loadavg', [ 'fs' ]) ]));
+		assert.match([ 'zlib' ], app_mod.ALWAYS);
+	});
+
+	function outcome(ok, data, extra) {
+		return { ok, error: ok ? null : 'its process ended while it loaded', hung: false, seconds: 0, data, ...(extra ?? {}) };
+	}
+
+	it('loads here only what loaded in the probe\'s child, and says which did not', () => {
+		let here = [];
+		let logs = [];
+		let res = app_mod.preload([ 'ubus', 'rtnl', 'nl80211', 'zlib' ],
+			() => ({ ubus: outcome(true, true), rtnl: outcome(false, null), nl80211: outcome(true, false), zlib: outcome(true, true) }),
+			(name) => { push(here, name); return true; }, (level, msg) => push(logs, [ level, msg ]));
+
+		assert.match([ [ 'ubus', 'zlib' ], [ 'ubus', 'zlib' ], null ], [ here, res.loaded, res.stopped ]);
+		assert.match([ [ 'warning', "native module 'rtnl' did not load in a process of its own: its process ended while it loaded; each scrape loads it where it needs it" ] ], logs);
+	});
+
+	it('loads none here where no child could load them, and stops when asked to', () => {
+		let here = [];
+
+		assert.match({ loaded: [], stopped: null },
+			app_mod.preload([ 'ubus' ], () => ({ ubus: { ok: true, error: null, hung: false, seconds: 0, unprobed: true } }), (n) => push(here, n), () => null));
+		assert.match({ loaded: [], stopped: 15 },
+			app_mod.preload([ 'ubus', 'rtnl' ], () => ({ ubus: outcome(false, null, { stopped: 15 }) }), (n) => push(here, n), () => null));
+		assert.match([], here);
+	});
+
+	// A native module that crashes as it loads, a segfault in its
+	// constructor: the probe's child dies of it, and uhttpd never loads it.
+	it('never loads here a native module that crashed the probe\'s child as it loaded', () => {
+		let here = [];
+		let logs = [];
+		let res = app_mod.preload([ 'ubus', 'rtnl' ],
+			(names) => probe.probe(names, function(name) {
+				if (name == 'rtnl')
+					system('kill -SEGV $PPID');
+				return true;
+			}, 5, null, true),
+			(name) => { push(here, name); return true; }, (level, msg) => push(logs, [ level, msg ]));
+
+		assert.match([ [ 'ubus' ], [ 'ubus' ] ], [ here, res.loaded ]);
+		assert.match([ [ 'warning', "native module 'rtnl' did not load in a process of its own: its process ended while it loaded; each scrape loads it where it needs it" ] ], logs);
 	});
 });
 

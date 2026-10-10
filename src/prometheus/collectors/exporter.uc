@@ -5,7 +5,7 @@ import { Result, errors, proc } from 'prometheus.exporter';
 export const meta = {
 	name: 'exporter',
 	title: 'The exporter itself',
-	help: 'The CPU, memory and descriptors of the uhttpd instance that serves the scrapes, its scrapes, and what went wrong in them: failures, programs killed, quarantines, collectors left out at the deadline.',
+	help: 'The CPU, memory and descriptors of the uhttpd instance that serves the scrapes; and, which the scrape writes itself whatever this collector does, its scrapes and what went wrong in them: failures, programs killed, quarantines, collectors left out at the deadline, and each collector\'s samples.',
 	needs: [ 'exporter' ],
 };
 
@@ -78,41 +78,6 @@ function process(deps, out) {
 	return Result.ok();
 }
 
-function counters(n, out) {
-	out.batch('counter', [
-		[ 'ucode_prometheus_exporter_scrapes_total', 'Scrapes the exporter answered since the service started.', n.scrapes ],
-		[ 'ucode_prometheus_exporter_auth_failures_total', 'Requests basic auth refused since the service started.', n.auth_failures ],
-	]);
-
-	let failures = out.counter('ucode_prometheus_exporter_collector_failures_total', 'Scrapes in which a collector failed, by its error code, since the service started.');
-	let timeouts = out.counter('ucode_prometheus_exporter_program_timeouts_total', 'Programs of a collector killed at their timeout since the service started.');
-	let quarantines = out.counter('ucode_prometheus_exporter_quarantines_total', 'Times a collector\'s circuit breaker tripped since the service started.');
-	let skips = out.counter('ucode_prometheus_exporter_deadline_skips_total', 'Scrapes whose deadline left a collector out, or killed its program, since the service started.');
-
-	for (let name in sort(keys(n.collectors))) {
-		let c = n.collectors[name];
-		let labels = out.labels({ collector: name });
-
-		for (let code in sort(keys(c.failures)))
-			failures({ collector: name, reason: code }, c.failures[code]);
-		timeouts(labels, c.timeouts);
-		quarantines(labels, c.quarantines);
-		skips(labels, c.deadline_skips);
-	}
-}
-
 export function collect(deps, out) {
-	let res = process(deps, out);
-	let n = deps.exporter.counters();
-
-	if (n != null)
-		counters(n, out);
-
-	let samples = deps.exporter.samples();
-	let written = out.gauge('ucode_prometheus_exporter_collector_samples', 'Samples a collector wrote in this scrape.');
-
-	for (let name in sort(keys(samples)))
-		written({ collector: name }, samples[name]);
-
-	return res;
+	return process(deps, out);
 };

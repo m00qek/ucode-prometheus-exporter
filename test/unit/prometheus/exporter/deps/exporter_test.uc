@@ -29,15 +29,17 @@ describe('deps.exporter.exporter_channel', () => {
 		});
 	});
 
-	it('is this process, without counters, outside a scrape of the handler', () => {
+	it('is this process outside a scrape of the handler', () => {
 		with_channel(null, (ch) => {
-			assert.match([ '7 (ucode) R 1', null, {} ], [ ch.process('stat'), ch.counters(), ch.samples() ]);
+			assert.match('7 (ucode) R 1', ch.process('stat'));
 		});
 	});
 
-	it('gives the scrape\'s counters and samples', () => {
-		with_channel({ pid: 42, counters: { scrapes: 3 }, samples: { cpu: 9 } }, (ch) => {
-			assert.match([ { scrapes: 3 }, { cpu: 9 } ], [ ch.counters(), ch.samples() ]);
+	// The scrape writes the ledger's counters and the samples itself, after
+	// its runs: the capability has the process alone.
+	it('gives the process, and nothing of the scrape', () => {
+		with_channel({ pid: 42 }, (ch) => {
+			assert.match([ 'fds', 'process', 'system' ], sort(keys(ch)));
 		});
 	});
 });

@@ -12,7 +12,6 @@ function reference(runs, by_id) {
 	let mine = (r) => r.id in [ 'cpu', 'loadavg', 'exporter' ];
 
 	for (let r in [ ...filter(runs, mine), ...filter(runs, (r) => !mine(r)) ]) {
-		let exporter = 'exporter' in by_id[r.id].meta.needs;
 		let taken = [];
 
 		for (let name in r.families) {
@@ -20,7 +19,7 @@ function reference(runs, by_id) {
 
 			if (substr(name, 0, length(ownership.SCRAPE_PREFIX)) == ownership.SCRAPE_PREFIX)
 				why = 'scrape';
-			else if (!exporter && substr(name, 0, length(ownership.EXPORTER_PREFIX)) == ownership.EXPORTER_PREFIX)
+			else if (substr(name, 0, length(ownership.EXPORTER_PREFIX)) == ownership.EXPORTER_PREFIX)
 				why = 'exporter';
 			else if (owners[name] != null && owners[name] != r.name)
 				why = 'taken';
@@ -62,11 +61,20 @@ function runs_of(spec) {
 
 describe('ownership.own', () => {
 	it('changes no run whose families no other writes, and none of the core\'s', () => {
-		let x = runs_of([ [ 0, [ 0, 1 ] ], [ 3, [ 2 ] ], [ 2, [ 5 ] ] ]);
+		let x = runs_of([ [ 0, [ 0, 1 ] ], [ 3, [ 2 ] ], [ 2, [ 6 ] ] ]);
 		let logs = [];
 
 		ownership.own({ log: (l, m) => push(logs, m) }, x.runs, x.by_id);
 		assert.match([ [ 'ok', 'ok', 'ok' ], [] ], [ map(x.runs, (r) => r.result.ok ? 'ok' : r.result.error), logs ]);
+	});
+
+	// The scrape writes the exporter's families itself, the ledger's
+	// counters too: no collector may, the exporter's own included.
+	it('keeps the exporter\'s families from every collector, the exporter collector\'s included', () => {
+		let x = runs_of([ [ 2, [ 5 ] ] ]);
+
+		ownership.own({ log: () => null }, x.runs, x.by_id);
+		assert.match('FAMILY_CONFLICT (ucode_prometheus_exporter_y belongs to the exporter itself)', Result.describe(x.runs[0].result));
 	});
 
 	prop('fails the runs the families\' owners, taken a family at a time, would fail',

@@ -197,6 +197,18 @@ export const family_notes = {
 	} ],
 };
 
+// What a row of the scrape's own families says besides, by family: every
+// entry must name a family a scrape writes.
+export const scrape_notes = {
+	'ucode_prometheus_exporter_scrapes_total': 'While the `exporter` collector is selected, in the service\'s scrapes, which keep the instance\'s ledger; reset when the service restarts.',
+	'ucode_prometheus_exporter_auth_failures_total': 'As scrapes\_total: the requests basic auth refused (401).',
+	'ucode_prometheus_exporter_collector_failures_total': 'As scrapes\_total: a collector\'s failures by error code.',
+	'ucode_prometheus_exporter_program_timeouts_total': 'As scrapes\_total: programs killed at their timeout.',
+	'ucode_prometheus_exporter_quarantines_total': 'As scrapes\_total: times a collector\'s circuit breaker tripped.',
+	'ucode_prometheus_exporter_deadline_skips_total': 'As scrapes\_total: times the deadline left a collector out or killed its program, this scrape\'s included.',
+	'ucode_prometheus_exporter_collector_samples': 'While the `exporter` collector is selected: the samples each collector wrote in this scrape, `check` and the command line\'s scrape included.',
+};
+
 // Families a collector declares that no fixture set makes it write, by
 // collector name, with what the fixtures cannot show: their labels, and why
 // no fixture has them. The type and help are the code's. The generator
@@ -227,13 +239,6 @@ export const unharvested = {
 		{ name: 'process_start_time_seconds', labels: [], why: 'From its /proc/<pid>/stat and /proc/stat\'s btime.' },
 		{ name: 'process_open_fds', labels: [], why: 'Its /proc/<pid>/fd.' },
 		{ name: 'process_max_fds', labels: [], why: 'Its /proc/<pid>/limits; left out where unlimited.' },
-		{ name: 'ucode_prometheus_exporter_scrapes_total', labels: [], why: 'Counted in the instance\'s ledger, which only the handler\'s scrapes keep; reset when the service restarts.' },
-		{ name: 'ucode_prometheus_exporter_auth_failures_total', labels: [], why: 'As scrapes_total: the requests basic auth refused (401).' },
-		{ name: 'ucode_prometheus_exporter_collector_failures_total', labels: [ 'collector', 'reason' ], why: 'As scrapes_total: a collector\'s failures by error code.' },
-		{ name: 'ucode_prometheus_exporter_program_timeouts_total', labels: [ 'collector' ], why: 'As scrapes_total: programs killed at their timeout.' },
-		{ name: 'ucode_prometheus_exporter_quarantines_total', labels: [ 'collector' ], why: 'As scrapes_total: times a collector\'s circuit breaker tripped.' },
-		{ name: 'ucode_prometheus_exporter_deadline_skips_total', labels: [ 'collector' ], why: 'As scrapes_total: times the deadline left a collector out or killed its program.' },
-		{ name: 'ucode_prometheus_exporter_collector_samples', labels: [ 'collector' ], why: 'This scrape\'s: the samples each collector that ran before it wrote.' },
 	],
 	'snmp6': [
 		{ name: 'node_snmp6_ifindex', labels: [ 'device' ], why: 'Written where the `fields` option matches `ifIndex`, which its default does not: netclass\'s `node_network_iface_id` is the same index.' },
@@ -266,7 +271,7 @@ export const errors = {
 	COLLECTOR_CRASHED: 'The collector died with an exception. The detail is the exception\'s first line.',
 	COLLECTOR_NO_RESULT: 'The collector returned something other than a Result, or a failure without an error code (a code the collector API does not export is null). The detail says what.',
 	COLLECTOR_INVALID: 'A collector module that cannot be loaded as one (its `meta` or `collect`), which the exporter leaves out; or a query that names a collector that is not installed, or one that is disabled, which is answered 400.',
-	COLLECTOR_IMPURE: 'A collector module whose top level does more than declare, which the exporter leaves out. As it loaded, it called a function that blocks, ends or writes to the process (`sleep`, `exit`, `print`), loads code (`require`, `loadstring`, and so the collector API\'s `exposition` functions) or changes its signals: refused before it runs, in the process that first loads it and in uhttpd\'s, and the detail names the call. Or, in `collector check` and the tests, its text runs a statement or calls a function that a declaration does not, and the detail names it and its line. See [Collector interface](collector-interface.md#the-top-level).',
+	COLLECTOR_IMPURE: 'A collector module whose top level does more than declare, which the exporter leaves out. As it loaded, it called a function that blocks, ends or writes to the process (`sleep`, `exit`, `print`), loads code (`require`, `loadstring`, and so the collector API\'s `exposition` functions) or changes its signals: refused before it runs, in the process that first loads it and in uhttpd\'s, and the detail names the call. Or it changed the global scope, which is put back, or wrote over what the collector API exports, which is constant, and the detail says which. Or, in `collector check` and the tests, its text runs a statement or calls a function that a declaration does not, and the detail names it and its line. See [Collector interface](collector-interface.md#the-top-level).',
 	CONFIG_INVALID: 'An option has a value the exporter does not take, or options that go together are not set together. The detail is `<option>: expected <what>, got <value>` (never the value of `auth_password`), or what is missing.',
 	FILE_UNWRITABLE: 'The init script could not write or remove uhttpd\'s basic auth file, `/var/run/prometheus-exporter/uhttpd.conf`; or the ubus object\'s `set_password` could not write the hash\'s config, `/etc/config/prometheus-exporter-auth`.',
 	NEED_MISSING: 'A capability the collector needs is not installed: `nl80211` without ucode-mod-nl80211, `socket` without ucode-mod-socket.',
@@ -285,7 +290,7 @@ export const errors = {
 	COLLECTOR_OVERRUN: 'What tripped a breaker: the collector took longer than its `budget`. The detail is how long it took and its budget. The run itself counts as it went; its breaker trips.',
 	COLLECTOR_CANCELLED: 'The collector was still running at the end of its `budget`, and was stopped with the process it ran in: a loop that never ends, or a system call that never returns. None of its samples are served, and its breaker trips. See [Collector contract](collector-contract.md).',
 	COLLECTOR_KILLED: 'The process the collector ran in ended while it ran: it went past the memory limit, a native module crashed, or it called `exit()`; or the scrape process itself died while it ran, which the next scrape finds. None of its samples are served, and its breaker trips.',
-	COLLECTOR_NOT_RUN: 'The collector was not run: the processes the scrape forked to run the collectors in ended twice in a row before they ran one, logged once for all of them. Not the collector\'s doing: its breaker is as it was.',
+	COLLECTOR_NOT_RUN: 'The collector was not run: the processes the scrape forked to run the collectors in ended twice in a row before they ran one, logged once for all of them; or the scrape\'s process was asked to stop while they ran, and ends without a reply. Not the collector\'s doing: its breaker is as it was.',
 	SAMPLE_LIMIT: 'The collector wrote more samples than its `max_samples`, and was stopped there; or more than were left of the reply\'s `max_scrape_samples`, or none were left when it would have started, which leaves its breaker as it was. The detail says how many and in which family. None of its samples are served.',
 	FAMILY_CONFLICT: 'The collector wrote a family that another collector of the reply wrote first, or one the exporter keeps for itself (`node_scrape_collector_*`, `ucode_prometheus_exporter_*`). The detail names it. None of its samples are served.',
 	EXPOSITION_INVALID: 'Text that is not valid Prometheus exposition format: a `*.prom` file of textfile, which the collector then leaves out, and the detail names the line; or what a collector wrote that Prometheus would refuse the whole scrape for, a label value or HELP text that is not valid UTF-8 or holds a NUL byte, a family name that holds one, a label name Prometheus reserves (`__name__`, or any that starts with `__`, as written or once sanitized), two label names that are one once sanitized (`if-name` and `if_name`), or labels that are neither an object nor what `out.labels()` made. The recorder stops the collector there, and the detail names the family and the label. None of its samples are served.',

@@ -40,7 +40,7 @@ The 500-MIPS 24Kc is about forty times slower than the devenv: 20,000 entries ta
 
 So a scrape has a deadline, the scraper's timeout less half a second, and runs the collectors fastest first: nat_traffic, slowest, comes last, and when the time left does not fit what it took before, it is left out, and the scrape answers with the rest. And a collector that takes longer than its budget, 5 seconds by default, is quarantined for a few scrapes.
 
-On QEMU's 500-MIPS 24Kc (`make bench-qemu`), the full scrape of the benchmark's large world, whose conntrack table holds 20,000 connections, takes 17.8 s without a deadline, nat_traffic 8.9 s of it. With Prometheus's default timeout of 10 s (`deadline:full@20000`), once the first scrape has filled the ledger, it answers in 9.0 to 9.6 s, nat_traffic and dhcp_leases left out, with the exporter collector, which runs after every other, and the rest served: within the timeout, by little, as a collector still running at the deadline is stopped there. The first scrape after a restart, before the ledger knows how long nat_traffic takes, can still be late. See [About deadlines and circuit breakers](deadlines-and-breakers.md).
+On QEMU's 500-MIPS 24Kc (`make bench-qemu`), the full scrape of the benchmark's large world, whose conntrack table holds 20,000 connections, takes 17.8 s without a deadline, nat_traffic 8.9 s of it. With Prometheus's default timeout of 10 s (`deadline:full@20000`), once the first scrape has filled the ledger, it answers in 9.0 to 9.6 s, nat_traffic and dhcp_leases left out, and the rest served: within the timeout, by little, as a collector still running at the deadline is stopped there. The first scrape after a restart, before the ledger knows how long nat_traffic takes, can still be late. See [About deadlines and circuit breakers](deadlines-and-breakers.md).
 
 It is in the `-network` and `-full` groups. On such a router, leave it out, [disable it](../how-to/choose-collectors.md#disable-a-collector), or scrape it in a job of its own with a longer timeout and a `budget` to match; and watch `node_scrape_collector_duration_seconds{collector="nat_traffic"}`.
 
@@ -170,10 +170,10 @@ The access point's own scrape, its 12 links and a few stations, takes these coll
 
 uhttpd holds what the handler's program compiled and loaded for as long as it runs, and every request's process and every collectors' child is forked from it. What a scrape needs of it only now and then, it now loads where it needs it, in the process that needs it, and keeps there:
 
-- **ubus, rtnl and nl80211**, the native modules collectors read with, are loaded the first time a collector's deps ask for one (`deps.native`), in the scrape's child. uhttpd, which never calls them itself, held them all: some 150 kB with an access point's collectors.
+- **ubus, rtnl and nl80211**, the native modules collectors read with, were loaded the first time a collector's deps asked for one (`deps.native`), in the scrape's child, where uhttpd held them all: some 150 kB with an access point's collectors. uhttpd now loads those its enabled collectors need, and no other, when it starts (see [Native modules when uhttpd starts](#natives-at-start)).
 - **Basic auth's module, crypt and ucode-mod-digest** are compiled when the handler finds uhttpd's auth file, and kept then; without basic auth, never. The config's datatypes take what a user and a hash may be from a module of their own, `hashes.uc`, and a meta's fingerprint is its JSON, not its MD5. 50 kB. Should basic auth's module not load, whatever the reason, every request is denied, as without its file.
 - **The exposition parser** is compiled the first time a collector parses: unbound and textfile, in the child. 60 kB.
-- **zlib** is loaded in the request's process the first time it gzips a reply, which is sent plain should zlib not load; and what the service grants its user when it starts (the ubus ACL, the groups, the capabilities, the TLS copies) moved from `privileges.uc`, which a scrape checks against, to `grant.uc`, which only `jail.uc` loads. 45 kB together.
+- **zlib** was loaded in the request's process the first time it gzipped a reply, and is now loaded when uhttpd starts; a reply is sent plain should zlib not load; and what the service grants its user when it starts (the ubus ACL, the groups, the capabilities, the TLS copies) moved from `privileges.uc`, which a scrape checks against, to `grant.uc`, which only `jail.uc` loads. 45 kB together.
 
 What a scrape pays for them instead, the first time it needs each (`make bench`'s `lazy:` cases, each a process of its own):
 
@@ -186,6 +186,8 @@ What a scrape pays for them instead, the first time it needs each (`make bench`'
 | nl80211 (`lazy:nl80211`) | 0.2 ms | 1.8 ms | 1.1 ms |
 
 An access point's scrape needs all but the parser: 4.6 ms more of its 0.17 s on the AX835, for 0.25 MB less held for as long as uhttpd runs. A scrape with unbound pays the parser too; textfile's paid it before.
+
+That was paid by every scrape, for modules every scrape of the same collectors needs. So the native modules are a middle way now (see [Native modules when uhttpd starts](#natives-at-start)): uhttpd loads, when it starts, ubus, rtnl and nl80211 where an enabled collector needs one, and zlib, and a scrape loads none of them; basic auth's modules, the exposition parser and socket are still loaded where they are needed.
 
 What uhttpd holds, before (main of 2026-10-09) and now:
 
@@ -236,6 +238,23 @@ The packages install their ucode and JavaScript without comments: the build stri
 On QEMU's malta, with a 1.6 MB mtdram device (26 blocks of 64 KiB) as the overlay's upper layer, as on the YunCore AX835, apk installed that set in 452 KiB of the overlay, its database included, and now in 296 KiB; upgrading it in place took 8 and 20 KiB more. An empty overlay has room for 1,440 KiB; after the set, 988 KiB with comments and 1,092 KiB without.
 
 Shipping bytecode instead of source would cut nothing more: see [What is left](#what-is-left).
+
+### Native modules when uhttpd starts {#natives-at-start}
+
+The `lazy:` costs above, some 0.8 ms in the devenv, 4.6 ms on the AX835 and 7 ms on QEMU's 24Kc for an access point's collectors, were paid by each scrape, in its child, for modules that do not change between scrapes. uhttpd now loads them once, when it starts: ubus, rtnl and nl80211 where an enabled collector needs one, and zlib, whatever the collectors. Each is loaded in the probe's child first, as the collectors are, so that one whose C crashes as it loads costs that child and is left to the scrapes, where a crash costs the collector that needs it.
+
+What that costs uhttpd, and its scrapes, in the devenv (`make bench`, main of 2026-10-10 against now, run back to back; the benchmark's worlds stand in for the native modules, so its scrapes show what moved, not what they no longer load):
+
+| | before | now |
+| :--- | :--- | :--- |
+| the handler at rest, base collectors (`rest:base`) | 1.35 MB | 1.44 MB |
+| the handler at rest, every collector (`rest:full`) | 1.96 MB | 2.04 MB |
+| loading it, base collectors (`rest:base`'s time) | 41 ms | 49 ms |
+| the service's uhttpd, base collectors (`handler:base`'s RSS) | 2.83 MB | 2.94 MB |
+| a scrape through uhttpd, base collectors (`handler:base`) | 21.0 ms | 21.1 ms |
+| a scrape of the base collectors (`scrape:base`) | 12.6 ms | 12.7 ms |
+
+uhttpd holds some 0.1 MB more, and takes a fork more when it starts; a scrape takes as long, besides the modules it no longer loads. Of what a scrape spends besides its collectors, a fraction of a millisecond moved from the exporter collector's run to the scrape's own work: the scrape writes the exporter's counters itself (see [About deadlines and circuit breakers](deadlines-and-breakers.md#quarantine-applies-to-every-scrape)).
 
 ## memory_limit's floor {#memory-floor}
 

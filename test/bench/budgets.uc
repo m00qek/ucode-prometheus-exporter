@@ -147,14 +147,16 @@ const MEMORY = [
 
 // [ world/case, kB, what ]: how much the handler's process may hold once it
 // loaded a set (rest:), which uhttpd holds for as long as it runs, and every
-// scrape's processes start from. Measured 1.36 MB for the base collectors and
-// 1.99 MB for every one on x86_64 (a 32-bit router's is less), where 0.2.1
-// took 2.06 and 2.62, and main of 2026-10-09 1.58 and 2.23 (with basic
-// auth, the parser, ubus, zlib and the grants held): any of those held
-// again, a regex of a count, or the loader kept, would pass it.
+// scrape's processes start from. Measured 1.44 MB for the base collectors and
+// 2.04 MB for every one on x86_64 (a 32-bit router's is less), with the
+// native modules the enabled collectors need and zlib loaded when it starts,
+// which scrapes then load no more: 1.36 and 1.99 before it loaded them. 0.2.1
+// took 2.06 and 2.62, and main of 2026-10-09 1.58 and 2.23 (with basic auth,
+// the parser and the grants held besides): any of those held again, a regex
+// of a count, or the loader kept, would pass it.
 const REST = [
-	[ 'typical/rest:base', 1600, 'the handler with the base collectors, at rest' ],
-	[ 'typical/rest:full', 2300, 'the handler with every collector, at rest' ],
+	[ 'typical/rest:base', 1700, 'the handler with the base collectors, at rest' ],
+	[ 'typical/rest:full', 2350, 'the handler with every collector, at rest' ],
 ];
 
 // The most the floor: cases may find, in MB: memory_limit's least

@@ -6,6 +6,8 @@
 
 'use strict';
 
+import * as ResultMethods from 'prometheus.exporter.api.mark';
+
 /**
  * What a fallible edge, or a collector's collect(), returns.
  *
@@ -13,8 +15,7 @@
  * @typedef {{ ok: boolean, data: T, error: ?string, details: ?(string|Object), none: ?string }} Result
  */
 
-const MARK = 'prometheus.exporter.result';
-const ResultMethods = { [MARK]: true };
+const MARK = 'prometheus_exporter_result';
 
 /**
  * Whether `obj` is a Result, whichever copy of this module made it.

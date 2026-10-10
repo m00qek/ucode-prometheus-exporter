@@ -49,8 +49,32 @@ function trap(st, name, does) {
 	};
 }
 
+const IMMUTABLE = 'value is immutable';
+
+function same(a, b) {
+	return a === b || (a != a && b != b);
+}
+
+function restore(saved) {
+	let changed = [];
+
+	for (let name in keys(global))
+		if (!exists(saved, name)) {
+			push(changed, name);
+			delete global[name];
+		}
+
+	for (let name, v in saved) {
+		if (!(name in TRAPPED) && (!exists(global, name) || !same(global[name], v)))
+			push(changed, name);
+		global[name] = v;
+	}
+
+	return sort(changed);
+}
+
 /**
- * Runs `program` with each function of TRAPPED replaced by one that refuses it.
+ * Runs `program` with each function of TRAPPED replaced by one that refuses it, and the global scope as it was after.
  *
  * @param {function(): *} program
  * @returns {*}
@@ -59,10 +83,10 @@ export function top_level(program) {
 	let saved = {};
 	let st = { refused: null };
 
-	for (let name, does in TRAPPED) {
-		saved[name] = global[name];
+	for (let name, v in global)
+		saved[name] = v;
+	for (let name, does in TRAPPED)
 		global[name] = trap(st, name, does);
-	}
 
 	let out, error = null;
 
@@ -72,11 +96,15 @@ export function top_level(program) {
 		error = e.message;
 	}
 
-	for (let name, fn in saved)
-		global[name] = fn;
+	let changed = restore(saved);
 
 	if (st.refused != null)
 		die(st.refused);
+	if (length(changed))
+		die(`${IMPURE} (its top level changed the global scope, ${join(', ', changed)}: ` +
+			'a collector\'s top level only declares, and leaves what it does to collect())');
+	if (error != null && index(error, IMMUTABLE) >= 0)
+		die(`${IMPURE} (its top level wrote over what the collector API exports, which no collector may change: ${split(error, '\n')[0]})`);
 	if (error != null)
 		die(error);
 

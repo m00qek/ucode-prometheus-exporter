@@ -133,6 +133,81 @@ describe('the top level of a collector module', () => {
 	});
 });
 
+// What a top level writes over persists in uhttpd for every scrape, and the
+// collectors loaded as one program share the collector API: a module that
+// changes the global scope, or writes over what the API exports, is refused
+// at the load in this process, and the process is as it was.
+describe('what a collector\'s top level shares', () => {
+	const WHAT = {
+		globaller: "global.sort = (a) => a;\nglobal.added_by_a_collector = true;",
+		writer: 'Result.ok = () => null;',
+		coder: "import { errors } from 'prometheus.exporter';\nerrors.SOURCE_INVALID = 'MINE';",
+		prototyper: 'proto(Result.ok()).prometheus_exporter_result = false;',
+		pure: 'const N = 1;',
+	};
+
+	afterEach(() => {
+		for (let f in fs.lsdir(dir) ?? [])
+			fs.unlink(`${dir}/${f}`);
+		fs.rmdir(dir);
+		gc();
+	});
+
+	it('is refused when it changes the global scope or the collector API, and leaves both as they were', () => {
+		dir = fs.mkdtemp('/tmp/purity-XXXXXX');
+
+		let sort_fn = global.sort;
+		let ids = sort(keys(WHAT));
+		let checked = {};
+
+		for (let id, top in WHAT) {
+			fs.writefile(`${dir}/${id}.uc`, module_text(id, top));
+			checked[id] = { ok: true, error: null, hung: false, seconds: 0, data: { meta: collection.fingerprint({
+				options: {}, name: id, title: 'Impure on purpose', help: 'A top level that does more than declare.', needs: [],
+			}), own: false } };
+		}
+
+		let import_one = (id) => collection.import_path(`${dir}/${id}.uc`);
+		let logs = [];
+		let res = load_probed(ids, (pending) => checked, (level, msg) => push(logs, [ level, msg ]), {
+			all: (several) => { let out = {}; for (let id in several) out[id] = import_one(id); return out; },
+			one: import_one,
+		});
+		let wrote = (id) => [ 'err', `skipping collector: COLLECTOR_IMPURE (${id}: its top level wrote over what the collector API exports, which no collector may change: object value is immutable)` ];
+
+		assert.match([ 'pure' ], map(res.collectors, (c) => c.id));
+		assert.match([
+			wrote('coder'),
+			[ 'err', `skipping collector: COLLECTOR_IMPURE (globaller: its top level changed the global scope, added_by_a_collector, sort: ${ONLY_DECLARES})` ],
+			wrote('prototyper'),
+			wrote('writer'),
+		], slice(logs, 1));
+		assert.match([ true, false ], [ global.sort === sort_fn, exists(global, 'added_by_a_collector') ]);
+
+		let errors = loadstring("import { errors } from 'prometheus.exporter'; return errors;", { raw_mode: true })();
+
+		assert.match([ 'SOURCE_INVALID', 'function' ], [ errors.SOURCE_INVALID, type(loader.import_module('loadavg').collect) ]);
+	});
+
+	it('keeps the collector API constant, at the top level and in collect()', () => {
+		dir = fs.mkdtemp('/tmp/purity-XXXXXX');
+
+		let api = loadstring("import * as api from 'prometheus.exporter'; return api;", { raw_mode: true })();
+		let refused = [];
+
+		for (let part in [ 'Result', 'errors', 'services', 'proc', 'exposition' ]) {
+			try {
+				api[part].extra = true;
+			} catch (e) {
+				push(refused, part);
+			}
+		}
+
+		assert.match([ 'Result', 'errors', 'services', 'proc', 'exposition' ], refused);
+		assert.match([ true, true ], [ api.Result.is(api.Result.ok()), api.Result.is(api.Result.none('absent')) ]);
+	});
+});
+
 describe('the collectors the packages ship', () => {
 	afterEach(() => gc());
 

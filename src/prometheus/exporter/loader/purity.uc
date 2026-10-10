@@ -25,7 +25,7 @@ const PUNCTUATORS = [
 /** The functions of ucode a collector's top level may call. */
 export const PURE = [
 	'arrtoip', 'assert', 'b64dec', 'b64enc', 'chr', 'exists', 'filter', 'hex', 'hexdec', 'hexenc', 'index', 'int',
-	'iptoarr', 'join', 'json', 'keys', 'lc', 'length', 'ltrim', 'map', 'match', 'max', 'min', 'ord', 'pop', 'proto',
+	'iptoarr', 'join', 'json', 'keys', 'lc', 'length', 'ltrim', 'map', 'match', 'max', 'min', 'ord', 'pop',
 	'push', 'regexp', 'replace', 'reverse', 'rindex', 'rtrim', 'shift', 'slice', 'sort', 'splice', 'split',
 	'sprintf', 'substr', 'trim', 'type', 'uc', 'uchr', 'uniq', 'unshift', 'values', 'wildcard',
 ];
@@ -61,6 +61,7 @@ const DOES = {
 	timelocal: 'reads the time zone',
 	timegm: 'computes a time; call it in collect()',
 	sourcepath: 'reads where the module is',
+	proto: 'reads or sets a prototype, which for a Result is one every collector shares',
 };
 
 const API_DOES = {
