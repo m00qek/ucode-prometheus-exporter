@@ -9,11 +9,11 @@ set -u
 # The package, and the service it installs (config, init script, command).
 PKG=ucode-prometheus-exporter
 NAME=prometheus-exporter
-COLLECTORS=/usr/share/ucode/prometheus_exporter/collectors
+COLLECTORS=/usr/share/ucode/prometheus/collectors
 BASE=/artifacts/$PKG-$PKG_FULLVERSION.apk
 # The command line, a package of its own, and its modules.
 CLI=/artifacts/$PKG-cli-$PKG_FULLVERSION.apk
-CLI_FILES="/usr/bin/$NAME /usr/share/ucode/prometheus_exporter/cli.uc /usr/share/ucode/prometheus_exporter/conform.uc"
+CLI_FILES="/usr/bin/$NAME /usr/share/ucode/prometheus/exporter/cli.uc /usr/share/ucode/prometheus/exporter/conform.uc"
 URL=http://127.0.0.1:9100/metrics
 failures=0
 
@@ -106,7 +106,7 @@ sleep 1
 fetch() { wget -q -O - "$1"; }
 valid() {
 	fetch "$URL" >/tmp/metrics &&
-	ucode -e "import { parse } from 'prometheus_exporter.exposition';
+	ucode -e "import { parse } from 'prometheus.exporter.exposition';
 		let r = parse(require('fs').readfile('/tmp/metrics'));
 		if (!r.ok) { warn(r.details, '\n'); exit(1); }"
 }
@@ -128,7 +128,7 @@ check "a scrape asked for gzip is gzipped" gzipped
 # basic auth itself for a file, here under a realm of its own.
 mkdir -p /tmp/www && echo hello >/tmp/www/hello
 hash_ok() {
-	hash=$(ucode -e "import { hash_password } from 'prometheus_exporter.auth';
+	hash=$(ucode -e "import { hash_password } from 'prometheus.exporter.auth';
 		import { readfile } from 'fs';
 		print(hash_password('pkg-secret', (n) => readfile('/dev/urandom', n)).data);") || return 1
 	printf '/:prom:%s\n' "$hash" >/tmp/realm.conf
@@ -145,7 +145,7 @@ check "musl's crypt takes the hash hash_password makes" hash_ok
 # ---- the service's ubus object ----
 # rpcd serves it from the base package's plugin, with no LuCI app installed.
 PLUGIN=/usr/share/rpcd/ucode/$NAME.uc
-RPC_MODULE=/usr/share/ucode/prometheus_exporter/rpc.uc
+RPC_MODULE=/usr/share/ucode/prometheus/exporter/rpc.uc
 STATUS_HELPER=/usr/libexec/$NAME/rpc-status.uc
 BASE_LIST=/lib/apk/packages/$PKG.list
 
@@ -174,7 +174,7 @@ done
 # Every module of the source tree but the collectors, the devkit and the
 # command line's (packages of their own), the subdirectories split out of a
 # module (exposition/ ...) included: shipped, and each loads.
-library() { cd /exporter/src && find prometheus_exporter -name '*.uc' ! -path 'prometheus_exporter/collectors/*' ! -path 'prometheus_exporter/devkit/*' ! -name cli.uc ! -name conform.uc | sort; }
+library() { cd /exporter/src && find prometheus -name '*.uc' ! -path 'prometheus/collectors/*' ! -path 'prometheus/exporter/devkit/*' ! -name cli.uc ! -name conform.uc | sort; }
 ships_library() { for f in $(library); do grep -qx "/usr/share/ucode/$f" "$BASE_LIST" || return 1; done; }
 library_loads() { for f in $(library); do parses "/usr/share/ucode/$f" || return 1; done; }
 check "the base package ships every module of the exporter, in their directories" ships_library
@@ -234,11 +234,11 @@ check "interfaces lists netifd's interfaces, by name and protocol" interfaces_ar
 # exporter, it runs the template collector's tests (devkit/template) as that
 # package's own CI would, and `collector check` passes the template.
 DEVKIT=/artifacts/devkit/$PKG-devkit-$PKG_FULLVERSION.apk
-DEVKIT_DIR=/usr/share/ucode/prometheus_exporter/devkit
+DEVKIT_DIR=/usr/share/ucode/prometheus/exporter/devkit
 DEVKIT_LIST=/lib/apk/packages/$PKG-devkit.list
-devkit_modules() { cd /exporter/src && find prometheus_exporter/devkit -maxdepth 1 -name '*.uc' | sort; }
+devkit_modules() { cd /exporter/src && find prometheus/exporter/devkit -maxdepth 1 -name '*.uc' | sort; }
 ships_devkit() {
-	for f in $(devkit_modules) $(cd /exporter/src && ls prometheus_exporter/devkit/proxies/*.uc); do
+	for f in $(devkit_modules) $(cd /exporter/src && ls prometheus/exporter/devkit/proxies/*.uc); do
 		grep -qx "/usr/share/ucode/$f" "$DEVKIT_LIST" || return 1
 	done
 }
@@ -257,7 +257,7 @@ check "each of its modules loads" devkit_loads
 check "and depends on utest" depends_on "$PKG-devkit" ucode-utest
 check "the template collector's tests pass on it, from its own config" template_tests
 check "collector check passes the template collector" \
-	$NAME collector check /tmp/template/src/prometheus_exporter/collectors/example.uc
+	$NAME collector check /tmp/template/src/prometheus/collectors/example.uc
 check "the base package ships nothing of it" sh -c "! grep -q '$DEVKIT_DIR' '$BASE_LIST'"
 [ -f /tmp/template-tests.log ] && { tail -3 /tmp/template-tests.log | sed 's/^/info /'; }
 

@@ -13,10 +13,10 @@ NAME=prometheus-exporter
 INIT=/etc/init.d/$NAME
 LIBEXEC=/usr/libexec/$NAME
 URL=http://127.0.0.1:9100/metrics
-# The exporter's state, which the jail mounts read-write (prometheus_exporter.state).
+# The exporter's state, which the jail mounts read-write (prometheus.exporter.state).
 STATE=/var/run/$NAME/state
 # Where the packages put the collectors.
-COLLECTORS_DIR=/usr/share/ucode/prometheus_exporter/collectors
+COLLECTORS_DIR=/usr/share/ucode/prometheus/collectors
 failures=0
 
 pass() { echo "ok   $*"; }
@@ -266,7 +266,7 @@ eventually "losing sync, it is not" unsynced
 # --- the service's ubus object, which rpcd serves from the base package: no LuCI here
 rpc() { ubus -t 30 call "$NAME" "$@"; }
 rpc_collectors() { rpc collectors | jsonfilter -e '@.collectors[*].id' | wc -l; }
-rpc_lists_all() { [ "$(rpc_collectors)" -eq "$(ls /usr/share/ucode/prometheus_exporter/collectors/*.uc | wc -l)" ]; }
+rpc_lists_all() { [ "$(rpc_collectors)" -eq "$(ls /usr/share/ucode/prometheus/collectors/*.uc | wc -l)" ]; }
 # netifd's own interfaces, by name and protocol, and nothing else of them.
 rpc_interfaces_are_netifds() {
 	rpc interfaces >/tmp/interfaces.json && ubus call network.interface dump >/tmp/dump.json &&
@@ -310,7 +310,7 @@ before=$(pid)
 COLLECTORS=$(ls /artifacts/$PKG-*-$PKG_FULLVERSION.apk | sed "s|^/artifacts/$PKG-||; s|-$PKG_FULLVERSION.apk$||" | grep -vx cli)
 install $COLLECTORS
 eventually "installing collectors restarts the instance" restarted_from "$before"
-installed() { ls /usr/share/ucode/prometheus_exporter/collectors/*.uc | wc -l; }
+installed() { ls /usr/share/ucode/prometheus/collectors/*.uc | wc -l; }
 all_answer() { [ "$(fetch | grep -c '^node_scrape_collector_success{')" -eq "$(installed)" ]; }
 eventually "every installed collector is served" all_answer
 check "the ubus object lists the new collectors too" rpc_lists_all
@@ -333,7 +333,7 @@ check "the template collector's package installs offline beside the exporter" ap
 eventually "which restarts the instance" restarted_from "$before"
 eventually "its collector is served from the jail" served example
 check "with its samples" metric 'example_uptime_seconds_total [0-9]'
-check "collector check passes it" $NAME collector check /usr/share/ucode/prometheus_exporter/collectors/example.uc
+check "collector check passes it" $NAME collector check /usr/share/ucode/prometheus/collectors/example.uc
 template_listed() { rpc collectors | jsonfilter -e "@.collectors[@.name='example'].package" | grep -qx ucode-prometheus-exporter-example; }
 check "the ubus object lists it, by its package" template_listed
 before=$(pid)
@@ -429,7 +429,7 @@ check "and counts their inodes" metric 'node_filesystem_files{.*mountpoint="/exp
 RUNS=20
 popen_ms() {
 	ucode -e "import { popen } from 'fs';
-		import { exec_script, shell_quote } from 'prometheus_exporter.deps';
+		import { exec_script, shell_quote } from 'prometheus.exporter.deps';
 		let run = (cmd) => { let p = popen(cmd, 'r'); p.read('all'); p.close(); };
 		let mean = function(f) {
 			let t = clock(true);
@@ -481,7 +481,7 @@ check "modemmanager asks ModemManager, which lists no modem" says '^ok   scrape:
 # --- diskstats, sockstat and hwmon: the host's kernel, read in the jail
 # /proc/diskstats and /sys are the host's: whether there is a disk to observe
 # is what device_exclude leaves of the host's block devices.
-DISK_EXCLUDE=$(ucode -e "import { DEFAULT_EXCLUDE } from 'prometheus_exporter.collectors.diskstats'; print(DEFAULT_EXCLUDE);")
+DISK_EXCLUDE=$(ucode -e "import { DEFAULT_EXCLUDE } from 'prometheus.collectors.diskstats'; print(DEFAULT_EXCLUDE);")
 disk=$(awk 'NF >= 14 { print $3 }' /proc/diskstats | grep -Ev "$DISK_EXCLUDE" | head -1)
 echo "info the host's first disk diskstats keeps: ${disk:-none}"
 check "diskstats is served" served diskstats
@@ -687,7 +687,7 @@ broken() {
 	name=$1 top=$2 meta=$3; shift 3
 	cat >"$DIR/$name.uc" <<EOF
 'use strict';
-import { Result } from 'prometheus_exporter.api';
+import { Result } from 'prometheus.exporter';
 ${IMPORT:+$IMPORT
 }export const meta = { name: '$name', title: 'Broken on purpose', help: 'A collector that breaks the contract, for e2e.', needs: [ 'fs' ]$meta };
 $top
@@ -1071,8 +1071,8 @@ check "which it removed" test ! -e "$before_cache"
 # first on nothing. Shown, not checked: the difference, the hash's 8 ms here,
 # is within what a busy machine varies by; the inode above is what shows the
 # cache is used.
-CAP=$(ucode -e "import { ROUNDS_MAX } from 'prometheus_exporter.auth'; print(ROUNDS_MAX);")
-CAP_HASH=$(ucode -e "import { hash } from 'prometheus_exporter.crypt'; print(hash('e2e-secret', 'e2e-salt-e2e', $CAP));")
+CAP=$(ucode -e "import { ROUNDS_MAX } from 'prometheus.exporter.auth'; print(ROUNDS_MAX);")
+CAP_HASH=$(ucode -e "import { hash } from 'prometheus.exporter.crypt'; print(hash('e2e-secret', 'e2e-salt-e2e', $CAP));")
 before=$(pid)
 set_config "$NAME-auth.main.auth_password=$CAP_HASH"
 eventually "a new hash restarts the instance" restarted_from "$before"
@@ -1085,7 +1085,7 @@ check "both were answered" test "$1" -gt 0 -a "$3" -gt 0
 check "and the full check left the header's entry again" test -n "$(cache_file)"
 cap_inode=$(inode)
 check "validate refuses a hash of a round more, saying why" says "expected a hash of at most $CAP rounds" \
-	rpc validate "{\"main\":{\"auth_user\":\"prom\",\"auth_password\":\"$(ucode -e "import { hash } from 'prometheus_exporter.crypt'; print(hash('x', 'e2e-salt-e2e', $CAP + 1));")\",\"cert\":\"$CERT\",\"key\":\"$KEY\"}}"
+	rpc validate "{\"main\":{\"auth_user\":\"prom\",\"auth_password\":\"$(ucode -e "import { hash } from 'prometheus.exporter.crypt'; print(hash('x', 'e2e-salt-e2e', $CAP + 1));")\",\"cert\":\"$CERT\",\"key\":\"$KEY\"}}"
 # A changed password invalidates the cache: the new hash restarts the instance,
 # and the old password's entry lets nothing in, even were it kept. As LuCI
 # changes it: set_password saves the hash, and has procd reload the service,
@@ -1130,7 +1130,7 @@ plain_ms=$(scrape_ms "uclient-fetch -q -O - --no-check-certificate $HTTPS?collec
 echo "info a scrape of loadavg over HTTPS, mean of $RUNS: $plain_ms ms, $auth_ms ms with basic auth"
 # The check alone, in ucode, by the hash: what each format costs a scrape.
 verify_ms() {
-	ucode -e "import { verify, sha_crypt, md5_crypt } from 'prometheus_exporter.crypt';
+	ucode -e "import { verify, sha_crypt, md5_crypt } from 'prometheus.exporter.crypt';
 		let mean = function(h) {
 			let t = clock(true);
 			for (let i = 0; i < $RUNS; i++) verify('e2e-secret', h);

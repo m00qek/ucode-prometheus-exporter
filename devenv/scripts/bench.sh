@@ -31,8 +31,8 @@ run)
 	# uhttpd's ucode finds the exporter in /usr/share/ucode alone: in make
 	# bench's container, which has none installed, the handler: cases find
 	# this tree's there. Never on a device or in QEMU, which have their own.
-	if [ -n "${BENCH_LINK_EXPORTER:-}" ] && [ ! -e /usr/share/ucode/prometheus_exporter ]; then
-		ln -s "$PWD/src/prometheus_exporter" /usr/share/ucode/prometheus_exporter
+	if [ -n "${BENCH_LINK_EXPORTER:-}" ] && [ ! -e /usr/share/ucode/prometheus ]; then
+		ln -s "$PWD/src/prometheus" /usr/share/ucode/prometheus
 	fi
 	exec ucode -L "$PWD/src" -L "$PWD/test" test/bench/bench.uc -w "$worlds" -o "$out" -l "$label" "$@"
 	;;

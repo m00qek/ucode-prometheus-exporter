@@ -9,9 +9,9 @@ return {
 	mocks: {
 		fs:      null,
 		uci:     null,
-		ubus:    { proxy: '/usr/share/ucode/prometheus_exporter/devkit/proxies/ubus.uc' },
-		rtnl:    { proxy: '/usr/share/ucode/prometheus_exporter/devkit/proxies/rtnl.uc' },
-		nl80211: { proxy: '/usr/share/ucode/prometheus_exporter/devkit/proxies/nl80211.uc' },
-		socket:  { proxy: '/usr/share/ucode/prometheus_exporter/devkit/proxies/socket.uc' },
+		ubus:    { proxy: '/usr/share/ucode/prometheus/exporter/devkit/proxies/ubus.uc' },
+		rtnl:    { proxy: '/usr/share/ucode/prometheus/exporter/devkit/proxies/rtnl.uc' },
+		nl80211: { proxy: '/usr/share/ucode/prometheus/exporter/devkit/proxies/nl80211.uc' },
+		socket:  { proxy: '/usr/share/ucode/prometheus/exporter/devkit/proxies/socket.uc' },
 	},
 };

@@ -13,7 +13,7 @@ PKG_MAINTAINER:=Your Name <you@example.com>
 
 include $(INCLUDE_DIR)/package.mk
 
-COLLECTORS_DIR:=/usr/share/ucode/prometheus_exporter/collectors
+COLLECTORS_DIR:=/usr/share/ucode/prometheus/collectors
 
 # The release of the exporter whose collector API it is written to: 0.3.0
 # froze the API for 1.0, and a major version is what may break it.
@@ -41,7 +41,7 @@ endef
 
 define Package/$(PKG_NAME)/install
 	$(INSTALL_DIR) $(1)$(COLLECTORS_DIR)
-	$(INSTALL_DATA) ./src/prometheus_exporter/collectors/example.uc $(1)$(COLLECTORS_DIR)/
+	$(INSTALL_DATA) ./src/prometheus/collectors/example.uc $(1)$(COLLECTORS_DIR)/
 endef
 
 # On a running system (not in an image build), reload an enabled exporter:

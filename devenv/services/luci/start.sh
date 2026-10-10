@@ -10,7 +10,7 @@ set -eu
 
 PKG=ucode-prometheus-exporter
 NAME=prometheus-exporter
-COLLECTORS=/usr/share/ucode/prometheus_exporter/collectors
+COLLECTORS=/usr/share/ucode/prometheus/collectors
 
 # The package scripts reload services through procd, which is not running.
 set -- "/artifacts/$PKG-$PKG_FULLVERSION.apk" "/artifacts/luci-app-$NAME-$PKG_FULLVERSION.apk"
