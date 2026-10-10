@@ -46,7 +46,8 @@ if (mode == '--missing') {
 if (mode == '--make') {
 	let made = jail.make({ ...mods.fs, mkdir, error }, res.owned);
 	let st = state.make({ ...mods.fs, mkdir, chmod, chown, error }, privileges.USER);
-	let granted = grant.make(priv, jail.grants(collectors, { uci: mods.uci.cursor(), fs: mods.fs, path: jail.PATH }));
+	let grants = jail.grants(collectors, { uci: mods.uci.cursor(), fs: mods.fs, path: jail.PATH });
+	let granted = grant.make(priv, grants);
 
 	for (let p in made.made)
 		print(`made ${p}\n`);
@@ -54,7 +55,7 @@ if (mode == '--make') {
 		print(`${p}\n`);
 	if (!st.ok)
 		push(made.problems, st.problem);
-	push(made.problems, ...granted.problems);
+	push(made.problems, ...filter(grants.problems, (p) => substr(p, 0, 6) == 'main: '), ...granted.problems);
 	for (let p in made.problems)
 		log(p);
 	exit(length(made.problems) ? 1 : 0);
