@@ -210,10 +210,32 @@ What uhttpd holds now is mostly what ucode keeps of a program it compiled from s
 
 - **A function** costs ucode some 0.8 kB however small, a kilobyte with a few locals, more with many: its bytecode, and the debug information of its locals and its lines, which a runtime error's message is written from. The handler's program has some 380 functions; the collectors 5 to 20 each.
 - **An object** a module makes when it loads, an option's spec or a table of names, costs another 0.6 kB or so, and its strings twice: once in the program, once in the object.
-- **The source text**, comments included, costs a sixth of its bytes: some 50 kB for the handler's program's 290 kB.
+- **The source text** costs a sixth of its bytes. The packages install it without comments, half the bytes: the service's uhttpd, base collectors, holds 1.62 MB (RssAnon) in the package-check image where it held 1.65 MB with them.
 - **Compiling** leaves about a quarter more, freed but not given back: musl's malloc keeps freed memory a process will reuse.
 
-Loading the same program as precompiled bytecode stripped of its debug information (`ucode -c -s`) shows how much of it is that information. The handler's program, which holds 1076 kB compiled from source in the devenv, holds 612 kB loaded that way, and loads in a sixth of the time; the collectors' program would shrink much the same. That would take a service of an access point's collectors under 1.5 MB on the AX835. It would also take every runtime error's line and file, which a collector's `COLLECTOR_CRASHED` and the log say, and change how the exporter loads and checks its modules and collectors: it is not done.
+Loading the same program as precompiled bytecode stripped of its debug information (`ucode -c -s`) shows how much of it is that information. The handler's program, which holds 1076 kB compiled from source in the devenv, holds 612 kB loaded that way, and loads in a sixth of the time. With the handler installed as stripped bytecode (116 kB), the service's uhttpd holds 1.20 MB with the base collectors in the package-check image, where it holds 1.62 MB from source. It is not done, for what it costs:
+
+- **Flash.** 25.12's ucode compiles a program with every module it imports statically, and has no `-c module` to compile a module alone. So each program carries its own copy of the library: the base package's eleven programs, as bytecode, are 1.47 MB, where the whole package is 270 kB. And a module's stripped bytecode is no smaller than its stripped source: `breaker.uc` 1.4 kB against 1.3, `exposition/format.uc` 6.7 against 6.4, and a third bigger compressed, as JFFS2 stores it.
+- **Source all the same.** Collectors are imported at run time, by `loadstring()`, and they, the collector API and the loader with all they import are compiled from source then: 75 of the package's modules, the handler's bytecode duplicating most of them.
+- **Errors.** A runtime error in a bytecode program has no line and no file, where a collector's `COLLECTOR_CRASHED` and the log say both.
+- **Checks.** The loader's import scan and `collector check`'s purity tokenizer read a module's text.
+
+## Flash {#flash}
+
+The packages install their ucode and JavaScript without comments: the build strips them, and the sources keep none but the exported symbols' JSDoc. Installed, as apk counts it, and as a JFFS2 image with LZMA, as an overlay stores it (`mkfs.jffs2`, 64 KiB blocks), with comments (0.2.1) and without:
+
+| Package | Installed | JFFS2 |
+| :--- | :--- | :--- |
+| `ucode-prometheus-exporter` | 554 → 264 KiB | 250 → 119 KiB |
+| `luci-app-prometheus-exporter` | 73 → 54 KiB | 34 → 24 KiB |
+| `ucode-prometheus-exporter-cli` | 17 → 10 KiB | 9 → 6 KiB |
+| `ucode-prometheus-exporter-devkit` | 40 → 23 KiB | |
+| a collector's package | 2–16 → 1–12 KiB | |
+| base, LuCI app, `-wifi`, `-hostapd_stations`, `-thermal` | 648 → 332 KiB | 294 → 148 KiB |
+
+On QEMU's malta, with a 1.6 MB mtdram device (26 blocks of 64 KiB) as the overlay's upper layer, as on the YunCore AX835, apk installed that set in 452 KiB of the overlay, its database included, and now in 296 KiB; upgrading it in place took 8 and 20 KiB more. An empty overlay has room for 1,440 KiB; after the set, 988 KiB with comments and 1,092 KiB without.
+
+Shipping bytecode instead of source would cut nothing more: see [What is left](#what-is-left).
 
 ## memory_limit's floor {#memory-floor}
 

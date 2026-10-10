@@ -11,16 +11,18 @@ On a router of 32 or 64 MB of RAM and 4 to 16 MB of flash, install the base pack
 
 ## 1. Check what it takes
 
-**Flash.** Installed sizes, as apk counts them, uncompressed; on a JFFS2 overlay, which compresses, the base package takes about its `.apk`'s 171 KiB:
+**Flash.** Installed sizes, as apk counts them, uncompressed; on a JFFS2 overlay, which compresses with LZMA, the base package takes about 120 KiB. The packages install their code without comments:
 
 | Package | Installed |
 | :--- | :--- |
-| `ucode-prometheus-exporter`, the base package | 553 KiB |
+| `ucode-prometheus-exporter`, the base package | 264 KiB |
 | what it needs besides, on an image with LuCI | `uhttpd-mod-ucode` and `ucode-mod-zlib`, 12 KiB each (mipsel) |
 | what it needs besides, on an image without LuCI | `uhttpd`, `uhttpd-mod-ucode`, `rpcd-mod-ucode`, `ucode-mod-uloop`, `-zlib`, `-digest` and `-log`: some 200 KiB (x86_64's sizes) |
-| a collector's package | 2 to 16 KiB |
-| `ucode-prometheus-exporter-cli`, the command line, and `ucode-docopt` | 16 and 43 KiB |
-| `luci-app-prometheus-exporter` | 73 KiB |
+| a collector's package | 1 to 12 KiB |
+| `ucode-prometheus-exporter-cli`, the command line, and `ucode-docopt` | 10 and 43 KiB |
+| `luci-app-prometheus-exporter` | 54 KiB |
+
+On a 1.6 MB JFFS2 overlay (26 blocks of 64 KiB, LZMA, as a small access point's `rootfs_data`), empty but for what they install, the base package, the LuCI app and three collectors (`-wifi`, `-hostapd_stations`, `-thermal`) take 296 KiB of the overlay, apk's database included, and leave room for 1,092 KiB more; upgrading them in place, which writes each new file beside the old one, needs 20 KiB more. Measured on QEMU's malta with an mtdram device; the overlay's other files come on top, so check `df /overlay` first.
 
 `ucode`, `ucode-mod-fs`, `-ubus`, `-uci` and `-rtnl` are in every 25.12 image with Wi-Fi. Of the `-full` group, the programs of ethtool (`ethtool`, 72 KiB) and qdisc (`tc-tiny` and `kmod-sched-core`, 279 and 172 KiB) take more than all its collectors together.
 
