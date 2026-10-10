@@ -1,11 +1,5 @@
 'use strict';
 
-// node_exporter's softnet collector (collector/softnet_linux.go, parsed as
-// procfs's net_softnet.go does): per CPU, the packets its network softirq
-// processed and dropped, and how often it ran out of budget. Dropped packets
-// (a full backlog) and squeezes (time or budget ran out with work left) are
-// what tells a router's CPU is the bottleneck, which no interface counter shows.
-
 import { Result, errors, proc } from 'prometheus_exporter.api';
 
 export const meta = {
@@ -17,9 +11,6 @@ export const meta = {
 
 export const PATH = '/proc/net/softnet_stat';
 
-// [ column, name, type, help ]: node_exporter's metrics and the columns
-// softnet_seq_show() (net/core/net-procfs.c) writes them in. Today's kernels
-// write 0 where cpu_collision was, but node_exporter still has it.
 export const COLUMNS = [
 	[ 0, 'processed_total', 'counter', 'Number of processed packets' ],
 	[ 1, 'dropped_total', 'counter', 'Number of dropped packets' ],
@@ -30,18 +21,12 @@ export const COLUMNS = [
 	[ 11, 'backlog_len', 'gauge', 'Softnet backlog status' ],
 ];
 
-// The column with the CPU's number, since Linux 5.14: a row per online CPU, so
-// with CPUs offline the row number is not the CPU's. Before, the row number is
-// all there is, as procfs takes it.
 const CPU_COLUMN = 12;
 
-// procfs refuses fewer columns: Linux 2.6.23 already wrote nine.
 const MIN_COLUMNS = 9;
 
 const HEX = /^[0-9a-fA-F]+$/;
 
-// The rows as { cpu, values } with values by column, or a string saying what is
-// wrong with the table.
 export function parse(rows) {
 	let parsed = [];
 	let seen = {};
@@ -71,8 +56,6 @@ export function parse(rows) {
 	return length(parsed) ? parsed : 'no rows';
 };
 
-// A metric whose column an older kernel does not write is left out for it,
-// where node_exporter writes 0.
 export function collect(deps, out) {
 	let rows = proc.lines(deps.fs, PATH);
 

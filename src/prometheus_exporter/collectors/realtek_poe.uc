@@ -1,8 +1,5 @@
 'use strict';
 
-// Based on utils/prometheus-node-exporter-lua/files/usr/lib/lua/prometheus-collectors/realtek-poe.lua
-// in OpenWrt's packages feed (Apache-2.0), rewritten for this exporter; see NOTICE.
-
 import { Result, errors, services } from 'prometheus_exporter.api';
 
 export const meta = {
@@ -13,13 +10,9 @@ export const meta = {
 	ubus: { poe: [ 'info' ] },
 };
 
-// The port modes and states realtek-poe reports (src/main.c,
-// poe_reply_port_ext_config and port_short_status_to_str).
 export const MODES = [ 'PoE', 'Legacy', 'pre-PoE+', 'PoE+' ];
 export const STATES = [ 'Disabled', 'Searching', 'Delivering power', 'Fault', 'Other fault', 'Requesting power' ];
 
-// A device without a realtek-poe switch, where nothing publishes the `poe`
-// ubus object, has nothing to observe.
 export function collect(deps, out) {
 	let res = deps.ubus.call('poe', 'info');
 
@@ -44,7 +37,6 @@ export function collect(deps, out) {
 	for (let p in names)
 		priority({ device: p }, ports[p]?.priority);
 
-	// realtek-poe leaves the consumption out for a port that draws nothing.
 	let consumption = out.gauge('realtek_poe_port_consumption_watts', 'The power a port draws.');
 	for (let p in names)
 		consumption({ device: p }, ports[p]?.consumption ?? 0);

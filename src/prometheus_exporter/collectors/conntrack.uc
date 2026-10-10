@@ -1,12 +1,7 @@
 'use strict';
 
-// Based on utils/prometheus-node-exporter-ucode/files/base/conntrack.uc
-// in OpenWrt's packages feed (Apache-2.0), rewritten for this exporter; see NOTICE.
-// The statistics are node_exporter's (collector/conntrack_linux.go).
-
 import { Result, errors, proc } from 'prometheus_exporter.api';
 
-// Regexes are constants: ucode compiles a regex literal each time it is evaluated.
 const COUNT = /^[0-9]+$/;
 
 export const meta = {
@@ -25,9 +20,6 @@ const GAUGES = [
 
 export const STAT = '/proc/net/stat/nf_conntrack';
 
-// node_exporter's statistics: a column of /proc/net/stat/nf_conntrack each,
-// summed over the CPUs. Gauges, as node_exporter has them, though they only
-// grow: they are its names, so they keep its type.
 export const STATS = [
 	[ 'found', 'Number of searched entries which were successful.' ],
 	[ 'invalid', 'Number of packets seen which can not be tracked.' ],
@@ -41,11 +33,6 @@ export const STATS = [
 
 const HEX = /^[0-9a-fA-F]+$/;
 
-// { column: sum } of the file's hex table: a header line naming the columns,
-// then a row per CPU (ct_cpu_seq_show() in the kernel's
-// net/netfilter/nf_conntrack_standalone.c). The header is read rather than the
-// positions procfs assumes, though they agree today: the kernel has renamed
-// columns before (searched is clashres now). A string says what is wrong.
 export function sum_columns(text) {
 	let rows = filter(split(text, '\n'), (l) => trim(l) != '');
 	let header = proc.fields(rows[0]);
@@ -75,13 +62,6 @@ export function sum_columns(text) {
 	return sums;
 };
 
-// Neither sysctl is there until nf_conntrack is loaded, as on an AP without a
-// firewall. A base collector runs on every device, so a device without
-// connection tracking has nothing to observe, a success, as the earlier ucode
-// exporter had it; one file without the other is an error. The statistics file
-// is there with them unless the kernel lacks CONFIG_NF_CONNTRACK_PROCFS, so
-// without it the statistics are left out; a column the kernel does not write
-// leaves out its statistic.
 export function collect(deps, out) {
 	if (!length(filter(GAUGES, (g) => deps.fs.readfile(g[0]) != null)))
 		return Result.none('no connection tracking (nf_conntrack is not loaded)');

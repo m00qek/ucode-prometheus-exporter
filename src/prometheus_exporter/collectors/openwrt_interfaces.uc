@@ -1,40 +1,5 @@
 'use strict';
 
-// OpenWrt's logical interfaces (wan, wan6, lan, ...), as netifd reports them
-// in `ubus call network.interface dump` (netifd_dump_status() in its ubus.c),
-// which neither upstream exporter read. node_exporter's netdev and netclass
-// see kernel devices; whether "wan" is up, since when and with what address
-// family is netifd's to say, and the first thing a router's dashboard asks.
-//
-// Every family has the label `interface`, netifd's name for it:
-//
-// - node_openwrt_interface_up, _pending, _available and _autostart: netifd's
-//   booleans, as 0 or 1 each. A down interface with autostart 1 is one netifd
-//   is failing to bring up; with autostart 0 someone took it down. pending is
-//   netifd's setup state (a DHCP or PPP client still negotiating); available,
-//   whether its device is there to bring it up on.
-// - node_openwrt_interface_uptime_seconds: how long it has been up, only while
-//   it is (netifd writes no uptime otherwise). netifd's own monotonic count:
-//   a start timestamp made from it with the wall clock would move a second
-//   either way from scrape to scrape, and jump with every clock step;
-//   `time() - uptime` gives the timestamp where it is wanted.
-// - node_openwrt_interface_info: 1, with proto, device (the configured one,
-//   e.g. eth1) and l3_device (the one carrying its traffic while it is up,
-//   e.g. pppoe-wan), the names node_network_*'s `device` label uses; netifd
-//   leaves out those that do not apply (a wireguard interface has no device).
-// - node_openwrt_interface_addresses and _routes, by family (ipv4, ipv6):
-//   counts, 0 while down. Addresses themselves would be labels that change
-//   with every new WAN lease, and public. An IPv6 address of a prefix
-//   assignment (lan's from a delegated prefix) counts as the interface's: it
-//   is one, though netifd lists it under ipv6-prefix-assignment.
-// - node_openwrt_interface_ipv6_prefixes: the prefixes delegated to it (DHCPv6-PD
-//   on wan6), the test of a working IPv6 uplink.
-// - node_openwrt_interface_errors: the errors netifd holds for it (NO_DEVICE,
-//   a protocol's failure), until it comes up again.
-//
-// netifd runs on every OpenWrt system, so its object missing from ubus, or the
-// call failing, is an error, unlike an absent kernel feature such as nf_conntrack.
-
 import { Result, errors } from 'prometheus_exporter.api';
 
 export const meta = {

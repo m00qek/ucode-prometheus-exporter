@@ -1,11 +1,7 @@
 'use strict';
 
-// Based on utils/prometheus-node-exporter-ucode/files/base/filefd.uc
-// in OpenWrt's packages feed (Apache-2.0), rewritten for this exporter; see NOTICE.
-
 import { Result, errors, proc } from 'prometheus_exporter.api';
 
-// Regexes are constants: ucode compiles a regex literal each time it is evaluated.
 const COUNT = /^[0-9]+$/;
 
 export const meta = {
@@ -17,7 +13,6 @@ export const meta = {
 
 const PATH = '/proc/sys/fs/file-nr';
 
-// `allocated  free  maximum`; free has been 0 since Linux 2.6.
 export function collect(deps, out) {
 	let line = proc.first_line(deps.fs, PATH);
 

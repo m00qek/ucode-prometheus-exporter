@@ -1,8 +1,5 @@
 'use strict';
 
-// Based on utils/prometheus-node-exporter-ucode/files/base/time.uc
-// in OpenWrt's packages feed (Apache-2.0), rewritten for this exporter; see NOTICE.
-
 import { Result, errors } from 'prometheus_exporter.api';
 
 export const meta = {

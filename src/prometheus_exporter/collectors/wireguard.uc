@@ -1,22 +1,5 @@
 'use strict';
 
-// Based on utils/prometheus-node-exporter-ucode/files/extra/wireguard.uc
-// in OpenWrt's packages feed (Apache-2.0), rewritten for this exporter; see NOTICE.
-
-// The peers' traffic and handshakes as prometheus_wireguard_exporter
-// (github.com/MindFlavor/prometheus_wireguard_exporter) names and labels them,
-// so its dashboards work: {interface, public_key, allowed_ips, friendly_name},
-// and its help texts. The interfaces and the rest of each peer are info metrics.
-//
-// The friendly name is the peer's description in /etc/config/network, only
-// with peer_names. That file holds the interfaces' private keys, so it is not
-// read, nor in the jail: rpcd's uci object hands over the interface's peer
-// sections alone, and all but each one's public key and description is let go.
-//
-// rpcd-mod-wireguard sends the listen port and the keepalive interval with
-// blobmsg_add_u16(), and the fwmark with blobmsg_add_u32() (src/api.c), which
-// ucode's ubus gives signed: u16() and u32() undo it.
-
 import { Result, errors, services, u16, u32 } from 'prometheus_exporter.api';
 
 export const meta = {
@@ -24,7 +7,6 @@ export const meta = {
 	title: 'WireGuard',
 	help: 'WireGuard interfaces and peers, from ubus wireguard status.',
 	needs: [ 'ubus' ],
-	// rpcd's uci get, of the network config, only for peer_names.
 	ubus: { wireguard: [ 'status' ], uci: (options) => options.peer_names ? [ 'get' ] : [] },
 	options: {
 		peer_names: {
@@ -35,9 +17,6 @@ export const meta = {
 	},
 };
 
-// { public key: description } of an interface's peers in /etc/config/network,
-// as rpcd's uci object gives its `wireguard_<iface>` sections. Without them
-// (no such section, rpcd failing) the peers have no friendly name.
 function descriptions(ubus, iface) {
 	let by_key = {};
 	let kind = `wireguard_${iface}`;
@@ -51,7 +30,6 @@ function descriptions(ubus, iface) {
 	return by_key;
 }
 
-// A peer's allowed IPs as the standalone exporter labels them: joined by commas.
 export function allowed_ips(list) {
 	list = filter(type(list) == 'array' ? list : [], (ip) => type(ip) == 'string');
 
@@ -61,8 +39,6 @@ export function allowed_ips(list) {
 export function collect(deps, out, options) {
 	let res = deps.ubus.call('wireguard', 'status');
 
-	// rpcd's wireguard object comes with rpcd-mod-wireguard, which a device
-	// that uses WireGuard has (luci-proto-wireguard depends on it).
 	if (services.object_missing(res))
 		return Result.none('rpcd has no wireguard object: rpcd-mod-wireguard is not installed');
 	if (!res.ok)
@@ -80,7 +56,6 @@ export function collect(deps, out, options) {
 		if (type(wc) != 'object')
 			continue;
 
-		// An unset fwmark or keepalive (0) is left out.
 		iface_info({
 			interface: iface,
 			public_key: wc.public_key,

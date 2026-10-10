@@ -1,26 +1,5 @@
 'use strict';
 
-// Based on utils/prometheus-node-exporter-lua/files/usr/lib/lua/prometheus-collectors/textfile.lua
-// in OpenWrt's packages feed (Apache-2.0) and on node_exporter's textfile
-// collector (github.com/prometheus/node_exporter, Apache-2.0), rewritten for
-// this exporter; see NOTICE.
-
-// node_exporter's textfile collector: the metrics in every *.prom file in a
-// directory (option `directory`, /var/prometheus by default), the time each
-// file was last changed, and whether any file could not be used.
-//
-// As in node_exporter, a file that cannot be used is left out whole and the
-// collector still succeeds: node_textfile_scrape_error is 1, and no
-// node_textfile_mtime_seconds is written for that file. A file cannot be used
-// when it is not a regular file, cannot be read, is not valid exposition text,
-// gives a family a type an earlier file gave another one, repeats a series an
-// earlier file has, or writes one of this collector's own families; the log
-// says which and why. Only a regular file (or a link to one) is opened at all:
-// opening a FIFO that nothing writes to never returns, nor does reading a
-// device that never ends. A missing directory is no files, not an error.
-// Unlike node_exporter, samples with timestamps are kept, as the Lua exporter
-// kept them.
-
 import { Result, exposition } from 'prometheus_exporter.api';
 
 export const meta = {
@@ -34,8 +13,6 @@ export const meta = {
 			help: 'The directory of the *.prom files, under /var, /tmp or /etc/prometheus-exporter.',
 		},
 	},
-	// No other service makes it: the exporter does, when it starts, so the
-	// jail always has it to mount.
 	paths: [ { path: '{directory}', owned: true } ],
 };
 
@@ -47,9 +24,6 @@ function series_key(s) {
 	return s.name + sprintf('%J', pairs);
 }
 
-// Why the families of one file do not fit with those of the files already
-// added (`types`: family name to type, `series`: the series keys), or null when
-// they do; then they are recorded there.
 function misfit(families, types, series) {
 	let keys = [];
 
@@ -75,7 +49,6 @@ function misfit(families, types, series) {
 	return null;
 }
 
-// Why a file cannot be used, or null.
 function problem(text, st, parsed, types, series) {
 	if (st == null)
 		return 'cannot be stat()ed';
@@ -98,7 +71,6 @@ export function collect(deps, out, options) {
 	let failed = false;
 
 	for (let path in files) {
-		// stat() follows a link, and opens nothing.
 		let st = fs.stat(path);
 		let text = (st?.type == 'file') ? fs.readfile(path) : null;
 		let parsed = text == null ? null : exposition.parse(text);

@@ -1,27 +1,5 @@
 'use strict';
 
-// Traffic control's queueing disciplines: what SQM's CAKE (or fq_codel, or
-// whatever a device's root qdisc is) sent, dropped and holds, from
-// `tc -s -j qdisc show`. ucode's rtnl on OpenWrt 25.12 has RTM_GETQDISC's
-// constants but does not decode a qdisc's statistics (TCA_STATS2, TCA_XSTATS),
-// so iproute2's tc reads them, as JSON.
-//
-// The families are node_exporter's (collector/qdisc_linux.go), with its names,
-// help and labels, device and kind, for the root qdisc of each device, as it
-// reports them: one series per device. The rest of the tree (mq's per-queue
-// children, SQM's ingress qdisc, which shapes nothing itself, HTB's leaves) is
-// left out, and so is noqueue, the qdisc of a device without a queue (a bridge,
-// a VLAN, WireGuard), whose counters are always 0. A device without a qdisc of
-// its own has the kernel's default (fq_codel on OpenWrt, mq over it on a
-// multiqueue NIC), which is reported as any other.
-//
-// A root CAKE qdisc also has node_qdisc_cake_*: its capacity estimate and
-// memory, and per tin (labeled by its index, as tc numbers them: a
-// besteffort CAKE has tin 0 only, diffserv4 tins 0 to 3, Bulk to Voice) its
-// traffic, drops, ECN marks, ACKs dropped, delays and flows. No exporter of
-// CAKE's statistics is widely used: the names follow the conventions, from
-// tc's JSON keys (tc/q_cake.c), in base units.
-
 import { Result, errors } from 'prometheus_exporter.api';
 
 export const meta = {
@@ -34,7 +12,6 @@ export const meta = {
 
 const TC = [ 'tc', '-s', '-j', 'qdisc', 'show' ];
 
-// CAKE's delays are in microseconds.
 const US = 1000000.0;
 
 function families(out) {
@@ -74,7 +51,6 @@ function us(v) {
 	return type(v) in [ 'int', 'double' ] ? v / US : null;
 }
 
-// A CAKE qdisc's own samples, and its tins'.
 function cake(c, out, device, q) {
 	let labels = out.labels({ device });
 

@@ -1,8 +1,5 @@
 'use strict';
 
-// Based on utils/prometheus-node-exporter-ucode/files/base/uname.uc
-// in OpenWrt's packages feed (Apache-2.0), rewritten for this exporter; see NOTICE.
-
 import { Result, errors, proc } from 'prometheus_exporter.api';
 
 export const meta = {
@@ -12,8 +9,6 @@ export const meta = {
 	needs: [ 'fs' ],
 };
 
-// [ label, file in /proc/sys/kernel ], in label order. The machine is the
-// kernel's own utsname machine (what `uname -m` prints), so no program is run.
 const FIELDS = [
 	[ 'sysname', 'ostype' ],
 	[ 'nodename', 'hostname' ],
@@ -23,8 +18,6 @@ const FIELDS = [
 	[ 'domainname', 'domainname' ],
 ];
 
-// A file that cannot be read leaves its label out and fails the collector,
-// after the sample is recorded with the labels that could.
 export function collect(deps, out) {
 	let labels = {};
 	let missing = [];

@@ -1,11 +1,5 @@
 'use strict';
 
-// Based on utils/prometheus-node-exporter-lua/files/usr/lib/lua/prometheus-collectors/nft_counters.lua
-// in OpenWrt's packages feed (Apache-2.0), rewritten for this exporter; see NOTICE.
-
-// Named nftables counters, as the Lua exporter's nft_counters collector: the
-// packets and bytes of each counter object in `nft --json list counters`.
-
 import { Result, errors } from 'prometheus_exporter.api';
 
 export const meta = {
@@ -13,7 +7,6 @@ export const meta = {
 	title: 'nftables counters',
 	help: 'Packets and bytes of the named nftables counters.',
 	needs: [ 'exec' ],
-	// nftables answers netlink dumps to CAP_NET_ADMIN alone.
 	capabilities: [ 'CAP_NET_ADMIN' ],
 	commands: [ 'nft' ],
 };

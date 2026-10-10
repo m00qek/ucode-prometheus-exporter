@@ -1,18 +1,5 @@
 'use strict';
 
-// Based on utils/prometheus-node-exporter-lua/files/usr/lib/lua/prometheus-collectors/hostapd_ubus_stations.lua
-// in OpenWrt's packages feed (Apache-2.0), rewritten for this exporter; see NOTICE.
-
-// The Lua exporter's hostapd_ubus_stations collector: the radio resource
-// measurement (802.11k) capabilities each client of every hostapd.* ubus object
-// announced, as get_clients' `rrm` array holds them (the five octets of the RRM
-// Enabled Capabilities element), labelled {ifname, freq, station}.
-//
-// A client without that array is left out, where Lua stopped with an error. A
-// hostapd object without get_clients (a wired 802.1X port) is skipped; any
-// other failed call leaves its interface out, and fails the collector once the
-// others are written.
-
 import { Result } from 'prometheus_exporter.api';
 
 export const meta = {
@@ -20,11 +7,9 @@ export const meta = {
 	title: 'hostapd station capabilities',
 	help: 'Radio measurement capabilities of hostapd\'s stations, from hostapd\'s ubus objects.',
 	needs: [ 'ubus' ],
-	// hostapd.<interface>, one object per access point.
 	ubus: { 'hostapd.*': [ 'get_clients' ] },
 };
 
-// [ family, help, octet, bit ] per capability, in Lua's order.
 const CAPABILITIES = [
 	[ 'link_measurement', 'link measurement', 0, 0 ],
 	[ 'neighbor_report', 'neighbor report', 0, 1 ],
@@ -43,7 +28,6 @@ function station(families, labels, rrm) {
 	}
 }
 
-// One object's samples; null, or the Result of a failed call.
 function access_point(ubus, out, families, object) {
 	let res = ubus.call(object, 'get_clients');
 
@@ -60,8 +44,6 @@ function access_point(ubus, out, families, object) {
 	return null;
 }
 
-// A device without hostapd objects (no radios, or no access point on them)
-// has nothing to observe.
 export function collect(deps, out) {
 	let res = deps.ubus.list();
 

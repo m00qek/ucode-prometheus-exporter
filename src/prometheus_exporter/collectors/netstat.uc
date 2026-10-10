@@ -1,25 +1,5 @@
 'use strict';
 
-// Based on utils/prometheus-node-exporter-ucode/files/extra/netstat.uc
-// in OpenWrt's packages feed (Apache-2.0), rewritten for this exporter; see NOTICE.
-
-// The kernel's protocol statistics, as node_exporter's netstat collector
-// (collector/netstat_linux.go) names and types them: each section of
-// /proc/net/netstat and /proc/net/snmp is a header line of names and a line of
-// values, both starting with the section ("TcpExt:"), and each value is an
-// untyped node_netstat_<section>_<name>; each "<name> <value>" line of
-// /proc/net/snmp6 is node_netstat_<protocol>_<rest of the name>, Ip6InReceives
-// being node_netstat_Ip6_InReceives.
-//
-// The `fields` option is node_exporter's --collector.netstat.fields: a regular
-// expression of the <section>_<name> fields to export, by default
-// node_exporter's own, which keeps some 35 of the kernel's 400 or so: the
-// errors, IP forwarding and octets, ICMP messages, TCP's connections,
-// segments, retransmissions and listen queue, and UDP's datagrams and buffer
-// errors. `.*` exports every one. It is a POSIX extended regular expression
-// (ucode's), as vmstat's `fields` is. Every line is still read and checked,
-// whatever the pattern: a malformed section fails the collector, as before.
-
 import { Result, errors, proc } from 'prometheus_exporter.api';
 
 export const DEFAULT_FIELDS = '^(.*_(InErrors|InErrs)|Ip_Forwarding|Ip(6|Ext)_(InOctets|OutOctets)|Icmp6?_(InMsgs|OutMsgs)|' +
@@ -45,11 +25,6 @@ export const meta = {
 const TABLES = [ '/proc/net/netstat', '/proc/net/snmp' ];
 const SNMP6 = '/proc/net/snmp6';
 
-// The fields DEFAULT_FIELDS names whole, by section and name. A scrape
-// checks each of the kernel's 400 or so fields, and musl's regexec takes
-// 14 us in the devenv to match one against the pattern, as long as forty
-// lookups: the default, which nearly every router has, is looked for
-// instead (default_at), and any other pattern is matched.
 const DEFAULT_WHOLE = {
 	Ip: { Forwarding: true },
 	Ip6: { InOctets: true, OutOctets: true },
@@ -63,9 +38,6 @@ const DEFAULT_WHOLE = {
 };
 const NONE = {};
 
-// Whether DEFAULT_FIELDS matches a field, <section>_<name>: one it names
-// whole, one that starts with TcpExt_Listen or TcpExt_Syncookies, or one
-// that ends with _InErrors or _InErrs.
 function default_field(field) {
 	let i = index(field, '_');
 
@@ -74,25 +46,10 @@ function default_field(field) {
 		substr(field, -9) == '_InErrors' || substr(field, -7) == '_InErrs';
 }
 
-// The names of a section's fields, joined by spaces, that may end with
-// InErrors or InErrs, and those that start with Listen or Syncookies, for
-// TcpExt: one match finds them all.
 const ERR_NAMES = /(^| )([^ ]*InErr[^ ]*)/g;
 const TCPEXT_NAMES = /(^| )((Listen|Syncookies)[^ ]*)/g;
 const TCPEXT_KNOWN = [ 'ListenOverflows', 'ListenDrops', 'SyncookiesSent', 'SyncookiesRecv', 'SyncookiesFailed' ];
 
-// Where in `names`, from `from` on, the fields of a section without an
-// underscore are that DEFAULT_FIELDS matches, in order; null for a section
-// that names a field twice, which the kernel's never do.
-//
-// For such a section the name alone tells it, as default_field() would of
-// `${section}_${name}`: one of the section's DEFAULT_WHOLE, one that is,
-// or ends with _, InErrors or InErrs, or one of TcpExt's that starts with
-// Listen or Syncookies. So they are looked for, not each field checked: an
-// index() of each whole name, and one match of the names for the others.
-// The kernel's sections have 400 or so fields, and a turn of a loop for
-// each cost more than the rest of netstat; TcpExt and MPTcpExt, two thirds
-// of them, have but a few the default takes, or none.
 function default_at(section, names, from) {
 	if (length(uniq(names)) != length(names))
 		return null;
@@ -116,9 +73,6 @@ function default_at(section, names, from) {
 				push(at, index(names, name));
 		}
 
-	// TcpExt's names that start with Listen or Syncookies are the kernel's
-	// five, unless as many splits of the names say there are more: the
-	// match reads all 2 kB of them.
 	if (section == 'TcpExt') {
 		let known = 0;
 
@@ -139,10 +93,6 @@ function default_at(section, names, from) {
 	return sort(filter(uniq(at), (i) => i >= from), (a, b) => a - b);
 }
 
-// Records the fields of one section, `names` and `values` from `from` on, as
-// rows of out.batch(): those `pattern` matches, or with a null pattern
-// DEFAULT_FIELDS (default_at, or default_field for a section with an
-// underscore). With node_exporter's help: "Statistic TcpExtSyncookiesSent."
 function record(rows, pattern, section, names, values, from) {
 	let at = (!pattern && index(section, '_') < 0) ? default_at(section, names, from) : null;
 
@@ -161,9 +111,6 @@ function record(rows, pattern, section, names, values, from) {
 	}
 }
 
-// The sections of one table file, recorded; the sections whose two lines do not
-// match (named apart, or with more names than values or fewer), which are left
-// out. Null when the file cannot be read.
 function parse_table(fs, rows, pattern, path) {
 	let l = proc.rows(fs, path);
 
@@ -191,15 +138,11 @@ function parse_table(fs, rows, pattern, path) {
 	return bad;
 }
 
-// The names of /proc/net/snmp6's fields DEFAULT_FIELDS names whole.
 const SNMP6_WHOLE = {
 	Ip6InOctets: true, Ip6OutOctets: true, Icmp6InMsgs: true, Icmp6OutMsgs: true,
 	Udp6InDatagrams: true, Udp6OutDatagrams: true, Udp6NoPorts: true, Udp6RcvbufErrors: true, Udp6SndbufErrors: true,
 };
 
-// A /proc/net/snmp6 line's protocol and the rest of its name, as the
-// protocols' regex, ^(Ip6|Icmp6|UdpLite6|Udp6)(.+)$, splits them, or null:
-// by its first letters, without a match.
 function snmp6_name(name) {
 	let p = substr(name, 0, 3);
 	let n = (p == 'Ip6') ? 3 : (p == 'Icm') ? 5 : (p == 'Udp') ? ((substr(name, 3, 1) == '6') ? 4 : 8) : 0;
@@ -212,16 +155,6 @@ function snmp6_name(name) {
 	return (p == 'Ip6' || p == 'Icmp6' || p == 'Udp6' || p == 'UdpLite6') ? [ name, p, substr(name, n) ] : null;
 }
 
-// /proc/net/snmp6, recorded: nothing in it is a section that can break, and a
-// line without a value or a protocol is left out. Null when the file cannot be
-// read, as where IPv6 is disabled.
-//
-// The kernel writes a line as "%-32s\t%lu": a name, the spaces that pad it
-// and a tab, then a value. In a file without \v, \f and \r, such a line is
-// its two fields by a split on its tab and a trim of each, without the regex
-// proc.fields() splits it with; and with the default pattern, a name it
-// takes neither whole nor with InErr in it is left out there, its value
-// unread, as about 75 of the 90 are. Any other line is proc.fields()'.
 function parse_snmp6(fs, rows, pattern) {
 	let text = fs.readfile(SNMP6);
 
@@ -292,7 +225,6 @@ export function collect(deps, out, options) {
 
 	out.batch('untyped', rows);
 
-	// Any file alone is worth exporting, as upstream has it.
 	if (!readable)
 		return Result.err(errors.SOURCE_UNREADABLE, join(', ', sources));
 	if (length(invalid))

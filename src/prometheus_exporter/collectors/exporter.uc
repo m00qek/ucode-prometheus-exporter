@@ -1,25 +1,5 @@
 'use strict';
 
-// The exporter itself: the process that serves the scrapes, as Prometheus's
-// client libraries describe a process (process_*), and what went wrong in its
-// scrapes, as the ledger counts it (prometheus_exporter.ledger).
-//
-// The process is the uhttpd instance that loaded the handler: each scrape is
-// a process forked from it, which uhttpd reaps when it has answered, so the
-// instance's children's times (/proc/<pid>/stat's cutime and cstime) are
-// every scrape's, and process_cpu_seconds_total is all the CPU the exporter
-// costs. Run elsewhere (the command line, check), it is that process.
-//
-// The counters are the instance's, kept in its state, and so start again at 0
-// when the service restarts, as a new process's would. Where there is no
-// ledger (the command line, check, the ubus object), they are left out.
-// ucode_prometheus_exporter_collector_samples is this scrape's: the samples
-// each collector wrote, which shows one whose series grow without end. This
-// collector runs after every other, so it sees them all.
-//
-// It does not repeat what Prometheus knows of the scrape itself
-// (scrape_duration_seconds, scrape_samples_scraped).
-
 import { Result, errors, proc } from 'prometheus_exporter.api';
 
 export const meta = {
@@ -29,22 +9,16 @@ export const meta = {
 	needs: [ 'exporter' ],
 };
 
-// Linux's USER_HZ on every architecture OpenWrt builds for, for a vector that
-// does not say.
 export const CLOCK_TICKS = 100;
 
 const BTIME = /(^|\n)btime ([0-9]+)/;
 const VMRSS = /(^|\n)VmRSS:\s+([0-9]+) kB/;
 const MAX_FILES = /(^|\n)Max open files\s+([0-9]+|unlimited)\s/;
 
-// What follows each line's name in it, matched after the line is found.
 const BTIME_REST = /^ ([0-9]+)/;
 const VMRSS_REST = /^\s+([0-9]+) kB/;
 const MAX_FILES_REST = /^\s+([0-9]+|unlimited)\s/;
 
-// The fields of /proc/<pid>/stat after the command, from the 3rd: { cpu (in
-// ticks: user, system, and the children's), start (ticks after boot),
-// vsize (bytes) }, or null.
 export function parse_stat(text) {
 	let close = (type(text) == 'string') ? rindex(text, ')') : -1;
 
@@ -60,11 +34,6 @@ export function parse_stat(text) {
 	return { cpu: n[11] + n[12] + n[13] + n[14], start: n[19], vsize: n[20] };
 };
 
-// What `re` captures second of the text, the number after a line's name:
-// the first line that starts with `name` found with an index(), and its rest
-// matched, as musl's regexec takes longer to read the 2 kB of /proc/stat
-// (its interrupts' counts) for a line than all else here. When that line's
-// rest is not what `re` takes, `re` reads the text, as it would have.
 function number_of(text, name, rest, re) {
 	if (type(text) != 'string')
 		return null;
@@ -95,8 +64,6 @@ function process(deps, out) {
 	let max_fds = number_of(ex.process('limits'), 'Max open files', MAX_FILES_REST, MAX_FILES);
 	let fds = ex.fds();
 
-	// A value left out is null, which the batch skips: its family is then
-	// written without a sample, which is to say not at all.
 	out.batch('counter', [
 		[ 'process_cpu_seconds_total', 'Total user and system CPU time spent in seconds, the scrapes it answered in processes of their own included.', stat.cpu / (tick * 1.0) ],
 	]);

@@ -1,11 +1,7 @@
 'use strict';
 
-// Based on utils/prometheus-node-exporter-ucode/files/base/meminfo.uc
-// in OpenWrt's packages feed (Apache-2.0), rewritten for this exporter; see NOTICE.
-
 import { Result, errors, proc } from 'prometheus_exporter.api';
 
-// Regexes are constants: ucode compiles a regex literal each time it is evaluated.
 const LINE = /^([^:[:space:]]+):[[:space:]]+([0-9]+)([[:space:]]+kB)?[[:space:]]*$/;
 
 export const meta = {
@@ -18,10 +14,6 @@ export const meta = {
 const PATH = '/proc/meminfo';
 const PREFIX = 'node_memory_';
 
-// { name, value } for a `Name:   value [kB]` line, or null, named as node_exporter's
-// meminfo collector names it: a name's '(' becomes '_' and its ')' goes
-// (Active(anon) is node_memory_Active_anon_bytes), and a field in kB is in
-// bytes, with _bytes; a unitless one (the HugePages_* page counts) has no unit.
 function parse(line) {
 	let m = match(line, LINE);
 
@@ -30,7 +22,6 @@ function parse(line) {
 
 	let name = m[1];
 
-	// Nearly every name has no parenthesis: an index() rather than two replace().
 	if (index(name, '(') >= 0 || index(name, ')') >= 0)
 		name = replace(replace(name, ')', ''), '(', '_');
 
@@ -48,7 +39,6 @@ export function collect(deps, out) {
 	let bad = null;
 	let rows = [];
 
-	// A line it cannot read fails the collector, but not the fields after it.
 	for (let line in l) {
 		let f = parse(line);
 

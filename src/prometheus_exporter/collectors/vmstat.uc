@@ -1,21 +1,9 @@
 'use strict';
 
-// node_exporter's vmstat collector (collector/vmstat_linux.go): the fields of
-// /proc/vmstat its --collector.vmstat.fields pattern matches, each as
-// node_vmstat_<field>, untyped. The default pattern keeps page faults, paging
-// and swapping, and oom_kill: on a router with little RAM and no swap, the OOM
-// killer is how memory pressure ends, and nothing else counts its kills.
-//
-// The `fields` option is that pattern, a POSIX extended regular expression
-// (ucode's, so RE2 syntax beyond ERE does not apply). Kernels built without
-// CONFIG_VM_EVENT_COUNTERS, as on small targets, have no event fields: the
-// default pattern then matches nothing, and the collector succeeds empty.
-
 import { Result, errors, proc } from 'prometheus_exporter.api';
 
 export const DEFAULT_FIELDS = '^(oom_kill|pgpg|pswp|pg.*fault).*';
 
-// Regexes are constants: ucode compiles a regex literal each time it is evaluated.
 const INTEGER = /^-?[0-9]+$/;
 
 export const meta = {
@@ -30,10 +18,6 @@ export const meta = {
 
 export const PATH = '/proc/vmstat';
 
-// Whether DEFAULT_FIELDS matches a field: it starts with oom_kill, pgpg or
-// pswp, or with pg and has fault after. /proc/vmstat has 150 to 200 fields,
-// and the default, which nearly every router has, is checked with a call or
-// two of each rather than musl's regexec; any other pattern is matched.
 function default_field(name) {
 	let p = substr(name, 0, 4);
 
@@ -55,9 +39,6 @@ export function collect(deps, out, options) {
 	if (rows == null)
 		return Result.err(errors.SOURCE_UNREADABLE, PATH);
 
-	// node_exporter reads every value before it matches the name: a malformed
-	// line fails the scrape, whatever the pattern. An integer as the format
-	// spells it, as each of the kernel's is, needs no match.
 	let matched = [];
 	for (let i, f in rows) {
 		if (!length(f))

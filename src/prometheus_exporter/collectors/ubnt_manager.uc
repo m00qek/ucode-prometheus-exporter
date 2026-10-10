@@ -1,15 +1,7 @@
 'use strict';
 
-// Based on utils/prometheus-node-exporter-lua/files/usr/lib/lua/prometheus-collectors/ubnt-manager.lua
-// in OpenWrt's packages feed (Apache-2.0), rewritten for this exporter; see NOTICE.
-
 import { Result, errors } from 'prometheus_exporter.api';
 
-// ubnt-manager is a shell script: in the jail it needs what it sources and
-// runs, besides the shell. It reads its devices with config_load (functions.sh,
-// uci.sh and the uci command, from its own config), sources jshn.sh, which
-// runs jshn, and runs ssh (dropbear's) and sed. A busybox applet is its own
-// path, as the jail has no other.
 export const SCRIPT_NEEDS = [
 	'/etc/config/ubnt-manager', '/lib/functions.sh', '/lib/config/uci.sh', '/sbin/uci',
 	'/usr/share/libubox/jshn.sh', '/usr/bin/jshn', '/usr/bin/ssh', '/bin/sed',
@@ -21,16 +13,10 @@ export const meta = {
 	help: 'Ubiquiti airOS radios, from their status as ubnt-manager reads it over ssh.',
 	needs: [ 'exec' ],
 	commands: [ 'ubnt-manager' ],
-	// ubnt-manager is what it watches, not what it needs: without it, nothing to observe.
 	optional_commands: [ 'ubnt-manager' ],
 	paths: SCRIPT_NEEDS,
 };
 
-// [ name, path in status.cgi's JSON, help, scale ]: every value is a gauge, a
-// reading of now, in base units (status.cgi's MHz, Mbit/s, kbit/s and percent
-// scaled to hertz, bits per second and ratios). The radio's names and firmware
-// are node_ubnt_info's labels. airOS 6 gives memory in kB, airOS 8 in bytes;
-// the airtime use is left as airOS gives it, its scale unknown.
 const MHZ = 1000000, MBIT = 1000000, KBIT = 1000, KB = 1024, PERCENT = 0.01;
 
 const AIROS6 = [
@@ -98,8 +84,6 @@ function dig(data, path) {
 	return data;
 }
 
-// A number status.cgi gives, as a number or a string ("150"; airOS 6's
-// frequency is "5745 MHz"), or null.
 export function number(v) {
 	if (type(v) in [ 'int', 'double' ])
 		return v;
@@ -118,7 +102,6 @@ function device_metrics(out, specs, data, device) {
 	}
 }
 
-// The status of one device, or an error Result.
 function status(exec, device) {
 	let res = exec.run([ 'ubnt-manager', '-j', '-t', device ]);
 
@@ -132,11 +115,8 @@ function status(exec, device) {
 	}
 }
 
-// The shell's status for a program it cannot find.
 const NOT_FOUND = 127;
 
-// ubnt-manager not installed, or without a radio in its config, has nothing to
-// observe.
 export function collect(deps, out) {
 	let res = deps.exec.run([ 'ubnt-manager', '-l' ]);
 	if (!res.ok)
@@ -148,7 +128,6 @@ export function collect(deps, out) {
 
 	let failed = null;
 
-	// A device that fails is the collector's error once the others are in.
 	for (let device in devices) {
 		let st = status(deps.exec, device);
 		if (!st.ok) {

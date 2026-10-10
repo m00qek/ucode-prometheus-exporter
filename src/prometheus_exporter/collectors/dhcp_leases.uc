@@ -1,41 +1,5 @@
 'use strict';
 
-// The active DHCP leases of the router's DHCP servers, which neither upstream
-// exporter counted: dnsmasq's, from its lease file, and odhcpd's (DHCPv6, and
-// DHCPv4 where odhcpd serves it), from `ubus call dhcp ipv4leases|ipv6leases`.
-//
-// node_openwrt_dhcp_leases{server, interface, family} counts them. `interface`
-// is the logical interface (lan, guest, ...), as openwrt_interfaces names it:
-// the one whose subnet holds a dnsmasq lease's address (its lease file does
-// not say; the subnet is how dnsmasq picks the range), and for odhcpd the one whose
-// l3 device it serves (the first in netifd's dump, for a device several
-// share). A lease no up interface's subnet holds has no `interface`. odhcpd
-// lists every interface it serves, so those without leases have a 0; dnsmasq
-// does not, so an interface without leases has no dnsmasq series, and a
-// dnsmasq without leases none at all. A lease is what each server keeps: an
-// address for dnsmasq, a binding (a client's DUID and IAID, with an address
-// in each of the interface's prefixes) for odhcpd's DHCPv6.
-//
-// The `leases` option (off by default) adds a series per lease:
-// node_openwrt_dhcp_lease_info{server, interface, family, address, mac, duid,
-// iaid, hostname} 1, and node_openwrt_dhcp_lease_expiry_timestamp_seconds{server,
-// interface, family, address}, left out for a lease that never expires. Off, because
-// each new client, and each phone with a random MAC, is a new series, and the
-// names and MACs of a household's devices are more than most dashboards need.
-// An odhcpd DHCPv6 lease has a series per address or delegated prefix
-// (address/length).
-//
-// dnsmasq's lease file is /etc/config/dhcp's leasefile, /tmp/dhcp.leases by
-// default (as OpenWrt's dnsmasq init script has it), for each dnsmasq
-// instance; the script creates it on start, so where it is missing dnsmasq is
-// not running.
-//
-// Each server is read while its init script is enabled. One disabled, or not
-// installed, is left out (and dnsmasq without an instance in /etc/config/dhcp);
-// both left out, as on an access point that serves no DHCP, is nothing to
-// observe. One enabled that is not there (no lease file, odhcpd not on ubus)
-// fails the collector, once the other's leases are written.
-
 import { Result, errors, services, proc, u32 } from 'prometheus_exporter.api';
 
 export const DEFAULT_LEASEFILE = '/tmp/dhcp.leases';
@@ -44,7 +8,6 @@ function nonempty(s) {
 	return (type(s) == 'string' && s != '') ? s : null;
 }
 
-// The lease files of the dnsmasq instances /etc/config/dhcp has, once each.
 export function leasefiles(dhcp) {
 	let paths = [];
 
@@ -66,19 +29,10 @@ export const meta = {
 	paths: [ (options, uci) => leasefiles(uci.dhcp) ],
 };
 
-// odhcpd's valid time of a lease that does not expire: (uint32_t)-1, which
-// ucode's ubus gives as -1, u32() as this.
 const INFINITE = 4294967295;
 
 const DIGITS = /^[0-9]+$/;
 
-// The leases of a dnsmasq lease file, as lease_update_file() (src/lease.c)
-// writes it: `expiry mac address hostname client-id` for IPv4, then a
-// `duid ...` line and `expiry iaid address hostname duid` for IPv6, `*` for
-// what a lease lacks; expiry is a Unix time, 0 for never. The agent-info and
-// vendorclass lines it may add at the end are not leases. A DUID is made plain
-// hex, as odhcpd and /etc/config/dhcp write them. A string says what is wrong
-// with the file.
 export function parse_leasefile(text) {
 	let leases = [];
 
@@ -110,7 +64,6 @@ export function parse_leasefile(text) {
 	return leases;
 };
 
-// Whether the first `bits` bits of two addresses (as iptoarr() gives them) agree.
 export function in_prefix(addr, net, bits) {
 	if (length(addr) != length(net) || bits > 8 * length(addr))
 		return false;
@@ -125,20 +78,10 @@ export function in_prefix(addr, net, bits) {
 	return true;
 };
 
-// An IPv4 address (iptoarr()'s four bytes) as a 32-bit number.
 function word(b) {
 	return (b[0] << 24) | (b[1] << 16) | (b[2] << 8) | b[3];
 }
 
-// From netifd's dump: the subnets of the interfaces, from their addresses and
-// IPv6 prefix assignments, and the interface of each l3 device.
-//
-// The subnets are kept most specific first, and in the dump's order among
-// those as specific, so a lease's interface is the first that holds it: a
-// router can have a thousand leases and tens of subnets. Those that can hold
-// no address are left out (more bits than an address has, or fewer than 0),
-// and an IPv4 subnet is kept as numbers, its network and mask, compared at
-// once rather than byte by byte.
 export function networks(list) {
 	let subnets = [];
 	let devices = {};
@@ -176,7 +119,6 @@ export function networks(list) {
 	return { v4, v6, devices };
 };
 
-// The interface of the most specific subnet that holds the address.
 export function interface_of(nets, bytes) {
 	if (length(bytes) == 4) {
 		let a = word(bytes);
@@ -204,7 +146,6 @@ function mac(hex) {
 		: hex;
 }
 
-// A tally of leases by { server, interface, family }, and the leases themselves.
 function ledger() {
 	let counts = {};
 	let order = [];
@@ -228,7 +169,6 @@ function ledger() {
 	};
 }
 
-// dnsmasq's leases: false when it has no lease file, a Result for a malformed one.
 function dnsmasq(deps, nets, now, book) {
 	let found = false;
 
@@ -260,12 +200,6 @@ function dnsmasq(deps, nets, now, book) {
 	return found;
 }
 
-// The leases of one odhcpd method: { device: { <l3 device>: { leases: [...] } } }
-// as handle_dhcpv4_leases() and handle_dhcpv6_leases() (src/ubus.c) reply;
-// `valid` is the seconds left; it and `iaid` are blobmsg_add_u32()'s, which
-// ucode's ubus gives signed (u32). False when odhcpd lacks the method: ipv4leases
-// is not there in odhcpd-ipv6only, OpenWrt's default. ucode's ubus puts
-// libubus's status text first in a failure's message.
 function odhcpd(deps, method, family, nets, now, book) {
 	let res = deps.ubus.call('dhcp', method);
 
@@ -378,12 +312,10 @@ export function collect(deps, out, options) {
 	for (let l in book.leases()) {
 		let key = `${l.server} ${l.address}`;
 
-		// The same address twice (two lease files) would be the same series twice.
 		if (seen[key])
 			continue;
 		seen[key] = true;
 
-		// The info's labels are the id's and then the client's.
 		let id = { server: l.server, interface: l.interface, family: l.family, address: l.address };
 
 		info({ ...id, mac: l.mac, duid: l.duid, iaid: l.iaid, hostname: l.hostname }, 1);

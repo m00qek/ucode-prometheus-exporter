@@ -1,34 +1,7 @@
 'use strict';
 
-// Based on utils/prometheus-node-exporter-lua/files/usr/lib/lua/prometheus-collectors/thermal.lua
-// in OpenWrt's packages feed (Apache-2.0), rewritten for this exporter; see NOTICE.
-
-// The Lua exporter's thermal collector: the temperature of every thermal zone
-// in /sys/class/thermal, as node_exporter's thermal_zone collector
-// (collector/thermal_zone_linux.go) has it, labeled with the zone number and
-// type only. What the Lua collector had as labels besides is apart, so that a
-// series stays one series: the policy and mode (where the zone has one) as
-// node_thermal_zone_info, and the passive trip point, where the zone has one,
-// as node_thermal_zone_passive_celsius.
-//
-// Unlike the Lua collector, which stops at the first zone it cannot read, a zone
-// without a readable type, policy or temperature (a sensor that is asleep
-// answers EAGAIN or ENODATA) is skipped and the others are still reported, and a
-// temperature below zero keeps its sign.
-//
-// The cooling devices of /sys/class/thermal too, as node_exporter's
-// thermal_zone collector has them beside the zones:
-// node_cooling_device_cur_state and node_cooling_device_max_state, labeled
-// with the device's number (`name`, 0 for cooling_device0) and type, as a
-// fan's speed step (pwm-fan), a CPU's frequency step (cpufreq-cpu0) or a
-// radio's transmit duty cycle (mt76's phyN). They are what the
-// zones' trip points drive, in the same directory: a router that throttles
-// shows it here, before its temperature does. A device whose type cannot be
-// read is left out; one state that cannot be read, that state alone.
-
 import { Result, proc } from 'prometheus_exporter.api';
 
-// Regexes are constants: ucode compiles a regex literal each time it is evaluated.
 const ZONE = /^thermal_zone([0-9]+)$/;
 const COOLING_DEVICE = /^cooling_device([0-9]+)$/;
 

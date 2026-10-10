@@ -24,8 +24,10 @@ Below, each upstream collector <name> is
 utils/prometheus-node-exporter-ucode/files/{base,extra}/<name>.uc (ucode) or
 utils/prometheus-node-exporter-lua/files/usr/lib/lua/prometheus-collectors/<name>.lua
 (Lua), credited to the author of its first commit in openwrt/packages; every
-file also has later contributors. The header of each collector in
-src/prometheus_exporter/collectors/ names the files it is based on.
+file also has later contributors. Each collector of
+src/prometheus_exporter/collectors/ is rewritten from the ucode file where
+the table names one, and from the Lua file where it does not; nat_traffic
+and openwrt from both.
 
   <name>                 ucode                 Lua
   bmx7                   -                     Paul Spooren

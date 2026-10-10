@@ -1,49 +1,5 @@
 'use strict';
 
-// Based on utils/prometheus-node-exporter-lua/files/usr/lib/lua/prometheus-collectors/ethtool.lua
-// in OpenWrt's packages feed (Apache-2.0), rewritten for this exporter; see NOTICE.
-
-// Network drivers' statistics, as node_exporter's ethtool collector
-// (collector/ethtool_linux.go) names them, from `ethtool -S <device>` for every
-// link (an rtnl dump) a device backs, where node_exporter asks the kernel: an
-// untyped family per statistic, node_ethtool_ and the name made a metric name,
-// lowercased, with the words rx and tx spelled out; seven common ones have
-// node_exporter's own names, with _total, and help texts. Per device, the
-// statistics are written sorted by name, and every statistic of a name two of
-// them make is left out, as node_exporter does.
-//
-// A device whose driver has no statistics (ethtool exits non-zero: 94 for
-// "no stats available") is left out. So is every link no device backs (no
-// /sys/class/net/<link>/device): bridges, VLANs, WireGuard, ifb, veth. Their
-// drivers have no statistics, or (ifb's per-queue counts) repeat what netdev
-// has; and on a router most links are such, each costing the scrape a run of
-// ethtool, which a slow CPU takes tens of milliseconds to fail.
-//
-// And of each such device, what node_exporter's ethtool collector has of its
-// driver and its link, which `ethtool -S` does not give: `ethtool -i` is
-// node_ethtool_info{bus_info, device, driver, expansion_rom_version,
-// firmware_version, version} 1, and `ethtool <device>` the link modes and
-// ports the device supports and advertises, as node_exporter names them:
-//
-//   node_network_supported_port_info{device, type}       1 for each port type
-//   node_network_supported_speed_bytes{device, duplex, mode}
-//   node_network_advertised_speed_bytes{device, duplex, mode}
-//   node_network_autonegotiate_supported{device}         and _advertised
-//   node_network_pause_supported{device}                 and _advertised
-//   node_network_asymmetricpause_supported{device}       and _advertised
-//   node_network_autonegotiate{device}                   autonegotiation on
-//
-// A link mode "1000baseT/Full" is mode 1000baseT, duplex full, its speed in
-// bytes per second (125,000,000); node_exporter reads the kernel's 32 first
-// modes, which stop at 10 Gb/s and leave out 2.5 and 5 Gb/s over twisted
-// pair (2500baseT), and ethtool prints them all. Pause frames are supported
-// or advertised where ethtool says "Symmetric", asymmetric pause where it
-// says "Receive-only" or "Transmit-only". What a line of ethtool's does not
-// say (a driver that reports no link modes, a radio's) is left out. The
-// link's speed and duplex are netclass's node_network_speed_bytes and
-// node_network_info. Three runs of ethtool a device, where node_exporter
-// asks the kernel three times too.
-
 import { Result } from 'prometheus_exporter.api';
 
 export const meta = {
@@ -52,14 +8,9 @@ export const meta = {
 	help: 'Network driver statistics, driver information and link modes, from ethtool -S, -i and ethtool <device>.',
 	needs: [ 'rtnl', 'fs', 'exec' ],
 	commands: [ 'ethtool' ],
-	// Programs run for each port, three: the benchmark's 17 ports take the
-	// devenv 0.1 s, the slowest collector there but nat_traffic, and a slow
-	// router tens of times that. Before the ledger times it, it runs after the
-	// others, so that a first scrape does not spend their time on it.
 	cost: 'heavy',
 };
 
-// node_exporter's families of the common statistics: [ name, help ].
 const ENTRIES = {
 	rx_bytes: [ 'node_ethtool_received_bytes_total', 'Network interface bytes received' ],
 	rx_dropped: [ 'node_ethtool_received_dropped_total', 'Number of received frames dropped' ],
@@ -70,27 +21,15 @@ const ENTRIES = {
 	tx_packets: [ 'node_ethtool_transmitted_packets_total', 'Network interface packets sent' ],
 };
 
-// A driver has a few hundred statistics (a DesignWare MAC about 250), each
-// named with regexes: the regexes are constants (ucode compiles a literal
-// each time it is evaluated), and each statistic is named once (NAMES), for
-// all the devices of its driver.
 const NOT_NAME = /_*[^0-9A-Za-z_]+_*/g;
 const NAME = /^[0-9A-Za-z_]*$/;
 const RX = /(^|_)rx(_|$)/g;
 const TX = /(^|_)tx(_|$)/g;
 
-// node_exporter's SanitizeMetricName: every run of other characters, with the
-// underscores around it, one underscore. Most drivers' names have none, which
-// one match tells.
 export function sanitize(stat) {
 	return match(stat, NAME) ? stat : replace(stat, NOT_NAME, '_');
 };
 
-// node_exporter's buildEthtoolFQName of a sanitized name: lowercased, without
-// leading underscores, and rx and tx between underscores (or an end) spelled
-// out. Uhttpd's process for a scrape starts with no name kept, so a scrape
-// names each of a driver's statistics: a replacement is a string, not a call
-// of a function per match, and a name without rx or tx takes no regex.
 function fqname_of(key) {
 	let name = ltrim(lc(key), '_');
 
@@ -106,20 +45,12 @@ export function fqname(stat) {
 	return fqname_of(sanitize(stat));
 };
 
-// The family of the driver's information: a statistic named so as well is
-// left out, as it would write in it.
 const INFO = 'node_ethtool_info';
 
-// The words ethtool prints in `Supported ports: [ ... ]`, of the port bits
-// node_exporter reads (ETHTOOL_LINK_MODE_TP_BIT and the like).
 const PORTS = [ 'TP', 'AUI', 'BNC', 'MII', 'FIBRE', 'Backplane' ];
 
-// A link mode as ethtool names it: <Mb/s>base<medium>/<Half|Full>.
 const LINK_MODE = /^([0-9]+)base([A-Za-z0-9_]+)\/(Half|Full)$/;
 
-// [ fqname, [ family name, help ] ] of each statistic named so far, up to
-// NAMES_MAX of them: a driver's names are fixed, so in a process that scrapes
-// many times this stops growing at what the device's drivers have.
 const NAMES = {};
 const NAMES_MAX = 4096;
 let named = 0;
@@ -138,15 +69,11 @@ function names(stat) {
 	return n;
 }
 
-// [ name, help ] of the family of a statistic.
 export function family(stat) {
 	return names(stat)[1];
 };
 
-// The [ statistic, value ] of a device to export, sorted by fqname, without
-// those whose fqname another one has too.
 export function exported(stats) {
-	// By fqname: the statistic, or false for an fqname two of them have.
 	let by_fq = {};
 
 	for (let s in stats) {
@@ -154,7 +81,6 @@ export function exported(stats) {
 		by_fq[fq] = (fq in by_fq) ? false : s;
 	}
 
-	// sort() without a comparator compares in C, not in a ucode call per pair.
 	let out = [];
 	for (let fq in sort(keys(by_fq)))
 		if (by_fq[fq] && fq != INFO)
@@ -163,17 +89,12 @@ export function exported(stats) {
 	return out;
 };
 
-// The statistic of a line of ethtool -S, trimmed: [ name, value ] for
-// "name: value", where the name may hold ': ' itself and the value is the
-// last word; null for any other line (the title). What
-// match(line, /^(.+):[ \t]+([^ \t]+)$/) gives, without the regex.
 function statistic(line) {
 	let p = max(rindex(line, ' '), rindex(line, '\t'));
 
 	if (p < 1)
 		return null;
 
-	// Back over the run of blanks before the value, to the ':' it needs.
 	let q = p;
 	while (q > 0 && index(' \t', substr(line, q - 1, 1)) >= 0)
 		q--;
@@ -181,8 +102,6 @@ function statistic(line) {
 	return (q >= 2 && substr(line, q - 1, 1) == ':') ? [ substr(line, 0, q - 1), substr(line, p + 1) ] : null;
 }
 
-// [ [ statistic, value ], ... ] from the output of ethtool -S: a title line,
-// then "  name: value" lines. A name may hold ': ' itself.
 export function statistics(text) {
 	let stats = [];
 
@@ -196,9 +115,6 @@ export function statistics(text) {
 	return stats;
 };
 
-// The driver's information from the output of ethtool -i, "key: value" lines,
-// by key as node_exporter labels it: { driver, version, firmware_version,
-// expansion_rom_version, bus_info }, '' for what it leaves empty or out.
 export function driver_info(text) {
 	let info = { bus_info: '', driver: '', expansion_rom_version: '', firmware_version: '', version: '' };
 
@@ -213,12 +129,6 @@ export function driver_info(text) {
 	return info;
 };
 
-// What `ethtool <device>` says of the link, by what node_exporter has of it:
-// { supported: { ports, modes, pause, asymmetric_pause, autonegotiate },
-// advertised: { modes, pause, asymmetric_pause, autonegotiate },
-// autonegotiate }, a mode [ mode, duplex, Mb/s ]. What it does not say is
-// null, or an empty list. A line is "Name: value", and the link modes go on
-// over lines of their own.
 export function link_settings(text) {
 	let s = {
 		supported: { ports: [], modes: [], pause: null, asymmetric_pause: null, autonegotiate: null },
@@ -268,15 +178,10 @@ export function link_settings(text) {
 	return s;
 };
 
-// Whether a device backs the link `dev`: what has a driver that may have
-// statistics.
 export function backed(fs, dev) {
 	return fs.stat(`/sys/class/net/${dev}/device`) != null;
 };
 
-// ethtool itself is missing or cannot run, as opposed to a driver without
-// statistics: the shell's 126 and 127, or no process at all; or it ran out of
-// time, which the links after it would find spent.
 function cannot_run(res) {
 	return res.data?.status == null || res.data.status in [ 126, 127 ];
 }
@@ -289,7 +194,6 @@ export function collect(deps, out) {
 		return links;
 
 	let families = {};
-	// node_exporter's families and help of the driver and the link.
 	let info = out.gauge('node_ethtool_info', 'A metric with a constant \'1\' value labeled by bus_info, device, driver, expansion_rom_version, firmware_version, version.');
 	let port = out.gauge('node_network_supported_port_info', 'Type of ports or PHYs supported by network device');
 	let speeds = {

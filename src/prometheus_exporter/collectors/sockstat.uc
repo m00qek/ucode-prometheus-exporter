@@ -1,22 +1,5 @@
 'use strict';
 
-// node_exporter's sockstat collector (collector/sockstat_linux.go, over
-// procfs's NetSockstat): the sockets of each protocol of /proc/net/sockstat
-// and, where the kernel has IPv6, /proc/net/sockstat6, as gauges named
-// node_sockstat_<protocol>_<key> (node_sockstat_TCP_inuse), and the sockets in
-// use, node_sockstat_sockets_used. Each line is a protocol and its key and
-// value pairs; of the keys, node_exporter's (inuse, orphan, tw, alloc, mem,
-// memory) are exported, and a protocol's inuse is 0 when its line has none,
-// as there. `mem` is in pages: node_sockstat_<protocol>_mem_bytes is it in
-// bytes, by the page size the kernel gave this process (AT_PAGESZ in
-// /proc/self/auxv: 4 KiB on most targets, 16 KiB on loongarch64), and is left
-// out where that cannot be read. `memory` (FRAG's) is in bytes already.
-//
-// A kernel without IPv6 has no /proc/net/sockstat6: its families are not
-// there, and the IPv4 ones are, as in node_exporter. A line that is not a
-// protocol and pairs of a key and an integer fails the collector, as it fails
-// procfs's parser.
-
 import { Result, errors, proc } from 'prometheus_exporter.api';
 
 export const meta = {
@@ -30,16 +13,12 @@ export const SOCKSTAT = '/proc/net/sockstat';
 export const SOCKSTAT6 = '/proc/net/sockstat6';
 export const AUXV = '/proc/self/auxv';
 
-// The keys node_exporter exports, in its order; mem_bytes comes after.
 const KEYS = [ 'inuse', 'orphan', 'tw', 'alloc', 'mem', 'memory' ];
 
-// AT_PAGESZ of an auxiliary vector as /proc/self/auxv gives it, or null.
 export function page_size(s) {
 	return proc.auxv(s)?.[proc.AT_PAGESZ];
 };
 
-// A file's lines as { used, protocols: [ { protocol, values: { key: n } } ] };
-// or a string saying what is wrong with its first malformed line.
 export function parse(rows) {
 	let res = { used: null, protocols: [] };
 
@@ -69,8 +48,6 @@ export function parse(rows) {
 	return res;
 };
 
-// The parsed file at `path`; null where `optional` and it is not there; or a
-// Result.err.
 function read(fs, path, optional) {
 	let rows = proc.lines(fs, path);
 
@@ -82,7 +59,6 @@ function read(fs, path, optional) {
 	return type(res) == 'string' ? Result.err(errors.SOURCE_INVALID, `${path}: ${res}`) : res;
 }
 
-// node_exporter's help, for every key.
 function gauge(out, protocol, key, n) {
 	out.gauge(`node_sockstat_${protocol}_${key}`, `Number of ${protocol} sockets in state ${key}.`)(null, n);
 }
@@ -103,7 +79,6 @@ function record(out, stat, page) {
 	}
 }
 
-// Whether a protocol of `stats` counts its memory in pages.
 function has_mem(stats) {
 	for (let s in stats)
 		for (let p in s?.protocols ?? [])
@@ -114,7 +89,6 @@ function has_mem(stats) {
 }
 
 export function collect(deps, out) {
-	// IPv4's file is there whenever procfs is; IPv6's only where the kernel has IPv6.
 	let v4 = read(deps.fs, SOCKSTAT, false);
 	let v6 = read(deps.fs, SOCKSTAT6, true);
 

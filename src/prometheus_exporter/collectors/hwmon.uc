@@ -1,43 +1,13 @@
 'use strict';
 
-// Based on utils/prometheus-node-exporter-lua/files/usr/lib/lua/prometheus-collectors/hwmon.lua
-// in OpenWrt's packages feed (Apache-2.0), rewritten for this exporter; see NOTICE.
-
-// The Lua exporter's hwmon collector: every chip under /sys/class/hwmon, its
-// sensor labels, temperatures and PWM duty cycles, named and labeled as
-// node_exporter's hwmon collector (collector/hwmon_linux.go) has them; and, as
-// node_exporter has them too, its fans, voltages, currents and power, the max
-// and crit limits of its temperatures and their alarm, and the average power
-// of a meter that keeps one (READINGS), in base units: the kernel's millidegrees,
-// millivolts, milliamperes and microwatts
-// (Documentation/hwmon/sysfs-interface.rst) as degrees, volts, amperes and
-// watts.
-//
-// A chip is named as node_exporter names it: the type and name of the device
-// its `device` link resolves to, `<type>_<name>` (as thermal_thermal_zone0 or
-// ieee80211_phy0), or else its `name` file, or else the hwmonN directory, each
-// part cleaned (lowercase, every character but a-z, 0-9, ':' and '_' an
-// underscore, no underscore at either end); chips that would share a name get
-// their cleaned `name` file appended, or their hwmonN where that is shared too.
-// node_hwmon_chip_names is written for the chips with a `name` file. A sensor
-// file that cannot be read is left out rather than failing the chip. Only the
-// chip's own directory is read, not its device's, once: of what it lists,
-// only the files of the sensors' labels, temperature inputs, PWM outputs and
-// READINGS are read, each named by one match at most.
-
 import { Result, proc } from 'prometheus_exporter.api';
 
-// Regexes are constants: ucode compiles a regex literal each time it is evaluated.
 const NUMBER = /[0-9]+/;
 const CHIP = /^hwmon[0-9]+$/;
 const INTEGER = /^-?[0-9]+$/;
 const PWM_FILE = /^pwm[0-9]+$/;
-// <type><number>_<item>: temp1_input, fan2_min, in0_alarm.
 const SENSOR_FILE = /^([a-z]+)([0-9]+)_([a-z]+)$/;
 
-// The readings of a sensor file <type><number>_<item> beside the temperature
-// input, by `<type>_<item>`, as node_exporter names them and helps them:
-// [ name, help, what the kernel's unit is of the base unit ].
 const READINGS = {
 	fan_input: [ 'node_hwmon_fan_rpm', 'Hardware monitor for fan revolutions per minute (input)', 1 ],
 	fan_min: [ 'node_hwmon_fan_min_rpm', 'Hardware monitor for fan revolutions per minute (min)', 1 ],
@@ -74,19 +44,16 @@ function dirname(path) {
 	return join('/', parts);
 }
 
-// The trimmed first line of a file, or null when it cannot be read.
 function read_value(fs, path) {
 	let line = proc.first_line(fs, path);
 
 	return line == null ? null : trim(line);
 }
 
-// node_exporter's cleanMetricName.
 export function clean(name) {
 	return trim(replace(lc(name), /[^a-z0-9:_]/g, '_'), '_');
 };
 
-// The chip's name before telling apart chips that share it.
 function base_name(fs, dir, hw, name_file) {
 	let dev = fs.realpath(`${dir}/device`);
 
@@ -106,7 +73,6 @@ function base_name(fs, dir, hw, name_file) {
 	return clean(hw);
 }
 
-// { hw, dir, name_file, chip } of every chip, as node_exporter names them.
 export function chips(fs, dirs) {
 	let all = map(dirs, (hw) => {
 		let dir = `${ROOT}/${hw}`;
@@ -134,8 +100,6 @@ export function chips(fs, dirs) {
 
 	return all;
 };
-// Sorted by the number each names, temp10_input after temp2_input, and then
-// by name: each name's number matched once, not at each comparison.
 function by_number(names) {
 	let keyed = map(names, (n) => [ +(match(n, NUMBER)?.[0] ?? 0), n ]);
 
@@ -143,14 +107,12 @@ function by_number(names) {
 	return map(keyed, (k) => k[1]);
 }
 
-// An integer reading in its base unit: `per` of the kernel's unit make one.
 function in_base_unit(v, per) {
 	return per == 1 ? int(v) : int(v) / (per * 1.0);
 }
 
 export function collect(deps, out) {
 	let fs = deps.fs;
-	// node_exporter's help texts; that of the PWM is its fallback's.
 	let chip_names = out.gauge('node_hwmon_chip_names', 'Annotation metric for human-readable chip names');
 	let sensor_label = out.gauge('node_hwmon_sensor_label', 'Label for given chip and sensor');
 	let temp_celsius = out.gauge('node_hwmon_temp_celsius', 'Hardware monitor for temperature (input)');
@@ -160,7 +122,6 @@ export function collect(deps, out) {
 	for (let key, r in READINGS)
 		readings[key] = out.gauge(r[0], r[1]);
 
-	// No hwmon class at all is a kernel without hwmon drivers, not a failure.
 	let dirs = filter(fs.lsdir(ROOT) ?? [], (e) => match(e, CHIP));
 
 	for (let c in chips(fs, by_number(dirs))) {
@@ -170,7 +131,6 @@ export function collect(deps, out) {
 		if (c.name_file != null && clean(c.name_file) != '')
 			chip_names({ chip, chip_name: clean(c.name_file) }, 1);
 
-		// One pass, in sensor order: each family's samples come in that order.
 		for (let e in by_number(fs.lsdir(dir) ?? [])) {
 			if (length(e) > 6 && substr(e, -6) == '_label') {
 				let label = read_value(fs, `${dir}/${e}`);

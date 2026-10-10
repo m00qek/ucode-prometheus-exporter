@@ -1,49 +1,7 @@
 'use strict';
 
-// Is the clock synchronized? Whichever NTP daemon keeps it: busybox's ntpd
-// (sysntpd, OpenWrt's default) or chronyd, each that runs with its name as
-// the `daemon` label.
-//
-// A daemon runs when procd runs its instance (`ubus call service list`):
-// sysntpd's init script is enabled on every image and starts ntpd only when
-// /etc/config/system says so (LuCI's "Enable NTP client"), so its instance
-// is what says whether busybox ntpd keeps the clock. With neither running
-// there is nothing to observe. chronyd enabled and not running (rpcd's rc,
-// asked only then) fails the collector, as any service enabled that does not
-// answer.
-//
-// - busybox ntpd has no interface to ask. It runs /usr/sbin/ntpd-hotplug on
-//   each event (a step, a new stratum, a loss of sync, and periodically,
-//   every 11 minutes or more), which hands procd's hotplug.ntp its
-//   environment; the base package's /etc/hotplug.d/ntp/90-prometheus-exporter
-//   keeps the last event in NTPD_STATE. Synchronized is a stratum below 16,
-//   busybox's MAXSTRAT; the offset is the event's (of the last update, for a
-//   periodic one), and its time is when ntpd last reported. Until ntpd's
-//   first event since boot (or since the package was installed), it is not
-//   known to be synchronized: 0.
-// - chronyd answers `chronyc -c tracking`: synchronized unless its leap status
-//   is "Not synchronised", its stratum, the last offset and the reference
-//   time, when that measurement was used. chronyc is one of
-//   meta.optional_commands: it is there only where chrony is installed. It
-//   runs as root (-u root): OpenWrt builds it to drop root for the chrony
-//   user, whom the jail, without /etc/passwd, cannot look up. The chrony
-//   collector has chronyd's details.
-//
-// The stratum, offset and time of the last update are written only while the
-// daemon is synchronized: an unsynchronized daemon's are 0 or meaningless.
-// node_exporter's timex collector reads the kernel's adjtimex(2) state, which
-// ucode cannot ask; these are the daemon's, so they are named apart.
-
 import { Result, errors, services } from 'prometheus_exporter.api';
 
-// Where the hotplug script keeps busybox ntpd's last event: in the service's
-// run directory, beside the exporter's own state, which is the uhttpd
-// instance's and goes with it, where this is written from outside and
-// outlives a restart. The jail mounts the directory, read-only: the script
-// renames a new file into it, which a mount of the file itself would not
-// show. It is this collector's own path, declared in meta.paths like any
-// other: the script and this collector name it, and a test holds both to the
-// run directory prometheus_exporter.state keeps, which is the core's.
 export const STATE_DIR = '/var/run/prometheus-exporter/timesync';
 export const NTPD_STATE = `${STATE_DIR}/ntpd`;
 
@@ -58,20 +16,14 @@ export const meta = {
 	paths: [ { path: STATE_DIR, owned: true } ],
 };
 
-// busybox ntpd's stratum while it is not synchronized (MAXSTRAT, ntpd.c).
 const MAXSTRAT = 16;
 
-// chronyc's report of what chronyd tracks, as CSV, run as the jail's root.
 export const CHRONYC_TRACKING = [ 'chronyc', '-u', 'root', '-c', 'tracking' ];
 
-// chronyc's leap status of an unsynchronized chronyd (client.c, print_report).
 const UNSYNCHRONISED = 'Not synchronised';
 
-// The program of each daemon's instance, among a service's instances (chronyd
-// also has one that waits for its first sync, and exits).
 const DAEMONS = { sysntpd: '/usr/sbin/ntpd', chronyd: '/usr/sbin/chronyd' };
 
-// Whether procd runs the daemon of service `name`, as a Result.
 function running(ubus, name) {
 	let res = ubus.call('service', 'list', { name });
 
@@ -85,15 +37,12 @@ function running(ubus, name) {
 	return Result.ok(false);
 }
 
-// A number spelled as a string, or null.
 function number(s) {
 	let n = (type(s) == 'string' && s != '') ? +s : null;
 
 	return (n != null && n == n) ? n : null;
 }
 
-// The hotplug script's file: { time, action, stratum, offset, ... } as
-// numbers where they are, or a string saying what is wrong with it.
 export function parse_state(text) {
 	let state = {};
 
@@ -115,7 +64,6 @@ export function parse_state(text) {
 	return state;
 };
 
-// { synchronized, stratum, offset, updated } of busybox ntpd.
 function ntpd(deps) {
 	let text = deps.fs.readfile(NTPD_STATE);
 
@@ -129,10 +77,6 @@ function ntpd(deps) {
 	return { synchronized: s.stratum < MAXSTRAT, stratum: s.stratum, offset: s.offset, updated: s.time };
 }
 
-// The fields of `chronyc -c tracking`, chrony 4.x: reference ID, name or
-// address, stratum, reference time, system time, last offset, RMS offset,
-// frequency, residual frequency, skew, root delay, root dispersion, update
-// interval, leap status.
 export function parse_tracking(text) {
 	let f = split(trim(text ?? ''), ',');
 
@@ -148,7 +92,6 @@ export function parse_tracking(text) {
 		root_dispersion: f[11], update_interval: f[12], leap: f[13] };
 };
 
-// { synchronized, stratum, offset, updated } of chronyd.
 function chronyd(deps) {
 	let res = deps.exec.run(CHRONYC_TRACKING);
 
@@ -171,8 +114,6 @@ export function collect(deps, out) {
 	if (!chronyd_runs.ok)
 		return chronyd_runs;
 
-	// chronyd enabled and not running is a failure; sysntpd's instance is not
-	// there while /etc/config/system turns NTP off, which is no failure.
 	let failure = null;
 	if (!chronyd_runs.data)
 		failure = services.unless_disabled(deps.ubus, 'chronyd',

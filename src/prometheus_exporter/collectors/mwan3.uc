@@ -1,8 +1,5 @@
 'use strict';
 
-// Based on utils/prometheus-node-exporter-lua/files/usr/lib/lua/prometheus-collectors/mwan3.lua
-// in OpenWrt's packages feed (Apache-2.0), rewritten for this exporter; see NOTICE.
-
 import { Result, errors, services } from 'prometheus_exporter.api';
 
 export const meta = {
@@ -13,18 +10,8 @@ export const meta = {
 	ubus: { mwan3: [ 'status' ], rc: [ 'list' ] },
 };
 
-// What mwan3track writes to an interface's STATUS file; mwan3's rpcd plugin
-// reports 'unknown' when there is none.
 export const STATUSES = [ 'offline', 'online', 'disconnecting', 'connecting', 'disabled', 'notracking', 'unknown' ];
 
-// Every value is a reading of now, so every family is a gauge (the Lua exporter
-// declared the times and the probe counts counters, but they go back to 0),
-// and the times are named in seconds.
-//
-// mwan3's ubus object is rpcd's plugin, which answers whether mwan3 runs or
-// not: so whether its init script is enabled is asked first. Disabled, mwan3
-// is nothing to observe; enabled and stopped, its interfaces say so
-// (mwan3_interface_running 0).
 export function collect(deps, out) {
 	let idle = services.idle(deps.ubus, 'mwan3');
 
@@ -65,7 +52,6 @@ export function collect(deps, out) {
 		lost(labels, d.lost);
 		turn(labels, d.turn);
 
-		// A status mwan3 adds later counts as unknown: one series is always 1.
 		let current = d.status in STATUSES ? d.status : 'unknown';
 		for (let s in STATUSES)
 			status({ interface: iface, status: s }, s == current);

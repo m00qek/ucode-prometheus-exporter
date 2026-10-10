@@ -1,29 +1,5 @@
 'use strict';
 
-// Based on utils/prometheus-node-exporter-lua/files/usr/lib/lua/prometheus-collectors/hostapd_stations.lua
-// in OpenWrt's packages feed (Apache-2.0), rewritten for this exporter; see NOTICE.
-
-// The Lua exporter's hostapd_stations collector, from hostapd's ubus objects
-// where Lua ran hostapd_cli: for each network.wireless interface with a
-// hostapd.<ifname> object, its get_status (ssid, bssid, freq, channel) and the
-// clients of get_clients. Each station's series are labelled by what tells it
-// apart, {vif, station}; what Lua labelled every series with as well, the
-// network's ssid, bssid, encryption, frequency and channel, is on one
-// hostapd_station_info per station, so a channel change (DFS, ACS) starts no
-// new series of its counters.
-//
-// A counter get_clients does not give a station is left out, not written as a
-// 0, which a dashboard would take for a reset.
-//
-// get_clients has no connected time, inactive time, SAE group or short
-// preamble flag, so hostapd_station_connected_seconds_total,
-// hostapd_station_inactive_seconds, hostapd_station_sae_group and
-// hostapd_station_flag_short_preamble are not written. The VHT beamformee
-// flags come from the capabilities hostapd parses, not from vht_caps_info.
-//
-// An interface whose hostapd object does not answer is left out, and fails the
-// collector once the others are written.
-
 import { Result, errors, services, u32 } from 'prometheus_exporter.api';
 
 export const meta = {
@@ -31,7 +7,6 @@ export const meta = {
 	title: 'hostapd stations',
 	help: 'Stations of each hostapd access point, from hostapd\'s ubus objects.',
 	needs: [ 'ubus' ],
-	// hostapd.<interface>, one object per access point.
 	ubus: { 'hostapd.*': [ 'get_clients', 'get_status' ], 'network.wireless': [ 'status' ] },
 };
 
@@ -56,9 +31,6 @@ function metrics(out) {
 	};
 }
 
-// hostapd sends the packet counts with blobmsg_add_u32() (src/ap/ubus.c),
-// which ucode's ubus gives signed (u32); the byte counts are 64-bit. A count
-// it does not send is null, which writes no sample.
 function station(m, labels, c) {
 	m.rx_packets(labels, u32(c.packets?.rx));
 	m.rx_bytes(labels, c.bytes?.rx);
@@ -78,7 +50,6 @@ function station(m, labels, c) {
 	m.vht_mu_beamformee(labels, !!c.capabilities?.vht?.mu_beamformee);
 }
 
-// One interface's samples; null, or the Result of the call that failed.
 function access_point(ubus, m, iface) {
 	let object = `hostapd.${iface.ifname}`;
 	let res = ubus.call(object, 'get_status');
@@ -107,9 +78,6 @@ function access_point(ubus, m, iface) {
 	return null;
 }
 
-// A device without radios (no network.wireless object, or one without radios)
-// or without a hostapd object for any of their interfaces has nothing to
-// observe.
 export function collect(deps, out) {
 	let res = deps.ubus.list();
 

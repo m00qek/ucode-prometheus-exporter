@@ -1,18 +1,7 @@
 'use strict';
 
-// Based on utils/prometheus-node-exporter-ucode/files/extra/uci_dhcp_host.uc
-// in OpenWrt's packages feed (Apache-2.0), rewritten for this exporter; see NOTICE.
-
-// The ucode exporter's uci_dhcp_host collector: node_openwrt_dhcp_host_info 1
-// (its dhcp_host_info, in the namespace of OpenWrt's own metrics) for every
-// static lease (`config host`) in /etc/config/dhcp, labeled with its name, MAC
-// and IP. A host with several MACs, as a list or as one space-separated value,
-// has a sample per MAC, where upstream dropped the mac label of a list; a host
-// without a MAC, name or IP has a sample without that label.
-
 import { Result, errors } from 'prometheus_exporter.api';
 
-// Regexes are constants: ucode compiles a regex literal each time it is evaluated.
 const SPACES = /\s+/;
 
 export const meta = {
@@ -23,7 +12,6 @@ export const meta = {
 	configs: [ 'dhcp' ],
 };
 
-// The MACs of a host's `mac` option: none, one, a list, or several in one value.
 export function macs(value) {
 	let all = [];
 
@@ -52,7 +40,6 @@ export function collect(deps, out) {
 			let labels = { name: scalar(s.name), mac, ip: scalar(s.ip) };
 			let id = sprintf('%J', labels);
 
-			// Two hosts alike would be the same series twice.
 			if (!seen[id]) {
 				seen[id] = true;
 				info(labels, 1);

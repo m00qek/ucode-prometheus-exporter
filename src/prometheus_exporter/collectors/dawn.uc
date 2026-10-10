@@ -1,14 +1,5 @@
 'use strict';
 
-// Based on utils/prometheus-node-exporter-lua/files/usr/lib/lua/prometheus-collectors/dawn.lua
-// in OpenWrt's packages feed (Apache-2.0), rewritten for this exporter; see NOTICE.
-
-// The Lua exporter's dawn collector: the access points this node serves in the
-// network overview of DAWN, the decentralized Wi-Fi controller (ubus dawn
-// get_network), and the signal of their clients. get_network nests
-// { ssid: { bssid: { ap fields..., client mac: { client fields } } } }, the
-// only objects under an AP being its clients; APs of other nodes are left out.
-
 import { Result, errors, services } from 'prometheus_exporter.api';
 
 export const meta = {
@@ -52,8 +43,6 @@ function access_point(m, ssid, bssid, ap) {
 	}
 }
 
-// DAWN disabled (its init script), or not installed, is nothing to observe;
-// enabled and not answering, a failure.
 export function collect(deps, out) {
 	let res = deps.ubus.call('dawn', 'get_network');
 

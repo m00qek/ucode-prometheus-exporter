@@ -1,8 +1,5 @@
 'use strict';
 
-// Based on utils/prometheus-node-exporter-ucode/files/extra/ltq-dsl.uc
-// in OpenWrt's packages feed (Apache-2.0), rewritten for this exporter; see NOTICE.
-
 import { Result, errors, services } from 'prometheus_exporter.api';
 
 export const meta = {
@@ -13,20 +10,16 @@ export const meta = {
 	ubus: { dsl: [ 'metrics' ] },
 };
 
-// The downstream and upstream samples of one family, from x.{down,up}stream[key].
 function both(sample, x, key) {
 	sample({ direction: 'down' }, x.downstream?.[key]);
 	sample({ direction: 'up' }, x.upstream?.[key]);
 }
 
-// The near and far end samples of one kind of error, from x.errors.{near,far}[key].
 function per_end(sample, x, err, key) {
 	sample({ err, loc: 'near' }, x.errors?.near?.[key]);
 	sample({ err, loc: 'far' }, x.errors?.far?.[key]);
 }
 
-// A device without a Lantiq DSL modem, where nothing publishes the `dsl` ubus
-// object, has nothing to observe.
 export function collect(deps, out) {
 	let res = deps.ubus.call('dsl', 'metrics');
 
@@ -55,7 +48,6 @@ export function collect(deps, out) {
 		profile: x.profile,
 	}, 1);
 
-	// The state apart from dsl_up, so that a state change starts no new dsl_up series.
 	out.gauge('dsl_up', 'Whether the DSL line is up (showtime).')(null, x.up);
 	out.gauge('dsl_state_info', 'The state of the DSL line, as the driver names it.')({ state: x.state }, 1);
 	out.gauge('dsl_uptime_seconds', 'Time the DSL line has been up.')(null, x.uptime);
@@ -65,7 +57,6 @@ export function collect(deps, out) {
 	both(out.gauge('dsl_signal_to_noise_margin_db', 'Signal to noise margin.'), x, 'snr');
 	both(out.gauge('dsl_aggregated_transmit_power_dbm', 'Aggregated transmit power, in dBm.'), x, 'actatp');
 
-	// The driver reports the delay in microseconds; none on a fast-path line.
 	if (x.downstream?.interleave_delay) {
 		let latency = out.gauge('dsl_latency_seconds', 'Interleaving delay.');
 		for (let dir in [ 'down', 'up' ]) {
@@ -89,7 +80,6 @@ export function collect(deps, out) {
 	per_end(errs, x, 'non pre-emptive crc error', 'crc_p');
 	per_end(errs, x, 'pre-emptive crc error', 'crcp_p');
 
-	// Only with vectoring.
 	if (x.erb)
 		out.counter('dsl_erb_total', 'Error reporting blocks for vectoring.')
 			({ counter: 'sent' }, x.erb.sent)

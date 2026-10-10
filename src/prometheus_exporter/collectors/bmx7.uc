@@ -1,8 +1,5 @@
 'use strict';
 
-// Based on utils/prometheus-node-exporter-lua/files/usr/lib/lua/prometheus-collectors/bmx7.lua
-// in OpenWrt's packages feed (Apache-2.0), rewritten for this exporter; see NOTICE.
-
 import { Result, errors, services } from 'prometheus_exporter.api';
 
 export const DIR = '/var/run/bmx7/json';
@@ -12,23 +9,18 @@ export const meta = {
 	title: 'bmx7 mesh',
 	help: 'The bmx7 mesh node, its links and tunnels, from its JSON status files.',
 	needs: [ 'fs', 'ubus' ],
-	// rc list: whether its service is enabled (the API's services).
 	ubus: { rc: [ 'list' ] },
 	paths: [ DIR ],
 };
 
 const SCALE = { K: 1000, M: 1000000, G: 1000000000 };
 
-// A number as bmx7 writes rates and memory ("54M", "2176K", "900"): with a K, M
-// or G suffix, it is scaled; anything else is returned as it is.
 export function interpret_suffix(v) {
 	let m = type(v) == 'string' ? match(v, /^(-?[0-9]+(\.[0-9]+)?)([KMG])$/) : null;
 
 	return m ? +m[1] * SCALE[m[3]] : v;
 };
 
-// A percentage as bmx7 writes its CPU usage ("0.4"), as a ratio; null for what
-// is not a number.
 export function ratio(v) {
 	let n = (type(v) in [ 'int', 'double' ]) ? v
 		: (type(v) == 'string' && match(trim(v), /^-?[0-9]+(\.[0-9]+)?$/)) ? +trim(v) : null;
@@ -36,7 +28,6 @@ export function ratio(v) {
 	return n == null ? null : n / 100.0;
 };
 
-// The object under `key` in one of the JSON files, or an error Result.
 function read(fs, file, key) {
 	let path = `${DIR}/${file}`;
 	let s = fs.readfile(path);
@@ -62,8 +53,6 @@ function list(v) {
 	return type(v) == 'array' ? v : type(v) == 'object' ? values(v) : [];
 }
 
-// bmx7 disabled (its init script), or not installed, is nothing to observe;
-// enabled without its status file, a failure.
 export function collect(deps, out) {
 	let res = read(deps.fs, 'status', 'status');
 	if (!res.ok)
@@ -104,7 +93,6 @@ export function collect(deps, out) {
 		if (option?.name == 'tunIn') {
 			for (let instance in list(option.INSTANCES))
 				for (let child in list(instance?.CHILD_INSTANCES))
-					// The /network of the tunnel; other child options are no network.
 					if (child?.name == null || child.name == 'network')
 						tun_in({ name: instance.value, network: child.value }, 1);
 		} else if (option?.name == 'plugin') {

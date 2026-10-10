@@ -1,32 +1,7 @@
 'use strict';
 
-// chronyd: what it tracks, its sources and, where it serves time, its server
-// statistics, from `chronyc -c tracking`, `-c sources` and `-c serverstats`
-// (CSV, addresses as numbers), named as SuperQ/chrony_exporter names them
-// (collector/tracking.go, sources.go, serverstats.go), with its help texts and
-// labels, so its dashboards work; as it does without DNS lookups (its
-// default), a source's name is its address. Its `_ppms` names are kept: ppm is
-// the unit chrony speaks in. chrony_up is not: node_scrape_collector_success
-// is the exporter's.
-//
-// chronyd disabled (its init script), or not installed, is nothing to
-// observe: chronyc is run first, and rpcd's rc asked only when it fails.
-// Enabled, a chronyd that does not answer fails the collector.
-//
-// chronyd answers serverstats on its Unix command socket only (over UDP it
-// refuses: 501 Not authorised), and chronyc reaches the socket only where it
-// can make its own socket beside it, in /var/run/chrony. The exporter's jail
-// does not give it that directory (writing there is commanding chronyd,
-// which can set the clock): under procd chronyc asks over UDP, as it does
-// for tracking and sources, and serverstats are left out. Outside the jail
-// (where ujail cannot be had, and `collector check` of a module) they are
-// read, when chronyd serves time: /etc/config/chrony has an `allow` section.
-// SOCKET is so a path it looks for without declaring it, knowing the jail
-// never has it; its tests say so (the devkit's with_collector's outside_jail).
-
 import { Result, errors, services } from 'prometheus_exporter.api';
 
-// chronyd's command socket (chrony's --chronyrundir, /var/run/chrony).
 export const SOCKET = '/var/run/chrony/chronyd.sock';
 
 export const meta = {
@@ -34,29 +9,20 @@ export const meta = {
 	title: 'chrony NTP daemon',
 	help: 'chronyd\'s tracking and sources, and its server statistics where it serves time, from chronyc.',
 	needs: [ 'ubus', 'uci', 'fs', 'exec' ],
-	// rc list: whether its service is enabled (the API's services).
 	ubus: { rc: [ 'list' ] },
 	configs: [ 'chrony' ],
 	commands: [ 'chronyc' ],
-	// chrony is what it watches, not what it needs: without it, nothing to observe.
 	optional_commands: [ 'chronyc' ],
 };
 
-// The reference of chronyd's own clock, as chrony_exporter knows it, and the
-// refid chrony 4 gives it (LOCL).
 const LOCAL_ADDRESS = '127.127.1.1';
 const LOCAL_REFID = '4C4F434C';
 
-// chronyc's mode and state characters (client.c, process_cmd_sources), as
-// chrony_exporter spells them (facebook/time's ntp/chrony).
 const MODES = { '^': 'client', '=': 'peer', '#': 'reference clock' };
 const STATES = { '*': 'sync', '?': 'unreach', 'x': 'falseticker', '~': 'jittery', '+': 'candidate', '-': 'outlier' };
 
-// A source that has no sample yet: its seconds since the last are (uint32_t)-1.
 const NO_SAMPLE = 4294967295;
 
-// [ field, family, type, help ] of tracking's CSV fields, in chrony_exporter's
-// order; the stratum (2) is last there too.
 const TRACKING = [
 	[ 5, 'chrony_tracking_last_offset_seconds', 'gauge', 'Chrony tracking last offset in seconds' ],
 	[ 3, 'chrony_tracking_reference_timestamp_seconds', 'gauge', 'Chrony tracking Reference timestamp' ],
@@ -72,8 +38,6 @@ const TRACKING = [
 	[ 2, 'chrony_tracking_stratum', 'gauge', 'Chrony tracking client stratum' ],
 ];
 
-// [ field, family, type, help ] of serverstats' CSV fields, chrony 4.8's
-// (client.c, process_cmd_serverstats): an older chronyc prints fewer.
 const SERVERSTATS = [
 	[ 0, 'chrony_serverstats_ntp_packets_received_total', 'counter', 'The number of valid NTP requests received by the server.' ],
 	[ 5, 'chrony_serverstats_nts_ke_connections_accepted_total', 'counter', 'The number of NTS-KE connections accepted by the server.' ],
@@ -94,21 +58,16 @@ const SERVERSTATS = [
 	[ 16, 'chrony_serverstats_ntp_hw_tx_timestamps_total', 'counter', 'The number of NTP responses (in the interleaved mode) which included a transmit timestamp captured by the NIC.' ],
 ];
 
-// A number spelled as a string, or null.
 function number(s) {
 	let n = (type(s) == 'string' && s != '') ? +s : null;
 
 	return (n != null && n == n) ? n : null;
 }
 
-// The CSV lines of a chronyc report, each split in its fields.
 function rows(text) {
 	return map(filter(split(text ?? '', '\n'), length), (l) => split(l, ','));
 }
 
-// chronyc's argv for a report: as CSV, run as root, the jail's user, as
-// timesync's (-u root: it would look up the chrony user, and the jail has
-// no /etc/passwd).
 export function argv(report) {
 	return [ 'chronyc', '-u', 'root', '-c', report ];
 };
@@ -123,7 +82,6 @@ function invalid(report, msg) {
 	return Result.err(errors.SOURCE_INVALID, `chronyc -c ${report}: ${msg}`);
 }
 
-// An octal reachability register's last 8 polls: [ ratio reached, last reached ].
 function reachability(octal) {
 	let n = 0;
 
@@ -142,7 +100,6 @@ function reachability(octal) {
 	return [ reached / 8.0, n & 1 ];
 }
 
-// 2 to the power of a log2 polling interval, which may be negative.
 function pow2(e) {
 	let v = 1.0;
 
@@ -217,8 +174,6 @@ function serverstats(out, f) {
 			out[s[2]](s[1], s[3])(null, f[s[0]]);
 }
 
-// Whether chronyd serves time: an `allow` section in /etc/config/chrony, which
-// its init script makes allow directives of.
 function serves(uci) {
 	return length(uci.chrony.sections('allow')) > 0;
 }

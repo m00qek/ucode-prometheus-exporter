@@ -1,8 +1,5 @@
 'use strict';
 
-// Based on utils/prometheus-node-exporter-ucode/files/base/netdev.uc
-// in OpenWrt's packages feed (Apache-2.0), rewritten for this exporter; see NOTICE.
-
 import { Result, errors } from 'prometheus_exporter.api';
 
 export const meta = {
@@ -12,10 +9,6 @@ export const meta = {
 	needs: [ 'rtnl' ],
 };
 
-// Each counter as the sum of the link's stats64 fields that /proc/net/dev adds
-// up for its column (dev_seq_printf_stats in net/core/net-procfs.c), as
-// node_exporter's netdev collector reads them from netlink (its legacy names,
-// the default), and receive_nohandler, which it adds.
 const STATS = [
 	[ 'receive_bytes', [ 'rx_bytes' ] ],
 	[ 'receive_packets', [ 'rx_packets' ] ],
@@ -36,7 +29,6 @@ const STATS = [
 	[ 'receive_nohandler', [ 'rx_nohandler' ] ],
 ];
 
-// The sum of the fields, or null when one is not a number: the sample is then left out.
 function sum(stats, fields) {
 	let total = 0;
 
@@ -62,15 +54,12 @@ export function collect(deps, out) {
 	if (type(links) != 'array')
 		return Result.err(errors.SOURCE_INVALID, 'RTM_GETLINK: not a list of links');
 
-	// A link without a name or statistics is not one /proc/net/dev would show.
 	links = filter(links, (l) => type(l?.dev) == 'string' && type(l.stats64) == 'object');
 	if (!length(links))
 		return Result.err(errors.SOURCE_INVALID, 'RTM_GETLINK: no link with statistics');
 
 	let labels = map(links, (l) => out.labels({ device: l.dev }));
 
-	// A statistic of one field, as most are, is the field itself, without
-	// the call: sum() of it, a number or null.
 	for (let s in STATS) {
 		let m = out.counter(`node_network_${s[0]}_total`, `Network device statistic ${s[0]}.`);
 		let one = (length(s[1]) == 1) ? s[1][0] : null;

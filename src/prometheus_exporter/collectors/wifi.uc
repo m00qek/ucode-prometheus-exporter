@@ -1,25 +1,5 @@
 'use strict';
 
-// Based on utils/prometheus-node-exporter-ucode/files/extra/wifi.uc
-// in OpenWrt's packages feed (Apache-2.0), rewritten for this exporter; see NOTICE.
-
-// The upstream ucode exporter's wifi collector: each radio and network in ubus
-// network.wireless status, with what nl80211 knows of the network's interface,
-// stations and channel; NaN for the averages of a network without stations.
-// Where node_exporter's wifi collector (collector/wifi_linux.go) has a metric,
-// this one has its name, help and labels (device, the interface, and
-// mac_address, the station's), and a radio label besides; the rest are
-// node_wifi_* too, in base units: bits per second, seconds, a ratio.
-//
-// With option `stations` (on by default) it also writes one sample per station
-// to the node_wifi_station_* families: what the Lua exporter's wifi_stations
-// collector did, which this exporter has no more of. node_wifi_stations, how
-// many stations each interface has, is written either way.
-//
-// An interface nl80211 cannot answer for is left out and fails the collector
-// once the other interfaces are written. A driver without a channel survey
-// gives no noise reading: NaN, as upstream, and not a failure.
-
 import { Result, errors, services } from 'prometheus_exporter.api';
 
 export const meta = {
@@ -33,20 +13,16 @@ export const meta = {
 	},
 };
 
-// The mode of an interface by its NL80211_IFTYPE_* value.
 const IFTYPES = [
 	'Unknown', 'Ad-Hoc', 'Client', 'Master', 'Master (VLAN)', 'WDS', 'Monitor',
 	'Mesh Point', 'P2P Client', 'P2P Go', 'P2P Device', 'OCB',
 ];
 
-// The types of a number, for a lookup rather than an array made at each check.
 const NUMBER = { int: true, double: true };
 
-// nl80211's bitrates are in units of 100 kbit/s, its expected throughput in kbit/s.
 const BITRATE_UNIT = 100000;
 const KBIT = 1000;
 
-// node_exporter's station families, and the expected throughput.
 function station_metrics(out) {
 	return {
 		connected: out.counter('node_wifi_station_connected_seconds_total', 'The total number of seconds a station has been connected to an access point.'),
@@ -65,14 +41,6 @@ function station_metrics(out) {
 	};
 }
 
-// ---- The channel's times ----------------------------------------------------
-// From the survey of the channel an interface is on (NL80211_SURVEY_INFO_TIME,
-// _TIME_BUSY, _TIME_RX, _TIME_TX): how long the radio has been on it, sensed
-// it busy, received and transmitted, counted by the driver in milliseconds.
-// node_exporter's wifi collector has none of them: node_wifi_channel_*, in
-// seconds, per interface as the noise is, so the interfaces of one radio
-// repeat its counts (max by (radio)). A new channel starts them again, as a
-// counter reset; a time the driver does not count is left out.
 function channel_metrics(out) {
 	return {
 		channel_active: out.counter('node_wifi_channel_active_seconds_total', 'Time the radio has been on the interface\'s channel, in seconds.'),
@@ -82,7 +50,6 @@ function channel_metrics(out) {
 	};
 }
 
-// [ the survey's attribute, the family ]
 const CHANNEL_TIMES = [ [ 'time', 'channel_active' ], [ 'busy', 'channel_busy' ], [ 'time_rx', 'channel_receive' ], [ 'time_tx', 'channel_transmit' ] ];
 
 function channel_times(m, labels, survey, freq) {
@@ -103,7 +70,6 @@ function channel_times(m, labels, survey, freq) {
 		return;
 	}
 }
-// ---- end of the channel's times ---------------------------------------------
 
 function metrics(out) {
 	return {
@@ -125,8 +91,6 @@ function failed(res, ifname) {
 	return Result.err(res.error, `${ifname}: ${res.details}`);
 }
 
-// The mean of the values `pick` finds in `list`, or NaN for none (or a mean of
-// 0, as upstream).
 function mean(list, pick) {
 	let sum = 0, n = 0;
 
@@ -141,9 +105,6 @@ function mean(list, pick) {
 	return (n && sum) ? sum / (n * 1.0) : NaN;
 }
 
-// The upstream exporter's signal quality, (signal + 110) / 70, as a ratio
-// where it was a percentage: -110 dBm is 0, -40 dBm 1, and a signal past
-// either is as good or as bad as it. NaN, for no stations, stays NaN.
 export function quality(signal) {
 	let q = (signal + 110) / 70.0;
 
@@ -159,13 +120,10 @@ function noise_at(survey, freq) {
 	return NaN;
 }
 
-// A value in milliseconds in seconds, or null for none.
 function seconds(ms) {
 	return NUMBER[type(ms)] ? ms / 1000.0 : null;
 }
 
-// A field the driver does not report is left out, and so are the bitrates and
-// the expected throughput when it reports 0.
 function station(m, radio, device, sta) {
 	let labels = m.labels({ radio, device, mac_address: sta?.mac });
 	let info = sta?.sta_info ?? {};
@@ -188,7 +146,6 @@ function station(m, radio, device, sta) {
 		m.expected_throughput(labels, info.expected_throughput * KBIT);
 }
 
-// One network's samples; null, or the Result of the request that failed.
 function network(nl, m, radio, iface, with_stations) {
 	let C = nl.const;
 	let ifname = iface.ifname;
@@ -218,7 +175,6 @@ function network(nl, m, radio, iface, with_stations) {
 	if (!res.ok)
 		return failed(res, ifname);
 
-	// An empty dump is a null reply.
 	let stations = type(res.data) == 'array' ? res.data : [];
 	let bitrate = mean(stations, (s) => s?.sta_info?.tx_bitrate?.bitrate32);
 	let signal = mean(stations, (s) => s?.sta_info?.signal);
@@ -243,9 +199,6 @@ function network(nl, m, radio, iface, with_stations) {
 	return null;
 }
 
-// A device without radios, where netifd has no network.wireless object or one
-// without radios, has nothing to observe. A radio without interfaces is
-// still a radio, with its node_wifi_radio_info.
 export function collect(deps, out, options) {
 	let res = deps.ubus.call('network.wireless', 'status');
 
