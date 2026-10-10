@@ -110,7 +110,7 @@ uci set ubnt-manager.sample_ap.target=127.0.0.1 && uci set ubnt-manager.sample_a
 reload_config
 
 # A config the feed's ucode exporter left behind: apk keeps one someone changed
-# when it removes the package.
+# when it removes the package. loadavg's options are none the exporter takes.
 OLD=/etc/config/prometheus-node-exporter-ucode
 cat >"$OLD" <<'EOF'
 config prometheus-node-exporter-ucode 'main'
@@ -120,6 +120,10 @@ config prometheus-node-exporter-ucode 'main'
 
 config collector 'wifi'
 	option stations '0'
+
+config collector 'loadavg'
+	option budget 'soon'
+	option colour 'blue'
 EOF
 old_sum=$(md5sum <"$OLD")
 
@@ -141,6 +145,9 @@ uci set $NAME.main.http_keepalive=30 && uci commit $NAME && "$INIT" reload
 eventually "and back at 30, keeps it 30 seconds" says ' -k 30 ' command_line
 check "it leaves the old config as it was" test "$(md5sum <"$OLD")" = "$old_sum"
 check "it logs what it took, at info" says "daemon.info $NAME: imported from $OLD: http_keepalive=30, collector wifi" logread
+check "and each collector option it left out, checked as the service checks it" sh -c "logread | grep -qF 'collector loadavg, option budget: expected an integer, got \"soon\"; left at its default' &&
+	logread | grep -qF 'collector loadavg has no option colour; left out'"
+check "so it writes no section of loadavg, and the configuration is valid" sh -c "! uci -q get $NAME.loadavg && $LIBEXEC/check.uc --config"
 check "its uci-defaults script runs once" test ! -e /etc/uci-defaults/$NAME-import
 check "it makes no directory without textfile" test ! -e /var/prometheus
 all_base_served() { for c in $BASE_COLLECTORS; do served "$c" || return 1; done; }

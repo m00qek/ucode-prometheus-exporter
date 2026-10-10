@@ -1,6 +1,6 @@
 'use strict';
 
-import { describe, it, prop, gen, assert } from 'utest';
+import { describe, it, prop, gen, assert, mock } from 'utest';
 import { with_collector, jail_of, outcome } from 'prometheus.exporter.devkit.collector';
 import { rc } from 'prometheus.exporter.devkit.rc';
 import * as Result from 'prometheus.exporter.result';
@@ -90,6 +90,12 @@ describe('collectors.dhcp_leases', () => {
 				'node_openwrt_dhcp_leases{server="dnsmasq",interface="main",family="ipv4"} 4',
 				'node_openwrt_dhcp_leases{server="dnsmasq",interface="guest",family="ipv4"} 1',
 				'node_openwrt_dhcp_leases{server="dnsmasq",interface="iot",family="ipv4"} 2',
+				'# HELP node_openwrt_dhcp_pool_size Addresses in the DHCPv4 pool of an interface: its dhcp section\'s start and limit, within its subnet.',
+				'# TYPE node_openwrt_dhcp_pool_size gauge',
+				'node_openwrt_dhcp_pool_size{interface="guest"} 99',
+				'node_openwrt_dhcp_pool_size{interface="iot"} 99',
+				'node_openwrt_dhcp_pool_size{interface="main"} 99',
+				'node_openwrt_dhcp_pool_size{interface="mgmt"} 99',
 			], r.lines);
 		});
 	});
@@ -116,8 +122,61 @@ describe('collectors.dhcp_leases', () => {
 				'node_openwrt_dhcp_lease_expiry_timestamp_seconds{server="dnsmasq",interface="main",family="ipv4",address="192.168.13.116"} 1790859277',
 				'node_openwrt_dhcp_lease_expiry_timestamp_seconds{server="dnsmasq",interface="iot",family="ipv4",address="192.168.17.70"} 1790859246',
 				'node_openwrt_dhcp_lease_expiry_timestamp_seconds{server="dnsmasq",interface="iot",family="ipv4",address="192.168.17.152"} 1790859222',
-			], slice(r.lines, 5));
+			], slice(r.lines, 11));
 		});
+	});
+
+	// As dnsmasq's init script has ipcalc.sh place the range: from the
+	// subnet's address `start` into it, `limit` long, within the subnet, but
+	// for its network and broadcast addresses and the router's own.
+	it('sizes a pool as dnsmasq ranges it in its subnet', () => {
+		let lan = [ 192, 168, 1, 1 ];
+
+		assert.match([ 150, 55, 10, 253, 99, 1, 2, null, null, null ], [
+			dhcp_leases.pool_size(lan, 24, 100, 150),
+			dhcp_leases.pool_size(lan, 24, 200, 150),
+			dhcp_leases.pool_size(lan, 24, 0, 10),
+			dhcp_leases.pool_size(lan, 24, 1, 254),
+			dhcp_leases.pool_size([ 192, 168, 1, 150 ], 24, 100, 100),
+			dhcp_leases.pool_size(lan, 30, 0, 10),
+			dhcp_leases.pool_size([ 10, 0, 0, 2 ], 31, 0, 10) + 1,
+			dhcp_leases.pool_size(lan, 32, 0, 10),
+			dhcp_leases.pool_size(lan, 24, 100, 0),
+			dhcp_leases.pool_size([ 192, 168, 1, 254 ], 24, 254, 10),
+		]);
+	});
+
+	it('sizes the pool of each dhcp section a DHCPv4 server serves, on a static interface with an address', () => {
+		let dump = [
+			{ interface: 'lan', proto: 'static', 'ipv4-address': [ { address: '192.168.1.1', mask: 24 } ] },
+			{ interface: 'guest', proto: 'static', 'ipv4-address': [ { address: '10.0.0.1', mask: 16 } ] },
+			{ interface: 'wan', proto: 'dhcp', 'ipv4-address': [ { address: '192.0.2.10', mask: 24 } ] },
+			{ interface: 'lan6', proto: 'static', 'ipv6-address': [ { address: 'fd00::1', mask: 64 } ] },
+		];
+		let dhcp = {
+			lan: { '.type': 'dhcp', interface: 'lan' },
+			guest: { '.type': 'dhcp', interface: 'guest', start: '10.0.1.0', limit: '1000', netmask: '255.255.254.0' },
+			wan: { '.type': 'dhcp', interface: 'wan', ignore: '1' },
+			wan2: { '.type': 'dhcp', interface: 'wan' },
+			off: { '.type': 'dhcp', interface: 'lan', dhcpv4: 'disabled' },
+			fixed: { '.type': 'dhcp', interface: 'lan', dynamicdhcp: '0' },
+			fixed4: { '.type': 'dhcp', interface: 'lan', dynamicdhcp: '1', dynamicdhcpv4: 'off' },
+			ignored: { '.type': 'dhcp', interface: 'lan', ignore: 'yes' },
+			none: { '.type': 'dhcp', interface: 'nowhere' },
+			v6: { '.type': 'dhcp', interface: 'lan6' },
+			unnamed: { '.type': 'dhcp', start: '100' },
+			odd: { '.type': 'dhcp', interface: 'lan', start: 'x' },
+			short: { '.type': 'dhcp', interface: 'lan', start: '10', limit: '20', netmask: '28' },
+			other: { '.type': 'host', interface: 'lan' },
+		};
+		let out;
+
+		mock.inject('uci', { data: { dhcp } }, (uci) => {
+			let c = uci.cursor();
+
+			out = dhcp_leases.pools({ foreach: (stype, cb) => c.foreach('dhcp', stype, cb) }, dump);
+		});
+		assert.match([ { interface: 'lan', size: 150 }, { interface: 'guest', size: 255 }, { interface: 'lan', size: 5 } ], out);
 	});
 
 	it('counts the leases of dnsmasq and odhcpd, of both families, with 0 where odhcpd serves none', () => {

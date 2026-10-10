@@ -9,6 +9,12 @@
 # Captured by hand, MAC addresses redacted as in the sysfs captures:
 #   rtnl/RTM_GETLINK.json  ucode -e 'import {request,"const" as c} from "rtnl"; let r = request(c.RTM_GETLINK, c.NLM_F_DUMP, {});
 #                          for (let l in r) { delete l.af_spec; delete l.stats; } printf("%.2J\n", r);'
+#   rtnl/RTM_GETROUTE.json (caju-router) is not a capture: the routes of its
+#                          network.interface dump as rtnl's dump of every table gives them,
+#                          in the addresses of its nf_conntrack capture (main 10.193.13.0/24,
+#                          mgmt 10.193.11.0/24, iot 10.193.17.0/24, the CGNAT WAN 100.64.0.1,
+#                          wan6's 2001:db8:0:1::e157), the default routes on eth1, and the
+#                          router's own addresses in the local table (255, type 2).
 # Made up, for what the devices do not have: test/fixtures/synthetic/.
 file /proc/loadavg
 ubus system board

@@ -8,7 +8,7 @@
 
 import * as Result from 'prometheus.exporter.result';
 import * as errors from 'prometheus.exporter.errors';
-import { TYPES, METRIC_NAME, format_value, format_labels, utf8_valid, add_family, family_set, families_of } from 'prometheus.exporter.exposition.format';
+import { TYPES, METRIC_NAME, format_value, format_labels, utf8_valid, reserved, add_family, family_set, families_of } from 'prometheus.exporter.exposition.format';
 
 const LABEL_START = /^\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*"/;
 const LABELS_END = /^\s*\}/;
@@ -63,6 +63,10 @@ function scan_labels(s, utf8) {
 		}
 
 		let name = m[1];
+
+		if (reserved(name))
+			return `reserved label name '${name}'`;
+
 		let scanned = scan_value(substr(s, length(m[0])));
 
 		if (type(scanned) == 'string')
@@ -112,6 +116,7 @@ export function parse(text) {
 	let current = null;
 	let n = 0;
 	let utf8 = !utf8_valid(text ?? '');
+	let nul = index(text ?? '', '\0') >= 0;
 
 	function fail(msg) {
 		return Result.err(errors.EXPOSITION_INVALID, `line ${n}: ${msg}`);
@@ -136,6 +141,9 @@ export function parse(text) {
 
 	for (let line in split(text ?? '', '\n')) {
 		n++;
+		if (nul && index(line, '\0') >= 0)
+			return fail('holds a NUL byte');
+
 		line = rtrim(line, '\r');
 
 		if (trim(line) == '')

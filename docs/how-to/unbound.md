@@ -54,6 +54,8 @@ service unbound restart
 
 The collector writes them as [letsencrypt/unbound_exporter](https://github.com/letsencrypt/unbound_exporter) names them, `unbound_query_types_total{type}`, `unbound_answer_rcodes_total{rcode}`, `unbound_response_time_seconds` and the rest, once the reply has them; see [Metrics](../reference/metrics.md#unbound). Unbound leaves out a type, class or opcode no query has had yet, so their series come as the queries do. Keeping the counts costs Unbound some time per query, which is why the package leaves them off.
 
+The collector leaves out what unbound_exporter does not export: the memory of the stream and HTTP buffers (`mem.streamwait`, `mem.http.*`) and the caches' lock collisions (`*.max_collisions`). It also leaves out every DNSCrypt statistic of an Unbound built with DNSCrypt, `mem.cache.dnscrypt_*` among them, which unbound_exporter would write as two more caches.
+
 Unbound leaves out a query type, class, opcode or rcode no query had (`stat_inhibit_zero`): those series appear as the queries do.
 
 ## Use another socket

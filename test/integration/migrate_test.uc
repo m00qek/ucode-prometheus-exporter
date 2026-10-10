@@ -9,6 +9,7 @@ import { cursor } from 'uci';
 import { readfile, writefile, mkdtemp, unlink, rmdir, lsdir } from 'fs';
 import * as migrate from 'prometheus.exporter.migrate';
 import * as config from 'prometheus.exporter.config';
+import * as wifi from 'prometheus.collectors.wifi';
 
 const SHIPPED = readfile(`files/etc/config/${config.NAME}`);
 const SHIPPED_AUTH = readfile(`files/etc/config/${config.AUTH_CONFIG}`);
@@ -90,6 +91,29 @@ describe('migrate, on uci', () => {
 			wifi: { type: 'collector', stations: '0' },
 		}, read_back(c.dir));
 		assert.match(FEED_UCODE, readfile(`${c.dir}/prometheus-node-exporter-ucode`));
+	});
+
+	// One value the exporter refuses made the configuration invalid, and the
+	// service would not start.
+	it('takes over only the collector options the exporter takes, so that what it writes is valid', () => {
+		let old = FEED_UCODE + `\toption colour 'blue'\n\toption budget '2'\n\nconfig collector 'loadavg'\n\toption budget 'soon'\n`;
+		let c = confdir({ [config.NAME]: SHIPPED, 'prometheus-node-exporter-ucode': replace(old, "stations '0'", "stations 'maybe'") });
+		let res = migrate.run(c.uci, { wifi: wifi.meta });
+
+		assert.match([
+			'prometheus-node-exporter-ucode: collector wifi, option stations: expected a boolean, got "maybe"; left at its default',
+			'prometheus-node-exporter-ucode: collector wifi has no option colour; left out',
+			'prometheus-node-exporter-ucode: collector loadavg, option budget: expected an integer, got "soon"; left at its default',
+			'imported from /etc/config/prometheus-node-exporter-ucode: listen_interface=lan, listen_port=9200, collector wifi',
+		], res.lines);
+		assert.match({
+			main: { type: config.NAME, ...migrate.SHIPPED, listen_interface: 'lan', listen_port: '9200' },
+			wifi: { type: 'collector', budget: '2' },
+		}, read_back(c.dir));
+
+		let fresh = cursor(c.dir, '/tmp/migrate-none');
+
+		assert.match([ true, true ], [ config.settings(fresh, 'wifi', wifi.meta).ok, config.main(fresh).ok ]);
 	});
 
 	it('takes over the Lua exporter\'s, keeping this one\'s port for the old default', () => {

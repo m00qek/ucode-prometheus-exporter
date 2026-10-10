@@ -201,7 +201,7 @@ export const families = {
 	'mwan3_interface_up': { labels: [ 'interface' ], to: 'mwan3_interface_up' },
 
 	// ---- nat_traffic ----
-	'node_nat_traffic': { labels: [ 'src', 'dest' ], to: 'node_nat_traffic_bytes', note: 'A series per host on this side of the router (the source of a connection, or the LAN host a port forward reaches), `host`, where it was one per pair of addresses: `sum by (src)` is `node_nat_traffic_bytes{host}`. The pairs come back with the option `peers`, `{host,peer}` (since 0.3.0).' },
+	'node_nat_traffic': { labels: [ 'src', 'dest' ], to: 'node_nat_traffic_bytes', note: 'A series per host on this side of the router (the end of a connection there: a LAN host or the router, or the LAN host a port forward reaches; `host="other"` for a connection with neither end there), `host`, where it was one per pair of addresses: `sum by (src)` is `node_nat_traffic_bytes{host}`. The pairs come back with the option `peers`, `{host,peer}` (since 0.3.0).' },
 
 	// ---- netstat ----
 	'node_netstat_<Section>_<Field>': { labels: [], to: 'node_netstat_<Protocol>_<Field>', note: 'Untyped, as node_exporter has them; by default only node_exporter\'s fields, some 40 of about 400: the option `fields` takes others (`.*` for every one).' },

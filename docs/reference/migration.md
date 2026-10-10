@@ -296,7 +296,7 @@ The Lua exporter's; here, [`nat_traffic`](collectors.md#nat_traffic)'s.
 
 | Family | Lua | ucode | Here | Change | Notes |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| `node_nat_traffic` | `{src,dest}` | — | `node_nat_traffic_bytes{host,peer}` | renamed | A series per host on this side of the router (the source of a connection, or the LAN host a port forward reaches), `host`, where it was one per pair of addresses: `sum by (src)` is `node_nat_traffic_bytes{host}`. The pairs come back with the option `peers`, `{host,peer}` (since 0.3.0). |
+| `node_nat_traffic` | `{src,dest}` | — | `node_nat_traffic_bytes{host,peer}` | renamed | A series per host on this side of the router (the end of a connection there: a LAN host or the router, or the LAN host a port forward reaches; `host="other"` for a connection with neither end there), `host`, where it was one per pair of addresses: `sum by (src)` is `node_nat_traffic_bytes{host}`. The pairs come back with the option `peers`, `{host,peer}` (since 0.3.0). |
 
 ### `netclass` {#from-netclass}
 
@@ -793,7 +793,7 @@ When the package is installed, its uci-defaults script takes over what `/etc/con
 | Old setting | Taken over? |
 | :--- | :--- |
 | `listen_interface`, `listen_port`, `http_keepalive`, `cert`, `key`, `omit_zero_values` of the main section | Yes, each that this exporter takes the value of; a value it would refuse is left at its default, and logged. A port that is the old exporter's default (9101 of the ucode one, 9100 of the Lua one) is 9100. |
-| The ucode exporter's `config collector` sections (wifi's `stations`) | Yes, each named section, option for option, as it is: an option this exporter does not have is kept and ignored; a value it refuses is kept too, and the configuration is then invalid, so the service does not start until it is changed: run `service prometheus-exporter check` after the install. |
+| The ucode exporter's `config collector` sections (wifi's `stations`) | Yes, each named section, each option checked as the service checks it: an option the collector has not is left out, and a value it refuses is left at its default, each logged, so the configuration stays valid. A collector not installed yet when the script runs (it runs as the base package is installed, before the packages installed with it) is checked against what the feed's ucode exporter had of it (wifi's `stations`) and the options every collector has (`enabled`, `budget`, `max_samples`). |
 | Both old configs | The ucode exporter's alone. |
 | Which collectors were installed | No: install the packages of [Packages](#packages). |
 | Whether the old service was enabled | No: the exporter is enabled when it is installed. |
