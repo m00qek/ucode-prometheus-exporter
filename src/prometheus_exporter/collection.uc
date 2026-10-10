@@ -1,12 +1,5 @@
 /**
- * The collectors' modules as ucode loads them: their directory, a module's
- * name, and its exports, loaded alone or with others as one program, their
- * top level guarded (top_level); and a meta's fingerprint, which tells a meta
- * from the one checked in another process. What the loader
- * (prometheus_exporter.loader), which checks the modules, and the handler,
- * which serves them, both take: the handler loads the modules the loader
- * checked without the loader, which it never keeps (see
- * prometheus_exporter.app's load).
+ * The collectors' modules as ucode loads them, their top level guarded.
  *
  * @module prometheus_exporter_collection
  */
@@ -15,34 +8,20 @@
 
 import * as errors from 'prometheus_exporter.errors';
 
-/**
- * The installed collectors' directory, as the packages install them.
- *
- * @type {string}
- */
+/** The installed collectors' directory, as the packages install them. */
 export const DIR = '/usr/share/ucode/prometheus_exporter/collectors';
 
 /**
  * A collector's module name: its name (meta.name) with _ for -.
  *
- * @param {string} name a collector's name (meta.name).
- * @returns {string} its module's name: name with _ for -.
+ * @param {string} name
+ * @returns {string}
  */
 export function id_of(name) {
 	return replace(name, '-', '_');
 };
 
-/**
- * What ucode's functions a collector's top level may not call do, by name:
- * while it runs, each is replaced by one that refuses it (top_level()). They
- * block, end, or write to the process that loads it, load code, which reads
- * files and reaches every module (a top level that require()s fs reads what
- * it likes), or change how it takes a signal. The collector API's exposition
- * functions load the exposition format with loadstring, the first time one
- * is called: at the top level, that is refused too.
- *
- * @type {Object<string, string>}
- */
+/** What each function a collector's top level may not call does, by name. */
 export const TRAPPED = {
 	sleep: 'blocks the process',
 	system: 'runs a program',
@@ -59,17 +38,9 @@ export const TRAPPED = {
 	signal: 'changes how the process takes a signal',
 };
 
-/**
- * The prefix of what top_level() throws: the code a collector whose top
- * level did more than declare is left out with.
- *
- * @type {string}
- */
+/** The prefix of what top_level() throws. */
 export const IMPURE = errors.COLLECTOR_IMPURE;
 
-// What replaces ucode's function `name` while a top level runs: it refuses
-// the call, and keeps in st.refused the first it refused. Made here, not in
-// top_level()'s loop, whose closures would all see its last name.
 function trap(st, name, does) {
 	return function() {
 		st.refused ??= `${IMPURE} (its top level called ${name}(), which ${does}: ` +
@@ -79,25 +50,10 @@ function trap(st, name, does) {
 }
 
 /**
- * Runs `program`, a compiled program whose top level is collector modules'
- * (loadstring's, of their imports), with each of ucode's functions of
- * TRAPPED replaced by one that refuses it, and gives back what it returns.
- * The functions are themselves again once it is done, whatever it did.
+ * Runs `program` with each function of TRAPPED replaced by one that refuses it.
  *
- * A collector's top level runs twice when it is loaded: in the probe's child
- * process, guarded (prometheus_exporter.probe), and then in the process that
- * serves the scrapes, uhttpd's, where nothing stops it. Both run it here. In
- * the child, what it calls is refused before it runs, and the probe leaves the
- * module out; and should it call one in uhttpd that it did not in the child,
- * the second load leaves it out the same way, rather than the call blocking,
- * ending or writing to the process every scrape is forked from.
- *
- * A call refused throws `COLLECTOR_IMPURE (its top level called <name>(),
- * which <does>: ...)`, and so does the program, after it, if the module caught
- * that. What the program throws of its own, it throws.
- *
- * @param {function(): *} program the compiled program.
- * @returns {*} what it returns.
+ * @param {function(): *} program
+ * @returns {*}
  */
 export function top_level(program) {
 	let saved = {};
@@ -128,11 +84,10 @@ export function top_level(program) {
 };
 
 /**
- * A module's exports, by name. require() cannot load an ES module, but a
- * script that imports one can. Its top level runs guarded (top_level()).
+ * A module's exports, by name.
  *
- * @param {string} id the module's name, in the collectors' directory.
- * @returns {CollectorModule} its exports; it throws what loading it throws.
+ * @param {string} id
+ * @returns {CollectorModule}
  */
 export function import_module(id) {
 	return top_level(loadstring(sprintf('import * as c from %J;\nreturn c;', 'prometheus_exporter.collectors.' + id),
@@ -140,28 +95,20 @@ export function import_module(id) {
 };
 
 /**
- * A module's exports, by its path, as `collector check` loads a module not
- * installed yet: as import_module() loads one by name, its top level guarded.
+ * A module's exports, by its path, its top level guarded.
  *
- * @param {string} path the module's file.
- * @returns {CollectorModule} its exports; it throws what loading it throws.
+ * @param {string} path
+ * @returns {CollectorModule}
  */
 export function import_path(path) {
 	return top_level(loadstring(sprintf('import * as c from %J;\nreturn c;', path), { raw_mode: true }));
 };
 
 /**
- * The exports of each of the modules `ids`, by name, compiled as ONE
- * program: what they import, the collector API and the core's modules
- * behind it, is compiled once for them all, and kept once. import_module
- * compiles a program a module, and with it a copy of all it imports, whose
- * source files ucode keeps open while the copy lives: six files a collector.
- * One module that does not compile or load fails them all. Their top level
- * runs guarded (top_level()).
+ * The exports of each of the modules `ids`, by name, compiled as one program.
  *
- * @param {string[]} ids the modules' names, in the collectors' directory.
- * @returns {Object<string, CollectorModule>} each one's exports, by name; it
- *   throws what loading any of them throws.
+ * @param {string[]} ids
+ * @returns {Object<string, CollectorModule>}
  */
 export function import_modules(ids) {
 	let lines = map(ids, (id, i) => sprintf('import * as c%d from %J;', i, 'prometheus_exporter.collectors.' + id));
@@ -178,9 +125,9 @@ export function import_modules(ids) {
 /**
  * The module names in `dir`, sorted.
  *
- * @param {module:fs} fs what lists the directory: an object of fs's lsdir.
- * @param {string} dir the directory.
- * @returns {string[]} the names of its [a-z0-9_]+.uc files, without .uc.
+ * @param {module:fs} fs
+ * @param {string} dir
+ * @returns {string[]}
  */
 export function discover(fs, dir) {
 	let files = filter(fs.lsdir(dir) ?? [], (f) => match(f, /^[a-z0-9_]+\.uc$/));
@@ -189,22 +136,17 @@ export function discover(fs, dir) {
 };
 
 /**
- * A module the loader checked in a child process (the loader's
- * check_module): its name, the fingerprint of its meta as the loader took it
- * there (fingerprint()), and whether it is one of the exporter's own.
+ * A module the loader checked in a child process.
  *
  * @typedef {{ id: string, meta: string, own: boolean }} CheckedModule
  */
 
 /**
- * What the exporter logs of module `id`, which loading threw `error` of (its
- * first line): `skipping collector: COLLECTOR_IMPURE (<id>: ...)` for a top
- * level that did more than declare (top_level()), and `cannot load collector
- * '<id>': <error>` for anything else.
+ * What the exporter logs of module `id`, whose loading threw `error`.
  *
- * @param {string} id the module's name.
- * @param {string} error the first line of what loading it threw.
- * @returns {string} the message.
+ * @param {string} id
+ * @param {string} error
+ * @returns {string}
  */
 export function load_error(id, error) {
 	let m = match(error, /^([A-Z_]+) \((.*)\)$/);
@@ -216,13 +158,11 @@ export function load_error(id, error) {
 };
 
 /**
- * Why the outcome of loading a module in the probe's child process
- * (prometheus_exporter.probe) leaves it out, as the exporter logs it, or
- * null when it does not: it hung, or did not load (load_error()).
+ * Why the probe's outcome for a module leaves it out, or null when it does not.
  *
- * @param {string} id the module's name.
- * @param {?ProbeOutcome} p the outcome, or null for none.
- * @returns {?string} why, or null.
+ * @param {string} id
+ * @param {?ProbeOutcome} p
+ * @returns {?string}
  */
 export function left_out(id, p) {
 	if (p?.hung)
@@ -234,16 +174,10 @@ export function left_out(id, p) {
 };
 
 /**
- * A meta's fingerprint: its JSON, functions and all, as ucode writes them
- * (their signatures). The same module loaded twice gives the same meta, and
- * so the same fingerprint, unless what its top level does changed in
- * between. The text itself, not a digest of it: the handler compares them
- * when it starts, and a digest would have it load ucode-mod-digest, which
- * uhttpd would then hold for as long as it runs.
+ * A meta's fingerprint: its JSON, functions and all, as ucode writes them (their signatures).
  *
- * @param {Meta} meta the meta, as the loader takes it (options {} when it
- *   declares none).
- * @returns {string} its fingerprint.
+ * @param {Meta} meta
+ * @returns {string}
  */
 export function fingerprint(meta) {
 	return sprintf('%J', meta);

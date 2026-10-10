@@ -1,27 +1,5 @@
 /**
- * Takes over the settings of the feed's exporters this one replaces, once: what
- * /etc/config/prometheus-node-exporter-ucode or, without it,
- * /etc/config/prometheus-node-exporter-lua configures goes into
- * /etc/config/prometheus-exporter. The package's uci-defaults script runs it
- * when the package is installed (or an image that has it first boots).
- *
- * It changes this exporter's config only while that is as the package ships
- * it: on the first install, not over what someone has set since. The old
- * configs are left as they are. apk keeps a feed exporter's config when it is
- * removed only if it was changed, so what is there to import is what someone
- * set.
- *
- * It also moves basic auth's hash out of the exporter's own main section, where
- * 0.2.0 kept it, into its config apart (config.AUTH_CONFIG): move_hash().
- *
- * From the main section: listen_interface, listen_port, http_keepalive, cert,
- * key and omit_zero_values, each only if this exporter takes its value. A port
- * that is the old exporter's default (9101 for the ucode one) is left at this
- * one's, 9100: only a port someone chose is kept. From the ucode exporter, each
- * named `config collector` section too (wifi's stations, say), option for
- * option.
- *
- * uci: a uci cursor that can write and commit.
+ * Takes over the settings of the feed's exporters this one replaces, once.
  *
  * @module prometheus_exporter_migrate
  */
@@ -31,17 +9,13 @@
 import * as config from 'prometheus_exporter.config';
 
 /**
- * A feed exporter a config is taken over from (SOURCES): its config's name,
- * the port it listens on by default, and whether it has `config collector`
- * sections.
+ * A feed exporter a config is taken over from (SOURCES).
  *
  * @typedef {{ name: string, port: string, collectors: boolean }} MigrationSource
  */
 
 /**
- * What plan() would bring, as its comment says: from which config, the main
- * section's options, each collector section's, and what is left out, and why.
- * Values are as uci holds them.
+ * What plan() would bring; values as uci holds them.
  *
  * @typedef {{
  *   from: string,
@@ -51,39 +25,21 @@ import * as config from 'prometheus_exporter.config';
  * }} MigrationPlan
  */
 
-/**
- * The feed's exporters, the ucode one first: its config, the port it listens
- * on by default, and whether it has `config collector` sections.
- *
- * @type {MigrationSource[]}
- */
+/** The feed's exporters, the ucode one first. */
 export const SOURCES = [
 	{ name: 'prometheus-node-exporter-ucode', port: '9101', collectors: true },
 	{ name: 'prometheus-node-exporter-lua', port: '9100', collectors: false },
 ];
 
-/**
- * The collectors the feed's exporters had that this one has not, by module:
- * a section of one is not taken over, and the log says what does its job.
- *
- * @type {Object<string, string>}
- */
+/** The collectors the feed's exporters had that this one has not, by module. */
 export const GONE = {
 	wifi_stations: 'wifi writes the stations, with its option stations, on by default',
 };
 
-/**
- * The main section's options taken over, as this exporter declares them.
- *
- * @type {string[]}
- */
+/** The main section's options taken over, as this exporter declares them. */
 export const OPTIONS = [ 'listen_interface', 'listen_port', 'http_keepalive', 'cert', 'key', 'omit_zero_values' ];
 
-/**
- * The main section as the package ships it (files/etc/config/prometheus-exporter).
- *
- * @type {Object<string, string>}
- */
+/** The main section as the package ships it (files/etc/config/prometheus-exporter). */
 export const SHIPPED = {
 	enabled: '1', listen_interface: 'loopback', listen_port: '9100', http_keepalive: '70', omit_zero_values: '0', exec_timeout: '5',
 	scrape_timeout: '10', collector_budget: '5', max_samples: '20000', max_scrape_samples: '200000', compress: '1',
@@ -91,7 +47,6 @@ export const SHIPPED = {
 
 const SPECS = { ...config.SERVICE_OPTIONS, ...config.MAIN_OPTIONS };
 
-// A section's options, without uci's own .name, .type, .anonymous and .index.
 function options_of(s) {
 	let out = {};
 
@@ -102,7 +57,6 @@ function options_of(s) {
 	return out;
 }
 
-// Whether two sections' options are the same, in any order.
 function same(a, b) {
 	if (length(a) != length(b))
 		return false;
@@ -114,7 +68,6 @@ function same(a, b) {
 	return true;
 }
 
-// Every section of config `name`, or null when there is no such config.
 function sections(uci, name) {
 	let all = [];
 
@@ -127,12 +80,10 @@ function sections(uci, name) {
 }
 
 /**
- * Whether this exporter's config is as the package ships it: its main section
- * alone, with the shipped values. A missing config is not: there is nothing to
- * write into.
+ * Whether this exporter's config is as the package ships it.
  *
- * @param {UciCursor} uci the cursor.
- * @returns {boolean} whether it is.
+ * @param {UciCursor} uci
+ * @returns {boolean}
  */
 export function pristine(uci) {
 	let all = sections(uci, config.NAME);
@@ -146,15 +97,11 @@ export function pristine(uci) {
 };
 
 /**
- * What to import from the main section `main` of `source`: { set: { option:
- * value }, skipped: [ why ] }. A value this exporter would refuse is skipped,
- * saying why; one it already ships, and the old exporter's default port, are
- * left out.
+ * What to import from the main section `main` of `source`, and what is skipped, and why.
  *
- * @param {MigrationSource} source the feed exporter.
- * @param {?Object} main its main section's options, as uci holds them.
- * @returns {{ set: Object<string, string>, skipped: string[] }} what to set,
- *   and what is skipped, and why.
+ * @param {MigrationSource} source
+ * @param {?Object} main
+ * @returns {{ set: Object<string, string>, skipped: string[] }}
  */
 export function main_options(source, main) {
 	let set = {};
@@ -181,11 +128,10 @@ export function main_options(source, main) {
 };
 
 /**
- * { from, main: { option: value }, collectors: { id: { option: value } }, skipped }
- * of what the first source that has a config would bring, or null when none has.
+ * What the first source that has a config would bring, or null when none has.
  *
- * @param {UciCursor} uci the cursor.
- * @returns {?MigrationPlan} the plan.
+ * @param {UciCursor} uci
+ * @returns {?MigrationPlan}
  */
 export function plan(uci) {
 	for (let source in SOURCES) {
@@ -217,8 +163,8 @@ export function plan(uci) {
 /**
  * Writes plan `p` into this exporter's config, and commits it.
  *
- * @param {UciCursor} uci a cursor that can write and commit.
- * @param {MigrationPlan} p the plan.
+ * @param {UciCursor} uci
+ * @param {MigrationPlan} p
  */
 export function apply(uci, p) {
 	for (let name, value in p.main)
@@ -243,13 +189,10 @@ function describe(p) {
 }
 
 /**
- * Imports what a feed exporter's config holds, if this exporter's config is as
- * shipped. Returns { imported, lines }: whether it wrote anything, and what to
- * log.
+ * Imports what a feed exporter's config holds, if this exporter's config is as shipped.
  *
- * @param {UciCursor} uci a cursor that can write and commit.
- * @returns {{ imported: boolean, lines: string[] }} whether it wrote
- *   anything, and what to log.
+ * @param {UciCursor} uci
+ * @returns {{ imported: boolean, lines: string[] }}
  */
 export function run(uci) {
 	let p = plan(uci);
@@ -272,16 +215,10 @@ export function run(uci) {
 };
 
 /**
- * Moves the main section's auth_password, where 0.2.0 kept the hash of basic
- * auth's password, into config.AUTH_CONFIG, which the package installs, and
- * commits both: the exporter reads it there alone. A hash saved there already
- * is kept, and the main section's is dropped all the same. Returns { moved,
- * lines }: whether it changed anything, and what to log, which never holds
- * the hash.
+ * Moves the main section's auth_password, where 0.2.0 kept it, into config.AUTH_CONFIG.
  *
- * @param {UciCursor} uci a cursor that can write and commit.
- * @returns {{ moved: boolean, lines: string[] }} whether it moved one, and
- *   what to log.
+ * @param {UciCursor} uci
+ * @returns {{ moved: boolean, lines: string[] }}
  */
 export function move_hash(uci) {
 	let hash = uci.get(config.NAME, 'main', 'auth_password');

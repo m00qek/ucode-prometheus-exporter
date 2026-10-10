@@ -1,13 +1,5 @@
 /**
- * The crypt(3) hashes of basic auth's password, in ucode over ucode-mod-digest:
- * MD5-crypt ($1$, what `uhttpd -m` prints), SHA-256-crypt ($5$) and
- * SHA-512-crypt ($6$), bit for bit as musl's, which uhttpd calls. The exporter
- * checks a scrape's password with them, as OpenWrt 25.12's uhttpd does not for
- * the handler, and makes the hash the ubus object's hash_password gives.
- *
- * A hash is $<id>$[rounds=<n>$]<salt>$<digest>: a salt of up to 8 characters
- * for $1$, up to 16 for $5$ and $6$, which may name their rounds (1000 to
- * 9999999; 5000 when they do not).
+ * The crypt(3) hashes of basic auth's password, bit for bit as musl's.
  *
  * @module prometheus_exporter_crypt
  */
@@ -17,38 +9,20 @@
 import { md5, sha256, sha512 } from 'digest';
 import * as hashes from 'prometheus_exporter.hashes';
 
-/**
- * The crypt alphabet: 64 characters, each 6 bits of a digest or a salt.
- *
- * @type {string}
- */
+/** The crypt alphabet: 64 characters, each 6 bits of a digest or a salt. */
 export const ITOA64 = './0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
 
-// The rounds of a $5$ or $6$ hash that names none (prometheus_exporter.hashes).
 export const ROUNDS_DEFAULT = hashes.ROUNDS_DEFAULT;
 
-/**
- * The fewest rounds a $5$ or $6$ hash may name.
- *
- * @type {int}
- */
+/** The fewest rounds a $5$ or $6$ hash may name. */
 export const ROUNDS_MIN = 1000;
 
-/**
- * The most rounds a $5$ or $6$ hash may name.
- *
- * @type {int}
- */
+/** The most rounds a $5$ or $6$ hash may name. */
 export const ROUNDS_MAX = 9999999;
 
-/**
- * The longest password musl hashes with $5$ and $6$, in bytes.
- *
- * @type {int}
- */
+/** The longest password musl hashes with $5$ and $6$, in bytes. */
 export const KEY_MAX = 256;
 
-// n characters of the crypt alphabet for the low bits of v, the lowest first.
 function to64(v, n) {
 	let out = '';
 
@@ -60,7 +34,6 @@ function to64(v, n) {
 	return out;
 }
 
-// The bytes of `d` at a, b and c (the most significant first) as n characters.
 function triple(d, a, b, c, n) {
 	return to64((ord(d, a) << 16) | (ord(d, b) << 8) | ord(d, c), n);
 }
@@ -74,7 +47,6 @@ function repeat(s, n) {
 	return out;
 }
 
-// `s` repeated to `n` bytes.
 function stretch(s, n) {
 	let out = '';
 
@@ -87,9 +59,9 @@ function stretch(s, n) {
 /**
  * MD5-crypt of `key` with `salt` (up to 8 characters), as FreeBSD's md5crypt.
  *
- * @param {string} key the password.
- * @param {string} salt the salt, up to 8 characters of the crypt alphabet.
- * @returns {string} the hash: $1$<salt>$<digest>.
+ * @param {string} key
+ * @param {string} salt
+ * @returns {string}
  */
 export function md5_crypt(key, salt) {
 	let h = (s) => hexdec(md5(s));
@@ -116,7 +88,6 @@ export function md5_crypt(key, salt) {
 		triple(fin, 3, 9, 15, 4) + triple(fin, 4, 10, 5, 4) + to64(ord(fin, 11), 2);
 };
 
-// The order each format writes the digest's bytes in, by threes.
 const SHA256_ORDER = [
 	[ 0, 10, 20 ], [ 21, 1, 11 ], [ 12, 22, 2 ], [ 3, 13, 23 ], [ 24, 4, 14 ],
 	[ 15, 25, 5 ], [ 6, 16, 26 ], [ 27, 7, 17 ], [ 18, 28, 8 ], [ 9, 19, 29 ],
@@ -131,15 +102,13 @@ const SHA512_ORDER = [
 ];
 
 /**
- * SHA-crypt (Ulrich Drepper's) of `key`: id '5' (SHA-256) or '6' (SHA-512),
- * `salt` up to 16 characters, and `rounds`, null for the default, which the
- * hash then does not name.
+ * SHA-crypt of `key`: id '5' (SHA-256) or '6' (SHA-512).
  *
- * @param {string} id '5' or '6'.
- * @param {string} key the password.
- * @param {string} salt the salt, up to 16 characters of the crypt alphabet.
- * @param {?int} rounds the rounds, or null for ROUNDS_DEFAULT.
- * @returns {string} the hash: $<id>$[rounds=<n>$]<salt>$<digest>.
+ * @param {string} id
+ * @param {string} key
+ * @param {string} salt
+ * @param {?int} rounds
+ * @returns {string}
  */
 export function sha_crypt(id, key, salt, rounds) {
 	let sha = (id == '5') ? sha256 : sha512;
@@ -178,19 +147,15 @@ export function sha_crypt(id, key, salt, rounds) {
 	return `$${id}$` + (rounds != null ? `rounds=${rounds}$` : '') + salt + '$' + out;
 };
 
-// Whether a value is a hash of one of the formats, and the rounds computing
-// one takes (prometheus_exporter.hashes).
 export const is_hash = hashes.is_hash;
 export const rounds = hashes.rounds;
 
 /**
- * crypt(key, hash): the hash of `key` with the salt and rounds of `hash`, or
- * null when `hash` is not of one of the formats, or musl would not hash the key
- * (one with a NUL, which a C string ends at, or too long).
+ * crypt(key, hash): the hash of `key` with the salt and rounds of `hash`, or null.
  *
- * @param {string} key the password.
- * @param {string} hash a hash, whose salt and rounds it takes.
- * @returns {?string} the hash of `key`.
+ * @param {string} key
+ * @param {string} hash
+ * @returns {?string}
  */
 export function crypt(key, hash) {
 	if (type(key) != 'string' || index(key, '\0') >= 0 || !is_hash(hash))
@@ -212,12 +177,11 @@ export function crypt(key, hash) {
 };
 
 /**
- * Whether a and b are the same string, in a time that depends on their lengths
- * alone.
+ * Whether a and b are the same string, in a time that depends on their lengths alone.
  *
- * @param {*} a a string; anything else is never the same.
- * @param {*} b a string; anything else is never the same.
- * @returns {boolean} whether they are the same.
+ * @param {*} a
+ * @param {*} b
+ * @returns {boolean}
  */
 export function same(a, b) {
 	if (type(a) != 'string' || type(b) != 'string' || length(a) != length(b))
@@ -234,9 +198,9 @@ export function same(a, b) {
 /**
  * Whether `key` is the password of `hash`.
  *
- * @param {string} key the password.
- * @param {string} hash the hash.
- * @returns {boolean} whether it is.
+ * @param {string} key
+ * @param {string} hash
+ * @returns {boolean}
  */
 export function verify(key, hash) {
 	let h = crypt(key, hash);
@@ -244,21 +208,16 @@ export function verify(key, hash) {
 	return h != null && same(h, hash);
 };
 
-/**
- * The bytes of randomness a salt takes: 16 characters of 6 bits.
- *
- * @type {int}
- */
+/** The bytes of randomness a salt takes: 16 characters of 6 bits. */
 export const SALT_BYTES = 12;
 
 /**
- * A new SHA-512-crypt hash of `key` with `rounds` (null for the default), its
- * salt the 16 characters of `bytes`, SALT_BYTES random bytes.
+ * A new SHA-512-crypt hash of `key`, its salt made of `bytes`.
  *
- * @param {string} key the password.
- * @param {string} bytes SALT_BYTES random bytes.
- * @param {?int} rounds the rounds, or null for the default.
- * @returns {string} the hash.
+ * @param {string} key
+ * @param {string} bytes
+ * @param {?int} rounds
+ * @returns {string}
  */
 export function hash(key, bytes, rounds) {
 	let salt = '';

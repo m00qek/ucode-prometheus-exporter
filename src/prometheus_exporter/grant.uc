@@ -1,11 +1,5 @@
 /**
- * What the service grants its user, as root, when it starts, of what the
- * enabled collectors declare (prometheus_exporter.privileges): the ubus ACL,
- * the capabilities file, the user's groups, its group's read access to
- * configs and proc files, and the TLS copies (make()); and what it takes
- * away when it stops (clean()). jail.uc --make and --clean, which the init
- * script runs, load it; the handler, which holds what it loads for as long
- * as uhttpd runs, never does.
+ * What the service grants its user when it starts, and takes away when it stops.
  *
  * @module prometheus_exporter_grant
  */
@@ -15,11 +9,10 @@
 import { USER, GROUP, CANARY, UNPRIVILEGED_PORT, CAPABILITIES_FILE, TLS_CERT, TLS_KEY, ACL_FILE, GROUP_FILE } from 'prometheus_exporter.privileges';
 
 /**
- * One map of the ubus calls of many: each object's methods, sorted, once
- * each.
+ * One map of the ubus calls of many: each object's methods, sorted, once each.
  *
- * @param {Object<string, string[]>[]} maps the calls, as ubus_of gives them.
- * @returns {Object<string, string[]>} their union, by object, sorted.
+ * @param {Object<string, string[]>[]} maps
+ * @returns {Object<string, string[]>}
  */
 export function merge(maps) {
 	let all = {};
@@ -39,11 +32,10 @@ export function merge(maps) {
 };
 
 /**
- * The ubus ACL of the service's user for these calls, as ubusd reads it
- * from /usr/share/acl.d: CANARY's and theirs.
+ * The ubus ACL of the service's user for these calls, and CANARY.
  *
- * @param {Object<string, string[]>} ubus the calls (merge's).
- * @returns {Object} the ACL.
+ * @param {Object<string, string[]>} ubus
+ * @returns {Object}
  */
 export function acl(ubus) {
 	let access = {};
@@ -56,12 +48,10 @@ export function acl(ubus) {
 };
 
 /**
- * The capabilities file of these capabilities, as procd hands ujail one
- * (-C): every set of them alike, so the jail and the programs it runs
- * (ambient) have them, and none other (bounding).
+ * The capabilities file of these capabilities, as procd hands ujail one (-C).
  *
- * @param {string[]} caps the capabilities.
- * @returns {Object} the file's contents.
+ * @param {string[]} caps
+ * @returns {Object}
  */
 export function capabilities_doc(caps) {
 	let set = sort(uniq(caps));
@@ -70,12 +60,10 @@ export function capabilities_doc(caps) {
 };
 
 /**
- * The capabilities the jail has for these grants: the enabled collectors',
- * and CAP_NET_BIND_SERVICE when the service listens on a port under
- * UNPRIVILEGED_PORT; sorted.
+ * The capabilities the jail has for these grants, sorted.
  *
- * @param {Grants} grants the grants.
- * @returns {string[]} the capabilities.
+ * @param {Grants} grants
+ * @returns {string[]}
  */
 export function service_capabilities(grants) {
 	let caps = [ ...grants.capabilities ];
@@ -87,15 +75,12 @@ export function service_capabilities(grants) {
 };
 
 /**
- * The text of /etc/group with `user` a member of the groups `want` says true
- * of, and of none it says false of: { text, missing }, text null when
- * nothing changes, missing the groups it would join that are not there.
+ * /etc/group's text with `user` in the groups `want` says true of, and out of the others.
  *
- * @param {string} text the file's text.
- * @param {string} user the user.
- * @param {Object<string, boolean>} want membership by group.
- * @returns {{ text: ?string, missing: string[] }} the new text, and what is
- *   not there.
+ * @param {string} text
+ * @param {string} user
+ * @param {Object<string, boolean>} want
+ * @returns {{ text: ?string, missing: string[] }}
  */
 export function membership(text, user, want) {
 	let changed = false;
@@ -128,9 +113,9 @@ export function membership(text, user, want) {
 /**
  * The gid of `group` in the text of /etc/group, or null.
  *
- * @param {string} text the file's text.
- * @param {string} group the group's name.
- * @returns {?int} its gid.
+ * @param {string} text
+ * @param {string} group
+ * @returns {?int}
  */
 export function gid_of(text, group) {
 	for (let line in split(text ?? '', '\n')) {
@@ -143,8 +128,6 @@ export function gid_of(text, group) {
 	return null;
 };
 
-// `text` as `path`, whole, `mode`, owned by root and `gid` (null: root's),
-// unless it holds that already: whether it changed, or null when it failed.
 function write(fs, path, text, mode, gid) {
 	let st = fs.stat(path);
 
@@ -164,9 +147,6 @@ function write(fs, path, text, mode, gid) {
 	return true;
 }
 
-// Gives `gid` read access to `path` (and nothing more of the group's), or
-// takes it back (root's group again); whether it changed, null when it
-// failed. A path that is not there is left alone.
 function share(fs, path, gid, on) {
 	let st = fs.stat(path);
 
@@ -189,19 +169,11 @@ function share(fs, path, gid, on) {
 }
 
 /**
- * Grants what `grants` says, as the module's top comment does, and takes back
- * what it says to: { made, problems }, each a line for the log. sys: { fs:
- * the fs module, or an object of its stat, readfile, open, chown, chmod,
- * rename, unlink and error; lock: a function that takes GROUP_LOCK and
- * returns the function that lets go of it; reload_ubus: a function that has
- * ubusd read its ACLs again }.
+ * Grants what `grants` says, and takes back what it says to: lines for the log.
  *
  * @param {{ fs: module:fs, lock: function(): function(): void, reload_ubus: function(): boolean }} sys
- *   the system.
- * @param {Grants} grants what to grant; port, the port the service listens
- *   on.
- * @returns {{ made: string[], problems: string[] }} what it did, and what it
- *   could not.
+ * @param {Grants} grants
+ * @returns {{ made: string[], problems: string[] }}
  */
 export function make(sys, grants) {
 	let fs = sys.fs;
@@ -274,13 +246,10 @@ export function make(sys, grants) {
 };
 
 /**
- * Takes away what make() gave that only the running service needs: the ACL
- * (ubusd reads its ACLs again), the capabilities file and the TLS copies.
- * Whether ubusd was told.
+ * Takes away what make() gave that only the running service needs.
  *
- * @param {{ fs: module:fs, reload_ubus: function(): boolean }} sys the
- *   system, as make()'s.
- * @returns {boolean} whether it took the ACL away, or there was none.
+ * @param {{ fs: module:fs, reload_ubus: function(): boolean }} sys
+ * @returns {boolean}
  */
 export function clean(sys) {
 	let had = sys.fs.stat(ACL_FILE) != null;

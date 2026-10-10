@@ -1,66 +1,5 @@
 /**
- * How a scrape's collectors run: one at a time, in the order a plan picks
- * them, each run handed back to the plan.
- *
- * forked(): in a child process forked from this one (ucode's uloop.task),
- * which has the collectors loaded already, so a fork costs no compiling. The
- * child goes through the plan itself, one collector after another, and
- * tells this process each one it starts; this process holds a timer on it.
- * A collector still running at its limit is stopped by killing the child,
- * and a new child runs the rest: so is one that never returns from a loop,
- * or waits in a system call (a FIFO opened with no writer, a socket that
- * never answers), which nothing inside a process could stop. A child that
- * dies under a collector (it ran past the memory limit, a native module
- * crashed, it called exit()) costs that collector, not the scrape. What a
- * collector logs, the child hands back with its run.
- *
- * The limits this process holds the child to are the child's word, and the
- * child is where the collectors run: one that writes over what the plan
- * keeps there, by mistake, could have it give a limit past the deadline, or
- * none, or start collectors the deadline leaves no time for. So this process
- * holds the child to the scrape's deadline too (opts.deadline), whatever it
- * says: a collector it runs is stopped there at the latest, and a child that
- * runs past it with none it told of is stopped a turn of the timer later
- * (GRACE). This process then forks no other: it goes through the rest of the
- * plan itself, where the collectors never ran, and every collector left is
- * left out at the deadline. A child that keeps to its limits stops before
- * the deadline, or hands back the rest left out there before that turn.
- *
- * uhttpd-mod-ucode's VM handles no signals: a ucode signal() handler is never
- * called there, and the signal's default action ends the request. A child
- * process, killed from outside, is what stops a collector there.
- *
- * inline(): in this process, for the tests: nothing stops a collector there.
- *
- * A plan is { next(log) -> job or null, started(job, pid), done(job, run) },
- * and goes through its collectors in an order of its own, the queue:
- * next() is called each time a collector can start, in the process it would
- * run in, and returns the next of the queue, or null when there is none; a
- * job it does not run is { c, skipped: its run }, and what it logs it logs
- * with `log`. started() is called in this process once the collector has
- * started, with the pid of the process it runs in. done() is called with
- * each job's run where next() gave the job, and again in this process,
- * where it is handed back: the queue then goes on after job.c, whatever
- * next() was asked there, so that a new child starts where the last one was
- * stopped. A job is
- * { c, cutoff, limit, at_deadline, budget, left, settings, view }:
- *   c            the collector
- *   cutoff       when its programs must be done by (monotonic seconds), or null
- *   limit        when it is stopped (monotonic seconds), or null for never:
- *                its budget's end, or the cutoff when that comes first
- *   at_deadline  whether the limit is the cutoff
- *   budget       the seconds it may take (config.settings)
- *   left         the samples left of the reply's max_scrape_samples, or null
- *   settings     config.settings' data, or null to read them in the run
- *   view         the exporter collector's data (deps.exporter_channel)
- * A run is scrape.run_one's: { name, id, result, families, samples, duration,
- * budget, text }: its families' names, and the text of them the reply holds
- * (prometheus_exporter.exposition's pack).
- *
- * env: { session(log) -> a deps session, clock() -> [ s, ns ] monotonic,
- *        log(level, msg), mkstemp, open, readfile: fs's (forked's), kill(pid): a
- *        child it stops, killed with every process under it (forked's) };
- * run_fn(env, session, c, job) -> a run.
+ * How a scrape's collectors run: one at a time, in a plan's order.
  *
  * @module prometheus_exporter_runner
  */
@@ -74,49 +13,20 @@ import * as exposition from 'prometheus_exporter.exposition';
 import { seconds } from 'prometheus_exporter.deadline';
 import { POLL_MS } from 'prometheus_exporter.probe';
 
-/**
- * How soon a collector's limit must be, in seconds, for the child to tell
- * this process of its start at once, rather than leave it to be read at the
- * timer's next turn, which is at most POLL_MS away: twice that.
- *
- * @type {float}
- */
+/** Seconds to a collector's limit under which the child tells of its start at once. */
 export const SOON = 2 * POLL_MS / 1000.0;
 
-/**
- * The child tells this process of every WAKE-th collector it starts too, so
- * that it takes the runs before it while the child runs that one, rather
- * than all of them once the child is done: on a router of two cores, at
- * once. A message for each costs the two processes more than it saves.
- *
- * @type {int}
- */
+/** The child tells this process of every WAKE-th collector it starts. */
 export const WAKE = 4;
 
-/**
- * The child tells this process of the next collector it starts too once
- * the runs it has not told of hold this many bytes of text: the larger a
- * run, the more there is to take of it while the child goes on.
- *
- * @type {int}
- */
+/** Bytes of untold runs after which the child tells of the next start. */
 export const WAKE_BYTES = 16384;
 
-/**
- * How long after the scrape's deadline this process lets a child it holds
- * no collector of run on, in seconds, before it stops it: one turn of its
- * timer. A child that keeps to its limits is then only handing back the
- * collectors the deadline leaves out, which takes it far less: as one forked
- * after a collector was stopped at the deadline does, or one whose last
- * collector ended just before it.
- *
- * @type {float}
- */
+/** Seconds a child holding no collector may run past the deadline. */
 export const GRACE = POLL_MS / 1000.0;
 
 /**
- * A job, as the module's top comment says: what a plan's next() returns;
- * `skipped`, the run of a collector it does not run.
+ * A job: what a plan's next() returns; `skipped` for one it does not run.
  *
  * @typedef {{
  *   c: Collector,
@@ -132,9 +42,7 @@ export const GRACE = POLL_MS / 1000.0;
  */
 
 /**
- * A plan, as the module's top comment says: next(log), the next job or
- * null; started(job, pid), once a job's collector started; done(job, run),
- * each run handed back.
+ * A plan: next(log), started(job, pid) and done(job, run).
  *
  * @typedef {{
  *   next: (log: Log) => ?Job,
@@ -159,19 +67,16 @@ function now(env) {
 	return seconds(env.clock());
 }
 
-// The run of a collector stopped from outside, which wrote nothing.
 function stopped(job, res, took) {
 	return { name: job.c.meta.name, id: job.c.id, result: res, families: [], samples: 0, duration: took, budget: job.budget, text: '' };
 }
 
 /**
- * The run of a collector stopped at its limit: its budget's end, or the
- * scrape's deadline. One at the deadline is SCRAPE_DEADLINE, as a program
- * killed there is: the scrape's time was spent, not the collector's budget.
+ * The run of a collector stopped at its budget's end or the deadline.
  *
- * @param {Job} job its job.
- * @param {float} took the seconds it ran.
- * @returns {Run} the run: SCRAPE_DEADLINE or COLLECTOR_CANCELLED.
+ * @param {Job} job
+ * @param {float} took
+ * @returns {Run}
  */
 export function cancelled(job, took) {
 	if (job.at_deadline)
@@ -185,9 +90,9 @@ export function cancelled(job, took) {
 /**
  * The run of a collector whose process ended under it.
  *
- * @param {Job} job its job.
- * @param {float} took the seconds it ran.
- * @returns {Run} the run: COLLECTOR_KILLED.
+ * @param {Job} job
+ * @param {float} took
+ * @returns {Run}
  */
 export function killed(job, took) {
 	return stopped(job, Result.err(errors.COLLECTOR_KILLED,
@@ -195,13 +100,10 @@ export function killed(job, took) {
 };
 
 /**
- * The run of a collector no process could be started for: the children forked
- * to run the collectors in ended twice in a row before running one. It is
- * not the collector's doing, so it is left out, as one the deadline leaves
- * out is (`skipped`), which leaves its breaker as it was.
+ * The run of a collector no child could be forked for.
  *
- * @param {Job} job its job.
- * @returns {Run} the run: COLLECTOR_NOT_RUN.
+ * @param {Job} job
+ * @returns {Run}
  */
 export function not_run(job) {
 	return { ...stopped(job, Result.err(errors.COLLECTOR_NOT_RUN,
@@ -209,46 +111,29 @@ export function not_run(job) {
 };
 
 /**
- * The run of a collector left out at the scrape's deadline, by this process
- * once it stopped a child that ran past it: SCRAPE_DEADLINE, `skipped`, as
- * the plan leaves one out there, which leaves its breaker as it was.
+ * The run of a collector left out at the deadline after its child was stopped.
  *
- * @param {Job} job its job.
- * @returns {Run} the run: SCRAPE_DEADLINE.
+ * @param {Job} job
+ * @returns {Run}
  */
 export function late(job) {
 	return { ...stopped(job, Result.err(errors.SCRAPE_DEADLINE, 'not run: the scrape\'s time was spent'), 0), skipped: 'deadline' };
 };
 
-/**
- * The digits of a packed run's head's length, in hex.
- *
- * @type {int}
- */
+/** The digits of a packed run's head's length, in hex. */
 export const HEAD_DIGITS = 8;
 
-// The fields of a packed run's head, in their order: an array, which ucode
-// makes and JSON writes and reads for less than an object, a table each.
 const HEAD = [ 'name', 'id', 'samples', 'duration', 'budget', 'skipped', 'logs', 'ok', 'error', 'details', 'data', 'none', 'families', 'size' ];
 const SIZE = index(HEAD, 'size');
-// The types of a number, as type() names them.
 const NUMBER = [ 'int', 'double' ];
-// The fields of a collector's start's head (started()), which has no text.
 const MARK = length([ 'id', 'limit', 'at_deadline', 'budget', 'started' ]);
 
 /**
- * A run, and what was logged with it, as the child hands it over: the
- * length of its head (HEAD_DIGITS hex digits), its head, a line of JSON,
- * [ name, id, samples, duration, budget, skipped, logs, ok, error, details,
- * data, none, families, size ], its Result's fields without its prototype
- * and its families' names, and then its text, `size` bytes, as it is: JSON
- * would escape every quote of every label. One packed run follows another
- * in the file the child writes, which this process reads as the child goes.
+ * A run and its logs, packed as the child hands them over.
  *
- * @param {Run} run the run, packed (its text written, its families' names
- *   alone, as exposition.pack leaves them).
- * @param {string[][]} logs what was logged with it: [ level, msg ] pairs.
- * @returns {string} the run, packed.
+ * @param {Run} run
+ * @param {string[][]} logs
+ * @returns {string}
  */
 export function pack(run, logs) {
 	let res = run.result;
@@ -262,13 +147,11 @@ export function pack(run, logs) {
 };
 
 /**
- * A collector's start, as the child writes it before it runs it, in the
- * file its runs go to: [ id, limit, at_deadline, budget, started ], `started`
- * when it started (monotonic seconds), and no text.
+ * A collector's start, as the child writes it before it runs it.
  *
- * @param {Job} job its job.
- * @param {float} t when it started.
- * @returns {string} the start, packed.
+ * @param {Job} job
+ * @param {float} t
+ * @returns {string}
  */
 export function started(job, t) {
 	let head = sprintf('%J\n', [ job.c.id, job.limit, job.at_deadline, job.budget, t ]);
@@ -277,16 +160,11 @@ export function started(job, t) {
 };
 
 /**
- * The run pack() wrote at `at` of `text`, and its logs: { run, logs, end },
- * `end` where the next one begins; or the start started() wrote there,
- * { start, end }, start its head; null where there is none, or only part of
- * one, as a child stopped while it wrote one leaves.
+ * The run, or start, written at `at` of `text`, and where the next begins.
  *
- * @param {string} text what pack() and started() wrote, one after another.
- * @param {?int} at where the run begins; 0 when null.
- * @returns {?{ run: ?Run, logs: ?string[][], start: ?Array, end: int }} the
- *   run, its Result made one again, its logs, and where it ends; or the
- *   start.
+ * @param {string} text
+ * @param {?int} at
+ * @returns {?{ run: ?Run, logs: ?string[][], start: ?Array, end: int }}
  */
 export function unpack(text, at) {
 	at ??= 0;
@@ -308,15 +186,12 @@ export function unpack(text, at) {
 	if (type(h) != 'array')
 		return null;
 
-	// A collector the child started.
 	if (length(h) == MARK)
 		return { start: h, end: start };
 
 	if (type(h[SIZE]) != 'int' || start + h[SIZE] > length(text))
 		return null;
 
-	// run_one gives every failure its code: none is a run packed some other
-	// way, never one the collector was killed in.
 	let result = h[7]
 		? ((h[11] != null) ? Result.none(h[11]) : Result.ok(h[10]))
 		: Result.err(h[8] ?? errors.COLLECTOR_NO_RESULT, h[9], h[10]);
@@ -331,8 +206,6 @@ export function unpack(text, at) {
 	};
 };
 
-// The run of `job`, its families written as its text, with `omit`
-// (omit_zero_values): exposition.pack.
 function run_packed(env, run_fn, session, job, omit) {
 	let r = run_fn(env, session, job.c, job);
 	let p = exposition.pack(r.families, omit);
@@ -342,21 +215,18 @@ function run_packed(env, run_fn, session, job, omit) {
 	return r;
 }
 
-// Logs what stopping a run says, as run_one logs a failure: but for
-// SCRAPE_DEADLINE, which the scrape says in one line.
 function log_stopped(env, r) {
 	if (r.result.error != errors.SCRAPE_DEADLINE)
 		env.log('warning', `collector '${r.name}': ${Result.describe(r.result)}`);
 }
 
 /**
- * The runner in this process, for the tests: each job's collector run
- * here, one after another; nothing stops a collector.
+ * The runner in this process, for the tests: nothing stops a collector.
  *
- * @param {ScrapeEnv} env the scrape's env.
- * @param {RunFn} run_fn what runs one collector.
- * @param {?{ omit: ?boolean }} opts omit: omit_zero_values.
- * @returns {Runner} the runner.
+ * @param {ScrapeEnv} env
+ * @param {RunFn} run_fn
+ * @param {?{ omit: ?boolean }} opts
+ * @returns {Runner}
  */
 export function inline(env, run_fn, opts) {
 	return {
@@ -382,10 +252,9 @@ const STATUS = /^(VmHWM|VmData|VmRSS):\s+([0-9]+) kB/;
 
 /**
  * This process's memory, in kB: { VmHWM, VmData, VmRSS }, for the benchmark.
- * readfile: fs's.
  *
- * @param {function(string): ?string} readfile fs's readfile.
- * @returns {Object<string, int>} VmHWM, VmData and VmRSS, in kB.
+ * @param {function(string): ?string} readfile
+ * @returns {Object<string, int>}
  */
 export function memory(readfile) {
 	let m = {};
@@ -400,23 +269,6 @@ export function memory(readfile) {
 	return m;
 };
 
-// What the child runs: the plan, from where this process left it, until it
-// has no more. Everything it needs it reads from `st`: uloop keeps the
-// callbacks of every task it ran for as long as the process lives, and what
-// they hold with them, so run() lets go of st's fields once it is done.
-//
-// Each run goes into st.out, a file this process made for this child before
-// it forked it, appended (pack()), and so does each collector's start
-// (started()), before it runs, with the run before it, in one write: so the
-// runs it ran are there should it be stopped later. This process reads them
-// as it goes, at its timer's turns (absorb), and holds a timer on the
-// collector each start names. The pipe tells it of a collector whose limit
-// is less than SOON away, which it could be past before that turn, of every
-// WAKE-th, of the next once the runs before hold WAKE_BYTES, and of every
-// one when this process has no reader of the file. A
-// message must be no longer than PIPE_BUF (4096 bytes), as what ucode's
-// uloop reads of the pipe without blocking: a longer one may be half there
-// when this process reads it, and ucode then loses it whole.
 function child_of(st) {
 	return function(pipe) {
 		let logs = [];
@@ -425,8 +277,6 @@ function child_of(st) {
 		let session = st.env.session(log);
 		let out = st.out;
 		let told = (st.reader == null), started_n = 0, pending = 0;
-		// This process's pid, which a start gives the plan (the progress
-		// file's line).
 		let pid = int(split(st.env.readfile?.('/proc/self/stat') ?? '', ' ')[0]);
 
 		if (type(pid) != 'int')
@@ -463,25 +313,12 @@ function child_of(st) {
 }
 
 /**
- * The runner in a child process forked from this one, as the module's top
- * comment says: a collector still running at its limit is stopped with the
- * process, and a new child runs the rest; a child still running at the
- * scrape's deadline is stopped there, whatever limits it gave, and the rest
- * are left out.
+ * The runner in a forked child, stopped at a collector's limit or the deadline.
  *
- * opts: { collectors: every collector a plan may pick, omit, stats, tmp,
- * deadline: the scrape's (monotonic seconds), or null for none }.
- * stats, when given, is an object it fills in: children, how many it forked;
- * child, the memory of the last that ran to its end (memory()). tmp: the
- * directory of the files the runs cross by (/tmp), a file a child, each
- * removed as soon as it is made, and gone with the scrape: on tmpfs, the
- * state's in the jail.
- *
- * @param {ScrapeEnv} env the scrape's env.
- * @param {RunFn} run_fn what runs one collector.
+ * @param {ScrapeEnv} env
+ * @param {RunFn} run_fn
  * @param {?{ collectors: ?Collector[], omit: ?boolean, stats: ?Object, tmp: ?string, deadline: ?float }} opts
- *   the options.
- * @returns {Runner} the runner.
+ * @returns {Runner}
  */
 export function forked(env, run_fn, opts) {
 	return {
@@ -499,9 +336,6 @@ export function forked(env, run_fn, opts) {
 			};
 			let child = child_of(st);
 
-			// When no child can be forked (the system is out of processes or
-			// memory), or the file the runs cross by cannot be made, the rest
-			// run here, unguarded, rather than not at all; `why` says which.
 			function fallback(why) {
 				st.env.log('warning', `${why}; running the collectors in the scrape's own process`);
 				inline(st.env, st.run_fn, { omit: st.omit }).run(st.plan);
@@ -517,35 +351,19 @@ export function forked(env, run_fn, opts) {
 				st.plan.done(job, r);
 			}
 
-			// A collector the child started, its start's head ([ id, limit,
-			// at_deadline, budget, started ]): held by the timer, unless its
-			// run is here already.
 			function hold(s) {
 				let c = st.by_id[s[0]];
 
 				if (c == null || st.ran[c.id])
 					return;
 
-				// A number, or none: what a child that went wrong wrote is
-				// no time to compare.
 				let limit = s[1], t = s[4];
 
 				st.job = { c, limit: (type(limit) in NUMBER) ? limit : null, at_deadline: s[2], budget: s[3] };
 				st.started = (type(t) in NUMBER) ? t : now(st.env);
-				// A child that started a collector is no failure to fork one.
 				st.lost = 0;
 			}
 
-			// The runs the child wrote since this process last looked, handed
-			// to the plan in the order it ran them, and what they logged
-			// logged here, and the collector it started last held: how many
-			// runs. The collector this process holds a timer on is done,
-			// when its run is there. While the child runs, they are read by a
-			// reader of their own (env.open), whose place in the file is not
-			// the child's, which goes on writing: so this process takes the
-			// runs while the child runs the next, on a router of two cores at
-			// once. `last`: the child is done, and the file is read to its
-			// end, and closed.
 			function absorb(last) {
 				let h = st.reader ?? (last ? st.out : null);
 				let n = 0;
@@ -591,10 +409,6 @@ export function forked(env, run_fn, opts) {
 				return n;
 			}
 
-			// When the child is stopped, whatever it says, or null for never:
-			// the collector it runs at its limit, or at the deadline when
-			// that is sooner, or it gave none; without one, the deadline's
-			// GRACE after it, `t` being now.
 			function due(t) {
 				let limit = st.job?.limit;
 
@@ -617,8 +431,6 @@ export function forked(env, run_fn, opts) {
 				st.timer.set(max(ms, 1));
 			}
 
-			// The child's end, or a collector it started that this process
-			// is to hold sooner than its timer's next turn.
 			function on_output(g, msg) {
 				if (g != st.gen || st.done)
 					return;
@@ -635,7 +447,6 @@ export function forked(env, run_fn, opts) {
 				if (type(msg?.start) != 'array')
 					return;
 
-				// The runs before it are written, and its start.
 				absorb(false);
 				hold(msg.start);
 				arm();
@@ -650,8 +461,6 @@ export function forked(env, run_fn, opts) {
 				if (!st.out)
 					return fallback(`cannot make the file the collectors' runs cross by, in ${tmp}`);
 
-				// The file is removed already: opened again through its
-				// descriptor, it is read where the child does not write.
 				st.read_at = 0;
 				st.reader = st.env.open ? st.env.open(`/proc/self/fd/${st.out.fileno()}`, 'r') : null;
 				st.task = uloop.task(child, (msg) => on_output(g, msg));
@@ -666,11 +475,6 @@ export function forked(env, run_fn, opts) {
 				arm();
 			}
 
-			// The child, still running at the deadline: stopped, and the rest
-			// of the plan gone through here, where no collector ran, each
-			// collector left out at the deadline, and none run in another
-			// child. The runs it wrote are taken first, and one it was
-			// running when stopped there is.
 			function backstop() {
 				if (st.env.kill)
 					st.env.kill(st.task.pid());
@@ -702,9 +506,6 @@ export function forked(env, run_fn, opts) {
 						return spawn();
 					}
 
-					// It died before it ran a collector: once may be a passing
-					// failure, twice in a row is not. The rest are not run,
-					// which none of them did: their breakers stay as they are.
 					if (ran == 0 && ++st.lost > 1) {
 						let names = [];
 
@@ -729,7 +530,6 @@ export function forked(env, run_fn, opts) {
 					return spawn();
 				}
 
-				// What it ran since the last turn, and the collector it runs.
 				absorb(false);
 				let t = now(st.env);
 				let limit = st.job?.limit;
@@ -737,14 +537,10 @@ export function forked(env, run_fn, opts) {
 				if (limit != null && t >= limit && (deadline == null || limit <= deadline)) {
 					let r = cancelled(st.job, t - st.started);
 
-					// What it started first, as the child's own end would
-					// leave it running, its parent gone (env.kill).
 					if (st.env.kill)
 						st.env.kill(st.task.pid());
 					st.task.kill();
 
-					// What it ran before; and should the run it was stopped
-					// in have been written as it was, that run.
 					absorb(true);
 					if (st.job != null) {
 						log_stopped(st.env, r);

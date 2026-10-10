@@ -1,30 +1,5 @@
 /**
- * Runs of the collectors outside the service, in the service's own jail: the
- * command line's scrape, check's and the ubus object's status. They run
- * trial.uc (TRIAL) under ujail, with what the init script has procd mount for
- * the service (prometheus_exporter.jail's mounts of the enabled collectors, the
- * exporter's code and libraries, the state read-write), procfs, sysfs, the log
- * and, when an enabled collector needs it, ubus, at the service's priority
- * and memory limit, as the service's user and group, with no new privileges
- * and the capabilities the service has (prometheus_exporter.privileges'
- * CAPABILITIES_FILE, which the service writes when it starts; none while it
- * is stopped): so what they find is what Prometheus gets. They have what the
- * service granted its user when it started, its ubus ACL among it: a
- * collector enabled since fails, PERMISSION_DENIED, until a reload grants it.
- * The collectors run in it as in the service, each in a process of its own
- * (prometheus_exporter.runner).
- *
- * ujail needs root and a kernel that lets it make namespaces: where it is not
- * there, or fails, the caller runs them in its own process, outside the jail,
- * with the same guards, and says so.
- *
- * ujail writes its own lines on standard output, each starting `jail: `,
- * before and after what it runs: output() leaves them out.
- *
- * sys: { uci: a cursor, fs: { stat, glob, readfile, popen }, path: the PATH
- *        commands are found on }
- *
- * sys is a JailSys (prometheus_exporter.jail).
+ * Runs of the collectors outside the service, in the service's own jail.
  *
  * @module prometheus_exporter_jailed
  */
@@ -38,64 +13,34 @@ import { DIR as STATE_DIR } from 'prometheus_exporter.state';
 import * as privileges from 'prometheus_exporter.privileges';
 
 /**
- * A run of the chosen collectors, as trial() gives it: whether it ran in the
- * service's jail, and the runs, in the order of the chosen; a run from the
- * jail has its Result plain, without its prototype, and no families.
+ * A run of the chosen collectors, as trial() gives it: whether it was jailed, and the runs.
  *
  * @typedef {{ jailed: boolean, runs: Run[] }} Trial
  */
 
-/**
- * procd's ujail.
- *
- * @type {string}
- */
+/** procd's ujail. */
 export const UJAIL = '/sbin/ujail';
 
-/**
- * The ucode interpreter, which runs trial.uc in the jail.
- *
- * @type {string}
- */
+/** The ucode interpreter, which runs trial.uc in the jail. */
 export const UCODE = '/usr/bin/ucode';
 
-/**
- * The program that runs the collectors in the jail.
- *
- * @type {string}
- */
+/** The program that runs the collectors in the jail. */
 export const TRIAL = `/usr/libexec/${config.NAME}/trial.uc`;
 
-// What the init script mounts of the exporter itself: its code, and the
-// libraries of ucode's modules. ujail stages the libraries each library it
-// is given needs, but not those of a directory: each module's own.
-
-/**
- * Its code: the exporter's modules, and trial.uc.
- *
- * @type {string[]}
- */
+/** Its code: the exporter's modules, and trial.uc. */
 export const CODE = [ '/usr/share/ucode/prometheus_exporter', TRIAL ];
 
-/**
- * The libraries of ucode's modules, as globs.
- *
- * @type {string[]}
- */
+/** The libraries of ucode's modules, as globs. */
 export const LIBS = [ '/usr/lib/ucode/*.so', '/lib/libubus.so*', '/lib/libuci.so*', '/usr/lib/libnl*.so*', '/usr/lib/libz.so*' ];
 
-/**
- * The service's priority (the init script's nice).
- *
- * @type {int}
- */
+/** The service's priority (the init script's nice). */
 export const NICE = 10;
 
 /**
  * Whether ujail is there, and this process can run it: root's.
  *
- * @param {module:fs} fs what looks: an object of fs's readfile and stat.
- * @returns {boolean} whether it can.
+ * @param {module:fs} fs
+ * @returns {boolean}
  */
 export function available(fs) {
 	let uid = match(fs.readfile('/proc/self/status') ?? '', /\nUid:\s+([0-9]+)/);
@@ -106,8 +51,8 @@ export function available(fs) {
 /**
  * The kB of data each process may take, as the init script sets it.
  *
- * @param {JailSys} sys the system.
- * @returns {int} the kB.
+ * @param {JailSys} sys
+ * @returns {int}
  */
 export function data_kb(sys) {
 	let svc = config.service_values(sys.uci);
@@ -118,13 +63,12 @@ export function data_kb(sys) {
 };
 
 /**
- * The shell command that runs trial.uc with `args` in the service's jail, for
- * the installed `collectors`.
+ * The shell command that runs trial.uc with `args` in the service's jail.
  *
- * @param {JailSys} sys the system.
- * @param {Collector[]} collectors the installed collectors.
- * @param {string[]} args trial.uc's arguments.
- * @returns {string} the command.
+ * @param {JailSys} sys
+ * @param {Collector[]} collectors
+ * @param {string[]} args
+ * @returns {string}
  */
 export function command(sys, collectors, args) {
 	let mounts = jail.mounts(collectors, sys).mounts;
@@ -133,11 +77,8 @@ export function command(sys, collectors, args) {
 	for (let pattern in LIBS)
 		push(ro, ...(sys.fs.glob(pattern) ?? []));
 
-	// As the service's procd instance has ujail run uhttpd: -U and -G its
-	// user, -C its capabilities, -c no new privileges.
 	let caps = (sys.fs.stat(privileges.CAPABILITIES_FILE) != null) ? ` -C ${shell_quote(privileges.CAPABILITIES_FILE)}` : '';
 
-	// ujail's -u mounts the ubus socket, as the init script's ubus option does.
 	return sprintf('ulimit -d %d && exec nice -n %d %s -n %s -U %s -G %s%s -c -p -s -l%s %s -w %s -- %s %s %s 2>/dev/null',
 		data_kb(sys), NICE, UJAIL, shell_quote(`${config.NAME}-trial`), shell_quote(privileges.USER), shell_quote(privileges.GROUP), caps,
 		(jail.UBUS_SOCKET in mounts) ? ' -u' : '',
@@ -146,11 +87,10 @@ export function command(sys, collectors, args) {
 };
 
 /**
- * What trial.uc printed, as JSON, less ujail's own lines; null when it
- * printed none.
+ * What trial.uc printed, as JSON, less ujail's own lines; null when it printed none.
  *
- * @param {?string} text what ujail and trial.uc printed.
- * @returns {?Object} the JSON object.
+ * @param {?string} text
+ * @returns {?Object}
  */
 export function output(text) {
 	let lines = filter(split(text ?? '', '\n'), (l) => substr(l, 0, 6) != 'jail: ' && l != '');
@@ -166,13 +106,12 @@ export function output(text) {
 };
 
 /**
- * trial.uc's reply to `args`, run in the service's jail, or null when it
- * could not be: no ujail, not root, or no reply.
+ * trial.uc's reply to `args`, run in the service's jail, or null when it could not be.
  *
- * @param {JailSys} sys the system.
- * @param {Collector[]} collectors the installed collectors.
- * @param {string[]} args trial.uc's arguments.
- * @returns {?Object} trial.uc's reply.
+ * @param {JailSys} sys
+ * @param {Collector[]} collectors
+ * @param {string[]} args
+ * @returns {?Object}
  */
 export function run(sys, collectors, args) {
 	if (!available(sys.fs))
@@ -190,17 +129,13 @@ export function run(sys, collectors, args) {
 };
 
 /**
- * A run of each of the `chosen` collectors, as trial.uc runs them in the
- * jail: { jailed, runs }, the runs in the order of `chosen`, each
- * { name, id, result, duration, samples } (result plain, without its
- * prototype); one the jail did not load is not run there. Where the jail
- * cannot be had, jailed is false and the runs are fallback()'s.
+ * A run of each of the `chosen` collectors in the service's jail, or fallback()'s.
  *
- * @param {JailSys} sys the system.
- * @param {Collector[]} collectors the installed collectors.
- * @param {Collector[]} chosen the collectors to run.
- * @param {function(): Run[]} fallback the runs where the jail cannot be had.
- * @returns {Trial} the runs.
+ * @param {JailSys} sys
+ * @param {Collector[]} collectors
+ * @param {Collector[]} chosen
+ * @param {function(): Run[]} fallback
+ * @returns {Trial}
  */
 export function trial(sys, collectors, chosen, fallback) {
 	let out = run(sys, collectors, [ 'runs' ]);

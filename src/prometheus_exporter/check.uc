@@ -1,31 +1,5 @@
 /**
- * `service prometheus-exporter check`, and the command line's `check`:
- * the configuration, checked as the exporter and the init script read it;
- * every installed collector, with its section, options, needs and what the
- * jail gives it; and one scrape, in the service's own jail where it can be had
- * (prometheus_exporter.jailed), else here, each collector in a process of its
- * own and stopped at its limit, as the service's scrapes run them
- * (scrape.trial), with each collector that fails and why, and each that has
- * nothing to observe and why (a success: 'dnsmasq is disabled'). With
- * config_only (check.uc --config, which start and reload run) it stops after
- * the configuration. Only an invalid configuration makes it fail. The base
- * package runs it with /usr/libexec/prometheus-exporter/check.uc, so the
- * service needs no command line (ucode-prometheus-exporter-cli); system()
- * is that sys, on the real system.
- *
- * It also says what the service's own scrapes found, from the ledger of its
- * running instance (prometheus_exporter.ledger): each collector quarantined,
- * why and when it is tried again, and each the deadline left out lately.
- * Its own scrape runs every enabled collector all the same, quarantined or
- * not: it is there to see what each does.
- *
- * sys: { uci: a uci cursor, fs: { stat, readfile }, path: the PATH commands are found on,
- *        collectors: the loaded ones, skipped: what the loader logged,
- *        env: a scrape env (prometheus_exporter.scrape, app.scrape_env),
- *        trial(chosen, here) -> { jailed, runs }: the run of `chosen` in the
- *        service's jail (prometheus_exporter.jailed), here() where it cannot
- *        be had; without it, here,
- *        ledger: the service's ledger, or null when it has none }
+ * `service prometheus-exporter check`, and the command line's `check`.
  *
  * @module prometheus_exporter_check
  */
@@ -65,7 +39,6 @@ function count(n, noun) {
 	return `${n} ${noun}${n == 1 ? '' : 's'}`;
 }
 
-// The user is shown; the hash never is.
 function listen_summary(o) {
 	let where = o.listen_interface == '*' ? 'every address' : `interface ${o.listen_interface}`;
 	let tls = (o.cert != '' && o.key != '') ? 'HTTPS' : 'HTTP';
@@ -74,8 +47,6 @@ function listen_summary(o) {
 	return `${tls} on ${where}, port ${o.listen_port}, keepalive ${o.http_keepalive}s${login}`;
 }
 
-// The memory each of the service's processes may take (memory_limit), as the
-// init script works it out.
 function memory_summary(fs, mb) {
 	let m = match(fs.readfile?.('/proc/meminfo') ?? '', /MemTotal:\s+([0-9]+) kB/);
 	let limit = config.memory_limit_mb(mb, m ? +m[1] : 0);
@@ -83,8 +54,6 @@ function memory_summary(fs, mb) {
 	return (mb > 0) ? `memory_limit ${limit} MB` : `memory_limit ${limit} MB (a quarter of the RAM, at most ${config.MEMORY_LIMIT_MAX})`;
 }
 
-// The cert and key the init script serves HTTPS with: both, and both there.
-// Without them it serves HTTP, which basic auth refuses: then it does not start.
 function check_tls(fs, o, add) {
 	let login = (o.auth_user != '');
 
@@ -104,7 +73,6 @@ function check_main(sys, add) {
 	let main = config.main(sys.uci);
 	let svc = config.service(sys.uci);
 
-	// Where 0.2.0 kept the hash, which the package's upgrade moves.
 	if (sys.uci.get(config.NAME, 'main', 'auth_password') != null)
 		add('warn', `main: auth_password is read from /etc/config/${config.AUTH_CONFIG}; the main section's is ignored`);
 
@@ -122,8 +90,6 @@ function check_main(sys, add) {
 	check_tls(sys.fs, svc.data, add);
 }
 
-// Every `config collector` section names an installed collector, and every
-// installed collector's options are valid.
 function check_sections(sys, add) {
 	let ids = map(sys.collectors, (c) => c.id);
 	let failed = 0;
@@ -160,21 +126,18 @@ function value_of(v) {
 	return type(v) == 'string' ? sprintf('%J', v) : `${v}`;
 }
 
-// Where the seconds of a collector's programs come from (config.timeout_source).
 const TIMEOUT_SOURCES = {
 	timeout: "its section's option timeout",
 	'meta.timeout': "the collector's own (meta.timeout)",
 	exec_timeout: "the main section's exec_timeout",
 };
 
-// Where a collector's budget comes from (config.budget_source).
 const BUDGET_SOURCES = {
 	budget: "its section's option budget",
 	collector_budget: "the main section's collector_budget",
 	timeout: 'its timeout and a second more',
 };
 
-// The lines that describe one collector.
 function describe_collector(sys, c, j) {
 	let lines = [ `${c.meta.name} (${c.meta.title}): section '${c.id}', ${j.enabled ? 'enabled' : 'disabled'}` ];
 	let row = (label, items) => length(items) && push(lines, sprintf('    %-9s%s', label, join(' ', items)));
@@ -221,13 +184,11 @@ function describe_collectors(sys, add_line, add) {
 }
 
 /**
- * A run of each of `chosen`: sys.trial's, in the service's jail where it can
- * be had ({ jailed, runs }), or else here, guarded as the service's are
- * (scrape.trial).
+ * A run of each of `chosen`, in the service's jail where it can be had.
  *
- * @param {CheckSys} sys the system.
- * @param {Collector[]} chosen the collectors to run.
- * @returns {Trial} the runs.
+ * @param {CheckSys} sys
+ * @param {Collector[]} chosen
+ * @returns {Trial}
  */
 export function trial(sys, chosen) {
 	let here = () => scrape.trial(sys.env, sys.uci, sys.ledger, chosen, sys.collectors);
@@ -235,8 +196,6 @@ export function trial(sys, chosen) {
 	return sys.trial ? sys.trial(chosen, here) : { jailed: false, runs: here() };
 };
 
-// One scrape of the enabled collectors: each that fails, and why, and each
-// that has nothing to observe, and why.
 function check_scrape(sys, add) {
 	let chosen = filter(sys.collectors, (c) => config.enabled(sys.uci, c.id));
 	let t = trial(sys, chosen);
@@ -254,8 +213,6 @@ function check_scrape(sys, add) {
 		add('ok', `scrape: ${r.name} has nothing to observe: ${r.result.none}`);
 }
 
-// What the service's scrapes found of each collector, by its ledger: the ones
-// quarantined, and the ones the deadline left out in its last RECENT scrapes.
 function check_service(sys, add) {
 	if (sys.ledger == null)
 		return;
@@ -275,10 +232,9 @@ function check_service(sys, add) {
 /**
  * { ok, report }: ok unless the configuration is invalid.
  *
- * @param {CheckSys} sys the system.
- * @param {?{ config_only: ?boolean }} opts config_only: check --config.
- * @returns {{ ok: boolean, report: string }} whether the configuration is
- *   valid, and the report, a line each.
+ * @param {CheckSys} sys
+ * @param {?{ config_only: ?boolean }} opts
+ * @returns {{ ok: boolean, report: string }}
  */
 export function run(sys, opts) {
 	let lines = [];
@@ -309,30 +265,24 @@ export function run(sys, opts) {
 	return { ok, report: join('\n', lines) };
 };
 
-/**
- * uhttpd, the program a serving instance runs.
- *
- * @type {string}
- */
+/** uhttpd, the program a serving instance runs. */
 export const UHTTPD = '/usr/sbin/uhttpd';
 
 /**
- * The service's instances that serve /metrics, of all procd lists for it: not
- * the watch instance, which runs beside uhttpd while a path is missing.
+ * The service's instances that serve /metrics, of all procd lists for it.
  *
- * @param {?Object[]} instances procd's instances of the service.
- * @returns {Object[]} those whose command runs UHTTPD.
+ * @param {?Object[]} instances
+ * @returns {Object[]}
  */
 export function exporters(instances) {
 	return filter(instances ?? [], (i) => i?.command?.[0] == UHTTPD);
 };
 
 /**
- * The addresses of uhttpd's command line, as URLs: what follows each -p (HTTP)
- * and -s (HTTPS).
+ * The addresses of uhttpd's command line, as URLs: what follows each -p (HTTP) and -s (HTTPS).
  *
- * @param {string[]} command uhttpd's command line.
- * @returns {string[]} the URLs of /metrics.
+ * @param {string[]} command
+ * @returns {string[]}
  */
 export function listening(command) {
 	let urls = [];
@@ -349,11 +299,10 @@ export function listening(command) {
 };
 
 /**
- * Whether uhttpd's command line has it check basic auth: a config file (-c)
- * other than /dev/null.
+ * Whether uhttpd's command line has it check basic auth: a config file (-c) other than /dev/null.
  *
- * @param {string[]} command uhttpd's command line.
- * @returns {boolean} whether it does.
+ * @param {string[]} command
+ * @returns {boolean}
  */
 export function logs_in(command) {
 	for (let i = 0; i < length(command) - 1; i++)
@@ -364,14 +313,12 @@ export function logs_in(command) {
 };
 
 /**
- * What status prints of a running exporter: where it listens, whether a scrape
- * logs in (basic auth), whether it is compressed when asked (compress, as
- * configured), and how many collectors it serves (the installed and enabled).
+ * What status prints of a running exporter.
  *
- * @param {string[]} command uhttpd's command line.
- * @param {Collector[]} collectors the installed collectors.
- * @param {UciCursor} uci the cursor.
- * @returns {string} the line.
+ * @param {string[]} command
+ * @param {Collector[]} collectors
+ * @param {UciCursor} uci
+ * @returns {string}
  */
 export function status(command, collectors, uci) {
 	let serving = length(filter(collectors, (c) => config.enabled(uci, c.id)));
@@ -384,18 +331,14 @@ export function status(command, collectors, uci) {
 };
 
 /**
- * sys on the real system, for run(): the installed collectors, loaded as the
- * service loads them, with what the loader left out; the running instance's
- * ledger, of the service's own scrapes; and a run of the enabled collectors
- * in the service's jail where it can be had (jailed.trial), else here.
+ * sys on the real system, for run().
  *
- * @returns {CheckSys} the system.
+ * @returns {CheckSys}
  */
 export function system() {
 	let mods = deps.modules();
 	let skipped = [];
 	let collectors = app.load(mods, null, (level, msg) => push(skipped, msg));
-	// The running instance's: the service's own scrapes.
 	let st = state.latest(mods.fs, state.DIR);
 	let sys = {
 		uci: mods.uci.cursor(),

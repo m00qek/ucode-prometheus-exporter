@@ -1,28 +1,5 @@
 /**
- * The only module that touches the system, with the modules of its capabilities
- * (deps/<capability>.uc: ubus, netlink, socket, exec, exporter, uci, log). It
- * takes each native function of fs and uci by name, so one that OpenWrt
- * 25.12's ucode lacks fails this module's load rather than a scrape; ubus,
- * rtnl, nl80211 and socket it loads when a collector needs them (native()),
- * which lint loads on 25.12.
- *
- * It is the facade of deps/: the modules there are its own, and what others
- * take of them it exports, under the names below.
- *
- * modules(): the real fs, ubus, uci, time and a monotonic clock, and native(),
- * which loads rtnl, nl80211 and socket (these two when installed). Of fs, writefile, rename, unlink and
- * chmod are the handler's, for its state (prometheus_exporter.state),
- * mkstemp the runner's (prometheus_exporter.runner) and stdin the command
- * line's: no collector gets them (FS_API).
- * system_log(ident): a log(level, msg) to syslog, at the level's priority.
- * session(mods): one scrape's capabilities over module-shaped objects, the real
- * ones or utest's proxies: `for(meta)` hands a collector exactly its `needs`.
- *
- * The capabilities' types are their modules': UbusCapability
- * (deps.ubus), NetlinkCapability (deps.netlink), SocketCapability
- * (deps.socket), ExecCapability (deps.exec), ExporterCapability
- * (deps.exporter), UciHandle (deps.uci) and Log (deps.log); fs's and time's,
- * and the Deps a collector gets, are this module's.
+ * The only module that touches the system, with the modules of its capabilities.
  *
  * @module prometheus_exporter_deps
  */
@@ -43,8 +20,7 @@ import * as log_module from 'prometheus_exporter.deps.log';
 import * as privileges from 'prometheus_exporter.privileges';
 
 /**
- * deps.fs: the functions of the fs module a collector may use (FS_API), as
- * the fs module has them.
+ * deps.fs: the functions of the fs module a collector may use (FS_API), as the fs module has them.
  *
  * @typedef {{
  *   readfile: (path: string, limit: ?int) => ?string,
@@ -63,8 +39,7 @@ import * as privileges from 'prometheus_exporter.privileges';
  */
 
 /**
- * What collect() gets as `deps`: one capability per entry of meta.needs, by
- * name, and nothing else; a need the collector did not declare is absent.
+ * What collect() gets as `deps`: one capability per entry of meta.needs.
  *
  * @typedef {{
  *   fs: FsCapability,
@@ -81,9 +56,7 @@ import * as privileges from 'prometheus_exporter.privileges';
  */
 
 /**
- * One scrape's capabilities, as session() makes them: its uci cursor, the
- * deps of a collector (`for`, a Result of Deps, or NEED_MISSING), done(),
- * once that collector's run is over, and close(), once the scrape is.
+ * One scrape's capabilities, as session() makes them.
  *
  * @typedef {{
  *   uci: () => UciCursor,
@@ -94,13 +67,7 @@ import * as privileges from 'prometheus_exporter.privileges';
  */
 
 /**
- * The modules a session is made over (modules()'s, or utest's proxies): fs
- * as the fs module has it, ubus's connect and uci's cursor, the netlink and
- * socket modules, or `native`, which loads them when a collector needs one
- * (native()), the time, a monotonic clock, and the log a session adds; and
- * what the process may do: whether it may read a path that is there
- * (readable), and its /proc/self/status (self_status), each absent where
- * nothing is checked.
+ * The modules a session is made over: modules()'s, or utest's proxies.
  *
  * @typedef {{
  *   fs: module:fs,
@@ -118,24 +85,18 @@ import * as privileges from 'prometheus_exporter.privileges';
  * }} Modules
  */
 
-// ubus: a scrape's channel, ucode's own timeout, the status of a failed call.
 export const ubus_channel = ubus_module.ubus_channel;
 export const UBUS_TIMEOUT = ubus_module.UBUS_TIMEOUT;
 export const ubus_status = ubus_module.ubus_status;
 
-// rtnl and nl80211: a module's requests as Results, and the modules by name.
 export const rtnl_channel = netlink_module.rtnl_channel;
 export const nl80211_channel = netlink_module.nl80211_channel;
 export const load_rtnl = netlink_module.load_rtnl;
 export const load_nl80211 = netlink_module.load_nl80211;
 
-// socket: a Unix stream socket's request, and ucode-mod-socket by name.
 export const socket_channel = socket_module.socket_channel;
 export const load_socket = socket_module.load_socket;
 
-// exec: a collector's programs under the watchdog, the script that runs
-// one, how an argument is quoted, the seconds they get and how a killed one
-// closes; and how a process is killed with every process under it.
 export const exec_channel = exec_module.exec_channel;
 export const kill_tree = exec_module.kill_tree;
 export const exec_script = exec_module.exec_script;
@@ -143,82 +104,46 @@ export const shell_quote = exec_module.shell_quote;
 export const EXEC_SECONDS = exec_module.EXEC_SECONDS;
 export const EXEC_KILLED = exec_module.EXEC_KILLED;
 
-// exporter: the exporter itself, read only, and the files it reads.
 export const exporter_channel = exporter_module.exporter_channel;
 export const PROCESS_FILES = exporter_module.PROCESS_FILES;
 export const SYSTEM_FILES = exporter_module.SYSTEM_FILES;
 
-// uci: read-only handles over the configs a collector declares.
 export const uci_handles = uci_module.uci_handles;
 
-// ubus: a collector's channel, held to the calls it declares, and the ubus
-// module by name, which native() loads.
 export const ubus_for = ubus_module.ubus_for;
 export const load_ubus = ubus_module.load_ubus;
 
-// log: the exporter's log, syslog at each level's priority, and what a
-// collector's run may log of it.
 export const LEVELS = log_module.LEVELS;
 export const LOG_LINES = log_module.LOG_LINES;
 export const LOG_BYTES = log_module.LOG_BYTES;
 export const syslog_channel = log_module.syslog_channel;
 export const system_log = log_module.system_log;
 
-/**
- * The capabilities a collector may need (meta.needs), each the name of what
- * it gets in deps.
- *
- * @type {string[]}
- */
+/** The capabilities a collector may need (meta.needs), each the name of what it gets in deps. */
 export const NEEDS = [ 'fs', 'ubus', 'uci', 'rtnl', 'nl80211', 'socket', 'exec', 'time', 'log', 'exporter' ];
 
-/**
- * The functions of fs a collector may use. popen is exec's.
- *
- * @type {string[]}
- */
+/** The functions of fs a collector may use. */
 export const FS_API = [ 'readfile', 'open', 'lsdir', 'glob', 'stat', 'realpath' ];
 
-/**
- * Where uci's configs are, which a collector's meta.configs name.
- *
- * @type {string}
- */
+/** Where uci's configs are, which a collector's meta.configs name. */
 export const CONFIG_DIR = '/etc/config';
 
 /**
- * One scrape's capabilities: a ubus connection and a uci cursor shared by its
- * collectors, and closed once it is over. mods.log, the exporter's log(level,
- * msg), takes what collectors log, each line naming its collector, at warning:
- * what a collector that succeeds still has to say is something it could not
- * read. A run's log takes LOG_LINES lines of LOG_BYTES at most; done(), once
- * the run is over, says how many more it left out.
+ * One scrape's capabilities, closed once it is over.
  *
- * A collector gets nothing, and fails PERMISSION_DENIED, when the process
- * lacks what the service grants its user for it when it starts
- * (prometheus_exporter.privileges): a capability of meta.capabilities, or
- * read access to a config of meta.configs or a file of meta.proc_files that
- * is there. Read as anyone else, such a file would be missing, and the
- * collector would find nothing to observe.
- *
- * @param {Modules} mods the modules: modules()'s, or utest's proxies.
- * @returns {Session} the session.
+ * @param {Modules} mods
+ * @returns {Session}
  */
 export function session(mods) {
 	let ubus = ubus_channel(mods.ubus.connect, mods.clock);
 	let uci = null;
 	let fs = {};
-	// The log of the run for() last made deps for: its collector's name, the
-	// lines it logged, and those it left out.
 	let run_log = null;
-	// The process's /proc/self/status, read once a collector declares a
-	// capability.
 	let status = null;
 
 	for (let name in FS_API)
 		fs[name] = mods.fs[name];
 
-	// Why the process may not do what `meta` declares, or null.
 	function denied(meta) {
 		if (length(meta.capabilities ?? []) && mods.self_status) {
 			status ??= mods.self_status();
@@ -260,9 +185,6 @@ export function session(mods) {
 		};
 	}
 
-	// The channel `make` makes over the native module `need`: the session's
-	// own, or else the one native() loads, in this process, the first time a
-	// collector needs it; null when it is not installed.
 	function channel_of(need, make) {
 		let mod = mods[need] ?? mods.native?.(need);
 
@@ -271,8 +193,6 @@ export function session(mods) {
 
 	function capability(need, meta, settings, cutoff, view) {
 		switch (need) {
-		// Copies: a collector that wrote over one of their functions would
-		// change it for the collectors after it, as the others are made anew.
 		case 'fs':      return { ...fs };
 		case 'ubus':    return ubus_for(ubus, privileges.ubus_of(meta, settings?.options).ubus);
 		case 'uci':     return uci_handles(uci_cursor, meta.configs ?? []);
@@ -289,15 +209,6 @@ export function session(mods) {
 	return {
 		uci: uci_cursor,
 
-		// The deps object for a collector with this meta, or NEED_MISSING when
-		// the system lacks one of its needs (nl80211 and socket are separate
-		// packages), PERMISSION_DENIED when the process lacks what the
-		// service grants it (denied()). Each call's is its own, each capability with it: what one
-		// collector does to its deps no other sees. settings: what its config says (config.settings): exec's
-		// programs get settings.timeout seconds, else meta.timeout's, and
-		// never run past `cutoff` (exec_channel). `view`: the scrape's, for
-		// exporter (exporter_channel). `limit`: when the collector is
-		// stopped, which its ubus calls wait no longer than (ubus_channel).
 		for: function(meta, settings, cutoff, view, limit) {
 			let deps = {};
 			let why = denied(meta);
@@ -319,7 +230,6 @@ export function session(mods) {
 			return Result.ok(deps);
 		},
 
-		// Once a run is over: how many lines its log left out, in one line.
 		done: function() {
 			let st = run_log;
 
@@ -332,20 +242,14 @@ export function session(mods) {
 	};
 };
 
-/**
- * Where urandom reads.
- *
- * @type {string}
- */
+/** Where urandom reads. */
 export const RANDOM_DEVICE = '/dev/urandom';
 
 /**
- * The kernel's random bytes (RANDOM_DEVICE) through fs: random(n) gives n of
- * them, or null when it cannot read them; what auth.hash_password salts a
- * hash with, for the ubus object and the command line alike.
+ * The kernel's random bytes: random(n) gives n of them, or null.
  *
- * @param {module:fs} fs what reads: an object of fs's open.
- * @returns {function(int): ?string} random(n).
+ * @param {module:fs} fs
+ * @returns {function(int): ?string}
  */
 export function urandom(fs) {
 	return function(n) {
@@ -357,22 +261,17 @@ export function urandom(fs) {
 	};
 };
 
-// A delta directory that never exists: cursors read committed configuration
-// only, not changes staged in uci and not yet committed.
 const UCI_NO_DELTAS = '/var/run/prometheus-exporter/no-uci-deltas';
 
 /**
- * A uci cursor that writes and commits, over the staged changes uci keeps as
- * its own tools do: the ubus object's, for set_password alone, which commits
- * the hash's config (config.AUTH_CONFIG). What reads takes modules()'s.
+ * A uci cursor that writes and commits, for set_password alone.
  *
- * @returns {UciCursor} the cursor.
+ * @returns {UciCursor}
  */
 export function writable_cursor() {
 	return cursor();
 };
 
-// What loads each native module a collector may need besides fs and uci.
 const NATIVES = {
 	ubus: load_ubus,
 	rtnl: load_rtnl,
@@ -380,22 +279,13 @@ const NATIVES = {
 	socket: load_socket,
 };
 
-// Those this process has loaded, by name: null for one that did not load.
 const loaded = {};
 
 /**
- * The native module `name` a collector may need besides fs and uci: ubus,
- * rtnl, nl80211 or socket (these two when installed), loaded the first time
- * it is asked for, in the process that asks, and kept there. A scrape's
- * collectors ask in their child process, so uhttpd, which every request is
- * forked from and which holds what it loads for as long as it runs, holds
- * none of them: each costs a process that loads it 60 to 90 kB, and the
- * child some 0.1 to 0.25 ms to load it in the devenv.
+ * The native module `name`, loaded the first time it is asked for, and kept.
  *
- * @param {string} name the module's name.
- * @returns {?Object} the module (ubus's connect; rtnl's and nl80211's
- *   NetlinkModule; socket's), or null when it is not installed, does not
- *   load, or is none of these.
+ * @param {string} name
+ * @returns {?Object}
  */
 export function native(name) {
 	if (!(name in loaded))
@@ -405,15 +295,9 @@ export function native(name) {
 };
 
 /**
- * The real fs, ubus, uci, time and a monotonic clock, and native(), which
- * loads rtnl, nl80211 and socket (these two when installed) when a
- * collector needs one; ubus's connect loads ubus the first time it is
- * called. Of fs, writefile, rename, unlink and chmod are the handler's, for
- * its state, mkstemp the runner's and stdin the command line's: no collector
- * gets them (FS_API). Cursors read committed configuration only
- * (UCI_NO_DELTAS).
+ * The real system's modules, the native ones loaded when a collector needs one.
  *
- * @returns {Modules} the modules.
+ * @returns {Modules}
  */
 export function modules() {
 	return {

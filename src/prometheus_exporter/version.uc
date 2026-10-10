@@ -1,7 +1,5 @@
 /**
- * The exporter's version, as ucode_prometheus_exporter_build_info reports it:
- * the package's (PKG_VERSION-rPKG_RELEASE), which the package Makefile writes
- * over 'dev' when it installs this file. 'dev' is a source tree's.
+ * The exporter's version: the package's, or 'dev' in a source tree.
  *
  * @module prometheus_exporter_version
  */
@@ -13,8 +11,7 @@ const VERSION = 'dev';
 /**
  * The exporter's version.
  *
- * @returns {string} PKG_VERSION-rPKG_RELEASE when installed, 'dev' in a
- *   source tree.
+ * @returns {string}
  */
 export function version() {
 	return VERSION;

@@ -1,71 +1,5 @@
 /**
- * The service's ubus object, `prometheus-exporter`, which rpcd serves through
- * /usr/share/rpcd/ucode/prometheus-exporter.uc: the exporter is a handler uhttpd
- * runs per request, and publishes nothing itself. It reads with the exporter's
- * own modules (loader, config, jail, scrape, check), so whoever asks (LuCI,
- * `ubus call` on the router, a script) sees what the exporter sees, and writes
- * nothing but the hash of basic auth's password (set_password): settings are
- * saved through uci.
- *
- *   collectors {} -> { collectors: [ collector ], skipped: [ message ] }
- *   validate { main?, collectors? }
- *                 -> { ok, errors: { main: { option: refusal }, collectors: { id: { option: refusal } } } }
- *   status {}     -> { service: { enabled, boot, running, error, auth, compress }, listen: [ url ],
- *                      collectors: [ { name, id, title, enabled, success, observing, reason,
- *                                      duration, error, mounts, service } ], jailed }
- *   interfaces {} -> { interfaces: [ { name, proto } ] }
- *   hash_password { password } -> { hash }
- *   password {}   -> { saved }
- *   set_password { password } -> { saved }
- *
- * A collector and its options are as prometheus_exporter.rpc.describe
- * describes them, and validate checks values as prometheus_exporter.rpc.validate
- * says: a refusal is the code of what is wrong (prometheus_exporter.config's
- * PROBLEMS), its arguments, and its English as `message`. This module is the
- * facade of rpc/: what others take of those it exports, under the names
- * below.
- *
- * status runs one scrape of the enabled collectors, as `service
- * prometheus-exporter check` does: in the service's own jail where it can be
- * had, which `jailed` says (prometheus_exporter.jailed), else outside it, each
- * collector guarded as the service's scrapes guard it, so it ends within
- * scrape_timeout whatever a collector does. rpcd runs it in a process of its
- * own (rpc-status.uc), so that collectors can call the ubus objects rpcd
- * itself serves (wireguard, luci) and other requests are answered meanwhile.
- * A collector with nothing to observe (its hardware, kernel feature or
- * service is not there) succeeds, with `observing` false and `reason` saying
- * why; any other that ran has `observing` true. A collector's `service` is
- * what the service's own scrapes found of it, from its running instance's
- * ledger (prometheus_exporter.ledger's report: { estimate, quarantined,
- * reason, retry_in, late }), or null; the scrape status runs is its own, and
- * runs a quarantined collector all the same.
- *
- * interfaces lists the logical interfaces netifd has (`network.interface
- * dump`), which the main section's listen_interface names: their names and
- * protocols, and nothing else. It never reads /etc/config/network, which holds
- * secrets, so a caller allowed this object alone still gets them. A failed call
- * is answered { error, message }.
- *
- * hash_password makes the SHA-512-crypt hash of a password, freshly salted,
- * that auth_password takes: rpcd runs it, unjailed, and logs neither. A
- * password it does not take is answered { error: ARGS_INVALID, message }. No
- * method's reply holds the hash of the config.
- *
- * The hash is saved apart from the exporter's config, in config.AUTH_CONFIG,
- * which LuCI's ACL does not grant: password says whether one is saved, and
- * set_password hashes a password as hash_password does and saves the hash
- * there, or with '' removes it, commits it, and asks procd for the reload
- * that a commit of the config by uci's own tools would bring
- * (CONFIG_CHANGE). So a login may change the password without reading
- * the hash, and the service takes it at once: LuCI's Change password, apart
- * from its Save & Apply, as LuCI's own root password is.
- *
- * sys: { uci: a cursor, fs: { stat, glob, readfile }, path: the PATH commands are
- *        found on, dir: the collectors' directory, apk: apk's per-package file
- *        lists, collectors: the loaded ones, skipped: what the loader logged,
- *        env: a scrape env (prometheus_exporter.scrape), ubus: a ubus channel,
- *        random(n): n random bytes, ledger: the service's ledger, or null,
- *        uci_writer(): a cursor that commits }
+ * The service's ubus object, `prometheus-exporter`, which rpcd serves.
  *
  * @module prometheus_exporter_rpc
  */
@@ -91,9 +25,7 @@ import { text } from 'prometheus_exporter.rpc.describe';
 import { invalid_args } from 'prometheus_exporter.rpc.validate';
 
 /**
- * What the ubus object's methods take of the system, as the module's top
- * comment says: sys.trial runs the chosen collectors in the service's jail
- * (prometheus_exporter.jailed), here() where it cannot be had.
+ * What the ubus object's methods take of the system.
  *
  * @typedef {{
  *   uci: UciCursor,
@@ -113,25 +45,19 @@ import { invalid_args } from 'prometheus_exporter.rpc.validate';
  */
 
 /**
- * How deferred_json runs a command without blocking rpcd: popen(command), a
- * handle or null, and watch(handle, cb), which calls cb once the handle can
- * be read.
+ * How deferred_json runs a command without blocking rpcd.
  *
  * @typedef {{ popen: function(string): ?FsProc, watch: function(FsProc, function()): void }} RpcIo
  */
 
 /**
- * A request of rpcd's ucode plugins: its arguments, reply() to answer it
- * later, and defer(), what a method returns to answer it later.
+ * A request of rpcd's ucode plugins.
  *
  * @typedef {{ args: ?Object, reply: function(Object): void, defer: function(): Object }} RpcRequest
  */
 
 /**
- * How one collector did in status's scrape, as scrape_run lists it: its
- * names, whether it is enabled and succeeded, whether it had something to
- * observe and why not, how long it took, its error, its jail's mounts, and
- * the service's own scrapes' report of it (ledger.report).
+ * How one collector did in status's scrape.
  *
  * @typedef {{
  *   name: string,
@@ -148,8 +74,6 @@ import { invalid_args } from 'prometheus_exporter.rpc.validate';
  * }} CollectorStatus
  */
 
-// `collectors`: each collector as the exporter sees it, its options in
-// either shape of meta.options, its title, and the packages of its files.
 export const collectors = describer.collectors;
 export const option_spec = describer.option_spec;
 export const options_of = describer.options_of;
@@ -157,10 +81,6 @@ export const title_of = describer.title_of;
 export const owners = describer.owners;
 export const APK_LISTS = describer.APK_LISTS;
 
-// `validate`, what the exporter makes of a value of the main section or of a
-// collector's, the options a collector's section takes, what it answers of a
-// value it refuses, the main section's, and what malformed arguments are
-// answered.
 export const validate = validator.validate;
 export const main_value = validator.main_value;
 export const collector_value = validator.collector_value;
@@ -169,70 +89,35 @@ export const refusal = validator.refusal;
 export const MAIN_OPTIONS = validator.MAIN_OPTIONS;
 export const ARGS_INVALID = validator.ARGS_INVALID;
 
-// The service's names follow from config.NAME, its packages' from config.PACKAGE.
 export const NAME = config.NAME;
 export const PACKAGE = config.PACKAGE;
 
-/**
- * The ubus object's name: the service's.
- *
- * @type {string}
- */
+/** The ubus object's name: the service's. */
 export const OBJECT = NAME;
 
-/**
- * The program rpcd runs for status, in a process of its own.
- *
- * @type {string}
- */
+/** The program rpcd runs for status, in a process of its own. */
 export const STATUS_HELPER = `/usr/libexec/${NAME}/rpc-status.uc`;
 
-/**
- * The seconds the status helper may take before it is killed, with every
- * process it started: what uhttpd gives a scrape. Its scrape has the main
- * section's scrape_timeout, at most as long, and every collector of it is
- * stopped by then; this is for anything else: so no helper outlives it, and
- * a LuCI page refreshed again and again leaves none behind.
- *
- * @type {int}
- */
+/** The seconds the status helper may take before it is killed. */
 export const STATUS_SECONDS = config.SCRIPT_TIMEOUT;
 
-/**
- * The command rpcd runs for status: the helper, under exec's watchdog.
- *
- * @type {string}
- */
+/** The command rpcd runs for status: the helper, under exec's watchdog. */
 export const STATUS_COMMAND = deps.exec_script([ STATUS_HELPER ], STATUS_SECONDS);
 
-/**
- * The program that probes the collector modules for rpcd (cached_probe).
- *
- * @type {string}
- */
+/** The program that probes the collector modules for rpcd (cached_probe). */
 export const PROBE_HELPER = `/usr/libexec/${NAME}/probe.uc`;
 
-/**
- * Where the init scripts' start links are.
- *
- * @type {string}
- */
+/** Where the init scripts' start links are. */
 export const RC_DIR = '/etc/rc.d';
 
-/**
- * What status answers when its helper cannot run, or prints no reply.
- *
- * @type {string}
- */
+/** What status answers when its helper cannot run, or prints no reply. */
 export const STATUS_FAILED = 'STATUS_FAILED';
 
 /**
- * Whether the service is enabled and running, and where it listens: procd's
- * instances, the init script's start link and the main section's `enabled`.
+ * Whether the service is enabled and running, and where it listens.
  *
- * @param {RpcSys} sys the system.
+ * @param {RpcSys} sys
  * @returns {{ service: { enabled: ?boolean, boot: boolean, running: ?boolean, error: ?string, auth: ?boolean, compress: ?boolean }, listen: string[] }}
- *   the service, and the URLs it listens on.
  */
 export function service(sys) {
 	let res = sys.ubus.call('service', 'list', { name: NAME });
@@ -251,7 +136,6 @@ export function service(sys) {
 			boot: length(sys.fs.glob(`${RC_DIR}/S*${NAME}`) ?? []) > 0,
 			running: res.ok ? length(running) > 0 : null,
 			error: res.ok ? null : Result.describe(res),
-			// Whether a scrape logs in, and is compressed when asked, as configured.
 			auth: main.ok ? main.data.auth_user != '' : null,
 			compress: own.ok ? own.data.compress : null,
 		},
@@ -262,8 +146,8 @@ export function service(sys) {
 /**
  * The logical interfaces, in netifd's order.
  *
- * @param {RpcSys} sys the system.
- * @returns {Object} { interfaces: [ { name, proto } ] }, or { error, message }.
+ * @param {RpcSys} sys
+ * @returns {Object}
  */
 export function interfaces(sys) {
 	let res = sys.ubus.call('network.interface', 'dump', {});
@@ -281,14 +165,10 @@ export function interfaces(sys) {
 };
 
 /**
- * One scrape of the enabled collectors: how each did, whether it had
- * something to observe (and why not), and what the jail gives it.
- * { jailed, collectors }: scrape_report's collectors, and whether they ran in
- * the service's jail.
+ * One scrape of the enabled collectors, and whether it ran in the jail.
  *
- * @param {RpcSys} sys the system.
- * @returns {{ jailed: boolean, collectors: CollectorStatus[] }} each
- *   installed collector, and whether they ran in the jail.
+ * @param {RpcSys} sys
+ * @returns {{ jailed: boolean, collectors: CollectorStatus[] }}
  */
 export function scrape_run(sys) {
 	let chosen = filter(sys.collectors, (c) => config.enabled(sys.uci, c.id));
@@ -321,19 +201,18 @@ export function scrape_run(sys) {
 /**
  * scrape_run's collectors alone.
  *
- * @param {RpcSys} sys the system.
- * @returns {CollectorStatus[]} each installed collector.
+ * @param {RpcSys} sys
+ * @returns {CollectorStatus[]}
  */
 export function scrape_report(sys) {
 	return scrape_run(sys).collectors;
 };
 
 /**
- * What the ubus object's status answers: the service, where it listens, how
- * each collector did in one scrape, and whether they ran in the jail.
+ * What the ubus object's status answers.
  *
- * @param {RpcSys} sys the system.
- * @returns {Object} { service, listen, collectors, jailed }.
+ * @param {RpcSys} sys
+ * @returns {Object}
  */
 export function status(sys) {
 	let report = scrape_run(sys);
@@ -344,9 +223,9 @@ export function status(sys) {
 /**
  * { hash } of args.password, for auth_password.
  *
- * @param {RpcSys} sys the system: its random.
- * @param {?Object} args the method's arguments: { password }.
- * @returns {Object} { hash }, or { error, message }.
+ * @param {RpcSys} sys
+ * @param {?Object} args
+ * @returns {Object}
  */
 export function hash_password(sys, args) {
 	let password = args?.password;
@@ -360,27 +239,17 @@ export function hash_password(sys, args) {
 	return res.ok ? { hash: res.data } : { error: res.error, message: Result.describe(res) };
 };
 
-/**
- * The event procd's reload triggers take of a changed config, as uci's
- * reload_config sends it.
- *
- * @type {string}
- */
+/** The event procd's reload triggers take of a changed config. */
 export const CONFIG_CHANGE = 'config.change';
 
-/**
- * The file of the hash's config.
- *
- * @type {string}
- */
+/** The file of the hash's config. */
 export const AUTH_FILE = `/etc/config/${config.AUTH_CONFIG}`;
 
 /**
- * { saved }: whether a hash of basic auth's password is saved
- * (config.AUTH_CONFIG), valid or not; never the hash.
+ * { saved }: whether a hash of basic auth's password is saved.
  *
- * @param {RpcSys} sys the system: its uci.
- * @returns {{ saved: boolean }} whether one is.
+ * @param {RpcSys} sys
+ * @returns {{ saved: boolean }}
  */
 export function password(sys) {
 	let hash = sys.uci.get(config.AUTH_CONFIG, config.AUTH_SECTION, 'auth_password');
@@ -390,12 +259,10 @@ export function password(sys) {
 
 /**
  * Writes `hash` as the saved one, '' removing it, and commits: a Result.
- * The package installs the config; one removed since is written again,
- * mode 0600, with its section.
  *
- * @param {RpcSys} sys the system: its fs and uci_writer.
- * @param {string} hash the hash, or ''.
- * @returns {Result<boolean>} whether a hash is saved now, or FILE_UNWRITABLE.
+ * @param {RpcSys} sys
+ * @param {string} hash
+ * @returns {Result<boolean>}
  */
 export function save_hash(sys, hash) {
 	let failed = (why) => Result.err(errors.FILE_UNWRITABLE, `cannot write ${AUTH_FILE}: ${why}`);
@@ -419,12 +286,11 @@ export function save_hash(sys, hash) {
 };
 
 /**
- * { saved } of set_password: args.password hashed and saved, or with ''
- * the saved hash removed; then procd is asked for the reload (CONFIG_CHANGE).
+ * { saved } of set_password: the password hashed and saved, or removed.
  *
- * @param {RpcSys} sys the system: its random, fs, uci_writer and ubus.
- * @param {?Object} args the method's arguments: { password }.
- * @returns {Object} { saved }, or { error, message }.
+ * @param {RpcSys} sys
+ * @param {?Object} args
+ * @returns {Object}
  */
 export function set_password(sys, args) {
 	let password = args?.password;
@@ -449,17 +315,13 @@ export function set_password(sys, args) {
 };
 
 /**
- * Runs `command` without blocking rpcd, and replies with the JSON object it
- * prints. io: { popen(command) -> a handle, or null; watch(handle, cb): calls
- * cb once the handle can be read }. The reply is { error: STATUS_FAILED,
- * message } when the command cannot start or prints no object; `name` names
- * it there (the command itself without one).
+ * Runs `command` without blocking rpcd, and replies with the JSON object it prints.
  *
- * @param {RpcRequest} req the request.
- * @param {RpcIo} io how it runs the command.
- * @param {string} command the shell command.
- * @param {?string} name what the reply calls it.
- * @returns {Object} req.defer()'s, or { error: STATUS_FAILED, message }.
+ * @param {RpcRequest} req
+ * @param {RpcIo} io
+ * @param {string} command
+ * @param {?string} name
+ * @returns {Object}
  */
 export function deferred_json(req, io, command, name) {
 	let p = io.popen(command);
@@ -481,7 +343,6 @@ export function deferred_json(req, io, command, name) {
 			data = null;
 		}
 
-		// rpcd has answered already if the command outlived its request timeout.
 		try {
 			req.reply((type(data) == 'object') ? data
 				: { error: STATUS_FAILED, message: `${name} printed no reply` });
@@ -493,21 +354,12 @@ export function deferred_json(req, io, command, name) {
 };
 
 /**
- * A probe for loader.load in rpcd (prometheus_exporter.probe), which
- * rpcd itself must not run: a collector module whose top level never returns
- * would hang rpcd, and every LuCI page with it, and rpcd's own event loop is
- * not one to run another inside. So `helper` (PROBE_HELPER) probes the modules
- * in a process of its own, which prints what probe.probe found as JSON, and
- * rpcd waits for it, a module's LOAD_TIMEOUT at most; and it does so once for
- * each version of a module, by its inode, size and change time in `dir`
- * (loader.DIR): a reload of rpcd forgets them all. fs: { stat, popen }.
+ * A probe for loader.load in rpcd, run in a helper process.
  *
- * @param {module:fs} fs what looks and runs: an object of fs's stat and
- *   popen.
- * @param {string} dir the collectors' directory.
- * @param {string} helper the probe's program (PROBE_HELPER).
- * @returns {function(string[]): Object<string, ProbeOutcome>} the probe,
- *   as loader.load takes it.
+ * @param {module:fs} fs
+ * @param {string} dir
+ * @param {string} helper
+ * @returns {function(string[]): Object<string, ProbeOutcome>}
  */
 export function cached_probe(fs, dir, helper) {
 	let known = {};
@@ -554,14 +406,11 @@ export function cached_probe(fs, dir, helper) {
 };
 
 /**
- * The methods rpcd serves. make_sys(opts) gives a fresh sys per call: rpcd
- * outlives any number of commits and package changes; opts.collectors false
- * leaves the collectors unloaded. io as deferred_json's.
+ * The methods rpcd serves.
  *
- * @param {function(?{ collectors: ?boolean }): RpcSys} make_sys a fresh sys.
- * @param {RpcIo} io how deferred_json runs a command.
+ * @param {function(?{ collectors: ?boolean }): RpcSys} make_sys
+ * @param {RpcIo} io
  * @returns {Object<string, { args: Object, call: function(RpcRequest): Object }>}
- *   each method's arguments and call, by name, as rpcd takes them.
  */
 export function methods(make_sys, io) {
 	return {
@@ -609,14 +458,10 @@ export function methods(make_sys, io) {
 };
 
 /**
- * sys on the real system. Its committed configuration only, as the exporter
- * reads it. opts.collectors false leaves the collectors unloaded; opts.probe
- * is loader.load's (cached_probe's in rpcd). Its scrapes run each collector
- * in a process of its own (scrape.trial).
+ * sys on the real system.
  *
  * @param {?{ collectors: ?boolean, probe: ?function(string[]): Object<string, ProbeOutcome> }} opts
- *   the options.
- * @returns {RpcSys} the system.
+ * @returns {RpcSys}
  */
 export function system(opts) {
 	let mods = deps.modules();
@@ -640,7 +485,6 @@ export function system(opts) {
 		uci_writer: deps.writable_cursor,
 	};
 
-	// In the service's jail, where it can be had (check.trial).
 	sys.trial = (chosen, here) => jailed.trial(sys, sys.collectors, chosen, here);
 
 	return sys;

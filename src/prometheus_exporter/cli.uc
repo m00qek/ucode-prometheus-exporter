@@ -1,12 +1,5 @@
 /**
- * The command line, /usr/bin/prometheus-exporter, of the package
- * ucode-prometheus-exporter-cli. USAGE is its interface: docopt (the
- * ucode-docopt package, which only this package depends on) parses the
- * arguments by it, and the reference page is written from it (make
- * docs-gen). Only the command line loads docopt: neither the handler, nor
- * rpcd, nor the init script ever does; the init script's check is the base
- * package's (prometheus_exporter.check's system()), which this command's
- * check runs too.
+ * The command line, /usr/bin/prometheus-exporter, of the package ucode-prometheus-exporter-cli.
  *
  * @module prometheus_exporter_cli
  */
@@ -44,11 +37,7 @@ import { import_path } from 'prometheus_exporter.collection';
  * }} CliSys
  */
 
-/**
- * The command line's usage, as docopt parses it and -h prints it.
- *
- * @type {string}
- */
+/** The command line's usage, as docopt parses it and -h prints it. */
 export const USAGE = `prometheus-exporter: metrics of OpenWrt for Prometheus.
 
 Usage:
@@ -90,22 +79,16 @@ function urlencode(s) {
 }
 
 /**
- * The parsed arguments, by docopt: it prints the help or the version, or the
- * usage on standard error for arguments it does not take, and exits itself.
+ * The parsed arguments, by docopt, which exits itself on -h, --version or bad usage.
  *
- * @param {string[]} argv the arguments.
- * @param {string} version the exporter's version, which --version prints.
- * @returns {Object} the arguments, by docopt's names: commands and options
- *   as keys ('scrape', '--dir', '<collector>').
+ * @param {string[]} argv
+ * @param {string} version
+ * @returns {Object}
  */
 export function parse(argv, version) {
 	return docopt(USAGE, argv, true, `prometheus-exporter ${version}`);
 };
 
-// A scrape on standard output, of the named collectors, within the
-// configuration's scrape_timeout: in the service's jail, where it can be had
-// (sys.jailed_scrape), else here. --dir's collectors are a source tree's,
-// which the jail has not.
 function scrape_cmd(args, sys) {
 	let query = join('&', map(args['<collector>'] ?? [], (n) => 'collect[]=' + urlencode(n)));
 	let res = (args['--dir'] == null && sys.jailed_scrape) ? sys.jailed_scrape(query) : null;
@@ -166,19 +149,11 @@ function hash_cmd(sys) {
 }
 
 /**
- * The exit status of a command, for args as parse() gives them. sys: {
- *   out(text), err(text), clock(),
- *   create(log, dir): prometheus_exporter.app's create,
- *   jailed_scrape(query) -> { status, body, logs }, the scrape in the
- *     service's jail, or null where it cannot be had (optional),
- *   check({ config_only }) -> check.run's { ok, report },
- *   conform(path) -> conform.run's { ok, report },
- *   read_password() -> the password read, or null,
- *   random(n): n random bytes }
+ * The exit status of a command, for args as parse() gives them.
  *
- * @param {Object} args the arguments, as parse() gives them.
- * @param {CliSys} sys the system.
- * @returns {int} the exit status.
+ * @param {Object} args
+ * @param {CliSys} sys
+ * @returns {int}
  */
 export function run(args, sys) {
 	if (args.scrape)
@@ -196,21 +171,14 @@ export function run(args, sys) {
 	return 1;
 };
 
-/**
- * The shell command that reads a password from the terminal: `read -s` of
- * the shell keeps it from echoing (OpenWrt has no stty), and an empty IFS
- * keeps the spaces it starts or ends with, which are the password's.
- *
- * @type {string}
- */
+/** The shell command that reads a password from the terminal, without echo. */
 export const READ_PASSWORD = "IFS= read -rs p && printf '%s' \"$p\"";
 
 /**
- * A password as a line read gives it: the line less the CRs and LFs that
- * end it, and nothing else; null for an empty one.
+ * A password as a line read gives it, without its line end; null for an empty one.
  *
- * @param {?string} line the line read, or null.
- * @returns {?string} the password, or null.
+ * @param {?string} line
+ * @returns {?string}
  */
 export function password_of(line) {
 	let password = (type(line) == 'string') ? rtrim(line, '\r\n') : null;
@@ -219,14 +187,11 @@ export function password_of(line) {
 };
 
 /**
- * A password from the terminal (READ_PASSWORD), or else a line of standard
- * input, either as password_of gives it. Never on a command line, where ps
- * would show it.
+ * A password from the terminal, or else a line of standard input.
  *
- * @param {module:fs} fs what reads: an object of fs's stdin and popen.
- * @param {?function(string): void} prompt what asks for it on the terminal;
- *   warn, to standard error, when null.
- * @returns {?string} the password, or null.
+ * @param {module:fs} fs
+ * @param {?function(string): void} prompt
+ * @returns {?string}
  */
 export function read_password(fs, prompt) {
 	if (fs.stdin.isatty()) {
@@ -247,7 +212,7 @@ export function read_password(fs, prompt) {
 /**
  * sys on the real system, for run().
  *
- * @returns {CliSys} the system.
+ * @returns {CliSys}
  */
 export function system() {
 	let mods = deps.modules();
