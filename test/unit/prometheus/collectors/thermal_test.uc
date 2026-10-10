@@ -5,7 +5,7 @@ import * as fixtures from 'lib.fixtures';
 import { with_collector } from 'prometheus.exporter.devkit.collector';
 import * as thermal from 'prometheus.collectors.thermal';
 
-const ATTRS = [ 'type', 'policy', 'temp', 'mode', 'passive' ];
+const ATTRS = [ 'type', 'policy', 'temp', 'mode', 'passive', 'trip_point_0_type' ];
 
 // A device's thermal zones: the attributes it has, and null for those it lacks.
 function zones(device, n) {
@@ -14,7 +14,7 @@ function zones(device, n) {
 	for (let z = 0; z < n; z++)
 		for (let a in ATTRS) {
 			let path = `/sys/class/thermal/thermal_zone${z}/${a}`;
-			data[path] = (a == 'passive') ? null : fixtures.file(device, path);
+			data[path] = (a in [ 'passive', 'trip_point_0_type' ]) ? null : fixtures.file(device, path);
 		}
 
 	return data;
@@ -77,6 +77,53 @@ describe('collectors.thermal', () => {
 				'# TYPE node_thermal_zone_passive_celsius gauge',
 				'node_thermal_zone_passive_celsius{zone="0",type="acpitz"} 95',
 			], r.lines);
+		});
+	});
+
+	// As an MT7981's cpu-thermal (mt7981.dtsi): active trip points for its
+	// fan, hot, and critical, where the kernel shuts the system down.
+	it('exports the lowest critical trip point in Celsius, of the trip points there are', () => {
+		let data = {
+			...zone(0, { type: 'cpu-thermal', policy: 'step_wise', temp: '61000', mode: 'enabled' }),
+			...zone(1, { type: 'ddr-thermal', policy: 'step_wise', temp: '50000', mode: 'enabled' }),
+			...zone(2, { type: 'wifi-thermal', policy: 'step_wise', temp: '55000', mode: 'enabled' }),
+		};
+		let trips = [
+			[ [ 'active', '60000' ], [ 'active', '85000' ], [ 'hot', '120000' ], [ 'critical', '130000' ], [ 'critical', '125000' ] ],
+			[ [ 'passive', '95000' ] ],
+			[ [ 'critical', '-274000' ], [ 'critical', 'n/a' ] ],
+		];
+
+		for (let z, list in trips) {
+			for (let k, t in list) {
+				data[`/sys/class/thermal/thermal_zone${z}/trip_point_${k}_type`] = t[0] + '\n';
+				data[`/sys/class/thermal/thermal_zone${z}/trip_point_${k}_temp`] = t[1] + '\n';
+			}
+			data[`/sys/class/thermal/thermal_zone${z}/trip_point_${length(list)}_type`] = null;
+		}
+
+		with_collector(thermal, { fs: { data } }, (r) => {
+			assert.match(true, r.result.ok);
+			assert.match([
+				'# HELP node_thermal_zone_critical_celsius Critical trip point of the zone, in Celsius: the kernel shuts the system down at it.',
+				'# TYPE node_thermal_zone_critical_celsius gauge',
+				'node_thermal_zone_critical_celsius{zone="0",type="cpu-thermal"} 125',
+			], slice(r.lines, 10));
+		});
+	});
+
+	prop('reports any critical trip point in degrees Celsius', gen.int(1, 150000), (millideg) => {
+		let data = {
+			...zone(0, { type: 'cpu-thermal', policy: 'step_wise', temp: 40000, trip_point_0_type: 'critical' }),
+			'/sys/class/thermal/thermal_zone0/trip_point_0_temp': `${millideg}\n`,
+			'/sys/class/thermal/thermal_zone0/trip_point_1_type': null,
+		};
+
+		with_collector(thermal, { fs: { data } }, (r) => {
+			let fam = filter(r.families, (f) => f.name == 'node_thermal_zone_critical_celsius')[0];
+			let delta = +fam.samples[0].value * 1000 - millideg;
+
+			assert.match(true, delta > -0.001 && delta < 0.001, `${millideg} -> ${fam.samples[0].value}`);
 		});
 	});
 

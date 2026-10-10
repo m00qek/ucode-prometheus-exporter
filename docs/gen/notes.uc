@@ -174,6 +174,10 @@ export const metric_patterns = {
 // What a family's row says besides, by collector: `note` for each family
 // `match(name)` takes. Every entry must take a family the fixtures show.
 export const family_notes = {
+	'thermal': [ {
+		match: (n) => n == 'node_thermal_zone_critical_celsius',
+		note: 'For a zone with a trip point of type `critical` (`trip_point_<n>_type`), the lowest; node_exporter has none.',
+	} ],
 	'dhcp_leases': [ {
 		match: (n) => n == 'node_openwrt_dhcp_pool_size',
 		note: 'For each `config dhcp` section of `/etc/config/dhcp` whose DHCPv4 pool dnsmasq or odhcpd serve: its `interface` static and with an IPv4 address, without `ignore`, `dhcpv4 \'disabled\'` or `dynamicdhcp \'0\'`. The addresses from `start` (100) for `limit` (150) within the subnet (or `netmask`), as dnsmasq\'s init script ranges them, but the router\'s own. `sum by (interface) (node_openwrt_dhcp_leases{family="ipv4"})` over it is how full the pool is.',

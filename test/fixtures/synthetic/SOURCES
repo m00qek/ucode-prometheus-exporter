@@ -34,6 +34,13 @@
 #   power1_alarm, which the collector does not export, and curr1_input and
 #   in1_input of the same 12 V input. Attributes: Documentation/hwmon/lm25066.rst;
 #   units: sysfs-interface.rst's "Power" (uW).
+# sys/class/thermal/thermal_zone0
+#   A filogic SoC's cpu-thermal with its trip points, which the devices'
+#   captures do not hold: critical at 125 degrees, hot at 120, and active at
+#   115, 85 and 60 for the fan, in the order of OpenWrt's mediatek/filogic
+#   device trees. Attributes: Documentation/driver-api/thermal/sysfs-api.rst,
+#   "Thermal zone device sys I/F" (trip_point_[0-*]_type and _temp, in
+#   millidegrees).
 # sys/class/thermal/cooling_device{0,1,2}
 #   The cooling devices of an ARM board with a fan and an MT7915-family radio,
 #   which neither device's captures hold: a CPU's frequency steps

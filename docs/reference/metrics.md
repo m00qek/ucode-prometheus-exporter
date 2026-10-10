@@ -49,7 +49,7 @@ The labels are those seen on the captures; a collector leaves out a label it has
 | [`sockstat`](#sockstat) | 20 | an access point, a second router | — |
 | [`softnet`](#softnet) | 7 | an access point, a router | — |
 | [`textfile`](#textfile) | 6 | an access point, a router, a second router, made-up captures | — |
-| [`thermal`](#thermal) | 4 | an access point, a router, made-up captures | `node_thermal_zone_passive_celsius` |
+| [`thermal`](#thermal) | 5 | an access point, a router, made-up captures | `node_thermal_zone_passive_celsius` |
 | [`time`](#time) | 1 | an access point, a router, a second router, made-up captures | — |
 | [`timesync`](#timesync) | 4 | a second router | — |
 | [`ubnt-manager`](#ubnt-manager) | 43 | made-up captures | — |
@@ -696,6 +696,7 @@ Thermal zones and cooling devices. [Collector](collectors.md#thermal).
 | :--- | :--- | :--- | :--- | :--- |
 | `node_thermal_zone_temp` | gauge | `zone`, `type` | Zone temperature in Celsius | — |
 | `node_thermal_zone_info` | gauge | `zone`, `type`, `policy`, `mode` | A thermal zone, by its policy and mode. | — |
+| `node_thermal_zone_critical_celsius` | gauge | `zone`, `type` | Critical trip point of the zone, in Celsius: the kernel shuts the system down at it. | For a zone with a trip point of type `critical` (`trip_point_<n>_type`), the lowest; node\_exporter has none. |
 | `node_cooling_device_cur_state` | gauge | `name`, `type` | Current throttle state of the cooling device | — |
 | `node_cooling_device_max_state` | gauge | `name`, `type` | Maximum throttle state of the cooling device | — |
 | `node_thermal_zone_passive_celsius` | gauge | `zone`, `type` | Passive trip point of the zone, in Celsius. | Listed from the code: Written for a zone with a passive trip point; no captured zone has one. |
