@@ -36,6 +36,15 @@ eventually() {
 	fail "$desc"
 }
 apk_file() { echo "/artifacts/$PKG${1:+-$1}-$PKG_FULLVERSION.apk"; }
+
+# procd feeds whatever /dev/watchdog is: the host's, unless make e2e masked it
+# (devenv/scripts/no-watchdog.sh). Each one there must be /dev/null.
+for w in /dev/watchdog*; do
+	[ -e "$w" ] || continue
+	ls -l "$w" | grep -q '^c.* 1, *3 ' && continue
+	echo "FAIL $w is the host's watchdog, not /dev/null: stop this container from a shell that disarms it first" >&2
+	exit 1
+done
 install() { for p in "$@"; do apk_file "$p"; done | xargs apk add --allow-untrusted --no-network >/dev/null 2>&1; }
 
 fetch() { wget -q -O - "$URL${1:+?$1}"; }

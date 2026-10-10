@@ -67,6 +67,11 @@ for f in files/usr/share/rpcd/ucode/*.uc; do
 	ucode -L "$src" -c -o /dev/null "$f" || fail "$f"
 done
 
+# A privileged container sees the host's watchdogs, which procd would arm and
+# leave running: every privileged docker run masks them (no-watchdog.sh).
+unmasked=$(grep -n -e "run .*--privi""leged" Makefile devenv/scripts/*.sh | grep -v 'no-watchdog\.sh')
+[ -z "$unmasked" ] || { echo "$unmasked" >&2; fail "a privileged docker run without devenv/scripts/no-watchdog.sh"; }
+
 # ---- luci-app-prometheus-exporter ----
 # The browser tests' fake procd is a program that runs at top level.
 for f in devenv/services/luci/*.uc; do

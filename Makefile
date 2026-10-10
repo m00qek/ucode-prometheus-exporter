@@ -104,7 +104,7 @@ E2E_CONTAINER := ucode-prometheus-exporter-e2e-$(OPENWRT_ARCH)-$(OPENWRT_VERSION
 # and ujail, which needs the container privileged. No network either.
 e2e: package template-package pkgcheck-image
 	@docker rm -f $(E2E_CONTAINER) >/dev/null 2>&1 || true
-	@docker run -d --privileged --network none --name $(E2E_CONTAINER) \
+	@docker run -d --privileged $$(devenv/scripts/no-watchdog.sh) --network none --name $(E2E_CONTAINER) \
 		-v $(CURDIR)/bin:/artifacts:ro -v $(CURDIR):/exporter:ro $(PKGCHECK_IMAGE) /sbin/init >/dev/null
 	@docker exec $(if $(CI),,-t) -e PKG_FULLVERSION=$(PKG_FULLVERSION) \
 		-e BASE_COLLECTORS="$$(devenv/scripts/package-info.sh base-collectors)" \
