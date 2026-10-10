@@ -10,7 +10,7 @@ RUN          = $(COMPOSE) --progress quiet run --rm $(if $(CI),-T) openwrt
 IMAGE_STAMP := devenv/.built-$(IMAGE_TAG)
 TEST_ARGS    = $(if $(FILTER),-f '$(FILTER)') $(if $(VERBOSE),-v) $(if $(TEST_TIMEOUT),-t $(TEST_TIMEOUT)) $(MODULES)
 
-.PHONY: test unit integration watch lint shell image fixtures package template-package pkgcheck-image package-check e2e lab lab-down browser pot bench bench-src bench-worlds bench-device bench-qemu failure-demo docs docs-mike docs-test docs-serve docs-gen feed-inventory feed-makefile monitoring-check monitoring-lab monitoring-lab-down
+.PHONY: test unit integration watch lint same-code shell image fixtures package template-package pkgcheck-image package-check e2e lab lab-down browser pot bench bench-src bench-worlds bench-device bench-qemu failure-demo docs docs-mike docs-test docs-serve docs-gen feed-inventory feed-makefile monitoring-check monitoring-lab monitoring-lab-down
 
 test:        $(IMAGE_STAMP) ; @$(RUN) devenv/scripts/test.sh all $(TEST_ARGS)
 unit:        $(IMAGE_STAMP) ; @$(RUN) devenv/scripts/test.sh unit $(TEST_ARGS)
@@ -129,6 +129,15 @@ lab: package
 
 lab-down:
 	@LAB_NAME=$(LAB_NAME) devenv/scripts/lab.sh down
+
+# Whether the sources differ from REV's in comments and blank lines alone: the
+# same stripped bytecode for each ucode file, the same tokens for each of the
+# LuCI app's JavaScript files; see devenv/scripts/same-code.sh.
+REV ?= main
+same-code: $(IMAGE_STAMP)
+	docker build -q -t $(BROWSER_IMAGE) devenv/services/browser >/dev/null
+	@DEVENV_IMAGE=ucode-prometheus-exporter-openwrt:$(IMAGE_TAG) BROWSER_IMAGE=$(BROWSER_IMAGE) \
+		devenv/scripts/same-code.sh '$(REV)' $(FILES)
 
 # ---- benchmark -----------------------------------------------------------------
 # test/bench/ on OpenWrt in the pkgcheck image: each collector and whole scrapes

@@ -15,6 +15,7 @@ Every target runs in Docker, but `feed-makefile`, a shell script with `curl`; no
 | `integration` | `test/integration/` only. |
 | `watch` | All tests, then again whenever a file under `src/`, `test/`, `files/`, `devenv/scripts/` or `docs/gen/` changes. |
 | `lint` | Loads every module on the release's ucode, so a function it lacks fails here; compiles every test, program and handler; `sh -n` every shell script; parses the JSON of `luci/` and the LuCI views (as the function bodies LuCI compiles them into, with quickjs); fails on LuCI code that could turn data into markup (`devenv/scripts/luci-dom-lint.sh`); checks the pinned documentation links (`devenv/scripts/docs-links.sh`, see [Link check](docs-publishing.md#link-check)); fails while a generated reference page is not what `docs-gen` would write; and runs `test/feed/`, the tests of `feed-makefile`'s generator. Then checks that `luci/po/templates/prometheus-exporter.pot` is what `pot` would write. |
+| `same-code` | Whether the sources differ from `REV`'s (`main` by default) in comments and blank lines alone: each ucode file of `src/` and `files/` that differs must compile to the same stripped bytecode, each JavaScript file of `luci/` give the same tokens to esbuild. `FILES` narrows the paths. Changes nothing (`devenv/scripts/same-code.sh`). |
 | `shell` | A shell in the development image. |
 | `image` | Rebuilds the development image, pulling its base again. |
 
