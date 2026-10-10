@@ -27,7 +27,7 @@ esac
 down
 # Its own network namespace, on docker's default bridge: netifd, the jail and
 # the services touch the container's network only.
-docker run -d --privileged --name "$LAB_NAME" --hostname "$LAB_NAME" \
+docker run -d --privileged $(devenv/scripts/no-watchdog.sh) --name "$LAB_NAME" --hostname "$LAB_NAME" \
 	-p "$LAB_ADDRESS:$LAB_LUCI_PORT:80" -p "$LAB_ADDRESS:$LAB_METRICS_PORT:9100" \
 	-v "$PWD/bin:/artifacts:ro" -v "$PWD/devenv/services/lab:/opt/lab:ro" \
 	--entrypoint /bin/sh "$LAB_IMAGE" /opt/lab/boot.sh >/dev/null
