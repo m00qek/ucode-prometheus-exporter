@@ -75,16 +75,23 @@ export function family(stat) {
 
 export function exported(stats) {
 	let by_fq = {};
+	let written = {};
 
 	for (let s in stats) {
-		let fq = names(s[0])[0];
-		by_fq[fq] = (fq in by_fq) ? false : s;
+		let n = names(s[0]);
+
+		by_fq[n[0]] = (n[0] in by_fq) ? false : s;
+		written[n[1][0]] = !(n[1][0] in written);
 	}
 
 	let out = [];
-	for (let fq in sort(keys(by_fq)))
-		if (by_fq[fq] && fq != INFO)
-			push(out, by_fq[fq]);
+	for (let fq in sort(keys(by_fq))) {
+		let s = by_fq[fq];
+		let fam = s ? names(s[0])[1][0] : null;
+
+		if (s && written[fam] && fam != INFO)
+			push(out, s);
+	}
 
 	return out;
 };

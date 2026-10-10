@@ -203,6 +203,18 @@ describe('collectors.unbound', () => {
 		});
 	});
 
+	// What an unbound built with DNSCrypt adds: its caches' memory matched
+	// mem.cache., and went out as caches of their own.
+	it("leaves out DNSCrypt's statistics", () => {
+		let reply = 'thread0.num.queries=99\nmem.cache.rrset=10\nmem.cache.dnscrypt_shared_secret=4\nmem.cache.dnscrypt_nonce=5\n' +
+			'num.query.dnscrypt.shared_secret.cachemiss=6\nnum.query.dnscrypt.replay=7\ndnscrypt_shared_secret.cache.count=8\n';
+
+		with_reply(reply, (r) => {
+			assert.match(true, r.result.ok);
+			assert.match([ 'unbound_queries_total{thread="0"} 99', 'unbound_memory_caches_bytes{cache="rrset"} 10' ], samples(r.lines));
+		});
+	});
+
 	it("exports the extended statistics of a reply that has them, with unbound_exporter's names", () => {
 		with_reply(EXTENDED, (r) => {
 			let names = map(r.families, (f) => f.name);

@@ -228,6 +228,18 @@ describe('collectors.ethtool', () => {
 		});
 	});
 
+	// rx_bytes is written as node_ethtool_received_bytes_total, the name
+	// rx_bytes_total has: each would have written a sample of that series.
+	it('leaves out both statistics of a family one of node_exporter\'s names makes twice', () => {
+		let text = 'NIC statistics:\n     rx_bytes: 1\n     rx_bytes_total: 2\n     tx_errors_total: 3\n     TX_errors: 4\n     tx_errors: 5\n     rx_x: 6\n';
+
+		with_ethtool([ { dev: 'eth0' } ], { [run('eth0')]: { out: text } }, (r) => {
+			assert.match(true, r.result.ok);
+			assert.match([ 'node_ethtool_received_x{device="eth0"} 6' ], samples(r.lines));
+		});
+		assert.match([ [ 'tx_packets', '1' ], [ 'tx_packets_x', '2' ] ], ethtool.exported([ [ 'tx_packets', '1' ], [ 'tx_packets_x', '2' ] ]));
+	});
+
 	it('skips values that are not numbers', () => {
 		with_ethtool([ { dev: 'eth0' } ], { [run('eth0')]: { out: stat('mode', 'auto') + '     rx_x: 3\n' } }, (r) => {
 			assert.match(true, r.result.ok);

@@ -137,6 +137,101 @@ export function interface_of(nets, bytes) {
 	return null;
 };
 
+const TRUE = [ '1', 'on', 'true', 'yes', 'enabled' ];
+
+function flag(v, dflt) {
+	return (type(v) == 'string') ? (v in TRUE) : dflt;
+}
+
+function number(v) {
+	if (type(v) != 'string' || v == '')
+		return null;
+
+	let n = 0;
+
+	for (let part in split(v, '.')) {
+		if (!match(part, DIGITS))
+			return null;
+		n = n * 256 + +part;
+	}
+
+	return n;
+}
+
+function prefix_of(netmask) {
+	let b = iptoarr(netmask);
+
+	if (b == null || length(b) != 4)
+		return (type(netmask) == 'string' && match(netmask, DIGITS) && +netmask <= 32) ? +netmask : null;
+
+	let bits = 0;
+
+	for (let n = word(b); n & 0x80000000; n = (n << 1) & 0xffffffff)
+		bits++;
+
+	return bits;
+}
+
+export function pool_size(address, prefix, start, limit) {
+	let ip = word(address);
+	let netmask = prefix ? (0xffffffff << (32 - prefix)) & 0xffffffff : 0;
+	let hostmask = netmask ^ 0xffffffff;
+	let network = ip & netmask;
+	let lower = (prefix <= 30) ? network + 1 : network;
+	let upper = (prefix <= 30) ? (network | hostmask) - 1 : (prefix == 31) ? (network | hostmask) : network;
+	let first = network | (start & hostmask);
+
+	if (first < lower)
+		first = lower;
+	if (first == ip)
+		first++;
+
+	let last = first + limit - 1;
+
+	if (last > upper)
+		last = upper;
+	if (last == ip)
+		last--;
+
+	if (first > last)
+		return null;
+
+	return last - first + 1 - ((first <= ip && ip <= last) ? 1 : 0);
+};
+
+export function pools(dhcp, interfaces) {
+	let by_name = {};
+	let out = [];
+
+	for (let i in interfaces)
+		if (type(i?.interface) == 'string')
+			by_name[i.interface] ??= i;
+
+	dhcp.foreach('dhcp', function(s) {
+		let name = s.interface;
+		let i = by_name[name];
+		let a = (type(i?.['ipv4-address']) == 'array') ? i['ipv4-address'][0] : null;
+		let bytes = (type(a?.address) == 'string') ? iptoarr(a.address) : null;
+
+		if (type(name) != 'string' || flag(s.ignore, false) || s.dhcpv4 == 'disabled' || i?.proto != 'static' ||
+			!flag(s.dynamicdhcpv4, flag(s.dynamicdhcp, true)) || bytes == null || length(bytes) != 4)
+			return;
+
+		let prefix = (s.netmask != null) ? prefix_of(s.netmask) : a.mask;
+		let start = number(s.start ?? '100'), limit = number(s.limit ?? '150');
+
+		if (type(prefix) != 'int' || prefix < 0 || prefix > 32 || start == null || limit == null)
+			return;
+
+		let size = pool_size(bytes, prefix, start, limit);
+
+		if (size != null)
+			push(out, { interface: name, size });
+	});
+
+	return out;
+};
+
 const MAC_HEX = /^[0-9a-fA-F]{12}$/;
 const OCTET = /../g;
 
@@ -254,7 +349,8 @@ export function collect(deps, out, options) {
 	if (!dump.ok)
 		return dump;
 
-	let nets = networks(type(dump.data?.interface) == 'array' ? dump.data.interface : []);
+	let interfaces = (type(dump.data?.interface) == 'array') ? dump.data.interface : [];
+	let nets = networks(interfaces);
 	let now = deps.time.now();
 	let book = ledger();
 
@@ -301,6 +397,10 @@ export function collect(deps, out, options) {
 	let count = out.gauge('node_openwrt_dhcp_leases', 'Active DHCP leases, by server, interface and family.');
 	for (let c in book.counts())
 		count(c.labels, c.n);
+
+	let pool = out.gauge('node_openwrt_dhcp_pool_size', 'Addresses in the DHCPv4 pool of an interface: its dhcp section\'s start and limit, within its subnet.');
+	for (let p in pools(deps.uci.dhcp, interfaces))
+		pool({ interface: p.interface }, p.size);
 
 	if (!options.leases)
 		return failure ?? Result.ok();

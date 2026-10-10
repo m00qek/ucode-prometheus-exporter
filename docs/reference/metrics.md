@@ -17,7 +17,7 @@ The labels are those seen on the captures; a collector leaves out a label it has
 | [`conntrack`](#conntrack) | 10 | a router | — |
 | [`cpu`](#cpu) | 8 | an access point, a router | — |
 | [`dawn`](#dawn) | 3 | made-up captures | — |
-| [`dhcp_leases`](#dhcp_leases) | 3 | made-up captures | — |
+| [`dhcp_leases`](#dhcp_leases) | 4 | made-up captures | — |
 | [`diskstats`](#diskstats) | 18 | a second router, made-up captures | — |
 | [`dnsmasq`](#dnsmasq) | 30 | a router | — |
 | [`entropy`](#entropy) | 2 | an access point, a router | — |
@@ -49,7 +49,7 @@ The labels are those seen on the captures; a collector leaves out a label it has
 | [`sockstat`](#sockstat) | 20 | an access point, a second router | — |
 | [`softnet`](#softnet) | 7 | an access point, a router | — |
 | [`textfile`](#textfile) | 6 | an access point, a router, a second router, made-up captures | — |
-| [`thermal`](#thermal) | 4 | an access point, a router, made-up captures | `node_thermal_zone_passive_celsius` |
+| [`thermal`](#thermal) | 5 | an access point, a router, made-up captures | `node_thermal_zone_passive_celsius` |
 | [`time`](#time) | 1 | an access point, a router, a second router, made-up captures | — |
 | [`timesync`](#timesync) | 4 | a second router | — |
 | [`ubnt-manager`](#ubnt-manager) | 43 | made-up captures | — |
@@ -187,6 +187,7 @@ DHCP leases. [Collector](collectors.md#dhcp_leases).
 | Family | Type | Labels | Help | Notes |
 | :--- | :--- | :--- | :--- | :--- |
 | `node_openwrt_dhcp_leases` | gauge | `server`, `interface`, `family` | Active DHCP leases, by server, interface and family. | — |
+| `node_openwrt_dhcp_pool_size` | gauge | `interface` | Addresses in the DHCPv4 pool of an interface: its dhcp section's start and limit, within its subnet. | For each `config dhcp` section of `/etc/config/dhcp` whose DHCPv4 pool dnsmasq or odhcpd serve: its `interface` static and with an IPv4 address, without `ignore`, `dhcpv4 'disabled'` or `dynamicdhcp '0'`. The addresses from `start` (100) for `limit` (150) within the subnet (or `netmask`), as dnsmasq's init script ranges them, but the router's own. `sum by (interface) (node_openwrt_dhcp_leases{family="ipv4"})` over it is how full the pool is. |
 | `node_openwrt_dhcp_lease_info` | gauge | `server`, `interface`, `family`, `address`, `mac`, `hostname`, `duid`, `iaid` | An active DHCP lease: its address, client and hostname. | With `leases=1` |
 | `node_openwrt_dhcp_lease_expiry_timestamp_seconds` | gauge | `server`, `interface`, `family`, `address` | When an active DHCP lease expires, unless it never does. | With `leases=1` |
 
@@ -460,11 +461,11 @@ mwan3 multi-WAN. [Collector](collectors.md#mwan3).
 
 ## `nat_traffic` {#nat_traffic}
 
-Traffic per address pair. [Collector](collectors.md#nat_traffic).
+Traffic per host. [Collector](collectors.md#nat_traffic).
 
 | Family | Type | Labels | Help | Notes |
 | :--- | :--- | :--- | :--- | :--- |
-| `node_nat_traffic_bytes` | gauge | `host`, `peer` | Bytes of the connections of a host on this side of the router, both directions. | `peer` with the `peers` option only: a series per host and peer, which come and go with the connections. |
+| `node_nat_traffic_bytes` | gauge | `host`, `peer` | Bytes of the connections of a host on this side of the router, both directions. | `host` is the end of a connection on this side of the router: an address of the router's own, or one on-link to an interface without a default route (a LAN's subnet, a delegated IPv6 prefix). A connection with neither end there is written as `host="other"`, and so are the hosts past the 2048 with the most bytes. `peer`, with the `peers` option only, is the other end: a series per host and peer, which come and go with the connections; the pairs past the 16384 with the most bytes are written as `peer="other"` of their host, and `host="other"` has `peer="other"`. |
 
 ## `netclass` {#netclass}
 
@@ -695,6 +696,7 @@ Thermal zones and cooling devices. [Collector](collectors.md#thermal).
 | :--- | :--- | :--- | :--- | :--- |
 | `node_thermal_zone_temp` | gauge | `zone`, `type` | Zone temperature in Celsius | — |
 | `node_thermal_zone_info` | gauge | `zone`, `type`, `policy`, `mode` | A thermal zone, by its policy and mode. | — |
+| `node_thermal_zone_critical_celsius` | gauge | `zone`, `type` | Critical trip point of the zone, in Celsius: the kernel shuts the system down at it. | For a zone with a trip point of type `critical` (`trip_point_<n>_type`), the lowest; node\_exporter has none. |
 | `node_cooling_device_cur_state` | gauge | `name`, `type` | Current throttle state of the cooling device | — |
 | `node_cooling_device_max_state` | gauge | `name`, `type` | Maximum throttle state of the cooling device | — |
 | `node_thermal_zone_passive_celsius` | gauge | `zone`, `type` | Passive trip point of the zone, in Celsius. | Listed from the code: Written for a zone with a passive trip point; no captured zone has one. |

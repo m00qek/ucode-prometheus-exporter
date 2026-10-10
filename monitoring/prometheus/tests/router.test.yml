@@ -153,7 +153,8 @@ tests:
       - series: 'ucode_prometheus_exporter_build_info{job="access-points", instance="ap:9100", version="0.3.0-r1"}'
         values: '1x40'
       # A radio past its max, another past its crit, a chip with no limits
-      # (0), and a CPU thermal zone past its passive trip point.
+      # (0), a CPU thermal zone past its passive trip point, and zones 8, 30
+      # and 20 degrees below their critical trip points, and one without one.
       - series: 'node_hwmon_temp_celsius{job="access-points", instance="ap:9100", chip="mt7915_phy0", sensor="temp1"}'
         values: '110x10'
       - series: 'node_hwmon_temp_max_celsius{job="access-points", instance="ap:9100", chip="mt7915_phy0", sensor="temp1"}'
@@ -181,6 +182,20 @@ tests:
         values: '86x10'
       - series: 'node_thermal_zone_passive_celsius{job="access-points", instance="ap:9100", zone="0", type="cpu-thermal"}'
         values: '85x10'
+      - series: 'node_thermal_zone_temp{job="node-remote", instance="router:9100", zone="0", type="cpu-thermal"}'
+        values: '117x10'
+      - series: 'node_thermal_zone_critical_celsius{job="node-remote", instance="router:9100", zone="0", type="cpu-thermal"}'
+        values: '125x10'
+      - series: 'node_thermal_zone_temp{job="node-remote", instance="router:9100", zone="1", type="wifi-thermal"}'
+        values: '95x10'
+      - series: 'node_thermal_zone_critical_celsius{job="node-remote", instance="router:9100", zone="1", type="wifi-thermal"}'
+        values: '125x10'
+      - series: 'node_thermal_zone_temp{job="node-remote", instance="router:9100", zone="2", type="ddr-thermal"}'
+        values: '120x10'
+      - series: 'node_thermal_zone_temp{job="node-local", instance="server:9100", zone="0", type="x86_pkg_temp"}'
+        values: '90x10'
+      - series: 'node_thermal_zone_critical_celsius{job="node-local", instance="server:9100", zone="0", type="x86_pkg_temp"}'
+        values: '100x10'
     alert_rule_test:
       - eval_time: 6m
         alertname: OpenWrtTemperatureAboveMax
@@ -235,6 +250,20 @@ tests:
               description: >-
                 Thermal zone 0 (cpu-thermal) on ap:9100 has been at or above
                 its passive trip point for 5 minutes, at 86 °C: the kernel slows the CPU to cool it.
+      - eval_time: 3m
+        alertname: OpenWrtThermalZoneNearCritical
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              job: node-remote
+              instance: router:9100
+              zone: "0"
+              type: cpu-thermal
+            exp_annotations:
+              summary: Thermal zone 0 (cpu-thermal) on router:9100 is near its critical temperature.
+              description: >-
+                Thermal zone 0 (cpu-thermal) on router:9100 has been within 10 °C
+                of its critical trip point for a minute, at 117 °C: the kernel shuts the router down at it.
 
   - interval: 1m
     input_series:
@@ -259,8 +288,19 @@ tests:
         values: '0x40'
       - series: 'node_timesync_synchronized{job="access-points", instance="ap:9100", daemon="chronyd"}'
         values: '1x40'
-      # 140 leases on lan, from dnsmasq and odhcpd; few on guest; many
-      # DHCPv6 bindings, which take no pool.
+      # 140 leases on lan, from dnsmasq and odhcpd, of a pool of 150; 12 on
+      # guest, of 99; 19 on iot, of 20; many DHCPv6 bindings, which take no
+      # pool; and 200 on an interface whose pool the exporter does not size.
+      - series: 'node_openwrt_dhcp_pool_size{job="node-remote", instance="router:9100", interface="lan"}'
+        values: '150x40'
+      - series: 'node_openwrt_dhcp_pool_size{job="node-remote", instance="router:9100", interface="guest"}'
+        values: '99x40'
+      - series: 'node_openwrt_dhcp_pool_size{job="node-remote", instance="router:9100", interface="iot"}'
+        values: '20x40'
+      - series: 'node_openwrt_dhcp_leases{job="node-remote", instance="router:9100", server="dnsmasq", interface="iot", family="ipv4"}'
+        values: '19x40'
+      - series: 'node_openwrt_dhcp_leases{job="node-remote", instance="router:9100", server="dnsmasq", interface="lab", family="ipv4"}'
+        values: '200x40'
       - series: 'node_openwrt_dhcp_leases{job="node-remote", instance="router:9100", server="dnsmasq", interface="lan", family="ipv4"}'
         values: '120x40'
       - series: 'node_openwrt_dhcp_leases{job="node-remote", instance="router:9100", server="odhcpd", interface="lan", family="ipv4"}'
@@ -328,6 +368,17 @@ tests:
             exp_annotations:
               summary: The DHCP pool of lan on router:9100 is nearly exhausted.
               description: >-
-                140 DHCPv4 leases are active on lan of router:9100, 90% of
-                a pool of 150 addresses, OpenWrt's default. A new client gets no address once the pool is spent:
-                raise the interface's `limit`, or shorten its `leasetime`.
+                93.33% of the DHCPv4 pool of lan on router:9100
+                is leased. A new client gets no address once the pool is spent: raise the interface's `limit`,
+                or shorten its `leasetime`.
+          - exp_labels:
+              severity: warning
+              job: node-remote
+              instance: router:9100
+              interface: iot
+            exp_annotations:
+              summary: The DHCP pool of iot on router:9100 is nearly exhausted.
+              description: >-
+                95% of the DHCPv4 pool of iot on router:9100
+                is leased. A new client gets no address once the pool is spent: raise the interface's `limit`,
+                or shorten its `leasetime`.

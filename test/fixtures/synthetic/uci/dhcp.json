@@ -1,0 +1,37 @@
+{
+	"cfg01411c": {
+		".type": "dnsmasq",
+		"domainneeded": "1",
+		"localise_queries": "1",
+		"local": "/lan/",
+		"domain": "lan",
+		"expandhosts": "1",
+		"authoritative": "1",
+		"readethers": "1",
+		"leasefile": "/tmp/dhcp.leases",
+		"localservice": "1",
+		"ednspacket_max": "1232"
+	},
+	"lan": {
+		".type": "dhcp",
+		"interface": "lan",
+		"start": "100",
+		"limit": "150",
+		"leasetime": "12h",
+		"dhcpv4": "server",
+		"dhcpv6": "server",
+		"ra": "server"
+	},
+	"wan": {
+		".type": "dhcp",
+		"interface": "wan",
+		"ignore": "1"
+	},
+	"odhcpd": {
+		".type": "odhcpd",
+		"maindhcp": "0",
+		"leasefile": "/tmp/hosts/odhcpd",
+		"leasetrigger": "/usr/sbin/odhcpd-update",
+		"loglevel": "4"
+	}
+}

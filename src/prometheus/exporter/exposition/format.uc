@@ -136,7 +136,7 @@ function sequence(b) {
  * @returns {boolean}
  */
 export function utf8_valid(text) {
-	if (!match(text, HIGH))
+	if (!match(text, HIGH) && index(text, '\0') < 0)
 		return true;
 
 	let n = length(text);
@@ -249,8 +249,18 @@ function clash(labels) {
 	return null;
 }
 
+/**
+ * Whether a label name is one Prometheus reserves, `__name__` and the rest of `__*`.
+ *
+ * @param {string} name
+ * @returns {boolean}
+ */
+export function reserved(name) {
+	return substr(name, 0, 2) == '__';
+};
+
 function label_prefix(name) {
-	if ((LABEL_NAMES[name] ?? sanitize(name, true)) != name)
+	if ((LABEL_NAMES[name] ?? sanitize(name, true)) != name || reserved(name))
 		return null;
 
 	let p = `",${name}="`;
@@ -287,8 +297,12 @@ export function label_text(labels) {
 		let p = LABEL_PREFIXES[name] ?? label_prefix(name);
 
 		if (p == null) {
+			let s = LABEL_NAMES[name] ?? sanitize(name, true);
+
+			if (reserved(s))
+				return null;
 			renamed = true;
-			p = `",${sanitize(name, true)}="`;
+			p = `",${s}="`;
 		}
 
 		text += p + value;
@@ -298,6 +312,8 @@ export function label_text(labels) {
 	if (text == '')
 		return '';
 	if (renamed && clash(labels) != null)
+		return null;
+	if (index(values, '\0') >= 0)
 		return null;
 	if (match(values, SPECIAL))
 		return utf8_valid(text) ? format_labels(label_pairs(labels)) : null;
@@ -322,9 +338,14 @@ export function label_problem(labels) {
 	if (c != null)
 		return { label: c[2], why: `labels '${c[1]}' and '${c[0]}' are both '${c[2]}' once sanitized` };
 
-	for (let p in label_pairs(labels ?? {}))
+	for (let p in label_pairs(labels ?? {})) {
+		if (reserved(p[0]))
+			return { label: p[0], why: 'Prometheus reserves label names that start with \'__\'' };
+		if (index(p[1], '\0') >= 0)
+			return { label: p[0], why: 'its value holds a NUL byte' };
 		if (!utf8_valid(p[1]))
 			return { label: p[0], why: 'its value is not valid UTF-8' };
+	}
 
 	return null;
 };

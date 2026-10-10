@@ -619,6 +619,16 @@ function generate(dir, profile) {
 	let snmp6 = fixture('caju-ap/proc/net/dev_snmp6/eth0');
 	let all = links(p, rand);
 	world.rtnl.RTM_GETLINK = all;
+	// The routes of the conntrack tables' router: its clients on br-lan, the
+	// default routes and its WAN addresses on eth1.
+	world.rtnl.RTM_GETROUTE = [
+		{ family: 2, type: 1, table: 254, oif: 'eth1', gateway: '100.64.0.254' },
+		{ family: 10, type: 1, table: 254, oif: 'eth1', gateway: 'fe80::1' },
+		{ family: 2, type: 1, table: 254, dst: '192.168.1.0/24', oif: 'br-lan' },
+		{ family: 10, type: 1, table: 254, dst: '2001:db8:0:1::/64', oif: 'br-lan' },
+		{ family: 2, type: 2, table: 255, dst: '100.64.0.1/32', oif: 'eth1' },
+		{ family: 10, type: 2, table: 255, dst: '2001:db8:0:2::1/128', oif: 'eth1' },
+	];
 	mkdir_p(`${dir}/commands`);
 	for (let i, l in all) {
 		sysfs_link(root, l, i, rand);

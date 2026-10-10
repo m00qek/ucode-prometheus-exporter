@@ -30,7 +30,7 @@ function parse(script) {
 }
 
 // The constants are their own names: the stand-ins key replies by them.
-const RTNL_CONST = { RTM_GETLINK: 'RTM_GETLINK', NLM_F_DUMP: 'NLM_F_DUMP' };
+const RTNL_CONST = { RTM_GETLINK: 'RTM_GETLINK', RTM_GETROUTE: 'RTM_GETROUTE', NLM_F_DUMP: 'NLM_F_DUMP', RTN_UNICAST: 1, RTN_LOCAL: 2 };
 const NL80211_CONST = {
 	NL80211_CMD_GET_INTERFACE: 'NL80211_CMD_GET_INTERFACE',
 	NL80211_CMD_GET_STATION: 'NL80211_CMD_GET_STATION',
