@@ -28,7 +28,7 @@ Every collector of `ucode-prometheus-exporter 0.2.1`. A collector's name is what
 | [`meminfo`](#meminfo) | Memory | `ucode-prometheus-exporter` (base) | — |
 | [`modemmanager`](#modemmanager) | Cellular modems | `ucode-prometheus-exporter-modemmanager` | — |
 | [`mwan3`](#mwan3) | mwan3 multi-WAN | `ucode-prometheus-exporter-mwan3` | — |
-| [`nat_traffic`](#nat_traffic) | Traffic per address pair | `ucode-prometheus-exporter-nat_traffic` | `ucode-prometheus-exporter-network`, `ucode-prometheus-exporter-full` |
+| [`nat_traffic`](#nat_traffic) | Traffic per host | `ucode-prometheus-exporter-nat_traffic` | `ucode-prometheus-exporter-network`, `ucode-prometheus-exporter-full` |
 | [`netclass`](#netclass) | Network device properties | `ucode-prometheus-exporter` (base) | — |
 | [`netdev`](#netdev) | Network device statistics | `ucode-prometheus-exporter` (base) | — |
 | [`netstat`](#netstat) | Protocol statistics | `ucode-prometheus-exporter-netstat` | `ucode-prometheus-exporter-network`, `ucode-prometheus-exporter-full` |
@@ -455,13 +455,13 @@ mwan3 interface tracking, from ubus mwan3 status.
 
 ## `nat_traffic` {#nat_traffic}
 
-Bytes per source and destination address, from /proc/net/nf\_conntrack.
+Bytes per host on this side of the router, from /proc/net/nf\_conntrack and the routes.
 
-- **Title:** Traffic per address pair
+- **Title:** Traffic per host
 - **Package:** `ucode-prometheus-exporter-nat_traffic`
 - **In the groups:** `ucode-prometheus-exporter-network`, `ucode-prometheus-exporter-full`
 - **Section:** `config collector 'nat_traffic'`
-- **Needs:** `fs`
+- **Needs:** `fs`, `rtnl`, `log`
 - **Reads, of root's alone:** `/proc/net/nf_conntrack` (the service's group, while it is enabled)
 - **Samples it may write:** 65536, its own (`meta.max_samples`), unless its section sets `max_samples`
 - **Cost:** heavy (`meta.cost`): until the ledger has timed it, it runs after the others

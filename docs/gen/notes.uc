@@ -176,7 +176,7 @@ export const metric_patterns = {
 export const family_notes = {
 	'nat_traffic': [ {
 		match: (n) => n == 'node_nat_traffic_bytes',
-		note: '`peer` with the `peers` option only: a series per host and peer, which come and go with the connections.',
+		note: '`host` is the end of a connection on this side of the router: an address of the router\'s own, or one on-link to an interface without a default route (a LAN\'s subnet, a delegated IPv6 prefix). A connection with neither end there is written as `host="other"`, and so are the hosts past the 2048 with the most bytes. `peer`, with the `peers` option only, is the other end: a series per host and peer, which come and go with the connections; the pairs past the 16384 with the most bytes are written as `peer="other"` of their host, and `host="other"` has `peer="other"`.',
 	} ],
 	'unbound': [ {
 		match: (n) => match(n, /^unbound_(memory_|answer|rrset_|unwanted_|msg_cache|infra_cache|key_cache|response_time|rpz_)/) ||

@@ -296,7 +296,7 @@ The Lua exporter's; here, [`nat_traffic`](collectors.md#nat_traffic)'s.
 
 | Family | Lua | ucode | Here | Change | Notes |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| `node_nat_traffic` | `{src,dest}` | — | `node_nat_traffic_bytes{host,peer}` | renamed | A series per host on this side of the router (the source of a connection, or the LAN host a port forward reaches), `host`, where it was one per pair of addresses: `sum by (src)` is `node_nat_traffic_bytes{host}`. The pairs come back with the option `peers`, `{host,peer}` (since 0.3.0). |
+| `node_nat_traffic` | `{src,dest}` | — | `node_nat_traffic_bytes{host,peer}` | renamed | A series per host on this side of the router (the end of a connection there: a LAN host or the router, or the LAN host a port forward reaches; `host="other"` for a connection with neither end there), `host`, where it was one per pair of addresses: `sum by (src)` is `node_nat_traffic_bytes{host}`. The pairs come back with the option `peers`, `{host,peer}` (since 0.3.0). |
 
 ### `netclass` {#from-netclass}
 

@@ -460,11 +460,11 @@ mwan3 multi-WAN. [Collector](collectors.md#mwan3).
 
 ## `nat_traffic` {#nat_traffic}
 
-Traffic per address pair. [Collector](collectors.md#nat_traffic).
+Traffic per host. [Collector](collectors.md#nat_traffic).
 
 | Family | Type | Labels | Help | Notes |
 | :--- | :--- | :--- | :--- | :--- |
-| `node_nat_traffic_bytes` | gauge | `host`, `peer` | Bytes of the connections of a host on this side of the router, both directions. | `peer` with the `peers` option only: a series per host and peer, which come and go with the connections. |
+| `node_nat_traffic_bytes` | gauge | `host`, `peer` | Bytes of the connections of a host on this side of the router, both directions. | `host` is the end of a connection on this side of the router: an address of the router's own, or one on-link to an interface without a default route (a LAN's subnet, a delegated IPv6 prefix). A connection with neither end there is written as `host="other"`, and so are the hosts past the 2048 with the most bytes. `peer`, with the `peers` option only, is the other end: a series per host and peer, which come and go with the connections; the pairs past the 16384 with the most bytes are written as `peer="other"` of their host, and `host="other"` has `peer="other"`. |
 
 ## `netclass` {#netclass}
 
