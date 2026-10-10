@@ -437,6 +437,7 @@ describe('app.handler', () => {
 		for (let why, program in UNLOADABLE)
 			for (let main in [ null, { auth_user: 'prom', cert: '/etc/x.crt', key: '/etc/x.key' } ]) {
 				patch_main(main, { [auth.FILE]: auth.conf('prom', HASH) });
+				gc();
 
 				let logs = [];
 				let app = handler((level, m) => push(logs, [ level, m ]), SOURCES, null, { auth_program: program });

@@ -7,9 +7,10 @@
 'use strict';
 
 import * as result from 'prometheus.exporter.result';
-import * as codes from 'prometheus.exporter.errors';
+import * as codes from 'prometheus.exporter.api.errors';
 import * as watched from 'prometheus.exporter.services';
 import * as procfs from 'prometheus.exporter.proc';
+import * as format from 'prometheus.exporter.api.exposition';
 
 /**
  * A collector's `meta`, as the loader validates it (loader.validate).
@@ -46,79 +47,20 @@ import * as procfs from 'prometheus.exporter.proc';
  * @typedef {{ meta: Meta, collect: Collect }} CollectorModule
  */
 
-/** What collect() returns: ok, err, none; is, is_none, describe (prometheus.exporter.result). */
-export const Result = {
-	ok: result.ok,
-	err: result.err,
-	none: result.none,
-	is: result.is,
-	is_none: result.is_none,
-	describe: result.describe,
-};
+/** What collect() returns: ok, err, none; is, is_none, describe (prometheus.exporter.result). Constant. */
+export const Result = result;
 
-/** The error codes a collector and its capabilities fail with. */
-export const errors = {
-	SOURCE_UNREADABLE: codes.SOURCE_UNREADABLE,
-	SOURCE_INVALID: codes.SOURCE_INVALID,
-	CONFIG_INVALID: codes.CONFIG_INVALID,
+/** The error codes a collector and its capabilities fail with. Constant. */
+export const errors = codes;
 
-	UBUS_CONNECT_FAILED: codes.UBUS_CONNECT_FAILED,
-	UBUS_CALL_FAILED: codes.UBUS_CALL_FAILED,
-	NL80211_FAILED: codes.NL80211_FAILED,
-	RTNL_FAILED: codes.RTNL_FAILED,
-	SOCKET_FAILED: codes.SOCKET_FAILED,
-	COMMAND_NOT_ALLOWED: codes.COMMAND_NOT_ALLOWED,
-	COMMAND_FAILED: codes.COMMAND_FAILED,
-	COMMAND_TIMEOUT: codes.COMMAND_TIMEOUT,
-	UBUS_NOT_ALLOWED: codes.UBUS_NOT_ALLOWED,
-	PERMISSION_DENIED: codes.PERMISSION_DENIED,
-	SCRAPE_DEADLINE: codes.SCRAPE_DEADLINE,
-	EXPOSITION_INVALID: codes.EXPOSITION_INVALID,
-};
+/** Whether a service is watched, for nothing to observe (prometheus.exporter.services). Constant. */
+export const services = watched;
 
-/** Whether a service is watched, for nothing to observe (prometheus.exporter.services). */
-export const services = {
-	ENABLED: watched.ENABLED,
-	DISABLED: watched.DISABLED,
-	NOT_INSTALLED: watched.NOT_INSTALLED,
-	NOT_FOUND: watched.NOT_FOUND,
-	state: watched.state,
-	idle: watched.idle,
-	unless_disabled: watched.unless_disabled,
-	object_missing: watched.object_missing,
-};
+/** Reading procfs and sysfs through deps.fs (prometheus.exporter.proc). Constant. */
+export const proc = procfs;
 
-/** Reading procfs and sysfs through deps.fs (prometheus.exporter.proc). */
-export const proc = {
-	first_line: procfs.first_line,
-	lines: procfs.lines,
-	each_line: procfs.each_line,
-	fields: procfs.fields,
-	rows: procfs.rows,
-	auxv: procfs.auxv,
-	AT_PAGESZ: procfs.AT_PAGESZ,
-	AT_CLKTCK: procfs.AT_CLKTCK,
-};
-
-let format = null;
-
-function exposition_fn(name) {
-	return function(...args) {
-		format ??= loadstring(
-			"import { parse, format_value, sanitize } from 'prometheus.exporter.exposition';\n" +
-			'return { parse, format_value, sanitize };',
-			{ raw_mode: true })();
-
-		return format[name](...args);
-	};
-}
-
-/** The exposition format's functions, each loaded the first time it is called. */
-export const exposition = {
-	parse: exposition_fn('parse'),
-	format_value: exposition_fn('format_value'),
-	sanitize: exposition_fn('sanitize'),
-};
+/** The exposition format's functions, each loaded the first time it is called. Constant. */
+export const exposition = format;
 
 function unsigned(v, bits) {
 	return (type(v) == 'int' && v < 0 && v >= -(1 << (bits - 1))) ? v + (1 << bits) : v;

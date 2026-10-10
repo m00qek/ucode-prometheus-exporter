@@ -27,6 +27,27 @@ describe('collection.top_level', () => {
 				refusal(() => global[name]('/nonexistent')), name);
 	});
 
+	// What a top level writes over in the global scope persists in uhttpd,
+	// where every scrape is forked: it is put back, and the module refused.
+	it('puts back the global scope a program changed, and refuses it, naming what it changed', () => {
+		let trim_fn = global.trim;
+
+		assert.match(`COLLECTOR_IMPURE (its top level changed the global scope, added, trim, uc: ${ONLY_DECLARES})`,
+			refusal(() => { global.trim = null; delete global.uc; global.added = 1; return 1; }));
+		assert.match([ true, 'function', false ], [ global.trim === trim_fn, type(global.uc), exists(global, 'added') ]);
+	});
+
+	it('takes NaN for itself, and a program that changes nothing for one that only declares', () => {
+		assert.match(2, collection.top_level(() => length([ NaN, 0 / 0 ])));
+	});
+
+	it('names a write over what the collector API keeps constant as COLLECTOR_IMPURE', () => {
+		let api = loadstring("import * as api from 'prometheus.exporter'; return api;", { raw_mode: true })();
+
+		assert.match('COLLECTOR_IMPURE (its top level wrote over what the collector API exports, which no collector may change: object value is immutable)',
+			refusal(() => { api.Result.ok = null; }));
+	});
+
 	it('refuses sleep at once, rather than sleeping', () => {
 		let t = clock(true);
 

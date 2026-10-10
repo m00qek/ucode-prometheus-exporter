@@ -21,8 +21,8 @@ MODULES_DIR:=$(UCODE_DIR)/exporter
 COLLECTORS_DIR:=$(UCODE_DIR)/collectors
 # The directories of the modules split out of one of the exporter's own
 # (config.uc's config/, deps.uc's deps/, exposition.uc's exposition/, loader.uc's
-# loader/, rpc.uc's rpc/), installed with them.
-MODULE_SUBDIRS:=config deps exposition loader rpc
+# loader/, rpc.uc's rpc/, and the collector API's api/), installed with them.
+MODULE_SUBDIRS:=api config deps exposition loader rpc
 
 # The command line's modules: ucode-prometheus-exporter-cli's, not the base
 # package's, which installs every other module of src/prometheus/exporter.
