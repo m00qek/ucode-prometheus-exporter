@@ -42,7 +42,8 @@ feed_matches_tree() {
 	gen --hash "$HASH" "$VERSION" > "$TMP/feed.mk" || return 1
 	sed -e 's#\([ ,]\)\$(PKG_BUILD_DIR)/src/#\1./src/#g' \
 		-e 's#\([ ,]\)\$(PKG_BUILD_DIR)/files/#\1./files/#g' \
-		-e 's#\([ ,]\)\$(PKG_BUILD_DIR)/luci/#\1./luci/#g' "$TMP/feed.mk" \
+		-e 's#\([ ,]\)\$(PKG_BUILD_DIR)/luci/#\1./luci/#g' \
+		-e 's#\([ ,]\)\$(PKG_BUILD_DIR)/devenv/#\1./devenv/#g' "$TMP/feed.mk" \
 		| grep -vE '^(PKG_SOURCE|PKG_SOURCE_URL|PKG_SOURCE_URL_FILE|PKG_HASH|PKG_BUILD_DIR):=' > "$TMP/back.mk"
 	release=$(grep -n '^PKG_RELEASE:=' "$SOURCE" | cut -d: -f1)
 	# One blank line is added before the source lines.
@@ -104,6 +105,8 @@ tarball() {
 	for d in src files luci LICENSE NOTICE; do
 		cp -R "$TOP/$d" "$root/$d"
 	done
+	mkdir -p "$root/devenv/scripts"
+	cp "$TOP/devenv/scripts/strip-comments.py" "$root/devenv/scripts/"
 	for p in "$@"; do
 		rm -rf "${root:?}/$p"
 	done
@@ -139,5 +142,6 @@ check "a tarball without a base collector is refused" lacks src/prometheus_expor
 check "a tarball without a module subdirectory is refused" lacks src/prometheus_exporter/deps
 check "a tarball without a libexec program is refused" lacks files/usr/libexec/prometheus-exporter/probe.uc
 check "a tarball without a license file is refused" lacks NOTICE
+check "a tarball without the comment stripper is refused" lacks devenv/scripts/strip-comments.py
 
 exit $((failures > 0))

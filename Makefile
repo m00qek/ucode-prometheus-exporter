@@ -48,6 +48,7 @@ package:
 		-v $(CURDIR)/src:$(PKG_DIR)/src:ro \
 		-v $(CURDIR)/files:$(PKG_DIR)/files:ro \
 		-v $(CURDIR)/luci:$(PKG_DIR)/luci:ro \
+		-v $(CURDIR)/devenv/scripts/strip-comments.py:$(PKG_DIR)/devenv/scripts/strip-comments.py:ro \
 		-v $(CURDIR)/LICENSE:$(PKG_DIR)/LICENSE:ro \
 		-v $(CURDIR)/NOTICE:$(PKG_DIR)/NOTICE:ro \
 		-v $(CURDIR)/bin:/artifacts \

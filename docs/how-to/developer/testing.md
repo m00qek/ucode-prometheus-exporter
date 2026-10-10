@@ -16,6 +16,8 @@ make test FILTER='collectors.wifi' VERBOSE=1
 make watch
 ```
 
+A full run first checks the comment stripper the package build runs: its own tests, `test/strip/`, and every ucode and JavaScript file the packages install, stripped. Each ucode file must compile to the same stripped bytecode as its source, which proves the stripper took comments and nothing else; a narrowed run skips it.
+
 `watch` runs the tests again whenever a file under `src/`, `test/`, `files/`, `devenv/scripts/`, `docs/gen/` or `devkit/` changes. To run them on the API floor, the first 25.12 release, as CI does too: `make test OPENWRT_VERSION=25.12.0`.
 
 ## Lint
@@ -32,7 +34,7 @@ It loads every module on the release's ucode, so a function that ucode lacks fai
 make package-check
 ```
 
-Builds the apks with the SDK, installs them offline in an OpenWrt image, scrapes a real uhttpd and calls the ubus object in a real rpcd, with the base package alone and then with the LuCI app. Then it installs the devkit and runs the template collector's tests on it, as a collector package's own CI would.
+Builds the apks with the SDK, installs them offline in an OpenWrt image, scrapes a real uhttpd and calls the ubus object in a real rpcd, with the base package alone and then with the LuCI app. It checks that each installed ucode file, stripped of comments by the build, compiles to the same code as its source. Then it installs the devkit and runs the template collector's tests on it, as a collector package's own CI would.
 
 ## The service under procd
 
@@ -49,7 +51,7 @@ make browser
 make browser FILTER='settings'
 ```
 
-Runs the Playwright tests of `test/browser/` against LuCI with the built packages. Screenshots, and on a failure the error context and LuCI's log, are in `bin/browser/`.
+Runs the Playwright tests of `test/browser/` against LuCI with the built packages, and compares the app's JavaScript as LuCI serves it, stripped of comments, with its sources, token by token. Screenshots, and on a failure the error context and LuCI's log, are in `bin/browser/`.
 
 ## The documentation tooling
 

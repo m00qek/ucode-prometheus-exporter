@@ -11,8 +11,9 @@
 #      so that it cannot clash in dl/ with another project's v<version>.tar.gz,
 #      PKG_SOURCE_URL and PKG_SOURCE_URL_FILE, where GitHub serves it,
 #      PKG_HASH (the tarball's sha256) and PKG_BUILD_DIR;
-#   2. every ./src/, ./files/ and ./luci/ path points into $(PKG_BUILD_DIR),
-#      those in the Collector macro and in $(foreach) lists too.
+#   2. every ./src/, ./files/, ./luci/ and ./devenv/ path points into
+#      $(PKG_BUILD_DIR), those in the Collector macro and in $(foreach) lists
+#      too (./devenv/: the comment stripper the install steps run).
 #
 # PKG_LICENSE_FILES is the source's own: the tarball has the files it names.
 #
@@ -154,8 +155,8 @@ function fail(msg) {
 
 # 2. Paths into the unpacked tarball, after a space or a $(foreach) comma.
 {
-	for (i = 1; i <= 3; i++) {
-		d = i == 1 ? "src" : i == 2 ? "files" : "luci"
+	for (i = 1; i <= 4; i++) {
+		d = i == 1 ? "src" : i == 2 ? "files" : i == 3 ? "luci" : "devenv"
 		gsub(" \\./" d "/", " $(PKG_BUILD_DIR)/" d "/")
 		gsub(",\\./" d "/", ",$(PKG_BUILD_DIR)/" d "/")
 	}
@@ -181,10 +182,10 @@ END {
 ' "$work/source.mk" > "$work/feed.mk" || die "refusing to generate the feed Makefile (see above)"
 
 # Nothing may still name a path relative to the package directory: the feed
-# has no src/, files/ or luci/ next to its Makefile. Comments may.
+# has no src/, files/, luci/ or devenv/ next to its Makefile. Comments may.
 if grep -nE '(^|[[:space:]=,:])\.\.?/' "$work/feed.mk" | grep -vE '^[0-9]+:[[:space:]]*#' > "$work/relative"; then
 	cat "$work/relative" >&2
-	die "these lines still use a path relative to ./ (only ./src/, ./files/ and ./luci/ are rewritten)"
+	die "these lines still use a path relative to ./ (only ./src/, ./files/, ./luci/ and ./devenv/ are rewritten)"
 fi
 
 # The paths the Makefile copies from, relative to the tarball's root, one a

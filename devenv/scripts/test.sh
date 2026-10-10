@@ -79,7 +79,13 @@ done
 shift $((OPTIND - 1))
 
 case $cmd in
-unit | integration | all) run "$cmd" "$@" ;;
+# The comment stripper of the package build, on every file it strips
+# (devenv/scripts/strip-check.sh), unless the run is narrowed.
+unit | all)
+	[ -n "$filter" ] || [ $# -gt 0 ] || devenv/scripts/strip-check.sh || exit 1
+	run "$cmd" "$@"
+	;;
+integration) run "$cmd" "$@" ;;
 watch)
 	trap 'exit 130' INT TERM
 	while :; do

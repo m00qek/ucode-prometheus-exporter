@@ -42,6 +42,7 @@ docker run --rm $(if [ -z "${CI:-}" ] && [ -t 1 ]; then echo -t; fi) \
 	--network "container:$name" -u "$(id -u):$(id -g)" -e HOME=/tmp \
 	-v "$PWD/test/playwright.config.js:/app/playwright.config.js:ro" \
 	-v "$PWD/test/browser:/app/tests:ro" \
+	-v "$PWD/luci/htdocs:/app/luci:ro" \
 	-v "$PWD/$out:/app/results" \
 	"$BROWSER_IMAGE" npx playwright test ${FILTER:+--grep "$FILTER"} || status=$?
 

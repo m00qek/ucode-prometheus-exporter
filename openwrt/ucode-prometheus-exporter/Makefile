@@ -26,6 +26,14 @@ MODULE_SUBDIRS:=config deps exposition loader rpc
 CLI_MODULES:=cli conform
 BASE_MODULES=$(filter-out $(CLI_MODULES),$(basename $(notdir $(wildcard ./src/prometheus_exporter/*.uc))))
 
+# Every comment of the ucode and JavaScript files a package installs goes, with
+# a newline kept for each of its own: a device gets no comments, and an error's
+# line number on it is the line in the repository. $(1): the package's root.
+STRIP_COMMENTS:=$(STAGING_DIR_HOST)/bin/$(PYTHON) ./devenv/scripts/strip-comments.py -i
+define StripComments
+	find $(1) -type f \( -name '*.uc' -o -name '*.js' -o -path '*/usr/bin/$(SERVICE)' \) -exec $(STRIP_COMMENTS) {} +
+endef
+
 # Installed with the exporter itself; every other collector is a subpackage.
 BASE_COLLECTORS:=conntrack cpu entropy exporter filefd loadavg meminfo netclass netdev openwrt_interfaces selinux softnet time timesync uname vmstat
 
@@ -119,6 +127,7 @@ define Package/$(PKG_NAME)/install
 	# Run once, before the service first starts: takes over a feed exporter's settings.
 	$(INSTALL_DIR) $(1)/etc/uci-defaults
 	$(INSTALL_BIN) ./files/etc/uci-defaults/$(SERVICE)-import $(1)/etc/uci-defaults/
+	$(call StripComments,$(1))
 endef
 
 $(eval $(call BuildPackage,$(PKG_NAME)))
@@ -146,6 +155,7 @@ define Package/$(PKG_NAME)-cli/install
 	$(INSTALL_DIR) $(1)$(MODULES_DIR) $(1)/usr/bin
 	$(INSTALL_DATA) $(foreach m,$(CLI_MODULES),./src/prometheus_exporter/$(m).uc) $(1)$(MODULES_DIR)/
 	$(INSTALL_BIN) ./files/usr/bin/$(SERVICE) $(1)/usr/bin/
+	$(call StripComments,$(1))
 endef
 
 $(eval $(call BuildPackage,$(PKG_NAME)-cli))
@@ -177,6 +187,7 @@ define Collector
 	$$(INSTALL_DIR) $$(1)$(COLLECTORS_DIR)
 	$$(INSTALL_DATA) ./src/prometheus_exporter/collectors/$(1).uc $$(1)$(COLLECTORS_DIR)/
 	$$(call Collector/$(1)/install,$$(1))
+	$$(call StripComments,$$(1))
   endef
 
   define Package/$(PKG_NAME)-$(2)/postinst
@@ -315,6 +326,7 @@ define Package/$(LUCI_APP)/install
 	$(INSTALL_DIR) $(1)/www
 	$(CP) ./luci/htdocs/* $(1)/www/
 	$(CP) ./luci/root/* $(1)/
+	$(call StripComments,$(1))
 endef
 
 $(eval $(call BuildPackage,$(LUCI_APP)))
@@ -342,6 +354,7 @@ define Package/$(PKG_NAME)-devkit/install
 	$(INSTALL_DIR) $(1)$(MODULES_DIR)/devkit/proxies
 	$(INSTALL_DATA) ./src/prometheus_exporter/devkit/*.uc $(1)$(MODULES_DIR)/devkit/
 	$(INSTALL_DATA) ./src/prometheus_exporter/devkit/proxies/*.uc $(1)$(MODULES_DIR)/devkit/proxies/
+	$(call StripComments,$(1))
 endef
 
 $(eval $(call BuildPackage,$(PKG_NAME)-devkit))

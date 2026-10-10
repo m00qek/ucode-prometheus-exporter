@@ -261,6 +261,36 @@ check "collector check passes the template collector" \
 check "the base package ships nothing of it" sh -c "! grep -q '$DEVKIT_DIR' '$BASE_LIST'"
 [ -f /tmp/template-tests.log ] && { tail -3 /tmp/template-tests.log | sed 's/^/info /'; }
 
+# ---- comments ----
+# The build strips every comment of the ucode files it installs, keeping their
+# lines (devenv/scripts/strip-comments.py): each installed file is its source
+# without them, as many lines long and compiled to the same stripped bytecode
+# (devenv/scripts/same-bytecode.sh). version.uc is compared with its source as
+# the build stamps it.
+source_of() {
+	case $1 in
+	/usr/share/ucode/*) echo "/exporter/src/${1#/usr/share/ucode/}" ;;
+	/usr/libexec/*|/usr/share/rpcd/*|/usr/bin/*) echo "/exporter/files$1" ;;
+	esac
+}
+# A line that is a comment, or starts one.
+commented() { grep -qE '^[[:space:]]*(//|/\*|\* |\*/)' "$1"; }
+stripped_as_built() {
+	for f in $(cat /lib/apk/packages/$PKG.list /lib/apk/packages/$PKG-*.list); do
+		case $f in *.uc|/usr/bin/$NAME) ;; *) continue ;; esac
+		src=$(source_of "$f")
+		[ -n "$src" ] && [ -f "$src" ] || { echo "no source for $f"; return 1; }
+		if [ "${f##*/}" = version.uc ]; then
+			sed "/^const VERSION = /s/'dev'/'$PKG_FULLVERSION'/" "$src" >/tmp/version.uc
+			src=/tmp/version.uc
+		fi
+		[ "$(wc -l <"$f")" = "$(wc -l <"$src")" ] || { echo "$f: not as many lines as $src"; return 1; }
+		! commented "$f" || { echo "$f: a comment is left"; return 1; }
+		/exporter/devenv/scripts/same-bytecode.sh -L /exporter/src "$src" "$f" || return 1
+	done
+}
+check "every installed ucode file is its source without comments, the same code on as many lines" stripped_as_built
+
 # ---- luci-app-prometheus-exporter ----
 # The LuCI app on top of the exporter: its views, menu, resource and ACL, and its
 # package scripts. The ubus object it calls is the base package's.
@@ -300,6 +330,16 @@ for f in $APP_FILES; do
 	check "$f 0644" has_mode 644 "$f"
 	check "$f parses" parses "$f"
 done
+# Its JavaScript, stripped of comments as the exporter's ucode is; make
+# browser compares their tokens with the sources'.
+js_stripped() {
+	for f in $APP_FILES; do
+		case $f in *.js) ;; *) continue ;; esac
+		src=/exporter/luci/htdocs${f#/www}
+		[ "$(wc -l <"$f")" = "$(wc -l <"$src")" ] && ! commented "$f" || { echo "$f"; return 1; }
+	done
+}
+check "its JavaScript has no comments, on as many lines as its sources" js_stripped
 check "app depends on luci-base and the exporter alone" app_depends
 check "its ACL grants the ubus object's methods and the exporter's config, nothing of basic auth's" acl_is_ours
 

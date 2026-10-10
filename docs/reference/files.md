@@ -2,6 +2,8 @@
 
 Every package is architecture-independent (`PKGARCH:=all`), built from `openwrt/ucode-prometheus-exporter/Makefile`, version `<PKG_VERSION>-r<PKG_RELEASE>`. Each collector package, group package, the command line's package and the LuCI app depends on the base package of the very same version.
 
+The ucode and JavaScript files they install carry no comments: the build strips them, and keeps a newline for each line it empties, so a line number in an error on the device is the line in the repository (`devenv/scripts/strip-comments.py`).
+
 ---
 
 ## `ucode-prometheus-exporter`

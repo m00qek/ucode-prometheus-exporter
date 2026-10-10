@@ -10,8 +10,8 @@ Every target runs in Docker, but `feed-makefile`, a shell script with `curl`; no
 
 | Target | Description |
 | :--- | :--- |
-| `test` | The unit, integration and docs generator tests, with utest, in the OpenWrt image of `OPENWRT_VERSION`. |
-| `unit` | `test/unit/` only. |
+| `test` | The unit, integration and docs generator tests, with utest, in the OpenWrt image of `OPENWRT_VERSION`. Unless `FILTER` or `MODULES` narrows the run, first the comment stripper's tests, and every file the packages install, stripped as the build strips it: each ucode file must compile to the same stripped bytecode as its source (`devenv/scripts/strip-check.sh`). |
+| `unit` | `test/unit/` only, with the strip check. |
 | `integration` | `test/integration/` only. |
 | `watch` | All tests, then again whenever a file under `src/`, `test/`, `files/`, `devenv/scripts/` or `docs/gen/` changes. |
 | `lint` | Loads every module on the release's ucode, so a function it lacks fails here; compiles every test, program and handler; `sh -n` every shell script; parses the JSON of `luci/` and the LuCI views (as the function bodies LuCI compiles them into, with quickjs); fails on LuCI code that could turn data into markup (`devenv/scripts/luci-dom-lint.sh`); checks the pinned documentation links (`devenv/scripts/docs-links.sh`, see [Link check](docs-publishing.md#link-check)); fails while a generated reference page is not what `docs-gen` would write; and runs `test/feed/`, the tests of `feed-makefile`'s generator. Then checks that `luci/po/templates/prometheus-exporter.pot` is what `pot` would write. |
@@ -22,13 +22,13 @@ Every target runs in Docker, but `feed-makefile`, a shell script with `curl`; no
 
 | Target | Description |
 | :--- | :--- |
-| `package` | Builds the apks with the OpenWrt SDK of `OPENWRT_ARCH` and `OPENWRT_VERSION`, into `bin/`, and the devkit's into `bin/devkit/`. |
+| `package` | Builds the apks with the OpenWrt SDK of `OPENWRT_ARCH` and `OPENWRT_VERSION`, into `bin/`, and the devkit's into `bin/devkit/`. Every comment of the ucode and JavaScript files the packages install is stripped, a newline kept for each of its lines (`devenv/scripts/strip-comments.py`, on the SDK's Python). |
 | `template-package` | Builds the devkit's template collector package, `devkit/template`, with the same SDK, as a package of another tree, against this tree's release of the exporter, into `bin/template/`. |
-| `package-check` | `package`, then installs the packages offline in an OpenWrt image that carries their dependencies, scrapes a real uhttpd on loopback, calls the ubus object in a real rpcd, with the base package alone and then with the LuCI app, and checks the files, dependencies and ACL; then installs the devkit, runs the template collector's tests on it from the template's own utest config, and has `collector check` pass the template. |
+| `package-check` | `package`, then installs the packages offline in an OpenWrt image that carries their dependencies, scrapes a real uhttpd on loopback, calls the ubus object in a real rpcd, with the base package alone and then with the LuCI app, and checks the files, dependencies and ACL, and that each installed ucode file compiles to the same stripped bytecode as its source; then installs the devkit, runs the template collector's tests on it from the template's own utest config, and has `collector check` pass the template. |
 | `e2e` | `package` and `template-package`, then boots OpenWrt (procd, ubusd, netifd) in a privileged container without network and checks the service in its jail as packages come and go and its config changes, and its ubus object, without LuCI; the template collector's package is installed beside the exporter's, served and removed. |
 | `lab` | `package`, then OpenWrt under procd in a privileged container, left running, with every collector package and the LuCI app installed: LuCI on `http://LAB_ADDRESS:LAB_LUCI_PORT/` (root, no password) and `/metrics` on `http://LAB_ADDRESS:LAB_METRICS_PORT/metrics`. `make lab` again starts it afresh with new packages. See [How to use the lab](../how-to/developer/lab.md). |
 | `lab-down` | Removes the lab's container. |
-| `browser` | `package`, then the Playwright tests of `test/browser/` against LuCI in a container: the built packages, the ubus object in a real rpcd, real collectors, a stand-in for procd and netifd. Results and screenshots in `bin/browser/`. |
+| `browser` | `package`, then the Playwright tests of `test/browser/` against LuCI in a container: the built packages, the ubus object in a real rpcd, real collectors, a stand-in for procd and netifd; and that the app's JavaScript as LuCI serves it has its sources' tokens, with esbuild. Results and screenshots in `bin/browser/`. |
 | `pot` | Writes `luci/po/templates/prometheus-exporter.pot` with openwrt/luci's scanner. Fails, and writes nothing, when the scanner warns. |
 | `fixtures` | Reads the sources of `test/fixtures/SOURCES` from `HOST` over ssh into `test/fixtures/NAME/`. See [How to capture fixtures](../how-to/developer/fixtures.md). |
 
