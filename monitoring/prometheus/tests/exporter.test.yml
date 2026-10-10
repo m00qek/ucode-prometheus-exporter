@@ -8,12 +8,31 @@ rule_files:
 evaluation_interval: 1m
 
 tests:
-  # A target down for 5 minutes; a router of another job is left alone.
+  # Targets down for 5 minutes, whatever their job is called: routers of
+  # this exporter in a job named node-remote and in one named anything else,
+  # their build_info stale since their last scrape, fire; a router of it that
+  # stays up does not; nor does a node_exporter that goes down, which writes
+  # node_scrape_collector_success as this exporter does, but no build_info;
+  # nor a target that never answered, which cannot be told from it.
   - interval: 1m
     input_series:
-      - series: 'up{job="openwrt", instance="router:9100"}'
+      - series: 'up{job="node-remote", instance="router:9100"}'
         values: '1 1 0x10'
-      - series: 'up{job="node", instance="server:9100"}'
+      - series: 'ucode_prometheus_exporter_build_info{job="node-remote", instance="router:9100", version="0.3.0-r1"}'
+        values: '1 1 stale'
+      - series: 'up{job="whatever-it-is-called", instance="ap.lan:9100"}'
+        values: '1 1 0x10'
+      - series: 'ucode_prometheus_exporter_build_info{job="whatever-it-is-called", instance="ap.lan:9100", version="0.3.0-r1"}'
+        values: '1 1 stale'
+      - series: 'up{job="node-remote", instance="gw:9100"}'
+        values: '1x12'
+      - series: 'ucode_prometheus_exporter_build_info{job="node-remote", instance="gw:9100", version="0.3.0-r1"}'
+        values: '1x12'
+      - series: 'up{job="node-local", instance="server:9100"}'
+        values: '1 1 0x10'
+      - series: 'node_scrape_collector_success{job="node-local", instance="server:9100", collector="cpu"}'
+        values: '1 1 stale'
+      - series: 'up{job="node-remote", instance="new:9100"}'
         values: '0x12'
     alert_rule_test:
       - eval_time: 6m
@@ -24,29 +43,45 @@ tests:
         exp_alerts:
           - exp_labels:
               severity: critical
-              job: openwrt
+              job: node-remote
               instance: router:9100
             exp_annotations:
               summary: The exporter on router:9100 does not answer.
               description: >-
-                Scrapes of router:9100 (job openwrt) have failed for 5 minutes:
+                Scrapes of router:9100 (job node-remote) have failed for 5 minutes:
+                the router or its exporter is down, the scrape times out, or basic auth refuses the scraper.
+                Every other metric of the router is missing meanwhile.
+          - exp_labels:
+              severity: critical
+              job: whatever-it-is-called
+              instance: ap.lan:9100
+            exp_annotations:
+              summary: The exporter on ap.lan:9100 does not answer.
+              description: >-
+                Scrapes of ap.lan:9100 (job whatever-it-is-called) have failed for 5 minutes:
                 the router or its exporter is down, the scrape times out, or basic auth refuses the scraper.
                 Every other metric of the router is missing meanwhile.
 
   # nat_traffic fails from the second scrape, with its failures counted by
   # code; ethtool from the first, without any counted (left out at the
-  # deadline); wifi succeeds once in a while, and is not reported.
+  # deadline); wifi succeeds once in a while, and is not reported. A
+  # node_exporter's failing collector is not this exporter's, and is left
+  # alone.
   - interval: 1m
     input_series:
-      - series: 'node_scrape_collector_success{job="openwrt", instance="router:9100", collector="nat_traffic"}'
-        values: '1 0x30'
-      - series: 'ucode_prometheus_exporter_collector_failures_total{job="openwrt", instance="router:9100", collector="nat_traffic", reason="SOURCE_UNREADABLE"}'
-        values: '0+1x30'
-      - series: 'ucode_prometheus_exporter_collector_failures_total{job="openwrt", instance="router:9100", collector="nat_traffic", reason="PERMISSION_DENIED"}'
-        values: '_x20 1x10'
-      - series: 'node_scrape_collector_success{job="openwrt", instance="router:9100", collector="ethtool"}'
+      - series: 'ucode_prometheus_exporter_build_info{job="node-remote", instance="router:9100", version="0.3.0-r1"}'
+        values: '1x30'
+      - series: 'node_scrape_collector_success{job="node-local", instance="server:9100", collector="hwmon"}'
         values: '0x30'
-      - series: 'node_scrape_collector_success{job="openwrt", instance="router:9100", collector="wifi"}'
+      - series: 'node_scrape_collector_success{job="node-remote", instance="router:9100", collector="nat_traffic"}'
+        values: '1 0x30'
+      - series: 'ucode_prometheus_exporter_collector_failures_total{job="node-remote", instance="router:9100", collector="nat_traffic", reason="SOURCE_UNREADABLE"}'
+        values: '0+1x30'
+      - series: 'ucode_prometheus_exporter_collector_failures_total{job="node-remote", instance="router:9100", collector="nat_traffic", reason="PERMISSION_DENIED"}'
+        values: '_x20 1x10'
+      - series: 'node_scrape_collector_success{job="node-remote", instance="router:9100", collector="ethtool"}'
+        values: '0x30'
+      - series: 'node_scrape_collector_success{job="node-remote", instance="router:9100", collector="wifi"}'
         values: '0 0 0 0 0 0 0 0 0 0 1 0x20'
     alert_rule_test:
       - eval_time: 14m
@@ -57,7 +92,7 @@ tests:
         exp_alerts:
           - exp_labels:
               severity: warning
-              job: openwrt
+              job: node-remote
               instance: router:9100
               collector: nat_traffic
             exp_annotations:
@@ -70,7 +105,7 @@ tests:
                 `service prometheus-exporter check` on the router says why it fails now.
           - exp_labels:
               severity: warning
-              job: openwrt
+              job: node-remote
               instance: router:9100
               collector: ethtool
             exp_annotations:
@@ -87,17 +122,17 @@ tests:
   # wifi's never does.
   - interval: 1m
     input_series:
-      - series: 'ucode_prometheus_exporter_collector_quarantined{job="openwrt", instance="router:9100", collector="nat_traffic"}'
+      - series: 'ucode_prometheus_exporter_collector_quarantined{job="node-remote", instance="router:9100", collector="nat_traffic"}'
         values: '0 0 1 0x30'
-      - series: 'ucode_prometheus_exporter_quarantines_total{job="openwrt", instance="router:9100", collector="nat_traffic"}'
+      - series: 'ucode_prometheus_exporter_quarantines_total{job="node-remote", instance="router:9100", collector="nat_traffic"}'
         values: '0 0 1x30'
-      - series: 'ucode_prometheus_exporter_collector_quarantined{job="openwrt", instance="router:9100", collector="ethtool"}'
+      - series: 'ucode_prometheus_exporter_collector_quarantined{job="node-remote", instance="router:9100", collector="ethtool"}'
         values: '0x32'
-      - series: 'ucode_prometheus_exporter_quarantines_total{job="openwrt", instance="router:9100", collector="ethtool"}'
+      - series: 'ucode_prometheus_exporter_quarantines_total{job="node-remote", instance="router:9100", collector="ethtool"}'
         values: '0 0 0 0 0 1x27'
-      - series: 'ucode_prometheus_exporter_collector_quarantined{job="openwrt", instance="router:9100", collector="wifi"}'
+      - series: 'ucode_prometheus_exporter_collector_quarantined{job="node-remote", instance="router:9100", collector="wifi"}'
         values: '0x32'
-      - series: 'ucode_prometheus_exporter_quarantines_total{job="openwrt", instance="router:9100", collector="wifi"}'
+      - series: 'ucode_prometheus_exporter_quarantines_total{job="node-remote", instance="router:9100", collector="wifi"}'
         values: '0x32'
     alert_rule_test:
       - eval_time: 10m
@@ -105,7 +140,7 @@ tests:
         exp_alerts:
           - exp_labels:
               severity: warning
-              job: openwrt
+              job: node-remote
               instance: router:9100
               collector: nat_traffic
             exp_annotations:
@@ -117,7 +152,7 @@ tests:
                 a restart of the service tries it at once.
           - exp_labels:
               severity: warning
-              job: openwrt
+              job: node-remote
               instance: router:9100
               collector: ethtool
             exp_annotations:
@@ -135,9 +170,9 @@ tests:
   # ethtool once, after a restart.
   - interval: 1m
     input_series:
-      - series: 'ucode_prometheus_exporter_deadline_skips_total{job="openwrt", instance="router:9100", collector="nat_traffic"}'
+      - series: 'ucode_prometheus_exporter_deadline_skips_total{job="node-remote", instance="router:9100", collector="nat_traffic"}'
         values: '0 0 1 2 3 4 5 6 6x30'
-      - series: 'ucode_prometheus_exporter_deadline_skips_total{job="openwrt", instance="router:9100", collector="ethtool"}'
+      - series: 'ucode_prometheus_exporter_deadline_skips_total{job="node-remote", instance="router:9100", collector="ethtool"}'
         values: '0 1x36'
     alert_rule_test:
       - eval_time: 10m
@@ -145,7 +180,7 @@ tests:
         exp_alerts:
           - exp_labels:
               severity: warning
-              job: openwrt
+              job: node-remote
               instance: router:9100
               collector: nat_traffic
             exp_annotations:
@@ -162,7 +197,7 @@ tests:
   # A program timeout, which ages out after 30 minutes.
   - interval: 1m
     input_series:
-      - series: 'ucode_prometheus_exporter_program_timeouts_total{job="openwrt", instance="router:9100", collector="ubnt-manager"}'
+      - series: 'ucode_prometheus_exporter_program_timeouts_total{job="node-remote", instance="router:9100", collector="ubnt-manager"}'
         values: '0 0 1x40'
     alert_rule_test:
       - eval_time: 5m
@@ -170,7 +205,7 @@ tests:
         exp_alerts:
           - exp_labels:
               severity: warning
-              job: openwrt
+              job: node-remote
               instance: router:9100
               collector: ubnt-manager
             exp_annotations:
@@ -186,7 +221,7 @@ tests:
   # Basic auth refuses 3 requests a minute for 4 minutes, then none.
   - interval: 1m
     input_series:
-      - series: 'ucode_prometheus_exporter_auth_failures_total{job="openwrt", instance="router:9100"}'
+      - series: 'ucode_prometheus_exporter_auth_failures_total{job="node-remote", instance="router:9100"}'
         values: '0 0 3 6 9 12x30'
     alert_rule_test:
       - eval_time: 6m
@@ -194,7 +229,7 @@ tests:
         exp_alerts:
           - exp_labels:
               severity: warning
-              job: openwrt
+              job: node-remote
               instance: router:9100
             exp_annotations:
               summary: Basic auth refuses requests on router:9100.
@@ -210,21 +245,21 @@ tests:
   # of 30 seconds (c); and another exporter's (d), which is not this one's.
   - interval: 1m
     input_series:
-      - series: 'scrape_duration_seconds{job="openwrt", instance="a:9100"}'
+      - series: 'scrape_duration_seconds{job="node-remote", instance="a:9100"}'
         values: '9x30'
-      - series: 'scrape_timeout_seconds{job="openwrt", instance="a:9100"}'
+      - series: 'scrape_timeout_seconds{job="node-remote", instance="a:9100"}'
         values: '10x30'
-      - series: 'ucode_prometheus_exporter_build_info{job="openwrt", instance="a:9100", version="0.3.0-r1"}'
+      - series: 'ucode_prometheus_exporter_build_info{job="node-remote", instance="a:9100", version="0.3.0-r1"}'
         values: '1x30'
-      - series: 'scrape_duration_seconds{job="openwrt", instance="b:9100"}'
+      - series: 'scrape_duration_seconds{job="node-remote", instance="b:9100"}'
         values: '9x30'
-      - series: 'ucode_prometheus_exporter_build_info{job="openwrt", instance="b:9100", version="0.3.0-r1"}'
+      - series: 'ucode_prometheus_exporter_build_info{job="node-remote", instance="b:9100", version="0.3.0-r1"}'
         values: '1x30'
-      - series: 'scrape_duration_seconds{job="openwrt", instance="c:9100"}'
+      - series: 'scrape_duration_seconds{job="node-remote", instance="c:9100"}'
         values: '9x30'
-      - series: 'scrape_timeout_seconds{job="openwrt", instance="c:9100"}'
+      - series: 'scrape_timeout_seconds{job="node-remote", instance="c:9100"}'
         values: '30x30'
-      - series: 'ucode_prometheus_exporter_build_info{job="openwrt", instance="c:9100", version="0.3.0-r1"}'
+      - series: 'ucode_prometheus_exporter_build_info{job="node-remote", instance="c:9100", version="0.3.0-r1"}'
         values: '1x30'
       - series: 'scrape_duration_seconds{job="node", instance="d:9100"}'
         values: '9x30'
@@ -237,7 +272,7 @@ tests:
         exp_alerts:
           - exp_labels:
               severity: warning
-              job: openwrt
+              job: node-remote
               instance: a:9100
             exp_annotations:
               summary: Scrapes of a:9100 are close to their timeout.
@@ -247,7 +282,7 @@ tests:
                 find the slow ones by node_scrape_collector_duration_seconds.
           - exp_labels:
               severity: warning
-              job: openwrt
+              job: node-remote
               instance: b:9100
             exp_annotations:
               summary: Scrapes of b:9100 are close to their timeout.

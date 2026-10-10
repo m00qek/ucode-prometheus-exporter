@@ -120,7 +120,10 @@ def check(tool, title, panels, run, values, rate_interval, lines):
 
 def main():
     lines, failures = [], 0
-    values = {'job': 'openwrt', 'instance': label_values('instance', 'node_scrape_collector_success{job="openwrt"}')[0]}
+    # The job and instance as the dashboards' variables find them, whatever
+    # the lab's job is called.
+    job = label_values('job', 'ucode_prometheus_exporter_build_info')[0]
+    values = {'job': job, 'instance': label_values('instance', f'ucode_prometheus_exporter_build_info{{job="{job}"}}')[0]}
 
     for path in sorted((ROOT / 'monitoring' / 'grafana').glob('*.json')):
         doc = json.loads(path.read_text())

@@ -2,7 +2,8 @@
 # make monitoring-check: the alerting rules and dashboards of monitoring/,
 # each with the tools of the server that loads it, in their official images,
 # without the network:
-# - every metric and label they name is in docs/reference/metrics.md
+# - every metric and label they name is in docs/reference/metrics.md, and no
+#   rule matches a job or an instance, but one whose comment allows it
 #   (monitoring-refs.py, in the docs' mkdocs image, which has Python and YAML);
 # - promtool checks the rules and runs their tests, and vmalert loads them
 #   and vmalert-tool runs the same tests, as VictoriaMetrics would;
@@ -26,15 +27,23 @@ step "metrics and labels against docs/reference/metrics.md"
 run --entrypoint python3 "$PYTHON_IMAGE" -I devenv/scripts/monitoring-refs.py || status=1
 
 # The check must still catch what it is for: a family the reference does not
-# have, and a label its family does not.
+# have, a label its family does not, and a rule that names a job or an
+# instance; and let a rule through that says why it names one.
 bad=$(mktemp -d)
-printf 'groups:\n  - name: x\n    rules:\n      - alert: X\n        expr: node_load_1 > 1\n' >"$bad/a.rules.yml"
-printf 'groups:\n  - name: x\n    rules:\n      - alert: X\n        expr: node_load1{device="x"} > 1\n' >"$bad/b.rules.yml"
-for f in a b; do
+rule() { printf 'groups:\n  - name: x\n    rules:\n%b      - alert: X\n        expr: %s\n' "$2" "$3" >"$bad/$1.rules.yml"; }
+rule a '' 'node_load_1 > 1'
+rule b '' 'node_load1{device="x"} > 1'
+rule c '' 'up{job="openwrt"} == 0'
+rule d '' "node_load1{instance=~'router.*'} > 1"
+rule e '      # monitoring-check: allow-target-matcher, as the job is ours\n' 'up{job="openwrt"} == 0'
+refs() {
 	docker run --rm --network none -u "$(id -u):$(id -g)" -v "$PWD:/exporter:ro" -v "$bad:/bad:ro" -w /exporter \
-		--entrypoint python3 "$PYTHON_IMAGE" -I devenv/scripts/monitoring-refs.py "/bad/$f.rules.yml" >/dev/null 2>&1 &&
-		{ echo "monitoring-refs.py let through $(sed -n 's/.*expr: //p' "$bad/$f.rules.yml")" >&2; status=1; }
+		--entrypoint python3 "$PYTHON_IMAGE" -I devenv/scripts/monitoring-refs.py "/bad/$1.rules.yml" >/dev/null 2>&1
+}
+for f in a b c d; do
+	refs "$f" && { echo "monitoring-refs.py let through $(sed -n 's/.*expr: //p' "$bad/$f.rules.yml")" >&2; status=1; }
 done
+refs e || { echo "monitoring-refs.py refused a rule with $(sed -n 's/.*# //p' "$bad/e.rules.yml")" >&2; status=1; }
 rm -rf "$bad"
 
 step "promtool check rules"
