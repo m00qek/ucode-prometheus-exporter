@@ -71,12 +71,11 @@ export function accepts_gzip(value) {
 let deflate = null;
 
 /**
- * gzip of `text`, or null when zlib does not load.
+ * Whether zlib loads, loaded the first time it is asked, and kept.
  *
- * @param {string} text
- * @returns {?string}
+ * @returns {boolean}
  */
-export function gzip(text) {
+export function load_zlib() {
 	if (deflate == null) {
 		try {
 			deflate = loadstring("import { deflate } from 'zlib';\nreturn deflate;", { raw_mode: true })();
@@ -85,7 +84,17 @@ export function gzip(text) {
 		}
 	}
 
-	return deflate ? deflate(text, true, GZIP_LEVEL) : null;
+	return !!deflate;
+};
+
+/**
+ * gzip of `text`, or null when zlib does not load.
+ *
+ * @param {string} text
+ * @returns {?string}
+ */
+export function gzip(text) {
+	return load_zlib() ? deflate(text, true, GZIP_LEVEL) : null;
 };
 
 /**

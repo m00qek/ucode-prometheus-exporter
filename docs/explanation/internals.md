@@ -16,7 +16,9 @@ The code carries no explanatory comments (see [How to write documentation](../ho
 
 ## Native modules
 
-ubus, rtnl, nl80211 and socket are imported by name at run time, not statically: nl80211 and socket are packages only some collectors depend on, so a static import would stop the exporter loading without them; a module that exports a `const` does not import under utest, whose generated shim does not compile; and uhttpd, which never calls ubus itself, holds none of it. `make lint` loads each by name on 25.12, so a function it lacks still shows.
+ubus, rtnl, nl80211 and socket are imported by name at run time, not statically: nl80211 and socket are packages only some collectors depend on, so a static import would stop the exporter loading without them; a module that exports a `const` does not import under utest, whose generated shim does not compile; and uhttpd needs only those its enabled collectors do. `make lint` loads each by name on 25.12, so a function it lacks still shows.
+
+When uhttpd starts, the handler loads ubus, rtnl and nl80211 where an enabled collector needs one, and zlib, so that no scrape loads them again; socket, the exposition parser and basic auth's modules are still loaded where they are needed. A native module is C, and one that crashes as it loads would take uhttpd with it: each is loaded first in the probe's child, as the collectors are, and here only once it loaded there. One that did not is logged, and left to the scrapes' children, where a crash costs the collector that needs it. A collector enabled later, without a restart, loads what it needs in the scrape's child, as before.
 
 - **rtnl and nl80211.** `request()` fails with null before a request is sent, and with false when the kernel refuses it; a dump of nothing is null without an error.
 - **error().** rtnl's, nl80211's and ubus's clear the error as they read it, so it is read once. A failed ubus call's status, `Not found`, is the text before its first `: `.
