@@ -25,7 +25,7 @@ utils/prometheus-node-exporter-ucode/files/{base,extra}/<name>.uc (ucode) or
 utils/prometheus-node-exporter-lua/files/usr/lib/lua/prometheus-collectors/<name>.lua
 (Lua), credited to the author of its first commit in openwrt/packages; every
 file also has later contributors. Each collector of
-src/prometheus_exporter/collectors/ is rewritten from the ucode file where
+src/prometheus/collectors/ is rewritten from the ucode file where
 the table names one, and from the Lua file where it does not; nat_traffic
 and openwrt from both.
 
@@ -70,7 +70,7 @@ and openwrt from both.
       Christian Simon added. The Lua exporter's wifi_stations, split out of
       wifi.lua then, lives on in wifi's stations (its option stations).
 
-The exposition writer and scrape loop (src/prometheus_exporter/exposition.uc and
+The exposition writer and scrape loop (src/prometheus/exporter/exposition.uc and
 scrape.uc) are modeled on the ucode package's files/metrics.uc; the uhttpd
 handler, init script, config and package Makefile derive from its
 files/metrics.uc, files/init, files/config and Makefile.

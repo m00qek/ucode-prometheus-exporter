@@ -4,7 +4,7 @@ Every collector is in the base package or in a package of its own, `ucode-promet
 
 ## Prerequisites
 
-- The collector, `src/prometheus_exporter/collectors/<module>.uc`, and its unit test. See [Collector interface](../../reference/collector-interface.md).
+- The collector, `src/prometheus/collectors/<module>.uc`, and its unit test. See [Collector interface](../../reference/collector-interface.md).
 
 ---
 

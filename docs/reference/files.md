@@ -39,12 +39,13 @@ It makes the user and group `prometheus-exporter`, which uhttpd runs as in the s
 | `/usr/libexec/prometheus-exporter/probe.uc` | Loads collector modules in a process of its own, for rpcd, which loads none it has not seen load. |
 | `/usr/share/rpcd/ucode/prometheus-exporter.uc` | rpcd's plugin: the [ubus object](ubus.md). |
 | `/usr/share/acl.d/prometheus-exporter.json` | A link to `/var/run/prometheus-exporter.acl.json`, the service's ubus ACL, which ubusd reads. See [The jail](jail.md#the-ubus-acl). |
-| `/usr/share/ucode/prometheus_exporter/*.uc` | The exporter's modules, but the command line's (`cli.uc`, `conform.uc`). `version.uc` holds the package's version. |
-| `/usr/share/ucode/prometheus_exporter/config/*.uc` | The modules split out of `config.uc`: the options' types and datatypes. |
-| `/usr/share/ucode/prometheus_exporter/exposition/*.uc` | The modules split out of `exposition.uc`. |
-| `/usr/share/ucode/prometheus_exporter/deps/*.uc` | The capabilities of `deps.uc`, a module each. |
-| `/usr/share/ucode/prometheus_exporter/rpc/*.uc` | The modules split out of `rpc.uc`: what `collectors` describes, and `validate`. |
-| `/usr/share/ucode/prometheus_exporter/collectors/<module>.uc` | The base collectors. |
+| `/usr/share/ucode/prometheus/exporter.uc` | The collector API, `prometheus.exporter`: the one module a collector imports. See [Collector interface](collector-interface.md#the-collector-api). |
+| `/usr/share/ucode/prometheus/exporter/*.uc` | The exporter's modules, `prometheus.exporter.<module>`, but the command line's (`cli.uc`, `conform.uc`). `version.uc` holds the package's version. |
+| `/usr/share/ucode/prometheus/exporter/config/*.uc` | The modules split out of `config.uc`: the options' types and datatypes. |
+| `/usr/share/ucode/prometheus/exporter/exposition/*.uc` | The modules split out of `exposition.uc`. |
+| `/usr/share/ucode/prometheus/exporter/deps/*.uc` | The capabilities of `deps.uc`, a module each. |
+| `/usr/share/ucode/prometheus/exporter/rpc/*.uc` | The modules split out of `rpc.uc`: what `collectors` describes, and `validate`. |
+| `/usr/share/ucode/prometheus/collectors/<module>.uc` | The base collectors, `prometheus.collectors.<module>`. |
 
 ### At run time
 
@@ -69,12 +70,12 @@ The command line, [`prometheus-exporter`](command.md): a scrape on standard outp
 | Path | Content |
 | :--- | :--- |
 | `/usr/bin/prometheus-exporter` | The command. See [The `prometheus-exporter` command](command.md). |
-| `/usr/share/ucode/prometheus_exporter/cli.uc` | Its commands, and the usage docopt parses its arguments by. |
-| `/usr/share/ucode/prometheus_exporter/conform.uc` | `collector check`: a collector module checked against the collector contract. |
+| `/usr/share/ucode/prometheus/exporter/cli.uc` | Its commands, and the usage docopt parses its arguments by. |
+| `/usr/share/ucode/prometheus/exporter/conform.uc` | `collector check`: a collector module checked against the collector contract. |
 
 ## Collector packages
 
-`ucode-prometheus-exporter-<name>`, one per collector not in the base package. Each installs `/usr/share/ucode/prometheus_exporter/collectors/<module>.uc` and depends on the base package and on what its collector needs: see [Collectors](collectors.md). Installing or removing one reloads an enabled service.
+`ucode-prometheus-exporter-<name>`, one per collector not in the base package. Each installs `/usr/share/ucode/prometheus/collectors/<module>.uc` and depends on the base package and on what its collector needs: see [Collectors](collectors.md). Installing or removing one reloads an enabled service.
 
 `ucode-prometheus-exporter-filesystem` installs besides an rpcd plugin, `/usr/share/rpcd/ucode/prometheus-exporter-filesystem.uc`: the ubus object `prometheus-exporter.filesystem`, whose `mounts` is luci's `getMountPoints` with each mount's inodes, `{ result: [ { device, mount, size, free, avail, files, ffree } ] }`, the statvfs() of the host's mounts the jail cannot make. Installing or removing the package reloads rpcd too. See [ubus object](ubus.md#prometheus-exporterfilesystem).
 
@@ -84,7 +85,7 @@ The command line, [`prometheus-exporter`](command.md): a scrape on standard outp
 
 ## `ucode-prometheus-exporter-devkit`
 
-What a collector is tested with, under utest: `/usr/share/ucode/prometheus_exporter/devkit/`, its modules, and `devkit/proxies/`, the mocks' proxies. Depends on the base package of the same release, `ucode-utest`, `ucode-mod-nl80211` and `ucode-mod-socket`. For a development machine or a CI image, not a router: see [The devkit](devkit.md).
+What a collector is tested with, under utest: `/usr/share/ucode/prometheus/exporter/devkit/`, its modules, and `devkit/proxies/`, the mocks' proxies. Depends on the base package of the same release, `ucode-utest`, `ucode-mod-nl80211` and `ucode-mod-socket`. For a development machine or a CI image, not a router: see [The devkit](devkit.md).
 
 ## `luci-app-prometheus-exporter`
 
@@ -94,14 +95,15 @@ LuCI's pages for the exporter. Depends on `luci-base` and the base package. Its 
 
 | Path | Content |
 | :--- | :--- |
-| `src/prometheus_exporter/` | The modules, installed to `/usr/share/ucode/prometheus_exporter/`. |
-| `src/prometheus_exporter/collectors/` | The collectors. |
-| `src/prometheus_exporter/devkit/` | The devkit, installed by its own package: what the tests of every collector run on. |
+| `src/prometheus/exporter.uc` | The collector API, installed to `/usr/share/ucode/prometheus/exporter.uc`. |
+| `src/prometheus/exporter/` | The modules, installed to `/usr/share/ucode/prometheus/exporter/`. |
+| `src/prometheus/collectors/` | The collectors, installed to `/usr/share/ucode/prometheus/collectors/`. |
+| `src/prometheus/exporter/devkit/` | The devkit, installed by its own package: what the tests of every collector run on. |
 | `devkit/template/` | The template of a collector in a package of its own: its Makefile, module, test and fixtures. |
 | `files/` | What the base package installs besides the modules. |
 | `luci/` | The LuCI app. |
 | `openwrt/ucode-prometheus-exporter/Makefile` | The package Makefile. |
-| `test/unit/` | Unit tests; `test/unit/prometheus_exporter/` mirrors `src/prometheus_exporter/`. |
+| `test/unit/` | Unit tests; `test/unit/prometheus/` mirrors `src/prometheus/`. |
 | `test/integration/` | Integration tests. |
 | `test/fixtures/` | What devices answered, for the tests. |
 | `test/bench/` | The benchmark. |

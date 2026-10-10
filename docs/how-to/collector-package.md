@@ -1,6 +1,6 @@
 # How to Write a Collector in Your Own Package
 
-A collector of yours, in an OpenWrt package of your own, tested with the exporter's devkit and installed beside the exporter's packages. The exporter loads it as it loads its own, from `/usr/share/ucode/prometheus_exporter/collectors/`, and holds it to the same rules.
+A collector of yours, in an OpenWrt package of your own, tested with the exporter's devkit and installed beside the exporter's packages. The exporter loads it as it loads its own, from `/usr/share/ucode/prometheus/collectors/`, and holds it to the same rules.
 
 ## Prerequisites
 
@@ -20,7 +20,7 @@ cd my-collector
 | File | Is |
 | :--- | :--- |
 | `Makefile` | The OpenWrt package, `ucode-prometheus-exporter-example`. |
-| `src/prometheus_exporter/collectors/example.uc` | The collector, `example`: seconds since boot from `/proc/uptime`, and each swap area from `/proc/swaps`. |
+| `src/prometheus/collectors/example.uc` | The collector, `example`: seconds since boot from `/proc/uptime`, and each swap area from `/proc/swaps`. |
 | `test/example_test.uc` | Its tests. |
 | `test/fixtures/router/` | What a router answered, at the paths it has there. |
 | `test/utest.config.uc` | utest's config, on the devkit. |
@@ -29,10 +29,10 @@ Rename `example` everywhere: the module's file and `meta.name` (the module's nam
 
 ## 2. Write to the collector API
 
-A collector imports `prometheus_exporter.api` and nothing else: the loader leaves out one that imports `fs` or `ubus`, or calls `require`. What it reads of the system comes through `deps`, the capabilities its `meta.needs` names.
+A collector imports `prometheus.exporter` and nothing else: the loader leaves out one that imports `fs` or `ubus`, or calls `require`. What it reads of the system comes through `deps`, the capabilities its `meta.needs` names.
 
 ```js
-import { Result, errors, services, proc, exposition, u32 } from 'prometheus_exporter.api';
+import { Result, errors, services, proc, exposition, u32 } from 'prometheus.exporter';
 ```
 
 What the API exports, `collect(deps, out, options)`, each capability of `deps` and the recorder `out` are in [Collector interface](../reference/collector-interface.md). Two of them write the most for the least:
@@ -91,9 +91,9 @@ utest -c test/utest.config.uc test
 `with_collector` runs the collector as a scrape does, with only its `needs`, over the mocks the test gives it, and fails the test when it touches a path, a socket, a program or a ubus call its `meta` does not declare, writes text Prometheus would refuse, or has a `meta` the loader refuses. `assert_module` fails one the loader would leave out for its text: not strict, another import, or a top level that does more than declare.
 
 ```js
-import { with_collector, outcome, assert_module } from 'prometheus_exporter.devkit.collector';
-import { reader } from 'prometheus_exporter.devkit.fixtures';
-import * as mine from 'prometheus_exporter.collectors.mine';
+import { with_collector, outcome, assert_module } from 'prometheus.exporter.devkit.collector';
+import { reader } from 'prometheus.exporter.devkit.fixtures';
+import * as mine from 'prometheus.collectors.mine';
 
 const ROUTER = reader(sourcepath(0, true) + '/fixtures/router');
 
@@ -130,7 +130,7 @@ The command is the command line's package's, which the service does not need: in
 
 ```sh
 apk add ucode-prometheus-exporter-cli
-prometheus-exporter collector check /usr/share/ucode/prometheus_exporter/collectors/mine.uc
+prometheus-exporter collector check /usr/share/ucode/prometheus/collectors/mine.uc
 wget -qO- http://127.0.0.1:9100/metrics | grep 'collector="mine"'
 ```
 

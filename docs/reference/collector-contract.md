@@ -8,10 +8,10 @@ The contract is for collectors that have bugs, not for hostile ones: see [About 
 
 ## What a collector may import
 
-A collector module imports `prometheus_exporter.api`, the collector API, and nothing else:
+A collector module imports `prometheus.exporter`, the collector API, and nothing else:
 
 ```js
-import { Result, errors, services, proc, exposition } from 'prometheus_exporter.api';
+import { Result, errors, services, proc, exposition } from 'prometheus.exporter';
 ```
 
 | Export | Names |
@@ -27,7 +27,7 @@ Each is described in [Collector interface](collector-interface.md#the-collector-
 
 Refused, before the module is loaded:
 
-- **Any other module.** `fs`, `ubus`, `uci`, `socket`, `rtnl`, `nl80211`, `uloop`: the capabilities of `meta.needs` do their work, under the exporter's guards. The core's modules, `prometheus_exporter.*`, including another collector's. Pure modules too, `math`, `struct` or `digest`: one would be a dependency the collector's package does not declare, and one more exception to judge; what collectors need of them belongs in the API, in a minor version.
+- **Any other module.** `fs`, `ubus`, `uci`, `socket`, `rtnl`, `nl80211`, `uloop`: the capabilities of `meta.needs` do their work, under the exporter's guards. The core's modules, `prometheus.exporter.<module>`: the API is `prometheus.exporter` exactly, not what is under it. Another collector's, `prometheus.collectors.<module>`. Pure modules too, `math`, `struct` or `digest`: one would be a dependency the collector's package does not declare, and one more exception to judge; what collectors need of them belongs in the API, in a minor version.
 - **Code loaded past the imports.** A call of `require`, `loadfile`, `loadstring` or `include`: `require('fs')` reaches `fs` as surely as an import.
 - **A program started past `exec`.** A call of `system`: what it starts outlives the child process the scrape kills under the collector, and runs on, where `deps.exec` kills a program still running at its timeout, with everything it started.
 
@@ -37,9 +37,9 @@ The module's text is read for its imports without compiling it: comments, string
 | :--- | :--- |
 | The loader, wherever collectors are loaded: the service, `check`, the ubus object, the command line | Not loaded; logged at `err`: `skipping collector: COLLECTOR_INVALID (<module>: imports fs (line 3): a collector reads files through deps.fs, with 'fs' in meta.needs)` |
 | `prometheus-exporter collector check` | A `FAIL` line, with the same text: `FAIL imports fs (line 3): a collector reads files through deps.fs, with 'fs' in meta.needs` |
-| The repository's tests | `test/unit/prometheus_exporter/imports_test.uc` holds every collector of `src/` to it. |
+| The repository's tests | `test/unit/prometheus/imports_test.uc` holds every collector of `src/` to it. |
 
-Each module refused is named with what to use instead: the capability, for a module of the system; the API, for the core's `result`, `errors`, `services`, `proc` and `exposition` (`take Result from prometheus_exporter.api`); `a collector imports prometheus_exporter.api alone`, for any other.
+Each module refused is named with what to use instead: the capability, for a module of the system; the API, for the core's `result`, `errors`, `services`, `proc` and `exposition` (`take Result from prometheus.exporter`); `a collector imports prometheus.exporter alone`, for any other.
 
 ## What a collector may touch
 
@@ -55,7 +55,7 @@ Nothing it may read is writable.
 
 ### In the tests
 
-The devkit's `with_collector` (`prometheus_exporter.devkit.collector`, see [The devkit](devkit.md)) runs a collector's test in the filesystem the service's jail gives it: the jail's mounts for its `meta`, and what every jail has (`jail.COMMON`: procfs, sysfs, the log's and ubus's sockets, ujail's devices and `/etc/resolv.conf`, the exporter's code, ucode's modules and libraries, the shell, the exporter's own config and state). Whatever the fs and socket mocks hold, an access outside them answers as in the jail:
+The devkit's `with_collector` (`prometheus.exporter.devkit.collector`, see [The devkit](devkit.md)) runs a collector's test in the filesystem the service's jail gives it: the jail's mounts for its `meta`, and what every jail has (`jail.COMMON`: procfs, sysfs, the log's and ubus's sockets, ujail's devices and `/etc/resolv.conf`, the exporter's code, ucode's modules and libraries, the shell, the exporter's own config and state). Whatever the fs and socket mocks hold, an access outside them answers as in the jail:
 
 | Access | Answers |
 | :--- | :--- |

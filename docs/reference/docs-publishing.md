@@ -115,7 +115,7 @@ On success the guard prints the tag, which becomes the version's title. On failu
 For example:
 
 ```
-docs/0.2 changes files outside docs/: src/prometheus_exporter/app.uc; code fixes need a release
+docs/0.2 changes files outside docs/: src/prometheus/exporter/app.uc; code fixes need a release
 ```
 
 To run it locally, check out the branch, make sure the release tags are fetched, and pass the branch name:

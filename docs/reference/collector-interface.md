@@ -1,11 +1,11 @@
 # Collector Interface
 
-A collector is a ucode module, `src/prometheus_exporter/collectors/<module>.uc`, installed to `/usr/share/ucode/prometheus_exporter/collectors/`. It imports [the collector API](#the-collector-api) alone, and exports `meta` and `collect`:
+A collector is a ucode module, `src/prometheus/collectors/<module>.uc`, installed to `/usr/share/ucode/prometheus/collectors/`. It imports [the collector API](#the-collector-api) alone, and exports `meta` and `collect`:
 
 ```js
 'use strict';
 
-import { Result, errors, proc } from 'prometheus_exporter.api';
+import { Result, errors, proc } from 'prometheus.exporter';
 
 export const meta = {
 	name: 'loadavg',
@@ -38,7 +38,7 @@ That is `loadavg`, as the base package installs it.
 
 ## Loading
 
-The loader (`src/prometheus_exporter/loader.uc`) takes every file of the collectors' directory named `[a-z0-9_]+.uc`, imports it, and validates its exports. A module must be in strict mode, its first statement `'use strict'` (after comments only), import `prometheus_exporter.api` and no other module, and its top level must [only declare](#the-top-level) and return within 5 seconds: it is first loaded in a process of its own. A module that is not in strict mode, imports another module, does more than declare at its top level, does not import in time, or whose `meta` or `collect` is not valid, is left out, and the rest load: the handler logs it at `err`, `check` and the ubus object's `collectors` list it. The collectors are sorted by name.
+The loader (`src/prometheus/exporter/loader.uc`) takes every file of the collectors' directory named `[a-z0-9_]+.uc`, imports it, and validates its exports. A module must be in strict mode, its first statement `'use strict'` (after comments only), import `prometheus.exporter` and no other module, and its top level must [only declare](#the-top-level) and return within 5 seconds: it is first loaded in a process of its own. A module that is not in strict mode, imports another module, does more than declare at its top level, does not import in time, or whose `meta` or `collect` is not valid, is left out, and the rest load: the handler logs it at `err`, `check` and the ubus object's `collectors` list it. The collectors are sorted by name.
 
 What the exporter enforces of a collector, and what breaking each rule costs, is in [Collector contract](collector-contract.md).
 
@@ -50,7 +50,7 @@ Each collector's capabilities are made for it alone, copies included: a collecto
 
 A module's top level runs twice each time the service starts: in a child process, where the probe stops it at 5 seconds, and again in uhttpd's own process, which every scrape is forked from and nothing guards. So it only declares, and leaves what it does to `collect()`:
 
-- `'use strict'`, and its import of `prometheus_exporter.api`;
+- `'use strict'`, and its import of `prometheus.exporter`;
 - constants and variables (`const`, `let`) and functions, and their exports, `meta` and `collect` among them;
 - values of literals, regular expressions, templates, objects and arrays, functions (not called), operators, and what it declared before;
 - calls of ucode's functions that compute from their arguments alone: `arrtoip`, `assert`, `b64dec`, `b64enc`, `chr`, `exists`, `filter`, `hex`, `hexdec`, `hexenc`, `index`, `int`, `iptoarr`, `join`, `json`, `keys`, `lc`, `length`, `ltrim`, `map`, `match`, `max`, `min`, `ord`, `pop`, `proto`, `push`, `regexp`, `replace`, `reverse`, `rindex`, `rtrim`, `shift`, `slice`, `sort`, `splice`, `split`, `sprintf`, `substr`, `trim`, `type`, `uc`, `uchr`, `uniq`, `unshift`, `values`, `wildcard`; and of the collector API's that do: `Result`'s, `proc.fields`, `proc.auxv`, `u16`, `u32`.
@@ -144,7 +144,7 @@ The collector API's, for a collector to tell nothing to observe from a failure, 
 
 ## The collector API
 
-`prometheus_exporter.api`, the one module a collector imports, exports five objects, each of exactly these names, and two functions. What it exports is what a major version protects; see [Collector contract](collector-contract.md#what-a-collector-may-import).
+`prometheus.exporter`, the one module a collector imports, exports five objects, each of exactly these names, and two functions. What it exports is what a major version protects; see [Collector contract](collector-contract.md#what-a-collector-may-import).
 
 | Export | Name | Is |
 | :--- | :--- | :--- |
@@ -170,7 +170,7 @@ Each object the API exports lists exactly the names a collector may use, rather 
 
 ## `needs`
 
-Only `prometheus_exporter.deps`, with its modules of each capability (`prometheus_exporter.deps.ubus`, `.exec`, ...), touches the system. A collector gets the capabilities it names, and a scrape's collectors share one ubus connection and one uci cursor.
+Only `prometheus.exporter.deps`, with its modules of each capability (`prometheus.exporter.deps.ubus`, `.exec`, ...), touches the system. A collector gets the capabilities it names, and a scrape's collectors share one ubus connection and one uci cursor.
 
 | Need | `deps.<need>` |
 | :--- | :--- |
@@ -196,7 +196,7 @@ A need the system lacks (`nl80211`, `socket`) fails the collector with `NEED_MIS
 
 ## `out`
 
-`prometheus_exporter.exposition`'s recorder:
+`prometheus.exporter.exposition`'s recorder:
 
 | Call | Does |
 | :--- | :--- |
@@ -215,9 +215,9 @@ A need the system lacks (`nl80211`, `socket`) fails the collector with `NEED_MIS
 
 ## Tests and packaging
 
-Every collector has a unit test, `test/unit/prometheus_exporter/collectors/<module>_test.uc`, and a package: in the base package's `BASE_COLLECTORS`, or a `Collector` line of the package Makefile that depends on what its `needs` and `commands` call for. `test/integration/collectors_test.uc` holds every collector to both. See [How to package a collector](../how-to/developer/package-collector.md).
+Every collector has a unit test, `test/unit/prometheus/collectors/<module>_test.uc`, and a package: in the base package's `BASE_COLLECTORS`, or a `Collector` line of the package Makefile that depends on what its `needs` and `commands` call for. `test/integration/collectors_test.uc` holds every collector to both. See [How to package a collector](../how-to/developer/package-collector.md).
 
-A unit test runs the collector with the devkit's `with_collector` (`prometheus_exporter.devkit.collector`), which fails the test when the collector touches a path, a socket or a program its `meta` does not declare: see [Collector contract](collector-contract.md#in-the-tests) and [The devkit](devkit.md). A collector of another package is tested the same way, with `ucode-prometheus-exporter-devkit`: see [How to write a collector in your own package](../how-to/collector-package.md).
+A unit test runs the collector with the devkit's `with_collector` (`prometheus.exporter.devkit.collector`), which fails the test when the collector touches a path, a socket or a program its `meta` does not declare: see [Collector contract](collector-contract.md#in-the-tests) and [The devkit](devkit.md). A collector of another package is tested the same way, with `ucode-prometheus-exporter-devkit`: see [How to write a collector in your own package](../how-to/collector-package.md).
 
 ## See also
 

@@ -50,12 +50,12 @@ The fourth field, `2/3199`, is the tasks that are runnable now and the tasks tha
 
 ## 3. Write the collector
 
-Create `src/prometheus_exporter/collectors/tasks.uc`:
+Create `src/prometheus/collectors/tasks.uc`:
 
 ```js
 'use strict';
 
-import { Result, errors, proc } from 'prometheus_exporter.api';
+import { Result, errors, proc } from 'prometheus.exporter';
 
 export const meta = {
 	name: 'tasks',
@@ -82,7 +82,7 @@ export function collect(deps, out) {
 };
 ```
 
-Notice four things. The collector imports one module, `prometheus_exporter.api`, the collector API: what it uses of the exporter comes from there. `meta.needs` asks for `fs`, and `collect` reads the file through `deps.fs`, not by importing `fs`: a collector only gets what it asks for, and the exporter refuses one that imports anything else. `out.gauge` declares a family and returns a function that records a sample. And `collect` returns a Result: `Result.ok()` when it worked, `Result.err()` with a code when it did not.
+Notice four things. The collector imports one module, `prometheus.exporter`, the collector API: what it uses of the exporter comes from there. `meta.needs` asks for `fs`, and `collect` reads the file through `deps.fs`, not by importing `fs`: a collector only gets what it asks for, and the exporter refuses one that imports anything else. `out.gauge` declares a family and returns a function that records a sample. And `collect` returns a Result: `Result.ok()` when it worked, `Result.err()` with a code when it did not.
 
 ## 4. Run it
 
@@ -93,7 +93,7 @@ make shell
 ```
 
 ```sh
-ucode -L /exporter/src files/usr/bin/prometheus-exporter scrape -d src/prometheus_exporter/collectors tasks
+ucode -L /exporter/src files/usr/bin/prometheus-exporter scrape -d src/prometheus/collectors tasks
 ```
 
 This is the exporter's own command, run from the source tree, with the collectors of `src/` and only ours. It prints a scrape:
@@ -117,12 +117,12 @@ Our two families come first, then what every scrape says of each collector that 
 Now let the exporter check our module against the rules it holds every collector to, as it would before anyone installs it:
 
 ```sh
-ucode -L /exporter/src files/usr/bin/prometheus-exporter collector check src/prometheus_exporter/collectors/tasks.uc
+ucode -L /exporter/src files/usr/bin/prometheus-exporter collector check src/prometheus/collectors/tasks.uc
 ```
 
 ```
 ok   strict mode: 'use strict' first
-ok   imports: prometheus_exporter.api alone
+ok   imports: prometheus.exporter alone
 ok   top level: declarations alone
 ok   load: 0.001 s, of at most 5 s
 ok   meta: tasks (Scheduler tasks), needs fs, budget 5 s, max_samples 20000
@@ -135,14 +135,14 @@ Every line is `ok`: it imports the API alone, its top level only declares, it lo
 
 ## 5. Test it
 
-Tests run the collector the way a scrape does, with fakes in place of the system: the devkit's `with_collector` gives them, the same a collector of another package is tested with. Create `test/unit/prometheus_exporter/collectors/tasks_test.uc`:
+Tests run the collector the way a scrape does, with fakes in place of the system: the devkit's `with_collector` gives them, the same a collector of another package is tested with. Create `test/unit/prometheus/collectors/tasks_test.uc`:
 
 ```js
 'use strict';
 
 import { describe, it, assert } from 'utest';
-import { with_collector } from 'prometheus_exporter.devkit.collector';
-import * as tasks from 'prometheus_exporter.collectors.tasks';
+import { with_collector } from 'prometheus.exporter.devkit.collector';
+import * as tasks from 'prometheus.collectors.tasks';
 
 describe('collectors.tasks', () => {
 	it('counts the runnable and the existing tasks', () => {
@@ -171,7 +171,7 @@ describe('collectors.tasks', () => {
 `with_collector` hands the collector an `fs` that answers from `data`, runs it, and gives us what it wrote: `r.result`, `r.lines`, and `r.logs`, what the scrape would log. The second test hands it a file that cannot be read. `with_collector` also answers as the exporter's jail would: had our collector read a file outside `/proc` and `/sys` without declaring it, the test would fail, and say so. Run only these:
 
 ```bash
-make unit MODULES=test/unit/prometheus_exporter/collectors/tasks_test.uc
+make unit MODULES=test/unit/prometheus/collectors/tasks_test.uc
 ```
 
 ```
@@ -266,7 +266,7 @@ make lab-down
 and remove what we made, as this collector was practice:
 
 ```bash
-rm src/prometheus_exporter/collectors/tasks.uc test/unit/prometheus_exporter/collectors/tasks_test.uc
+rm src/prometheus/collectors/tasks.uc test/unit/prometheus/collectors/tasks_test.uc
 git checkout openwrt/ucode-prometheus-exporter/Makefile
 make docs-gen
 ```

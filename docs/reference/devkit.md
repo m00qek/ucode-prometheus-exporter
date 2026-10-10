@@ -1,6 +1,6 @@
 # The Devkit
 
-`ucode-prometheus-exporter-devkit` is what a collector is tested with, under [utest](https://github.com/m00qek/utest): the exporter's own collectors, and those of any other package. It installs its modules to `/usr/share/ucode/prometheus_exporter/devkit/`, and depends on the exporter of the same release, `ucode-utest`, `ucode-mod-nl80211` and `ucode-mod-socket`. It is for a development machine or a CI image, not for a router.
+`ucode-prometheus-exporter-devkit` is what a collector is tested with, under [utest](https://github.com/m00qek/utest): the exporter's own collectors, and those of any other package. It installs its modules to `/usr/share/ucode/prometheus/exporter/devkit/`, and depends on the exporter of the same release, `ucode-utest`, `ucode-mod-nl80211` and `ucode-mod-socket`. It is for a development machine or a CI image, not for a router.
 
 What its modules export, and what their configs and callbacks hold, is what a major version of the exporter protects, as [the collector API](collector-interface.md#the-collector-api) is: see [About versions](../explanation/versions.md#what-a-version-promises). How to use it is in [How to write a collector in your own package](../how-to/collector-package.md).
 
@@ -17,23 +17,23 @@ return {
 	mocks: {
 		fs:      null,
 		uci:     null,
-		ubus:    { proxy: '/usr/share/ucode/prometheus_exporter/devkit/proxies/ubus.uc' },
-		rtnl:    { proxy: '/usr/share/ucode/prometheus_exporter/devkit/proxies/rtnl.uc' },
-		nl80211: { proxy: '/usr/share/ucode/prometheus_exporter/devkit/proxies/nl80211.uc' },
-		socket:  { proxy: '/usr/share/ucode/prometheus_exporter/devkit/proxies/socket.uc' },
+		ubus:    { proxy: '/usr/share/ucode/prometheus/exporter/devkit/proxies/ubus.uc' },
+		rtnl:    { proxy: '/usr/share/ucode/prometheus/exporter/devkit/proxies/rtnl.uc' },
+		nl80211: { proxy: '/usr/share/ucode/prometheus/exporter/devkit/proxies/nl80211.uc' },
+		socket:  { proxy: '/usr/share/ucode/prometheus/exporter/devkit/proxies/socket.uc' },
 	},
 };
 ```
 
 All six are needed, whatever the collector needs: `with_collector` builds the session of every capability. `fs` and `uci` are utest's own proxies.
 
-## `prometheus_exporter.devkit.collector`
+## `prometheus.exporter.devkit.collector`
 
 | Export | Is |
 | :--- | :--- |
 | `with_collector(mod, cfg, cb)` | Runs collector module `mod` (its exports) as a scrape does, with only its `needs`, over the mocks of `cfg`, and calls `cb(r)` with its run. It holds the collector to its contract first, and fails the test, with `assert.fail()`, before `cb` runs: see [Collector contract](collector-contract.md#in-the-tests). It asserts nothing of the Result: the test does. |
 | `outcome(r)` | `{ ok, none, error, lines, logs }` of a run: what a test checks of one that fails or has nothing to observe. |
-| `jail_of(mod, cfg)` | What the service's jail gives the collector: its mounts, configs, commands, ubus calls and grants, as `prometheus_exporter.jail` works them out. |
+| `jail_of(mod, cfg)` | What the service's jail gives the collector: its mounts, configs, commands, ubus calls and grants, as `prometheus.exporter.jail` works them out. |
 | `with_mods(cfg, cb, id)` | utest's mocks injected, `cb` called with module-shaped objects for a session, as the exporter's real modules are; `id` puts `cfg.options` in that collector's section. |
 | `module_problems(text)` | What the loader and `collector check` refuse of a module's text, before loading it, each with its line: not in strict mode, an import other than the collector API, [a top level that does more than declare](collector-interface.md#the-top-level). `[]` for none. |
 | `assert_module(path)` | Fails the test when `module_problems()` of the file at `path` names any. |
@@ -66,13 +66,13 @@ Every key is optional.
 
 A breach of the contract is recorded during the run and fails the test after it, never from inside: the collector's error boundary would take a failure there for a crash, and a collector that falls back on a default (`readfile(p) ?? ''`) would pass.
 
-## `prometheus_exporter.devkit.fixtures`
+## `prometheus.exporter.devkit.fixtures`
 
 | Export | Is |
 | :--- | :--- |
 | `reader(dir)` | A reader of the fixtures under `dir`, relative to where utest runs, or absolute (`sourcepath(0, true)` gives a test's own directory): `file(path)`, a file's text by the path it has on the device (`<dir>/proc/loadavg` for `/proc/loadavg`); `files(paths)`, several, as an fs mock's `data`; `ubus(object, method)`, the JSON of `<dir>/ubus/<object>.<method>.json`. A fixture that is not there fails the test, naming it. |
 
-## `prometheus_exporter.devkit.commands`
+## `prometheus.exporter.devkit.commands`
 
 For a collector that needs `exec`: an fs mock whose `popen` answers each program, as the exec capability runs it, under its watchdog.
 
@@ -87,7 +87,7 @@ For a collector that needs `exec`: an fs mock whose `popen` answers each program
 with_collector(mine, { fs: commands.fs({ [commands.line([ 'tc', '-s', '-j', 'qdisc', 'show' ])]: { out: '[]', status: 0 } }) }, (r) => ...);
 ```
 
-## `prometheus_exporter.devkit.rc`
+## `prometheus.exporter.devkit.rc`
 
 For a collector that tells a disabled service from a failure, with the API's `services`.
 

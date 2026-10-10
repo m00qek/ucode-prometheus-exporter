@@ -117,7 +117,7 @@ Every target runs in Docker, but `feed-makefile`, a shell script with `curl`; no
 
 ```sh
 make unit FILTER='collectors.wifi' VERBOSE=1
-make unit MODULES=test/unit/prometheus_exporter/collectors/wifi_test.uc
+make unit MODULES=test/unit/prometheus/collectors/wifi_test.uc
 make bench FILTER='typical/scrape' BENCH_CPUS=0.35 BENCH_CPUSET=0
 ```
 

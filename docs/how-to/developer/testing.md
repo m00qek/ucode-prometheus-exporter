@@ -11,7 +11,7 @@ make test
 The template collector package's tests, `devkit/template/test/`, run with the unit tests, on the devkit of the tree. `make unit` and `make integration` run one suite. To narrow a run:
 
 ```bash
-make unit MODULES=test/unit/prometheus_exporter/collectors/wifi_test.uc
+make unit MODULES=test/unit/prometheus/collectors/wifi_test.uc
 make test FILTER='collectors.wifi' VERBOSE=1
 make watch
 ```

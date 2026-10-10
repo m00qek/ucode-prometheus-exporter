@@ -16,17 +16,18 @@ A new case of nothing to observe is a minor change, though it changes what a scr
 
 ## The collector API
 
-A collector imports one module, `prometheus_exporter.api`, and the loader refuses one that imports any other (see [Collector contract](../reference/collector-contract.md#what-a-collector-may-import)). That makes the API the whole of what a collector builds on in the exporter's code, beside `meta`, `collect` and the capabilities in `deps`: what it exports is what a major version protects. The modules behind it, `prometheus_exporter.result`, `.proc` and the rest, are the core's, split, renamed and changed in any release, as the core needs, because no collector can have imported them.
+A collector imports one module, `prometheus.exporter`, and the loader refuses one that imports any other (see [Collector contract](../reference/collector-contract.md#what-a-collector-may-import)). That makes the API the whole of what a collector builds on in the exporter's code, beside `meta`, `collect` and the capabilities in `deps`: what it exports is what a major version protects. The modules behind it, `prometheus.exporter.result`, `.proc` and the rest, are the core's, split, renamed and changed in any release, as the core needs, because no collector can have imported them.
 
 Without that rule, every module a collector happened to import would be a promise, and the core could not move a function without a major version, or would break a collector of someone else's package without knowing. The API lists, name by name, what is promised; the rest is free.
 
 What a collector of another package builds on is, all of it:
 
-- **The collector API**: `Result`, `errors`, `services`, `proc` (`rows` among them), `exposition`, `u16` and `u32`, each name it exports.
+- **The collector API**, the module `prometheus.exporter`: `Result`, `errors`, `services`, `proc` (`rows` among them), `exposition`, `u16` and `u32`, each name it exports.
+- **Where a collector is**: `/usr/share/ucode/prometheus/collectors/<module>.uc`, which its package installs, the module `prometheus.collectors.<module>`, which its tests import.
 - **The recorder, `out`**: `gauge`, `counter`, `untyped`, `batch`, `labels` and `parse`, and what each records.
 - **`meta`**: its fields and what each means, those the jail derives grants from (`paths`, `configs`, `commands`, `ubus`, `capabilities`, `groups`, `proc_files`) included; and `deps`, each capability's functions.
 - **The rules a module is loaded by**: strict mode, the API alone, and [a top level that only declares](../reference/collector-interface.md#the-top-level), with the functions it may call there.
-- **The devkit**, what a collector's tests build on: [its modules' exports](../reference/devkit.md), `with_collector`'s config and run, and its proxies' keys and channels.
+- **The devkit**, what a collector's tests build on: its modules, `prometheus.exporter.devkit.collector`, `.fixtures`, `.commands` and `.rc`, and [their exports](../reference/devkit.md); `with_collector`'s config and run; and its proxies, under `/usr/share/ucode/prometheus/exporter/devkit/proxies/`, their keys and channels.
 
 0.3.0 froze them for 1.0: a later 0.x adds to them, and only a major version breaks one. So a collector package depends on the exporter's major from 1.0 (`>=1.0.0`), and on 0.3.0 or later before it, rather than on the exact release the exporter's own packages pin.
 

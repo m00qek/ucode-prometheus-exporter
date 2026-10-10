@@ -21,8 +21,8 @@ flowchart LR
 ```
 
 - **uhttpd and the handler.** `/usr/libexec/prometheus-exporter/handler.uc` is a uhttpd-mod-ucode handler for `/metrics`. uhttpd is the server every OpenWrt image has; it does TLS, keep-alive and the socket work, and the exporter never listens on anything itself.
-- **The library.** `/usr/share/ucode/prometheus_exporter/` holds the modules the handler, the command line, `check` and the ubus object share: the loader, the configuration, the scrape, the exposition format, the jail's rules.
-- **The collectors.** One module each, in `collectors/`, installed by the base package or a package of its own.
+- **The library.** `/usr/share/ucode/prometheus/exporter/` holds the modules the handler, the command line, `check` and the ubus object share, `prometheus.exporter.<module>`: the loader, the configuration, the scrape, the exposition format, the jail's rules. In front of it, `/usr/share/ucode/prometheus/exporter.uc` is the collector API, `prometheus.exporter`.
+- **The collectors.** One module each, in `/usr/share/ucode/prometheus/collectors/`, installed by the base package or a package of its own.
 - **The ubus object.** rpcd serves `prometheus-exporter` from a ucode plugin. It is how LuCI, or a script, asks the exporter what it would do: which collectors are installed, whether a value is valid, how each collector does.
 - **The init script.** It checks the configuration, works out the jail from what the collectors declare, grants the jail's user what they need (its ubus ACL, capabilities, groups, read access), and hands procd the uhttpd instance, which runs as that user, never root.
 
@@ -58,7 +58,7 @@ When no child can be forked, the system out of processes or memory, or the file 
 
 ## Only one module touches the system
 
-`prometheus_exporter.deps` and its modules, one per capability (`deps/ubus.uc`, `deps/exec.uc`, ...), are the only ones that import `fs`, `ubus`, `uci`, `rtnl`, `nl80211` and `socket`. A collector does not import them: it declares in `meta.needs` the capabilities it wants, and `collect` receives exactly those, in its `deps` argument. What it takes of the exporter's code comes from one module, `prometheus_exporter.api`, the collector API, and it imports no other: the loader refuses one that does, before it loads it. The API is to collectors what the ubus object and the configuration are to scripts, the surface a version promises; behind it, the core's modules move freely.
+`prometheus.exporter.deps` and its modules, one per capability (`deps/ubus.uc`, `deps/exec.uc`, ...), are the only ones that import `fs`, `ubus`, `uci`, `rtnl`, `nl80211` and `socket`. A collector does not import them: it declares in `meta.needs` the capabilities it wants, and `collect` receives exactly those, in its `deps` argument. What it takes of the exporter's code comes from one module, `prometheus.exporter`, the collector API, and it imports no other: the loader refuses one that does, before it loads it. The API is to collectors what the ubus object and the configuration are to scripts, the surface a version promises; behind it, the core's modules move freely.
 
 This is dependency injection, and it pays three times.
 

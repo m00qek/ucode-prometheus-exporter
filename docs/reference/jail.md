@@ -1,6 +1,6 @@
 # The Jail
 
-uhttpd, and with it the exporter, runs in procd's jail (ujail), named `prometheus-exporter`, with `no_new_privs`, as the user and group `prometheus-exporter`, never root. The jail holds what the exporter needs, what its installed and enabled collectors declare, and nothing else, and the user may do only what they declare besides: see [The service's user](#the-services-user). `src/prometheus_exporter/jail.uc` works out the mounts, and `src/prometheus_exporter/privileges.uc` what the user is granted; `/usr/libexec/prometheus-exporter/jail.uc` prints the mounts for the init script, and grants the rest.
+uhttpd, and with it the exporter, runs in procd's jail (ujail), named `prometheus-exporter`, with `no_new_privs`, as the user and group `prometheus-exporter`, never root. The jail holds what the exporter needs, what its installed and enabled collectors declare, and nothing else, and the user may do only what they declare besides: see [The service's user](#the-services-user). `src/prometheus/exporter/jail.uc` works out the mounts, and `src/prometheus/exporter/privileges.uc` what the user is granted; `/usr/libexec/prometheus-exporter/jail.uc` prints the mounts for the init script, and grants the rest.
 
 ---
 
@@ -9,7 +9,7 @@ uhttpd, and with it the exporter, runs in procd's jail (ujail), named `prometheu
 | From | What |
 | :--- | :--- |
 | The jail's options | procfs, sysfs, `/dev/log`. |
-| The exporter (`jail.uc`, before the collectors' mounts) | `/usr/lib/uhttpd_ucode.so`, `/lib/libubus.so*`, `/lib/libuci.so*`, `/usr/lib/libnl*.so*`, `/usr/lib/libz.so*`, `/usr/lib/ucode`, `/usr/share/ucode/prometheus_exporter`, `/usr/libexec/prometheus-exporter/handler.uc`; `/bin/sh`, whose `kill` a scrape uses to end a collector's process a dead scrape left running. |
+| The exporter (`jail.uc`, before the collectors' mounts) | `/usr/lib/uhttpd_ucode.so`, `/lib/libubus.so*`, `/lib/libuci.so*`, `/usr/lib/libnl*.so*`, `/usr/lib/libz.so*`, `/usr/lib/ucode`, `/usr/share/ucode/prometheus`, `/usr/libexec/prometheus-exporter/handler.uc`; `/bin/sh`, whose `kill` a scrape uses to end a collector's process a dead scrape left running. |
 | The configuration | `/etc/config/prometheus-exporter`. |
 | HTTPS, with `cert` and `key` there | Their copies, `/var/run/prometheus-exporter/tls.crt` and `tls.key`; `/lib/libustream-*.so*`, `/usr/lib/libustream-*.so*`. |
 | Basic auth | Its file, `/var/run/prometheus-exporter/uhttpd.conf`. |
