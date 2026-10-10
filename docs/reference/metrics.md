@@ -17,7 +17,7 @@ The labels are those seen on the captures; a collector leaves out a label it has
 | [`conntrack`](#conntrack) | 10 | a router | — |
 | [`cpu`](#cpu) | 8 | an access point, a router | — |
 | [`dawn`](#dawn) | 3 | made-up captures | — |
-| [`dhcp_leases`](#dhcp_leases) | 3 | made-up captures | — |
+| [`dhcp_leases`](#dhcp_leases) | 4 | made-up captures | — |
 | [`diskstats`](#diskstats) | 18 | a second router, made-up captures | — |
 | [`dnsmasq`](#dnsmasq) | 30 | a router | — |
 | [`entropy`](#entropy) | 2 | an access point, a router | — |
@@ -180,6 +180,7 @@ DHCP leases. [Collector](collectors.md#dhcp_leases).
 | Family | Type | Labels | Help | Notes |
 | :--- | :--- | :--- | :--- | :--- |
 | `node_openwrt_dhcp_leases` | gauge | `server`, `interface`, `family` | Active DHCP leases, by server, interface and family. | — |
+| `node_openwrt_dhcp_pool_size` | gauge | `interface` | Addresses in the DHCPv4 pool of an interface: its dhcp section's start and limit, within its subnet. | For each `config dhcp` section of `/etc/config/dhcp` whose DHCPv4 pool dnsmasq or odhcpd serve: its `interface` static and with an IPv4 address, without `ignore`, `dhcpv4 'disabled'` or `dynamicdhcp '0'`. The addresses from `start` (100) for `limit` (150) within the subnet (or `netmask`), as dnsmasq's init script ranges them, but the router's own. `sum by (interface) (node_openwrt_dhcp_leases{family="ipv4"})` over it is how full the pool is. |
 | `node_openwrt_dhcp_lease_info` | gauge | `server`, `interface`, `family`, `address`, `mac`, `hostname`, `duid`, `iaid` | An active DHCP lease: its address, client and hostname. | With `leases=1` |
 | `node_openwrt_dhcp_lease_expiry_timestamp_seconds` | gauge | `server`, `interface`, `family`, `address` | When an active DHCP lease expires, unless it never does. | With `leases=1` |
 

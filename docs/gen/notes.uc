@@ -174,6 +174,10 @@ export const metric_patterns = {
 // What a family's row says besides, by collector: `note` for each family
 // `match(name)` takes. Every entry must take a family the fixtures show.
 export const family_notes = {
+	'dhcp_leases': [ {
+		match: (n) => n == 'node_openwrt_dhcp_pool_size',
+		note: 'For each `config dhcp` section of `/etc/config/dhcp` whose DHCPv4 pool dnsmasq or odhcpd serve: its `interface` static and with an IPv4 address, without `ignore`, `dhcpv4 \'disabled\'` or `dynamicdhcp \'0\'`. The addresses from `start` (100) for `limit` (150) within the subnet (or `netmask`), as dnsmasq\'s init script ranges them, but the router\'s own. `sum by (interface) (node_openwrt_dhcp_leases{family="ipv4"})` over it is how full the pool is.',
+	} ],
 	'nat_traffic': [ {
 		match: (n) => n == 'node_nat_traffic_bytes',
 		note: '`host` is the end of a connection on this side of the router: an address of the router\'s own, or one on-link to an interface without a default route (a LAN\'s subnet, a delegated IPv6 prefix). A connection with neither end there is written as `host="other"`, and so are the hosts past the 2048 with the most bytes. `peer`, with the `peers` option only, is the other end: a series per host and peer, which come and go with the connections; the pairs past the 16384 with the most bytes are written as `peer="other"` of their host, and `host="other"` has `peer="other"`.',
