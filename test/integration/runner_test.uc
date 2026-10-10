@@ -164,6 +164,68 @@ describe('runner.forked', () => {
 		assert.match([ [ 'warning', `collector 'loop': ${Result.describe(r.runs[1].result)}` ] ], r.logs);
 	});
 
+	// Stopping a child takes a while (kill_tree's popen, milliseconds on a
+	// router). A collector that ends in that window has its run, and the next
+	// collector's start, written before its child dies: the run is its own,
+	// never the next one's, and the next one still runs. The kill is the seam:
+	// it lets `late` end, and waits until `next` has started.
+	it('gives a collector that ends while its child is being stopped its own run, and still runs the next one', () => {
+		let dir = fs.mkdtemp('/tmp/runner-race-XXXXXX');
+		let go = `${dir}/go`, began = `${dir}/began`;
+		let late = collector('late', function(d, out) {
+			while (!fs.access(go))
+				;
+			out.gauge('late_value')(null, 1);
+			return Result.ok();
+		});
+		let next = collector('next', function(d, out) {
+			if (!fs.access(began)) {
+				fs.writefile(began, '');
+				while (true)
+					;
+			}
+			out.gauge('next_value')(null, 2);
+			return Result.ok();
+		});
+		let kills = 0;
+		let env = {
+			...env_of([]),
+			kill: function(pid) {
+				kills++;
+				fs.writefile(go, '');
+				for (let end = now() + 5; !fs.access(began) && now() < end;)
+					;
+				deps.kill_tree(fs.popen, pid);
+			},
+		};
+		let collectors = [ late, next, gauge('c', 3) ];
+		let done = [];
+		let at = 0;
+		let plan = {
+			next: function() {
+				if (at >= length(collectors))
+					return null;
+
+				let c = collectors[at++];
+
+				return { c, cutoff: null, limit: now() + 0.2, at_deadline: false, budget: 5, settings: { budget: 5, max_samples: 10, options: {} } };
+			},
+			done: function(j, r) {
+				at = max(at, index(collectors, j.c) + 1);
+				push(done, [ j.c.meta.name, r.name, r.result.ok ? 'ok' : r.result.error ]);
+			},
+		};
+
+		runner.forked(env, scrape.run_one, { collectors }).run(plan);
+
+		fs.unlink(go);
+		fs.unlink(began);
+		fs.rmdir(dir);
+
+		assert.match(1, kills, 'one kill: late overran, and nothing else');
+		assert.match([ [ 'late', 'late', 'ok' ], [ 'next', 'next', 'ok' ], [ 'c', 'c', 'ok' ] ], done);
+	});
+
 	it('stops it at the deadline as SCRAPE_DEADLINE, which the scrape logs in its line', () => {
 		let r = run_forked([ LOOP ], 5, now() + 0.2);
 

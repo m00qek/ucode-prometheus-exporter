@@ -344,11 +344,18 @@ export function forked(env, run_fn, opts) {
 					uloop.end();
 			}
 
-			function finish(r) {
-				let job = st.job;
-
-				st.job = null;
+			function finish(job, r) {
+				if (st.job?.c == job.c)
+					st.job = null;
 				st.plan.done(job, r);
+			}
+
+			function stop_child() {
+				if (st.task == null || st.task.finished())
+					return;
+				if (st.env.kill)
+					st.env.kill(st.task.pid());
+				st.task.kill();
 			}
 
 			function hold(s) {
@@ -476,12 +483,10 @@ export function forked(env, run_fn, opts) {
 			}
 
 			function backstop() {
-				if (st.env.kill)
-					st.env.kill(st.task.pid());
-				st.task.kill();
+				stop_child();
 				absorb(true);
 				if (st.job != null)
-					finish(cancelled({ ...st.job, at_deadline: true }, now(st.env) - st.started));
+					finish(st.job, cancelled({ ...st.job, at_deadline: true }, now(st.env) - st.started));
 
 				st.env.log('warning', 'the process running the collectors ran past the scrape\'s deadline, past the limits it gave: stopped there, the rest left out');
 				for (let job = st.plan.next(st.env.log); job != null; job = st.plan.next(st.env.log))
@@ -501,7 +506,7 @@ export function forked(env, run_fn, opts) {
 						let r = killed(st.job, now(st.env) - st.started);
 
 						log_stopped(st.env, r);
-						finish(r);
+						finish(st.job, r);
 						st.lost = 0;
 						return spawn();
 					}
@@ -535,16 +540,15 @@ export function forked(env, run_fn, opts) {
 				let limit = st.job?.limit;
 
 				if (limit != null && t >= limit && (deadline == null || limit <= deadline)) {
-					let r = cancelled(st.job, t - st.started);
+					let job = st.job, took = t - st.started;
 
-					if (st.env.kill)
-						st.env.kill(st.task.pid());
-					st.task.kill();
-
+					stop_child();
 					absorb(true);
-					if (st.job != null) {
+					if (!st.ran[job.c.id]) {
+						let r = cancelled(job, took);
+
 						log_stopped(st.env, r);
-						finish(r);
+						finish(job, r);
 					}
 
 					return spawn();
