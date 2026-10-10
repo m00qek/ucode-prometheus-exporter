@@ -357,7 +357,20 @@ export function grants(collectors, sys) {
 
 	let svc = config.service_values(sys.uci);
 	let cert = svc.ok ? svc.data.cert : '', key = svc.ok ? svc.data.key : '';
-	let tls = (cert != '' && key != '' && sys.fs.stat(cert) != null && sys.fs.stat(key) != null) ? { cert, key } : null;
+	let tls = (cert != '' && key != '') ? { cert, key } : null;
+	let usable = (tls != null);
+
+	for (let name in (tls ? [ 'cert', 'key' ] : [])) {
+		let p = config.tls_problem(sys.fs, tls[name]);
+
+		if (p)
+			push(problems, `main: ${config.message(name, p)}: not copied, so the service serves no HTTPS`);
+		if (p || sys.fs.stat(tls[name]) == null)
+			usable = false;
+	}
+
+	if (!usable)
+		tls = null;
 
 	files = sort(uniq(files));
 	groups = sort(uniq(groups));

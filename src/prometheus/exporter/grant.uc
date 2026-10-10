@@ -7,6 +7,7 @@
 'use strict';
 
 import { USER, GROUP, CANARY, UNPRIVILEGED_PORT, CAPABILITIES_FILE, TLS_CERT, TLS_KEY, ACL_FILE, GROUP_FILE } from 'prometheus.exporter.privileges';
+import { TLS_FILE_MAX } from 'prometheus.exporter.config';
 
 /**
  * One map of the ubus calls of many: each object's methods, sorted, once each.
@@ -221,17 +222,24 @@ export function make(sys, grants) {
 	if (write(fs, CAPABILITIES_FILE, sprintf('%.J\n', capabilities_doc(service_capabilities(grants))), 0o644, null) == null)
 		push(problems, `cannot write ${CAPABILITIES_FILE}: ${fs.error() ?? 'unknown error'}`);
 
-	for (let pair in [ [ grants.tls?.cert, TLS_CERT ], [ grants.tls?.key, TLS_KEY ] ]) {
-		let text = (pair[0] != null) ? fs.readfile(pair[0]) : null;
+	let tls = [];
 
-		if (text == null) {
-			fs.unlink(pair[1]);
-			if (pair[0] != null)
-				push(problems, `cannot read ${pair[0]}: ${fs.error() ?? 'unknown error'}`);
-		} else if (write(fs, pair[1], text, 0o640, gid) == null) {
-			push(problems, `cannot write ${pair[1]}: ${fs.error() ?? 'unknown error'}`);
-		}
+	for (let pair in [ [ grants.tls?.cert, TLS_CERT ], [ grants.tls?.key, TLS_KEY ] ]) {
+		let st = (pair[0] != null) ? fs.stat(pair[0]) : null;
+		let text = (st?.type == 'file' && st.size <= TLS_FILE_MAX) ? fs.readfile(pair[0], TLS_FILE_MAX + 1) : null;
+
+		if (text != null && length(text) > TLS_FILE_MAX)
+			text = null;
+		if (pair[0] != null && text == null)
+			push(problems, `cannot copy ${pair[0]}: not a regular file of at most ${TLS_FILE_MAX} bytes that root reads`);
+		push(tls, [ text, pair[1] ]);
 	}
+
+	for (let t in tls)
+		if (tls[0][0] == null || tls[1][0] == null)
+			fs.unlink(t[1]);
+		else if (write(fs, t[1], t[0], 0o640, gid) == null)
+			push(problems, `cannot write ${t[1]}: ${fs.error() ?? 'unknown error'}`);
 
 	let changed = write(fs, ACL_FILE, sprintf('%.J\n', acl(grants.ubus)), 0o644, null);
 

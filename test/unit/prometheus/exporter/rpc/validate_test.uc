@@ -47,7 +47,7 @@ describe('rpc_validate.validate.validate', () => {
 
 	it('passes valid values for the main section and the collectors', () => {
 		assert.match({ ok: true, errors: { main: {}, collectors: {} } }, validate({
-			main: { enabled: '1', listen_interface: '*', listen_port: '9102', http_keepalive: '0', cert: '/etc/x.crt', key: '/etc/x.key', omit_zero_values: 'yes' },
+			main: { enabled: '1', listen_interface: '*', listen_port: '9102', http_keepalive: '0', cert: '/etc/ssl/x.crt', key: '/etc/ssl/x.key', omit_zero_values: 'yes' },
 			collectors: { wifi: { enabled: '0', stations: 'off' }, sampler: { retries: '-2', label: 'y' } },
 		}));
 	});
@@ -151,7 +151,7 @@ describe('rpc_validate.validate.validate', () => {
 describe('rpc_validate.validate.validate, basic auth', () => {
 	// `uhttpd -m secret`.
 	const HASH = '$1$$ysVNzQc4CTMkp5daOdZ.3/';
-	const TLS = { cert: '/etc/x.crt', key: '/etc/x.key' };
+	const TLS = { cert: '/etc/ssl/x.crt', key: '/etc/ssl/x.key' };
 
 	function validate(main) {
 		let out;
@@ -165,6 +165,27 @@ describe('rpc_validate.validate.validate, basic auth', () => {
 
 	it('passes a user and a hash with cert and key', () => {
 		assert.match({ ok: true, errors: { main: {}, collectors: {} } }, validate({ auth_user: 'prom', auth_password: HASH, ...TLS }));
+	});
+
+	// What LuCI's settings check: a login allowed this app alone must not
+	// have root copy /etc/shadow into the jail, or read /dev/zero forever.
+	it('refuses a cert or key outside the TLS directories, and one there that is not a regular file of 64 KiB at most', () => {
+		let out;
+
+		assert.match({ cert: { code: 'TLS_PATH', value: '/etc/shadow' }, key: { code: 'TLS_PATH', value: '/dev/zero' } },
+			codes(validate({ cert: '/etc/shadow', key: '/dev/zero' }).errors.main));
+
+		with_sys({}, { collectors: [] }, (sys) => {
+			sys.fs = {
+				stat: (p) => ({ '/etc/ssl/zero.crt': { type: 'char', size: 0 }, '/etc/ssl/big.key': { type: 'file', size: 70000 } })[p],
+				realpath: (p) => p,
+			};
+			out = rpc_validate.validate(sys, { main: { cert: '/etc/ssl/zero.crt', key: '/etc/ssl/big.key' } });
+		});
+		assert.match({
+			cert: { code: 'TLS_FILE', max: 65536, value: '/etc/ssl/zero.crt' },
+			key: { code: 'TLS_FILE', max: 65536, value: '/etc/ssl/big.key' },
+		}, codes(out.errors.main));
 	});
 
 	it('refuses them without cert and key, on the user\'s field', () => {

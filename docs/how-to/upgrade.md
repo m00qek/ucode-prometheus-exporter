@@ -48,6 +48,18 @@ Adding the base package alone fails: the installed collectors still want the old
     uci commit prometheus-exporter
     ```
 
+- **`cert` and `key` must be under `/etc/ssl`, `/etc/acme` or `/etc/prometheus-exporter`, or be uhttpd's own `/etc/uhttpd.*`**, each a regular file of at most 64 KiB whose links, if any, stay there: root copies them for the service's group, and copies no other. A configuration that names another, as `/etc/prometheus-exporter.crt`, the path this guide's HTTPS how-to used, is refused (`TLS_PATH`), and the service does not start until it is moved, as `check` says:
+
+    ```sh
+    mkdir -p /etc/prometheus-exporter
+    mv /etc/prometheus-exporter.crt /etc/prometheus-exporter/tls.crt
+    mv /etc/prometheus-exporter.key /etc/prometheus-exporter/tls.key
+    uci set prometheus-exporter.main.cert=/etc/prometheus-exporter/tls.crt
+    uci set prometheus-exporter.main.key=/etc/prometheus-exporter/tls.key
+    uci commit prometheus-exporter
+    ```
+
+    The configuration import from a feed exporter leaves such a `cert` or `key` out, and logs it: `option cert: expected a file under /etc/ssl, ...; left at the default`. See [How to serve HTTPS with basic auth](https-basic-auth.md).
 - **The jail no longer runs as root.** uhttpd runs in it as the user and group `prometheus-exporter`, which the upgrade makes. The upgrade restarts a running service, which then grants that user what its enabled collectors declare, and nothing needs doing: its state directory is the user's, and starts empty, as at every restart; basic auth's file is written again for the user's group to read; the TLS key and certificate are copied for it, and the files themselves stay as they were, the key root's alone; the configs its collectors read are opened to its group, read-only. See [The jail](../reference/jail.md#the-services-user).
 - **textfile's files must be readable by the service's user.** A script that writes a `*.prom` file only root reads (mode 0600, as `mktemp` makes one) has it skipped, and logged: `chmod 0644` it before renaming it into place. See [How to publish metrics from scripts](textfile.md).
 - **The `prometheus-exporter` command is a package of its own, `ucode-prometheus-exporter-cli`.** The base package no longer installs `/usr/bin/prometheus-exporter`, nor depends on `ucode-docopt`: `apk upgrade` leaves a device without the command, and a script or cron job that runs it (`prometheus-exporter scrape`, as [How to push metrics](push-metrics.md) does, or `hash-password`) fails until it is installed:

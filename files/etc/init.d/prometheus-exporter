@@ -71,7 +71,7 @@ start_service() {
 
 	. /lib/functions/network.sh
 
-	local interface port keepalive cert key listen bind4 bind6 mounts missing auth data ubus
+	local interface port keepalive cert key listen bind4 bind6 mounts missing auth data ubus tls
 
 	config_get interface main listen_interface loopback
 	config_get port main listen_port 9100
@@ -93,12 +93,12 @@ start_service() {
 		logger -t "$NAME" -p daemon.err "cannot set up basic auth, not starting"
 		return 1
 	}
-	[ -z "$auth" ] || { [ -f "$cert" ] && [ -f "$key" ]; } || {
-		logger -t "$NAME" -p daemon.err "basic auth takes HTTPS only, and $cert or $key is missing: not starting"
+	jail_make
+	[ -f "$TLS_CERT" ] && [ -f "$TLS_KEY" ] && tls=1
+	[ -z "$auth" ] || [ -n "$tls" ] || {
+		logger -t "$NAME" -p daemon.err "basic auth takes HTTPS only, and $cert or $key is missing or refused: not starting"
 		return 1
 	}
-
-	jail_make
 	mounts=$(jail_mounts)
 	[ -n "$mounts" ] || {
 		logger -t "$NAME" -p daemon.err "cannot work out the jail's mounts, not starting"
@@ -114,7 +114,7 @@ start_service() {
 	procd_append_param command -t 60
 	procd_append_param command -n 3 -N 10
 
-	if [ -f "$cert" ] && [ -f "$key" ]; then
+	if [ -n "$tls" ]; then
 		listen=-s
 		procd_append_param command -C "$TLS_CERT" -K "$TLS_KEY"
 	else
@@ -143,7 +143,7 @@ start_service() {
 	procd_set_param limits data="$data $data"
 	procd_set_param nice 10
 
-	procd_set_param file $(echo "$mounts" | grep '^/etc/config/') "$COLLECTORS"/*.uc $auth ${cert:+"$cert"} ${key:+"$key"} "$CAPABILITIES"
+	procd_set_param file $(echo "$mounts" | grep '^/etc/config/') "$COLLECTORS"/*.uc $auth ${tls:+"$TLS_CERT" "$TLS_KEY"} "$CAPABILITIES"
 
 	procd_set_param stdout 1
 	procd_set_param stderr 1

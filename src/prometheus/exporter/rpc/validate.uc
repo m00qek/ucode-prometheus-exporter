@@ -172,6 +172,13 @@ export function validate(sys, args) {
 	for (let name, problem in config.together(typed))
 		errors.main[name] ??= refusal(problem);
 
+	for (let name in [ 'cert', 'key' ]) {
+		let p = (errors.main[name] == null && typed[name] != '') ? config.tls_problem(sys.fs, typed[name]) : null;
+
+		if (p)
+			errors.main[name] = refusal(p);
+	}
+
 	for (let c in sys.collectors)
 		by_id[c.id] = c;
 

@@ -411,7 +411,7 @@ describe('app.handler', () => {
 	});
 
 	it('denies every request when the config sets basic auth and the file is not there, as after a respawn without it', () => {
-		patch_main({ auth_user: 'prom', cert: '/etc/x.crt', key: '/etc/x.key' });
+		patch_main({ auth_user: 'prom', cert: '/etc/ssl/x.crt', key: '/etc/ssl/x.key' });
 
 		let logs = [];
 		let app = handler((level, m) => push(logs, [ level, m ]), SOURCES);
@@ -435,7 +435,7 @@ describe('app.handler', () => {
 
 	it('denies every request when basic auth\'s module does not load, with the config\'s user or without it', () => {
 		for (let why, program in UNLOADABLE)
-			for (let main in [ null, { auth_user: 'prom', cert: '/etc/x.crt', key: '/etc/x.key' } ]) {
+			for (let main in [ null, { auth_user: 'prom', cert: '/etc/ssl/x.crt', key: '/etc/ssl/x.key' } ]) {
 				patch_main(main, { [auth.FILE]: auth.conf('prom', HASH) });
 
 				let logs = [];

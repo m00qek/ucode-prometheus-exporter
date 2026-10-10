@@ -42,6 +42,12 @@ export const ABSOLUTE_PATH = 'ABSOLUTE_PATH';
 /** Not a directory the service may make and mount for a collector: the datatype owned_directory. */
 export const OWNED_DIRECTORY = 'OWNED_DIRECTORY';
 
+/** Not a path the service copies a TLS file from: the datatype tls_file. */
+export const TLS_PATH = 'TLS_PATH';
+
+/** A TLS file there that is not a regular file of at most `max` bytes, or whose links lead elsewhere. */
+export const TLS_FILE = 'TLS_FILE';
+
 /** Not a regular expression regexp() compiles: the datatype regex. */
 export const REGEX = 'REGEX';
 
@@ -75,6 +81,14 @@ export const CODES = {
 	[OWNED_DIRECTORY]: {
 		args: [], value: true,
 		text: () => 'a directory under /var, /tmp or /etc/prometheus-exporter, which the service makes and mounts',
+	},
+	[TLS_PATH]: {
+		args: [], value: true,
+		text: () => 'a file under /etc/ssl, /etc/acme or /etc/prometheus-exporter, or uhttpd\'s own, /etc/uhttpd.*',
+	},
+	[TLS_FILE]: {
+		args: [ 'max' ], value: true,
+		text: (p) => `a regular file of at most ${p.max} bytes, which its links, if any, leave under /etc/ssl, /etc/acme, /etc/prometheus-exporter or /etc/uhttpd.*`,
 	},
 	[REGEX]: { args: [], value: true, text: () => 'a regular expression' },
 	[USERNAME]: { args: [], value: true, text: () => 'a user of 1 to 64 characters, without ":", spaces or control characters' },

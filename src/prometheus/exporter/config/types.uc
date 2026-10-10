@@ -55,6 +55,54 @@ export function is_owned_directory(v) {
 	return false;
 };
 
+/** The directories `cert` and `key` may be under: where certificates are kept, and the exporter's own. */
+export const TLS_DIRS = [ '/etc/ssl', '/etc/acme', '/etc/prometheus-exporter' ];
+
+/** The most bytes the service copies of `cert` or `key`. */
+export const TLS_FILE_MAX = 65536;
+
+const UHTTPD_FILE = /^\/etc\/uhttpd[A-Za-z0-9._-]*$/;
+
+/**
+ * Whether `v` is a path the service may copy a TLS file from: under TLS_DIRS, or uhttpd's own /etc/uhttpd.*.
+ *
+ * @param {*} v
+ * @returns {boolean}
+ */
+export function is_tls_path(v) {
+	if (type(v) != 'string' || !absolute_path(v) || match(v, /\/\/|\/\.\.?(\/|$)|\/$/))
+		return false;
+	if (match(v, UHTTPD_FILE))
+		return true;
+
+	for (let d in TLS_DIRS)
+		if (length(v) > length(d) + 1 && substr(v, 0, length(d) + 1) == `${d}/`)
+			return true;
+
+	return false;
+};
+
+/**
+ * The TLS_FILE problem of the TLS file at `path`, or null: not a regular file of at most TLS_FILE_MAX bytes, or its links lead past is_tls_path(). A file not there is none.
+ *
+ * @param {module:fs} fs
+ * @param {string} path
+ * @returns {?Problem}
+ */
+export function tls_problem(fs, path) {
+	let st = fs.stat(path);
+
+	if (st == null)
+		return null;
+
+	let real = fs.realpath ? fs.realpath(path) : path;
+
+	if (st.type != 'file' || st.size > TLS_FILE_MAX || !is_tls_path(real))
+		return problems.problem(problems.TLS_FILE, { max: TLS_FILE_MAX, value: path });
+
+	return null;
+};
+
 function datatype_of(types, code, args, check, why) {
 	let p = problems.problem(code, args);
 
@@ -70,6 +118,7 @@ export const DATATYPES = {
 	directory: datatype_of([ 'string' ], problems.ABSOLUTE_PATH, null, absolute_path),
 	file: datatype_of([ 'string' ], problems.ABSOLUTE_PATH, null, absolute_path),
 	owned_directory: datatype_of([ 'string' ], problems.OWNED_DIRECTORY, null, is_owned_directory),
+	tls_file: datatype_of([ 'string' ], problems.TLS_PATH, null, (v) => v == '' || is_tls_path(v)),
 	regex: datatype_of([ 'string' ], problems.REGEX, null, function(v) {
 		try {
 			regexp(v);

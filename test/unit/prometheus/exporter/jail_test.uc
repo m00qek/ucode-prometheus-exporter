@@ -397,12 +397,18 @@ describe('the init script, and the service\'s user', () => {
 		assert.match([ privileges.USER, privileges.GROUP ], [ config.NAME, config.NAME ]);
 	});
 
-	it('refuses to start without the user, serves TLS from the copies, and restarts when the capabilities change', () => {
-		assert.match([ true, true, true ], [
+	// jail.uc --make copies cert and key only once grants() and its own
+	// check take them: the copies, never the files the config names, decide
+	// HTTPS, and procd watches them, never reading a path the config names.
+	it('refuses to start without the user, serves TLS from the copies alone, and restarts when they or the capabilities change', () => {
+		assert.match([ true, true, true, true, true ], [
 			has('\tuser_exists "$NAME" && group_exists "$NAME" || {'),
 			has('\t\tprocd_append_param command -C "$TLS_CERT" -K "$TLS_KEY"'),
-			index(TEXT, '${key:+"$key"} "$CAPABILITIES"\n') > 0,
+			has('\t[ -f "$TLS_CERT" ] && [ -f "$TLS_KEY" ] && tls=1'),
+			has('\tif [ -n "$tls" ]; then'),
+			index(TEXT, '${tls:+"$TLS_CERT" "$TLS_KEY"} "$CAPABILITIES"\n') > 0,
 		]);
+		assert.match([ -1, -1 ], [ index(TEXT, '-f "$cert"'), index(TEXT, '${cert:+') ]);
 	});
 
 	it('grants before it starts, and takes back once stopped or disabled', () => {
@@ -411,7 +417,7 @@ describe('the init script, and the service\'s user', () => {
 			has('service_stopped() {\n\tjail_clean\n}'),
 			has('\tservice_enabled || { jail_clean; return 0; }'),
 		]);
-		assert.match(true, index(TEXT, '\tjail_make\n\tmounts=$(jail_mounts)\n') > 0);
+		assert.match(true, index(TEXT, '\tjail_make\n\t[ -f "$TLS_CERT" ]') > 0);
 	});
 });
 
@@ -462,6 +468,29 @@ describe('jail.grants', () => {
 		});
 		with_sys(main, {}, files([ '/etc/uhttpd.crt' ]), (sys) => {
 			assert.match(null, jail.grants([], sys).tls);
+		});
+	});
+
+	// Root copies the files for the service's group to read: a device, a FIFO,
+	// a file past 64 KiB or a link out of the TLS directories is not copied.
+	it('copies neither TLS file when one is not a regular file of 64 KiB at most, under the TLS directories once its links are followed', () => {
+		let main = { main: { '.type': config.NAME, cert: '/etc/ssl/x.crt', key: '/etc/uhttpd.key' } };
+		let fs = (cert) => ({
+			stat: (p) => (p == '/etc/ssl/x.crt') ? cert : ((p == '/etc/uhttpd.key') ? { type: 'file', size: 100 } : null),
+			realpath: (p) => (p == '/etc/ssl/x.crt') ? (cert.real ?? p) : p,
+		});
+
+		for (let bad in [ { type: 'char', size: 0 }, { type: 'fifo', size: 0 }, { type: 'file', size: 65537 }, { type: 'file', size: 10, real: '/etc/shadow' } ])
+			with_sys(main, {}, fs(bad), (sys) => {
+				let g = jail.grants([], sys);
+
+				assert.match(null, g.tls, sprintf('%J', bad));
+				assert.match([ 'main: cert: expected a regular file of at most 65536 bytes, which its links, if any, leave under /etc/ssl, /etc/acme, /etc/prometheus-exporter or /etc/uhttpd.*, got "/etc/ssl/x.crt": not copied, so the service serves no HTTPS' ],
+					g.problems);
+			});
+
+		with_sys(main, {}, fs({ type: 'file', size: 65536, real: '/etc/acme/x/fullchain.cer' }), (sys) => {
+			assert.match({ cert: '/etc/ssl/x.crt', key: '/etc/uhttpd.key' }, jail.grants([], sys).tls);
 		});
 	});
 

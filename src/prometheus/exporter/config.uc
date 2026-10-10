@@ -61,10 +61,15 @@ export const convert = types.convert;
 
 export const OWNED_ROOTS = types.OWNED_ROOTS;
 export const is_owned_directory = types.is_owned_directory;
+export const TLS_DIRS = types.TLS_DIRS;
+export const TLS_FILE_MAX = types.TLS_FILE_MAX;
+export const is_tls_path = types.is_tls_path;
+export const tls_problem = types.tls_problem;
 
 export const PROBLEMS = problems.CODES;
 export const problem = problems.problem;
 export const english = problems.english;
+export const message = problems.message;
 export const invalid = types.invalid;
 
 /** The service's name: its uci config, init script, command and ubus object. */
@@ -246,8 +251,8 @@ export const SERVICE_OPTIONS = {
 	listen_interface: { default: 'loopback', help: 'The logical interface uhttpd listens on, or * for every address.' },
 	listen_port: { default: 9100, datatype: 'range(1,65535)', help: 'The port uhttpd listens on.' },
 	http_keepalive: { default: 70, datatype: 'uinteger', help: 'Seconds an idle connection is kept open; 0 for none.' },
-	cert: { default: '', help: 'The certificate to serve HTTPS with, along with key.' },
-	key: { default: '', help: 'The private key of cert.' },
+	cert: { default: '', datatype: 'tls_file', help: 'The certificate to serve HTTPS with, along with key: a file of at most 64 KiB under /etc/ssl, /etc/acme or /etc/prometheus-exporter, or uhttpd\'s own /etc/uhttpd.crt.' },
+	key: { default: '', datatype: 'tls_file', help: 'The private key of cert, where cert may be: uhttpd\'s own is /etc/uhttpd.key.' },
 	auth_user: { default: '', datatype: 'username', help: 'The user a scrape logs in as (basic auth), with auth_password; HTTPS only.' },
 	memory_limit: {
 		default: 0, datatype: `zero_or_min(${MEMORY_LIMIT_MIN})`,

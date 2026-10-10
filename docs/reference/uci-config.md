@@ -14,8 +14,8 @@ The exporter's configuration is `/etc/config/prometheus-exporter`, and the hash 
 | `listen_interface` | string | `loopback` | — | The logical interface uhttpd listens on, or \* for every address. | init script |
 | `listen_port` | integer | `9100` | `range(1,65535)` | The port uhttpd listens on. | init script |
 | `http_keepalive` | integer | `70` | `uinteger` | Seconds an idle connection is kept open; 0 for none. | init script |
-| `cert` | string | unset | — | The certificate to serve HTTPS with, along with key. | init script |
-| `key` | string | unset | — | The private key of cert. | init script |
+| `cert` | string | unset | `tls_file` | The certificate to serve HTTPS with, along with key: a file of at most 64 KiB under /etc/ssl, /etc/acme or /etc/prometheus-exporter, or uhttpd's own /etc/uhttpd.crt. | init script |
+| `key` | string | unset | `tls_file` | The private key of cert, where cert may be: uhttpd's own is /etc/uhttpd.key. | init script |
 | `auth_user` | string | unset | `username` | The user a scrape logs in as (basic auth), with auth\_password; HTTPS only. | init script |
 | `memory_limit` | integer | `0` | `zero_or_min(8)` | MB of memory each of the exporter's processes may take (its data, RLIMIT\_DATA), 8 or more: a collector that takes more fails alone. 0 for a quarter of the RAM, at most 64 MB. | init script |
 | `omit_zero_values` | boolean | `0` | — | Leave out counters that are 0, most of which never move on a router. | exporter |
@@ -68,6 +68,7 @@ A boolean takes `1`, `yes`, `on`, `true`, `enabled` for true and `0`, `no`, `off
 | `range(1,60)` | an integer from 1 to 60 |
 | `range(1,65535)` | an integer from 1 to 65535 |
 | `regex` | a regular expression |
+| `tls_file` | a file under /etc/ssl, /etc/acme or /etc/prometheus-exporter, or uhttpd's own, /etc/uhttpd.\* |
 | `uinteger` | an integer of 0 or more |
 | `username` | a user of 1 to 64 characters, without ":", spaces or control characters |
 | `zero_or_min(8)` | 0, or an integer of 8 or more |
@@ -88,6 +89,8 @@ What the exporter finds wrong with a value, or with options that go together, ha
 | `ZERO_OR_MIN` | `min`, `value` | expected 0, or an integer of `min` or more, got `value` |
 | `ABSOLUTE_PATH` | `value` | expected an absolute path, got `value` |
 | `OWNED_DIRECTORY` | `value` | expected a directory under /var, /tmp or /etc/prometheus-exporter, which the service makes and mounts, got `value` |
+| `TLS_PATH` | `value` | expected a file under /etc/ssl, /etc/acme or /etc/prometheus-exporter, or uhttpd's own, /etc/uhttpd.\*, got `value` |
+| `TLS_FILE` | `max`, `value` | expected a regular file of at most `max` bytes, which its links, if any, leave under /etc/ssl, /etc/acme, /etc/prometheus-exporter or /etc/uhttpd.\*, got `value` |
 | `REGEX` | `value` | expected a regular expression, got `value` |
 | `USERNAME` | `value` | expected a user of 1 to 64 characters, without ":", spaces or control characters, got `value` |
 | `CRYPT` | `value` | expected a crypt hash: $1$ (uhttpd -m), $5$ or $6$, got `value` |

@@ -36,7 +36,7 @@ The tab's description says basic auth needs HTTPS: the certificate and key first
 
 | Field | Option | Notes |
 | :--- | :--- | :--- |
-| TLS certificate | `cert` | No placeholder; the description names uhttpd's own files, `/etc/uhttpd.crt` and `/etc/uhttpd.key`. |
+| TLS certificate | `cert` | No placeholder; the description names where the files may be, `/etc/ssl`, `/etc/acme` or `/etc/prometheus-exporter`, at most 64 KiB, and uhttpd's own files, `/etc/uhttpd.crt` and `/etc/uhttpd.key`. A path elsewhere, or a file there that is not a regular one of that size or whose links lead out, is marked as `validate` refuses it (`TLS_PATH`, `TLS_FILE`). |
 | TLS key | `key` | |
 | Basic auth user | `auth_user` | |
 | Basic auth password | `auth_password`, in `/etc/config/prometheus-exporter-auth` | No field of the form: Save, Save & Apply and Revert never touch it, and the page never reads the hash. The row says **Set** or **Not set**, as the ubus object's `password` answers, and has two buttons, which act at once. See [Basic auth password](#basic-auth-password). |

@@ -110,16 +110,40 @@ describe('check.run --config', () => {
 		let tls = (cert, key) => ({ main: { '.type': config.NAME, cert, ...(key ? { key } : {}) } });
 
 		assert.match(contains([ 'warn main: cert and key go together; with only cert, it serves HTTP' ]),
-			run(tls('/etc/x.crt', null), [], { config_only: true }).lines);
-		assert.match(contains([ 'warn main: /etc/x.key is missing; it serves HTTP until it is there' ]),
-			run(tls('/etc/x.crt', '/etc/x.key'), [], { config_only: true }, [ '/etc/x.crt' ]).lines);
+			run(tls('/etc/ssl/x.crt', null), [], { config_only: true }).lines);
+		assert.match(contains([ 'warn main: /etc/ssl/x.key is missing; it serves HTTP until it is there' ]),
+			run(tls('/etc/ssl/x.crt', '/etc/ssl/x.key'), [], { config_only: true }, [ '/etc/ssl/x.crt' ]).lines);
 		assert.match(contains([ 'ok   main: HTTPS on interface loopback, port 9100, keepalive 70s, exec_timeout 5s, scrape_timeout 10s, collector_budget 5s, max_samples 20000, memory_limit 64 MB (a quarter of the RAM, at most 64), gzip when asked' ]),
-			run(tls('/etc/x.crt', '/etc/x.key'), [], { config_only: true }, [ '/etc/x.crt', '/etc/x.key' ]).lines);
+			run(tls('/etc/ssl/x.crt', '/etc/ssl/x.key'), [], { config_only: true }, [ '/etc/ssl/x.crt', '/etc/ssl/x.key' ]).lines);
+	});
+
+	it('fails a cert or key that is not a regular file of 64 KiB at most, whatever basic auth: the service would copy neither', () => {
+		let main = { main: { '.type': config.NAME, cert: '/etc/ssl/x.crt', key: '/etc/ssl/x.key' } };
+		let out;
+
+		with_mods({ uci: { data: { [config.NAME]: main } } }, (mods) => {
+			out = check.run({
+				uci: mods.uci.cursor(),
+				fs: { stat: (p) => (p == '/etc/ssl/x.crt') ? { type: 'char', size: 0 } : { type: 'file', size: 1 }, readfile: () => null },
+				path: jail.PATH, collectors: [],
+			}, { config_only: true });
+		});
+
+		assert.match(false, out.ok);
+		assert.match(contains([ 'FAIL main: cert: expected a regular file of at most 65536 bytes, which its links, if any, leave under /etc/ssl, /etc/acme, /etc/prometheus-exporter or /etc/uhttpd.*, got "/etc/ssl/x.crt": the service copies neither, and does not start' ]),
+			split(out.report, '\n'));
+	});
+
+	it('fails a cert or key outside the TLS directories, as an invalid value', () => {
+		let r = run({ main: { '.type': config.NAME, cert: '/etc/shadow', key: '/etc/ssl/x.key' } }, [], { config_only: true }, [ '/etc/shadow' ]);
+
+		assert.match(false, r.ok);
+		assert.match(contains([ 'FAIL main: CONFIG_INVALID (cert: expected a file under /etc/ssl, /etc/acme or /etc/prometheus-exporter, or uhttpd\'s own, /etc/uhttpd.*, got "/etc/shadow")' ]), r.lines);
 	});
 
 	it('says basic auth is on, with its user and never its hash, and compress off', () => {
-		let main = { '.type': config.NAME, cert: '/etc/x.crt', key: '/etc/x.key', auth_user: 'prom', hash: HASH, compress: '0' };
-		let r = run({ main }, [], { config_only: true }, [ '/etc/x.crt', '/etc/x.key' ]);
+		let main = { '.type': config.NAME, cert: '/etc/ssl/x.crt', key: '/etc/ssl/x.key', auth_user: 'prom', hash: HASH, compress: '0' };
+		let r = run({ main }, [], { config_only: true }, [ '/etc/ssl/x.crt', '/etc/ssl/x.key' ]);
 
 		assert.match(true, r.ok);
 		assert.match(contains([ 'ok   main: HTTPS on interface loopback, port 9100, keepalive 70s, basic auth as user "prom", exec_timeout 5s, scrape_timeout 10s, collector_budget 5s, max_samples 20000, memory_limit 64 MB (a quarter of the RAM, at most 64), no compression (option compress)' ]),
@@ -130,18 +154,18 @@ describe('check.run --config', () => {
 	it('fails basic auth without cert and key, and with one that is missing: it would serve HTTP', () => {
 		let main = { '.type': config.NAME, auth_user: 'prom', hash: HASH };
 		let without = run({ main }, [], { config_only: true });
-		let missing = run({ main: { ...main, cert: '/etc/x.crt', key: '/etc/x.key' } }, [], { config_only: true }, [ '/etc/x.crt' ]);
+		let missing = run({ main: { ...main, cert: '/etc/ssl/x.crt', key: '/etc/ssl/x.key' } }, [], { config_only: true }, [ '/etc/ssl/x.crt' ]);
 
 		assert.match([ false, false ], [ without.ok, missing.ok ]);
 		assert.match(contains([ 'FAIL main: CONFIG_INVALID (auth_user: basic auth needs HTTPS: set cert and key, or the password crosses the network in the clear)' ]),
 			without.lines);
-		assert.match(contains([ 'FAIL main: /etc/x.key is missing; basic auth takes HTTPS only, so the service does not start until it is there' ]),
+		assert.match(contains([ 'FAIL main: /etc/ssl/x.key is missing; basic auth takes HTTPS only, so the service does not start until it is there' ]),
 			missing.lines);
 	});
 
 	it('fails half of basic auth, and a password that is not a hash, without saying it', () => {
-		let tls = { '.type': config.NAME, cert: '/etc/x.crt', key: '/etc/x.key' };
-		let files = [ '/etc/x.crt', '/etc/x.key' ];
+		let tls = { '.type': config.NAME, cert: '/etc/ssl/x.crt', key: '/etc/ssl/x.key' };
+		let files = [ '/etc/ssl/x.crt', '/etc/ssl/x.key' ];
 
 		assert.match([
 			'FAIL main: CONFIG_INVALID (auth_password: basic auth needs the hash of a password along with auth_user)',
@@ -153,8 +177,8 @@ describe('check.run --config', () => {
 	});
 
 	it('warns of a hash left in the main section, where 0.2.0 kept it, which it ignores, and never says it', () => {
-		let tls = { '.type': config.NAME, cert: '/etc/x.crt', key: '/etc/x.key' };
-		let r = run({ main: { ...tls, auth_user: 'prom', auth_password: HASH } }, [], { config_only: true }, [ '/etc/x.crt', '/etc/x.key' ]);
+		let tls = { '.type': config.NAME, cert: '/etc/ssl/x.crt', key: '/etc/ssl/x.key' };
+		let r = run({ main: { ...tls, auth_user: 'prom', auth_password: HASH } }, [], { config_only: true }, [ '/etc/ssl/x.crt', '/etc/ssl/x.key' ]);
 
 		assert.match(false, r.ok);
 		assert.match([

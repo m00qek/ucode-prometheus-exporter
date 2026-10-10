@@ -60,10 +60,10 @@ describe('migrate.main_options', () => {
 
 	it('takes what this exporter reads, as uci holds it', () => {
 		assert.match({
-			set: { listen_interface: 'lan', listen_port: '9200', http_keepalive: '0', cert: '/etc/c.crt', key: '/etc/c.key', omit_zero_values: '1' },
+			set: { listen_interface: 'lan', listen_port: '9200', http_keepalive: '0', cert: '/etc/ssl/c.crt', key: '/etc/ssl/c.key', omit_zero_values: '1' },
 			skipped: [],
 		}, migrate.main_options(source, {
-			listen_interface: 'lan', listen_port: '9200', http_keepalive: '0', cert: '/etc/c.crt', key: '/etc/c.key', omit_zero_values: '1',
+			listen_interface: 'lan', listen_port: '9200', http_keepalive: '0', cert: '/etc/ssl/c.crt', key: '/etc/ssl/c.key', omit_zero_values: '1',
 		}));
 	});
 
@@ -138,12 +138,12 @@ describe('migrate.plan', () => {
 	it('takes the Lua exporter\'s main section, and no collector sections', () => {
 		assert.match({
 			from: LUA,
-			main: { listen_port: '9300', cert: '/etc/c.crt', key: '/etc/c.key', omit_zero_values: '1' },
+			main: { listen_port: '9300', cert: '/etc/ssl/c.crt', key: '/etc/ssl/c.key', omit_zero_values: '1' },
 			collectors: {},
 			skipped: [],
 		}, plan_of({
 			[LUA]: {
-				main: { '.type': LUA, listen_interface: 'loopback', listen_port: '9300', cert: '/etc/c.crt', key: '/etc/c.key', omit_zero_values: '1' },
+				main: { '.type': LUA, listen_interface: 'loopback', listen_port: '9300', cert: '/etc/ssl/c.crt', key: '/etc/ssl/c.key', omit_zero_values: '1' },
 				wifi: { '.type': 'collector', stations: '0' },
 			},
 		}));

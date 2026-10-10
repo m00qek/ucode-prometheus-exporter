@@ -31,7 +31,7 @@ msgstr[1] ""
 msgid "%s must be 0, or an integer of %s or more"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter.js:140
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter.js:142
 msgid ""
 "%s must be 1 to 64 characters, without \":\", spaces or control characters"
 msgstr ""
@@ -40,7 +40,7 @@ msgstr ""
 msgid "%s must be a boolean (1 or 0)"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter.js:141
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter.js:143
 msgid "%s must be a crypt hash: $1$ (uhttpd -m), $5$ or $6$"
 msgstr ""
 
@@ -48,14 +48,25 @@ msgstr ""
 msgid "%s must be a directory under /var, /tmp or /etc/prometheus-exporter"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter.js:142
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter.js:139
+msgid ""
+"%s must be a file under /etc/ssl, /etc/acme or /etc/prometheus-exporter, or "
+"uhttpd's own /etc/uhttpd.*"
+msgstr ""
+
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter.js:144
 msgid ""
 "%s must be a hash of at most %s rounds, which a scrape computes to check the "
 "password"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter.js:139
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter.js:141
 msgid "%s must be a regular expression"
+msgstr ""
+
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter.js:140
+msgid ""
+"%s must be a regular file of at most %s bytes, whose links lead nowhere else"
 msgstr ""
 
 #: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter.js:133
@@ -78,15 +89,15 @@ msgstr ""
 msgid "%s must be an integer of 0 or more"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter.js:143
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter.js:145
 msgid "%s must be an interface name, or * for every address"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter.js:144
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter.js:146
 msgid "%s must be set along with %s"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter.js:146
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter.js:148
 msgid ""
 "%s needs HTTPS: set %s and %s, or the password crosses the network in the "
 "clear"
@@ -101,7 +112,7 @@ msgstr ""
 msgid "%s → %s"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter.js:159
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter.js:161
 msgid "%s, not %s"
 msgstr ""
 
@@ -738,7 +749,8 @@ msgstr ""
 
 #: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:160
 msgid ""
-"With a key, serves HTTPS; empty, plain HTTP. Both files must exist, and "
+"With a key, serves HTTPS; empty, plain HTTP. Both files must exist, under /"
+"etc/ssl, /etc/acme or /etc/prometheus-exporter, of at most 64 KiB, and "
 "uhttpd needs a TLS library. LuCI's own are /etc/uhttpd.crt and /etc/"
 "uhttpd.key."
 msgstr ""

@@ -383,8 +383,8 @@ describe('config.service', () => {
 	});
 
 	it('reads the options, typed', () => {
-		assert.match({ enabled: false, listen_interface: '*', listen_port: 9100, http_keepalive: 0, cert: '/etc/x.crt', key: '', auth_user: '', auth_password: '',
-			memory_limit: 48 }, service({ enabled: '0', listen_interface: '*', listen_port: '9100', http_keepalive: '0', cert: '/etc/x.crt', memory_limit: '48' }));
+		assert.match({ enabled: false, listen_interface: '*', listen_port: 9100, http_keepalive: 0, cert: '/etc/ssl/x.crt', key: '', auth_user: '', auth_password: '',
+			memory_limit: 48 }, service({ enabled: '0', listen_interface: '*', listen_port: '9100', http_keepalive: '0', cert: '/etc/ssl/x.crt', memory_limit: '48' }));
 	});
 
 	it('refuses what the init script would misread', () => {

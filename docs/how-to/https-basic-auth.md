@@ -5,11 +5,12 @@ Have every scrape log in with a user and password, over TLS. The exporter takes 
 ## Prerequisites
 
 - A TLS library for uhttpd: `ls /lib/libustream-ssl.so` finds it. Without it, install one, as `apk add libustream-mbedtls`.
-- A certificate and its key, for the name Prometheus reaches the device by. To make a self-signed one for `router.lan`:
+- A certificate and its key, for the name Prometheus reaches the device by, each a file of at most 64 KiB under `/etc/ssl`, `/etc/acme` or `/etc/prometheus-exporter`, or uhttpd's own `/etc/uhttpd.*`: the service copies no other (see [About the security model](../explanation/security.md#not-root)). To make a self-signed one for `router.lan`:
 
     ```sh
+    mkdir -p /etc/prometheus-exporter
     px5g selfsigned -days 3650 -newkey ec -pkeyopt ec_paramgen_curve:P-256 \
-        -keyout /etc/prometheus-exporter.key -out /etc/prometheus-exporter.crt \
+        -keyout /etc/prometheus-exporter/tls.key -out /etc/prometheus-exporter/tls.crt \
         -subj /CN=router.lan -addext subjectAltName=DNS:router.lan
     ```
 
@@ -48,13 +49,13 @@ A DES-crypt hash is not taken: its 13 characters could be a plain password, whic
 
 ```sh
 uci set prometheus-exporter.main.auth_user='prometheus'
-uci set prometheus-exporter.main.cert='/etc/prometheus-exporter.crt'
-uci set prometheus-exporter.main.key='/etc/prometheus-exporter.key'
+uci set prometheus-exporter.main.cert='/etc/prometheus-exporter/tls.crt'
+uci set prometheus-exporter.main.key='/etc/prometheus-exporter/tls.key'
 uci commit prometheus-exporter
 service prometheus-exporter reload
 ```
 
-Basic auth is on while `auth_user` is set. If the reload refuses the configuration, `logread -e prometheus-exporter` says why: a user without a saved hash, a hash it does not take, or no `cert` and `key`.
+Basic auth is on while `auth_user` is set. If the reload refuses the configuration, `logread -e prometheus-exporter` says why: a user without a saved hash, a hash it does not take, no `cert` and `key`, or one of them elsewhere than those directories (`TLS_PATH`), or not a regular file of at most 64 KiB, or a link out of them (`TLS_FILE`).
 
 ## 3. Check it
 
@@ -95,7 +96,7 @@ scrape_configs:
       - targets: [ 'router.lan:9100' ]
 ```
 
-Copy the router's certificate (`/etc/prometheus-exporter.crt`), not its key, to the Prometheus host as `ca_file`.
+Copy the router's certificate (`/etc/prometheus-exporter/tls.crt`), not its key, to the Prometheus host as `ca_file`.
 
 ---
 
@@ -107,7 +108,7 @@ The service's jail holds the certificate and key it started with. After writing 
 service prometheus-exporter reload
 ```
 
-A tool that renews certificates on its own, as acme does, runs that from its hook. Until then the old certificate is served.
+A tool that renews certificates on its own, as acme does, runs that from its hook. OpenWrt's acme keeps them in `/etc/ssl/acme`, and acme.sh's own in `/etc/acme`, where `cert` and `key` may point, its links too. Until then the old certificate is served.
 
 ## Turn it off
 

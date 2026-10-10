@@ -62,11 +62,17 @@ function check_tls(fs, o, add) {
 		return;
 	}
 
-	for (let f in (o.cert != '' ? [ o.cert, o.key ] : []))
-		if (fs.stat(f)?.type != 'file')
+	for (let name in (o.cert != '' ? [ 'cert', 'key' ] : [])) {
+		let f = o[name];
+		let p = config.tls_problem(fs, f);
+
+		if (p)
+			add('fail', `main: ${config.message(name, p)}: the service copies neither, and does not start`);
+		else if (fs.stat(f) == null)
 			add(login ? 'fail' : 'warn', login
 				? `main: ${f} is missing; basic auth takes HTTPS only, so the service does not start until it is there`
 				: `main: ${f} is missing; it serves HTTP until it is there`);
+	}
 }
 
 function check_main(sys, add) {

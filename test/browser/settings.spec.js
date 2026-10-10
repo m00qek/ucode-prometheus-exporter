@@ -192,6 +192,26 @@ test.describe('Services → Prometheus exporter', () => {
     await expect(tab(page, 'https')).not.toHaveAttribute('data-errors');
   });
 
+  // Root copies cert and key for the service's group: a login allowed this
+  // app alone must not have it copy /etc/shadow, or read /dev/zero forever.
+  test('refuses a certificate or key outside the TLS directories, or not a regular file', async ({ page, request }) => {
+    const before = await h.readConfig(request);
+    await h.openSettings(page);
+    await h.showTab(page, 'https');
+    await field(page, 'cert').fill('/etc/shadow');
+    await field(page, 'key').fill('/dev/zero');
+    await expect(field(page, 'cert')).toHaveClass(/cbi-input-invalid/);
+    await expect(field(page, 'key')).toHaveClass(/cbi-input-invalid/);
+    await expect(tab(page, 'https')).toHaveAttribute('data-errors', '2');
+
+    await saveAndApply(page);
+    await expect(h.saveError(page).locator('.exporter-line')).toHaveText([
+      'HTTPS & login → TLS certificate: TLS certificate must be a file under /etc/ssl, /etc/acme or /etc/prometheus-exporter, or uhttpd\'s own /etc/uhttpd.*, not "/etc/shadow"',
+      'HTTPS & login → TLS key: TLS key must be a file under /etc/ssl, /etc/acme or /etc/prometheus-exporter, or uhttpd\'s own /etc/uhttpd.*, not "/dev/zero"',
+    ]);
+    expect(await h.readConfig(request)).toBe(before);
+  });
+
   test('LuCI\'s badge counts the invalid fields of each tab', async ({ page }) => {
     await h.openSettings(page);
     // LuCI's port datatype takes 0; the exporter does not.

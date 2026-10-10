@@ -157,7 +157,7 @@ return view.extend({
 		o.rmempty = false;
 
 		o = this.option(s, 'https', form.Value, 'cert', _('TLS certificate'),
-			_('With a key, serves HTTPS; empty, plain HTTP. Both files must exist, and uhttpd needs a TLS library. LuCI\'s own are /etc/uhttpd.crt and /etc/uhttpd.key.'));
+			_('With a key, serves HTTPS; empty, plain HTTP. Both files must exist, under /etc/ssl, /etc/acme or /etc/prometheus-exporter, of at most 64 KiB, and uhttpd needs a TLS library. LuCI\'s own are /etc/uhttpd.crt and /etc/uhttpd.key.'));
 		o.datatype = 'file';
 
 		o = this.option(s, 'https', form.Value, 'key', _('TLS key'), _('The private key of the certificate.'));

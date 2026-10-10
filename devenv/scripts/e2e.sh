@@ -964,8 +964,10 @@ set_config "$NAME.main.compress=1"
 eventually "compress 1 gzips again" gzip_reply
 
 # --- basic auth, over HTTPS only
-# A self-signed certificate, as uhttpd's own init script makes one.
-CERT=/etc/e2e.crt KEY=/etc/e2e.key HTTPS=https://127.0.0.1:9100/metrics AUTH_FILE=/var/run/$NAME/uhttpd.conf
+# A self-signed certificate, as uhttpd's own init script makes one, where
+# cert and key may be: under /etc/ssl.
+mkdir -p /etc/ssl
+CERT=/etc/ssl/e2e.crt KEY=/etc/ssl/e2e.key HTTPS=https://127.0.0.1:9100/metrics AUTH_FILE=/var/run/$NAME/uhttpd.conf
 px5g selfsigned -days 30 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -keyout $KEY -out $CERT -subj /CN=127.0.0.1 >/dev/null 2>&1
 HASH=$(rpc hash_password '{"password":"e2e-secret"}' | jsonfilter -e '@.hash')
 sha512_crypt() { echo "$HASH" | grep -q '^\$6\$rounds=1000\$'; }
@@ -1014,6 +1016,35 @@ chmod 0600 "$KEY"
 check "the TLS key, root's alone, is copied for the service's group to read, and served" tls_copied
 check "the key itself stays root's alone" test "$(owned "$KEY" | cut -d' ' -f1)" = "-rw-------"
 check "the jail mounts the copy, not the key" not_mounted "$KEY"
+
+# cert and key: only files under the TLS directories, regular, of 64 KiB at
+# most, which root copies for the service's group; any other is refused
+# before root opens it, in validate, check, reload and jail.uc --make.
+refused_tls() { says "\"code\": \"$1\"" rpc validate "{\"main\":{\"cert\":\"$2\",\"key\":\"$KEY\"}}"; }
+ln -sf /etc/shadow /etc/ssl/e2e-shadow.crt
+ln -sf /dev/zero /etc/ssl/e2e-zero.crt
+mkfifo /etc/ssl/e2e-fifo.crt
+check "validate refuses a cert outside the TLS directories, as /etc/shadow" refused_tls TLS_PATH /etc/shadow
+check "and /dev/zero" refused_tls TLS_PATH /dev/zero
+check "and a link there to /etc/shadow" refused_tls TLS_FILE /etc/ssl/e2e-shadow.crt
+check "or to /dev/zero" refused_tls TLS_FILE /etc/ssl/e2e-zero.crt
+check "and a FIFO there" refused_tls TLS_FILE /etc/ssl/e2e-fifo.crt
+check "and takes a regular file there" fails says '"cert"' rpc validate "{\"main\":{\"cert\":\"$CERT\",\"key\":\"$KEY\"}}"
+before=$(pid)
+set_config "$NAME.main.cert=/etc/ssl/e2e-zero.crt"
+sleep 3
+check "a reload with a cert of /dev/zero keeps the running instance" test "$(pid)" = "$before"
+check "check fails on it, saying why" says "FAIL main: cert: expected a regular file of at most 65536 bytes.*/etc/ssl/e2e-zero.crt" "$INIT" check
+"$LIBEXEC/jail.uc" --make >/tmp/e2e-make.out 2>&1 &
+make_pid=$!
+eventually "jail.uc --make ends, rather than read /dev/zero" fails kill -0 "$make_pid"
+check "copying neither file, and saying why" says "cert: expected a regular file of at most 65536 bytes.*not copied" cat /tmp/e2e-make.out
+check "it leaves no copy of the certificate" test ! -e "/var/run/$NAME/tls.crt"
+set_config "$NAME.main.cert=/etc/ssl/e2e-fifo.crt"
+check "a FIFO as cert is refused the same, without blocking check" says "FAIL main: cert: expected a regular file" "$INIT" check
+set_config "$NAME.main.cert=$CERT"
+eventually "and the cert back, it serves HTTPS again" logs_in
+rm -f /etc/ssl/e2e-shadow.crt /etc/ssl/e2e-zero.crt /etc/ssl/e2e-fifo.crt
 check "a scrape without credentials is a 401" unauthorized
 check "and with a wrong password" unauthorized --user=prom --password=wrong
 check "and with a wrong user" unauthorized --user=other --password=e2e-secret

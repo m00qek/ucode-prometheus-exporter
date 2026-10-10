@@ -191,7 +191,7 @@ describe('rpc.service', () => {
 
 	it('says whether a scrape logs in and is compressed, and never the hash', () => {
 		let hash = '$1$$ysVNzQc4CTMkp5daOdZ.3/';
-		let res = service({ main: { '.type': NAME, auth_user: 'prom', cert: '/c', key: '/k', compress: '0' } },
+		let res = service({ main: { '.type': NAME, auth_user: 'prom', cert: '/etc/ssl/c', key: '/etc/ssl/k', compress: '0' } },
 			{ data: { 'service:list': {} } }, [], hash);
 
 		assert.match([ true, false ], [ res.service.auth, res.service.compress ]);

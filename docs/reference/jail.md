@@ -11,7 +11,7 @@ uhttpd, and with it the exporter, runs in procd's jail (ujail), named `prometheu
 | The jail's options | procfs, sysfs, `/dev/log`. |
 | The exporter (`jail.uc`, before the collectors' mounts) | `/usr/lib/uhttpd_ucode.so`, `/lib/libubus.so*`, `/lib/libuci.so*`, `/usr/lib/libnl*.so*`, `/usr/lib/libz.so*`, `/usr/lib/ucode`, `/usr/share/ucode/prometheus`, `/usr/libexec/prometheus-exporter/handler.uc`; `/bin/sh`, whose `kill` a scrape uses to end a collector's process a dead scrape left running. |
 | The configuration | `/etc/config/prometheus-exporter`. |
-| HTTPS, with `cert` and `key` there | Their copies, `/var/run/prometheus-exporter/tls.crt` and `tls.key`; `/lib/libustream-*.so*`, `/usr/lib/libustream-*.so*`. |
+| HTTPS, with `cert` and `key` there, and copied | Their copies, `/var/run/prometheus-exporter/tls.crt` and `tls.key`; `/lib/libustream-*.so*`, `/usr/lib/libustream-*.so*`. |
 | Basic auth | Its file, `/var/run/prometheus-exporter/uhttpd.conf`. |
 | The state | `/var/run/prometheus-exporter/state`, read-write. |
 
@@ -169,7 +169,7 @@ A ledger longer than a state file may be is written again without each breaker's
 | :--- | :--- | :--- | :--- |
 | `/var/run/prometheus-exporter/` | 0700, root's | `jail.uc --make`, `auth.uc` | No |
 | `/var/run/prometheus-exporter/uhttpd.conf` | 0640, root's and the service's group's | `auth.uc`, at each start: one line, `/metrics:<user>:<hash>`; removed without basic auth | Read-only, with basic auth |
-| `/var/run/prometheus-exporter/tls.crt`, `tls.key` | 0640, root's and the service's group's | `jail.uc --make`, at each start, copies of `cert` and `key`; removed when the service stops | Read-only, with both there |
+| `/var/run/prometheus-exporter/tls.crt`, `tls.key` | 0640, root's and the service's group's | `jail.uc --make`, at each start, copies of `cert` and `key`, each only a regular file of at most 64 KiB under `/etc/ssl`, `/etc/acme` or `/etc/prometheus-exporter`, or `/etc/uhttpd.*`, wherever its links lead, read to at most that; neither when one is not; removed when the service stops | Read-only, with both there: the init script serves HTTPS only from them |
 | `/var/run/prometheus-exporter/capabilities.json` | 0644 | `jail.uc --make`, at each start; removed when the service stops | No: procd hands it to ujail |
 | `/var/run/prometheus-exporter.acl.json` | 0644 | `jail.uc --make`, at each start; removed when the service stops | No: ubusd reads it |
 | `/var/run/prometheus-exporter/state/` | 0700, the service's user's | `jail.uc --make` | Read-write |
@@ -183,7 +183,7 @@ uhttpd's auth file is written to a temporary name and renamed into place, so a r
 
 ## Restarts
 
-procd binds files into the jail. A file replaced by a new one, as `uci commit` replaces a config, stays the old one inside. So procd watches, for the uhttpd instance, the configs it mounts from `/etc/config`, every collector module, basic auth's file, the TLS files and the capabilities file, and restarts the instance on `reload` when one changed.
+procd binds files into the jail. A file replaced by a new one, as `uci commit` replaces a config, stays the old one inside. So procd watches, for the uhttpd instance, the configs it mounts from `/etc/config`, every collector module, basic auth's file, the copies of the TLS files, which a reload makes again from the files `cert` and `key` name, and the capabilities file, and restarts the instance on `reload` when one changed.
 
 ## See also
 

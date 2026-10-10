@@ -15,7 +15,7 @@ function filesystem(files, broken) {
 	fs = {
 		files,
 		log: [],
-		stat: (p) => (p in keys(files)) ? { type: 'file', mode: files[p].mode ?? 0o600, uid: 0, gid: files[p].gid ?? 0 } : null,
+		stat: (p) => (p in keys(files)) ? { type: files[p].type ?? 'file', size: length(files[p].data ?? ''), mode: files[p].mode ?? 0o600, uid: 0, gid: files[p].gid ?? 0 } : null,
 		readfile: (p) => files[p]?.data,
 		open: function(p, mode, perm) {
 			if (fails('open'))
@@ -208,6 +208,31 @@ describe('grant.make', () => {
 
 		grant.make(system(fs), grants());
 		assert.match([ null, null ], [ fs.files[privileges.TLS_CERT], fs.files[privileges.TLS_KEY] ]);
+	});
+
+	// A device or a FIFO named as one would have root read without end; a
+	// file past the cap would be copied whole into the jail.
+	it('copies neither TLS file unless both are regular files of at most 64 KiB, and says why', () => {
+		for (let bad in [ { type: 'char', data: '' }, { type: 'fifo', data: '' }, { data: sprintf(`%0${65537}d`, 0) }]) {
+			let f = { ...files(), '/etc/ssl/x.crt': bad };
+			let fs = filesystem(f);
+
+			fs.files[privileges.TLS_CERT] = { data: 'OLD', mode: 0o640, gid: 32770 };
+			let res = grant.make(system(fs), grants({ tls: { cert: '/etc/ssl/x.crt', key: '/etc/uhttpd.key' } }));
+
+			assert.match([ 'cannot copy /etc/ssl/x.crt: not a regular file of at most 65536 bytes that root reads' ], res.problems);
+			assert.match([ null, null ], [ fs.files[privileges.TLS_CERT], fs.files[privileges.TLS_KEY] ]);
+		}
+	});
+
+	it('reads at most the cap and one byte more of a TLS file', () => {
+		let fs = filesystem(files());
+		let asked = [];
+		let readfile = fs.readfile;
+
+		fs.readfile = function(p, n) { push(asked, [ p, n ]); return readfile(p, n); };
+		grant.make(system(fs), grants({ tls: { cert: '/etc/uhttpd.crt', key: '/etc/uhttpd.key' } }));
+		assert.match([ [ '/etc/uhttpd.crt', 65537 ], [ '/etc/uhttpd.key', 65537 ] ], filter(asked, (a) => index(a[0], '/etc/uhttpd') == 0));
 	});
 
 	it('says what it could not do, and goes on', () => {

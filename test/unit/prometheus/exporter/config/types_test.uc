@@ -57,6 +57,34 @@ describe('config.types.datatype', () => {
 		assert.match([ null, null, null, null ], map([ 'ipaddr', 'range(9,1)', 'range(1)', 7 ], types.datatype));
 	});
 
+	// cert and key, which root copies for the service's group: where
+	// certificates are kept, and uhttpd's own, never the rest of /etc.
+	it('takes a TLS file under /etc/ssl, /etc/acme or /etc/prometheus-exporter, or uhttpd\'s own, and no other', () => {
+		assert.match([ true, true, true, true, true, true ], map([
+			'/etc/ssl/acme/example.org.fullchain.crt', '/etc/acme/example.org/example.org.key', '/etc/prometheus-exporter/tls.crt',
+			'/etc/uhttpd.crt', '/etc/uhttpd.key', '',
+		], (v) => types.datatype('tls_file').check(v)));
+		assert.match([ false, false, false, false, false, false, false, false, false ], map([
+			'/etc/shadow', '/etc/config/prometheus-exporter-auth', '/dev/zero', '/etc/ssl', '/etc/ssl/', '/etc/ssl/../shadow',
+			'/etc/ssl//x', '/etc/uhttpd/x', 'etc/ssl/x',
+		], (v) => types.datatype('tls_file').check(v)));
+		assert.match('o: expected a file under /etc/ssl, /etc/acme or /etc/prometheus-exporter, or uhttpd\'s own, /etc/uhttpd.*, got "/etc/shadow"', check('tls_file', '/etc/shadow'));
+	});
+
+	it('refuses a TLS file there that is not a regular file of 64 KiB at most, or whose links lead out; and one not there is no problem of its own', () => {
+		let fs = (st, real) => ({ stat: () => st, realpath: (p) => real ?? p });
+		let problem = { code: 'TLS_FILE', max: 65536, value: '/etc/ssl/x.crt' };
+
+		assert.match([ null, null, problem, problem, problem, problem ], [
+			types.tls_problem(fs(null), '/etc/ssl/x.crt'),
+			types.tls_problem(fs({ type: 'file', size: 65536 }, '/etc/acme/x.crt'), '/etc/ssl/x.crt'),
+			types.tls_problem(fs({ type: 'file', size: 65537 }), '/etc/ssl/x.crt'),
+			types.tls_problem(fs({ type: 'char', size: 0 }), '/etc/ssl/x.crt'),
+			types.tls_problem(fs({ type: 'fifo', size: 0 }), '/etc/ssl/x.crt'),
+			types.tls_problem(fs({ type: 'file', size: 10 }, '/etc/shadow'), '/etc/ssl/x.crt'),
+		]);
+	});
+
 	it('makes a range once, and checks by it every time', () => {
 		let a = types.datatype('range(1,60)');
 
