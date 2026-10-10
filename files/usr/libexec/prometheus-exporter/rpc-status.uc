@@ -1,9 +1,9 @@
 #!/usr/bin/ucode
 'use strict';
 
-import * as rpc from 'prometheus_exporter.rpc';
-import { probe } from 'prometheus_exporter.probe';
-import { import_module } from 'prometheus_exporter.loader';
+import * as rpc from 'prometheus.exporter.rpc';
+import { probe } from 'prometheus.exporter.probe';
+import { import_module } from 'prometheus.exporter.loader';
 
 const sys = rpc.system({ probe: (ids) => probe(ids, import_module) });
 

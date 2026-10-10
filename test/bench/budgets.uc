@@ -14,7 +14,7 @@
 // (2026.09.30-r2) took 9.2 s for 20k conntrack entries, 3.8 s for ethtool
 // on 17 ports and 2.2 s for a typical full scrape.
 
-import { MEMORY_LIMIT_MIN } from 'prometheus_exporter.config';
+import { MEMORY_LIMIT_MIN } from 'prometheus.exporter.config';
 
 // A case's time per entry may grow this much from the smallest table to the
 // largest: linear is 1 (measured 0.95), n log n about 1.4 from 1k to 20k, and
@@ -158,7 +158,7 @@ const REST = [
 ];
 
 // The most the floor: cases may find, in MB: memory_limit's least
-// (prometheus_exporter.config's MEMORY_LIMIT_MIN), which the config takes
+// (prometheus.exporter.config's MEMORY_LIMIT_MIN), which the config takes
 // as enough for the handler to load every collector and serve a typical
 // scrape of them. Measured 4 MB for the base collectors and 7 for every one
 // on x86_64, and less on a 32-bit router.

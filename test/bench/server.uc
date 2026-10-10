@@ -43,12 +43,12 @@ export function missing(src) {
 		if (!fs.stat(p))
 			return `no ${p}`;
 
-	let installed = fs.realpath('/usr/share/ucode/prometheus_exporter');
+	let installed = fs.realpath('/usr/share/ucode/prometheus');
 
 	if (installed == null)
 		return 'the exporter is not in /usr/share/ucode, where uhttpd\'s ucode looks';
-	if (src != null && installed != fs.realpath(`${src}/prometheus_exporter`))
-		return `/usr/share/ucode/prometheus_exporter is not ${src}'s`;
+	if (src != null && installed != fs.realpath(`${src}/prometheus`))
+		return `/usr/share/ucode/prometheus is not ${src}'s`;
 
 	return null;
 };

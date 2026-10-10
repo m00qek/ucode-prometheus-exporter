@@ -1,12 +1,12 @@
 'use strict';
 
-// prometheus_exporter.probe for real: modules loaded in forked child
+// prometheus.exporter.probe for real: modules loaded in forked child
 // processes, one that does not load in time stopped with its process.
 
 import { describe, it, assert } from 'utest';
-import * as probe from 'prometheus_exporter.probe';
-import * as loader from 'prometheus_exporter.loader';
-import { seconds } from 'prometheus_exporter.deadline';
+import * as probe from 'prometheus.exporter.probe';
+import * as loader from 'prometheus.exporter.loader';
+import { seconds } from 'prometheus.exporter.deadline';
 import * as fs from 'fs';
 
 function now() {
@@ -56,7 +56,7 @@ describe('probe.probe', () => {
 	});
 
 	it('loads the real collectors', () => {
-		let ids = loader.discover(fs, 'src/prometheus_exporter/collectors');
+		let ids = loader.discover(fs, 'src/prometheus/collectors');
 		let res = probe.probe(ids, loader.import_module);
 
 		assert.match([], filter(ids, (id) => !res[id]?.ok));

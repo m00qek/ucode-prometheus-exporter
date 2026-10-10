@@ -4,7 +4,7 @@
 // requests are: every update counted, and no reader ever sees a torn file.
 
 import { describe, it, assert } from 'utest';
-import * as state from 'prometheus_exporter.state';
+import * as state from 'prometheus.exporter.state';
 
 // The real fs: under utest, an import of fs reaches whatever mock is patched in.
 const fs = require('fs');
@@ -15,7 +15,7 @@ const SRC = fs.realpath(`${fs.dirname(sourcepath())}/../../src`);
 // reads that were not a whole file.
 const WRITER = `
 import * as fs from 'fs';
-import * as state from 'prometheus_exporter.state';
+import * as state from 'prometheus.exporter.state';
 let dir = ARGV[0], id = ARGV[1], times = +ARGV[2], pad = +ARGV[3];
 let st = state.open(fs, dir, id);
 let torn = 0;

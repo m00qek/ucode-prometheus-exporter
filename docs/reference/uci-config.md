@@ -76,7 +76,7 @@ A boolean takes `1`, `yes`, `on`, `true`, `enabled` for true and `0`, `no`, `off
 
 ### What is wrong with a value {#problems}
 
-What the exporter finds wrong with a value, or with options that go together, has a code of its own, from `src/prometheus_exporter/config/problems.uc`, and arguments. The ubus object's `validate` answers the code and its arguments, for a client to say in its own words, as LuCI does, and the English below as `message` (see [ubus object](ubus.md#validate)). The details of a `CONFIG_INVALID`, in the log, `check` and the command line, are that English after the option's name: `listen_port: expected an integer from 1 to 65535, got 0`. `value` is what the exporter read, but for a secret option's (`auth_password`).
+What the exporter finds wrong with a value, or with options that go together, has a code of its own, from `src/prometheus/exporter/config/problems.uc`, and arguments. The ubus object's `validate` answers the code and its arguments, for a client to say in its own words, as LuCI does, and the English below as `message` (see [ubus object](ubus.md#validate)). The details of a `CONFIG_INVALID`, in the log, `check` and the command line, are that English after the option's name: `listen_port: expected an integer from 1 to 65535, got 0`. `value` is what the exporter read, but for a secret option's (`auth_password`).
 
 | Code | Arguments | English |
 | :--- | :--- | :--- |

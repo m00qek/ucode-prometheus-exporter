@@ -2,7 +2,7 @@
 
 # Error Codes
 
-A failure carries an uppercase code, from `src/prometheus_exporter/errors.uc`, and a detail. It is written `CODE (detail)`, or `CODE` alone without one: in the log (`collector '<name>': CODE (detail)`, see [Log messages](log-messages.md)), in `check`, in the ubus object's replies and on LuCI's status page. A collector that fails has `node_scrape_collector_success` 0.
+A failure carries an uppercase code, from `src/prometheus/exporter/errors.uc`, and a detail. It is written `CODE (detail)`, or `CODE` alone without one: in the log (`collector '<name>': CODE (detail)`, see [Log messages](log-messages.md)), in `check`, in the ubus object's replies and on LuCI's status page. A collector that fails has `node_scrape_collector_success` 0.
 
 ## Collectors and their sources
 

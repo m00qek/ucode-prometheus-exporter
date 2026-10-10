@@ -1,0 +1,87 @@
+'use strict';
+
+import { describe, it, prop, gen, assert } from 'utest';
+import { with_collector } from 'prometheus.exporter.devkit.collector';
+import * as fixtures from 'lib.fixtures';
+import * as selinux from 'prometheus.collectors.selinux';
+
+const ENFORCE = '/sys/fs/selinux/enforce';
+
+// OpenWrt builds without SELinux, as on both caju devices: no selinuxfs. The
+// enforcing one is made up: selinuxfs's enforce is the mode as a bare "%d".
+const ENFORCING = fixtures.files('synthetic', [ ENFORCE ]);
+
+// /proc/filesystems of an OpenWrt kernel without SELinux, and of one with it
+// enabled at boot, which registers selinuxfs: made up, in the kernel's format
+// ("nodev\t<name>" for a filesystem without a device, "\t<name>" for one with).
+const FILESYSTEMS = '/proc/filesystems';
+const WITHOUT = 'nodev\tsysfs\nnodev\ttmpfs\nnodev\tbdev\nnodev\tproc\nnodev\tdebugfs\nnodev\tsockfs\n' +
+	'nodev\tbpf\nnodev\tpipefs\nnodev\tdevpts\n\tsquashfs\nnodev\tjffs2\nnodev\toverlay\n\tf2fs\n';
+const WITH = WITHOUT + 'nodev\tselinuxfs\n';
+
+describe('collectors.selinux', () => {
+	it('reports SELinux disabled where the kernel has no selinuxfs', () => {
+		with_collector(selinux, { fs: { data: { [ENFORCE]: null, [FILESYSTEMS]: WITHOUT } } }, (r) => {
+			assert.match(true, r.result.ok);
+			assert.match([
+				'# HELP node_selinux_enabled SELinux is enabled, 1 is true, 0 is false',
+				'# TYPE node_selinux_enabled gauge',
+				'node_selinux_enabled 0',
+			], r.lines);
+		});
+	});
+
+	// The jail's sysfs never has selinuxfs mounted under it: no false 0.
+	it('reports SELinux enabled, without a mode, where the kernel has selinuxfs and its enforce cannot be read', () => {
+		with_collector(selinux, { fs: { data: { [ENFORCE]: null, [FILESYSTEMS]: WITH } } }, (r) => {
+			assert.match(true, r.result.ok);
+			assert.match([ 'node_selinux_enabled 1' ], filter(r.lines, (l) => substr(l, 0, 1) != '#'));
+		});
+	});
+
+	it('fails with SOURCE_UNREADABLE when neither enforce nor /proc/filesystems can be read', () => {
+		with_collector(selinux, { fs: { data: { [ENFORCE]: null, [FILESYSTEMS]: null } } }, (r) => {
+			assert.match({ ok: false, error: 'SOURCE_UNREADABLE', details: FILESYSTEMS },
+				{ ok: r.result.ok, error: r.result.error, details: r.result.details });
+			assert.match([], filter(r.lines, (l) => substr(l, 0, 1) != '#'));
+		});
+	});
+
+	it('reports SELinux enabled and enforcing', () => {
+		with_collector(selinux, { fs: { data: ENFORCING } }, (r) => {
+			assert.match(true, r.result.ok);
+			assert.match([
+				'# HELP node_selinux_enabled SELinux is enabled, 1 is true, 0 is false',
+				'# TYPE node_selinux_enabled gauge',
+				'node_selinux_enabled 1',
+				'# HELP node_selinux_current_mode Current SELinux enforcement mode',
+				'# TYPE node_selinux_current_mode gauge',
+				'node_selinux_current_mode 1',
+			], r.lines);
+		});
+	});
+
+	it('reports permissive mode as 0', () => {
+		with_collector(selinux, { fs: { data: { [ENFORCE]: '0' } } }, (r) => {
+			assert.match([ 'node_selinux_enabled 1', 'node_selinux_current_mode 0' ],
+				filter(r.lines, (l) => substr(l, 0, 1) != '#'));
+		});
+	});
+
+	it('fails with SOURCE_INVALID for a mode that is not a number, keeping node_selinux_enabled', () => {
+		with_collector(selinux, { fs: { data: { [ENFORCE]: 'enforcing\n' } } }, (r) => {
+			assert.match({ ok: false, error: 'SOURCE_INVALID', details: '/sys/fs/selinux/enforce: "enforcing"' },
+				{ ok: r.result.ok, error: r.result.error, details: r.result.details });
+			assert.match([ 'node_selinux_enabled 1' ], filter(r.lines, (l) => substr(l, 0, 1) != '#'));
+		});
+	});
+
+	prop('exports the mode the kernel reports, with or without a newline',
+		gen.tuple(gen.int(0, 1), gen.elements('', '\n')), (x) => {
+			with_collector(selinux, { fs: { data: { [ENFORCE]: `${x[0]}${x[1]}` } } }, (r) => {
+				assert.match(true, r.result.ok);
+				assert.match([ 'node_selinux_enabled 1', `node_selinux_current_mode ${x[0]}` ],
+					filter(r.lines, (l) => substr(l, 0, 1) != '#'));
+			});
+		});
+});

@@ -7,8 +7,8 @@
 import { describe, it, assert, afterEach } from 'utest';
 import { cursor } from 'uci';
 import { readfile, writefile, mkdtemp, unlink, rmdir, lsdir } from 'fs';
-import * as migrate from 'prometheus_exporter.migrate';
-import * as config from 'prometheus_exporter.config';
+import * as migrate from 'prometheus.exporter.migrate';
+import * as config from 'prometheus.exporter.config';
 
 const SHIPPED = readfile(`files/etc/config/${config.NAME}`);
 const SHIPPED_AUTH = readfile(`files/etc/config/${config.AUTH_CONFIG}`);

@@ -1,13 +1,13 @@
 'use strict';
 
-// prometheus_exporter.loader for real: the collectors of the source tree
+// prometheus.exporter.loader for real: the collectors of the source tree
 // compiled as ucode compiles them, and what that leaves open.
 
 import { describe, it, assert } from 'utest';
-import * as loader from 'prometheus_exporter.loader';
+import * as loader from 'prometheus.exporter.loader';
 import * as fs from 'fs';
 
-const SOURCES = 'src/prometheus_exporter/collectors';
+const SOURCES = 'src/prometheus/collectors';
 
 function descriptors() {
 	return length(fs.lsdir('/proc/self/fd') ?? []);

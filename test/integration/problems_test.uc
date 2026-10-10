@@ -1,13 +1,13 @@
 'use strict';
 
 // What the exporter finds wrong with a value, by its code, is said twice: in English
-// by the core (prometheus_exporter.config.problems), and in the user's language by
+// by the core (prometheus.exporter.config.problems), and in the user's language by
 // LuCI, whose sentence of each code is in the PROBLEMS table of its shared module.
 // Every code has both, and LuCI has a sentence of no code the core does not have.
 
 import { describe, it, assert } from 'utest';
 import { readfile } from 'fs';
-import * as config from 'prometheus_exporter.config';
+import * as config from 'prometheus.exporter.config';
 
 const SHARED = 'luci/htdocs/luci-static/resources/prometheus-exporter.js';
 

@@ -13,9 +13,9 @@
 // Each page function returns { text, problems }: the page, and what in the
 // notes the code contradicts, which docs-gen refuses.
 
-import * as config from 'prometheus_exporter.config';
-import * as services from 'prometheus_exporter.services';
-import * as jail from 'prometheus_exporter.jail';
+import * as config from 'prometheus.exporter.config';
+import * as services from 'prometheus.exporter.services';
+import * as jail from 'prometheus.exporter.jail';
 import * as md from 'docs_gen.markdown';
 import * as source from 'docs_gen.source';
 
@@ -142,7 +142,7 @@ function collector_section(ctx, c, problems) {
 		push(facts, `- **Runs:** ${join(', ', map(meta.commands, (cmd) => md.code(cmd) +
 			((cmd in (meta.optional_commands ?? [])) ? ' (only where it is installed)' : '')))}, with ${md.code(jail.SHELL)}`);
 
-	// What the service's user may do for it (prometheus_exporter.privileges):
+	// What the service's user may do for it (prometheus.exporter.privileges):
 	// a method a function of its options gives, as its options decide.
 	let calls = map(sort(keys(meta.ubus ?? {})), (o) => (type(meta.ubus[o]) == 'function')
 		? `${md.code(o)} (the methods its options call for)`
@@ -588,7 +588,7 @@ export function uci_page(ctx) {
 	push(blocks, md.heading(3, 'What is wrong with a value', 'problems'));
 	push(blocks,
 		'What the exporter finds wrong with a value, or with options that go together, has a code of its own, ' +
-		'from `src/prometheus_exporter/config/problems.uc`, and arguments. The ubus object\'s `validate` answers ' +
+		'from `src/prometheus/exporter/config/problems.uc`, and arguments. The ubus object\'s `validate` answers ' +
 		'the code and its arguments, for a client to say in its own words, as LuCI does, and the English below as ' +
 		'`message` (see [ubus object](ubus.md#validate)). The details of a `CONFIG_INVALID`, in the log, `check` and ' +
 		'the command line, are that English after the option\'s name: ' +
@@ -628,7 +628,7 @@ export function uci_page(ctx) {
 
 // A module of the exporter by its path among them (exposition/parse.uc), a
 // collector or a program by its file's name.
-const LIBRARY = 'src/prometheus_exporter/';
+const LIBRARY = 'src/prometheus/exporter/';
 
 function module_name(path) {
 	if (substr(path, 0, length(LIBRARY)) == LIBRARY && index(path, '/collectors/') < 0)
@@ -644,7 +644,7 @@ export function errors_page(ctx) {
 	let all = [];
 
 	push(blocks,
-		'A failure carries an uppercase code, from `src/prometheus_exporter/errors.uc`, and a detail. ' +
+		'A failure carries an uppercase code, from `src/prometheus/exporter/errors.uc`, and a detail. ' +
 		'It is written `CODE (detail)`, or `CODE` alone without one: in the log ' +
 		'(`collector \'<name>\': CODE (detail)`, see [Log messages](log-messages.md)), in `check`, in the ubus object\'s ' +
 		'replies and on LuCI\'s status page. A collector that fails has `node_scrape_collector_success` 0.');

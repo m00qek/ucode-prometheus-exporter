@@ -1,11 +1,11 @@
 #!/usr/bin/ucode
 'use strict';
 
-import * as deps from 'prometheus_exporter.deps';
-import * as config from 'prometheus_exporter.config';
-import { load } from 'prometheus_exporter.app';
-import * as check from 'prometheus_exporter.check';
-import * as Result from 'prometheus_exporter.result';
+import * as deps from 'prometheus.exporter.deps';
+import * as config from 'prometheus.exporter.config';
+import { load } from 'prometheus.exporter.app';
+import * as check from 'prometheus.exporter.check';
+import * as Result from 'prometheus.exporter.result';
 
 const mods = deps.modules();
 const ubus = deps.ubus_channel(mods.ubus.connect);

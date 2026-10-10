@@ -15,7 +15,7 @@ reports() { # LINE...: fails, listing exactly these misses
 
 write mkdocs.yml 'site_name: ucode-prometheus-exporter'
 write openwrt/ucode-prometheus-exporter/Makefile 'PKG_VERSION:=0.10.2'
-write src/prometheus_exporter/app.uc "// see $site/0.9/reference/"
+write src/prometheus/exporter/app.uc "// see $site/0.9/reference/"
 write files/etc/config/prometheus-exporter "# $site/0.9/how-to/"
 check "without site_url nothing is checked" passes
 
@@ -23,9 +23,9 @@ write mkdocs.yml "site_name: ucode-prometheus-exporter
 site_url: $site/"
 check "a stale pinned link in shipped files is reported" reports \
 	"files/etc/config/prometheus-exporter:1: $site/0.9/ (expected 0.10)" \
-	"src/prometheus_exporter/app.uc:1: $site/0.9/ (expected 0.10)"
+	"src/prometheus/exporter/app.uc:1: $site/0.9/ (expected 0.10)"
 
-write src/prometheus_exporter/app.uc "// see $site/0.10/reference/ and $site/latest/"
+write src/prometheus/exporter/app.uc "// see $site/0.10/reference/ and $site/latest/"
 write files/etc/config/prometheus-exporter "# $site/0.10/how-to/ $site/0.10/"
 check "links to the current minor and to latest pass" passes
 

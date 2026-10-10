@@ -3,7 +3,7 @@
 // A collector of the browser tests, installed by no package, that runs a program
 // and has no option of its own: the core's timeout is all its dialog has.
 
-import { Result } from 'prometheus_exporter.api';
+import { Result } from 'prometheus.exporter';
 
 export const meta = {
 	name: 'runner',

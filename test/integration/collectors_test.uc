@@ -6,9 +6,9 @@
 
 import { describe, it, assert } from 'utest';
 import { readfile, lsdir, popen } from 'fs';
-import * as loader from 'prometheus_exporter.loader';
+import * as loader from 'prometheus.exporter.loader';
 
-const SOURCES = 'src/prometheus_exporter/collectors';
+const SOURCES = 'src/prometheus/collectors';
 const MAKEFILE = readfile('openwrt/ucode-prometheus-exporter/Makefile');
 const REFERENCE = readfile('docs/reference/collectors.md');
 
@@ -62,8 +62,8 @@ function checks(id) {
 		});
 
 		it('has a unit test', () => {
-			assert.match(true, readfile(`test/unit/prometheus_exporter/collectors/${id}_test.uc`) != null,
-				`add test/unit/prometheus_exporter/collectors/${id}_test.uc`);
+			assert.match(true, readfile(`test/unit/prometheus/collectors/${id}_test.uc`) != null,
+				`add test/unit/prometheus/collectors/${id}_test.uc`);
 		});
 
 		it('is packaged once: in the base package or as its own, named after it', () => {

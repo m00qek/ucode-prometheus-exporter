@@ -1,25 +1,25 @@
 'use strict';
 
 // The exporter on deps.modules(), the wiring it runs on: fs, ubus and uci are
-// patched globally, so the named imports of prometheus_exporter.deps reach the mocks.
+// patched globally, so the named imports of prometheus.exporter.deps reach the mocks.
 
 import { describe, it, afterEach, assert, contains, mock } from 'utest';
-import { create, handler, load_auth, auth_wanted, load_checked, load_probed } from 'prometheus_exporter.app';
-import * as app_mod from 'prometheus_exporter.app';
-import * as loader from 'prometheus_exporter.loader';
-import * as collection from 'prometheus_exporter.collection';
+import { create, handler, load_auth, auth_wanted, load_checked, load_probed } from 'prometheus.exporter.app';
+import * as app_mod from 'prometheus.exporter.app';
+import * as loader from 'prometheus.exporter.loader';
+import * as collection from 'prometheus.exporter.collection';
 import { inflate } from 'zlib';
-import * as auth from 'prometheus_exporter.auth';
-import * as state from 'prometheus_exporter.state';
-import * as ledger from 'prometheus_exporter.ledger';
-import * as deps from 'prometheus_exporter.deps';
-import * as exposition from 'prometheus_exporter.exposition';
-import * as config from 'prometheus_exporter.config';
+import * as auth from 'prometheus.exporter.auth';
+import * as state from 'prometheus.exporter.state';
+import * as ledger from 'prometheus.exporter.ledger';
+import * as deps from 'prometheus.exporter.deps';
+import * as exposition from 'prometheus.exporter.exposition';
+import * as config from 'prometheus.exporter.config';
 import * as fixtures from 'lib.fixtures';
-import * as commands from 'prometheus_exporter.devkit.commands';
+import * as commands from 'prometheus.exporter.devkit.commands';
 import * as lockable from 'lib.lockable';
 
-const SOURCES = 'src/prometheus_exporter/collectors';
+const SOURCES = 'src/prometheus/collectors';
 // As root on a router, with every capability: nft-counters declares
 // CAP_NET_ADMIN, which the session checks the process has.
 const ROOT_STATUS = 'Name:\tuhttpd\nUid:\t0\t0\t0\t0\nCapEff:\t000001ffffffffff\n';
@@ -426,8 +426,8 @@ describe('app.handler', () => {
 	// that fail, whatever the reason, the handler fails closed, as without
 	// the file, and never serves a request, the right credentials' included.
 	const UNLOADABLE = {
-		'its file is missing, or not mounted in the jail': "import * as auth from 'prometheus_exporter.no_such_module';\nreturn auth;",
-		'it is not there by its path': "import * as auth from '/nonexistent/prometheus_exporter/auth.uc';\nreturn auth;",
+		'its file is missing, or not mounted in the jail': "import * as auth from 'prometheus.exporter.no_such_module';\nreturn auth;",
+		'it is not there by its path': "import * as auth from '/nonexistent/prometheus/exporter/auth.uc';\nreturn auth;",
 		'it does not compile': 'return {',
 		'loading it runs out of memory': "die('out of memory');",
 		'it is not basic auth\'s module': 'return { parse_conf: () => null };',
@@ -452,7 +452,7 @@ describe('app.handler', () => {
 	it('denies the request when basic auth\'s check fails, rather than letting it in', () => {
 		patch_main(null, { [auth.FILE]: auth.conf('prom', HASH) });
 
-		let program = "import * as auth from 'prometheus_exporter.auth';\nreturn { ...auth, allowed: () => die('out of memory') };";
+		let program = "import * as auth from 'prometheus.exporter.auth';\nreturn { ...auth, allowed: () => die('out of memory') };";
 		let app = handler(() => null, SOURCES, null, { auth_program: program });
 
 		assert.match({ user: 'prom', hash: HASH }, app.auth);
@@ -462,7 +462,7 @@ describe('app.handler', () => {
 	it('lets nothing in by a check that gives anything but true', () => {
 		patch_main(null, { [auth.FILE]: auth.conf('prom', HASH) });
 
-		let program = "import * as auth from 'prometheus_exporter.auth';\nreturn { ...auth, allowed: () => 1 };";
+		let program = "import * as auth from 'prometheus.exporter.auth';\nreturn { ...auth, allowed: () => 1 };";
 
 		assert.match('401 Unauthorized', handler(() => null, SOURCES, null, { auth_program: program })
 			.handle(request('collect[]=loadavg', { authorization: basic('prom:secret') })).status);

@@ -6,9 +6,9 @@
 // Its fixtures are what a router answered, under fixtures/router/.
 
 import { describe, it, prop, gen, assert, contains } from 'utest';
-import { with_collector, outcome, assert_module } from 'prometheus_exporter.devkit.collector';
-import { reader } from 'prometheus_exporter.devkit.fixtures';
-import * as example from 'prometheus_exporter.collectors.example';
+import { with_collector, outcome, assert_module } from 'prometheus.exporter.devkit.collector';
+import { reader } from 'prometheus.exporter.devkit.fixtures';
+import * as example from 'prometheus.collectors.example';
 
 // This file's directory: utest may run from anywhere.
 const HERE = sourcepath(0, true);
@@ -17,7 +17,7 @@ const FILES = ROUTER.files([ '/proc/uptime', '/proc/swaps' ]);
 
 describe('collectors.example', () => {
 	it('is a module the exporter loads: strict, the API alone, a top level that only declares', () => {
-		assert_module(`${HERE}/../src/prometheus_exporter/collectors/example.uc`);
+		assert_module(`${HERE}/../src/prometheus/collectors/example.uc`);
 	});
 
 	it('writes the uptime and each swap area of the router', () => {

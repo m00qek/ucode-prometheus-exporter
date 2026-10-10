@@ -1,17 +1,17 @@
 'use strict';
 
-// What the tests of the ubus object (prometheus_exporter.rpc, .rpc.describe,
+// What the tests of the ubus object (prometheus.exporter.rpc, .rpc.describe,
 // .rpc.validate) run on: test collectors as the loader returns them, apk's
 // lists of a few, and a sys over utest's mocks.
 
-import * as rpc from 'prometheus_exporter.rpc';
-import * as loader from 'prometheus_exporter.loader';
-import * as deps from 'prometheus_exporter.deps';
-import * as config from 'prometheus_exporter.config';
-import * as jail from 'prometheus_exporter.jail';
-import * as Result from 'prometheus_exporter.result';
+import * as rpc from 'prometheus.exporter.rpc';
+import * as loader from 'prometheus.exporter.loader';
+import * as deps from 'prometheus.exporter.deps';
+import * as config from 'prometheus.exporter.config';
+import * as jail from 'prometheus.exporter.jail';
+import * as Result from 'prometheus.exporter.result';
 import * as fixtures from 'lib.fixtures';
-import { with_mods } from 'prometheus_exporter.devkit.collector';
+import { with_mods } from 'prometheus.exporter.devkit.collector';
 
 export const NAME = config.NAME;
 

@@ -13,7 +13,7 @@
 // (`config {name}`; `default`, or a name without an auth fixture, puts back the ones
 // the container started with) and read both back as they are on disk (`read`). `state {name}`
 // lays out $FIXTURES/state/<name>.json as the ledger of a running instance of the
-// exporter (prometheus_exporter.ledger), in its state directory, as its scrapes would
+// exporter (prometheus.exporter.ledger), in its state directory, as its scrapes would
 // leave it; `none` removes it.
 
 import * as ubus from 'ubus';
@@ -24,7 +24,7 @@ const DIR = getenv('FIXTURES') ?? '/fixtures';
 const CONFIG = '/etc/config/prometheus-exporter';
 const AUTH = '/etc/config/prometheus-exporter-auth';
 const MB = 1024 * 1024;
-// The exporter's state directory (prometheus_exporter.state), and an instance's id in it.
+// The exporter's state directory (prometheus.exporter.state), and an instance's id in it.
 const STATE_DIRS = [ '/var/run/prometheus-exporter', '/var/run/prometheus-exporter/state' ];
 const INSTANCE = '4242-123456';
 

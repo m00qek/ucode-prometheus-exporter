@@ -16,8 +16,8 @@ import { readfile } from 'fs';
 
 const cfg = json(readfile(getenv('BENCH_HANDLER')));
 const mods = loadstring(
-	"import { handler } from 'prometheus_exporter.app';\n" +
-	"import { head } from 'prometheus_exporter.http';\n" +
+	"import { handler } from 'prometheus.exporter.app';\n" +
+	"import { head } from 'prometheus.exporter.http';\n" +
 	"import * as world from 'bench.world';\n" +
 	'return { handler, head, world };',
 	{ raw_mode: true, module_search_path: cfg.search })();

@@ -2,8 +2,8 @@
 
 import { popen, stat } from 'fs';
 import * as uloop from 'uloop';
-import * as rpc from 'prometheus_exporter.rpc';
-import { DIR } from 'prometheus_exporter.loader';
+import * as rpc from 'prometheus.exporter.rpc';
+import { DIR } from 'prometheus.exporter.loader';
 
 const probe = rpc.cached_probe({ stat, popen }, DIR, rpc.PROBE_HELPER);
 

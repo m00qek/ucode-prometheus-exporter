@@ -1,7 +1,7 @@
 #!/usr/bin/ucode
 'use strict';
 
-import * as check from 'prometheus_exporter.check';
+import * as check from 'prometheus.exporter.check';
 
 const config_only = (ARGV[0] == '--config');
 

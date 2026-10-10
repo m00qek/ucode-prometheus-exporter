@@ -8,7 +8,7 @@ import * as fs from 'fs';
 import * as main from 'docs_gen.main';
 import * as harvest from 'docs_gen.harvest';
 import * as pages from 'docs_gen.pages';
-import * as cli from 'prometheus_exporter.cli';
+import * as cli from 'prometheus.exporter.cli';
 
 const NOTES = main.load_notes(`${fs.getcwd()}/${main.NOTES}`);
 const LOADED = main.load_collectors(fs, []);

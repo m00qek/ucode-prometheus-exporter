@@ -1,8 +1,8 @@
 #!/usr/bin/ucode
 'use strict';
 
-import { probe } from 'prometheus_exporter.probe';
-import { import_module } from 'prometheus_exporter.loader';
+import { probe } from 'prometheus.exporter.probe';
+import { import_module } from 'prometheus.exporter.loader';
 
 if (!length(ARGV) || length(filter(ARGV, (id) => !match(id, /^[a-z0-9_]+$/)))) {
 	warn('usage: probe.uc MODULE...\n');

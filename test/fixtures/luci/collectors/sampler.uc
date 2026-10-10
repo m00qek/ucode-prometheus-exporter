@@ -2,7 +2,7 @@
 
 // A collector of the browser tests, installed by no package: an option of each type.
 
-import { Result } from 'prometheus_exporter.api';
+import { Result } from 'prometheus.exporter';
 
 export const meta = {
 	name: 'sampler',

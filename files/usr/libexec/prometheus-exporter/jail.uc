@@ -2,12 +2,12 @@
 'use strict';
 
 import { mkdir, chmod, chown, open, readfile, rename, unlink, stat, error } from 'fs';
-import * as deps from 'prometheus_exporter.deps';
-import * as jail from 'prometheus_exporter.jail';
-import * as state from 'prometheus_exporter.state';
-import * as privileges from 'prometheus_exporter.privileges';
-import * as grant from 'prometheus_exporter.grant';
-import { load } from 'prometheus_exporter.app';
+import * as deps from 'prometheus.exporter.deps';
+import * as jail from 'prometheus.exporter.jail';
+import * as state from 'prometheus.exporter.state';
+import * as privileges from 'prometheus.exporter.privileges';
+import * as grant from 'prometheus.exporter.grant';
+import { load } from 'prometheus.exporter.app';
 
 const mode = ARGV[0];
 

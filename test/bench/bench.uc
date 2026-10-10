@@ -42,7 +42,7 @@
 
 import * as fs from 'fs';
 import * as budgets from 'bench.budgets';
-import * as auth from 'prometheus_exporter.auth';
+import * as auth from 'prometheus.exporter.auth';
 import * as uhttpd from 'bench.server';
 
 function usage() {
@@ -83,7 +83,7 @@ let cases = [ [ 'large', 'calibrate:vm' ], [ 'large', 'load:base' ], [ 'large', 
 
 // An extra collector is benched where it is there: the installed exporter
 // (QEMU's) has the -full group's alone.
-let extra = filter(sets.extra ?? [], (n) => src || fs.stat(`/usr/share/ucode/prometheus_exporter/collectors/${replace(n, '-', '_')}.uc`));
+let extra = filter(sets.extra ?? [], (n) => src || fs.stat(`/usr/share/ucode/prometheus/collectors/${replace(n, '-', '_')}.uc`));
 
 for (let n in [ ...sets.full, ...extra ])
 	if (n != 'nat_traffic')

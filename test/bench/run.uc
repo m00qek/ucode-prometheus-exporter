@@ -12,7 +12,7 @@
 //   calibrate:vm              the VM's own speed: an empty loop's turn and a builtin's call
 //   load:<set>                compile and validate the set's collectors
 //   probe:<set>               the same, each module loaded in a child process first, as uhttpd does
-//                             when it starts (prometheus_exporter.probe)
+//                             when it starts (prometheus.exporter.probe)
 //   rest:<set>                what the handler's process holds once it loaded the set, as uhttpd
 //                             holds it while it runs: its RssAnon, less what it held before
 //   lazy:<what>               what a scrape's process pays the first time it needs what uhttpd
@@ -28,7 +28,7 @@
 //                             uhttpd's own data: on x86_64 the same, or 1 MB under it
 //   collector:<name>[@<n>]    one collector's run and its rendering; @n reads the n-entry conntrack table
 //   scrape:<set>              a whole scrape of the set, as uhttpd answers /metrics: each collector
-//                             in a child process (prometheus_exporter.runner's forked)
+//                             in a child process (prometheus.exporter.runner's forked)
 //   inline:<set>              the same scrape, every collector in the scrape's own process, as
 //                             before; scrape less inline is what running them apart costs
 //   progress:<set>            a scrape's progress file: a line for each collector of the set,
@@ -56,20 +56,20 @@
 // ucode makes a closure in a step for each function compiled before its own,
 // so the order a program compiles its modules in is part of what a scrape
 // costs.
-import * as exposition from 'prometheus_exporter.exposition';
+import * as exposition from 'prometheus.exporter.exposition';
 import * as fs from 'fs';
-import * as deps from 'prometheus_exporter.deps';
-import * as loader from 'prometheus_exporter.loader';
-import * as scrape from 'prometheus_exporter.scrape';
-import * as Result from 'prometheus_exporter.result';
-import * as auth from 'prometheus_exporter.auth';
-import * as crypt from 'prometheus_exporter.crypt';
-import * as state from 'prometheus_exporter.state';
-import * as ledger from 'prometheus_exporter.ledger';
-import * as deadline from 'prometheus_exporter.deadline';
-import * as http from 'prometheus_exporter.http';
-import * as runner from 'prometheus_exporter.runner';
-import { probe as probe_modules } from 'prometheus_exporter.probe';
+import * as deps from 'prometheus.exporter.deps';
+import * as loader from 'prometheus.exporter.loader';
+import * as scrape from 'prometheus.exporter.scrape';
+import * as Result from 'prometheus.exporter.result';
+import * as auth from 'prometheus.exporter.auth';
+import * as crypt from 'prometheus.exporter.crypt';
+import * as state from 'prometheus.exporter.state';
+import * as ledger from 'prometheus.exporter.ledger';
+import * as deadline from 'prometheus.exporter.deadline';
+import * as http from 'prometheus.exporter.http';
+import * as runner from 'prometheus.exporter.runner';
+import { probe as probe_modules } from 'prometheus.exporter.probe';
 import * as bench_world from 'bench.world';
 import * as uhttpd from 'bench.server';
 
@@ -78,7 +78,7 @@ const DURATION = /^node_scrape_collector_duration_seconds\{collector="([^"]+)"\}
 const FAILED = /^node_scrape_collector_success\{collector="([^"]+)"\} 0$/;
 
 // The most memory_limit the floor: cases try, in MB: the service's most
-// (prometheus_exporter.config's MEMORY_LIMIT_MAX).
+// (prometheus.exporter.config's MEMORY_LIMIT_MAX).
 const FLOOR_MB_MAX = 64;
 
 function now() {
@@ -135,7 +135,7 @@ let kind = split(name, ':')[0], arg = split(name, ':')[1];
 
 // Where the collectors' modules are: the source tree's beside the bench, or
 // else the installed ones, as bench.uc finds the exporter.
-const COLLECTORS = fs.realpath(`${fs.dirname(sourcepath())}/../../src/prometheus_exporter/collectors`) ?? loader.DIR;
+const COLLECTORS = fs.realpath(`${fs.dirname(sourcepath())}/../../src/prometheus/collectors`) ?? loader.DIR;
 
 // The collectors of a set, loaded as the exporter loads them: each module's
 // text read and checked first (loader.refusal); with `probe`, each loaded in
@@ -316,7 +316,7 @@ if (kind == 'calibrate') {
 
 	let before = anon_kb();
 	let t = now();
-	let make = loadstring("import { handler } from 'prometheus_exporter.app';\nreturn handler;", { raw_mode: true })();
+	let make = loadstring("import { handler } from 'prometheus.exporter.app';\nreturn handler;", { raw_mode: true })();
 	let app = make((level, msg) => push(logs, `${level}: ${msg}`), dir, state_dir);
 
 	result.time = now() - t;

@@ -4,7 +4,7 @@
 
 repo=$TMP/repo
 git init -q "$repo"
-commit "$repo" src/prometheus_exporter/app.uc 'code 0.9.0'
+commit "$repo" src/prometheus/exporter/app.uc 'code 0.9.0'
 commit "$repo" docs/index.md 'docs 0.9.0'
 commit "$repo" mkdocs.yml 'site_name: test'
 git -C "$repo" tag v0.9.0
@@ -23,12 +23,12 @@ commit "$repo" docs/overrides/main.html 'banner'
 check "docs and mkdocs config changes pass" outputs v0.9.0 guard docs/0.9
 
 on -b code-fix
-commit "$repo" src/prometheus_exporter/app.uc 'code fix'
+commit "$repo" src/prometheus/exporter/app.uc 'code fix'
 commit "$repo" files/etc/config/prometheus-exporter 'config fix'
 git -C "$repo" branch -f docs/0.9 code-fix
 on docs/0.9
 check "code changes are refused" refuses \
-	"docs/0.9 changes files outside docs/: files/etc/config/prometheus-exporter src/prometheus_exporter/app.uc; code fixes need a release" \
+	"docs/0.9 changes files outside docs/: files/etc/config/prometheus-exporter src/prometheus/exporter/app.uc; code fixes need a release" \
 	guard docs/0.9
 
 on -B docs/0.9 v0.9.0
@@ -46,7 +46,7 @@ check "a minor without a release tag is refused" refuses "docs/0.8 has no v0.8.*
 
 # A patch release made on main that docs/0.9 has not moved to yet.
 on -b main-0.9.1 v0.9.0
-commit "$repo" src/prometheus_exporter/app.uc 'code 0.9.1'
+commit "$repo" src/prometheus/exporter/app.uc 'code 0.9.1'
 git -C "$repo" tag v0.9.1
 on docs/0.9
 check "the newest tag not being an ancestor is refused" \
@@ -54,9 +54,9 @@ check "the newest tag not being an ancestor is refused" \
 
 # v0.9.10 is newer than v0.9.9, although it sorts first as text.
 on -B docs/0.9 v0.9.1
-commit "$repo" src/prometheus_exporter/app.uc 'code 0.9.9'
+commit "$repo" src/prometheus/exporter/app.uc 'code 0.9.9'
 git -C "$repo" tag v0.9.9
-commit "$repo" src/prometheus_exporter/app.uc 'code 0.9.10'
+commit "$repo" src/prometheus/exporter/app.uc 'code 0.9.10'
 git -C "$repo" tag v0.9.10
 git -C "$repo" tag v0.9.11-rc1
 commit "$repo" docs/index.md 'docs for 0.9.10'

@@ -6,14 +6,14 @@
 
 import { describe, it, assert } from 'utest';
 import { lsdir, readfile } from 'fs';
-import * as rpc from 'prometheus_exporter.rpc';
-import * as loader from 'prometheus_exporter.loader';
-import * as deps from 'prometheus_exporter.deps';
-import * as config from 'prometheus_exporter.config';
-import * as jail from 'prometheus_exporter.jail';
-import { with_mods } from 'prometheus_exporter.devkit.collector';
+import * as rpc from 'prometheus.exporter.rpc';
+import * as loader from 'prometheus.exporter.loader';
+import * as deps from 'prometheus.exporter.deps';
+import * as config from 'prometheus.exporter.config';
+import * as jail from 'prometheus.exporter.jail';
+import { with_mods } from 'prometheus.exporter.devkit.collector';
 
-const SOURCES = 'src/prometheus_exporter/collectors';
+const SOURCES = 'src/prometheus/collectors';
 const COLLECTORS = loader.load({ lsdir, readfile }, SOURCES, loader.import_module, (level, msg) => die(msg));
 
 // uci's spelling of a typed value.

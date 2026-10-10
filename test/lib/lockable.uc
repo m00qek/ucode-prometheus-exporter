@@ -1,12 +1,12 @@
 'use strict';
 
 // utest's fs mock opens files without lock(), which the state's lock takes
-// (prometheus_exporter.state). open is a behavior for the fs mock that opens
+// (prometheus.exporter.state). open is a behavior for the fs mock that opens
 // a state's lock file as one that is always taken, and nothing else: for the
 // tests of what runs the handler, whose collectors read without fs.open.
 //
 // mkstemp is the real fs.mkstemp, taken before any test patches fs: the
-// runner's temporary file (prometheus_exporter.runner), made and removed at
+// runner's temporary file (prometheus.exporter.runner), made and removed at
 // once in /tmp, which the mock refuses to make. behavior is both.
 //
 //   mock.global.patch('fs', { data, behavior: lockable.behavior })

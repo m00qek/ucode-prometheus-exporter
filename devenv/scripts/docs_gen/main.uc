@@ -3,8 +3,8 @@
 // The generated reference pages of a checkout, and what keeps them from being
 // written: see devenv/scripts/docs-gen.uc.
 
-import * as loader from 'prometheus_exporter.loader';
-import { USAGE } from 'prometheus_exporter.cli';
+import * as loader from 'prometheus.exporter.loader';
+import { USAGE } from 'prometheus.exporter.cli';
 import * as package from 'docs_gen.package';
 import * as harvest from 'docs_gen.harvest';
 import * as pages from 'docs_gen.pages';
@@ -12,13 +12,13 @@ import * as migration from 'docs_gen.migration';
 
 export const OUT = 'docs/reference';
 export const NOTES = 'docs/gen/notes.uc';
-export const COLLECTORS = 'src/prometheus_exporter/collectors';
+export const COLLECTORS = 'src/prometheus/collectors';
 
 // The modules and programs whose text says which error codes they raise.
 const RAISERS = [
-	'src/prometheus_exporter/*.uc',
-	'src/prometheus_exporter/*/*.uc',
-	'src/prometheus_exporter/collectors/*.uc',
+	'src/prometheus/exporter/*.uc',
+	'src/prometheus/exporter/*/*.uc',
+	'src/prometheus/collectors/*.uc',
 	'files/usr/libexec/prometheus-exporter/*.uc',
 	'files/usr/share/rpcd/ucode/*.uc',
 ];
@@ -78,7 +78,7 @@ export function context(fs, notes, loaded, migrating) {
 		pkg, collectors, places, name_of, sources, notes, raisers,
 		sets: harvest.sets(fs, harvest.ROOT),
 		harvest: harvest.harvest(fs, harvest.ROOT, collectors),
-		errors: fs.readfile('src/prometheus_exporter/errors.uc'),
+		errors: fs.readfile('src/prometheus/exporter/errors.uc'),
 		usage: USAGE,
 		migration: migrating ?? load_migration(fs),
 	};

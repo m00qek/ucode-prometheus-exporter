@@ -6,11 +6,11 @@
 // a family is (its type, help and label names) is read back from the text the
 // scrape would send, never from the code.
 
-import * as deps from 'prometheus_exporter.deps';
-import * as scrape from 'prometheus_exporter.scrape';
-import * as exposition from 'prometheus_exporter.exposition';
-import * as config from 'prometheus_exporter.config';
-import * as Result from 'prometheus_exporter.result';
+import * as deps from 'prometheus.exporter.deps';
+import * as scrape from 'prometheus.exporter.scrape';
+import * as exposition from 'prometheus.exporter.exposition';
+import * as config from 'prometheus.exporter.config';
+import * as Result from 'prometheus.exporter.result';
 import * as fixtures from 'docs_gen.fixtures';
 
 export const ROOT = 'test/fixtures';

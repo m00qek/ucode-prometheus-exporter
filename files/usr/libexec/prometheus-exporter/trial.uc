@@ -1,13 +1,13 @@
 #!/usr/bin/ucode
 'use strict';
 
-import * as deps from 'prometheus_exporter.deps';
-import * as config from 'prometheus_exporter.config';
-import * as scrape from 'prometheus_exporter.scrape';
-import * as deadline from 'prometheus_exporter.deadline';
-import * as state from 'prometheus_exporter.state';
-import * as ledger from 'prometheus_exporter.ledger';
-import { load, scrape_env } from 'prometheus_exporter.app';
+import * as deps from 'prometheus.exporter.deps';
+import * as config from 'prometheus.exporter.config';
+import * as scrape from 'prometheus.exporter.scrape';
+import * as deadline from 'prometheus.exporter.deadline';
+import * as state from 'prometheus.exporter.state';
+import * as ledger from 'prometheus.exporter.ledger';
+import { load, scrape_env } from 'prometheus.exporter.app';
 
 const mode = ARGV[0];
 

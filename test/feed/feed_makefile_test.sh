@@ -61,7 +61,7 @@ check "the feed Makefile is the in-tree one plus the source lines and tarball pa
 # The Collector macro's path and a $(foreach) list's, after a comma.
 macros_point_into_the_tarball() {
 	gen --hash "$HASH" "$VERSION" > "$TMP/feed.mk" || return 1
-	grep -qF '$$(INSTALL_DATA) $(PKG_BUILD_DIR)/src/prometheus_exporter/collectors/$(1).uc' "$TMP/feed.mk" \
+	grep -qF '$$(INSTALL_DATA) $(PKG_BUILD_DIR)/src/prometheus/collectors/$(1).uc' "$TMP/feed.mk" \
 		|| { echo "the Collector macro's path"; return 1; }
 	grep -qF ',$(PKG_BUILD_DIR)/files/usr/libexec/$(SERVICE)/$(f).uc)' "$TMP/feed.mk" \
 		|| { echo "the libexec programs' \$(foreach)"; return 1; }
@@ -137,9 +137,9 @@ lacks() {
 	tarball "$1"
 	refuses "tarball lacks: $1\$" gen --tarball "$TMP/v$VERSION.tar.gz" "$VERSION"
 }
-check "a tarball without a packaged collector is refused" lacks src/prometheus_exporter/collectors/sockstat.uc
-check "a tarball without a base collector is refused" lacks src/prometheus_exporter/collectors/loadavg.uc
-check "a tarball without a module subdirectory is refused" lacks src/prometheus_exporter/deps
+check "a tarball without a packaged collector is refused" lacks src/prometheus/collectors/sockstat.uc
+check "a tarball without a base collector is refused" lacks src/prometheus/collectors/loadavg.uc
+check "a tarball without a module subdirectory is refused" lacks src/prometheus/exporter/deps
 check "a tarball without a libexec program is refused" lacks files/usr/libexec/prometheus-exporter/probe.uc
 check "a tarball without a license file is refused" lacks NOTICE
 check "a tarball without the comment stripper is refused" lacks devenv/scripts/strip-comments.py

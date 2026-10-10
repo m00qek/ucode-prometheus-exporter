@@ -16,8 +16,8 @@
 'use strict';
 
 import { readfile, popen } from 'fs';
-import { auxv, AT_PAGESZ, AT_CLKTCK } from 'prometheus_exporter.proc';
-import { verify } from 'prometheus_exporter.crypt';
+import { auxv, AT_PAGESZ, AT_CLKTCK } from 'prometheus.exporter.proc';
+import { verify } from 'prometheus.exporter.crypt';
 
 let failed = 0;
 

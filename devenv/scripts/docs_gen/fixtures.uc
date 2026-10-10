@@ -1,7 +1,7 @@
 'use strict';
 
 // A fixture set of test/fixtures/ (caju-router, caju-ap, synthetic) as the
-// modules prometheus_exporter.deps.session() takes, as deps.modules() gives the
+// modules prometheus.exporter.deps.session() takes, as deps.modules() gives the
 // real ones: what the collectors read on a device, answered from its captures.
 //
 //   <set>/<path>                   a file at its path: /proc, /sys, /tmp, /var

@@ -14,17 +14,20 @@ include $(INCLUDE_DIR)/package.mk
 
 # The service: its init script, command, config and libexec directory.
 SERVICE:=prometheus-exporter
-MODULES_DIR:=/usr/share/ucode/prometheus_exporter
-COLLECTORS_DIR:=$(MODULES_DIR)/collectors
+# The collector API, prometheus.exporter, is $(UCODE_DIR)/exporter.uc; the
+# core's modules are prometheus.exporter.*, the collectors prometheus.collectors.*.
+UCODE_DIR:=/usr/share/ucode/prometheus
+MODULES_DIR:=$(UCODE_DIR)/exporter
+COLLECTORS_DIR:=$(UCODE_DIR)/collectors
 # The directories of the modules split out of one of the exporter's own
 # (config.uc's config/, deps.uc's deps/, exposition.uc's exposition/, loader.uc's
 # loader/, rpc.uc's rpc/), installed with them.
 MODULE_SUBDIRS:=config deps exposition loader rpc
 
 # The command line's modules: ucode-prometheus-exporter-cli's, not the base
-# package's, which installs every other module of src/prometheus_exporter.
+# package's, which installs every other module of src/prometheus/exporter.
 CLI_MODULES:=cli conform
-BASE_MODULES=$(filter-out $(CLI_MODULES),$(basename $(notdir $(wildcard ./src/prometheus_exporter/*.uc))))
+BASE_MODULES=$(filter-out $(CLI_MODULES),$(basename $(notdir $(wildcard ./src/prometheus/exporter/*.uc))))
 
 # Every comment of the ucode and JavaScript files a package installs goes, with
 # a newline kept for each of its own: a device gets no comments, and an error's
@@ -97,22 +100,23 @@ endef
 
 define Package/$(PKG_NAME)/install
 	$(INSTALL_DIR) $(1)$(MODULES_DIR) $(1)$(COLLECTORS_DIR)
-	$(INSTALL_DATA) $(foreach m,$(BASE_MODULES),./src/prometheus_exporter/$(m).uc) $(1)$(MODULES_DIR)/
-	$(foreach d,$(MODULE_SUBDIRS),$(INSTALL_DIR) $(1)$(MODULES_DIR)/$(d) && $(INSTALL_DATA) ./src/prometheus_exporter/$(d)/*.uc $(1)$(MODULES_DIR)/$(d)/;)
+	$(INSTALL_DATA) ./src/prometheus/exporter.uc $(1)$(UCODE_DIR)/
+	$(INSTALL_DATA) $(foreach m,$(BASE_MODULES),./src/prometheus/exporter/$(m).uc) $(1)$(MODULES_DIR)/
+	$(foreach d,$(MODULE_SUBDIRS),$(INSTALL_DIR) $(1)$(MODULES_DIR)/$(d) && $(INSTALL_DATA) ./src/prometheus/exporter/$(d)/*.uc $(1)$(MODULES_DIR)/$(d)/;)
 	# The version ucode_prometheus_exporter_build_info reports: the package's.
 	$(SED) "/^const VERSION = /s/'dev'/'$(PKG_VERSION)-r$(PKG_RELEASE)'/" $(1)$(MODULES_DIR)/version.uc
 	grep -q "^const VERSION = '$(PKG_VERSION)-r$(PKG_RELEASE)';" $(1)$(MODULES_DIR)/version.uc
-	$(foreach c,$(BASE_COLLECTORS),$(INSTALL_DATA) ./src/prometheus_exporter/collectors/$(c).uc $(1)$(COLLECTORS_DIR)/;)
+	$(foreach c,$(BASE_COLLECTORS),$(INSTALL_DATA) ./src/prometheus/collectors/$(c).uc $(1)$(COLLECTORS_DIR)/;)
 	$(INSTALL_DIR) $(1)/usr/libexec/$(SERVICE)
 	$(INSTALL_DATA) ./files/usr/libexec/$(SERVICE)/handler.uc $(1)/usr/libexec/$(SERVICE)/
 	$(INSTALL_BIN) $(foreach f,jail status import watch rpc-status probe trial auth check,./files/usr/libexec/$(SERVICE)/$(f).uc) $(1)/usr/libexec/$(SERVICE)/
 	# The ubus ACL of the service's user, which ubusd reads from acl.d: a link
 	# to the one jail.uc --make writes for the enabled collectors when the
-	# service starts (prometheus_exporter.privileges' ACL_FILE), which points
+	# service starts (prometheus.exporter.privileges' ACL_FILE), which points
 	# nowhere while it is stopped.
 	$(INSTALL_DIR) $(1)/usr/share/acl.d
 	$(LN) /var/run/$(SERVICE).acl.json $(1)/usr/share/acl.d/$(SERVICE).json
-	# The service's ubus object, which rpcd serves (prometheus_exporter.rpc).
+	# The service's ubus object, which rpcd serves (prometheus.exporter.rpc).
 	$(INSTALL_DIR) $(1)/usr/share/rpcd/ucode
 	$(INSTALL_DATA) ./files/usr/share/rpcd/ucode/$(SERVICE).uc $(1)/usr/share/rpcd/ucode/
 	$(INSTALL_DIR) $(1)/etc/config
@@ -153,7 +157,7 @@ endef
 
 define Package/$(PKG_NAME)-cli/install
 	$(INSTALL_DIR) $(1)$(MODULES_DIR) $(1)/usr/bin
-	$(INSTALL_DATA) $(foreach m,$(CLI_MODULES),./src/prometheus_exporter/$(m).uc) $(1)$(MODULES_DIR)/
+	$(INSTALL_DATA) $(foreach m,$(CLI_MODULES),./src/prometheus/exporter/$(m).uc) $(1)$(MODULES_DIR)/
 	$(INSTALL_BIN) ./files/usr/bin/$(SERVICE) $(1)/usr/bin/
 	$(call StripComments,$(1))
 endef
@@ -185,7 +189,7 @@ define Collector
 
   define Package/$(PKG_NAME)-$(2)/install
 	$$(INSTALL_DIR) $$(1)$(COLLECTORS_DIR)
-	$$(INSTALL_DATA) ./src/prometheus_exporter/collectors/$(1).uc $$(1)$(COLLECTORS_DIR)/
+	$$(INSTALL_DATA) ./src/prometheus/collectors/$(1).uc $$(1)$(COLLECTORS_DIR)/
 	$$(call Collector/$(1)/install,$$(1))
 	$$(call StripComments,$$(1))
   endef
@@ -334,7 +338,7 @@ $(eval $(call BuildPackage,$(LUCI_APP)))
 # ---- ucode-prometheus-exporter-devkit ----------------------------------------
 # What a collector of another package is tested with, under utest: with_collector,
 # its jail check and its mocks, the programs, fixtures and rpcd's rc
-# (prometheus_exporter.devkit). For a development machine or a CI image, not a
+# (prometheus.exporter.devkit). For a development machine or a CI image, not a
 # router. It runs on the exporter's modules, so it pins the exporter's release.
 define Package/$(PKG_NAME)-devkit
   $(call Package/$(PKG_NAME)/Default)
@@ -352,8 +356,8 @@ endef
 
 define Package/$(PKG_NAME)-devkit/install
 	$(INSTALL_DIR) $(1)$(MODULES_DIR)/devkit/proxies
-	$(INSTALL_DATA) ./src/prometheus_exporter/devkit/*.uc $(1)$(MODULES_DIR)/devkit/
-	$(INSTALL_DATA) ./src/prometheus_exporter/devkit/proxies/*.uc $(1)$(MODULES_DIR)/devkit/proxies/
+	$(INSTALL_DATA) ./src/prometheus/exporter/devkit/*.uc $(1)$(MODULES_DIR)/devkit/
+	$(INSTALL_DATA) ./src/prometheus/exporter/devkit/proxies/*.uc $(1)$(MODULES_DIR)/devkit/proxies/
 	$(call StripComments,$(1))
 endef
 

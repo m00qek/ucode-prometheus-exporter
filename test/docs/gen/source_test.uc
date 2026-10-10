@@ -60,7 +60,7 @@ describe('docs_gen.source.error_codes', () => {
 	});
 
 	it('reads every code of errors.uc', () => {
-		let codes = source.error_codes(readfile('src/prometheus_exporter/errors.uc'));
+		let codes = source.error_codes(readfile('src/prometheus/exporter/errors.uc'));
 
 		assert.match(true, 'COMMAND_TIMEOUT' in codes);
 		assert.match(true, 'CONFIG_INVALID' in codes);

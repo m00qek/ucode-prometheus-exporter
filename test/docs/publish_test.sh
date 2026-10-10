@@ -17,7 +17,7 @@ cp "$TOP/devenv/gh-pages/404.html" "$repo/devenv/gh-pages/"
 printf 'site_name: test\ntheme:\n  name: material\nexclude_docs: |\n  overrides/\n' >"$repo/mkdocs.yml"
 git -C "$repo" add .
 commit "$repo" docs/index.md 'docs 0.9.0'
-commit "$repo" src/prometheus_exporter/app.uc 'code 0.9.0'
+commit "$repo" src/prometheus/exporter/app.uc 'code 0.9.0'
 git -C "$repo" tag v0.9.0
 
 publish() {
@@ -65,16 +65,16 @@ check "0.9/ holds the fix" page_has 0.9/index.html 'docs 0.9.0 fixed'
 check "latest/ still holds the 0.10 docs" page_has latest/index.html 'docs 0.10.0'
 
 git -C "$repo" checkout -q v0.9.0
-commit "$repo" src/prometheus_exporter/app.uc 'code 0.9.1'
+commit "$repo" src/prometheus/exporter/app.uc 'code 0.9.1'
 git -C "$repo" tag v0.9.1
 check "a patch release retitles its minor" publish v0.9.1
 check "latest still on 0.10" versions_are 0.10:0.10.0:latest 0.9:0.9.1:
 
 before=$(pages rev-parse gh-pages)
 git -C "$repo" checkout -q -B docs/0.9 v0.9.1
-commit "$repo" src/prometheus_exporter/app.uc 'code sneaked in'
+commit "$repo" src/prometheus/exporter/app.uc 'code sneaked in'
 check "a docs branch with code changes is refused" refuses \
-	"docs/0.9 changes files outside docs/: src/prometheus_exporter/app.uc; code fixes need a release" \
+	"docs/0.9 changes files outside docs/: src/prometheus/exporter/app.uc; code fixes need a release" \
 	at "$repo" "$SCRIPTS/docs-publish.sh" docs/0.9
 check "gh-pages unchanged after the refusal" outputs "$before" pages rev-parse gh-pages
 

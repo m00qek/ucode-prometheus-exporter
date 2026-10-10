@@ -2,7 +2,7 @@
 
 import { describe, it, assert } from 'utest';
 import * as fixtures from 'docs_gen.fixtures';
-import { exec_script } from 'prometheus_exporter.deps';
+import { exec_script } from 'prometheus.exporter.deps';
 
 const FILES = [
 	'ethtool_S_lan.txt', 'ethtool_S_lan2.txt', 'ethtool_S_ifb4vlan-guest.txt',

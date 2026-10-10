@@ -3,9 +3,9 @@
 
 import { stat } from 'fs';
 import { connect } from 'ubus';
-import * as watch from 'prometheus_exporter.watch';
-import { system_log } from 'prometheus_exporter.deps';
-import { NAME } from 'prometheus_exporter.config';
+import * as watch from 'prometheus.exporter.watch';
+import { system_log } from 'prometheus.exporter.deps';
+import { NAME } from 'prometheus.exporter.config';
 
 if (!length(ARGV)) {
 	warn('usage: watch.uc PATH...\n');

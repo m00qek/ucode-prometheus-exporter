@@ -9,9 +9,9 @@ fail() { echo "  in $1" >&2; status=1; }
 
 # Modules are loaded, not only compiled: `ucode -c` accepts a named import the
 # module does not export, loading does not. So every native function
-# prometheus_exporter.deps takes by name is checked against this ucode. The
+# prometheus.exporter.deps takes by name is checked against this ucode. The
 # devkit's mock proxies are programs, compiled below.
-for f in $(find src -name '*.uc' ! -path 'src/prometheus_exporter/devkit/proxies/*'); do
+for f in $(find src -name '*.uc' ! -path 'src/prometheus/exporter/devkit/proxies/*'); do
 	ucode -L "$src" -e "import * as _ from '$PWD/$f';" || fail "$f"
 done
 
@@ -22,8 +22,8 @@ done
 
 # ubus, rtnl, nl80211 and socket are imported at run time, by name too; the image has them.
 for m in ubus rtnl nl80211 socket; do
-	ucode -L "$src" -e "import { load_$m } from 'prometheus_exporter.deps'; exit(load_$m() ? 0 : 1);" ||
-		{ echo "prometheus_exporter.deps: $m does not load" >&2; status=1; }
+	ucode -L "$src" -e "import { load_$m } from 'prometheus.exporter.deps'; exit(load_$m() ? 0 : 1);" ||
+		{ echo "prometheus.exporter.deps: $m does not load" >&2; status=1; }
 done
 
 # zlib (gzip, which http.uc loads at run time) and digest (basic auth's crypt, in crypt.uc) are imported
@@ -44,7 +44,7 @@ done
 rm -f "$importer"
 
 # Programs: the utest configs and the devkit's proxies return at top level; the handlers are templates.
-for f in test/utest.config.uc devkit/template/test/utest.config.uc src/prometheus_exporter/devkit/proxies/*.uc devenv/scripts/*.uc devenv/scripts/failure-demo/*.uc; do
+for f in test/utest.config.uc devkit/template/test/utest.config.uc src/prometheus/exporter/devkit/proxies/*.uc devenv/scripts/*.uc devenv/scripts/failure-demo/*.uc; do
 	ucode -L "$src" -L "$scripts" -c -o /dev/null "$f" || fail "$f"
 done
 ucode -L "$src" -T -c -o /dev/null files/usr/libexec/prometheus-exporter/handler.uc ||

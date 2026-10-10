@@ -2,7 +2,7 @@
 'use strict';
 
 import { cursor } from 'uci';
-import { run, move_hash } from 'prometheus_exporter.migrate';
+import { run, move_hash } from 'prometheus.exporter.migrate';
 
 const uci = cursor();
 

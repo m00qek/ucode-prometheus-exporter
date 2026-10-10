@@ -2,10 +2,10 @@
 'use strict';
 
 import * as fs from 'fs';
-import * as deps from 'prometheus_exporter.deps';
-import * as config from 'prometheus_exporter.config';
-import * as auth from 'prometheus_exporter.auth';
-import * as Result from 'prometheus_exporter.result';
+import * as deps from 'prometheus.exporter.deps';
+import * as config from 'prometheus.exporter.config';
+import * as auth from 'prometheus.exporter.auth';
+import * as Result from 'prometheus.exporter.result';
 
 if (length(ARGV)) {
 	warn('usage: auth.uc\n');

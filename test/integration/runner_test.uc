@@ -1,20 +1,20 @@
 'use strict';
 
-// prometheus_exporter.runner for real: collectors run in forked child
+// prometheus.exporter.runner for real: collectors run in forked child
 // processes, stopped and killed as a scrape stops them.
 
 import { describe, it, prop, gen, assert, contains } from 'utest';
-import * as runner from 'prometheus_exporter.runner';
-import * as scrape from 'prometheus_exporter.scrape';
-import * as loader from 'prometheus_exporter.loader';
-import * as deps from 'prometheus_exporter.deps';
-import * as Result from 'prometheus_exporter.result';
-import * as api from 'prometheus_exporter.api';
-import * as exposition from 'prometheus_exporter.exposition';
-import * as ledger from 'prometheus_exporter.ledger';
-import { seconds } from 'prometheus_exporter.deadline';
+import * as runner from 'prometheus.exporter.runner';
+import * as scrape from 'prometheus.exporter.scrape';
+import * as loader from 'prometheus.exporter.loader';
+import * as deps from 'prometheus.exporter.deps';
+import * as Result from 'prometheus.exporter.result';
+import * as api from 'prometheus.exporter';
+import * as exposition from 'prometheus.exporter.exposition';
+import * as ledger from 'prometheus.exporter.ledger';
+import { seconds } from 'prometheus.exporter.deadline';
 import * as fs from 'fs';
-import { with_mods } from 'prometheus_exporter.devkit.collector';
+import { with_mods } from 'prometheus.exporter.devkit.collector';
 
 function collector(name, collect, meta) {
 	return loader.validate(loader.id_of(name), { meta: { name, title: 'Test', help: 'Test.', needs: [], ...(meta ?? {}) }, collect }).data;

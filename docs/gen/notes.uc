@@ -9,7 +9,7 @@
 
 // The collectors that can have nothing to observe (Result.none), by name: when
 // they do, and what is still a failure. The generator takes the reasons they
-// give from the code (each Result.none's, and what prometheus_exporter.services
+// give from the code (each Result.none's, and what prometheus.exporter.services
 // says of each service they ask rc about), unless `reasons` lists them, each
 // of which the code must hold. It refuses a collector here whose code has no
 // Result.none, or one whose code has it and is not here.
@@ -314,12 +314,12 @@ export const command = {
 		'collector check': {
 			does: 'Checks a collector module before it is installed, on the device it is meant for: whether it keeps the [collector contract](collector-contract.md). It reads `<path>`, which must be `<module>.uc`, and its text for strict mode and its imports, loads it under the load timer (5 s), validates its `meta`, and runs it as the service would, in a process of its own, at most its budget and its `max_samples`. It says how long it took to load and to run, the samples it wrote and its families, and then whether its text is valid exposition, each series once, and whether a family is one an installed collector or the exporter writes.',
 			notes: [
-				'A line starts `ok`, `warn` or `FAIL`. A rule broken is `FAIL`: not in strict mode; importing a module other than `prometheus_exporter.api`, or calling `require`, `loadfile`, `loadstring`, `include` or `system`, with the text the loader logs (`FAIL imports fs (line 3): a collector reads files through deps.fs, with \'fs\' in meta.needs`); not loading, or not in time; a `meta` that is not valid; stopped at its budget or at the deadline, killed, over its `max_samples`, crashing, or not returning a Result; text that is not valid; a family another writes.',
+				'A line starts `ok`, `warn` or `FAIL`. A rule broken is `FAIL`: not in strict mode; importing a module other than `prometheus.exporter`, or calling `require`, `loadfile`, `loadstring`, `include` or `system`, with the text the loader logs (`FAIL imports fs (line 3): a collector reads files through deps.fs, with \'fs\' in meta.needs`); not loading, or not in time; a `meta` that is not valid; stopped at its budget or at the deadline, killed, over its `max_samples`, crashing, or not returning a Result; text that is not valid; a family another writes.',
 				'A failure that is the device\'s (`SOURCE_*`, `UBUS_*`, `COMMAND_FAILED`, `NEED_MISSING`) is `warn`, and so is nothing to observe: it may do its job on another device.',
 				'A module of the same name already installed is left out of the families it is compared with: a new version of a collector can be checked beside the old.',
 			],
 			exit: [ [ '0', 'No rule is broken.' ], [ '1', 'One is: a line starts `FAIL`.' ] ],
-			example: '$ prometheus-exporter collector check /tmp/apk_updates.uc\nok   strict mode: \'use strict\' first\nok   imports: prometheus_exporter.api alone\nok   top level: declarations alone\nok   load: 0.004 s, of at most 5 s\nok   meta: apk_updates (APK updates), needs exec, budget 6 s, max_samples 20000\nok   run: 0.412 s, 3 samples in 2 families\nok   families: apk_upgradable_packages apk_installed_packages\nok   exposition: valid text, each series once',
+			example: '$ prometheus-exporter collector check /tmp/apk_updates.uc\nok   strict mode: \'use strict\' first\nok   imports: prometheus.exporter alone\nok   top level: declarations alone\nok   load: 0.004 s, of at most 5 s\nok   meta: apk_updates (APK updates), needs exec, budget 6 s, max_samples 20000\nok   run: 0.412 s, 3 samples in 2 families\nok   families: apk_upgradable_packages apk_installed_packages\nok   exposition: valid text, each series once',
 		},
 		'hash-password': {
 			does: 'Reads a password and prints its hash, SHA-512-crypt of 1000 rounds, freshly salted: the value `auth_password` takes. From a terminal it asks for the password, which it does not echo; otherwise it reads the first line of standard input. The password is never printed, nor taken as an argument, where `ps` would show it.',

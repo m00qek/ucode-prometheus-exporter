@@ -1,10 +1,10 @@
 {%
 'use strict';
 
-import { handler } from 'prometheus_exporter.app';
-import { head } from 'prometheus_exporter.http';
-import { system_log } from 'prometheus_exporter.deps';
-import { NAME } from 'prometheus_exporter.config';
+import { handler } from 'prometheus.exporter.app';
+import { head } from 'prometheus.exporter.http';
+import { system_log } from 'prometheus.exporter.deps';
+import { NAME } from 'prometheus.exporter.config';
 
 const log = system_log(NAME);
 const app = handler(log);

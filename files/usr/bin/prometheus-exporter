@@ -1,7 +1,7 @@
 #!/usr/bin/ucode
 'use strict';
 
-import { parse, run, system } from 'prometheus_exporter.cli';
-import { version } from 'prometheus_exporter.version';
+import { parse, run, system } from 'prometheus.exporter.cli';
+import { version } from 'prometheus.exporter.version';
 
 exit(run(parse(ARGV, version()), system()));

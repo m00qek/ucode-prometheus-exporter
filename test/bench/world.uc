@@ -1,6 +1,6 @@
 'use strict';
 
-// A world gen.uc wrote, as the modules prometheus_exporter.deps.session()
+// A world gen.uc wrote, as the modules prometheus.exporter.deps.session()
 // takes: the real fs under the world's root, the real uci on its
 // /etc/config, and stand-ins for ubus, rtnl and nl80211 answering from
 // its JSON files. Programs (nft, ethtool) run for real, under deps' own watchdog,
@@ -9,7 +9,7 @@
 
 import * as fs from 'fs';
 import { cursor } from 'uci';
-import { exec_script } from 'prometheus_exporter.deps';
+import { exec_script } from 'prometheus.exporter.deps';
 
 // What follows the command line in every script exec_script makes.
 const TAIL = substr(exec_script([ '' ], 1), length("set -- 1 ''"));

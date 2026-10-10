@@ -4,9 +4,9 @@
 // template, then handle_request(env) per request with `uhttpd` as a global.
 
 import { describe, it, afterEach, assert, contains, mock } from 'utest';
-import { DIR } from 'prometheus_exporter.loader';
-import * as config from 'prometheus_exporter.config';
-import * as auth from 'prometheus_exporter.auth';
+import { DIR } from 'prometheus.exporter.loader';
+import * as config from 'prometheus.exporter.config';
+import * as auth from 'prometheus.exporter.auth';
 import { inflate } from 'zlib';
 import * as lockable from 'lib.lockable';
 

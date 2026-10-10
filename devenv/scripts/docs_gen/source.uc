@@ -48,7 +48,7 @@ export function has_none(text) {
 
 // The reasons a collector's `text` gives for nothing to observe: its literal
 // Result.none() reasons, and for each service it asks rpcd's rc about, what
-// prometheus_exporter.services says of one that is not enabled.
+// prometheus.exporter.services says of one that is not enabled.
 export function reasons(text, states) {
 	let out = [];
 

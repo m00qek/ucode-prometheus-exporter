@@ -8,11 +8,11 @@
 
 import { describe, it, afterEach, assert } from 'utest';
 import * as fs from 'fs';
-import * as probe from 'prometheus_exporter.probe';
-import * as loader from 'prometheus_exporter.loader';
-import * as collection from 'prometheus_exporter.collection';
-import { load_probed } from 'prometheus_exporter.app';
-import { seconds } from 'prometheus_exporter.deadline';
+import * as probe from 'prometheus.exporter.probe';
+import * as loader from 'prometheus.exporter.loader';
+import * as collection from 'prometheus.exporter.collection';
+import { load_probed } from 'prometheus.exporter.app';
+import { seconds } from 'prometheus.exporter.deadline';
 
 const ONLY_DECLARES = "a collector's top level only declares, and leaves what it does to collect()";
 
@@ -20,7 +20,7 @@ const ONLY_DECLARES = "a collector's top level only declares, and leaves what it
 // would leave a mark leaves it in `dir`.
 function module_text(id, top) {
 	return "'use strict';\n" +
-		"import { Result } from 'prometheus_exporter.api';\n" +
+		"import { Result } from 'prometheus.exporter';\n" +
 		`export const meta = { name: '${id}', title: 'Impure on purpose', help: 'A top level that does more than declare.', needs: [] };\n` +
 		`${top}\n` +
 		'export function collect(deps, out) { return Result.ok(); };\n';
@@ -41,7 +41,7 @@ function tops(dir) {
 		piper: `global['req' + 'uire']('fs').popen('touch ${dir}/piped').close();`,
 		reader: `const PASSWD = global['req' + 'uire']('fs').readfile('/etc/passwd'); global['req' + 'uire']('fs').writefile('${dir}/read', PASSWD);`,
 		signaller: "signal('SIGTERM', 'SIG_IGN');",
-		formatter: "import { exposition } from 'prometheus_exporter.api';\nconst NAME = exposition.sanitize('a-b');",
+		formatter: "import { exposition } from 'prometheus.exporter';\nconst NAME = exposition.sanitize('a-b');",
 	};
 }
 
@@ -137,7 +137,7 @@ describe('the collectors the packages ship', () => {
 	afterEach(() => gc());
 
 	it('load under the guard, each alone and all as one program', () => {
-		let ids = loader.discover(fs, 'src/prometheus_exporter/collectors');
+		let ids = loader.discover(fs, 'src/prometheus/collectors');
 		let res = probe.probe(ids, collection.import_module);
 
 		assert.match([], filter(ids, (id) => !res[id]?.ok));
