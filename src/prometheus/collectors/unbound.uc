@@ -187,6 +187,9 @@ export function collect(deps, out, options) {
 			continue;
 		}
 
+		if (index(key, 'dnscrypt') >= 0)
+			continue;
+
 		let m = match(key, BUCKET);
 		if (m) {
 			if (exposition.format_value(p.values[key]) == null)
