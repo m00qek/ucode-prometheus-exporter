@@ -591,4 +591,17 @@ describe('jail.collector, an owned path', () => {
 			assert.match([ false, [ '/var/own: /var/own is a link that is not root\'s: neither made nor mounted' ] ], [ '/var/own' in j.mounts, j.problems ]);
 		});
 	});
+
+	it('is neither mounted nor taken through a link another user made, though what it leads to is not there', () => {
+		let fs = {
+			lstat: (p) => ({ '/': { type: 'directory', uid: 0, perm: {} }, '/var': { type: 'link', uid: 1000 } })[p],
+			stat: () => null,
+		};
+
+		with_sys({ owner: { '.type': 'collector', directory: '/var/x/own' } }, {}, fs, (sys) => {
+			let j = jail.collector(OWNER, sys);
+
+			assert.match([ false, [ '/var/x/own: /var is a link that is not root\'s: neither made nor mounted' ] ], [ '/var/x/own' in j.mounts, j.problems ]);
+		});
+	});
 });

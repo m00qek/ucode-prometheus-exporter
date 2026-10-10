@@ -114,7 +114,7 @@ export function owned_problem(path) {
 };
 
 /**
- * Why root may not make or mount `path` as the exporter's own, or null: each directory down to it must be root's, writable by no one else unless sticky, and a link in it root's; `make` makes those not there (0755).
+ * Why root may not make or mount `path` as the exporter's own, or null: each directory down to it must be root's, writable by no one else unless sticky, and a link in it root's; `make` makes those not there (0755), else the walk ends at the first.
  *
  * @param {module:fs} fs
  * @param {string} path
@@ -131,7 +131,7 @@ export function owned_walk(fs, path, make) {
 
 		if (st == null) {
 			if (!make)
-				return `${dir} is not there`;
+				return null;
 			if (!fs.mkdir(dir, 0o755) && fs.lstat(dir) == null)
 				return `cannot make ${dir}: ${fs.error() ?? 'unknown error'}`;
 			st = fs.lstat(dir);
@@ -308,7 +308,7 @@ export function collector(c, sys) {
 	push(problems, ...calls.problems);
 
 	for (let p in (sys.fs.lstat ? owned : [])) {
-		let why = (sys.fs.lstat(p) != null) ? owned_walk(sys.fs, p, false) : null;
+		let why = owned_walk(sys.fs, p, false);
 
 		if (why) {
 			push(problems, `${p}: ${why}: neither made nor mounted`);

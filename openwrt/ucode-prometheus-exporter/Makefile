@@ -174,16 +174,17 @@ endef
 $(eval $(call BuildPackage,$(PKG_NAME)-cli))
 
 # A collector package's scripts: on a running system (not in an image build),
-# reload an enabled or running exporter, which restarts it with the collector
-# served or gone, its jail mounts what the collectors now declare, and it takes
-# back what a collector removed had been granted; else take back all it
-# granted. A failed reload (an invalid config) is logged by the init script
-# and fails no install.
+# reload an enabled exporter, which restarts it with the collector served or
+# gone, its jail mounts what the collectors now declare, and it takes back
+# what a collector removed had been granted; with the exporter neither enabled
+# nor running, take back all it granted. A failed reload (an invalid config)
+# is logged by the init script and fails no install. Removing the exporter
+# disables it first, so its collectors' scripts start it no more.
 define Collector/reload
 [ -n "$${IPKG_INSTROOT}" ] || {
-	if /etc/init.d/$(SERVICE) enabled || /etc/init.d/$(SERVICE) running; then
+	if /etc/init.d/$(SERVICE) enabled; then
 		/etc/init.d/$(SERVICE) reload || true
-	else
+	elif ! /etc/init.d/$(SERVICE) running; then
 		/usr/libexec/$(SERVICE)/jail.uc --clean >/dev/null 2>&1 || true
 	fi
 }

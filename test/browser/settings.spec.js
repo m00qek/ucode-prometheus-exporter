@@ -585,13 +585,13 @@ test.describe('Services → Prometheus exporter', () => {
     await option(page, 'textfile', 'directory').fill('srv/prom');
     await expect(option(page, 'textfile', 'directory')).toHaveClass(/cbi-input-invalid/);
     await expect(option(page, 'textfile', 'directory')).toHaveAttribute('data-tooltip',
-      'Metrics directory must be a directory under /var, /tmp or /etc/prometheus-exporter, not "srv/prom"');
+      'Metrics directory must be a directory under /var, /tmp or /etc/prometheus-exporter, and not under /var/run or /tmp/run, not "srv/prom"');
     await h.modal(page).getByRole('button', { name: 'Save', exact: true }).click();
     await expect(h.modal(page).locator('.alert-message.error')).toContainText('Nothing was staged: the exporter would refuse these values.');
     await h.screenshot(page, 'settings-dialog-refused');
     await option(page, 'textfile', 'directory').fill('/srv/prom');
     await expect(option(page, 'textfile', 'directory')).toHaveAttribute('data-tooltip',
-      'Metrics directory must be a directory under /var, /tmp or /etc/prometheus-exporter, not "/srv/prom"');
+      'Metrics directory must be a directory under /var, /tmp or /etc/prometheus-exporter, and not under /var/run or /tmp/run, not "/srv/prom"');
     await option(page, 'textfile', 'directory').fill('/tmp/prom');
     await expect(option(page, 'textfile', 'directory')).not.toHaveClass(/cbi-input-invalid/);
     await dismissDialog(page);

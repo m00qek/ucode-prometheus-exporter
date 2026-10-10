@@ -840,7 +840,7 @@ most=0
 most_status=0
 while [ "$(helpers)" -gt 0 ] && [ $(($(date +%s) - started)) -lt 40 ]; do
 	n=$(helpers); [ "$n" -le "$most" ] || most=$n
-	n=$(ps w | grep -c '[r]pc-status.uc'); [ "$n" -le "$most_status" ] || most_status=$n
+	n=$(ps w | grep -c '[u]code /usr/libexec/prometheus-exporter/rpc-status.uc'); [ "$n" -le "$most_status" ] || most_status=$n
 	sleep 1
 done
 wait
@@ -931,11 +931,12 @@ ln -s /etc /tmp/e2e-link && chown -h nobody /tmp/e2e-link
 set_config "$NAME.textfile.directory=/var/e2e-theirs"
 eventually "a directory another user made under /tmp is not mounted" not_mounted /var/e2e-theirs
 check "check says why" says "warn .*/var/e2e-theirs: /var/e2e-theirs is not root's: neither made nor mounted" "$INIT" check
-check "and the reload logged it, at err" says "daemon.err $NAME: /var/e2e-theirs: /var/e2e-theirs is not root's: neither made nor mounted" logread
+eventually "and the reload logged it, at err" says "daemon.err $NAME: /var/e2e-theirs: /var/e2e-theirs is not root's: neither made nor mounted" logread
 set_config "$NAME.textfile.directory=/var/e2e-link/e2e"
 eventually "nor a path through a link another user made" says "/var/e2e-link/e2e: /var/e2e-link is a link that is not root's: neither made nor mounted" logread
 check "under which root made nothing" test ! -e /etc/e2e
-check "nor mounted it" not_mounted /var/e2e-link/e2e
+eventually "nor mounted it" not_mounted /var/e2e-link/e2e
+check "and check says why" says "warn .*/var/e2e-link/e2e: /var/e2e-link is a link that is not root's" "$INIT" check
 rm -rf /tmp/e2e-theirs /tmp/e2e-link
 set_config "$NAME.textfile.directory=/tmp/e2e/prom/"
 eventually "back under /tmp, it is served" served textfile
@@ -1263,19 +1264,24 @@ revoked() {
 		! grep -v "^$NAME:" /etc/group | grep -q "^[^:]*:[^:]*:[^:]*:\(.*,\)\?$NAME\(,\|$\)" &&
 		[ ! -e "/var/run/$NAME/granted.json" ] && [ ! -e "/var/run/$NAME/uhttpd.conf" ]
 }
+grants_now() { echo "info $1: $(owned /etc/config/$NAME 2>&1), dhcp $(owned /etc/config/dhcp) (was $dhcp_before), conntrack $(owned /proc/net/nf_conntrack) (was $conntrack_before), groups: $(grep -v "^$NAME:" /etc/group | grep "$NAME" | cut -d: -f1 | tr '\n' ' '), $(ls /var/run/$NAME 2>&1 | tr '\n' ' ')"; }
+grants_now "disabled"
 check "and every grant, each file as it was" revoked
 set_config "$NAME.main.enabled=1"
 eventually "enabling it starts it again" served loadavg
 check "with its ACL again" test -e "$ACL"
 "$INIT" stop
 check "stopping it takes the ACL away" test ! -e "$ACL"
+grants_now "stopped"
 check "and every grant" revoked
 "$INIT" start
 eventually "and starting it brings it back" served loadavg
 check "and the grants" test "$(owned /etc/config/dhcp)" = "-rw-r----- root $NAME"
 # Removing the exporter: its prerm stops it, which takes every grant back.
 apk del $(apk info 2>/dev/null | grep "^$PKG") >/dev/null 2>&1
+grants_now "removed"
 check "removing its packages leaves the service's user nothing granted" revoked
+check "and no instance running" fails sh -c "ubus call service list '{\"name\":\"$NAME\"}' | grep -q instance1"
 check "nor an ACL" test ! -e "$ACL"
 
 if [ "$failures" -gt 0 ]; then
