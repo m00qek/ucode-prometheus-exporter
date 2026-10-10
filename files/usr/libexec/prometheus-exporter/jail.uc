@@ -1,22 +1,6 @@
 #!/usr/bin/ucode
 'use strict';
 
-// The paths the exporter's jail mounts read-only, one per line, for
-// /etc/init.d/prometheus-exporter: the service's own (jail.SERVICE, some of
-// them globs), then what the installed and enabled collectors get, the ubus
-// socket among them when one needs ubus; what cannot be mounted goes to
-// standard error. With --missing, the paths those collectors
-// read that are not there yet instead. With --make, it makes the directories
-// those collectors own (textfile's) that are not there, and says which, and
-// the exporter's state directory (mode 0700, the service's user's, which the
-// jail mounts read-write; see prometheus_exporter.state), and grants the
-// service's user what those collectors declare (prometheus_exporter.
-// privileges: the ubus ACL, the capabilities file, its groups, read access to
-// configs and proc files, the TLS copies); what it could not do goes to
-// standard error. With --clean, as the service stops, it takes away the ACL,
-// the capabilities file and the TLS copies. The init script logs each at its
-// own priority. See prometheus_exporter.jail.
-
 import { mkdir, chmod, chown, open, readfile, rename, unlink, stat, error } from 'fs';
 import * as deps from 'prometheus_exporter.deps';
 import * as jail from 'prometheus_exporter.jail';
@@ -32,9 +16,6 @@ if (length(ARGV) > 1 || (mode != null && !(mode in [ '--missing', '--make', '--c
 	exit(2);
 }
 
-// What grant.make and clean take of the system: ubusd reads its ACLs
-// again on SIGHUP, and /etc/group is changed under the lock OpenWrt's tools
-// take (lock /var/lock/passwd, an flock()).
 const fs_all = { stat, readfile, open, chown, chmod, rename, unlink, error };
 const priv = {
 	fs: fs_all,
@@ -53,7 +34,6 @@ if (mode == '--clean')
 const mods = deps.modules();
 const log = (msg) => warn(`${msg}\n`);
 const quiet = () => null;
-// The handler logs a collector that does not load; here it is only left out.
 const collectors = load(mods, null, quiet);
 const res = jail.mounts(collectors, { uci: mods.uci.cursor(), fs: mods.fs, path: jail.PATH });
 

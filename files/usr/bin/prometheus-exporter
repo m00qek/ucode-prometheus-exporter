@@ -1,8 +1,6 @@
 #!/usr/bin/ucode
 'use strict';
 
-// The command line; -h for usage. See prometheus_exporter.cli.
-
 import { parse, run, system } from 'prometheus_exporter.cli';
 import { version } from 'prometheus_exporter.version';
 

@@ -1,9 +1,6 @@
 #!/usr/bin/ucode
 'use strict';
 
-// What `service prometheus-exporter status` adds for a running
-// exporter: where it listens, and how many collectors it serves.
-
 import * as deps from 'prometheus_exporter.deps';
 import * as config from 'prometheus_exporter.config';
 import { load } from 'prometheus_exporter.app';

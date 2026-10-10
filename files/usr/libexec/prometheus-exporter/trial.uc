@@ -1,19 +1,6 @@
 #!/usr/bin/ucode
 'use strict';
 
-// What runs in the service's jail for the command line's scrape, check and
-// the ubus object's status (prometheus_exporter.jailed): it loads the
-// installed collectors and runs the enabled ones as the service does, and
-// prints one line of JSON.
-//
-//   trial.uc scrape [QUERY]   { status, body, logs }: a scrape, as /metrics
-//                             answers QUERY, within scrape_timeout
-//   trial.uc runs             { runs, skipped, logs }: a run of each enabled
-//                             collector (scrape.trial), quarantined or not
-//
-// A run is { name, id, result: { ok, error, details, none }, duration,
-// samples }; logs are [ level, message ], skipped what the loader logged.
-
 import * as deps from 'prometheus_exporter.deps';
 import * as config from 'prometheus_exporter.config';
 import * as scrape from 'prometheus_exporter.scrape';
@@ -34,7 +21,6 @@ const logs = [];
 const skipped = [];
 const log = (level, msg) => push(logs, [ level, msg ]);
 const collectors = load(mods, null, (level, msg) => push(skipped, msg));
-// The jail writes the state's directory alone.
 const env = scrape_env(mods, log, { tmp: state.DIR });
 const uci = mods.uci.cursor();
 
@@ -47,7 +33,6 @@ if (mode == 'scrape') {
 	exit(0);
 }
 
-// The running instance's ledger orders them, as the service's.
 const st = state.latest(mods.fs, state.DIR);
 const chosen = filter(collectors, (c) => config.enabled(uci, c.id));
 const runs = scrape.trial(env, uci, st ? ledger.parse(st.read(ledger.NAME)) : null, chosen, collectors);

@@ -1,13 +1,6 @@
 #!/usr/bin/ucode
 'use strict';
 
-// Basic auth's file for /etc/init.d/prometheus-exporter: uhttpd's config file
-// (-c) of the main section's auth_user and the hash of
-// /etc/config/prometheus-exporter-auth. Prints its path; or, when the main
-// section sets no user, removes it and prints nothing.
-// Exits 1, saying why on standard error, when the main section is invalid or
-// the file cannot be written. See prometheus_exporter.auth.
-
 import * as fs from 'fs';
 import * as deps from 'prometheus_exporter.deps';
 import * as config from 'prometheus_exporter.config';

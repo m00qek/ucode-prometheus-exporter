@@ -1,19 +1,11 @@
-# busybox ntpd's last event, for the exporter's timesync collector. ntpd runs
-# /usr/sbin/ntpd-hotplug on a step, a new stratum, a loss of sync and
-# periodically; it calls procd's hotplug.ntp with ntpd's environment, which
-# procd hands each script here: ACTION, stratum, offset, freq_drift_ppm and
-# poll_interval (busybox's networking/ntpd.c, run_script()). chrony's own
-# hotplug call has ACTION=stratum alone: not ntpd's, and not kept.
 [ -n "$stratum" ] || exit 0
 
 dir=/var/run/prometheus-exporter
 state=$dir/timesync/ntpd
 
-# The service's run directory, private, as the service makes it.
 [ -d "$dir" ] || mkdir -m 0700 "$dir" || exit 0
 [ -d "$dir/timesync" ] || mkdir "$dir/timesync" || exit 0
 
-# Written whole and renamed into place: the collector never reads half a file.
 tmp=$(mktemp "$state.XXXXXX") || exit 0
 if printf 'time=%s\naction=%s\nstratum=%s\noffset=%s\nfreq_drift_ppm=%s\npoll_interval=%s\n' \
 	"$(date +%s)" "$ACTION" "$stratum" "$offset" "$freq_drift_ppm" "$poll_interval" >"$tmp" &&
