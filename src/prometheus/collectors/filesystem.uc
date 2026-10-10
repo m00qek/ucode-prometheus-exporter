@@ -1,16 +1,16 @@
 'use strict';
 
-import { Result, errors, services, proc } from 'prometheus.exporter';
+import { Result, errors, services } from 'prometheus.exporter';
 
 export const meta = {
 	name: 'filesystem',
 	title: 'Filesystems',
-	help: 'Filesystem sizes, inodes and read-only flags, from the package\'s rpcd object (statvfs) and the host\'s /proc/mounts (rpcd\'s file read).',
+	help: 'Filesystem sizes, inodes and read-only flags of the host\'s mounts, from the package\'s rpcd object (statvfs).',
 	needs: [ 'ubus' ],
-	ubus: { 'prometheus-exporter.filesystem': [ 'mounts' ], file: [ 'read' ], luci: [ 'getMountPoints' ] },
+	ubus: { 'prometheus-exporter.filesystem': [ 'mounts' ] },
 };
 
-const MOUNTS = '/proc/mounts';
+const OBJECT = 'prometheus-exporter.filesystem';
 
 const EXCLUDED_MOUNT_POINTS = /^\/(dev|proc|run\/credentials|sys|var\/lib\/docker|var\/lib\/containers\/storage)(\/|$)/;
 const EXCLUDED_FS_TYPES = [
@@ -23,51 +23,17 @@ export function excluded(mount_point, fs_type) {
 	return match(mount_point, EXCLUDED_MOUNT_POINTS) != null || fs_type in EXCLUDED_FS_TYPES;
 };
 
-export function unescape(field) {
-	return replace(field, /\\([0-7][0-7][0-7])/g, (m, n) => chr(int(n, 8)));
-};
-
-function key(device, mount_point) {
-	return device + '\n' + mount_point;
-}
-
-function host_mounts(ubus) {
-	let res = ubus.call('file', 'read', { path: MOUNTS });
-
-	if (!res.ok)
-		return res;
-
-	let data = res.data?.data;
-	if (type(data) != 'string')
-		return Result.err(errors.SOURCE_INVALID, `file read ${MOUNTS}: no data`);
-
-	return Result.ok(split(data, '\n'));
-}
-
 export function collect(deps, out) {
-	let mounts = host_mounts(deps.ubus);
-	if (!mounts.ok)
-		return mounts;
+	let res = deps.ubus.call(OBJECT, 'mounts');
 
-	let source = 'prometheus-exporter.filesystem mounts';
-	let res = deps.ubus.call('prometheus-exporter.filesystem', 'mounts');
-
-	if (!res.ok && services.object_missing(res)) {
-		source = 'luci getMountPoints';
-		res = deps.ubus.call('luci', 'getMountPoints');
-	}
-
+	if (services.object_missing(res))
+		return Result.err(errors.UBUS_CALL_FAILED, `${OBJECT} mounts: ${res.data.status}: rpcd has not loaded the package's plugin; /etc/init.d/rpcd reload loads it`);
 	if (!res.ok)
 		return res;
 
 	let points = res.data?.result;
 	if (type(points) != 'array')
-		return Result.err(errors.SOURCE_INVALID, `${source}: ${res.data?.error ?? 'no result'}`);
-
-	let stats = {};
-	for (let p in points)
-		if (type(p) == 'object' && type(p.device) == 'string' && type(p.mount) == 'string')
-			stats[key(p.device, p.mount)] ??= p;
+		return Result.err(errors.SOURCE_INVALID, `${OBJECT} mounts: ${res.data?.error ?? 'no result'}`);
 
 	let size = out.gauge('node_filesystem_size_bytes', 'Filesystem size in bytes.');
 	let free = out.gauge('node_filesystem_free_bytes', 'Filesystem free space in bytes.');
@@ -77,27 +43,23 @@ export function collect(deps, out) {
 	let readonly = out.gauge('node_filesystem_readonly', 'Filesystem read-only status.');
 	let seen = {};
 
-	for (let line in mounts.data) {
-		let f = proc.fields(line);
-
-		if (length(f) < 4)
+	for (let p in points) {
+		if (type(p) != 'object' || type(p.device) != 'string' || type(p.mount) != 'string' || type(p.fstype) != 'string')
 			continue;
 
-		let device = unescape(f[0]), mountpoint = unescape(f[1]), fstype = f[2];
-		let st = stats[key(device, mountpoint)];
-		let labels = { device, fstype, mountpoint };
+		let labels = { device: p.device, fstype: p.fstype, mountpoint: p.mount };
 		let id = sprintf('%J', labels);
 
-		if (excluded(mountpoint, fstype) || !st || seen[id])
+		if (excluded(p.mount, p.fstype) || seen[id])
 			continue;
 
 		seen[id] = true;
-		size(labels, st.size);
-		free(labels, st.free);
-		avail(labels, st.avail);
-		files(labels, st.files);
-		files_free(labels, st.ffree);
-		readonly(labels, 'ro' in split(f[3], ','));
+		size(labels, p.size);
+		free(labels, p.free);
+		avail(labels, p.avail);
+		files(labels, p.files);
+		files_free(labels, p.ffree);
+		readonly(labels, p.ro === true);
 	}
 
 	return Result.ok();

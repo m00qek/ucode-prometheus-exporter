@@ -215,11 +215,11 @@ ubus itself refuses arguments of the wrong type, as a string for `main`, with `I
 
 ## `prometheus-exporter.filesystem`
 
-The filesystem collector's own object, which its package serves from the rpcd plugin `/usr/share/rpcd/ucode/prometheus-exporter-filesystem.uc`: the base package has none. Its one method, `mounts`, takes no arguments, and answers what luci's `getMountPoints` does, with each mount's inodes besides: of each mount of `/proc/mounts` that statvfs() finds blocks in, `{ device, mount, size, free, avail, files, ffree }`, sizes in bytes. statvfs() is luci-base's, of `luci.core`; without it, or without `/proc/mounts`, it answers `{ error }`. The collector asks it from the jail, whose own mounts are not the host's; where rpcd has not loaded it, the collector asks `getMountPoints`, and writes the sizes alone.
+The filesystem collector's own object, which its package serves from the rpcd plugin `/usr/share/rpcd/ucode/prometheus-exporter-filesystem.uc`: the base package has none. Its one method, `mounts`, takes no arguments, and answers, of each mount of the host's `/proc/mounts` that statvfs() finds blocks in, `{ device, mount, fstype, ro, size, free, avail, files, ffree }`: the device, mount point and filesystem type of its line, whether its options have `ro`, and its sizes in bytes and inodes. statvfs() is luci-base's, of `luci.core`; without it, or without `/proc/mounts`, it answers `{ error }`. It is all the collector asks: from the jail, whose own mounts are not the host's, and without rpcd's `file read`, which reads any file as root (see [About the security model](../explanation/security.md#not-root)). Where rpcd has not loaded it, the collector fails, saying so.
 
 ```
 $ ubus call prometheus-exporter.filesystem mounts
-{ "result": [ { "device": "tmpfs", "mount": "/tmp", "size": 122658816, "free": 122286080, "avail": 122286080, "files": 29946, "ffree": 29890 }, ... ] }
+{ "result": [ { "device": "tmpfs", "mount": "/tmp", "fstype": "tmpfs", "ro": false, "size": 122658816, "free": 122286080, "avail": 122286080, "files": 29946, "ffree": 29890 }, ... ] }
 ```
 
 As getMountPoints does, it statvfs()es every mount, a network mount that hangs included, in rpcd's process.

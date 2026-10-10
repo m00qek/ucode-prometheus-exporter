@@ -3,37 +3,47 @@
 		{
 			"device": "/dev/root",
 			"mount": "/rom",
+			"fstype": "squashfs",
+			"ro": true,
 			"size": 8650752,
-			"avail": 0,
-			"free": 0
+			"free": 0,
+			"avail": 0
 		},
 		{
 			"device": "tmpfs",
 			"mount": "/tmp",
+			"fstype": "tmpfs",
+			"ro": false,
 			"size": 122658816,
-			"avail": 122286080,
-			"free": 122286080
+			"free": 122286080,
+			"avail": 122286080
 		},
 		{
 			"device": "/dev/mtdblock7",
 			"mount": "/overlay",
+			"fstype": "jffs2",
+			"ro": false,
 			"size": 1703936,
-			"avail": 1175552,
-			"free": 1175552
+			"free": 1175552,
+			"avail": 1175552
 		},
 		{
 			"device": "overlayfs:/overlay",
 			"mount": "/",
+			"fstype": "overlay",
+			"ro": false,
 			"size": 1703936,
-			"avail": 1175552,
-			"free": 1175552
+			"free": 1175552,
+			"avail": 1175552
 		},
 		{
 			"device": "tmpfs",
 			"mount": "/dev",
+			"fstype": "tmpfs",
+			"ro": false,
 			"size": 524288,
-			"avail": 524288,
-			"free": 524288
+			"free": 524288,
+			"avail": 524288
 		}
 	]
 }

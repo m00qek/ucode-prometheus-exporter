@@ -347,7 +347,7 @@ eventually "without it" not_served example
 # table is root's alone (0440): the service's group may read it now. unbound's
 # control socket is srw-rw---- unbound:unbound: the user is in unbound's group.
 in_unbound() { grep -q "^unbound:.*[:,]$NAME\(,\|$\)" /etc/group && echo " $(of_uhttpd Groups) " | grep -q " $(id_of unbound /etc/group) "; }
-all_acl() { acl_has dnsmasq metrics && acl_has 'hostapd.*' get_clients && acl_has luci getMountPoints && acl_has dhcp ipv4leases; }
+all_acl() { acl_has dnsmasq metrics && acl_has 'hostapd.*' get_clients && acl_has prometheus-exporter.filesystem mounts && acl_has dhcp ipv4leases; }
 check "uhttpd has CAP_NET_ADMIN alone, for nft-counters" caps_are 0000000000001000
 check "nat_traffic's table is the service's group's to read" test "$(owned /proc/net/nf_conntrack)" = "-r--r----- root $NAME"
 check "nat_traffic reads it in the jail" served nat_traffic
@@ -356,6 +356,8 @@ check "the configs the jail mounts are the group's to read" test "$(owned /etc/c
 check "a config it does not mount stays root's alone" test "$(owned /etc/config/network)" = "-rw------- root root"
 check "the ACL now allows what every enabled collector calls" all_acl
 check "and wireguard's uci get only with peer_names" fails acl_has uci get
+check "nor rpcd's file read, which reads any file as root" fails acl_has file read
+check "nor luci's getMountPoints" fails acl_has luci getMountPoints
 # ubus's command line as the user, with the socket alone, as the jail has it:
 # ubusd answers what the ACL allows, and refuses the rest.
 as_user() { /sbin/ujail -n e2e-acl -U $NAME -G $NAME -c -u -r /bin/ubus -- /bin/ubus "$@" 2>&1 | grep -v '^jail: '; }
@@ -364,6 +366,7 @@ check "as the user, a call the ACL allows answers" says '"interface"' as_user ca
 check "a method of an allowed object it does not allow is refused" says 'Permission denied' as_user call system info
 check "and so is one that would change the system" says 'Permission denied' as_user call rc init '{"name":"dnsmasq","action":"stop"}'
 check "an object it allows nothing of is not there for it" says 'Not found' as_user call uci get '{"config":"network"}'
+check "nor is rpcd's file object, to read /etc/shadow with" says 'Not found' as_user call file read '{"path":"/etc/shadow"}'
 check "nor in its listing" fails user_lists uci
 check "which has what it allows" user_lists network.interface
 
@@ -419,6 +422,7 @@ check "every collector that observes something here writes samples, in the jail 
 check "filesystem sizes the host's mounts, not the jail's" metric 'node_filesystem_size_bytes{.*mountpoint="/exporter"}'
 # Through its package's rpcd plugin, which installing it had rpcd load.
 check "and counts their inodes" metric 'node_filesystem_files{.*mountpoint="/exporter"}'
+check "and says a host's read-only mount is read-only" metric 'node_filesystem_readonly{.*mountpoint="/exporter"} 1$'
 
 # What exec's watchdog costs a program: the mean milliseconds of a program's
 # run by a plain popen (itself a shell running it) and through the watchdog

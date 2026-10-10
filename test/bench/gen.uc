@@ -700,8 +700,7 @@ function generate(dir, profile) {
 
 	// ubus
 	world.ubus['system:board'] = fixture_json('caju-router/ubus/system.board.json');
-	world.ubus['file:read'] = fixture_json('caju-router/ubus/file.read.json');
-	world.ubus['luci:getMountPoints'] = fixture_json('caju-router/ubus/luci.getMountPoints.json');
+	world.ubus['prometheus-exporter.filesystem:mounts'] = fixture_json('caju-router/ubus/prometheus-exporter.filesystem.mounts.json');
 	world.ubus['dnsmasq:metrics'] = fixture_json('caju-router/ubus/dnsmasq.metrics.json');
 	world.ubus['network.interface:dump'] = interfaces(p);
 	world.ubus['dhcp:ipv4leases'] = { device: {} };

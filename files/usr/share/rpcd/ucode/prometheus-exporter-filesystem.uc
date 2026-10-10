@@ -15,13 +15,13 @@ function mounts(fs, statvfs) {
 	let result = [];
 
 	for (let line = f.read('line'); length(line); line = f.read('line')) {
-		let m = split(line, ' ');
+		let m = split(rtrim(line, '\n'), ' ');
 		let mount = unescape(m[1] ?? '');
-		let st = (mount != '') ? statvfs(mount) : null;
+		let st = (mount != '' && length(m) >= 4) ? statvfs(mount) : null;
 
 		if (st?.blocks > 0)
 			push(result, {
-				device: unescape(m[0]), mount,
+				device: unescape(m[0]), mount, fstype: m[2], ro: 'ro' in split(m[3], ','),
 				size: st.bsize * st.blocks, free: st.bsize * st.bfree, avail: st.bsize * st.bavail,
 				files: st.files, ffree: st.ffree,
 			});

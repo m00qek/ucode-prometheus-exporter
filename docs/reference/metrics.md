@@ -319,7 +319,7 @@ Filesystems. [Collector](collectors.md#filesystem).
 | `node_filesystem_free_bytes` | gauge | `device`, `fstype`, `mountpoint` | Filesystem free space in bytes. | — |
 | `node_filesystem_avail_bytes` | gauge | `device`, `fstype`, `mountpoint` | Filesystem space available to non-root users in bytes. | — |
 | `node_filesystem_readonly` | gauge | `device`, `fstype`, `mountpoint` | Filesystem read-only status. | — |
-| `node_filesystem_files` | gauge | `device`, `fstype`, `mountpoint` | Filesystem total file nodes. | Listed from the code: From the package's rpcd plugin, `ubus call prometheus-exporter.filesystem mounts`, which no device's captures hold: where rpcd has not loaded it, the collector asks luci's `getMountPoints`, which has no inode counts, and writes the sizes alone. |
+| `node_filesystem_files` | gauge | `device`, `fstype`, `mountpoint` | Filesystem total file nodes. | Listed from the code: From the package's rpcd plugin, `ubus call prometheus-exporter.filesystem mounts`, whose inode counts no device's captures hold: theirs are written from rpcd's `file read` of `/proc/mounts` and luci's `getMountPoints`, captured before the plugin, which have none. |
 | `node_filesystem_files_free` | gauge | `device`, `fstype`, `mountpoint` | Filesystem total free file nodes. | Listed from the code: As node\_filesystem\_files. |
 
 ## `hostapd_stations` {#hostapd_stations}

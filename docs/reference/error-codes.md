@@ -28,7 +28,7 @@ A failure carries an uppercase code, from `src/prometheus/exporter/errors.uc`, a
 | :--- | :--- | :--- |
 | `NEED_MISSING` | A capability the collector needs is not installed: `nl80211` without ucode-mod-nl80211, `socket` without ucode-mod-socket. | `deps.uc` |
 | `UBUS_CONNECT_FAILED` | The exporter could not connect to ubus. | `deps/ubus.uc` |
-| `UBUS_CALL_FAILED` | A ubus call failed. The detail is `<object> <method>: <status>`, as `Not found`. | `deps/ubus.uc`, `services.uc` |
+| `UBUS_CALL_FAILED` | A ubus call failed. The detail is `<object> <method>: <status>`, as `Not found`. | `deps/ubus.uc`, `services.uc`; the collector `filesystem` |
 | `NL80211_FAILED` | An nl80211 request failed. The detail is the device and the kernel's error. | `deps/netlink.uc` |
 | `RTNL_FAILED` | An rtnetlink request failed. The detail is the kernel's error. | `deps/netlink.uc` |
 | `SOCKET_FAILED` | A Unix socket is missing, refused the connection, or sent no more of its reply in time. The detail names the socket. | `deps/socket.uc` |

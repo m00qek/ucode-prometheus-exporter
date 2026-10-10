@@ -209,7 +209,7 @@ export const unharvested = {
 		{ name: 'node_network_autonegotiate', labels: [ 'device' ], why: 'From its `Auto-negotiation`: 1 where it is `on`.' },
 	],
 	'filesystem': [
-		{ name: 'node_filesystem_files', labels: [ 'device', 'fstype', 'mountpoint' ], why: 'From the package\'s rpcd plugin, `ubus call prometheus-exporter.filesystem mounts`, which no device\'s captures hold: where rpcd has not loaded it, the collector asks luci\'s `getMountPoints`, which has no inode counts, and writes the sizes alone.' },
+		{ name: 'node_filesystem_files', labels: [ 'device', 'fstype', 'mountpoint' ], why: 'From the package\'s rpcd plugin, `ubus call prometheus-exporter.filesystem mounts`, whose inode counts no device\'s captures hold: theirs are written from rpcd\'s `file read` of `/proc/mounts` and luci\'s `getMountPoints`, captured before the plugin, which have none.' },
 		{ name: 'node_filesystem_files_free', labels: [ 'device', 'fstype', 'mountpoint' ], why: 'As node_filesystem_files.' },
 	],
 	'exporter': [

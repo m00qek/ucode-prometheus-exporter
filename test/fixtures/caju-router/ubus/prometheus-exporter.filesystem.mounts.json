@@ -3,44 +3,56 @@
 		{
 			"device": "/dev/root",
 			"mount": "/rom",
+			"fstype": "squashfs",
+			"ro": true,
 			"size": 5767168,
-			"avail": 0,
-			"free": 0
+			"free": 0,
+			"avail": 0
 		},
 		{
 			"device": "tmpfs",
 			"mount": "/tmp",
+			"fstype": "tmpfs",
+			"ro": false,
 			"size": 2062958592,
-			"avail": 2060828672,
-			"free": 2060828672
+			"free": 2060828672,
+			"avail": 2060828672
 		},
 		{
 			"device": "/dev/loop0",
 			"mount": "/overlay",
+			"fstype": "f2fs",
+			"ro": false,
 			"size": 26835746816,
-			"avail": 26330566656,
-			"free": 26330566656
+			"free": 26330566656,
+			"avail": 26330566656
 		},
 		{
 			"device": "overlayfs:/overlay",
 			"mount": "/",
+			"fstype": "overlay",
+			"ro": false,
 			"size": 26835746816,
-			"avail": 26330566656,
-			"free": 26330566656
+			"free": 26330566656,
+			"avail": 26330566656
 		},
 		{
 			"device": "tmpfs",
 			"mount": "/dev",
+			"fstype": "tmpfs",
+			"ro": false,
 			"size": 524288,
-			"avail": 524288,
-			"free": 524288
+			"free": 524288,
+			"avail": 524288
 		},
 		{
 			"device": "/dev/mmcblk0p1",
 			"mount": "/mnt/data",
+			"fstype": "ext4",
+			"ro": false,
 			"size": 31232282624,
-			"avail": 28929495040,
-			"free": 30541967360
+			"free": 30541967360,
+			"avail": 28929495040
 		}
 	]
 }

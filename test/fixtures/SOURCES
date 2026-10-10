@@ -58,8 +58,11 @@ file /sys/class/thermal/thermal_zone*/policy
 file /sys/class/thermal/thermal_zone*/temp
 file /sys/class/thermal/thermal_zone*/mode
 file /sys/class/thermal/thermal_zone*/passive
-ubus file read {"path":"/proc/mounts"}
-ubus luci getMountPoints
+ubus prometheus-exporter.filesystem mounts
+# ubus/prometheus-exporter.filesystem.mounts.json (caju-router, caju-ap): written
+# from the devices' captures of rpcd's `file read {"path":"/proc/mounts"}` and
+# luci's `getMountPoints`, from before the filesystem package had its plugin:
+# the fstype and read-only flag of each mount's line, its sizes, no inodes.
 link /sys/class/hwmon/*/device
 uci dhcp
 uci network

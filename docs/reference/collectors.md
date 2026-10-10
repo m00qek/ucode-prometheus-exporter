@@ -295,7 +295,7 @@ File descriptors allocated and the most there may be, from /proc/sys/fs/file-nr.
 
 ## `filesystem` {#filesystem}
 
-Filesystem sizes, inodes and read-only flags, from the package's rpcd object (statvfs) and the host's /proc/mounts (rpcd's file read).
+Filesystem sizes, inodes and read-only flags of the host's mounts, from the package's rpcd object (statvfs).
 
 - **Title:** Filesystems
 - **Package:** `ucode-prometheus-exporter-filesystem`
@@ -303,7 +303,7 @@ Filesystem sizes, inodes and read-only flags, from the package's rpcd object (st
 - **Depends on:** `luci-base`
 - **Section:** `config collector 'filesystem'`
 - **Needs:** `ubus`
-- **Calls over ubus:** `file read`, `luci getMountPoints`, `prometheus-exporter.filesystem mounts`
+- **Calls over ubus:** `prometheus-exporter.filesystem mounts`
 - **Metrics:** [filesystem](metrics.md#filesystem)
 
 | Option | Title | Type | Default | Datatype | Description |

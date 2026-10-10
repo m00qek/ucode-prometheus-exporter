@@ -77,7 +77,7 @@ The command line, [`prometheus-exporter`](command.md): a scrape on standard outp
 
 `ucode-prometheus-exporter-<name>`, one per collector not in the base package. Each installs `/usr/share/ucode/prometheus/collectors/<module>.uc` and depends on the base package and on what its collector needs: see [Collectors](collectors.md). Installing or removing one reloads an enabled service.
 
-`ucode-prometheus-exporter-filesystem` installs besides an rpcd plugin, `/usr/share/rpcd/ucode/prometheus-exporter-filesystem.uc`: the ubus object `prometheus-exporter.filesystem`, whose `mounts` is luci's `getMountPoints` with each mount's inodes, `{ result: [ { device, mount, size, free, avail, files, ffree } ] }`, the statvfs() of the host's mounts the jail cannot make. Installing or removing the package reloads rpcd too. See [ubus object](ubus.md#prometheus-exporterfilesystem).
+`ucode-prometheus-exporter-filesystem` installs besides an rpcd plugin, `/usr/share/rpcd/ucode/prometheus-exporter-filesystem.uc`: the ubus object `prometheus-exporter.filesystem`, whose `mounts` is each of the host's mounts with its type, read-only flag, sizes and inodes, `{ result: [ { device, mount, fstype, ro, size, free, avail, files, ffree } ] }`: the host's `/proc/mounts` and the statvfs() of its mounts, which the jail cannot read or make. Installing or removing the package reloads rpcd too. See [ubus object](ubus.md#prometheus-exporterfilesystem).
 
 ## Group packages
 
