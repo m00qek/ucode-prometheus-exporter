@@ -25,6 +25,9 @@ function now(env) {
 /** The seconds a collector module may take to load. */
 export const LOAD_TIMEOUT = 5;
 
+/** The characters of an outcome's base64 in each message of the child, which crosses the pipe whole. */
+export const PART = 2048;
+
 /**
  * Each of the modules `ids` loaded in a child process first, stopped past `seconds`.
  *
@@ -39,7 +42,7 @@ export function probe(ids, import_fn, seconds, clock_fn, report) {
 	let out = {};
 	let left = [ ...ids ];
 	let env = { clock: clock_fn ?? (() => clock(true)) };
-	let st = { import_fn, task: null, gen: 0, id: null, started: null, done: false, lost: 0 };
+	let st = { import_fn, task: null, gen: 0, id: null, started: null, done: false, lost: 0, parts: [] };
 	let timer = null;
 
 	seconds ??= LOAD_TIMEOUT;
@@ -57,7 +60,11 @@ export function probe(ids, import_fn, seconds, clock_fn, report) {
 				error = substr(split(e.message, '\n')[0], 0, 1024);
 			}
 
-			pipe.send({ id, error, data: report ? data : null });
+			let text = b64enc(sprintf('%J', { error, data: report ? data : null }));
+
+			for (let at = 0; at < length(text); at += PART)
+				pipe.send({ id, part: substr(text, at, PART) });
+			pipe.send({ id, whole: true });
 		}
 
 		return { end: true };
@@ -73,6 +80,7 @@ export function probe(ids, import_fn, seconds, clock_fn, report) {
 			return null;
 
 		st.id = shift(left);
+		st.parts = [];
 		st.started = now(env);
 		timer.set(POLL_MS);
 		return st.id;
@@ -87,8 +95,26 @@ export function probe(ids, import_fn, seconds, clock_fn, report) {
 			return uloop.end();
 		}
 
-		if (msg?.id == st.id)
-			finish({ ok: msg.error == null, error: msg.error, hung: false, ...(report ? { data: msg.data } : {}) });
+		if (msg?.id != st.id)
+			return;
+		if (type(msg.part) == 'string')
+			return push(st.parts, msg.part);
+		if (!msg.whole)
+			return;
+
+		let o = null;
+
+		try {
+			o = json(b64dec(join('', st.parts)) ?? '');
+		} catch (e) {
+			o = null;
+		}
+
+		st.parts = [];
+		if (type(o) != 'object')
+			return finish({ ok: false, error: 'what its process said of it did not cross whole', hung: false });
+
+		finish({ ok: o.error == null, error: o.error, hung: false, ...(report ? { data: o.data } : {}) });
 	}
 
 	function spawn() {
