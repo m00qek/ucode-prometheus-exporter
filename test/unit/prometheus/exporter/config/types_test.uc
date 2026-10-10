@@ -151,10 +151,12 @@ describe('config.types.datatype', () => {
 
 	it('owned_directory takes a directory under /var, /tmp or /etc/prometheus-exporter, and no other', () => {
 		assert.match([ true, true, true, true ], map([ '/var/prometheus', '/tmp/a/b/', '/etc/prometheus-exporter/m', '/var/lib/metrics' ], (d) => check('owned_directory', d)));
-		assert.match('o: expected a directory under /var, /tmp or /etc/prometheus-exporter, which the service makes and mounts, got "/srv/prom"',
+		assert.match('o: expected a directory under /var, /tmp or /etc/prometheus-exporter, and not under /var/run or /tmp/run, which the service makes and mounts, got "/srv/prom"',
 			check('owned_directory', '/srv/prom'));
 
-		for (let d in [ '/var', '/tmp/', '/etc/prometheus-exporter', '/etc/config', '/var/../etc/x', '/tmp/./x', 'var/x', '/variable/x', '/', '' ])
+		// Every service's run directory, the exporter's own too: its state, the TLS copies.
+		for (let d in [ '/var', '/tmp/', '/etc/prometheus-exporter', '/etc/config', '/var/../etc/x', '/tmp/./x', 'var/x', '/variable/x', '/', '',
+		                '/var/run', '/var/run/prometheus-exporter', '/var/run/prometheus-exporter/state', '/tmp/run/hostapd', '/var/run/ubus' ])
 			assert.match(false, check('owned_directory', d) === true, d);
 	});
 

@@ -80,7 +80,7 @@ export const CODES = {
 	[ABSOLUTE_PATH]: { args: [], value: true, text: () => 'an absolute path' },
 	[OWNED_DIRECTORY]: {
 		args: [], value: true,
-		text: () => 'a directory under /var, /tmp or /etc/prometheus-exporter, which the service makes and mounts',
+		text: () => 'a directory under /var, /tmp or /etc/prometheus-exporter, and not under /var/run or /tmp/run, which the service makes and mounts',
 	},
 	[TLS_PATH]: {
 		args: [], value: true,

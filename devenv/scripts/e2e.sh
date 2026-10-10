@@ -903,10 +903,25 @@ sleep 3
 check "a directory elsewhere keeps the running instance" test "$(pid)" = "$before"
 check "which it neither makes" test ! -e /srv/e2e-prom
 check "nor mounts" not_mounted /srv/e2e-prom
-check "check says why" says 'directory: expected a directory under /var, /tmp or /etc/prometheus-exporter, which the service makes and mounts, got "/srv/e2e-prom"' "$INIT" check
+check "check says why" says 'directory: expected a directory under /var, /tmp or /etc/prometheus-exporter, and not under /var/run or /tmp/run, which the service makes and mounts, got "/srv/e2e-prom"' "$INIT" check
 check "and validate, by its code" says '"code": "OWNED_DIRECTORY"' rpc validate '{"collectors":{"textfile":{"directory":"/srv/e2e-prom"}}}'
+check "nor a service's run directory, its own included" says '"code": "OWNED_DIRECTORY"' rpc validate "{\"collectors\":{\"textfile\":{\"directory\":\"/var/run/$NAME\"}}}"
+# /tmp is everyone's: a directory another user made there first, or a link of
+# theirs in its place, is neither made nor mounted, and said so.
+mkdir -p /tmp/e2e-theirs && chown nobody /tmp/e2e-theirs
+ln -s /etc /tmp/e2e-link && chown -h nobody /tmp/e2e-link
+set_config "$NAME.textfile.directory=/var/e2e-theirs"
+eventually "a directory another user made under /tmp is not mounted" not_mounted /var/e2e-theirs
+check "check says why" says "warn .*/var/e2e-theirs: /var/e2e-theirs is not root's: neither made nor mounted" "$INIT" check
+check "and the reload logged it, at err" says "daemon.err $NAME: /var/e2e-theirs: /var/e2e-theirs is not root's: neither made nor mounted" logread
+set_config "$NAME.textfile.directory=/var/e2e-link/e2e"
+eventually "nor a path through a link another user made" says "/var/e2e-link/e2e: /var/e2e-link is a link that is not root's: neither made nor mounted" logread
+check "under which root made nothing" test ! -e /etc/e2e
+check "nor mounted it" not_mounted /var/e2e-link/e2e
+rm -rf /tmp/e2e-theirs /tmp/e2e-link
 set_config "$NAME.textfile.directory=/tmp/e2e/prom/"
 eventually "back under /tmp, it is served" served textfile
+check "made as root's, mode 0755" test "$(owned /tmp/e2e/prom)" = "drwxr-xr-x root root"
 
 before=$(pid)
 set_config "$NAME.main.listen_port=http"

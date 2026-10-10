@@ -36,6 +36,17 @@ function absolute_path(v) {
 /** The directories under which the service makes and mounts a collector's own directories. */
 export const OWNED_ROOTS = [ '/var', '/tmp', '/etc/prometheus-exporter' ];
 
+/** The run directories of every service, under OWNED_ROOTS, where an option names no directory of its own. */
+export const RUN_ROOTS = [ '/var/run', '/tmp/run' ];
+
+function under(p, roots) {
+	for (let root in roots)
+		if (length(p) > length(root) + 1 && substr(p, 0, length(root) + 1) == `${root}/`)
+			return true;
+
+	return false;
+}
+
 /**
  * Whether `v` is a directory the service may make and mount as a collector's own.
  *
@@ -48,11 +59,7 @@ export function is_owned_directory(v) {
 
 	let p = rtrim(v, '/');
 
-	for (let root in OWNED_ROOTS)
-		if (length(p) > length(root) + 1 && substr(p, 0, length(root) + 1) == `${root}/`)
-			return true;
-
-	return false;
+	return under(p, OWNED_ROOTS) && !under(p, RUN_ROOTS) && !(p in RUN_ROOTS);
 };
 
 /** The directories `cert` and `key` may be under: where certificates are kept, and the exporter's own. */

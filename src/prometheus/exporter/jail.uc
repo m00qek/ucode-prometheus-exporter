@@ -11,7 +11,7 @@ import * as config from 'prometheus.exporter.config';
 import * as privileges from 'prometheus.exporter.privileges';
 import * as grant from 'prometheus.exporter.grant';
 import { uci_handles } from 'prometheus.exporter.deps';
-import { DIR as STATE_DIR } from 'prometheus.exporter.state';
+import { DIR as STATE_DIR, RUN_DIR } from 'prometheus.exporter.state';
 
 /**
  * What the jail's functions take of the system: a uci cursor, fs, and a PATH.
@@ -104,11 +104,54 @@ export function path_problem(path) {
  */
 export function owned_problem(path) {
 	let why = path_problem(path);
+	let own_run = (type(path) == 'string') && substr(path, 0, length(RUN_DIR) + 1) == `${RUN_DIR}/` &&
+		path != STATE_DIR && substr(path, 0, length(STATE_DIR) + 1) != `${STATE_DIR}/`;
 
-	if (why == null && !config.is_owned_directory(path))
-		why = `${path} is not under ${join(', ', config.OWNED_ROOTS)}: the service makes and mounts no other directory`;
+	if (why == null && !config.is_owned_directory(path) && !own_run)
+		why = `${path} is not under ${join(', ', config.OWNED_ROOTS)}, or is under ${join(' or ', config.RUN_ROOTS)}: the service makes and mounts no other directory`;
 
 	return why;
+};
+
+/**
+ * Why root may not make or mount `path` as the exporter's own, or null: each directory down to it must be root's, writable by no one else unless sticky, and a link in it root's; `make` makes those not there (0755).
+ *
+ * @param {module:fs} fs
+ * @param {string} path
+ * @param {boolean} make
+ * @returns {?string}
+ */
+export function owned_walk(fs, path, make) {
+	let dir = '';
+
+	for (let part in split(substr(path, 1), '/')) {
+		dir += '/' + part;
+
+		let st = fs.lstat(dir);
+
+		if (st == null) {
+			if (!make)
+				return `${dir} is not there`;
+			if (!fs.mkdir(dir, 0o755) && fs.lstat(dir) == null)
+				return `cannot make ${dir}: ${fs.error() ?? 'unknown error'}`;
+			st = fs.lstat(dir);
+		}
+
+		if (st?.type == 'link') {
+			if (st.uid != 0)
+				return `${dir} is a link that is not root's`;
+			st = fs.stat(dir);
+		}
+
+		if (st?.type != 'directory')
+			return `${dir} is not a directory`;
+		if (st.uid != 0)
+			return `${dir} is not root's`;
+		if ((st.perm?.group_write || st.perm?.other_write) && !st.perm?.sticky)
+			return `${dir} may be written by others than root`;
+	}
+
+	return null;
 };
 
 /**
@@ -264,6 +307,15 @@ export function collector(c, sys) {
 
 	push(problems, ...calls.problems);
 
+	for (let p in (sys.fs.lstat ? owned : [])) {
+		let why = (sys.fs.lstat(p) != null) ? owned_walk(sys.fs, p, false) : null;
+
+		if (why) {
+			push(problems, `${p}: ${why}: neither made nor mounted`);
+			paths = filter(paths, (q) => q != p);
+		}
+	}
+
 	let missing = filter(paths, (p) => !(p in owned) && sys.fs.stat(p) == null);
 	let mounts = [ ...configs, ...filter(paths, (p) => !(p in missing)) ];
 
@@ -389,7 +441,7 @@ export function grants(collectors, sys) {
 };
 
 /**
- * Makes the directories of `paths` that are not there, and their parents.
+ * Makes the directories of `paths` that are not there, and their parents, as owned_walk() takes them.
  *
  * @param {module:fs} fs
  * @param {string[]} paths
@@ -400,22 +452,12 @@ export function make(fs, paths) {
 	let problems = [];
 
 	for (let p in paths) {
-		if (fs.stat(p) != null)
-			continue;
+		let there = fs.lstat(p) != null;
+		let why = owned_walk(fs, p, true);
 
-		let dir = '';
-		let failed = false;
-
-		for (let part in split(substr(p, 1), '/')) {
-			dir += '/' + part;
-			if (fs.stat(dir) == null && !fs.mkdir(dir, 0755)) {
-				push(problems, `cannot make ${dir}: ${fs.error() ?? 'unknown error'}`);
-				failed = true;
-				break;
-			}
-		}
-
-		if (!failed)
+		if (why)
+			push(problems, `${p}: ${why}: neither made nor mounted`);
+		else if (!there)
 			push(made, p);
 	}
 

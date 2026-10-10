@@ -90,7 +90,7 @@ Nothing the user lacks is taken for nothing to observe. A collector fails `PERMI
 | :--- | :--- |
 | `'/var/run/bmx7/json'` | That path. |
 | `'{directory}'` | The value of the string option `directory`. |
-| `{ path: '{directory}', owned: true }` | That path, which is the exporter's own: the service makes it, with its parents (mode 0755), when it is not there. It must be under `/var`, `/tmp` or `/etc/prometheus-exporter`: see [below](#owned-paths). |
+| `{ path: '{directory}', owned: true }` | That path, which is the exporter's own: the service makes it, with its parents (root's, mode 0755), when it is not there. It must be under `/var`, `/tmp` or `/etc/prometheus-exporter`, and not under `/var/run` or `/tmp/run`: see [below](#owned-paths). |
 | `(options, uci) => [ ... ]` | What the function returns for the collector's options and the configs it reads. |
 
 A path is refused, with a warning, when it is not absolute, holds a space, a control or a glob character, is not plain (`//`, `.`, `..`, or a trailing `/`), or is one of the directories every service shares:
@@ -108,7 +108,9 @@ The service makes an owned path as root, and mounts it, so it takes one only bel
 | `/var`, `/tmp` | tmpfs on OpenWrt (`/var` is `/tmp`): what a script writes there often does not wear the flash. |
 | `/etc/prometheus-exporter` | The exporter's own, on flash: for files that must outlive a reboot. |
 
-An option that names one, as textfile's `directory`, has the datatype `owned_directory`, which takes the same: the configuration is refused with `OWNED_DIRECTORY` (see [UCI configuration](uci-config.md#problems)) before the service makes anything.
+Nor under `/var/run` or `/tmp/run`, every service's run directory, but for a directory of the exporter's own, `/var/run/prometheus-exporter/<name>`, which a collector's `meta` names (timesync's), not its state. An option that names one, as textfile's `directory`, has the datatype `owned_directory`, which takes the same but none of `/var/run`: the configuration is refused with `OWNED_DIRECTORY` (see [UCI configuration](uci-config.md#problems)) before the service makes anything.
+
+Before it makes or mounts an owned path, `jail.uc` walks it from `/`, without following a link it has not checked: each directory must be root's, writable by no one else unless sticky (`/tmp`), and a link root's (`/var`, a link to `/tmp`). It makes each directory not there, root's and 0755, and checks it again once made. A path that fails, as a `/tmp/prometheus` another user made, or a link there, is neither made nor mounted: `jail.uc --make` logs `<path>: <why>: neither made nor mounted` at err, and `check` warns of it. See [About the security model](../explanation/security.md#a-jail-built-from-declarations).
 
 ## Missing paths
 

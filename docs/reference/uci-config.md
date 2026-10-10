@@ -61,7 +61,7 @@ A boolean takes `1`, `yes`, `on`, `true`, `enabled` for true and `0`, `no`, `off
 | :--- | :--- |
 | `crypt` | a crypt hash: $1$ (uhttpd -m), $5$ or $6$ |
 | `file` | an absolute path |
-| `owned_directory` | a directory under /var, /tmp or /etc/prometheus-exporter, which the service makes and mounts |
+| `owned_directory` | a directory under /var, /tmp or /etc/prometheus-exporter, and not under /var/run or /tmp/run, which the service makes and mounts |
 | `range(1,100000)` | an integer from 1 to 100000 |
 | `range(1,1000000)` | an integer from 1 to 1000000 |
 | `range(1,30)` | an integer from 1 to 30 |
@@ -88,7 +88,7 @@ What the exporter finds wrong with a value, or with options that go together, ha
 | `UINTEGER` | `value` | expected an integer of 0 or more, got `value` |
 | `ZERO_OR_MIN` | `min`, `value` | expected 0, or an integer of `min` or more, got `value` |
 | `ABSOLUTE_PATH` | `value` | expected an absolute path, got `value` |
-| `OWNED_DIRECTORY` | `value` | expected a directory under /var, /tmp or /etc/prometheus-exporter, which the service makes and mounts, got `value` |
+| `OWNED_DIRECTORY` | `value` | expected a directory under /var, /tmp or /etc/prometheus-exporter, and not under /var/run or /tmp/run, which the service makes and mounts, got `value` |
 | `TLS_PATH` | `value` | expected a file under /etc/ssl, /etc/acme or /etc/prometheus-exporter, or uhttpd's own, /etc/uhttpd.\*, got `value` |
 | `TLS_FILE` | `max`, `value` | expected a regular file of at most `max` bytes, which its links, if any, leave under /etc/ssl, /etc/acme, /etc/prometheus-exporter or /etc/uhttpd.\*, got `value` |
 | `REGEX` | `value` | expected a regular expression, got `value` |

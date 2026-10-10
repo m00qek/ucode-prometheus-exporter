@@ -60,6 +60,7 @@ export const datatype = types.datatype;
 export const convert = types.convert;
 
 export const OWNED_ROOTS = types.OWNED_ROOTS;
+export const RUN_ROOTS = types.RUN_ROOTS;
 export const is_owned_directory = types.is_owned_directory;
 export const TLS_DIRS = types.TLS_DIRS;
 export const TLS_FILE_MAX = types.TLS_FILE_MAX;

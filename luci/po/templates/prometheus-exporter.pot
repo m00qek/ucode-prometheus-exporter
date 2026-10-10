@@ -45,7 +45,9 @@ msgid "%s must be a crypt hash: $1$ (uhttpd -m), $5$ or $6$"
 msgstr ""
 
 #: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter.js:138
-msgid "%s must be a directory under /var, /tmp or /etc/prometheus-exporter"
+msgid ""
+"%s must be a directory under /var, /tmp or /etc/prometheus-exporter, and not "
+"under /var/run or /tmp/run"
 msgstr ""
 
 #: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter.js:139

@@ -124,9 +124,16 @@ describe('jail.resolve_paths', () => {
 
 		for (let d in [ '/var/prom', '/tmp/a/b', '/etc/prometheus-exporter/metrics' ])
 			assert.match({ paths: [ d ], owned: [ d ], problems: [] }, owned(d), d);
-		for (let d in [ '/srv/prom', '/etc/metrics', '/etc/prometheus-exporterx/a', '/root/prom', '/usr/lib/prom', '/etc/prometheus-exporter' ])
-			assert.match({ paths: [], owned: [], problems: [ `${d} is not under /var, /tmp, /etc/prometheus-exporter: the service makes and mounts no other directory` ] },
+		for (let d in [ '/srv/prom', '/etc/metrics', '/etc/prometheus-exporterx/a', '/root/prom', '/usr/lib/prom', '/etc/prometheus-exporter',
+		                '/var/run/hostapd', '/tmp/run/x', '/var/run/prometheus-exporter', '/var/run/prometheus-exporter/state', '/var/run/prometheus-exporter/state/x' ])
+			assert.match({ paths: [], owned: [], problems: [ `${d} is not under /var, /tmp, /etc/prometheus-exporter, or is under /var/run or /tmp/run: the service makes and mounts no other directory` ] },
 				owned(d), d);
+	});
+
+	// timesync's, which its meta names: the exporter's run directory, but not its state.
+	it('owns a directory of the exporter\'s run directory that a meta names, but for the state', () => {
+		assert.match({ paths: [ '/var/run/prometheus-exporter/timesync' ], owned: [ '/var/run/prometheus-exporter/timesync' ], problems: [] },
+			jail.resolve_paths({ paths: [ { path: '/var/run/prometheus-exporter/timesync', owned: true } ] }, {}, {}));
 	});
 
 	it('still takes a path of another service\'s outside them, which it does not own', () => {
@@ -504,42 +511,84 @@ describe('jail.grants', () => {
 });
 
 describe('jail.make', () => {
-	// A filesystem with these directories, that records what it makes, and
-	// cannot make those of `refuse`.
+	const ROOT = { type: 'directory', uid: 0, perm: {} };
+	const STICKY = { type: 'directory', uid: 0, perm: { group_write: true, other_write: true, sticky: true } };
+
+	// A filesystem of `present` ({ path: lstat }), with /var a link of root's
+	// to /tmp, that records what it makes, and cannot make those of `refuse`.
 	function dirs(present, refuse) {
 		let made = [];
+		let all = { '/': ROOT, '/var': { type: 'link', uid: 0 }, '/tmp': STICKY, '/etc': ROOT, ...present };
 		let fs = {
-			stat: (p) => (p in present || p in made) ? { type: 'directory' } : null,
+			lstat: (p) => all[p] ?? all[replace(p, /^\/var\//, '/tmp/')],
+			stat: (p) => (p == '/var') ? all['/tmp'] : (all[p] ?? all[replace(p, /^\/var\//, '/tmp/')]),
 			mkdir: function(p, mode) {
 				if (p in (refuse ?? []))
 					return null;
 				push(made, [ p, mode ]);
-				push(made, p);
+				all[p] = ROOT;
 				return true;
 			},
 			error: () => 'Permission denied',
 		};
 
-		return { fs, made: () => filter(made, (m) => type(m) == 'array') };
+		return { fs, made: () => made };
 	}
 
-	it('makes a directory that is not there, and its parents', () => {
-		let d = dirs([ '/var' ]);
+	it('makes a directory that is not there, and its parents, root\'s and 0755, through /var, a link of root\'s', () => {
+		let d = dirs({});
 
-		assert.match({ made: [ '/var/prometheus', '/srv/a/b' ], problems: [] }, jail.make(d.fs, [ '/var/prometheus', '/srv/a/b' ]));
-		assert.match([ [ '/var/prometheus', 0755 ], [ '/srv', 0755 ], [ '/srv/a', 0755 ], [ '/srv/a/b', 0755 ] ], d.made());
+		assert.match({ made: [ '/var/prometheus', '/etc/prometheus-exporter/a/b' ], problems: [] },
+			jail.make(d.fs, [ '/var/prometheus', '/etc/prometheus-exporter/a/b' ]));
+		assert.match([ [ '/var/prometheus', 0o755 ], [ '/etc/prometheus-exporter', 0o755 ], [ '/etc/prometheus-exporter/a', 0o755 ], [ '/etc/prometheus-exporter/a/b', 0o755 ] ],
+			d.made());
 	});
 
 	it('leaves one that is there as it is', () => {
-		let d = dirs([ '/var', '/var/prometheus' ]);
+		let d = dirs({ '/tmp/prometheus': ROOT });
 
 		assert.match({ made: [], problems: [] }, jail.make(d.fs, [ '/var/prometheus' ]));
 		assert.match([], d.made());
 	});
 
-	it('says what it cannot make, and goes on', () => {
-		let d = dirs([], [ '/ro' ]);
+	// /tmp is everyone's: a user that starts before the service could make
+	// the directory, or a link in its place, and have root mount what it chose.
+	it('makes and mounts nothing through a directory or a link another user made, or one others may write', () => {
+		for (let t in [
+			[ { '/tmp/prometheus': { type: 'directory', uid: 1000, perm: {} } }, '/var/prometheus is not root\'s' ],
+			[ { '/tmp/prometheus': { type: 'link', uid: 1000 } }, '/var/prometheus is a link that is not root\'s' ],
+			[ { '/tmp/prometheus': { type: 'directory', uid: 0, perm: { other_write: true } } }, '/var/prometheus may be written by others than root' ],
+			[ { '/tmp/prometheus': { type: 'file', uid: 0 } }, '/var/prometheus is not a directory' ],
+			[ { '/tmp/a': { type: 'directory', uid: 1000, perm: {} } }, '/var/a is not root\'s' ],
+		]) {
+			let d = dirs(t[0]);
+			let p = (index(t[1], '/var/a') == 0) ? '/var/a/b' : '/var/prometheus';
 
-		assert.match({ made: [ '/w' ], problems: [ 'cannot make /ro: Permission denied' ] }, jail.make(d.fs, [ '/ro/x', '/w' ]));
+			assert.match({ made: [], problems: [ `${p}: ${t[1]}: neither made nor mounted` ] }, jail.make(d.fs, [ p ]), t[1]);
+			assert.match([], d.made());
+		}
+	});
+
+	it('says what it cannot make, and goes on', () => {
+		let d = dirs({}, [ '/etc/prometheus-exporter' ]);
+
+		assert.match({ made: [ '/var/w' ], problems: [ '/etc/prometheus-exporter/x: cannot make /etc/prometheus-exporter: Permission denied: neither made nor mounted' ] },
+			jail.make(d.fs, [ '/etc/prometheus-exporter/x', '/var/w' ]));
+	});
+});
+
+describe('jail.collector, an owned path', () => {
+	it('is neither mounted nor taken when it is there and not as the service would make it', () => {
+		let fs = {
+			lstat: (p) => ({ '/': { type: 'directory', uid: 0, perm: {} }, '/var': { type: 'directory', uid: 0, perm: {} },
+				'/var/own': { type: 'link', uid: 1000 } })[p],
+			stat: (p) => (p == '/var/own') ? { type: 'directory', uid: 0, perm: {} } : null,
+		};
+
+		with_sys({}, {}, fs, (sys) => {
+			let j = jail.collector(OWNER, sys);
+
+			assert.match([ false, [ '/var/own: /var/own is a link that is not root\'s: neither made nor mounted' ] ], [ '/var/own' in j.mounts, j.problems ]);
+		});
 	});
 });
