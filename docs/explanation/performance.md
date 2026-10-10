@@ -227,6 +227,8 @@ Loading the same program as precompiled bytecode stripped of its debug informati
 
 On the access point, whose installed exporter is not the source tree's, uhttpd cannot run this one: the case limits the benchmark's scrape process instead, which lacks uhttpd's own data, and found the same as uhttpd does in the devenv for every collector, and 1 MB less for the base ones. So 8 MB holds on each, 32-bit and 64-bit, with room for a collector or two of another package. A busy router's scrape takes more: the benchmark's large world, 20,000 connections and every collector, needs 29 MB in the devenv, 27 MB on the A53; `memory_limit` 0, a quarter of the RAM, at most 64 MB, gives it that on a router of 128 MB or more.
 
+The default limits were sized on the benchmark's large world. `max_samples`, 20,000: the most one collector writes there is 3,650 (snmp6 on 50 devices), at some 0.5 kB held per sample, so a runaway is bounded at some 10 MB. `max_scrape_samples`, 200,000: the world writes 33,600, at some 0.2 kB per sample in the scrape process, so 40 MB, under the 64 MB cap of memory_limit, whose peak there is 30 MB on 64 bits and 22 MB on a 32-bit MIPS. `exec_timeout`, 5 s: the programs collectors run answer in milliseconds, or about a second for an ssh login to a radio, and a hung one still leaves the rest of Prometheus's 10 s.
+
 ## What each collector costs {#each-collector}
 
 What a collector adds to what uhttpd holds (compiled with the collector API, in the devenv, to 4 kB), and its run on the benchmark's large world (50 links, 3 radios of 3 networks and 200 stations, 2,000 DHCP leases), in each case's process:

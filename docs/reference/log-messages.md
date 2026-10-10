@@ -44,6 +44,8 @@ Logged by uhttpd's handler, with the pid of the uhttpd process.
 | `the scrape could not be recorded in the instance's state: its ledger is as the last scrape left it` | `warning` | The state's directory could not be written: the next scrape orders, times and quarantines the collectors by the ledger as it was. |
 | `main: <CODE (detail)>` | `err` | A scrape read a main section it does not take, and used the defaults. |
 
+The handler logs through ucode-mod-log, at each message's own priority, not to standard error, which procd would log at `err` whatever it said.
+
 ## The init script
 
 | Message | Priority | When |

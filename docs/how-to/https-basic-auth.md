@@ -42,6 +42,8 @@ uci commit prometheus-exporter-auth
 
 A hash made elsewhere must be `$1$` (as `uhttpd -m <password>` prints), or `$5$` or `$6$` of at most 2000 rounds, as `mkpasswd -m sha-512 -R 1000` makes. `openssl passwd -6` makes hashes of 5000 rounds, which are refused. Why: [Performance on small routers](../explanation/performance.md#basic-auth). Set one by hand in single quotes: the shell would read its `$` otherwise.
 
+A DES-crypt hash is not taken: its 13 characters could be a plain password, which uhttpd compares as text when it does not start with `$`. Nor is bcrypt, which ucode cannot compute in the time of a scrape. A hash made elsewhere must write `rounds=` as musl writes it back, without a leading zero and in range, or no password matches it.
+
 ## 2. Set the user, and HTTPS
 
 ```sh

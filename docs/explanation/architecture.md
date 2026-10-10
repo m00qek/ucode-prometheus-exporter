@@ -54,6 +54,8 @@ Loading is guarded the same way. uhttpd loads the collectors once, in the proces
 
 What this costs a scrape is a fork, a line and a run in the file for each collector, and the file; see [Performance on small routers](performance.md#a-process-per-collector).
 
+When no child can be forked, the system out of processes or memory, or the file the runs cross by cannot be made, the scrape runs the rest of its collectors in its own process, unguarded, rather than not at all.
+
 ## Only one module touches the system
 
 `prometheus_exporter.deps` and its modules, one per capability (`deps/ubus.uc`, `deps/exec.uc`, ...), are the only ones that import `fs`, `ubus`, `uci`, `rtnl`, `nl80211` and `socket`. A collector does not import them: it declares in `meta.needs` the capabilities it wants, and `collect` receives exactly those, in its `deps` argument. What it takes of the exporter's code comes from one module, `prometheus_exporter.api`, the collector API, and it imports no other: the loader refuses one that does, before it loads it. The API is to collectors what the ubus object and the configuration are to scripts, the surface a version promises; behind it, the core's modules move freely.
@@ -69,6 +71,8 @@ Taking every native function by name in one module also makes `make lint` meanin
 ## The loader
 
 The loader takes every module of the collectors' directory, refuses one that is not in strict mode (a variable never declared is then an error, not a global every later collector sees) or that imports anything but the collector API, loads each in a child process first, then those that loaded there as one program, validates its `meta` and `collect`, and leaves out one that does not load in time or is not valid, logging why. The handler has it do all of that in the child, and keeps what passed there. Should the one program not load, each module is loaded alone, as it was in its child. Loaded together, the collectors share the API's modules, as they share the child they run in: what the API exports (`Result`, `errors`, `services`, `proc`, `exposition`) are functions and constants, read-only by contract, to call and to read, and a collector that wrote over one would write over it for the others too, which strict mode does not stop. No collector has a reason to, and the exporter guards against mistakes, not against code written to get round it (see [Buggy, not hostile](security.md#buggy-not-hostile)). What a collector is handed is its own: each run gets a `deps` made for it, each capability with it, so one that writes over `deps.fs.readfile` changes it for itself alone. A broken subpackage costs its own collector and nothing else. The same loader runs in the handler, the command line, `check`, the jail's script and the ubus object, so all of them agree on what is installed.
+
+While the probe waits for its child, uloop takes SIGTERM and SIGINT, and uhttpd's own loop, which starts after the handler, would never see them: procd's SIGTERM to an instance still loading its collectors, as in an upgrade of several packages, would leave it serving without them until procd killed it. So each module not yet loaded is reported stopped, and the handler ends, as the signal would have ended it.
 
 ## Why the ubus object lives in rpcd
 

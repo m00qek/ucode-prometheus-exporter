@@ -26,6 +26,8 @@ Checking between collectors is only as good as the order they run in. In the ord
 
 A collector never timed runs after those the ledger knows: it may be the slow one. Among those never timed, the exporter's own run before those of other packages, and one that declares itself heavy (`meta.cost`) after the rest of its kind. The declaration orders and does nothing else: the deadline leaves a collector out only by what the ledger measured, so one that calls itself heavy is still run, and timed. The reply is in the same order whatever the run order: the collectors as the query names them, or by name.
 
+A collector's estimate is a moving average that weighs the last run by 0.25: a collector takes much the same time scrape after scrape, but for what grows or shrinks, as the conntrack table, and at 0.25 a one-scrape spike is half gone two scrapes later, a lasting change nine tenths there after eight. Before an instance has measured writing a reply, it reckons 50 µs a sample, a 500-MIPS MIPS core's, so a reply is never reckoned shorter than on the slowest router.
+
 ## Circuit breakers
 
 A deadline protects one scrape. A collector that hangs or fails every time needs more: it should stop costing scrapes at all, for a while. That is a circuit breaker, one per collector.

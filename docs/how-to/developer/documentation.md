@@ -35,7 +35,32 @@ Pick the folder by what the reader is doing, following [Diátaxis](https://diata
 
 Keep one type per page and link to the others instead of mixing them. Add every new page to `nav` in `mkdocs.yml` and to the `index.md` of its folder. Link between pages with relative paths, never with the site's URL, so each published version links to itself.
 
-The reasoning a reader needs lives in the explanation pages: when a change rests on a new reason, write it there, in the same change. Code and test comments follow the same rule: give the reason in a few words, or point to the explanation page that holds it.
+The reasoning a reader needs lives in the explanation pages: when a change rests on a new reason, write it there, in the same change.
+
+## Comments in the code
+
+The code under `src/`, `files/` and `luci/` carries no explanatory comments: its explanation is here, in the docs. A reason that shapes the design goes in the explanation page it belongs to; a quirk of ucode, of a module or of the kernel that the code works round, or why a piece of code is shaped as it is, goes in [About the implementation](../../explanation/internals.md). Tests may keep their comments: they do not ship.
+
+An exported symbol of a module has a JSDoc block for the language server, and nothing more: a one-line summary, and its types.
+
+```js
+/**
+ * The scrapes left before the trial, seen from scrape `m`; null for a closed breaker.
+ *
+ * @param {?LedgerEntry} entry
+ * @param {int} m
+ * @returns {?int}
+ */
+export function left(entry, m) {
+```
+
+The tags are `@module`, `@typedef` (record types too, where the type is defined), `@template`, `@param {T} name` and `@returns {T}`, and `{@link}` in a summary; an exported constant has its summary alone, `/** … */`. A function that is not exported has no comment.
+
+The package build strips every comment that is left, JSDoc too, from the ucode and JavaScript files it installs, and keeps a newline for each line it empties, so a device gets no comments and the line of an error on it is the line here. To check that a change to comments changed nothing else:
+
+```bash
+make same-code REV=main
+```
 
 ## Generated pages
 

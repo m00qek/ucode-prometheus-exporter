@@ -64,6 +64,8 @@ Every key is optional.
 | `logs`, `levels` | What the scrape and the collector logged, and the level of each. |
 | `families` | Its families as the format reads them back: `{ name, type, help, samples }`. |
 
+A breach of the contract is recorded during the run and fails the test after it, never from inside: the collector's error boundary would take a failure there for a crash, and a collector that falls back on a default (`readfile(p) ?? ''`) would pass.
+
 ## `prometheus_exporter.devkit.fixtures`
 
 | Export | Is |
@@ -104,6 +106,8 @@ For a collector that tells a disabled service from a failure, with the API's `se
 | `rtnl` | The command as rtnl's constants name it, with the device where the request has one: `RTM_GETLINK:eth0`, else `RTM_GETLINK`. A value is a reply, or a function of `(flags, attrs)`. | `errors`: the message after that request fails. |
 | `nl80211` | As rtnl's: `NL80211_CMD_GET_STATION:phy0-ap0`. | `errors`. |
 | `socket` | A Unix socket's path. A value is the server's whole reply, or a function of the request. | `errors`: the message after `connect()` fails there (`connect(): Connection refused`); `hangs`: the server replies and never closes, so the next read times out. Any other path is missing (`ENOENT`). |
+
+The devkit ships its own proxies because utest 1.5 has none for rtnl, nl80211 or socket, and its ubus proxy lacks `list()` and `error()`; `commands.fs()` replaces utest's popen mock, whose handle closes without the exit status 25.12's ucode gives. The proxies are programs, hence their top-level `return`.
 
 ## See also
 

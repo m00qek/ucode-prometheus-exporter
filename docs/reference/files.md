@@ -60,6 +60,8 @@ It makes the user and group `prometheus-exporter`, which uhttpd runs as in the s
 
 All are on tmpfs: none survives a reboot.
 
+busybox ntpd runs `/usr/sbin/ntpd-hotplug` on a step, a new stratum, a loss of sync and periodically, and procd hands each `hotplug.d/ntp` script ntpd's environment: `ACTION`, `stratum`, `offset`, `freq_drift_ppm` and `poll_interval`. chrony's own hotplug call has no `stratum`, so the script keeps nothing of it. It writes the file whole and renames it into place, so timesync never reads half of one.
+
 ## `ucode-prometheus-exporter-cli`
 
 The command line, [`prometheus-exporter`](command.md): a scrape on standard output, the check, the installed collectors listed, a collector module checked before it is installed, and the hash of a password. The service, its check, its ubus object and LuCI need none of it. Depends on the base package of the very same version and on `ucode-docopt`, which parses the command's arguments, from the same feed as the exporter; nothing else depends on `ucode-docopt`. 16 KiB installed, and `ucode-docopt` 43 KiB.

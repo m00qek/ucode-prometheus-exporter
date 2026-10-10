@@ -224,6 +224,8 @@ $ ubus call prometheus-exporter.filesystem mounts
 
 As getMountPoints does, it statvfs()es every mount, a network mount that hangs included, in rpcd's process.
 
+ucode's fs module has no `statvfs()` on 25.12, so the plugin takes luci-base's `luci.core`, and requires it when `mounts` is called, not when rpcd loads the plugin: a luci-base without it fails the call and leaves rpcd and its other objects as they are.
+
 ## Access
 
 Over HTTP, through uhttpd-mod-ubus, a session needs the methods in its ACL. The LuCI app's ACL, `luci-app-prometheus-exporter`, grants `collectors`, `interfaces`, `password`, `status` and `validate` to read, and `set_password` to write. See [LuCI app](luci.md#acl).

@@ -63,6 +63,8 @@ uhttpd has basic auth of its own: a config file of `prefix:user:hash` lines, `-c
 
 So the handler reads the same file when it starts, and checks every request against it before it scrapes, computing the hash in ucode as musl's crypt would. On a uhttpd that does check, the request is checked twice; on one that does not, it is checked once, which is what matters. A file that is there but wrong denies every request rather than letting them through, and so does a file that is not there while the configuration sets `auth_user`: should the file go and procd start uhttpd again as it was, with no file for the jail to mount, the handler reads the exporter's configuration, which the jail has, and fails closed rather than serve without the login it asks for.
 
+The hash is computed for any user, so a wrong user takes as long as a wrong password.
+
 ### The cache, and what it trades
 
 Computing a hash costs real time on a router's CPU: 135 ms for `hash_password`'s 1000 rounds of SHA-512-crypt on a 500-MIPS MIPS core, at every scrape. And uhttpd's process per request keeps nothing in memory. So, after a request is let in, the handler writes to its state directory the SHA-256 of that request's exact `Authorization` header, bound to the user and the hash; a later request with the same header is let in on that digest, compared in constant time. Any other header pays the full check, and a wrong one stays out, leaving the entry as it was. A changed user or password lets nothing in by the old entry, and a restart forgets it.

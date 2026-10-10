@@ -19,6 +19,8 @@ Every mount is read-only but the state. The ubus socket is not among them: see [
 
 `check`, the ubus object's `status` and `prometheus-exporter scrape` run their collectors in a jail of the same mounts, with ujail, at the same priority and data limit, with ubus (ujail's `-u`) only when the service's jail has it: `/usr/libexec/prometheus-exporter/trial.uc`, with the libraries of `/usr/lib/ucode/*.so` given one by one (ujail mounts what each needs), named `prometheus-exporter-trial`. Where ujail cannot run they run outside it.
 
+The libraries of ucode's modules are mounted by glob (`/usr/lib/ucode/*.so`, libubus, …): ujail stages the libraries a library it is given needs, but not those of a directory's files.
+
 ## What a collector gets
 
 For each installed collector that is enabled:
@@ -33,6 +35,8 @@ For each installed collector that is enabled:
 | `paths` | Each path: see [below](#paths). |
 
 A disabled collector gets nothing. Nothing of `/etc/config` is there but the configs the enabled collectors name and the exporter's own. Which mounts each collector gets is in [Collectors](collectors.md) and in `check`.
+
+Some declarations are shaped by the jail. modemmanager gets the directory `/var/run/dbus`, not the system bus socket in it: dbus makes the socket anew each time it starts, and a bind mount of the old one would go stale. chrony and timesync run `chronyc -u root`: OpenWrt builds chrony to drop root for the `chrony` user, whom the jail, without `/etc/passwd`, cannot look up. timesync gets the directory of busybox ntpd's last event, not the file, which the hotplug script renames into it.
 
 ## The service's user {#the-services-user}
 
@@ -154,6 +158,10 @@ A path the service owns is never missing: it makes it first.
 
 A collector no longer installed is dropped from it.
 
+An instance needs its start time besides its pid: in the jail's own pid namespace uhttpd has the same pid at every start. The start time is the 22nd field of `/proc/<pid>/stat`, counted after the `)` that ends the command name, which may hold spaces. The 32 KiB a file may hold is sized by the ledger, the largest: some 30 bytes for a collector that never failed and 300 for one that failed every way it can.
+
+A ledger longer than a state file may be is written again without each breaker's `why` and each collector's failures by code: a state that cannot be written would lose the whole scrape's durations, breakers and counts.
+
 ## Files the service writes
 
 | Path | Mode | Written by | Mounted |
@@ -169,6 +177,8 @@ A collector no longer installed is dropped from it.
 | `/var/prometheus/` (textfile's `directory`) | 0755 | `jail.uc --make` | Read-only |
 
 The jail reads them as the service's user: textfile's `*.prom` files must be readable by it, as a file a script writes is (0644), or by its group; one only root reads is skipped, and logged.
+
+uhttpd's auth file is written to a temporary name and renamed into place, so a running instance's jail, which bind-mounted the old file, reads that one until it restarts.
 
 ## Restarts
 

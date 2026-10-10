@@ -12,5 +12,6 @@ Discussion of why the exporter is the way it is: to read away from the router, w
 | [What happens when a collector breaks](when-a-collector-breaks.md) | A hung ubus daemon, a stuck program, a huge conntrack table on a slow router, a label that is not UTF-8: what Prometheus gets from this exporter and from the Lua one, measured. |
 | [About metric names](metric-names.md) | node_exporter's names, the conventions, modern names only, and the build info. |
 | [Performance on small routers](performance.md) | The cost of ucode's VM, the measurements, gzip, basic auth, and nat_traffic on weak MIPS. |
+| [About the implementation](internals.md) | The quirks of ucode, its modules and the kernel the code works round, and why some code is shaped as it is: for maintainers. |
 | [About versions](versions.md) | What major, minor and patch promise, and how packages follow. |
 | [About versioned documentation](versioned-docs.md) | Why the docs are published per minor, and how they are fixed. |

@@ -44,6 +44,8 @@ What the exporter enforces of a collector, and what breaking each rule costs, is
 
 uhttpd loads them once, when it starts; a scrape runs what was loaded. Installing or removing a collector package reloads the service, which restarts uhttpd.
 
+Each collector's capabilities are made for it alone, copies included: a collector that overwrites one of their functions changes nothing for the collectors after it. uci cursors read the committed configuration only, never changes staged and not yet committed.
+
 ## The top level
 
 A module's top level runs twice each time the service starts: in a child process, where the probe stops it at 5 seconds, and again in uhttpd's own process, which every scrape is forked from and nothing guards. So it only declares, and leaves what it does to `collect()`:
@@ -163,6 +165,8 @@ The collector API's, for a collector to tell nothing to observe from a failure, 
 | `u16` | `u16(v)` | The same, for 16 bits (`blobmsg_add_u16`): a port of 51820 arrives as -13716. |
 
 `fs` is the collector's `deps.fs`. `exposition`'s functions load the exposition format the first time one is called.
+
+Each object the API exports lists exactly the names a collector may use, rather than re-exporting a core module whole: that list is what a major version protects. Every collector compiles its own copy of each module it imports, so the API imports only small modules, and loads the exposition format the first time one of its functions is called.
 
 ## `needs`
 

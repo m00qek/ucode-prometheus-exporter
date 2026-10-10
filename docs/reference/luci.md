@@ -13,6 +13,8 @@
 
 Both need the ACL `luci-app-prometheus-exporter` and the config `prometheus-exporter`.
 
+Every string from the router (collector names and help, packages, interfaces, paths, errors) reaches the page as a text node: inside an array of children of `E()`, or filled into a translated template piece by piece, never with `.format()`, whose `%s` puts text where markup may go, and never as a form's title or description, which LuCI renders as markup. `make lint`'s `luci-dom-lint.sh` refuses the usual ways round it.
+
 ## Services → Prometheus exporter
 
 The main section and the collector sections of `/etc/config/prometheus-exporter`, in four tabs: **General**, **HTTPS & login** and **Limits** hold the main section, **Collectors** the collectors. LuCI reopens the page on the tab last shown; at first, on **General**.
@@ -49,6 +51,8 @@ As LuCI's own router password, the password is changed apart from the form, and 
 - **Remove password**, shown while a hash is saved, asks, then hands `set_password` an empty password, which removes the hash and reloads the service. It needs **Basic auth user** empty: a user without a password is refused, so the row says to empty the user and Save & Apply first.
 
 Either says in a notification that it was done, or in its dialog why it failed. The password itself is never stored, nor sent but to `set_password`. A login that may only read sees whether a password is saved, its buttons disabled.
+
+Basic auth's fields are shown without TLS too, and the object refuses them there: LuCI unsets an option whose `depends` are not met, which would drop the user and leave the hash unused.
 
 ### Limits tab
 
@@ -96,9 +100,13 @@ A tab with a field the exporter or LuCI would refuse shows how many on its title
 
 A Save the exporter would refuse opens LuCI's **Save error** dialog, which lists each refused field and why, wherever the page is scrolled; the same list stays above the form until the values are fixed. Each field is named by its tab, as **HTTPS & login → Basic auth user**, and a collector's option by the collector's title and the option's, as **Collectors → Disk I/O → Excluded devices**. The name is a link: it closes the dialog, shows the tab, and gives the field the focus, or the collector's **Edit**. A refused dialog says why inside the dialog.
 
+The `regex` datatype is checked in the browser as a JavaScript regular expression, which catches unbalanced brackets; the exporter compiles it as POSIX extended, so the object's `validate` has the last word. The page's sentences for `validate`'s problem codes are its own translations of `config/problems.uc`'s English, and a test holds the two to the same codes: a new code goes into both in the same change.
+
 ### Without the ubus object
 
 While the ubus object is not there (rpcd reloading, or the package being upgraded), the page says **The exporter's ubus object is not available (rpcd may be restarting). Reload in a moment.** and is read-only: no field can be changed and **Save** is disabled. An error of a call is shown by its message, never with LuCI's stack trace.
+
+The page takes the object as missing on uhttpd's JSON-RPC errors -32000 (no such object) and -32002 (access cannot be checked: rpcd, which holds the sessions, is not answering), and on ubus's codes 3 and 4 (method or object not found).
 
 ## Status → Prometheus exporter
 
