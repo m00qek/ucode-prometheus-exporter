@@ -112,6 +112,7 @@ export function parse(text) {
 	let current = null;
 	let n = 0;
 	let utf8 = !utf8_valid(text ?? '');
+	let nul = index(text ?? '', '\0') >= 0;
 
 	function fail(msg) {
 		return Result.err(errors.EXPOSITION_INVALID, `line ${n}: ${msg}`);
@@ -136,6 +137,9 @@ export function parse(text) {
 
 	for (let line in split(text ?? '', '\n')) {
 		n++;
+		if (nul && index(line, '\0') >= 0)
+			return fail('holds a NUL byte');
+
 		line = rtrim(line, '\r');
 
 		if (trim(line) == '')

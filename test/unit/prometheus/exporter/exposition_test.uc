@@ -110,6 +110,30 @@ describe('exposition.recorder, refusing what Prometheus refuses a scrape for', (
 		})));
 	});
 
+	// ucode's regexes and replace() stop at a NUL: the bytes after it were
+	// checked by nothing, and a name went out with a newline and lines of
+	// its own. Prometheus has no escape for one.
+	it('stops at a NUL byte in a label value, on the path of each sample and in labels()', () => {
+		let why = 'its value holds a NUL byte';
+
+		for (let v in [ 'a\0"b', 'a\0\n"} 1\nevil 2', 'a\0\xe9', '\0' ]) {
+			assert.match([ exposition.INVALID, { family: 'g', label: 'v', why } ], refused((out) => out.gauge('g')({ v }, 1)), sprintf('%J', v));
+			assert.match([ exposition.INVALID, { family: 'g', label: 'v', why } ], refused((out) => out.gauge('g')({ v: 'x' }, 1)({ v }, 1)), sprintf('%J', v));
+			assert.match([ exposition.INVALID, { family: null, label: 'v', why } ], refused((out) => out.labels({ a: 1, v })), sprintf('%J', v));
+		}
+	});
+
+	it('stops at a NUL byte in HELP text or in a family\'s name, by a writer or batch()', () => {
+		assert.match([ exposition.INVALID, { family: 'h', label: null, why: 'its HELP text holds a NUL byte' } ],
+			refused((out) => out.gauge('h', 'a\0\xe9')(null, 1)));
+		assert.match([ exposition.INVALID, { family: 'h', label: null, why: 'its HELP text holds a NUL byte' } ],
+			refused((out) => out.batch('gauge', [ [ 'h', 'a\0\nb', 1 ] ])));
+		assert.match([ exposition.INVALID, { family: 'g\\0{x="1"} 2\nevil', label: null, why: 'its name holds a NUL byte' } ],
+			refused((out) => out.gauge('g\0{x="1"} 2\nevil')(null, 1)));
+		assert.match([ exposition.INVALID, { family: 'g\\0', label: null, why: 'its name holds a NUL byte' } ],
+			refused((out) => out.batch('counter', [ [ 'ok', null, 1 ], [ 'g\0', null, 1 ] ])));
+	});
+
 	it('stops every sample after the first refused, though the collector caught it', () => {
 		let out = exposition.recorder();
 		let g = out.gauge('g');
@@ -213,21 +237,33 @@ describe('exposition: properties', () => {
 	// Label sets are written whole and escaped only when a value needs it:
 	// values with quotes, backslashes and newlines, alone or not, by
 	// labels() or not, must still read back as they were.
-	prop('renders label sets that parse back unchanged, made once or per sample',
-		gen.array(gen.string({ charset: 'a"\\\n{}=, ', min_len: 0, max_len: 6 }), { min_len: 1, max_len: 3 }), (vals) => {
-			let out = exposition.recorder();
+	prop('renders label sets that parse back unchanged, made once or per sample, or refuses them',
+		gen.array(gen.string({ charset: 'a"\\\n{}=, \0', min_len: 0, max_len: 6 }), { min_len: 1, max_len: 3 }), (vals) => {
 			let labels = {};
+			let nul = false;
 
-			for (let i, v in vals)
+			for (let i, v in vals) {
 				labels[`l${i}`] = v;
+				nul ||= index(v, '\0') >= 0;
+			}
 
-			out.gauge('g')(labels, 1);
-			out.gauge('h')(out.labels(labels), 2);
+			for (let fill in [ (out) => out.gauge('g')(labels, 1), (out) => out.gauge('h')(out.labels(labels), 2) ]) {
+				let out = exposition.recorder();
 
-			let res = exposition.parse(exposition.render(out.families()));
-			assert.match(true, res.ok, res.details);
-			for (let fam in res.data)
-				assert.match(vals, map(fam.samples[0].labels, (p) => p[1]));
+				try {
+					fill(out);
+				} catch (e) {
+				}
+
+				if (nul) {
+					assert.match([ true, [] ], [ out.invalid() != null, out.families()[0]?.lines ?? [] ], sprintf('%J', vals));
+					continue;
+				}
+
+				let res = exposition.parse(exposition.render(out.families()));
+				assert.match(true, res.ok, res.details);
+				assert.match(vals, map(res.data[0].samples[0].labels, (p) => p[1]));
+			}
 		});
 
 	// A set of an object is written without a call when label_text() has
@@ -237,7 +273,7 @@ describe('exposition: properties', () => {
 	prop('writes a sample\'s labels as labels() makes them, the first time and after, or refuses both',
 		gen.array(gen.tuple(
 			gen.elements('src', 'dst', 'if-name', 'if_name', '1x', ''),
-			gen.oneof(gen.elements('', 'eth0', 'a"b', 'a\\b', 'x\ny', 'café', 'caf\xe9', '\xc3', '\xa9', 'é"'),
+			gen.oneof(gen.elements('', 'eth0', 'a"b', 'a\\b', 'x\ny', 'café', 'caf\xe9', '\xc3', '\xa9', 'é"', '\0', 'a\0"b', 'x\0\xe9', 'é\0\n'),
 				gen.int(-3, 3), gen.elements(0.5, 1 / 3.0, true, null, [ 1 ]))),
 			{ min_len: 0, max_len: 4 }), (pairs) => {
 			let labels = {};
@@ -285,8 +321,8 @@ describe('exposition: properties', () => {
 	// not, values numbers or not, and a sample limit.
 	prop('records what a writer for each row would, and stops where it would',
 		gen.tuple(gen.elements('counter', 'gauge', 'untyped'), gen.int(0, 6), gen.array(gen.tuple(
-			gen.elements('a', 'b', 'node_x_total', 'if-name', '1x', '', 'a:b'),
-			gen.elements(null, '', 'Help.', 'caf\xc3\xa9', 'caf\xe9', 'a\\b\nc', 'x'),
+			gen.elements('a', 'b', 'node_x_total', 'if-name', '1x', '', 'a:b', 'a\0b', 'b\0\n'),
+			gen.elements(null, '', 'Help.', 'caf\xc3\xa9', 'caf\xe9', 'a\\b\nc', 'x', 'a\0b', 'x\0\xe9'),
 			gen.oneof(gen.int(-3, 3), gen.elements('7', ' 0x1f\n', 'word', '', null, 0.5, 1 / 3.0, true, NaN))),
 			{ min_len: 0, max_len: 8 })), (t) => {
 			let mtype = t[0], max = t[1], rows = t[2];

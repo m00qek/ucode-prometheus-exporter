@@ -136,7 +136,7 @@ function sequence(b) {
  * @returns {boolean}
  */
 export function utf8_valid(text) {
-	if (!match(text, HIGH))
+	if (!match(text, HIGH) && index(text, '\0') < 0)
 		return true;
 
 	let n = length(text);
@@ -299,6 +299,8 @@ export function label_text(labels) {
 		return '';
 	if (renamed && clash(labels) != null)
 		return null;
+	if (index(values, '\0') >= 0)
+		return null;
 	if (match(values, SPECIAL))
 		return utf8_valid(text) ? format_labels(label_pairs(labels)) : null;
 
@@ -322,9 +324,12 @@ export function label_problem(labels) {
 	if (c != null)
 		return { label: c[2], why: `labels '${c[1]}' and '${c[0]}' are both '${c[2]}' once sanitized` };
 
-	for (let p in label_pairs(labels ?? {}))
+	for (let p in label_pairs(labels ?? {})) {
+		if (index(p[1], '\0') >= 0)
+			return { label: p[0], why: 'its value holds a NUL byte' };
 		if (!utf8_valid(p[1]))
 			return { label: p[0], why: 'its value is not valid UTF-8' };
+	}
 
 	return null;
 };

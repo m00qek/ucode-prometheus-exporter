@@ -126,12 +126,22 @@ export function recorder(max) {
 	}
 
 	function help_of(name, help) {
-		if (type(help) == 'string' && !utf8_valid(help))
-			refuse(name, null, 'its HELP text is not valid UTF-8');
+		if (type(help) == 'string') {
+			if (index(help, '\0') >= 0)
+				refuse(name, null, 'its HELP text holds a NUL byte');
+			if (!utf8_valid(help))
+				refuse(name, null, 'its HELP text is not valid UTF-8');
+		}
 		return help;
 	}
 
+	function named(name) {
+		if (type(name) == 'string' && index(name, '\0') >= 0)
+			refuse(join('\\0', split(name, '\0')), null, 'its name holds a NUL byte');
+	}
+
 	function family(name, mtype, help) {
+		named(name);
 		name = METRIC_NAMES[name] ?? ((type(name) == 'string' && match(name, METRIC_NAME)) ? name : sanitize(name));
 
 		let target = set.by_name[name];
@@ -180,7 +190,7 @@ export function recorder(max) {
 					vals += x;
 				}
 
-				if (vals != null && text != '' && !match(vals, SPECIAL)) {
+				if (vals != null && text != '' && !match(vals, SPECIAL) && index(vals, '\0') < 0) {
 					push(lines, head + substr(text, 2) + '"} ' + v);
 					if (values)
 						push(values, v);
@@ -215,12 +225,14 @@ export function recorder(max) {
 			if (type(r[1]) == 'string')
 				push(helps, r[1]);
 
-		let read = match(join('', helps), HIGH_BYTE) != null;
+		let joined = join('', helps);
+		let read = match(joined, HIGH_BYTE) != null || index(joined, '\0') >= 0;
 		let counter = (mtype == 'counter');
 
 		for (let r in rows) {
 			let name = r[0], help = r[1], value = r[2];
 
+			named(name);
 			name = METRIC_NAMES[name] ?? ((type(name) == 'string' && match(name, METRIC_NAME)) ? name : sanitize(name));
 
 			let target = set.by_name[name];
