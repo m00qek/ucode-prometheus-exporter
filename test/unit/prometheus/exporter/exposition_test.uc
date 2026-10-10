@@ -134,6 +134,17 @@ describe('exposition.recorder, refusing what Prometheus refuses a scrape for', (
 			refused((out) => out.batch('counter', [ [ 'ok', null, 1 ], [ 'g\0', null, 1 ] ])));
 	});
 
+	// Prometheus adds the family's own __name__, and refuses a scrape with
+	// a label set that names one twice.
+	it('stops at a label name Prometheus reserves, as it is or once sanitized', () => {
+		let why = "Prometheus reserves label names that start with '__'";
+
+		assert.match([ exposition.INVALID, { family: 'g', label: '__name__', why } ], refused((out) => out.gauge('g')({ __name__: 'x' }, 1)));
+		assert.match([ exposition.INVALID, { family: 'g', label: '__x', why } ], refused((out) => out.gauge('g')({ a: '1', '-.x': 'y' }, 1)));
+		assert.match([ exposition.INVALID, { family: null, label: '__meta', why } ], refused((out) => out.labels({ __meta: 1 })));
+		assert.match([ '# TYPE g gauge', 'g{_x="1"} 1' ], lines(text_of((out) => out.gauge('g')({ _x: '1' }, 1))));
+	});
+
 	it('stops every sample after the first refused, though the collector caught it', () => {
 		let out = exposition.recorder();
 		let g = out.gauge('g');
@@ -272,7 +283,7 @@ describe('exposition: properties', () => {
 	// labels() makes of them, the first time and after, or both refused.
 	prop('writes a sample\'s labels as labels() makes them, the first time and after, or refuses both',
 		gen.array(gen.tuple(
-			gen.elements('src', 'dst', 'if-name', 'if_name', '1x', ''),
+			gen.elements('src', 'dst', 'if-name', 'if_name', '1x', '', '__name__', '-_x'),
 			gen.oneof(gen.elements('', 'eth0', 'a"b', 'a\\b', 'x\ny', 'café', 'caf\xe9', '\xc3', '\xa9', 'é"', '\0', 'a\0"b', 'x\0\xe9', 'é\0\n'),
 				gen.int(-3, 3), gen.elements(0.5, 1 / 3.0, true, null, [ 1 ]))),
 			{ min_len: 0, max_len: 4 }), (pairs) => {

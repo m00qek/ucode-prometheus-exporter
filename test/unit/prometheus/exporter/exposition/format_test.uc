@@ -95,7 +95,7 @@ function expected_labels(labels) {
 		let s = format.sanitize(name, true);
 		let v = (type(value) == 'string') ? value : format.format_value(value);
 
-		if (seen[s] || index(v, '\0') >= 0 || !format.utf8_valid(v))
+		if (seen[s] || substr(s, 0, 2) == '__' || index(v, '\0') >= 0 || !format.utf8_valid(v))
 			return null;
 		seen[s] = true;
 		push(pairs, [ s, v ]);
@@ -110,7 +110,7 @@ describe('exposition.format.label_text', () => {
 	// what its pairs, one by one, are, the first time and after.
 	prop('writes a set as its pairs one by one, the first time and after, or is null',
 		gen.array(gen.tuple(
-			gen.elements('src', 'dst', 'if-name', 'if_name', '1x', ''),
+			gen.elements('src', 'dst', 'if-name', 'if_name', '1x', '', '__name__', '-_x'),
 			gen.oneof(gen.elements('', 'eth0', 'a"b', 'a\\b', 'x\ny', 'café', 'caf\xe9', '\xc3', '\xa9', 'é"', '\0', 'a\0"b', 'x\0\xe9', 'é\0\n'),
 				gen.int(-3, 3), gen.elements(0.5, 1 / 3.0, true, null, [ 1 ]))),
 			{ min_len: 0, max_len: 4 }), (pairs) => {
@@ -140,9 +140,10 @@ describe('exposition.format.label_text', () => {
 			{ label: null, why: 'labels must be an object, or what out.labels() made, not a string of its own' },
 			{ label: null, why: 'labels must be an object, or what out.labels() made, not array' },
 			{ label: 'v', why: 'its value holds a NUL byte' },
+			{ label: '__name__', why: "Prometheus reserves label names that start with '__'" },
 			null,
-		], map([ clash, latin1, 'eth0 up', [ 'x' ], { v: 'a\0"b' }, { a: 'b' } ], format.label_problem));
-		assert.match([ null, null ], map([ { v: 'a\0"b' }, { v: 'a\0\xe9' } ], format.label_text));
+		], map([ clash, latin1, 'eth0 up', [ 'x' ], { v: 'a\0"b' }, { __name__: 'x' }, { a: 'b' } ], format.label_problem));
+		assert.match([ null, null, null ], map([ { v: 'a\0"b' }, { v: 'a\0\xe9' }, { __name__: 'x' } ], format.label_text));
 	});
 });
 

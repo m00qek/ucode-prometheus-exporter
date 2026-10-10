@@ -60,12 +60,15 @@ describe('exposition.parse', () => {
 	});
 
 	// ucode's regexes stop at a NUL: what follows one must not be read past.
-	it('refuses a NUL byte anywhere', () => {
-		assert.match([ 'line 2: holds a NUL byte', 'line 1: holds a NUL byte', 'line 1: holds a NUL byte', 'line 1: holds a NUL byte' ], [
+	it('refuses a NUL byte anywhere, and a label name Prometheus reserves', () => {
+		assert.match([ 'line 2: holds a NUL byte', 'line 1: holds a NUL byte', 'line 1: holds a NUL byte', 'line 1: holds a NUL byte',
+			'line 1: reserved label name \'__name__\'', 'line 1: reserved label name \'__x\'' ], [
 			parse_error('a 1\na{x="1\0"} 2\n'),
 			parse_error('a\0{x="1"} 2\nevil 1\n'),
 			parse_error('# HELP a x\0\xe9\na 1\n'),
 			parse_error('a 1\0 garbage\n'),
+			parse_error('a{__name__="b"} 1\n'),
+			parse_error('a{y="1",__x="b"} 1\n'),
 		]);
 	});
 
