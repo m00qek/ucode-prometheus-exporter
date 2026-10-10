@@ -6,22 +6,12 @@
 'require dom';
 'require prometheus-exporter as exporter';
 
-// The settings page's own widgets (view/prometheus-exporter/settings.js): the
-// listen interface's picker, basic auth's password and its dialogs, and the Collectors
-// tab's table, a row per installed collector with its switch, and its Edit dialog.
-//
-// Collector names and help, package names, interfaces and paths come from the router: they
-// reach E() only inside arrays, and never a form title or description, which LuCI renders
-// as markup.
-
 const CONFIG = exporter.CONFIG;
 const lookup = exporter.lookup;
 const fill = exporter.fill;
 
-// How long typing pauses before the values are checked, in ms.
 const CHECK_DELAY = 300;
 
-// What every collector package's name starts with; the Package column shows the rest.
 const PACKAGE_PREFIX = 'ucode-prometheus-exporter-';
 
 function alertBox(kind, children) {
@@ -40,8 +30,6 @@ function joined(items, separator) {
 	return out;
 }
 
-// A line of a list of what was refused or skipped. Not an <li>: a theme may colour list
-// items its own way, which an alert's colours do not reach (material's grey on red).
 function line(children) {
 	return E('div', { 'class': 'exporter-line' }, children);
 }
@@ -50,23 +38,16 @@ function codes(items) {
 	return joined(items.map((item) => E('code', {}, [ String(item) ])), ', ');
 }
 
-// The core's switch, as an option of a collector's section.
 const ENABLED = { name: 'enabled', core: true, type: 'bool', default: true };
 
-// Whether a value is unset: uci holds no empty values.
 function blank(value) {
 	return value == null || value === '';
 }
 
-// Whether an option overrides a default kept elsewhere: the core's timeout, which follows
-// the collector's meta.timeout or the main section's exec_timeout while it is unset. It is
-// written only when it is set.
 function isOverride(o) {
 	return o.core === true && o.name !== 'enabled';
 }
 
-// What a collector's switch holds: on when unset or true, as the exporter takes it, off
-// when false, and invalid otherwise.
 function switchState(value) {
 	if (value == null || exporter.isTrue(value))
 		return 'on';
@@ -74,14 +55,10 @@ function switchState(value) {
 	return exporter.isFalse(value) ? 'off' : 'invalid';
 }
 
-// An interface as the picker shows it: its name, and its protocol when known.
 function ifaceBadge(name, proto) {
 	return E('span', { 'class': 'ifacebadge' }, proto ? [ name, ' ', E('small', {}, [ `(${proto})` ]) ] : [ name ]);
 }
 
-// The listen interface: the logical interfaces the ubus object's `interfaces` lists, which
-// it reads for any login allowed the object, and every address (*), as the init script
-// takes it. A saved value it does not list is kept.
 const ListenSelect = form.ListValue.extend({
 	__name__: 'CBI.PrometheusExporterListen',
 
@@ -114,21 +91,8 @@ const ListenSelect = form.ListValue.extend({
 	}
 });
 
-// The longest password the object hashes, in bytes.
 const PASSWORD_MAX = 256;
 
-// Basic auth's password, which is no field of the form: Save, Save & Apply and Revert
-// never touch it. The row says whether a hash is saved (`hashSaved`, as the object's
-// `password` answered when the page loaded; the page never reads the hash, which is saved
-// apart from the exporter's config, where the app's ACL does not reach), and has two
-// buttons, as LuCI's own root password has its page: Change password opens a dialog that
-// takes the new one twice and hands it to the object's set_password, which hashes it,
-// saves the hash and has the service reload, at once; Remove password has it remove the
-// saved hash. Change takes the TLS certificate and key, as basic auth does (`tls`, their
-// options); Remove takes Basic auth user empty (`user`, its option), as a user without a
-// password is refused. What the object's validate refuses of the password (`refusal()`,
-// the page's sentence, or null) marks Change, which counts in its tab, as an invalid
-// field does. The row's buttons follow the fields as they are typed: `update()`.
 const PasswordAction = form.Value.extend({
 	__name__: 'CBI.PrometheusExporterPassword',
 
@@ -149,7 +113,6 @@ const PasswordAction = form.Value.extend({
 		return null;
 	},
 
-	// Writes nothing to uci.
 	parse(section_id) {
 		return Promise.resolve();
 	},
@@ -166,7 +129,6 @@ const PasswordAction = form.Value.extend({
 		return '';
 	},
 
-	// Marks Change with what the object refused, and follows the fields.
 	triggerValidation(section_id) {
 		this.update(section_id);
 		return true;
@@ -176,7 +138,6 @@ const PasswordAction = form.Value.extend({
 		return (this.readonly != null) ? this.readonly : this.map.readonly;
 	},
 
-	// Whether the form, as typed, has the TLS certificate and key.
 	hasTls(section_id) {
 		return this.tls.length > 0 && this.tls.every((o) => !blank(o.formvalue(section_id)));
 	},
@@ -200,7 +161,6 @@ const PasswordAction = form.Value.extend({
 		return E('div', { 'class': 'exporter-password' }, [ state, ' ', change, ' ', remove, note ]);
 	},
 
-	// The row as the saved hash and the fields have it now.
 	update(section_id) {
 		const n = this.nodes;
 
@@ -229,14 +189,12 @@ const PasswordAction = form.Value.extend({
 		dom.content(n.note, notes);
 	},
 
-	// Tells the page a hash was saved or removed, which it checks the form again for.
 	changed(section_id, saved) {
 		this.hashSaved = saved;
 		this.update(section_id);
 		this.nodes?.change.dispatchEvent(new CustomEvent('widget-change', { bubbles: true }));
 	},
 
-	// Hides a dialog, and gives the focus back to the button that opened it.
 	dismiss(from) {
 		ui.hideModal();
 		if (from && !from.disabled)
@@ -245,13 +203,10 @@ const PasswordAction = form.Value.extend({
 			this.nodes?.change.focus();
 	},
 
-	// What went wrong, in the dialog: a list of pieces, or a text.
 	failed(problem, why) {
 		dom.content(problem, alertBox('error', Array.isArray(why) ? why : [ why ]));
 	},
 
-	// The dialog of a new password: typed twice, checked as the object checks it, and handed
-	// to set_password, which saves its hash and reloads the service at once.
 	openChange(section_id) {
 		if (this.readonlyMap() || !this.hasTls(section_id))
 			return;
@@ -317,15 +272,12 @@ const PasswordAction = form.Value.extend({
 			problem
 		]);
 
-		// As LuCI's own dialogs, Escape presses the first button of the row, Cancel.
 		const buttons = E('div', { 'class': 'button-row' }, [
 			E('button', { 'class': 'btn cbi-button', 'click': () => this.dismiss(this.nodes?.change) }, [ _('Cancel') ]),
 			' ',
 			E('button', { 'class': 'btn cbi-button cbi-button-positive important', 'click': ui.createHandlerFn(this, save) }, [ _('Change password') ])
 		]);
 
-		// Enter in either field changes it; the confirmation is checked again as the first
-		// changes.
 		node.addEventListener('keydown', (ev) => {
 			if (ev.key === 'Enter') {
 				ev.preventDefault();
@@ -341,7 +293,6 @@ const PasswordAction = form.Value.extend({
 		node.querySelector('input:not([type="hidden"])')?.focus();
 	},
 
-	// The dialog that removes the saved hash, through set_password with no password, at once.
 	openRemove(section_id) {
 		if (this.readonlyMap() || (this.user != null && !blank(this.user.formvalue(section_id))))
 			return;
@@ -372,9 +323,6 @@ const PasswordAction = form.Value.extend({
 	}
 });
 
-// A row per installed collector: its title and help, its package, its switch and, when it
-// has options, an Edit button that opens them in a dialog. The switches are the form's:
-// Save writes those that changed. The dialog stages its own values when it is saved.
 const CollectorTable = form.Value.extend({
 	__name__: 'CBI.PrometheusExporterCollectors',
 
@@ -386,14 +334,11 @@ const CollectorTable = form.Value.extend({
 		this.editor = null;
 	},
 
-	// The collector's own section, as LuCI has it with staged changes; null when there is
-	// none, or the name is taken by a section of another type, which the exporter ignores.
 	sectionOf(id) {
 		const s = uci.get(CONFIG, id);
 		return (L.isObject(s) && s['.type'] === 'collector') ? s : null;
 	},
 
-	// The section's values as uci holds them, empty ones left out, as unset.
 	rawValues(id) {
 		const section = this.sectionOf(id) ?? {};
 		const out = {};
@@ -436,7 +381,6 @@ const CollectorTable = form.Value.extend({
 		return E([], [ this.rows.length ? this.count : '', table ]);
 	},
 
-	// How many collectors are switched on, as the page has them.
 	updateCount() {
 		const on = this.rows.filter((row) => row.enabled.getValue() === '1').length;
 		dom.content(this.count, [ _('%d of %d collectors enabled').format(on, this.rows.length) ]);
@@ -446,14 +390,12 @@ const CollectorTable = form.Value.extend({
 		const readonly = this.map.readonly;
 		const row = { c: c, note: E('div', {}, this.errorNote(c.error)), node: null };
 
-		// An invalid value shows as on, as the exporter would take it once it is fixed.
 		row.enabled = new ui.Checkbox(switchState(this.sectionOf(c.id)?.enabled) === 'off' ? '0' : '1',
 			{ id: `cbid.${CONFIG}.${c.id}.enabled`, disabled: readonly });
 
 		const toggle = row.enabled.render();
 		toggle.querySelector('input').setAttribute('aria-label', fill(_('Enable the %s collector'), c.name).join(''));
 
-		// A read-only login opens the dialog too: its fields and Save are disabled there.
 		row.edit = (c.options ?? []).length ? E('button', {
 			'class': 'btn cbi-button cbi-button-edit',
 			'title': fill(_('Edit the options of %s'), c.name).join(''),
@@ -472,8 +414,6 @@ const CollectorTable = form.Value.extend({
 		return row;
 	},
 
-	// The base package, the removable package that installed it by the rest of its name
-	// (wifi for ucode-prometheus-exporter-wifi), or none.
 	packageOf(c) {
 		if (c.base === true)
 			return E('span', {}, [ _('Base') ]);
@@ -492,7 +432,6 @@ const CollectorTable = form.Value.extend({
 			fill(_('The saved settings are not valid: %s'), String(error))) ] : [];
 	},
 
-	// What the collector reads, and what its jail gives it, as rows of the dialog.
 	reads(c) {
 		const rows = [];
 		const mounts = c.jail?.mounts ?? [];
@@ -517,9 +456,6 @@ const CollectorTable = form.Value.extend({
 		return rows;
 	},
 
-	// The dialog of a collector's options: a field per option, by its type, labelled by its
-	// title, with its help, which the object's validate checks as it is typed; and what the
-	// collector reads.
 	openEditor(row) {
 		const c = row.c;
 		const section = this.sectionOf(c.id);
@@ -535,7 +471,6 @@ const CollectorTable = form.Value.extend({
 			editor.problem
 		]);
 
-		// As LuCI's own dialogs: Escape presses the first button of the row, Dismiss.
 		const buttons = E('div', { 'class': 'button-row' }, [
 			E('button', { 'class': 'btn cbi-button', 'click': ui.createHandlerFn(this, 'dismissEditor', editor) }, [ _('Dismiss') ]),
 			' ',
@@ -552,7 +487,6 @@ const CollectorTable = form.Value.extend({
 		this.editor = editor;
 		ui.showModal(exporter.nameOf(c), [ editor.node, buttons ], 'cbi-modal');
 
-		// The first field takes the focus; a read-only login's are disabled, so Dismiss does.
 		const first = editor.node.querySelector('input:not([type="hidden"]):not([disabled]), select:not([disabled])');
 		(first ?? buttons.querySelector('button')).focus();
 
@@ -577,7 +511,6 @@ const CollectorTable = form.Value.extend({
 				placeholder: this.placeholderOf(o),
 				datatype: exporter.datatypeOf(o),
 				disabled: this.map.readonly,
-				// A failed check marks the field until its value changes.
 				validate: (value) => {
 					const mark = lookup(editor.marks, o.name);
 					return (mark && mark.value === value) ? mark.message : true;
@@ -600,8 +533,6 @@ const CollectorTable = form.Value.extend({
 		]);
 	},
 
-	// What an empty field stands for: the option's default. The timeout of a collector
-	// without a default of its own follows exec_timeout, as the Limits tab has it now.
 	placeholderOf(o) {
 		if (o.core && o.default_from === 'exec_timeout' && typeof(this.execTimeout) === 'function') {
 			const own = this.execTimeout();
@@ -612,7 +543,6 @@ const CollectorTable = form.Value.extend({
 		return String(o.default ?? '');
 	},
 
-	// What a dialog's fields hold: '1' or '0' for a switch, the text of a text field.
 	editorValues(editor) {
 		const out = {};
 
@@ -627,9 +557,6 @@ const CollectorTable = form.Value.extend({
 		editor.timer = window.setTimeout(() => this.checkEditor(editor), CHECK_DELAY);
 	},
 
-	// Resolves to { ok, errors } of the dialog's values, errors what the object refuses of
-	// each as the page says it, or to null when there is no answer; an answer to an earlier
-	// check than the last is dropped.
 	checkEditor(editor) {
 		const seq = ++editor.seq;
 		const id = editor.row.c.id;
@@ -679,8 +606,6 @@ const CollectorTable = form.Value.extend({
 		dom.content(editor.problem, alertBox('error', children));
 	},
 
-	// Hides the dialog, and gives the focus back to the row's Edit: on Dismiss, on Escape
-	// (which presses Dismiss), and once Save has staged the values.
 	dismissEditor(editor) {
 		editor.seq++;
 		window.clearTimeout(editor.timer);
@@ -689,8 +614,6 @@ const CollectorTable = form.Value.extend({
 		editor.row.edit?.focus();
 	},
 
-	// Stages the dialog's values in uci when the exporter would take them all; the page's
-	// Save & Apply applies them.
 	saveEditor(editor) {
 		const c = editor.row.c;
 
@@ -703,8 +626,6 @@ const CollectorTable = form.Value.extend({
 
 			const refused = [];
 
-			// The page's sentence of what the exporter refuses names the field; anything else
-			// follows its title.
 			for (const f of editor.fields) {
 				const name = f.option.name;
 				const error = lookup(res.errors, name);
@@ -723,7 +644,6 @@ const CollectorTable = form.Value.extend({
 				return null;
 			}
 
-			// The switch as it is on the page: the section is written whole.
 			const values = { ...this.editorValues(editor), enabled: editor.row.enabled.getValue() === '1' ? '1' : '0' };
 
 			if (!this.stage(c, values)) {
@@ -742,7 +662,6 @@ const CollectorTable = form.Value.extend({
 		});
 	},
 
-	// Drops the note that the saved settings are not valid once the staged ones are.
 	refreshNote(row) {
 		return exporter.validate({}, { [row.c.id]: this.rawValues(row.c.id) }).then((res) => {
 			if (L.isObject(res) && res.ok === true)
@@ -750,19 +669,14 @@ const CollectorTable = form.Value.extend({
 		}).catch(() => null);
 	},
 
-	// The options a collector's section holds: the switch, its own, and the core's timeout
-	// when it runs programs.
 	declared(c) {
 		return [ ENABLED, ...(c.options ?? []) ];
 	},
 
-	// An option's default as uci holds it.
 	defaultOf(o) {
 		return (o.type === 'bool') ? (o.default === true ? '1' : '0') : String(o.default ?? '');
 	},
 
-	// Whether a value, as uci holds it, is the option's default; an unset one is. A value the
-	// exporter would not read is not.
 	isDefault(o, value) {
 		if (blank(value))
 			return true;
@@ -777,12 +691,6 @@ const CollectorTable = form.Value.extend({
 		}
 	},
 
-	// Stages `changes` ({ option: value as uci holds it, '' or null to unset }) of the
-	// collector's switch and options in LuCI's uci. The section is there while a value
-	// differs from its default, a timeout is set, or it holds options nobody declared (which
-	// are kept); it then holds the switch and every option the collector declares, each
-	// written out, and a timeout only when one is set. It goes once nothing is left. False
-	// when the name is another type's section, which is not ours to change.
 	stage(c, changes) {
 		const id = c.id;
 		const named = uci.get(CONFIG, id);
@@ -821,8 +729,6 @@ const CollectorTable = form.Value.extend({
 		return true;
 	},
 
-	// The collectors' values as the object's validate takes them: each section as uci holds
-	// it, staged values included, with the switch as it is on the page.
 	candidate() {
 		const out = {};
 
@@ -848,7 +754,6 @@ const CollectorTable = form.Value.extend({
 		return false;
 	},
 
-	// Writes the switches that differ from their sections.
 	parse(section_id) {
 		for (const row of this.rows) {
 			const on = row.enabled.getValue() === '1';

@@ -4,37 +4,14 @@
 'require dom';
 'require prometheus-exporter as exporter';
 
-// Status → Prometheus exporter: whether the service runs and where it serves /metrics,
-// and how each collector did in a test run the plugin's `status` runs on the router. The
-// test run happens when the page opens and on Refresh only, never on a timer. It is not
-// the service's: it runs outside the service's jail and without its deadline. Apart from
-// it, the Service's scrapes column says what the service's own scrapes found, from its
-// running instance's state: a collector quarantined, and one the scrape deadline left
-// out lately.
-//
-// A banner above the tables says what needs attention: the service enabled and not
-// running, the collectors that failed, and those the service quarantined. The rows are
-// grouped by how they did, worst first, and sorted by title within a group.
-//
-// Collector names, errors and paths come from the router: they reach E() only inside
-// arrays.
-
 const fill = exporter.fill;
 
-// What the error codes mean, in the docs of this release.
 const ERROR_CODES = 'https://m00qek.github.io/ucode-prometheus-exporter/0.2/reference/error-codes/';
 
-// No class makes a label red in every theme: material has `label danger`, bootstrap no
-// red label at all. So Failed also takes the theme's own error colour, from its variables:
-// bootstrap's, then those of material and openwrt2020. A theme with neither shows a plain
-// label, which says Failed in words all the same.
 const FAIL_STYLE = 'background-color:var(--error-color-high,var(--danger-color));color:var(--on-error-color,var(--on-danger-color))';
 
-// The scrapes after which the deadline leaving a collector out is old news, as `check`
-// has it (prometheus_exporter.ledger's RECENT).
 const RECENT = 10;
 
-// The groups of rows, in the order the table shows them.
 const FAILED = 0, SERVICE = 1, OK = 2, IDLE = 3, OFF = 4;
 
 function alertBox(kind, children) {
@@ -45,14 +22,10 @@ function label(kind, text, style) {
 	return E('span', { 'class': 'label ' + kind, 'style': style ?? null }, [ text ]);
 }
 
-// A label in a table cell, above more lines: as a block of its own, so that a theme's
-// padding of labels does not overlap the line below.
 function badge(kind, text, style) {
 	return line([ label(kind, text, 'display:inline-block' + (style ? ';' + style : '')) ]);
 }
 
-// A page to go to from a banner, as a button: a theme's link colour may not read on
-// the banner's own.
 function action(path, text) {
 	return E('a', { 'class': 'btn cbi-button', 'href': L.url(path) }, [ text ]);
 }
@@ -88,8 +61,6 @@ function isLate(c) {
 	return L.isObject(c.service) && typeof(c.service.late) === 'number' && c.service.late < RECENT;
 }
 
-// Which group a collector's row is in: failed in the test run; quarantined or left out
-// lately by the service; OK; nothing to observe; not run.
 function groupOf(c) {
 	if (c.success === false)
 		return FAILED;
@@ -100,9 +71,6 @@ function groupOf(c) {
 	return OFF;
 }
 
-// An error as the exporter writes it, `CODE (detail)` or `CODE`, for the user: the detail
-// first, in words, then the code, which links to what it means. A code the page does not
-// know is linked all the same; text of any other shape is shown as it is.
 function errorText(text) {
 	const s = String(text ?? '');
 	const m = /^([A-Z][A-Z0-9_]*)(?: \(([\s\S]*)\))?$/.exec(s);
@@ -118,8 +86,6 @@ function errorText(text) {
 	];
 }
 
-// What the jail mounts for a collector, folded away: it matters when a collector that
-// fails here, or fails only in the service, needs a path the jail does not give it.
 function mountsOf(c) {
 	const mounts = Array.isArray(c.mounts) ? c.mounts : [];
 
@@ -132,9 +98,6 @@ function mountsOf(c) {
 	]);
 }
 
-// How a collector did in the test run: OK, Failed (with why), Nothing to observe (a
-// success whose hardware, kernel feature or service is not there, with why) or Not run.
-// Each says it in words.
 function outcome(c) {
 	if (c.success === false)
 		return [ badge('danger error', _('Failed'), FAIL_STYLE), ...errorText(c.error), mountsOf(c) ];
@@ -148,8 +111,6 @@ function outcome(c) {
 	return [ E('em', {}, [ _('Not run: switched off') ]) ];
 }
 
-// What the service's own scrapes found of a collector (the plugin's `service`), each in
-// words that name the service, as a theme may show the cell without its heading.
 function serviceState(c) {
 	const s = c.service;
 	const out = [];
@@ -181,15 +142,12 @@ function duration(secs) {
 	return (secs < 1) ? _('%d ms').format(Math.round(secs * 1000)) : _('%.2f s').format(secs);
 }
 
-// A cell, with its column's heading for narrow screens only when it has something under
-// it: a theme that shows headings in each row would show an empty one otherwise.
 function cell(title, children) {
 	const empty = children.every((ch) => ch === '' || ch == null);
 
 	return E('td', { 'class': 'td', 'data-title': (empty || title == null) ? null : title }, empty ? [ '' ] : children);
 }
 
-// The titles of collectors, for a sentence, between commas: each a text node.
 function titles(list) {
 	const out = [];
 
@@ -202,8 +160,6 @@ function titles(list) {
 	return out;
 }
 
-// A listen URL as the browser can open it: every address (*) is the one this page
-// came from.
 function openable(url) {
 	const host = /:/.test(window.location.hostname) ? `[${window.location.hostname}]` : window.location.hostname;
 	return String(url).replace(/^(https?):\/\/\*:/, `$1://${host}:`);
@@ -268,8 +224,6 @@ return view.extend({
 		]);
 	},
 
-	// What needs attention, worst first: the service enabled and not running, or switched
-	// off; the collectors that failed in the test run; those the service quarantined.
 	renderBanners(svc, collectors) {
 		const out = [];
 		const failed = collectors.filter((c) => c.success === false).sort((a, b) => titleOf(a).localeCompare(titleOf(b)));
@@ -334,7 +288,6 @@ return view.extend({
 		const sorted = collectors.map((c) => ({ c: c, group: groupOf(c), title: titleOf(c) }))
 			.sort((a, b) => (a.group - b.group) || a.title.localeCompare(b.title));
 
-		// The collector's name needs no heading above it.
 		const rows = sorted.map((r, i) => E('tr', {
 			'class': 'tr cbi-rowstyle-' + (1 + i % 2), 'data-collector': String(r.c.id), 'data-group': String(r.group)
 		}, [
@@ -344,7 +297,6 @@ return view.extend({
 			cell(headers[3], serviceState(r.c))
 		]));
 
-		// The test run's counts: a collector the service quarantined counts by how it did here.
 		const count = (pred) => collectors.filter(pred).length;
 		const summary = _('%d failed, %d OK, %d with nothing to observe, %d off.').format(
 			count((c) => c.success === false),

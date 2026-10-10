@@ -7,53 +7,15 @@
 'require prometheus-exporter as exporter';
 'require prometheus-exporter.widgets as widgets';
 
-// Services → Prometheus exporter: /etc/config/prometheus-exporter as a form, in four tabs.
-// General, HTTPS & login and Limits have the main section's options. Collectors has a row
-// per installed collector, as the ubus object's `collectors` lists them, by title: its
-// title and help, its package, its switch, and, when it has options, an Edit button. Edit
-// opens a dialog with a field per option (the collector's own, and the core's timeout when
-// it runs programs), whose Save stages them in uci, as LuCI's own dialogs do; the page's
-// Save & Apply applies them with the rest, and Dismiss drops them. A read-only login opens
-// the dialog too, its fields and Save disabled, as LuCI's GridSection has it.
-//
-// What is saved states every setting: the main section's fields write their values even
-// at the defaults (but for the TLS files and basic auth, which are unset without them).
-// Basic auth's password is no field of the form, and its hash, which is saved apart from
-// the exporter's config, where the app's ACL does not reach, is never shown: its row says
-// whether one is saved, and its Change password and Remove password hand it to the
-// object's set_password, which saves or removes the hash and has the service reload at
-// once, apart from Save, Save & Apply and Revert, as LuCI's own root password is changed.
-// A user emptied takes basic auth away, the saved hash left unused. A collector's
-// `config collector '<module>'` section is there only while something differs from the
-// defaults, its switch included, or a timeout is set; while it is, it holds the switch
-// and every option the collector declares, each written out. timeout is written only
-// when it is set: unset, it follows the collector's own default or the main section's
-// exec_timeout, which writing it would pin.
-//
-// The object's `validate` checks values as the exporter reads them: the main section's
-// while they are typed and again before Save, a dialog's while they are typed and again
-// before it stages them. It answers what it refuses by a code and its arguments, which the
-// page says in the user's language, naming the field by its title. Nothing the exporter
-// would refuse is saved: a Save it refuses says why in a dialog, as LuCI's own Save error
-// does, and above the form until it is fixed, each field by its tab, with a link that
-// shows it; LuCI marks a tab that holds an invalid field with how many. Without the object (rpcd reloading, the package upgraded), the page
-// is read-only.
-//
-// Collector names and help, package names, interfaces and paths come from the router: they
-// reach E() only inside arrays, and never a form title or description, which LuCI renders
-// as markup.
-
 const CONFIG = exporter.CONFIG;
 const lookup = exporter.lookup;
 const fill = exporter.fill;
 const alertBox = widgets.alertBox;
 const line = widgets.line;
 
-// How long typing pauses before the values are checked, in ms.
 const CHECK_DELAY = widgets.CHECK_DELAY;
 
 return view.extend({
-	// A call that fails answers { failure }, which alerts() describes.
 	load() {
 		const failure = (err) => ({ failure: err });
 
@@ -66,8 +28,6 @@ return view.extend({
 	},
 
 	render([ data, ifaces, , password ]) {
-		// The form edits the main section: a config without one gets it, as the exporter
-		// reads a missing one, every option at its default.
 		if (uci.get(CONFIG, 'main') == null)
 			uci.add(CONFIG, CONFIG, 'main');
 
@@ -81,8 +41,6 @@ return view.extend({
 		this.checkTimer = null;
 		this.problem = null;
 
-		// Without the object nothing can be checked, so nothing is saved: the page is
-		// read-only, as for a login that may not write the config.
 		this.unavailable = exporter.isUnavailable(data?.failure);
 		if (this.unavailable)
 			m.readonly = true;
@@ -119,7 +77,6 @@ return view.extend({
 				this.scheduleCheck(0);
 			}
 
-			// Basic auth's buttons follow the TLS files and the user as they are typed.
 			node.addEventListener('input', () => this.mainOptions.auth_password.update('main'));
 
 			return E([], [
@@ -139,7 +96,6 @@ return view.extend({
 	alerts(data, ifaces) {
 		const out = [];
 
-		// The object missing is one alert: the interfaces are not there for the same reason.
 		if (this.unavailable)
 			return [ alertBox('warning', [
 				exporter.describeError(data.failure), ' ', _('Until then the settings are read-only.')
@@ -164,7 +120,6 @@ return view.extend({
 		return out;
 	},
 
-	// An option of the main section, on one of its tabs, which the object's validate may mark.
 	option(s, tab, type, name, title, description) {
 		const o = s.taboption(tab, type, name, title, description);
 
@@ -178,8 +133,6 @@ return view.extend({
 		return o;
 	},
 
-	// Every field writes its value, even at the default, so the saved section states every
-	// setting; but for the TLS files, unset without TLS. A field left empty is refused.
 	renderMain(s, interfaces) {
 		let o = this.option(s, 'general', form.Flag, 'enabled', _('Enable'), _('Runs the exporter.'));
 		o.default = '1';
@@ -210,13 +163,10 @@ return view.extend({
 		o = this.option(s, 'https', form.Value, 'key', _('TLS key'), _('The private key of the certificate.'));
 		o.datatype = 'file';
 
-		// Basic auth's fields are shown without TLS too, and the object refuses them: LuCI
-		// unsets an option whose depends are not met, which would drop the user and hash.
 		const user = this.option(s, 'https', form.Value, 'auth_user', _('Basic auth user'),
 			_('With a password, a scrape logs in as this user. Empty for none.'));
 		user.placeholder = _('None');
 
-		// Not the form's: its buttons save or remove the hash at once, through the object.
 		o = this.option(s, 'https', widgets.PasswordAction, 'auth_password', _('Basic auth password'),
 			_('Saved as a hash; the password itself is never stored. Changing or removing it applies at once, apart from Save & Apply.'));
 		o.user = user;
@@ -268,9 +218,6 @@ return view.extend({
 		o.rmempty = false;
 	},
 
-	// The form's values as the object's validate takes them: empty fields left out, as unset.
-	// Basic auth's password is no field: the object checks the saved hash, which the page
-	// may not read.
 	candidate() {
 		const main = {};
 
@@ -288,8 +235,6 @@ return view.extend({
 		this.checkTimer = window.setTimeout(() => this.check(), delay ?? CHECK_DELAY);
 	},
 
-	// Resolves to the object's answer, or to null when there is none; an answer to an
-	// earlier check than the last is dropped.
 	check() {
 		const seq = ++this.checkSeq;
 		const candidate = this.candidate();
@@ -316,12 +261,10 @@ return view.extend({
 		});
 	},
 
-	// The title of a field of the main section, by its option's name.
 	titleOf(name) {
 		return String(lookup(this.mainOptions, name)?.title ?? name);
 	},
 
-	// What the object refuses of a field of the main section, as the page says it.
 	refusalOf(name, refusal) {
 		return exporter.problemText(refusal, this.titleOf(name), (n) => this.titleOf(n));
 	},
@@ -338,18 +281,14 @@ return view.extend({
 		for (const name in this.mainOptions)
 			this.mainOptions[name].triggerValidation('main');
 
-		// LuCI counts a tab's invalid fields when a value changes, before this answer.
 		ui.tabs.updateTabs(null, this.map.root);
 	},
 
-	// Why the settings could not be checked, above the form; a Save shows it in a dialog.
 	showProblem(why) {
 		this.problem = [ _('The settings could not be checked:'), ' ', why ];
 		dom.content(this.panel, alertBox('error', this.problem));
 	},
 
-	// Shows a tab, and gives the focus to what `selector` finds on it; hides the Save error
-	// dialog, which a link of it calls this from.
 	reveal(tab, selector) {
 		const root = this.map.root;
 
@@ -363,9 +302,6 @@ return view.extend({
 		}
 	},
 
-	// A link that shows a tab and a field of it, named by the tab and `children`. It takes
-	// the colour of the text around it, underlined: a theme's link colour may not show on
-	// its error alert (bootstrap's blue on red).
 	revealLink(tab, selector, children) {
 		return E('a', {
 			'href': '#',
@@ -377,10 +313,6 @@ return view.extend({
 		}, fill(_('%s → %s'), this.tabs[tab], children));
 	},
 
-	// What the object found, in a list above the form, which stays until it is fixed, and
-	// in a dialog, which the user sees wherever the page is scrolled. Each field is named
-	// by its tab and its title, a collector's option by its collector's title too, as a
-	// link that shows it.
 	showRefused(errors) {
 		const items = () => {
 			const out = [];
@@ -417,8 +349,6 @@ return view.extend({
 		this.saveError(refused());
 	},
 
-	// LuCI's own Save error dialog, as form.Map's save() shows it; Dismiss, or Escape, gives
-	// the focus back to what had it, the button that saved.
 	saveError(children) {
 		const from = document.activeElement;
 		const dismiss = () => {
@@ -433,7 +363,6 @@ return view.extend({
 		]);
 	},
 
-	// Saves only what the object passes.
 	checked() {
 		if (this.unavailable)
 			return Promise.resolve(false);
