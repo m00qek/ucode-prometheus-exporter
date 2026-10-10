@@ -1866,7 +1866,7 @@
         "type": "prometheus",
         "uid": "${datasource}"
       },
-      "description": "Active leases, by interface, family and server: dhcp_leases.",
+      "description": "Active leases, by interface, family and server, and each interface's DHCPv4 pool: dhcp_leases.",
       "fieldConfig": {
         "defaults": {
           "unit": "short",
@@ -1924,6 +1924,16 @@
           "legendFormat": "{{interface}} {{family}} ({{server}})",
           "range": true,
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "node_openwrt_dhcp_pool_size{job=\"$job\", instance=\"$instance\"}",
+          "legendFormat": "{{interface}} pool",
+          "range": true,
+          "refId": "B"
         }
       ],
       "title": "DHCP leases",

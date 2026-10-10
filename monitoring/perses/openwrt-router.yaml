@@ -821,7 +821,7 @@ spec:
       spec:
         display:
           name: DHCP leases
-          description: 'Active leases, by interface, family and server: dhcp_leases.'
+          description: 'Active leases, by interface, family and server, and each interface''s DHCPv4 pool: dhcp_leases.'
         plugin:
           kind: TimeSeriesChart
           spec:
@@ -847,6 +847,14 @@ spec:
                 datasource: $datasource
                 query: node_openwrt_dhcp_leases{job="$job", instance="$instance"}
                 seriesNameFormat: '{{interface}} {{family}} ({{server}})'
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: node_openwrt_dhcp_pool_size{job="$job", instance="$instance"}
+                seriesNameFormat: '{{interface}} pool'
     wg_handshake:
       kind: Panel
       spec:

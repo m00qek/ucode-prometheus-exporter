@@ -177,12 +177,13 @@ groups:
             {{ $labels.daemon }} on {{ $labels.instance }} has not had the clock synchronized for 30 minutes:
             no NTP server answers, or none is set.
 
-      # dhcp_leases: 135 or more DHCPv4 leases on one interface for 15
-      # minutes: 90% of OpenWrt's default pool, `limit` 150 in /etc/config/dhcp.
-      # The exporter does not write the pool's size: set 90% of yours here.
+      # dhcp_leases: 90% or more of an interface's DHCPv4 pool leased for 15
+      # minutes: dnsmasq's and odhcpd's leases over the pool's size, which the
+      # collector works out from the dhcp section's start and limit.
       - alert: OpenWrtDhcpPoolNearlyExhausted
         expr: |
-          sum by (job, instance, interface) (node_openwrt_dhcp_leases{family="ipv4"}) >= 135
+          sum by (job, instance, interface) (node_openwrt_dhcp_leases{family="ipv4"})
+            / on (job, instance, interface) (node_openwrt_dhcp_pool_size > 0) >= 0.9
           and on (job, instance) ucode_prometheus_exporter_build_info
         for: 15m
         labels:
@@ -190,6 +191,6 @@ groups:
         annotations:
           summary: The DHCP pool of {{ $labels.interface }} on {{ $labels.instance }} is nearly exhausted.
           description: >-
-            {{ $value }} DHCPv4 leases are active on {{ $labels.interface }} of {{ $labels.instance }}, 90% of
-            a pool of 150 addresses, OpenWrt's default. A new client gets no address once the pool is spent:
-            raise the interface's `limit`, or shorten its `leasetime`.
+            {{ $value | humanizePercentage }} of the DHCPv4 pool of {{ $labels.interface }} on {{ $labels.instance }}
+            is leased. A new client gets no address once the pool is spent: raise the interface's `limit`,
+            or shorten its `leasetime`.

@@ -137,7 +137,7 @@ The failures behind these are in [Error codes](../reference/error-codes.md); [Tr
 | `OpenWrtWanDown` | critical | The logical interface `wan` has been down for 5 minutes. Name yours in the expression: `wan\|wan6`, `wwan`. | `ifstatus wan` on the router; `node_openwrt_interface_errors` counts the errors netifd holds for it. |
 | `OpenWrtWifiRadioDown` | warning | A Wi-Fi radio has had no network up for 10 minutes. A radio disabled on purpose has none either: silence it, or leave it out of the expression. | `wifi status` on the router: the radio is disabled, its driver failed, or it waits for a DFS channel check. |
 | `OpenWrtClockNotSynchronized` | warning | The NTP daemon has not had the clock synchronized for 30 minutes. | No NTP server answers, or none is set: **System → System → Time Synchronization** in LuCI. |
-| `OpenWrtDhcpPoolNearlyExhausted` | warning | An interface has had 135 or more DHCPv4 leases for 15 minutes: 90% of OpenWrt's default pool of 150 addresses. The exporter does not write the pool's size: set 90% of yours in the expression. | Raise the interface's `limit` in `/etc/config/dhcp`, or shorten its `leasetime`. |
+| `OpenWrtDhcpPoolNearlyExhausted` | warning | An interface has had 90% or more of its DHCPv4 pool leased for 15 minutes: dnsmasq's and odhcpd's leases over `node_openwrt_dhcp_pool_size`, which dhcp_leases works out from the interface's `start` and `limit` in `/etc/config/dhcp` and its subnet. | Raise the interface's `limit` in `/etc/config/dhcp`, or shorten its `leasetime`. |
 
 ### Which targets the alerts take
 
