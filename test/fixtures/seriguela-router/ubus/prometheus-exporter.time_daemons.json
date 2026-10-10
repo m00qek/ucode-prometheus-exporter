@@ -1,0 +1,6 @@
+{
+	"running": {
+		"sysntpd": false,
+		"chronyd": true
+	}
+}

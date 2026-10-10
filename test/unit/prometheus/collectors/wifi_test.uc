@@ -4,6 +4,7 @@ import { describe, it, prop, gen, assert, contains } from 'utest';
 import { with_collector, outcome } from 'prometheus.exporter.devkit.collector';
 import * as fixtures from 'lib.fixtures';
 import * as wifi from 'prometheus.collectors.wifi';
+import * as rpc from 'prometheus.exporter.rpc';
 import { format_value } from 'prometheus.exporter.exposition';
 
 // caju-ap: radio_2G serves phy0-ap0 (one station), radio_5G phy1-ap0 (none,
@@ -11,7 +12,14 @@ import { format_value } from 'prometheus.exporter.exposition';
 const IFACES = [ 'phy0-ap0', 'phy1-ap0', 'phy1-ap1' ];
 const CMDS = [ 'NL80211_CMD_GET_INTERFACE', 'NL80211_CMD_GET_STATION', 'NL80211_CMD_GET_SURVEY' ];
 
-const WIRELESS = fixtures.ubus('caju-ap', 'network.wireless', 'status');
+// What the service's ubus object answers on the AP: netifd's wireless status
+// without its keys.
+const WIRELESS = fixtures.ubus('caju-ap', 'prometheus-exporter', 'wireless');
+
+// The object's reply of netifd's `status`, as its method makes it.
+function wireless(status) {
+	return { 'prometheus-exporter:wireless': rpc.wireless(status) };
+}
 const AP = {};
 for (let cmd in CMDS)
 	for (let dev in IFACES)
@@ -19,7 +27,7 @@ for (let cmd in CMDS)
 
 function ap(overrides) {
 	return {
-		ubus: { data: { 'network.wireless:status': WIRELESS } },
+		ubus: { data: { 'prometheus-exporter:wireless': WIRELESS } },
 		nl80211: { data: { ...AP, ...(overrides?.data ?? {}) }, errors: overrides?.errors ?? {} },
 		options: overrides?.options,
 	};
@@ -30,6 +38,14 @@ const NETWORKS = [
 	'# TYPE node_wifi_radio_info gauge',
 	'node_wifi_radio_info{radio="radio_2G",htmode="HE20",channel="11",country="BR"} 1',
 	'node_wifi_radio_info{radio="radio_5G",htmode="HE80",channel="149",country="BR"} 1',
+	'# HELP node_wifi_radio_up Whether netifd has the Wi-Fi radio up (1) or not (0).',
+	'# TYPE node_wifi_radio_up gauge',
+	'node_wifi_radio_up{radio="radio_2G"} 1',
+	'node_wifi_radio_up{radio="radio_5G"} 1',
+	'# HELP node_wifi_radio_disabled Whether the Wi-Fi radio is disabled in the wireless config (1) or not (0).',
+	'# TYPE node_wifi_radio_disabled gauge',
+	'node_wifi_radio_disabled{radio="radio_2G"} 0',
+	'node_wifi_radio_disabled{radio="radio_5G"} 0',
 	'# HELP node_wifi_interface_frequency_hertz The current frequency a WiFi interface is operating at, in hertz.',
 	'# TYPE node_wifi_interface_frequency_hertz gauge',
 	'node_wifi_interface_frequency_hertz{radio="radio_2G",device="phy0-ap0"} 2462000000',
@@ -200,9 +216,9 @@ function one_network(signals, bitrates) {
 		});
 
 	return {
-		ubus: { data: { 'network.wireless:status': {
+		ubus: { data: wireless({
 			radio0: { config: { channel: '36' }, interfaces: [ { ifname: 'wlan0', config: { ssid: 'lab' } } ] },
-		} } },
+		}) },
 		nl80211: { data: {
 			'NL80211_CMD_GET_INTERFACE:wlan0': { mac: '02:00:00:00:b0:00', iftype: 3, wiphy_freq: 5180 },
 			'NL80211_CMD_GET_STATION:wlan0': length(dump) ? dump : null,
@@ -249,27 +265,46 @@ describe('collectors.wifi', () => {
 		});
 	});
 
-	it('has nothing to observe without network.wireless, as where netifd has no radio', () => {
-		with_collector(wifi, { ubus: { errors: { 'network.wireless:status': "Not found: Failed to resolve object name 'network.wireless'" } } }, (r) => {
+	it('asks the service\'s ubus object, never netifd\'s wireless status, which holds every network\'s key', () => {
+		assert.match({ 'prometheus-exporter': [ 'wireless' ] }, wifi.meta.ubus);
+	});
+
+	it('has nothing to observe where netifd has no radio, or no network.wireless', () => {
+		with_collector(wifi, { ubus: { data: wireless({}) } }, (r) => {
 			assert.match({ ok: true, none: 'no wireless radios', error: null, lines: [], logs: [] }, outcome(r));
 		});
 	});
 
-	it('has nothing to observe where network.wireless has no radio', () => {
-		with_collector(wifi, { ubus: { data: { 'network.wireless:status': {} } } }, (r) => {
-			assert.match({ ok: true, none: 'no wireless radios', error: null, lines: [], logs: [] }, outcome(r));
-		});
-	});
-
-	it('still observes a radio without interfaces', () => {
-		with_collector(wifi, { ubus: { data: { 'network.wireless:status': { radio0: { up: false, config: { channel: '1' }, interfaces: [] } } } } }, (r) => {
+	it('still observes a radio without interfaces, and says it is down, or disabled', () => {
+		with_collector(wifi, { ubus: { data: wireless({ radio0: { up: false, disabled: true, config: { channel: '1' }, interfaces: [] } }) } }, (r) => {
 			assert.match([ true, null ], [ r.result.ok, r.result.none ]);
-			assert.match(contains([ 'node_wifi_radio_info{radio="radio0",channel="1"} 1' ]), r.lines);
+			assert.match(contains([
+				'node_wifi_radio_info{radio="radio0",channel="1"} 1',
+				'node_wifi_radio_up{radio="radio0"} 0',
+				'node_wifi_radio_disabled{radio="radio0"} 1',
+			]), r.lines);
 		});
 	});
 
-	it('passes any other failed network.wireless status on', () => {
-		with_collector(wifi, { ubus: { errors: { 'network.wireless:status': 'Request timed out' } } }, (r) => {
+	it('writes neither up nor disabled of a radio whose status does not say', () => {
+		with_collector(wifi, { ubus: { data: wireless({ radio0: { config: {}, interfaces: [] } }) } }, (r) => {
+			assert.match(true, r.result.ok);
+			assert.match([], filter(r.lines, (l) => match(l, /^node_wifi_radio_(up|disabled)\{/)));
+		});
+	});
+
+	it('fails with SOURCE_INVALID when the object says it could not ask netifd', () => {
+		let c = { ubus: { data: { 'prometheus-exporter:wireless': { error: 'UBUS_CALL_FAILED', message: 'UBUS_CALL_FAILED (network.wireless status: Request timed out)' } } } };
+
+		with_collector(wifi, c, (r) => {
+			assert.match({ ok: false, error: 'SOURCE_INVALID', details: 'prometheus-exporter wireless: UBUS_CALL_FAILED (network.wireless status: Request timed out)' },
+				{ ok: r.result.ok, error: r.result.error, details: r.result.details });
+			assert.match([], r.lines);
+		});
+	});
+
+	it('passes a failed call of the object on', () => {
+		with_collector(wifi, { ubus: { errors: { 'prometheus-exporter:wireless': 'Request timed out' } } }, (r) => {
 			assert.match({ ok: false, error: 'UBUS_CALL_FAILED' }, { ok: r.result.ok, error: r.result.error });
 			assert.match([], r.lines);
 		});
@@ -371,7 +406,7 @@ describe('collectors.wifi', () => {
 
 	it('skips an interface without an ifname, as a radio that is down has', () => {
 		let cfg = one_network([], []);
-		push(cfg.ubus.data['network.wireless:status'].radio0.interfaces, { section: 'down', config: {} });
+		push(cfg.ubus.data['prometheus-exporter:wireless'].radios.radio0.interfaces, { config: {} });
 
 		with_collector(wifi, cfg, (r) => {
 			assert.match(true, r.result.ok);

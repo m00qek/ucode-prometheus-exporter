@@ -167,7 +167,7 @@ runs_as_user() {
 }
 user_made() { grep -q "^$NAME:" /etc/passwd && grep -q "^$NAME:" /etc/group; }
 acl_has() { jsonfilter -i "$ACL" -e "@.access['$1'].methods[*]" | grep -qx "$2"; }
-base_acl() { acl_has rc list && acl_has service list && acl_has network.interface dump && acl_has system board; }
+base_acl() { acl_has rc list && acl_has $NAME time_daemons && acl_has network.interface dump && acl_has system board; }
 # ls -l's mode, owner and group of $1.
 owned() { ls -ld "$1" | awk '{ print $1, $3, $4 }'; }
 check "the package made the service's user and group" user_made
@@ -347,7 +347,8 @@ eventually "without it" not_served example
 # table is root's alone (0440): the service's group may read it now. unbound's
 # control socket is srw-rw---- unbound:unbound: the user is in unbound's group.
 in_unbound() { grep -q "^unbound:.*[:,]$NAME\(,\|$\)" /etc/group && echo " $(of_uhttpd Groups) " | grep -q " $(id_of unbound /etc/group) "; }
-all_acl() { acl_has dnsmasq metrics && acl_has 'hostapd.*' get_clients && acl_has prometheus-exporter.filesystem mounts && acl_has dhcp ipv4leases; }
+all_acl() { acl_has dnsmasq metrics && acl_has 'hostapd.*' get_clients && acl_has prometheus-exporter.filesystem mounts && acl_has dhcp ipv4leases &&
+	acl_has $NAME wireless && acl_has $NAME time_daemons; }
 check "uhttpd has CAP_NET_ADMIN alone, for nft-counters" caps_are 0000000000001000
 check "nat_traffic's table is the service's group's to read" test "$(owned /proc/net/nf_conntrack)" = "-r--r----- root $NAME"
 check "nat_traffic reads it in the jail" served nat_traffic
@@ -355,9 +356,16 @@ check "the user is in unbound's group, and uhttpd with it" in_unbound
 check "the configs the jail mounts are the group's to read" test "$(owned /etc/config/dhcp) $(owned /etc/config/chrony)" = "-rw-r----- root $NAME -rw-r----- root $NAME"
 check "a config it does not mount stays root's alone" test "$(owned /etc/config/network)" = "-rw------- root root"
 check "the ACL now allows what every enabled collector calls" all_acl
-check "and wireguard's uci get only with peer_names" fails acl_has uci get
-check "nor rpcd's file read, which reads any file as root" fails acl_has file read
+check "and none that hands it a secret: not rpcd's file read, which reads any file as root" fails acl_has file read
 check "nor luci's getMountPoints" fails acl_has luci getMountPoints
+check "nor netifd's wireless status, which has every network's key" fails acl_has network.wireless status
+check "nor procd's service list" fails acl_has service list
+check "nor wireguard's peer names without peer_names" fails acl_has $NAME wireguard_peers
+set_config "$NAME.wireguard=collector" "$NAME.wireguard.peer_names=1"
+eventually "with peer_names, the ACL allows the object's wireguard_peers" acl_has $NAME wireguard_peers
+check "but not rpcd's uci get, which reads any config" fails acl_has uci get
+uci delete "$NAME.wireguard" && set_config
+eventually "and without, not" fails acl_has $NAME wireguard_peers
 # ubus's command line as the user, with the socket alone, as the jail has it:
 # ubusd answers what the ACL allows, and refuses the rest.
 as_user() { /sbin/ujail -n e2e-acl -U $NAME -G $NAME -c -u -r /bin/ubus -- /bin/ubus "$@" 2>&1 | grep -v '^jail: '; }
@@ -366,9 +374,13 @@ check "as the user, a call the ACL allows answers" says '"interface"' as_user ca
 check "a method of an allowed object it does not allow is refused" says 'Permission denied' as_user call system info
 check "and so is one that would change the system" says 'Permission denied' as_user call rc init '{"name":"dnsmasq","action":"stop"}'
 check "an object it allows nothing of is not there for it" says 'Not found' as_user call uci get '{"config":"network"}'
-check "nor is rpcd's file object, to read /etc/shadow with" says 'Not found' as_user call file read '{"path":"/etc/shadow"}'
 check "nor in its listing" fails user_lists uci
 check "which has what it allows" user_lists network.interface
+check "rpcd's file object is not there for it either, to read /etc/shadow with" says 'Not found' as_user call file read '{"path":"/etc/shadow"}'
+check "nor netifd's wireless status, which has every network's key" says 'Not found' as_user call network.wireless status
+check "nor procd's service list, which has every service's command line" says 'Not found' as_user call service list
+check "it asks the service's object for the radios, without their keys" says '"radios"' as_user call $NAME wireless
+check "and may call none of its methods for LuCI" says 'Permission denied' as_user call $NAME status
 
 # Fail closed: what the service granted taken away under it, the collectors
 # that need it fail, saying why, never with nothing to observe; a reload

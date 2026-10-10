@@ -9,7 +9,7 @@ A failure carries an uppercase code, from `src/prometheus/exporter/errors.uc`, a
 | Code | Meaning | Raised by |
 | :--- | :--- | :--- |
 | `SOURCE_UNREADABLE` | A file the collector reads is not there or cannot be read. The detail names it. | the collectors `bmx7`, `conntrack`, `cpu`, `dhcp_leases`, `diskstats`, `entropy`, `exporter`, `filefd`, `interrupts`, `loadavg`, `meminfo`, `nat_traffic`, `netstat`, `pressure`, `selinux`, `snmp6`, `sockstat`, `softnet`, `timesync`, `uci_dhcp_host`, `uname`, `vmstat` |
-| `SOURCE_INVALID` | What the collector read is not what it expects: a file, a ubus reply or a program's output it cannot parse. The detail says where. | `services.uc`; the collectors `bmx7`, `chrony`, `conntrack`, `cpu`, `dawn`, `dhcp_leases`, `diskstats`, `dnsmasq`, `entropy`, `filefd`, `filesystem`, `hostapd_stations`, `interrupts`, `loadavg`, `ltq-dsl`, `meminfo`, `modemmanager`, `mwan3`, `netclass`, `netdev`, `netstat`, `nft-counters`, `openwrt`, `openwrt_interfaces`, `pressure`, `qdisc`, `realtek-poe`, `selinux`, `sockstat`, `softnet`, `time`, `timesync`, `ubnt-manager`, `unbound`, `vmstat`, `wifi`, `wireguard` |
+| `SOURCE_INVALID` | What the collector read is not what it expects: a file, a ubus reply or a program's output it cannot parse. The detail says where. | `rpc/sources.uc`, `services.uc`; the collectors `bmx7`, `chrony`, `conntrack`, `cpu`, `dawn`, `dhcp_leases`, `diskstats`, `dnsmasq`, `entropy`, `filefd`, `filesystem`, `hostapd_stations`, `interrupts`, `loadavg`, `ltq-dsl`, `meminfo`, `modemmanager`, `mwan3`, `netclass`, `netdev`, `netstat`, `nft-counters`, `openwrt`, `openwrt_interfaces`, `pressure`, `qdisc`, `realtek-poe`, `selinux`, `sockstat`, `softnet`, `time`, `timesync`, `ubnt-manager`, `unbound`, `vmstat`, `wifi`, `wireguard` |
 | `COLLECTOR_CRASHED` | The collector died with an exception. The detail is the exception's first line. | `conform.uc`, `scrape.uc` |
 | `COLLECTOR_NO_RESULT` | The collector returned something other than a Result, or a failure without an error code (a code the collector API does not export is null). The detail says what. | `conform.uc`, `runner.uc`, `scrape.uc` |
 | `COLLECTOR_INVALID` | A collector module that cannot be loaded as one (its `meta` or `collect`), which the exporter leaves out; or a query that names a collector that is not installed, or one that is disabled, which is answered 400. | `loader.uc`, `scrape.uc` |
@@ -28,7 +28,7 @@ A failure carries an uppercase code, from `src/prometheus/exporter/errors.uc`, a
 | :--- | :--- | :--- |
 | `NEED_MISSING` | A capability the collector needs is not installed: `nl80211` without ucode-mod-nl80211, `socket` without ucode-mod-socket. | `deps.uc` |
 | `UBUS_CONNECT_FAILED` | The exporter could not connect to ubus. | `deps/ubus.uc` |
-| `UBUS_CALL_FAILED` | A ubus call failed. The detail is `<object> <method>: <status>`, as `Not found`. | `deps/ubus.uc`, `services.uc`; the collector `filesystem` |
+| `UBUS_CALL_FAILED` | A ubus call failed. The detail is `<object> <method>: <status>`, as `Not found`. | `deps/ubus.uc`, `rpc/sources.uc`, `services.uc`; the collector `filesystem` |
 | `NL80211_FAILED` | An nl80211 request failed. The detail is the device and the kernel's error. | `deps/netlink.uc` |
 | `RTNL_FAILED` | An rtnetlink request failed. The detail is the kernel's error. | `deps/netlink.uc` |
 | `SOCKET_FAILED` | A Unix socket is missing, refused the connection, or sent no more of its reply in time. The detail names the socket. | `deps/socket.uc` |

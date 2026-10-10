@@ -18,6 +18,7 @@
 // bench.world reads a world back as the modules deps.session() takes.
 
 import { readfile, writefile, mkdir, symlink, stat } from 'fs';
+import * as rpc from 'prometheus.exporter.rpc';
 
 const FIXTURES = 'test/fixtures';
 // The exporter's config, as the package installs it.
@@ -307,7 +308,7 @@ function wireless(p, rand, world) {
 		status[`radio${r}`] = radio;
 	}
 
-	world.ubus['network.wireless:status'] = status;
+	world.ubus['prometheus-exporter:wireless'] = rpc.wireless(status);
 }
 
 // ---- network, DHCP -----------------------------------------------------------
@@ -383,8 +384,10 @@ function wireguard(p, rand) {
 			'.index': i + 2, public_key: key, description: sprintf('peer %d', i) };
 	}
 
-	// uci_get: rpcd's `uci get { config: network, type: wireguard_wg0 }`, peer_names on.
-	return { status: { wg0: { ifindex: 30, public_key: sprintf('%040d=', 999), listen_port: 51820, peers } }, uci_get: { values: sections } };
+	// The service's ubus object's wireguard_peers of those sections, peer_names on.
+	let cursor = { load: () => true, foreach: (c, t, cb) => map(values(sections), cb) };
+
+	return { status: { wg0: { ifindex: 30, public_key: sprintf('%040d=', 999), listen_port: 51820, peers } }, peers: rpc.wireguard_peers(cursor) };
 }
 
 // ---- programs ------------------------------------------------------------------
@@ -706,11 +709,11 @@ function generate(dir, profile) {
 	world.ubus['dhcp:ipv4leases'] = { device: {} };
 	world.ubus['dhcp:ipv6leases'] = odhcpd(p, rand);
 	world.ubus['wireguard:status'] = wg.status;
-	world.ubus['uci:get'] = wg.uci_get;
+	world.ubus['prometheus-exporter:wireguard_peers'] = wg.peers;
 
 	// timesync: busybox ntpd runs, synchronized, as its last event says; no
 	// chronyd (rc knows no init script of that name).
-	world.ubus['service:list'] = fixture_json('caju-ap/ubus/service.list.sysntpd.json');
+	world.ubus['prometheus-exporter:time_daemons'] = fixture_json('caju-ap/ubus/prometheus-exporter.time_daemons.json');
 	world.ubus['rc:list'] = {};
 	put(root, '/var/run/prometheus-exporter/timesync/ntpd', fixture('synthetic/var/run/prometheus-exporter/timesync/ntpd'));
 	wireless(p, rand, world);

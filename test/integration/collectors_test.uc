@@ -7,10 +7,16 @@
 import { describe, it, assert } from 'utest';
 import { readfile, lsdir, popen } from 'fs';
 import * as loader from 'prometheus.exporter.loader';
+import { ubus_of } from 'prometheus.exporter.privileges';
 
 const SOURCES = 'src/prometheus/collectors';
 const MAKEFILE = readfile('openwrt/ucode-prometheus-exporter/Makefile');
 const REFERENCE = readfile('docs/reference/collectors.md');
+
+// The rows of security.md's table of what the service's user reaches over
+// ubus: each call it can be allowed, and the collectors that declare it.
+const REACH = filter(map(split(readfile('docs/explanation/security.md'), '\n'),
+	(l) => match(l, /^\| (`[^|]*) \| ([^|]*) \| [^|]* \|$/)), (m) => m != null);
 
 // The package each need or command calls for; `null` for what the base package has.
 const NEED_PACKAGES = { fs: null, ubus: null, uci: null, rtnl: null, time: null, exec: null, log: null, nl80211: '+ucode-mod-nl80211', socket: '+ucode-mod-socket' };
@@ -51,6 +57,24 @@ function checks(id) {
 		it('exports a valid meta and collect', () => {
 			let res = loader.validate(id, mod);
 			assert.match(true, res.ok, res.details);
+		});
+
+		// Every call it may make, with every option on, is in the table.
+		it('has its ubus calls in what the security model says the service\'s user reaches', () => {
+			let on = {};
+
+			for (let name in keys(mod.meta.options ?? {}))
+				on[name] = true;
+
+			for (let object, methods in ubus_of(mod.meta, on).ubus) {
+				let shown = replace(object, /\.\*$/, '.<interface>');
+
+				for (let method in methods) {
+					let rows = filter(REACH, (m) => index(m[1], `\`${shown}`) >= 0 && index(m[1], method) >= 0 && index(m[2], `\`${mod.meta.name}\``) >= 0);
+
+					assert.match(true, length(rows) > 0, `docs/explanation/security.md: no row of ${object} ${method} declared by ${mod.meta.name}`);
+				}
+			}
 		});
 
 		it('is in the generated reference', () => {
@@ -130,6 +154,10 @@ describe('groups', () => {
 describe('collectors', () => {
 	it('are there', () => {
 		assert.match(true, length(IDS) > 0);
+	});
+
+	it('have the calls the service\'s user may make listed in the security model', () => {
+		assert.match(true, length(REACH) >= 15, sprintf('%J', REACH));
 	});
 
 	for (let id in IDS)

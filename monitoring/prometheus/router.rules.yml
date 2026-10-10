@@ -145,21 +145,21 @@ groups:
             `ifstatus {{ $labels.interface }}` on the router says why; node_openwrt_interface_errors counts
             the errors netifd holds for it.
 
-      # wifi: a radio without a network up for 10 minutes. A radio disabled on
-      # purpose has none either: silence it, or leave it out in the expression
-      # (node_wifi_radio_info{radio!="radio1"}).
+      # wifi: a radio the wireless config enables, down for 10 minutes. One
+      # disabled on purpose (option disabled 1) is left out.
       - alert: OpenWrtWifiRadioDown
         expr: |
-          node_wifi_radio_info unless on (job, instance, radio) node_wifi_network_info
+          node_wifi_radio_up == 0
+          and on (job, instance, radio) node_wifi_radio_disabled == 0
           and on (job, instance) ucode_prometheus_exporter_build_info
         for: 10m
         labels:
           severity: warning
         annotations:
-          summary: Wi-Fi radio {{ $labels.radio }} of {{ $labels.instance }} has no network up.
+          summary: Wi-Fi radio {{ $labels.radio }} of {{ $labels.instance }} is down.
           description: >-
-            Radio {{ $labels.radio }} of {{ $labels.instance }} has had no network up for 10 minutes:
-            it is disabled, its driver failed, or it waits for a DFS channel check.
+            Radio {{ $labels.radio }} of {{ $labels.instance }} is enabled and has not been up for 10 minutes:
+            its driver failed, or it waits for a DFS channel check.
             `wifi status` on the router says which.
 
       # timesync: the NTP daemon has not synchronized the clock for 30

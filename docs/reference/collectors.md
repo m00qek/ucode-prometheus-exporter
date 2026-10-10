@@ -89,10 +89,10 @@ These collectors can have nothing to observe: they succeed without samples, and 
 | [`pressure`](#pressure) | No `/proc/pressure`: a kernel without `CONFIG_PSI`, or booted with `psi=0`. | `no PSI (no /proc/pressure: a kernel without CONFIG_PSI, or booted with psi=0)` | `/proc/pressure` there, and its `cpu`, `io` or `memory` unreadable or not as the kernel writes it. |
 | [`realtek-poe`](#realtek-poe) | No `poe` object. | `no PoE switch (no poe on ubus)` | A `poe` object that does not answer. |
 | [`snmp6`](#snmp6) | No `/proc/net/dev_snmp6` (IPv6 disabled). | `no IPv6 (no /proc/net/dev_snmp6)` | The directory there and unreadable. |
-| [`timesync`](#timesync) | Neither busybox ntpd nor chronyd runs, as procd's instances say: sysntpd runs ntpd only while `/etc/config/system` turns NTP on. With one running, it observes that one. | `neither ntpd nor chronyd runs` | chronyd enabled and not running, or `chronyc` failing; busybox ntpd's event file unreadable. |
+| [`timesync`](#timesync) | Neither busybox ntpd nor chronyd runs, as procd's instances say (the service's ubus object's `time_daemons`): sysntpd runs ntpd only while `/etc/config/system` turns NTP on. With one running, it observes that one. | `neither ntpd nor chronyd runs` | chronyd enabled and not running, or `chronyc` failing; busybox ntpd's event file unreadable. |
 | [`ubnt-manager`](#ubnt-manager) | ubnt-manager not installed, or `ubnt-manager -l` lists no radio. | `ubnt-manager is not installed`, `ubnt-manager lists no radios` | A radio that fails or does not answer. |
 | [`unbound`](#unbound) | unbound disabled, or not installed. | `unbound is disabled`, `unbound is not installed` | unbound enabled, and its control socket not answering. |
-| [`wifi`](#wifi) | No `network.wireless` object, or one without radios. | `no wireless radios` | Another failed call; an interface nl80211 cannot answer for. |
+| [`wifi`](#wifi) | netifd has no radio: the service's ubus object's `wireless` gives none. | `no wireless radios` | Another failed call; an interface nl80211 cannot answer for. |
 | [`wireguard`](#wireguard) | rpcd has no `wireguard` object: rpcd-mod-wireguard not installed. | `rpcd has no wireguard object: rpcd-mod-wireguard is not installed` | Any other failure of `wireguard status`. |
 
 ## `bmx7` {#bmx7}
@@ -319,7 +319,7 @@ Stations of each hostapd access point, from hostapd's ubus objects.
 - **In the groups:** `ucode-prometheus-exporter-wireless`, `ucode-prometheus-exporter-full`
 - **Section:** `config collector 'hostapd_stations'`
 - **Needs:** `ubus`
-- **Calls over ubus:** `hostapd.* get_clients|get_status`, `network.wireless status`
+- **Calls over ubus:** `hostapd.* get_clients|get_status`, `prometheus-exporter wireless`
 - **Nothing to observe:** As wifi, or no `hostapd.<ifname>` object for any interface. See [Nothing to observe](#nothing-to-observe).
 - **Metrics:** [hostapd\_stations](metrics.md#hostapd_stations)
 
@@ -733,10 +733,10 @@ Whether busybox ntpd or chronyd keeps the clock synchronized: stratum, offset an
 - **Section:** `config collector 'timesync'`
 - **Needs:** `ubus`, `fs`, `exec`
 - **Runs:** `chronyc` (only where it is installed), with `/bin/sh`
-- **Calls over ubus:** `rc list`, `service list`
+- **Calls over ubus:** `prometheus-exporter time_daemons`, `rc list`
 - **Jail paths:** `/var/run/prometheus-exporter/timesync`, which the service makes when it is not there
 - **Seconds for its programs:** The main section's `exec_timeout`, unless its section sets `timeout`
-- **Nothing to observe:** Neither busybox ntpd nor chronyd runs, as procd's instances say: sysntpd runs ntpd only while `/etc/config/system` turns NTP on. With one running, it observes that one. See [Nothing to observe](#nothing-to-observe).
+- **Nothing to observe:** Neither busybox ntpd nor chronyd runs, as procd's instances say (the service's ubus object's `time_daemons`): sysntpd runs ntpd only while `/etc/config/system` turns NTP on. With one running, it observes that one. See [Nothing to observe](#nothing-to-observe).
 - **Metrics:** [timesync](metrics.md#timesync)
 
 | Option | Title | Type | Default | Datatype | Description |
@@ -830,7 +830,7 @@ Virtual memory statistics, from /proc/vmstat.
 
 ## `wifi` {#wifi}
 
-Wi-Fi radios, networks and stations, from ubus network.wireless and nl80211.
+Wi-Fi radios, networks and stations, from netifd's wireless status without its keys (the service's ubus object) and nl80211.
 
 - **Title:** Wi-Fi
 - **Package:** `ucode-prometheus-exporter-wifi`
@@ -838,8 +838,8 @@ Wi-Fi radios, networks and stations, from ubus network.wireless and nl80211.
 - **Depends on:** `ucode-mod-nl80211`
 - **Section:** `config collector 'wifi'`
 - **Needs:** `ubus`, `nl80211`
-- **Calls over ubus:** `network.wireless status`
-- **Nothing to observe:** No `network.wireless` object, or one without radios. See [Nothing to observe](#nothing-to-observe).
+- **Calls over ubus:** `prometheus-exporter wireless`
+- **Nothing to observe:** netifd has no radio: the service's ubus object's `wireless` gives none. See [Nothing to observe](#nothing-to-observe).
 - **Metrics:** [wifi](metrics.md#wifi)
 
 | Option | Title | Type | Default | Datatype | Description |
@@ -856,11 +856,11 @@ WireGuard interfaces and peers, from ubus wireguard status.
 - **In the groups:** `ucode-prometheus-exporter-full`
 - **Section:** `config collector 'wireguard'`
 - **Needs:** `ubus`
-- **Calls over ubus:** `uci` (the methods its options call for), `wireguard status`
+- **Calls over ubus:** `prometheus-exporter` (the methods its options call for), `wireguard status`
 - **Nothing to observe:** rpcd has no `wireguard` object: rpcd-mod-wireguard not installed. See [Nothing to observe](#nothing-to-observe).
 - **Metrics:** [wireguard](metrics.md#wireguard)
 
 | Option | Title | Type | Default | Datatype | Description |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| `peer_names` | Peer names | boolean | `0` | — | Label each peer with its description in the network config (friendly\_name), asked of rpcd: the peer sections alone, never the private keys. |
+| `peer_names` | Peer names | boolean | `0` | — | Label each peer with its description in the network config (friendly\_name), from the service's ubus object: each peer's public key and description alone, never a private or preshared key. |
 | `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |

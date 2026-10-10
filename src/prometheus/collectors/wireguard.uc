@@ -7,27 +7,32 @@ export const meta = {
 	title: 'WireGuard',
 	help: 'WireGuard interfaces and peers, from ubus wireguard status.',
 	needs: [ 'ubus' ],
-	ubus: { wireguard: [ 'status' ], uci: (options) => options.peer_names ? [ 'get' ] : [] },
+	ubus: { wireguard: [ 'status' ], 'prometheus-exporter': (options) => options.peer_names ? [ 'wireguard_peers' ] : [] },
 	options: {
 		peer_names: {
 			default: false,
 			title: 'Peer names',
-			help: 'Label each peer with its description in the network config (friendly_name), asked of rpcd: the peer sections alone, never the private keys.',
+			help: 'Label each peer with its description in the network config (friendly_name), from the service\'s ubus object: each peer\'s public key and description alone, never a private or preshared key.',
 		},
 	},
 };
 
-function descriptions(ubus, iface) {
-	let by_key = {};
-	let kind = `wireguard_${iface}`;
-	let res = ubus.call('uci', 'get', { config: 'network', type: kind });
+function descriptions(ubus) {
+	let res = ubus.call('prometheus-exporter', 'wireguard_peers');
+	let all = (res.ok && type(res.data?.interfaces) == 'object') ? res.data.interfaces : {};
+	let out = {};
 
-	if (res.ok && type(res.data?.values) == 'object')
-		for (let name, s in res.data.values)
-			if (type(s) == 'object' && s['.type'] == kind && type(s.public_key) == 'string' && type(s.description) == 'string')
-				by_key[s.public_key] = s.description;
+	for (let iface, by_key in all) {
+		if (type(by_key) != 'object')
+			continue;
 
-	return by_key;
+		out[iface] = {};
+		for (let key, d in by_key)
+			if (type(d) == 'string')
+				out[iface][key] = d;
+	}
+
+	return out;
 }
 
 export function allowed_ips(list) {
@@ -52,6 +57,8 @@ export function collect(deps, out, options) {
 	let rx = out.counter('wireguard_received_bytes_total', 'Bytes received from the peer');
 	let handshake = out.gauge('wireguard_latest_handshake_seconds', 'Seconds from the last handshake');
 
+	let peers = options.peer_names ? descriptions(deps.ubus) : {};
+
 	for (let iface, wc in res.data) {
 		if (type(wc) != 'object')
 			continue;
@@ -63,7 +70,7 @@ export function collect(deps, out, options) {
 			fwmark: u32(wc.fwmark) || null,
 		}, 1);
 
-		let desc = options.peer_names ? descriptions(deps.ubus, iface) : {};
+		let desc = peers[iface] ?? {};
 
 		for (let key, pc in wc.peers) {
 			if (type(pc) != 'object')

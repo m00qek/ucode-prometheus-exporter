@@ -3,9 +3,10 @@
 // Stands in, in the pkgcheck container, for the ubus objects of services that
 // do not run there, answering with a device's captured replies: procd's
 // `system board` and netifd's `network.interface dump`. With `services`,
-// procd's `service list` and rpcd's `rc list` instead, for a system that runs
-// no service and has no init script: run apart, so it can stop before rpcd,
-// which has rc of its own, starts.
+// procd's `service list`, rpcd's `rc list` and the service's own object's
+// `time_daemons` instead, for a system that runs no service and has no init
+// script: run apart, so it can stop before rpcd, which has rc and the
+// service's object of its own, starts.
 // usage: ucode ubus-stand-ins.uc FIXTURE_DIR [services] (e.g. test/fixtures/caju-router)
 
 import { readfile } from 'fs';
@@ -25,6 +26,9 @@ if (ARGV[1] == 'services') {
 	});
 	conn.publish('rc', {
 		list: { call: (req) => req.reply({}), args: { name: '', skip_running_check: true } },
+	});
+	conn.publish('prometheus-exporter', {
+		time_daemons: { call: (req) => req.reply({ running: { sysntpd: false, chronyd: false } }) },
 	});
 } else {
 	const board = reply('system.board');

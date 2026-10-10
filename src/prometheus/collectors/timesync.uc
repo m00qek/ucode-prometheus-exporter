@@ -10,7 +10,7 @@ export const meta = {
 	title: 'Time synchronization',
 	help: 'Whether busybox ntpd or chronyd keeps the clock synchronized: stratum, offset and last update.',
 	needs: [ 'ubus', 'fs', 'exec' ],
-	ubus: { service: [ 'list' ], rc: [ 'list' ] },
+	ubus: { 'prometheus-exporter': [ 'time_daemons' ], rc: [ 'list' ] },
 	commands: [ 'chronyc' ],
 	optional_commands: [ 'chronyc' ],
 	paths: [ { path: STATE_DIR, owned: true } ],
@@ -22,19 +22,17 @@ export const CHRONYC_TRACKING = [ 'chronyc', '-u', 'root', '-c', 'tracking' ];
 
 const UNSYNCHRONISED = 'Not synchronised';
 
-const DAEMONS = { sysntpd: '/usr/sbin/ntpd', chronyd: '/usr/sbin/chronyd' };
-
-function running(ubus, name) {
-	let res = ubus.call('service', 'list', { name });
+function running(ubus) {
+	let res = ubus.call('prometheus-exporter', 'time_daemons');
 
 	if (!res.ok)
 		return res;
 
-	for (let n, i in res.data?.[name]?.instances ?? {})
-		if (i?.running === true && i.command?.[0] == DAEMONS[name])
-			return Result.ok(true);
+	let r = res.data?.running;
+	if (type(r) != 'object')
+		return Result.err(errors.SOURCE_INVALID, `prometheus-exporter time_daemons: ${res.data?.message ?? 'no running'}`);
 
-	return Result.ok(false);
+	return Result.ok({ ntpd: r.sysntpd === true, chronyd: r.chronyd === true });
 }
 
 function number(s) {
@@ -106,20 +104,17 @@ function chronyd(deps) {
 }
 
 export function collect(deps, out) {
-	let ntpd_runs = running(deps.ubus, 'sysntpd');
-	if (!ntpd_runs.ok)
-		return ntpd_runs;
+	let runs = running(deps.ubus);
+	if (!runs.ok)
+		return runs;
 
-	let chronyd_runs = running(deps.ubus, 'chronyd');
-	if (!chronyd_runs.ok)
-		return chronyd_runs;
-
+	let ntpd_runs = runs.data.ntpd, chronyd_runs = runs.data.chronyd;
 	let failure = null;
-	if (!chronyd_runs.data)
+	if (!chronyd_runs)
 		failure = services.unless_disabled(deps.ubus, 'chronyd',
 			Result.err(errors.SOURCE_UNREADABLE, 'chronyd is enabled and not running'));
 
-	if (!ntpd_runs.data && !chronyd_runs.data)
+	if (!ntpd_runs && !chronyd_runs)
 		return Result.is_none(failure) ? Result.none('neither ntpd nor chronyd runs') : failure;
 
 	let synchronized = out.gauge('node_timesync_synchronized', 'Whether the NTP daemon has synchronized the clock (1) or not (0).');
@@ -130,7 +125,7 @@ export function collect(deps, out) {
 	if (Result.is_none(failure))
 		failure = null;
 
-	for (let d in [ [ 'chronyd', chronyd_runs.data, chronyd ], [ 'ntpd', ntpd_runs.data, ntpd ] ]) {
+	for (let d in [ [ 'chronyd', chronyd_runs, chronyd ], [ 'ntpd', ntpd_runs, ntpd ] ]) {
 		if (!d[1])
 			continue;
 

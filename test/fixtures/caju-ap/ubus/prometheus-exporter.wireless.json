@@ -1,0 +1,47 @@
+{
+	"radios": {
+		"radio_2G": {
+			"up": true,
+			"disabled": false,
+			"config": {
+				"channel": "11",
+				"country": "BR",
+				"htmode": "HE20"
+			},
+			"interfaces": [
+				{
+					"ifname": "phy0-ap0",
+					"config": {
+						"ssid": "iot",
+						"encryption": "psk2"
+					}
+				}
+			]
+		},
+		"radio_5G": {
+			"up": true,
+			"disabled": false,
+			"config": {
+				"channel": "149",
+				"country": "BR",
+				"htmode": "HE80"
+			},
+			"interfaces": [
+				{
+					"ifname": "phy1-ap0",
+					"config": {
+						"ssid": "guest",
+						"encryption": "psk2"
+					}
+				},
+				{
+					"ifname": "phy1-ap1",
+					"config": {
+						"ssid": "home",
+						"encryption": "psk2"
+					}
+				}
+			]
+		}
+	}
+}

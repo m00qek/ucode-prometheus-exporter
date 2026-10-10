@@ -80,7 +80,7 @@ describe('the rpcd plugin', () => {
 		let plugin = loadfile('files/usr/share/rpcd/ucode/prometheus-exporter.uc')();
 		let methods = plugin['prometheus-exporter'];
 
-		assert.match([ 'collectors', 'hash_password', 'interfaces', 'password', 'set_password', 'status', 'validate' ], sort(keys(methods)));
+		assert.match([ 'collectors', 'hash_password', 'interfaces', 'password', 'set_password', 'status', 'time_daemons', 'validate', 'wireguard_peers', 'wireless' ], sort(keys(methods)));
 		assert.match({ collectors: [], skipped: [] }, methods.collectors.call({}));
 		assert.match({ ok: true, errors: { main: {}, collectors: {} } }, methods.validate.call({ args: {} }));
 	});

@@ -18,7 +18,7 @@ The ubus socket matters most of these. ubusd lets root call every object, so a j
 
 The jail is a boundary for the exporter's own mistakes as much as for an attacker's: a collector that parses something wrong cannot write anywhere, and one whose program hangs is killed with everything it started.
 
-Read-only is not the same as harmless, so some files stay out of the jail whoever reads around them. `/etc/config/network` holds WireGuard's private keys: the wireguard collector does not declare it, and names peers by their descriptions only with `peer_names`, asking rpcd's `uci` object for the interface's peer sections alone and letting go of all but each one's public key and description. That keeps the keys out of the jail's files, where a mistake in reading a path could reach them; it is not a wall against an exporter that runs code it should not, which, while `peer_names` has the service's ACL allow `uci get`, could ask rpcd for the whole config. Without `peer_names` the ACL refuses it. The ubus object's `interfaces`, by contrast, asks netifd, so that a LuCI user allowed the exporter's object alone gets interface names without the file.
+Read-only is not the same as harmless, so some files stay out of the jail whoever reads around them. `/etc/config/network` holds WireGuard's private keys: the wireguard collector does not declare it, and names peers by their descriptions only with `peer_names`, asking the service's ubus object, which reads the config as root and hands over each peer's public key and description alone. The keys stay out of the jail's files and out of every reply the service's user may ask for (see [What the service's user reaches over ubus](#what-the-services-user-reaches-over-ubus)). The ubus object's `interfaces`, by contrast, asks netifd, so that a LuCI user allowed the exporter's object alone gets interface names without the file.
 
 ## Not root {#not-root}
 
@@ -28,12 +28,37 @@ What a collector needs beyond that, it declares, as it declares its mounts, and 
 
 Some choices this took:
 
-- **The ubus ACL is written for the enabled collectors, not installed for all of them.** ubusd's ACL names objects and methods, never their arguments. One of the calls collectors make is as wide as root's reading: rpcd's `uci get`, which `wireguard` asks with `peer_names`, reads any config. rpcd's `file read`, which reads any file as root and checks no session for a caller that sends none, is no collector's: filesystem has its package's own object read the host's mounts and tell it no more than their types, flags and sizes. An ACL each package installed would allow them as long as the package is there, enabled or not; so the service writes the ACL at each start, for the collectors enabled then, with the options they have, and has ubusd read it again. It keeps the ACL outside its run directory, which only root enters, and a link in ubusd's directory, which the package installs, points to it.
+- **The ubus ACL is written for the enabled collectors, not installed for all of them.** An ACL each package installed would allow its calls as long as the package is there, enabled or not; so the service writes the ACL at each start, for the collectors enabled then, with the options they have, and has ubusd read it again. It keeps the ACL outside its run directory, which only root enters, and a link in ubusd's directory, which the package installs, points to it.
+- **No call that answers a secret, or reads what its caller names.** ubusd's ACL names objects and methods, never their arguments, so a method is as wide as the widest reply it gives. Some that a collector would reach for answer more than it reads: rpcd's `file read` reads any file as root, and checks no session for a caller that sends none; its `uci get` reads any config; netifd's `network.wireless status` holds every Wi-Fi network's key; procd's `service list` every service's command line and environment. The ACL allows none of them. Where a collector needs a little of what they answer, the service's own ubus object, which rpcd runs as root, asks for it and hands over the fields the collector reads, and nothing else; its methods for the collectors take no arguments, so no caller can point them elsewhere.
 - **Capabilities that read, never ones that read past the jail.** A collector may declare `CAP_NET_ADMIN` or `CAP_NET_RAW`. Reading `/proc/net/nf_conntrack`, which is root's alone, would be easiest with `CAP_DAC_READ_SEARCH`, but that capability opens any file of a filesystem the jail has a file of, by its handle, past every mount; and `CAP_DAC_OVERRIDE` would write the jail's procfs. So the service gives that one file to its group instead, as it does the configs.
 - **Configs opened to the group, secrets copied.** OpenWrt's configs are mostly root's alone (0600), and a collector reads its configs where uci keeps them. So the service gives the configs the jail mounts to its group, read-only, and takes them back once no enabled collector reads them; `uci commit` gives a config back to root's group, and the reload it triggers gives it to the service's again. The secrets are another matter: basic auth's file is written for the group at each start, and the TLS certificate and key are read from copies the service makes at each start and removes when it stops, so `/etc/uhttpd.key` and the hash's config stay root's alone.
 - **A capability is the whole process's.** The scrape's child processes are uhttpd's, so `CAP_NET_ADMIN`, while `nft-counters` is enabled, is uhttpd's too, the one that answers requests from the network. What it can change of the network is what that capability allows; a router that does not need nft's counters does not enable the collector.
 
 What stays root's is what must: the init script and `jail.uc`, which grant; rpcd's ubus object, which writes the hash; and the `watch` instance, which asks procd for a reload by an event, a call the service's ACL would otherwise have to allow for any event.
+
+### What the service's user reaches over ubus {#what-the-services-user-reaches-over-ubus}
+
+These are every call the ACL can allow, each only while a collector that declares it is enabled (`check` lists the ACL in force). None takes an argument that chooses what is read, and none answers a key, a password or a hash.
+
+| Call | Declared by | What it answers |
+| :--- | :--- | :--- |
+| `system board` | Every ACL (the canary), `openwrt` | The board's model and OpenWrt's release. |
+| `rc list` | `bmx7`, `chrony`, `dawn`, `dhcp_leases`, `dnsmasq`, `modemmanager`, `mwan3`, `timesync`, `unbound` | Each init script's start and stop priorities, and whether it is enabled and running. |
+| `network.interface dump` | `dhcp_leases`, `openwrt_interfaces` | netifd's status of each logical interface: its addresses, routes, DNS servers and uptime; not its config. |
+| `prometheus-exporter wireless` | `wifi`, `hostapd_stations` | Each radio's name, `up`, `disabled`, channel, country and HT mode, and each of its networks' interface, SSID or mesh ID, and encryption; not netifd's status, which has the keys. |
+| `prometheus-exporter time_daemons` | `timesync` | Whether busybox ntpd and chronyd run: two booleans, not procd's command lines. |
+| `prometheus-exporter wireguard_peers` | `wireguard` with `peer_names` | Each WireGuard peer's public key and description, by interface; not the peer sections, which hold the preshared keys. |
+| `prometheus-exporter.filesystem mounts` | `filesystem` | Each of the host's mounts with blocks: its device, mount point, type, read-only flag, sizes and inodes. |
+| `wireguard status` | `wireguard` | rpcd-mod-wireguard's interfaces and peers: public keys, listen ports, endpoints, allowed IPs, traffic and last handshakes; no private or preshared key. |
+| `hostapd.<interface> get_status`, `get_clients` | `hostapd_stations`; `hostapd_ubus_stations` (`get_clients`) | Each access point's SSID, BSSID, channel and airtime, and its stations: MAC addresses, flags, rates, signal and traffic. |
+| `dhcp ipv4leases`, `ipv6leases` | `dhcp_leases` | odhcpd's leases: addresses, MAC addresses, DUIDs and host names. |
+| `dnsmasq metrics` | `dnsmasq` | dnsmasq's counters. |
+| `dawn get_network` | `dawn` | DAWN's access points and clients. |
+| `mwan3 status` | `mwan3` | mwan3's interfaces and their tracking. |
+| `poe info` | `realtek-poe` | The PoE ports' state and power. |
+| `dsl metrics` | `ltq-dsl` | The DSL line's state and counters. |
+
+A collector of another package may declare calls of its own, which the ACL then allows while it is enabled: installing it is trusting it with them, as with its code (see [Buggy, not hostile](#buggy-not-hostile)). The leases, stations and clients are what a router knows of the people on its network, and what those collectors are for: leave them disabled where their series should not leave the router.
 
 ## Buggy, not hostile {#buggy-not-hostile}
 

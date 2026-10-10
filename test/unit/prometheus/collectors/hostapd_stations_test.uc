@@ -4,11 +4,13 @@ import { describe, it, prop, gen, assert, contains } from 'utest';
 import { with_collector, outcome } from 'prometheus.exporter.devkit.collector';
 import * as fixtures from 'lib.fixtures';
 import * as hostapd_stations from 'prometheus.collectors.hostapd_stations';
+import * as rpc from 'prometheus.exporter.rpc';
 
 // caju-ap: phy0-ap0 has one client, phy1-ap0 none, phy1-ap1 four.
 const IFACES = [ 'phy0-ap0', 'phy1-ap0', 'phy1-ap1' ];
 
-const UBUS = { 'network.wireless:status': fixtures.ubus('caju-ap', 'network.wireless', 'status') };
+// netifd's wireless status without its keys, as the service's ubus object gives it.
+const UBUS = { 'prometheus-exporter:wireless': fixtures.ubus('caju-ap', 'prometheus-exporter', 'wireless') };
 for (let dev in IFACES)
 	for (let method in [ 'get_status', 'get_clients' ])
 		UBUS[`hostapd.${dev}:${method}`] = fixtures.ubus('caju-ap', `hostapd.${dev}`, method);
@@ -78,7 +80,7 @@ function lab(counts) {
 		data[`hostapd.wlan${i}:get_clients`] = { freq: 5180, clients };
 	}
 
-	data['network.wireless:status'] = { radio0: { interfaces: ifaces } };
+	data['prometheus-exporter:wireless'] = rpc.wireless({ radio0: { interfaces: ifaces } });
 	return { ubus: { data } };
 }
 
@@ -120,23 +122,28 @@ describe('collectors.hostapd_stations', () => {
 		});
 	});
 
-	it('has nothing to observe without network.wireless, or radios', () => {
-		with_collector(hostapd_stations, { ubus: { data: {}, errors: { 'network.wireless:status': "Not found: Failed to resolve object name 'network.wireless'" } } }, (r) => {
-			assert.match({ ok: true, none: 'no wireless radios', error: null, lines: [], logs: [] }, outcome(r));
-		});
-		with_collector(hostapd_stations, { ubus: { data: { 'network.wireless:status': {} } } }, (r) => {
+	it('asks the service\'s ubus object for the radios, never netifd\'s wireless status, which holds every network\'s key', () => {
+		assert.match({ 'hostapd.*': [ 'get_clients', 'get_status' ], 'prometheus-exporter': [ 'wireless' ] }, hostapd_stations.meta.ubus);
+	});
+
+	it('has nothing to observe without radios', () => {
+		with_collector(hostapd_stations, { ubus: { data: { 'prometheus-exporter:wireless': { radios: {} } } } }, (r) => {
 			assert.match({ ok: true, none: 'no wireless radios', error: null, lines: [], logs: [] }, outcome(r));
 		});
 	});
 
 	it('has nothing to observe where hostapd serves none of the interfaces', () => {
-		with_collector(hostapd_stations, { ubus: { data: { 'network.wireless:status': UBUS['network.wireless:status'], 'hostapd:config_add': null } } }, (r) => {
+		with_collector(hostapd_stations, { ubus: { data: { 'prometheus-exporter:wireless': UBUS['prometheus-exporter:wireless'], 'hostapd:config_add': null } } }, (r) => {
 			assert.match({ ok: true, none: 'no hostapd access points', error: null, lines: [], logs: [] }, outcome(r));
 		});
 	});
 
-	it('passes any other failed network.wireless status on', () => {
-		with_collector(hostapd_stations, ap({}, { 'network.wireless:status': 'Request timed out' }), (r) => {
+	it('fails with SOURCE_INVALID when the object could not ask netifd, and passes a failed call of it on', () => {
+		with_collector(hostapd_stations, ap({ 'prometheus-exporter:wireless': { error: 'UBUS_CALL_FAILED', message: 'timed out' } }), (r) => {
+			assert.match({ ok: false, error: 'SOURCE_INVALID', details: 'prometheus-exporter wireless: timed out' },
+				{ ok: r.result.ok, error: r.result.error, details: r.result.details });
+		});
+		with_collector(hostapd_stations, ap({}, { 'prometheus-exporter:wireless': 'Request timed out' }), (r) => {
 			assert.match({ ok: false, error: 'UBUS_CALL_FAILED' }, { ok: r.result.ok, error: r.result.error });
 			assert.match([], r.lines);
 		});

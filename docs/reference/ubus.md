@@ -14,6 +14,9 @@ $ ubus -v list prometheus-exporter
 	"hash_password":{"password":"String"}
 	"password":{}
 	"set_password":{"password":"String"}
+	"wireless":{}
+	"wireguard_peers":{}
+	"time_daemons":{}
 ```
 
 ---
@@ -29,6 +32,9 @@ $ ubus -v list prometheus-exporter
 | [`hash_password`](#hash_password) | `{ password }` | `{ hash }` |
 | [`password`](#password) | none | `{ saved }` |
 | [`set_password`](#set_password) | `{ password }` | `{ saved }` |
+| [`wireless`](#for-the-collectors) | none | `{ radios: { <radio>: { up, disabled, config: { channel, country, htmode }, interfaces: [ { ifname, config: { ssid, mesh_id, encryption } } ] } } }` |
+| [`wireguard_peers`](#for-the-collectors) | none | `{ interfaces: { <interface>: { <public key>: <description> } } }` |
+| [`time_daemons`](#for-the-collectors) | none | `{ running: { sysntpd, chronyd } }` |
 
 A call with malformed arguments, and one that fails, is answered `{ error, message }`. See [Errors](#errors).
 
@@ -115,7 +121,7 @@ A client that does not know a code shows `message`.
 
 ## `status`
 
-Runs one scrape of the enabled collectors and replies when it is done: in the service's own jail, with ujail, where it can, as the service's scrapes run them (each collector in a process of its own, stopped at its budget, within `scrape_timeout`). rpcd runs it in a process of its own, `/usr/libexec/prometheus-exporter/rpc-status.uc`, and answers other calls meanwhile, the collectors' calls to objects rpcd serves (`wireguard`, `luci`) among them; it kills that process, with all it started, if it is still running after 60 s. It runs a collector the service quarantined all the same.
+Runs one scrape of the enabled collectors and replies when it is done: in the service's own jail, with ujail, where it can, as the service's scrapes run them (each collector in a process of its own, stopped at its budget, within `scrape_timeout`). rpcd runs it in a process of its own, `/usr/libexec/prometheus-exporter/rpc-status.uc`, and answers other calls meanwhile, the collectors' calls to objects rpcd serves (`wireguard`, this object's own, `prometheus-exporter.filesystem`) among them; it kills that process, with all it started, if it is still running after 60 s. It runs a collector the service quarantined all the same.
 
 | Field | Type | Content |
 | :--- | :--- | :--- |
@@ -200,6 +206,25 @@ $ ubus call prometheus-exporter set_password '{"password":"…"}'
 Basic auth is on while the main section's `auth_user` is set: a hash saved without one is unused, and a user without one is refused. The change applies at once, apart from any change staged in uci: it is not undone by a rollback, nor by `uci revert`.
 
 This is how LuCI changes and removes the password, with its **Change password…** and **Remove password**, apart from Save & Apply: LuCI's ACL grants it to a login that may write, and nothing of `/etc/config/prometheus-exporter-auth`. See [LuCI app](luci.md#basic-auth-password).
+
+## For the collectors
+
+Three methods give collectors, as root, the part they read of what the service's user may not be allowed: each takes no arguments, and answers no key, password or command line. The service's ACL allows each while a collector that calls it is enabled; LuCI's grants none. See [About the security model](../explanation/security.md#what-the-services-user-reaches-over-ubus).
+
+| Method | Asks, as root | Answers of it | For |
+| :--- | :--- | :--- | :--- |
+| `wireless` | netifd's `network.wireless status`, which holds each network's config, its `key` with it | Each radio's `up` and `disabled`, its config's `channel`, `country` and `htmode`, and each of its interfaces' `ifname` and config's `ssid`, `mesh_id` and `encryption`; `{ radios: {} }` where netifd has no `network.wireless` | wifi, hostapd_stations |
+| `wireguard_peers` | uci's `network` config, whose peer sections hold the preshared keys and whose interfaces the private keys | The `description` of each `wireguard_<interface>` section that has one, by interface and `public_key` | wireguard, with `peer_names` |
+| `time_daemons` | procd's `service list` of `sysntpd` and of `chronyd`, which holds each instance's command line and environment | Whether an instance of each runs its daemon, `/usr/sbin/ntpd` and `/usr/sbin/chronyd` | timesync |
+
+```
+$ ubus call prometheus-exporter wireless
+{ "radios": { "radio0": { "up": true, "disabled": false, "config": { "channel": "36", "country": "DE", "htmode": "HE80" }, "interfaces": [ { "ifname": "phy0-ap0", "config": { "ssid": "example", "encryption": "sae" } } ] } } }
+```
+
+`wireless` asks netifd with ubus's command line, `ubus -S -t 3 call network.wireless status`, in a process of its own, as `status` runs its scrape: rpcd answers other calls meanwhile, and a netifd that does not answer costs the call 3 s, never rpcd. `time_daemons` asks procd and `wireguard_peers` reads uci, in rpcd's own process.
+
+A source that cannot be asked is answered `{ error, message }`, as `{ "error": "UBUS_CALL_FAILED", "message": "network.wireless status: Request timed out" }`; the collector then fails with `SOURCE_INVALID`.
 
 ## Errors
 

@@ -15,7 +15,7 @@
 // Result.none, or one whose code has it and is not here.
 export const nothing_to_observe = {
 	'wifi': {
-		when: 'No `network.wireless` object, or one without radios.',
+		when: 'netifd has no radio: the service\'s ubus object\'s `wireless` gives none.',
 		failure: 'Another failed call; an interface nl80211 cannot answer for.',
 	},
 	'hostapd_stations': {
@@ -91,7 +91,7 @@ export const nothing_to_observe = {
 		failure: 'chronyd enabled, and `chronyc` failing (chronyd stopped).',
 	},
 	'timesync': {
-		when: 'Neither busybox ntpd nor chronyd runs, as procd\'s instances say: sysntpd runs ntpd only while `/etc/config/system` turns NTP on. With one running, it observes that one.',
+		when: 'Neither busybox ntpd nor chronyd runs, as procd\'s instances say (the service\'s ubus object\'s `time_daemons`): sysntpd runs ntpd only while `/etc/config/system` turns NTP on. With one running, it observes that one.',
 		failure: 'chronyd enabled and not running, or `chronyc` failing; busybox ntpd\'s event file unreadable.',
 		// It asks rc of chronyd, but answers its own reason.
 		reasons: [ 'neither ntpd nor chronyd runs' ],

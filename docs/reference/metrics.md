@@ -51,13 +51,13 @@ The labels are those seen on the captures; a collector leaves out a label it has
 | [`textfile`](#textfile) | 6 | an access point, a router, a second router, made-up captures | — |
 | [`thermal`](#thermal) | 4 | an access point, a router, made-up captures | `node_thermal_zone_passive_celsius` |
 | [`time`](#time) | 1 | an access point, a router, a second router, made-up captures | — |
-| [`timesync`](#timesync) | 4 | a second router | — |
+| [`timesync`](#timesync) | 4 | an access point, a second router | — |
 | [`ubnt-manager`](#ubnt-manager) | 43 | made-up captures | — |
 | [`uci_dhcp_host`](#uci_dhcp_host) | 1 | a router | — |
 | [`uname`](#uname) | 1 | an access point, a router | — |
 | [`unbound`](#unbound) | 54 | made-up captures | — |
 | [`vmstat`](#vmstat) | 7 | a router | — |
-| [`wifi`](#wifi) | 24 | an access point | `node_wifi_station_beacon_loss_total` |
+| [`wifi`](#wifi) | 26 | an access point | `node_wifi_station_beacon_loss_total` |
 | [`wireguard`](#wireguard) | 5 | a router | — |
 
 ## The scrape's own {#scrape}
@@ -860,6 +860,8 @@ Wi-Fi. [Collector](collectors.md#wifi).
 | Family | Type | Labels | Help | Notes |
 | :--- | :--- | :--- | :--- | :--- |
 | `node_wifi_radio_info` | gauge | `radio`, `htmode`, `channel`, `country` | A Wi-Fi radio, by its mode, channel and country. | — |
+| `node_wifi_radio_up` | gauge | `radio` | Whether netifd has the Wi-Fi radio up (1) or not (0). | — |
+| `node_wifi_radio_disabled` | gauge | `radio` | Whether the Wi-Fi radio is disabled in the wireless config (1) or not (0). | — |
 | `node_wifi_interface_frequency_hertz` | gauge | `radio`, `device` | The current frequency a WiFi interface is operating at, in hertz. | — |
 | `node_wifi_network_info` | gauge | `radio`, `device`, `ssid`, `bssid`, `mode` | A Wi-Fi network, by its SSID, BSSID and mode. | — |
 | `node_wifi_network_quality_ratio` | gauge | `radio`, `device` | Signal quality of the network's stations, from 0 (-110 dBm or weaker) to 1 (-40 dBm or stronger). | — |

@@ -21,6 +21,7 @@ import { scrape_env } from 'prometheus.exporter.app';
 import * as jailed from 'prometheus.exporter.jailed';
 import * as describer from 'prometheus.exporter.rpc.describe';
 import * as validator from 'prometheus.exporter.rpc.validate';
+import * as sources from 'prometheus.exporter.rpc.sources';
 import { text } from 'prometheus.exporter.rpc.describe';
 import { invalid_args } from 'prometheus.exporter.rpc.validate';
 
@@ -88,6 +89,11 @@ export const option_names = validator.option_names;
 export const refusal = validator.refusal;
 export const MAIN_OPTIONS = validator.MAIN_OPTIONS;
 export const ARGS_INVALID = validator.ARGS_INVALID;
+
+export const wireless = sources.wireless;
+export const wireguard_peers = sources.wireguard_peers;
+export const time_daemons = sources.time_daemons;
+export const TIME_DAEMONS = sources.TIME_DAEMONS;
 
 export const NAME = config.NAME;
 export const PACKAGE = config.PACKAGE;
@@ -315,15 +321,16 @@ export function set_password(sys, args) {
 };
 
 /**
- * Runs `command` without blocking rpcd, and replies with the JSON object it prints.
+ * Runs `command` without blocking rpcd, and replies with the JSON object it prints, or with what `parse` makes of its output.
  *
  * @param {RpcRequest} req
  * @param {RpcIo} io
  * @param {string} command
  * @param {?string} name
+ * @param {?function(?string): Object} parse
  * @returns {Object}
  */
-export function deferred_json(req, io, command, name) {
+export function deferred_json(req, io, command, name, parse) {
 	let p = io.popen(command);
 
 	name ??= command;
@@ -338,7 +345,7 @@ export function deferred_json(req, io, command, name) {
 		p.close();
 
 		try {
-			data = json(out);
+			data = parse ? parse(out) : json(out);
 		} catch (e) {
 			data = null;
 		}
@@ -405,6 +412,14 @@ export function cached_probe(fs, dir, helper) {
 	};
 };
 
+function with_ubus(make_sys, fn) {
+	let sys = make_sys({ collectors: false });
+	let out = fn(sys.ubus);
+
+	sys.ubus.close();
+	return out;
+}
+
 /**
  * The methods rpcd serves.
  *
@@ -435,6 +450,18 @@ export function methods(make_sys, io) {
 				sys.ubus.close();
 				return out;
 			},
+		},
+		wireless: {
+			args: {},
+			call: (req) => deferred_json(req, io, sources.WIRELESS_COMMAND, 'ubus call network.wireless status', sources.wireless_reply),
+		},
+		wireguard_peers: {
+			args: {},
+			call: () => sources.wireguard_peers(make_sys({ collectors: false }).uci),
+		},
+		time_daemons: {
+			args: {},
+			call: () => with_ubus(make_sys, sources.time_daemons_of),
 		},
 		hash_password: {
 			args: { password: '' },

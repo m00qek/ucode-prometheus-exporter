@@ -1,13 +1,13 @@
 'use strict';
 
-import { Result, errors, services, u32 } from 'prometheus.exporter';
+import { Result, errors, u32 } from 'prometheus.exporter';
 
 export const meta = {
 	name: 'hostapd_stations',
 	title: 'hostapd stations',
 	help: 'Stations of each hostapd access point, from hostapd\'s ubus objects.',
 	needs: [ 'ubus' ],
-	ubus: { 'hostapd.*': [ 'get_clients', 'get_status' ], 'network.wireless': [ 'status' ] },
+	ubus: { 'hostapd.*': [ 'get_clients', 'get_status' ], 'prometheus-exporter': [ 'wireless' ] },
 };
 
 function metrics(out) {
@@ -85,15 +85,13 @@ export function collect(deps, out) {
 		return res;
 
 	let objects = res.data;
-	res = deps.ubus.call('network.wireless', 'status');
-	if (services.object_missing(res))
-		return Result.none('no wireless radios');
+	res = deps.ubus.call('prometheus-exporter', 'wireless');
 	if (!res.ok)
 		return res;
 
-	let status = res.data;
+	let status = res.data?.radios;
 	if (type(status) != 'object')
-		return Result.err(errors.SOURCE_INVALID, 'network.wireless status: not an object');
+		return Result.err(errors.SOURCE_INVALID, `prometheus-exporter wireless: ${res.data?.message ?? 'no radios'}`);
 	if (!length(status))
 		return Result.none('no wireless radios');
 

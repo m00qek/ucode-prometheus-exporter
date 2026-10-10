@@ -4,10 +4,11 @@ import { describe, it, prop, gen, assert, contains } from 'utest';
 import { with_collector, jail_of } from 'prometheus.exporter.devkit.collector';
 import * as fixtures from 'lib.fixtures';
 import * as wireguard from 'prometheus.collectors.wireguard';
+import * as rpc from 'prometheus.exporter.rpc';
 
 // The caju router's two WireGuard interfaces, keys and endpoints redacted; its
-// network config (uci show network), private keys left out, which rpcd's uci
-// object answers from.
+// network config (uci show network), private keys left out, which the
+// service's ubus object answers wireguard_peers from.
 const STATUS = fixtures.ubus('caju-router', 'wireguard', 'status');
 const NETWORK = json(fixtures.file('caju-router', '/uci/network.json'));
 
@@ -17,17 +18,16 @@ const MESH_HUB = 'AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM=';
 const PLAYGROUND = 'BAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQ=';
 const HUB = 'BQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQU=';
 
-// rpcd's `uci get { config, type }`: the config's sections of that type.
-function uci_get(network) {
-	return (args) => {
-		let values = {};
-
-		for (let name, sec in network)
-			if (args.config == 'network' && sec['.type'] == args.type)
-				values[name] = { '.anonymous': false, '.name': name, ...sec };
-
-		return { values };
-	};
+// The service's ubus object's `wireguard_peers` of the config `network`, as
+// its method makes it from a uci cursor.
+function peers_of(network) {
+	return rpc.wireguard_peers({
+		load: () => true,
+		foreach: function(config, stype, cb) {
+			for (let name, sec in network)
+				cb({ '.anonymous': false, '.name': name, ...sec });
+		},
+	});
 }
 
 // The collector's ubus; with network, peer_names on and rpcd answering from it.
@@ -35,7 +35,7 @@ function cfg(status, network) {
 	let c = { ubus: { data: { 'wireguard:status': status } } };
 
 	if (network) {
-		c.ubus.data['uci:get'] = uci_get(network);
+		c.ubus.data['prometheus-exporter:wireguard_peers'] = peers_of(network);
 		c.options = { peer_names: '1' };
 	}
 
@@ -89,8 +89,8 @@ describe('collectors.wireguard', () => {
 	it('exports peers without friendly names when rpcd cannot give the network config', () => {
 		let c = cfg(STATUS, NETWORK);
 
-		delete c.ubus.data['uci:get'];
-		c.ubus.errors = { 'uci:get': 'Not found' };
+		delete c.ubus.data['prometheus-exporter:wireguard_peers'];
+		c.ubus.errors = { 'prometheus-exporter:wireguard_peers': 'Not found' };
 		with_collector(wireguard, c, (r) => {
 			assert.match(true, r.result.ok);
 			assert.match(false, index(r.text, 'friendly_name=') >= 0);
@@ -101,18 +101,18 @@ describe('collectors.wireguard', () => {
 	it('takes the descriptions of the interface\'s own peer sections alone', () => {
 		let c = cfg(STATUS, NETWORK);
 
-		c.ubus.data['uci:get'] = () => ({ values: {
+		c.ubus.data['prometheus-exporter:wireguard_peers'] = peers_of({
 			other: { '.type': 'wireguard_wg_mesh', public_key: HUB, description: 'not this one' },
 			mine: { '.type': 'wireguard_lan2playground', public_key: HUB, description: 'hub' },
-		} });
+		});
 		with_collector(wireguard, c, (r) => {
 			assert.match(false, index(r.text, 'not this one') >= 0);
 			assert.match(true, index(r.text, 'friendly_name="hub"') >= 0);
 		});
 	});
 
-	// The peer sections rpcd hands over carry preshared keys: only the
-	// description of each ever reaches the scrape.
+	// The peer sections carry preshared keys: only the description of each
+	// ever leaves the object, or reaches the scrape.
 	prop('lets no other option of a peer section into the scrape', gen.alphanumeric({ min_len: 8, max_len: 24 }), (secret) => {
 		let network = { ...NETWORK, cfg10bea0: { ...NETWORK.cfg10bea0, preshared_key: `psk${secret}`, private_key: `key${secret}` } };
 

@@ -68,7 +68,16 @@ uci dhcp
 uci network
 # ubus/uci.get.json (caju-router): rpcd's `uci get { config: network, type:
 # wireguard_<iface> }` for wireguard's peer_names, written from uci/network.json's
-# peer sections; both interfaces' in one reply, as the collector keeps its own.
+# peer sections; both interfaces' in one reply.
+# The service's own object's replies, written from the captures above and below
+# with prometheus.exporter.rpc.sources, as its methods make them (the tests hold
+# them to it): ubus/prometheus-exporter.wireless.json (caju-ap) of
+# network.wireless status, prometheus-exporter.time_daemons.json (caju-ap,
+# seriguela-router) of service list, prometheus-exporter.wireguard_peers.json
+# (caju-router) of uci.get.json.
+ubus prometheus-exporter wireless
+ubus prometheus-exporter time_daemons
+ubus prometheus-exporter wireguard_peers
 # test/fixtures/synthetic/ is written by hand for what neither device has; see its SOURCES.
 file /proc/net/netstat
 file /proc/net/snmp

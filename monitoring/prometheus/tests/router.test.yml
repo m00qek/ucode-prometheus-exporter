@@ -247,12 +247,18 @@ tests:
         values: '1 0x10'
       - series: 'node_openwrt_interface_up{job="node-remote", instance="router:9100", interface="lan"}'
         values: '1x10'
-      # radio0 has a network up, radio1 none.
-      - series: 'node_wifi_radio_info{job="access-points", instance="ap:9100", radio="radio0", htmode="HE80", channel="36", country="DE"}'
+      # radio0 is up, radio1 enabled and down, radio2 disabled on purpose.
+      - series: 'node_wifi_radio_up{job="access-points", instance="ap:9100", radio="radio0"}'
         values: '1x40'
-      - series: 'node_wifi_network_info{job="access-points", instance="ap:9100", radio="radio0", device="phy0-ap0", ssid="example", bssid="02:00:00:00:00:01", mode="Master"}'
-        values: '1x40'
-      - series: 'node_wifi_radio_info{job="access-points", instance="ap:9100", radio="radio1", htmode="HE20", channel="1", country="DE"}'
+      - series: 'node_wifi_radio_disabled{job="access-points", instance="ap:9100", radio="radio0"}'
+        values: '0x40'
+      - series: 'node_wifi_radio_up{job="access-points", instance="ap:9100", radio="radio1"}'
+        values: '0x40'
+      - series: 'node_wifi_radio_disabled{job="access-points", instance="ap:9100", radio="radio1"}'
+        values: '0x40'
+      - series: 'node_wifi_radio_up{job="access-points", instance="ap:9100", radio="radio2"}'
+        values: '0x40'
+      - series: 'node_wifi_radio_disabled{job="access-points", instance="ap:9100", radio="radio2"}'
         values: '1x40'
       # ntpd never synchronized; chronyd elsewhere is.
       - series: 'node_timesync_synchronized{job="node-remote", instance="router:9100", daemon="ntpd"}'
@@ -292,14 +298,11 @@ tests:
               job: access-points
               instance: ap:9100
               radio: radio1
-              htmode: HE20
-              channel: "1"
-              country: DE
             exp_annotations:
-              summary: Wi-Fi radio radio1 of ap:9100 has no network up.
+              summary: Wi-Fi radio radio1 of ap:9100 is down.
               description: >-
-                Radio radio1 of ap:9100 has had no network up for 10 minutes:
-                it is disabled, its driver failed, or it waits for a DFS channel check.
+                Radio radio1 of ap:9100 is enabled and has not been up for 10 minutes:
+                its driver failed, or it waits for a DFS channel check.
                 `wifi status` on the router says which.
       - eval_time: 20m
         alertname: OpenWrtClockNotSynchronized

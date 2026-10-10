@@ -6,6 +6,7 @@ import * as rc from 'prometheus.exporter.devkit.rc';
 import * as fixtures from 'lib.fixtures';
 import * as commands from 'prometheus.exporter.devkit.commands';
 import * as timesync from 'prometheus.collectors.timesync';
+import * as rpc from 'prometheus.exporter.rpc';
 import * as state from 'prometheus.exporter.state';
 import { readfile } from 'fs';
 
@@ -34,12 +35,12 @@ const HELP = [
 // cfg: { ntpd, chronyd: whether procd runs each; rc: enabled per init script;
 // state: the hotplug script's file; tracking: chronyc's output }.
 function with_ntp(cfg, cb) {
-	let list = (args) => args?.name == 'sysntpd' ? (cfg.ntpd ? NTPD_RUNS : NONE) : (cfg.chronyd ? CHRONYD_RUNS : NONE);
+	let running = rpc.time_daemons({ sysntpd: cfg.ntpd ? NTPD_RUNS : NONE, chronyd: cfg.chronyd ? CHRONYD_RUNS : NONE });
 	let outputs = cfg.tracking != null ? { [TRACKING]: cfg.tracking } : {};
 	let data = cfg.state != null ? { [timesync.NTPD_STATE]: cfg.state } : {};
 
 	with_collector(timesync, {
-		ubus: { data: { 'service:list': list, ...rc.rc(cfg.rc ?? {}) } },
+		ubus: { data: { 'prometheus-exporter:time_daemons': running, ...rc.rc(cfg.rc ?? {}) } },
 		// No file: a readfile() that finds nothing, as the real one.
 		fs: commands.fs(outputs, { data, strict: cfg.state != null }),
 	}, cb);
@@ -149,9 +150,17 @@ describe('collectors.timesync', () => {
 		});
 	});
 
+	it('asks the service\'s ubus object what runs, never procd\'s service list, which has every service\'s command line', () => {
+		assert.match({ 'prometheus-exporter': [ 'time_daemons' ], rc: [ 'list' ] }, timesync.meta.ubus);
+	});
+
 	it('passes on a ubus that cannot say what procd runs', () => {
-		with_collector(timesync, { ubus: { data: {}, errors: { 'service:list': 'Request timed out' } } }, (r) => {
+		with_collector(timesync, { ubus: { data: {}, errors: { 'prometheus-exporter:time_daemons': 'Request timed out' } } }, (r) => {
 			assert.match([ false, 'UBUS_CALL_FAILED' ], [ r.result.ok, r.result.error ]);
+		});
+		with_collector(timesync, { ubus: { data: { 'prometheus-exporter:time_daemons': { error: 'UBUS_CALL_FAILED', message: 'timed out' } } } }, (r) => {
+			assert.match({ ok: false, error: 'SOURCE_INVALID', details: 'prometheus-exporter time_daemons: timed out' },
+				{ ok: r.result.ok, error: r.result.error, details: r.result.details });
 		});
 	});
 

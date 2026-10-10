@@ -1,13 +1,13 @@
 'use strict';
 
-import { Result, errors, services } from 'prometheus.exporter';
+import { Result, errors } from 'prometheus.exporter';
 
 export const meta = {
 	name: 'wifi',
 	title: 'Wi-Fi',
-	help: 'Wi-Fi radios, networks and stations, from ubus network.wireless and nl80211.',
+	help: 'Wi-Fi radios, networks and stations, from netifd\'s wireless status without its keys (the service\'s ubus object) and nl80211.',
 	needs: [ 'ubus', 'nl80211' ],
-	ubus: { 'network.wireless': [ 'status' ] },
+	ubus: { 'prometheus-exporter': [ 'wireless' ] },
 	options: {
 		stations: { default: true, title: 'Station metrics', help: 'Per-station metrics: signal, rates and traffic of each client. The count of stations of each interface is written either way.' },
 	},
@@ -74,6 +74,8 @@ function channel_times(m, labels, survey, freq) {
 function metrics(out) {
 	return {
 		radio_info: out.gauge('node_wifi_radio_info', 'A Wi-Fi radio, by its mode, channel and country.'),
+		radio_up: out.gauge('node_wifi_radio_up', 'Whether netifd has the Wi-Fi radio up (1) or not (0).'),
+		radio_disabled: out.gauge('node_wifi_radio_disabled', 'Whether the Wi-Fi radio is disabled in the wireless config (1) or not (0).'),
 		frequency: out.gauge('node_wifi_interface_frequency_hertz', 'The current frequency a WiFi interface is operating at, in hertz.'),
 		network_info: out.gauge('node_wifi_network_info', 'A Wi-Fi network, by its SSID, BSSID and mode.'),
 		network_quality: out.gauge('node_wifi_network_quality_ratio', 'Signal quality of the network\'s stations, from 0 (-110 dBm or weaker) to 1 (-40 dBm or stronger).'),
@@ -200,16 +202,14 @@ function network(nl, m, radio, iface, with_stations) {
 }
 
 export function collect(deps, out, options) {
-	let res = deps.ubus.call('network.wireless', 'status');
+	let res = deps.ubus.call('prometheus-exporter', 'wireless');
 
-	if (services.object_missing(res))
-		return Result.none('no wireless radios');
 	if (!res.ok)
 		return res;
 
-	let status = res.data;
+	let status = res.data?.radios;
 	if (type(status) != 'object')
-		return Result.err(errors.SOURCE_INVALID, 'network.wireless status: not an object');
+		return Result.err(errors.SOURCE_INVALID, `prometheus-exporter wireless: ${res.data?.message ?? 'no radios'}`);
 	if (!length(status))
 		return Result.none('no wireless radios');
 
@@ -220,6 +220,10 @@ export function collect(deps, out, options) {
 		let rc = r?.config ?? {};
 
 		m.radio_info({ radio, htmode: rc.htmode, channel: rc.channel, country: rc.country }, 1);
+		if (type(r?.up) == 'bool')
+			m.radio_up({ radio }, r.up);
+		if (type(r?.disabled) == 'bool')
+			m.radio_disabled({ radio }, r.disabled);
 
 		for (let iface in r?.interfaces ?? []) {
 			if (type(iface?.ifname) != 'string')
