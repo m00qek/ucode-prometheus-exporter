@@ -49,6 +49,15 @@ export const TLS_CERT = `${RUN_DIR}/tls.crt`;
 /** The copy of the TLS key, readable by GROUP. */
 export const TLS_KEY = `${RUN_DIR}/tls.key`;
 
+/** uhttpd's file of basic auth, which auth.uc writes at each start (prometheus.exporter.auth's FILE). */
+export const AUTH_FILE = `${RUN_DIR}/uhttpd.conf`;
+
+/** What grant's make() gave the service's group, with each file's group and mode before: root's alone. */
+export const GRANTED_FILE = `${RUN_DIR}/granted.json`;
+
+/** Where uci's configs are, whose files make() may give the service's group. */
+export const CONFIG_DIR = '/etc/config';
+
 /** The ubus ACL, outside the run directory, which ubusd's user may not enter. */
 export const ACL_FILE = `/var/run/${USER}.acl.json`;
 

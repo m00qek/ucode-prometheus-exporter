@@ -22,6 +22,6 @@ The service stops, and rpcd no longer serves the `prometheus-exporter` ubus obje
 rm -f /etc/config/prometheus-exporter
 ```
 
-What the service made at run time, `/var/run/prometheus-exporter/` and textfile's `/var/prometheus/`, is on tmpfs and goes at the next reboot; its ubus ACL goes when it stops. The user and group `prometheus-exporter` stay, as OpenWrt keeps every package's: a config the service opened to that group stays so until `uci commit` writes it again, or `chgrp root` it.
+What the service made at run time, `/var/run/prometheus-exporter/` and textfile's `/var/prometheus/`, is on tmpfs and goes at the next reboot; its ubus ACL goes when it stops. The user and group `prometheus-exporter` stay, as OpenWrt keeps every package's, with nothing granted: removing the package stops the service, which gives each config and `/proc` file it opened to that group its group and mode back, and takes the user out of every other group.
 
 If Prometheus scrapes the device, take it out of the scrape configuration, or its target stays down.

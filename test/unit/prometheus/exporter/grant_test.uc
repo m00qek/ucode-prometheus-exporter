@@ -3,6 +3,8 @@
 import { describe, it, assert } from 'utest';
 import * as grant from 'prometheus.exporter.grant';
 import * as privileges from 'prometheus.exporter.privileges';
+import * as auth from 'prometheus.exporter.auth';
+import * as state from 'prometheus.exporter.state';
 
 const GROUPS = 'root:x:0:\nunbound:x:32768:unbound\nprometheus-exporter:x:32770:prometheus-exporter\nntp:x:123:ntp\n';
 
@@ -37,6 +39,13 @@ function filesystem(files, broken) {
 		},
 		rename: function(a, b) { if (fails('rename')) return null; files[b] = files[a]; delete files[a]; return true; },
 		unlink: function(p) { if (files[p] == null) return null; delete files[p]; return true; },
+		lsdir: function(d) {
+			let out = [];
+			for (let p in keys(files))
+				if (substr(p, 0, length(d) + 1) == `${d}/` && index(substr(p, length(d) + 1), '/') < 0)
+					push(out, substr(p, length(d) + 1));
+			return out;
+		},
 		error: () => 'Permission denied',
 	};
 
@@ -240,28 +249,101 @@ describe('grant.make', () => {
 		let res = grant.make(system(fs), grants({ files: [ '/etc/config/dhcp' ], ubus: { rc: [ 'list' ] } }));
 
 		assert.match([
+			'cannot take prometheus-exporter read access from /etc/config/chrony: Permission denied',
 			'cannot give prometheus-exporter read access to /etc/config/dhcp: Permission denied',
+			`cannot write ${privileges.GRANTED_FILE}: Permission denied`,
 			`cannot write ${privileges.CAPABILITIES_FILE}: Permission denied`,
 			`cannot write ${privileges.ACL_FILE}: Permission denied`,
 		], res.problems);
 	});
+
+	// What a collector declared outlives it otherwise: its package removed,
+	// or the service stopped, a config stays the group's, and the user in
+	// the collector's group.
+	it('takes back from a config of the group no collector declares any longer, as it was before it gave it', () => {
+		let fs = filesystem(files());
+		let sys = system(fs);
+
+		grant.make(sys, grants({ files: [ '/etc/config/dhcp', '/etc/config/prometheus-exporter' ] }));
+		assert.match({ files: { '/etc/config/dhcp': { gid: 0, mode: 0o600 }, '/etc/config/prometheus-exporter': { gid: 0, mode: 0o600 } } },
+			json(fs.files[privileges.GRANTED_FILE].data));
+		assert.match([ 0o600, 0, 0 ], [ fs.files[privileges.GRANTED_FILE].mode, fs.files[privileges.GRANTED_FILE].gid, fs.files['/etc/config/chrony'].gid ]);
+
+		// The dhcp collector's package removed: nothing declares the config.
+		let res = grant.make(sys, grants({ files: [ '/etc/config/prometheus-exporter' ] }));
+
+		assert.match([ [ 0o600, 0 ], [ 0o640, 32770 ] ],
+			map([ '/etc/config/dhcp', '/etc/config/prometheus-exporter' ], (p) => [ fs.files[p].mode, fs.files[p].gid ]));
+		assert.match(true, 'took prometheus-exporter read access from /etc/config/dhcp' in res.made);
+		assert.match({ files: { '/etc/config/prometheus-exporter': { gid: 0, mode: 0o600 } } }, json(fs.files[privileges.GRANTED_FILE].data));
+	});
+
+	it('takes back a config of the group it has no record of, as after a reboot, giving it to root\'s group', () => {
+		let fs = filesystem(files());
+
+		grant.make(system(fs), grants({ files: [ '/etc/config/prometheus-exporter' ] }));
+		assert.match([ 0o640, 0 ], [ fs.files['/etc/config/chrony'].mode, fs.files['/etc/config/chrony'].gid ]);
+	});
+
+	it('takes the user out of every group no enabled collector declares, the groups of collectors no longer installed too', () => {
+		let fs = filesystem(files({ '/etc/group': { data: 'unbound:x:32768:unbound,prometheus-exporter
+gone:x:40:prometheus-exporter
+prometheus-exporter:x:32770:prometheus-exporter
+', mode: 0o644 } }));
+
+		grant.make(system(fs), grants());
+		assert.match('unbound:x:32768:unbound
+gone:x:40:
+prometheus-exporter:x:32770:prometheus-exporter
+', fs.files['/etc/group'].data);
+	});
 });
 
 describe('grant.clean', () => {
-	it('takes away the ACL, telling ubusd, the capabilities and the TLS copies', () => {
+	it('takes away the ACL, telling ubusd, the capabilities, the TLS copies and basic auth\'s file', () => {
 		let fs = filesystem({
 			[privileges.ACL_FILE]: { data: '{}' }, [privileges.CAPABILITIES_FILE]: { data: '{}' },
-			[privileges.TLS_CERT]: { data: 'C' }, [privileges.TLS_KEY]: { data: 'K' }, '/etc/config/dhcp': { data: 'x' },
+			[privileges.TLS_CERT]: { data: 'C' }, [privileges.TLS_KEY]: { data: 'K' }, [privileges.AUTH_FILE]: { data: '/metrics:u:h' },
+			'/etc/config/dhcp': { data: 'x' },
 		});
 		let sys = system(fs);
 
-		assert.match(true, grant.clean(sys));
+		assert.match({ ok: true, made: [], problems: [] }, grant.clean(sys));
 		assert.match([ [ '/etc/config/dhcp' ], 1 ], [ keys(fs.files), sys.reloads ]);
+	});
+
+	it('gives back every config and /proc file as it was, and takes the user out of every group', () => {
+		let fs = filesystem({
+			'/etc/group': { data: 'unbound:x:32768:unbound,prometheus-exporter
+prometheus-exporter:x:32770:
+', mode: 0o644 },
+			'/etc/config/dhcp': { data: 'x', mode: 0o600 }, '/etc/config/old': { data: 'x', mode: 0o640, gid: 32770 },
+			'/proc/net/nf_conntrack': { data: '', mode: 0o440 },
+		});
+		let sys = system(fs);
+
+		grant.make(sys, grants({ files: [ '/etc/config/dhcp', '/proc/net/nf_conntrack' ], groups: [ 'unbound' ] }));
+		assert.match([ 32770, 32770 ], [ fs.files['/etc/config/dhcp'].gid, fs.files['/proc/net/nf_conntrack'].gid ]);
+
+		let res = grant.clean(sys);
+
+		assert.match(true, res.ok);
+		assert.match([ [ 0o600, 0 ], [ 0o640, 0 ], [ 0o440, 0 ] ],
+			map([ '/etc/config/dhcp', '/etc/config/old', '/proc/net/nf_conntrack' ], (p) => [ fs.files[p].mode, fs.files[p].gid ]));
+		assert.match('unbound:x:32768:unbound
+prometheus-exporter:x:32770:
+', fs.files['/etc/group'].data);
+		assert.match(null, fs.files[privileges.GRANTED_FILE]);
+		assert.match([ 'take', 'release', 'take', 'release' ], sys.locks);
 	});
 
 	it('leaves ubusd alone when there was no ACL', () => {
 		let sys = system(filesystem({}));
 
-		assert.match([ true, 0 ], [ grant.clean(sys), sys.reloads ]);
+		assert.match([ true, 0 ], [ grant.clean(sys).ok, sys.reloads ]);
+	});
+
+	it('names the files the service writes where the modules that write them do', () => {
+		assert.match([ auth.FILE, state.RUN_DIR ], [ privileges.AUTH_FILE, privileges.RUN_DIR ]);
 	});
 });

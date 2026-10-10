@@ -42,14 +42,14 @@ Some declarations are shaped by the jail. modemmanager gets the directory `/var/
 
 The package makes the user and group `prometheus-exporter` (its `USERID`, at the first free id from 32768), on install and on upgrade. procd has ujail run uhttpd as them (`-U`, `-G`), with no new privileges (`-c`), and with the capabilities file `/var/run/prometheus-exporter/capabilities.json` (`-C`). As anyone but root, the process reads only what the files' modes let it, ubusd holds it to an ACL, and it has no capability it is not given. The init script refuses to start without the user, saying so at `err`.
 
-When the service starts, `jail.uc --make`, as root, grants the user what the installed and enabled collectors declare, and takes back what the installed collectors that are not enabled declare, unless an enabled one declares it too:
+When the service starts or reloads, `jail.uc --make`, as root, grants the user what the installed and enabled collectors declare, and takes back all it granted that none of them declares now: what a disabled collector declares, and what a collector no longer installed did. It keeps, in `/var/run/prometheus-exporter/granted.json` (root's alone, 0600), the group and mode each file had before it gave it, and gives them back. Where it has no record, as after a reboot, which tmpfs forgets, it takes back every config of `/etc/config` of the service's group, giving it to root's group, and every group the user is a member of. When the service stops, is disabled (`enabled 0`), or its package is removed (its prerm, and the stop OpenWrt's runs), `jail.uc --clean` takes back all of it, and removes the ACL, the capabilities file, the TLS copies, basic auth's file and the record. Removing a collector package reloads the service, which takes back what it was granted; with the service neither enabled nor running, it runs `jail.uc --clean`.
 
 | Declared in `meta` | Granted |
 | :--- | :--- |
 | `ubus: { dnsmasq: [ 'metrics' ] }` | The call, in the service's [ubus ACL](#the-ubus-acl). Taken back: the ACL is written anew. |
 | `capabilities: [ 'CAP_NET_ADMIN' ]` | The capability, in every set of the capabilities file (bounding, effective, permitted, inheritable, ambient), so the programs the jail runs have it too. |
-| `groups: [ 'unbound' ]` | The user's membership of the group, in `/etc/group`, under OpenWrt's lock (`/var/lock/passwd`), when the group is there. Taken back: the membership is removed. |
-| `proc_files: [ '/proc/net/nf_conntrack' ]` | Read access for the group: the file's group is `prometheus-exporter`, and its group bits `r--`. Taken back: its group is root's again. |
+| `groups: [ 'unbound' ]` | The user's membership of the group, in `/etc/group`, under OpenWrt's lock (`/var/lock/passwd`), when the group is there. Taken back: the membership is removed, of any group but the user's own. |
+| `proc_files: [ '/proc/net/nf_conntrack' ]` | Read access for the group: the file's group is `prometheus-exporter`, and its group bits `r--`. Taken back: its group and mode are what they were before. |
 | `configs: [ 'dhcp' ]`, and the exporter's own config | The same, for `/etc/config/<config>`. |
 
 What the enabled collectors declare now:
@@ -170,8 +170,9 @@ A ledger longer than a state file may be is written again without each breaker's
 | Path | Mode | Written by | Mounted |
 | :--- | :--- | :--- | :--- |
 | `/var/run/prometheus-exporter/` | 0700, root's | `jail.uc --make`, `auth.uc` | No |
-| `/var/run/prometheus-exporter/uhttpd.conf` | 0640, root's and the service's group's | `auth.uc`, at each start: one line, `/metrics:<user>:<hash>`; removed without basic auth | Read-only, with basic auth |
+| `/var/run/prometheus-exporter/uhttpd.conf` | 0640, root's and the service's group's | `auth.uc`, at each start: one line, `/metrics:<user>:<hash>`; removed without basic auth, and when the service stops | Read-only, with basic auth |
 | `/var/run/prometheus-exporter/tls.crt`, `tls.key` | 0640, root's and the service's group's | `jail.uc --make`, at each start, copies of `cert` and `key`, each only a regular file of at most 64 KiB under `/etc/ssl`, `/etc/acme` or `/etc/prometheus-exporter`, or `/etc/uhttpd.*`, wherever its links lead, read to at most that; neither when one is not; removed when the service stops | Read-only, with both there: the init script serves HTTPS only from them |
+| `/var/run/prometheus-exporter/granted.json` | 0600, root's | `jail.uc --make`: each file it gave the service's group, with the group and mode it had; removed with the last of them, and when the service stops | No |
 | `/var/run/prometheus-exporter/capabilities.json` | 0644 | `jail.uc --make`, at each start; removed when the service stops | No: procd hands it to ujail |
 | `/var/run/prometheus-exporter.acl.json` | 0644 | `jail.uc --make`, at each start; removed when the service stops | No: ubusd reads it |
 | `/var/run/prometheus-exporter/state/` | 0700, the service's user's | `jail.uc --make` | Read-write |

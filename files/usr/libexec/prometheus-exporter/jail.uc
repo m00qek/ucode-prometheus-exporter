@@ -1,7 +1,7 @@
 #!/usr/bin/ucode
 'use strict';
 
-import { mkdir, chmod, chown, open, readfile, rename, unlink, stat, error } from 'fs';
+import { mkdir, chmod, chown, open, readfile, rename, unlink, stat, lsdir, error } from 'fs';
 import * as deps from 'prometheus.exporter.deps';
 import * as jail from 'prometheus.exporter.jail';
 import * as state from 'prometheus.exporter.state';
@@ -16,7 +16,7 @@ if (length(ARGV) > 1 || (mode != null && !(mode in [ '--missing', '--make', '--c
 	exit(2);
 }
 
-const fs_all = { stat, readfile, open, chown, chmod, rename, unlink, error };
+const fs_all = { stat, readfile, open, chown, chmod, rename, unlink, lsdir, error };
 const priv = {
 	fs: fs_all,
 	reload_ubus: () => system([ 'killall', '-HUP', 'ubusd' ]) == 0,
@@ -28,8 +28,15 @@ const priv = {
 	},
 };
 
-if (mode == '--clean')
-	exit(grant.clean(priv) ? 0 : 1);
+if (mode == '--clean') {
+	let cleaned = grant.clean(priv);
+
+	for (let p in cleaned.made)
+		print(`${p}\n`);
+	for (let p in cleaned.problems)
+		warn(`${p}\n`);
+	exit(cleaned.ok ? 0 : 1);
+}
 
 const mods = deps.modules();
 const log = (msg) => warn(`${msg}\n`);

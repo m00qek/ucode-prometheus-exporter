@@ -420,7 +420,7 @@ describe('the init script, and the service\'s user', () => {
 
 	it('grants before it starts, and takes back once stopped or disabled', () => {
 		assert.match([ true, true, true ], [
-			has('\t"$LIBEXEC/jail.uc" --clean 2>&1 | logger -t "$NAME" -p daemon.err'),
+			has('\t{ "$LIBEXEC/jail.uc" --clean 2>&1 >&3 | logger -t "$NAME" -p daemon.err; } 3>&1 |'),
 			has('service_stopped() {\n\tjail_clean\n}'),
 			has('\tservice_enabled || { jail_clean; return 0; }'),
 		]);

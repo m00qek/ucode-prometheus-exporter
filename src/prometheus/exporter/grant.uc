@@ -6,7 +6,7 @@
 
 'use strict';
 
-import { USER, GROUP, CANARY, UNPRIVILEGED_PORT, CAPABILITIES_FILE, TLS_CERT, TLS_KEY, ACL_FILE, GROUP_FILE } from 'prometheus.exporter.privileges';
+import { USER, GROUP, CANARY, UNPRIVILEGED_PORT, CAPABILITIES_FILE, TLS_CERT, TLS_KEY, ACL_FILE, GROUP_FILE, AUTH_FILE, GRANTED_FILE, CONFIG_DIR } from 'prometheus.exporter.privileges';
 import { TLS_FILE_MAX } from 'prometheus.exporter.config';
 
 /**
@@ -112,6 +112,26 @@ export function membership(text, user, want) {
 };
 
 /**
+ * The groups of the text of /etc/group that `user` is a member of, but its own.
+ *
+ * @param {?string} text
+ * @param {string} user
+ * @returns {string[]}
+ */
+export function member_of(text, user) {
+	let out = [];
+
+	for (let line in split(text ?? '', '\n')) {
+		let f = split(line, ':');
+
+		if (length(f) == 4 && f[0] != user && user in split(f[3], ','))
+			push(out, f[0]);
+	}
+
+	return out;
+};
+
+/**
  * The gid of `group` in the text of /etc/group, or null.
  *
  * @param {string} text
@@ -148,25 +168,99 @@ function write(fs, path, text, mode, gid) {
 	return true;
 }
 
-function share(fs, path, gid, on) {
+function shared_mode(mode) {
+	return (mode & ~0o070) | 0o040;
+}
+
+function give(fs, path, gid, record) {
 	let st = fs.stat(path);
 
 	if (st == null)
 		return false;
-
-	if (on) {
-		let mode = (st.mode & ~0o070) | 0o040;
-
-		if (st.gid == gid && st.mode == mode)
-			return false;
-
-		return (fs.chown(path, -1, gid) && fs.chmod(path, mode)) ? true : null;
-	}
-
 	if (st.gid != gid)
+		record[path] ??= { gid: st.gid, mode: st.mode };
+	if (st.gid == gid && st.mode == shared_mode(st.mode))
 		return false;
 
-	return fs.chown(path, -1, 0) ? true : null;
+	return (fs.chown(path, -1, gid) && fs.chmod(path, shared_mode(st.mode))) ? true : null;
+}
+
+function take(fs, path, gid, before) {
+	let st = fs.stat(path);
+
+	if (st == null || st.gid != gid)
+		return false;
+
+	let ok = fs.chown(path, -1, before?.gid ?? 0);
+
+	if (ok && type(before?.mode) == 'int' && st.mode == shared_mode(before.mode))
+		ok = fs.chmod(path, before.mode);
+
+	return ok ? true : null;
+}
+
+function read_record(fs) {
+	let r = null;
+
+	try {
+		r = json(fs.readfile(GRANTED_FILE) ?? 'null');
+	} catch (e) {
+		r = null;
+	}
+
+	return (type(r?.files) == 'object') ? r : { files: {} };
+}
+
+function save_record(fs, record) {
+	if (!length(record.files)) {
+		fs.unlink(GRANTED_FILE);
+		return true;
+	}
+
+	return write(fs, GRANTED_FILE, sprintf('%.J\n', record), 0o600, null) != null;
+}
+
+function of_group(fs, gid) {
+	let names = fs.lsdir ? fs.lsdir(CONFIG_DIR) : null;
+
+	return filter(map(names ?? [], (n) => `${CONFIG_DIR}/${n}`), (p) => fs.stat(p)?.gid == gid);
+}
+
+function settle_groups(sys, want_on, want_off) {
+	let fs = sys.fs;
+	let unlock = sys.lock();
+	let text = fs.readfile(GROUP_FILE);
+	let gid = gid_of(text, GROUP);
+	let want = {};
+
+	for (let g in [ ...member_of(text, USER), ...want_off ])
+		want[g] = false;
+	for (let g in want_on)
+		want[g] = true;
+
+	let m = (gid != null) ? membership(text, USER, want) : { text: null, missing: [] };
+	let wrote = (m.text == null) ? false : write(fs, GROUP_FILE, m.text, fs.stat(GROUP_FILE)?.mode ?? 0o644, null);
+
+	unlock();
+	return { gid, missing: m.missing, wrote };
+}
+
+function take_files(fs, gid, record, keep, extra, made, problems) {
+	for (let p in sort(uniq([ ...extra, ...keys(record.files), ...of_group(fs, gid) ]))) {
+		if (p in keep)
+			continue;
+
+		let changed = take(fs, p, gid, record.files[p]);
+
+		if (changed == null) {
+			push(problems, `cannot take ${GROUP} read access from ${p}: ${fs.error() ?? 'unknown error'}`);
+			continue;
+		}
+
+		delete record.files[p];
+		if (changed)
+			push(made, `took ${GROUP} read access from ${p}`);
+	}
 }
 
 /**
@@ -180,44 +274,34 @@ export function make(sys, grants) {
 	let fs = sys.fs;
 	let made = [];
 	let problems = [];
-	let unlock = sys.lock();
-	let groups_text = fs.readfile(GROUP_FILE);
-	let gid = gid_of(groups_text, GROUP);
+	let g = settle_groups(sys, grants.groups, grants.groups_off);
+	let gid = g.gid;
 
-	if (gid == null) {
-		unlock();
+	if (gid == null)
 		return { made, problems: [ `no group ${GROUP} in ${GROUP_FILE}: reinstall the package, which makes it` ] };
+
+	for (let name in g.missing)
+		push(made, `no group ${name}: ${USER} joins it once it is there`);
+	if (g.wrote == null)
+		push(problems, `cannot write ${GROUP_FILE}: ${fs.error() ?? 'unknown error'}`);
+	else if (g.wrote)
+		push(made, `${USER} is a member of ${length(grants.groups) ? join(', ', grants.groups) : 'no group a collector declares'}`);
+
+	let record = read_record(fs);
+
+	take_files(fs, gid, record, grants.files, grants.files_off, made, problems);
+
+	for (let p in grants.files) {
+		let changed = give(fs, p, gid, record.files);
+
+		if (changed == null)
+			push(problems, `cannot give ${GROUP} read access to ${p}: ${fs.error() ?? 'unknown error'}`);
+		else if (changed)
+			push(made, `gave ${GROUP} read access to ${p}`);
 	}
 
-	let want = {};
-
-	for (let g in grants.groups_off)
-		want[g] = false;
-	for (let g in grants.groups)
-		want[g] = true;
-
-	let m = membership(groups_text, USER, want);
-
-	for (let g in m.missing)
-		push(made, `no group ${g}: ${USER} joins it once it is there`);
-	if (m.text != null) {
-		if (write(fs, GROUP_FILE, m.text, fs.stat(GROUP_FILE)?.mode ?? 0o644, null) == null)
-			push(problems, `cannot write ${GROUP_FILE}: ${fs.error() ?? 'unknown error'}`);
-		else
-			push(made, `${USER} is a member of ${length(grants.groups) ? join(', ', grants.groups) : 'no group a collector declares'}`);
-	}
-
-	unlock();
-
-	for (let on in [ false, true ])
-		for (let p in (on ? grants.files : grants.files_off)) {
-			let changed = share(fs, p, gid, on);
-
-			if (changed == null)
-				push(problems, `cannot ${on ? 'give' : 'take'} ${GROUP} read access ${on ? 'to' : 'from'} ${p}: ${fs.error() ?? 'unknown error'}`);
-			else if (changed)
-				push(made, `${on ? 'gave' : 'took'} ${GROUP} read access ${on ? 'to' : 'from'} ${p}`);
-		}
+	if (!save_record(fs, record))
+		push(problems, `cannot write ${GRANTED_FILE}: ${fs.error() ?? 'unknown error'}`);
 
 	if (write(fs, CAPABILITIES_FILE, sprintf('%.J\n', capabilities_doc(service_capabilities(grants))), 0o644, null) == null)
 		push(problems, `cannot write ${CAPABILITIES_FILE}: ${fs.error() ?? 'unknown error'}`);
@@ -254,16 +338,31 @@ export function make(sys, grants) {
 };
 
 /**
- * Takes away what make() gave that only the running service needs.
+ * Takes away all make() gave, giving each file its group and mode back, and the files of the running service: lines for the log.
  *
- * @param {{ fs: module:fs, reload_ubus: function(): boolean }} sys
- * @returns {boolean}
+ * @param {{ fs: module:fs, lock: function(): function(): void, reload_ubus: function(): boolean }} sys
+ * @returns {{ ok: boolean, made: string[], problems: string[] }}
  */
 export function clean(sys) {
-	let had = sys.fs.stat(ACL_FILE) != null;
+	let fs = sys.fs;
+	let made = [];
+	let problems = [];
+	let had = fs.stat(ACL_FILE) != null;
+	let g = settle_groups(sys, [], []);
 
-	for (let p in [ CAPABILITIES_FILE, TLS_CERT, TLS_KEY, ACL_FILE ])
-		sys.fs.unlink(p);
+	if (g.wrote == null)
+		push(problems, `cannot write ${GROUP_FILE}: ${fs.error() ?? 'unknown error'}`);
+	else if (g.wrote)
+		push(made, `${USER} is a member of no group a collector declares`);
 
-	return had ? !!sys.reload_ubus() : true;
+	if (g.gid != null)
+		take_files(fs, g.gid, read_record(fs), [], [], made, problems);
+
+	for (let p in [ CAPABILITIES_FILE, TLS_CERT, TLS_KEY, ACL_FILE, AUTH_FILE, GRANTED_FILE ])
+		fs.unlink(p);
+
+	if (had && !sys.reload_ubus())
+		push(problems, `cannot have ubusd forget ${ACL_FILE}`);
+
+	return { ok: !length(problems), made, problems };
 };

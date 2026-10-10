@@ -89,6 +89,15 @@ define Package/$(PKG_NAME)/postinst
 }
 endef
 
+# Before its files go, the service gives back all it granted: OpenWrt's
+# default prerm stops it, which does, and jail.uc does again, should it not
+# have run.
+define Package/$(PKG_NAME)/prerm
+#!/bin/sh
+[ -n "$$IPKG_INSTROOT" ] || /usr/libexec/$(SERVICE)/jail.uc --clean >/dev/null 2>&1
+exit 0
+endef
+
 define Package/$(PKG_NAME)/postrm
 #!/bin/sh
 [ -n "$$IPKG_INSTROOT" ] || /etc/init.d/rpcd reload 2>/dev/null
@@ -165,12 +174,19 @@ endef
 $(eval $(call BuildPackage,$(PKG_NAME)-cli))
 
 # A collector package's scripts: on a running system (not in an image build),
-# reload an enabled exporter, which restarts it with the collector served or
-# gone, and its jail mounts what the collectors now declare. A failed reload
-# (an invalid config) is logged by the init script and fails no install.
+# reload an enabled or running exporter, which restarts it with the collector
+# served or gone, its jail mounts what the collectors now declare, and it takes
+# back what a collector removed had been granted; else take back all it
+# granted. A failed reload (an invalid config) is logged by the init script
+# and fails no install.
 define Collector/reload
-[ -n "$${IPKG_INSTROOT}" ] || ! /etc/init.d/$(SERVICE) enabled ||
-	/etc/init.d/$(SERVICE) reload || true
+[ -n "$${IPKG_INSTROOT}" ] || {
+	if /etc/init.d/$(SERVICE) enabled || /etc/init.d/$(SERVICE) running; then
+		/etc/init.d/$(SERVICE) reload || true
+	else
+		/usr/libexec/$(SERVICE)/jail.uc --clean >/dev/null 2>&1 || true
+	fi
+}
 endef
 
 # $(1): the collector's module name, $(2): its name (the package suffix),

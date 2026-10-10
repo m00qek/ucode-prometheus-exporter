@@ -123,6 +123,11 @@ config collector 'wifi'
 EOF
 old_sum=$(md5sum <"$OLD")
 
+# What the service gives its group and must give back, as it is before.
+dhcp_before=$(ls -ld /etc/config/dhcp | awk '{ print $1, $3, $4 }')
+chrony_before=$(ls -ld /etc/config/chrony | awk '{ print $1, $3, $4 }')
+conntrack_before=$(ls -ld /proc/net/nf_conntrack | awk '{ print $1, $3, $4 }')
+
 # --- the base package
 install ""
 reload_config # remembers the exporter's config, new with the package
@@ -1212,6 +1217,13 @@ eventually "without cert and key it serves HTTP again" served loadavg
 # ltq-dsl is in no group, which would keep it installed.
 apk del "$PKG-ltq-dsl" >/dev/null 2>&1
 eventually "a removed collector is not served" not_served ltq-dsl
+# What a removed collector was granted is taken back: chrony's config, and
+# unbound's group.
+check "chrony's config is the group's while chrony is installed" test "$(owned /etc/config/chrony)" = "-rw-r----- root $NAME"
+apk del "$PKG-chrony" "$PKG-unbound" >/dev/null 2>&1
+eventually "a removed collector's config is as it was before" test "$(owned /etc/config/chrony)" = "$chrony_before"
+check "and the user is in the group of none removed" fails grep -q "^unbound:.*[:,]$NAME\(,\|$\)" /etc/group
+check "and the jail has neither's config" test "$(jail_configs | tr '\n' ' ')" = "dhcp $NAME ubnt-manager "
 
 # --- the service commands
 check "check passes" "$INIT" check
@@ -1230,13 +1242,28 @@ eventually "disabling the service stops it" fails "$INIT" running
 check "status says it is disabled" says '^disabled' "$INIT" status
 check "and takes the ubus ACL away" test ! -e "$ACL"
 check "the capabilities and the TLS copies too" sh -c "! ls /var/run/$NAME/capabilities.json /var/run/$NAME/tls.* 2>/dev/null"
+# Every grant taken back, each file as it was before: the exporter's config
+# root's alone, as the package installs it; the user in no other group.
+revoked() {
+	{ [ ! -e "/etc/config/$NAME" ] || [ "$(owned /etc/config/$NAME)" = "-rw------- root root" ]; } &&
+		[ "$(owned /etc/config/dhcp)" = "$dhcp_before" ] && [ "$(owned /proc/net/nf_conntrack)" = "$conntrack_before" ] &&
+		! grep -v "^$NAME:" /etc/group | grep -q "^[^:]*:[^:]*:[^:]*:\(.*,\)\?$NAME\(,\|$\)" &&
+		[ ! -e "/var/run/$NAME/granted.json" ] && [ ! -e "/var/run/$NAME/uhttpd.conf" ]
+}
+check "and every grant, each file as it was" revoked
 set_config "$NAME.main.enabled=1"
 eventually "enabling it starts it again" served loadavg
 check "with its ACL again" test -e "$ACL"
 "$INIT" stop
 check "stopping it takes the ACL away" test ! -e "$ACL"
+check "and every grant" revoked
 "$INIT" start
 eventually "and starting it brings it back" served loadavg
+check "and the grants" test "$(owned /etc/config/dhcp)" = "-rw-r----- root $NAME"
+# Removing the exporter: its prerm stops it, which takes every grant back.
+apk del $(apk info 2>/dev/null | grep "^$PKG") >/dev/null 2>&1
+check "removing its packages leaves the service's user nothing granted" revoked
+check "nor an ACL" test ! -e "$ACL"
 
 if [ "$failures" -gt 0 ]; then
 	echo "--- service"; instance
