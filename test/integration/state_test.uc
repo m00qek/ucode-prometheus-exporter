@@ -5,6 +5,7 @@
 
 import { describe, it, assert } from 'utest';
 import * as state from 'prometheus.exporter.state';
+import * as deps from 'prometheus.exporter.deps';
 
 // The real fs: under utest, an import of fs reaches whatever mock is patched in.
 const fs = require('fs');
@@ -87,6 +88,8 @@ describe('state, written by processes at once', () => {
 		fs.unlink(`${dir}/5-50.scrape`);
 		fs.writefile(`${dir}/5-50.scrape`, '{"n":1}');
 		assert.match('{"n":1}', state.latest(fs, dir).read('scrape'));
+		// As check, status and the trial read it: with the modules deps gives the core.
+		assert.match('{"n":1}', state.latest(deps.modules().fs, dir).read('scrape'));
 
 		fs.unlink(secret);
 		remove(dir);

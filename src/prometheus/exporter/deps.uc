@@ -6,7 +6,7 @@
 
 'use strict';
 
-import { readfile, open, lsdir, glob, stat, realpath, popen, writefile, rename, unlink, chmod, mkstemp, stdin, access } from 'fs';
+import { readfile, open, lsdir, glob, stat, lstat, realpath, popen, writefile, rename, unlink, chmod, mkstemp, stdin, access } from 'fs';
 import { cursor } from 'uci';
 import * as Result from 'prometheus.exporter.result';
 import * as errors from 'prometheus.exporter.errors';
@@ -301,7 +301,7 @@ export function native(name) {
  */
 export function modules() {
 	return {
-		fs: { readfile, open, lsdir, glob, stat, realpath, popen, writefile, rename, unlink, chmod, mkstemp, stdin },
+		fs: { readfile, open, lsdir, glob, stat, lstat, realpath, popen, writefile, rename, unlink, chmod, mkstemp, stdin },
 		ubus: { connect: (...args) => native('ubus')?.connect(...args) },
 		uci: { cursor: () => cursor(null, UCI_NO_DELTAS) },
 		native,
