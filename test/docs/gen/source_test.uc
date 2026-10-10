@@ -47,30 +47,20 @@ describe('docs_gen.source.reasons', () => {
 });
 
 describe('docs_gen.source.error_codes', () => {
-	it('groups the codes under the comment above them, and drops a heading with none', () => {
+	it('reads each exported code, in order', () => {
 		let text = join('\n', [
-			'// What this file is.',
-			'',
-			'// Sources',
+			"'use strict';",
 			"export const SOURCE_A = 'SOURCE_A';",
 			"export const SOURCE_B = 'SOURCE_B';",
-			'',
-			'// Configuration',
+			"const LOCAL = 'LOCAL';",
 			"export const CONFIG_X = 'CONFIG_X';",
 		]);
 
-		assert.match([
-			{ group: 'Sources', codes: [ 'SOURCE_A', 'SOURCE_B' ] },
-			{ group: 'Configuration', codes: [ 'CONFIG_X' ] },
-		], source.error_codes(text));
+		assert.match([ 'SOURCE_A', 'SOURCE_B', 'CONFIG_X' ], source.error_codes(text));
 	});
 
 	it('reads every code of errors.uc', () => {
-		let groups = source.error_codes(readfile('src/prometheus_exporter/errors.uc'));
-		let codes = [];
-
-		for (let g in groups)
-			push(codes, ...g.codes);
+		let codes = source.error_codes(readfile('src/prometheus_exporter/errors.uc'));
 
 		assert.match(true, 'COMMAND_TIMEOUT' in codes);
 		assert.match(true, 'CONFIG_INVALID' in codes);

@@ -238,6 +238,18 @@ export const unharvested = {
 	],
 };
 
+// The error codes page's sections, in order, and the codes of errors.uc in
+// each: the generator refuses a code errors.uc does not define, and one it
+// defines that is in no section.
+export const error_groups = [
+	{ group: 'Collectors and their sources', codes: [ 'SOURCE_UNREADABLE', 'SOURCE_INVALID', 'COLLECTOR_CRASHED', 'COLLECTOR_NO_RESULT', 'COLLECTOR_INVALID', 'COLLECTOR_IMPURE' ] },
+	{ group: 'Configuration', codes: [ 'CONFIG_INVALID', 'FILE_UNWRITABLE' ] },
+	{ group: 'Capabilities', codes: [ 'NEED_MISSING', 'UBUS_CONNECT_FAILED', 'UBUS_CALL_FAILED', 'NL80211_FAILED', 'RTNL_FAILED', 'SOCKET_FAILED', 'COMMAND_NOT_ALLOWED', 'COMMAND_FAILED', 'COMMAND_TIMEOUT', 'UBUS_NOT_ALLOWED', 'PERMISSION_DENIED' ] },
+	{ group: 'The scrape', codes: [ 'SCRAPE_DEADLINE', 'COLLECTOR_QUARANTINED', 'COLLECTOR_OVERRUN' ] },
+	{ group: 'What the exporter enforces of a collector', codes: [ 'COLLECTOR_CANCELLED', 'COLLECTOR_KILLED', 'COLLECTOR_NOT_RUN', 'SAMPLE_LIMIT', 'FAMILY_CONFLICT' ] },
+	{ group: 'Exposition text', codes: [ 'EXPOSITION_INVALID' ] },
+];
+
 // What each error code means, by code: the generator refuses a code here that
 // errors.uc does not define, and one errors.uc defines that is not here.
 export const errors = {

@@ -46,11 +46,11 @@ Six reference pages are written from the code by `make docs-gen`, and never by h
 | `docs/reference/collectors.md` | Each collector's `meta`, the package Makefile, and the code's reasons for nothing to observe. |
 | `docs/reference/metrics.md` | What each collector writes when it runs on the fixture sets of `test/fixtures/`. |
 | `docs/reference/uci-config.md` | `config.uc`'s option specs, and `config/types.uc`'s datatypes. |
-| `docs/reference/error-codes.md` | `errors.uc`, and where each code is raised. |
+| `docs/reference/error-codes.md` | `errors.uc`, and where each code is raised; its sections are the notes'. |
 | `docs/reference/command.md` | The command's usage, `cli.uc`'s `USAGE`, which docopt parses its arguments by. |
 | `docs/reference/migration.md` | `docs/gen/migration.md`, its text, with the tables of the feed exporters' packages and families and this exporter's for each: from `docs/gen/feed-exporters.json`, what `make feed-inventory` read of their sources, `docs/gen/migration.uc`, the mapping, and what the collectors write, as for `metrics.md`. |
 
-What the code does not say is in `docs/gen/notes.uc`: when each collector has nothing to observe, what a computed jail path is, the patterns that fold a driver's statistics into one row, the families no fixture shows, the meaning of each error code, what each command of the command line does, and a name for each fixture set. The generator checks the notes against the code and refuses, writing nothing, an entry the code contradicts.
+What the code does not say is in `docs/gen/notes.uc`: when each collector has nothing to observe, what a computed jail path is, the patterns that fold a driver's statistics into one row, the families no fixture shows, the meaning of each error code and the section of the page it is in, what each command of the command line does, and a name for each fixture set. The generator checks the notes against the code and refuses, writing nothing, an entry the code contradicts.
 
 1. Change the code, or the notes.
 2. Regenerate:

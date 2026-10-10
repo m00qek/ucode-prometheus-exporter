@@ -1,234 +1,91 @@
 /**
  * Uppercase error codes carried by Result.err.
  *
- * Each is its own name, a string: a Result's `error`. What each means for a
- * user, and what its details say, is docs/reference/error-codes.md's.
- *
  * @module prometheus_exporter_errors
  */
 
 'use strict';
 
-// Collectors and their sources
-
-/**
- * A file the collector reads is not there or cannot be read.
- *
- * @type {string}
- */
+/** A file the collector reads is not there or cannot be read. */
 export const SOURCE_UNREADABLE    = 'SOURCE_UNREADABLE';
 
-/**
- * What the collector read (a file, a ubus reply, a program's output) is not
- * what it expects.
- *
- * @type {string}
- */
+/** What the collector read is not what it expects. */
 export const SOURCE_INVALID       = 'SOURCE_INVALID';
 
-/**
- * The collector died with an exception.
- *
- * @type {string}
- */
+/** The collector died with an exception. */
 export const COLLECTOR_CRASHED    = 'COLLECTOR_CRASHED';
 
-/**
- * The collector returned something other than a Result, or a failure without
- * an error code.
- *
- * @type {string}
- */
+/** The collector returned no Result, or a failure without an error code. */
 export const COLLECTOR_NO_RESULT  = 'COLLECTOR_NO_RESULT';
 
-/**
- * A collector module that is not a valid one, or a query that names a
- * collector not installed or disabled.
- *
- * @type {string}
- */
+/** An invalid collector module, or a query naming a collector not installed or disabled. */
 export const COLLECTOR_INVALID    = 'COLLECTOR_INVALID';
 
-/**
- * A collector module whose top level does more than declare: it called, as it
- * loaded, a function that blocks, ends or writes to the process, loads code or
- * changes its signals; or its text runs a statement, or calls a function, that
- * is not a declaration's.
- *
- * @type {string}
- */
+/** A collector module whose top level does more than declare. */
 export const COLLECTOR_IMPURE     = 'COLLECTOR_IMPURE';
 
-// Configuration
-
-/**
- * An option has a value the exporter does not take, or options that go
- * together are not set together.
- *
- * @type {string}
- */
+/** An option has a value the exporter does not take. */
 export const CONFIG_INVALID       = 'CONFIG_INVALID';
 
-/**
- * A file the exporter writes (uhttpd's basic auth file) could not be written
- * or removed.
- *
- * @type {string}
- */
+/** A file the exporter writes could not be written or removed. */
 export const FILE_UNWRITABLE      = 'FILE_UNWRITABLE';
 
-// Capabilities
-
-/**
- * A capability the collector needs is not installed (nl80211, socket).
- *
- * @type {string}
- */
+/** A capability the collector needs is not installed (nl80211, socket). */
 export const NEED_MISSING         = 'NEED_MISSING';
 
-/**
- * The exporter could not connect to ubus.
- *
- * @type {string}
- */
+/** The exporter could not connect to ubus. */
 export const UBUS_CONNECT_FAILED  = 'UBUS_CONNECT_FAILED';
 
-/**
- * A ubus call failed; its data is { status }, libubus's text.
- *
- * @type {string}
- */
+/** A ubus call failed; its data is { status }, libubus's text. */
 export const UBUS_CALL_FAILED     = 'UBUS_CALL_FAILED';
 
-/**
- * An nl80211 request failed.
- *
- * @type {string}
- */
+/** An nl80211 request failed. */
 export const NL80211_FAILED       = 'NL80211_FAILED';
 
-/**
- * An rtnetlink request failed.
- *
- * @type {string}
- */
+/** An rtnetlink request failed. */
 export const RTNL_FAILED          = 'RTNL_FAILED';
 
-/**
- * A Unix socket is missing, refused the connection, or sent no more of its
- * reply in time.
- *
- * @type {string}
- */
+/** A Unix socket is missing, refused the connection, or sent no more of its reply in time. */
 export const SOCKET_FAILED        = 'SOCKET_FAILED';
 
-/**
- * The collector ran a program its meta.commands does not list.
- *
- * @type {string}
- */
+/** The collector ran a program its meta.commands does not list. */
 export const COMMAND_NOT_ALLOWED  = 'COMMAND_NOT_ALLOWED';
 
-/**
- * A program could not start, or exited with a status other than 0.
- *
- * @type {string}
- */
+/** A program could not start, or exited with a status other than 0. */
 export const COMMAND_FAILED       = 'COMMAND_FAILED';
 
-/**
- * A program was still running when the collector's seconds for programs were
- * spent, and was killed; or one was asked to run after they were.
- *
- * @type {string}
- */
+/** A program outlived the collector's seconds for programs and was killed. */
 export const COMMAND_TIMEOUT      = 'COMMAND_TIMEOUT';
 
-/**
- * The collector called a ubus object or method its meta.ubus does not list.
- *
- * @type {string}
- */
+/** The collector called a ubus object or method its meta.ubus does not list. */
 export const UBUS_NOT_ALLOWED     = 'UBUS_NOT_ALLOWED';
 
-/**
- * The system refused the service's user what the collector declared: a
- * capability, a file or socket it may not read, a ubus call outside its ACL.
- *
- * @type {string}
- */
+/** The system refused the service's user what the collector declared. */
 export const PERMISSION_DENIED    = 'PERMISSION_DENIED';
 
-// The scrape
-
-/**
- * The scrape's time was nearly spent: the collector was not run, or was
- * stopped, or a program it ran was killed, at the deadline.
- *
- * @type {string}
- */
+/** The scrape's time was nearly spent: the collector was not run, or was stopped. */
 export const SCRAPE_DEADLINE      = 'SCRAPE_DEADLINE';
 
-/**
- * The collector's circuit breaker is open: it was not run in this scrape.
- *
- * @type {string}
- */
+/** The collector's circuit breaker is open: it was not run in this scrape. */
 export const COLLECTOR_QUARANTINED = 'COLLECTOR_QUARANTINED';
 
-/**
- * What tripped a breaker: the collector took longer than its budget.
- *
- * @type {string}
- */
+/** What tripped a breaker: the collector took longer than its budget. */
 export const COLLECTOR_OVERRUN    = 'COLLECTOR_OVERRUN';
 
-// What the exporter enforces of a collector
-
-/**
- * The collector was still running at the end of its budget, and was stopped
- * with the process it ran in.
- *
- * @type {string}
- */
+/** The collector was stopped at the end of its budget. */
 export const COLLECTOR_CANCELLED  = 'COLLECTOR_CANCELLED';
 
-/**
- * The process the collector ran in ended while it ran.
- *
- * @type {string}
- */
+/** The process the collector ran in ended while it ran. */
 export const COLLECTOR_KILLED     = 'COLLECTOR_KILLED';
 
-/**
- * The collector was not run: the processes the scrape forked to run the
- * collectors in ended twice in a row before running one. Not its doing: its
- * breaker is as it was.
- *
- * @type {string}
- */
+/** The collector was not run: the scrape's processes died before running it. */
 export const COLLECTOR_NOT_RUN    = 'COLLECTOR_NOT_RUN';
 
-/**
- * The collector wrote more samples than its max_samples, and was stopped there.
- *
- * @type {string}
- */
+/** The collector wrote more samples than its max_samples, and was stopped there. */
 export const SAMPLE_LIMIT         = 'SAMPLE_LIMIT';
 
-/**
- * The collector wrote a family another collector of the reply wrote first, or
- * one the exporter keeps for itself.
- *
- * @type {string}
- */
+/** The collector wrote a family another collector, or the exporter, wrote first. */
 export const FAMILY_CONFLICT      = 'FAMILY_CONFLICT';
 
-// Exposition text
-
-/**
- * Text that is not valid Prometheus exposition format.
- *
- * @type {string}
- */
+/** Text that is not valid Prometheus exposition format. */
 export const EXPOSITION_INVALID   = 'EXPOSITION_INVALID';

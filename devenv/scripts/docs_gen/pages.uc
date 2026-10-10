@@ -640,7 +640,7 @@ function module_name(path) {
 export function errors_page(ctx) {
 	let problems = [];
 	let blocks = [ HEADER, '# Error Codes' ];
-	let groups = source.error_codes(ctx.errors);
+	let codes = source.error_codes(ctx.errors);
 	let all = [];
 
 	push(blocks,
@@ -649,12 +649,16 @@ export function errors_page(ctx) {
 		'(`collector \'<name>\': CODE (detail)`, see [Log messages](log-messages.md)), in `check`, in the ubus object\'s ' +
 		'replies and on LuCI\'s status page. A collector that fails has `node_scrape_collector_success` 0.');
 
-	for (let g in groups) {
+	for (let g in ctx.notes.error_groups) {
 		push(blocks, md.heading(2, md.text(g.group)));
 
 		let rows = [];
 
 		for (let code in g.codes) {
+			if (!(code in codes)) {
+				push(problems, `error_groups: errors.uc has no ${code}`);
+				continue;
+			}
 			push(all, code);
 
 			let meaning = ctx.notes.errors[code];
@@ -682,8 +686,12 @@ export function errors_page(ctx) {
 		push(blocks, md.table([ 'Code', 'Meaning', 'Raised by' ], rows));
 	}
 
-	for (let code in keys(ctx.notes.errors))
+	for (let code in codes)
 		if (!(code in all))
+			push(problems, `error_groups: put ${code} in a group`);
+
+	for (let code in keys(ctx.notes.errors))
+		if (!(code in codes))
 			push(problems, `errors: errors.uc has no ${code}`);
 
 	return { text: md.page(blocks), problems };

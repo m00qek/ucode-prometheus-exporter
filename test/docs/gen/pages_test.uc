@@ -107,6 +107,12 @@ describe('docs_gen.main.run', () => {
 		assert.match(contains([ 'errors: say what COMMAND_TIMEOUT means', 'errors: errors.uc has no NO_SUCH' ]), p);
 	});
 
+	it('refuses a code in a section that errors.uc lacks, and one of errors.uc in no section', () => {
+		let p = problems_with((n) => { push(n.error_groups[0].codes, 'NO_SUCH'); n.error_groups[1].codes = [ 'FILE_UNWRITABLE' ]; });
+
+		assert.match(contains([ 'error_groups: errors.uc has no NO_SUCH', 'error_groups: put CONFIG_INVALID in a group' ]), p);
+	});
+
 	it('refuses a fixture set without a name, and a name for no set', () => {
 		let p = problems_with((n) => { delete n.capture_sets.synthetic; n.capture_sets.nowhere = 'x'; });
 

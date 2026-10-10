@@ -62,32 +62,9 @@ export function reasons(text, states) {
 	return uniq(out);
 };
 
-// [ { group, codes: [ code ] } ] of errors.uc's text: each `export const` in
-// the group its comment above names.
+// [ code ] of errors.uc's text: each `export const`, in order.
 export function error_codes(text) {
-	let groups = [];
-	let group = null;
-
-	for (let line in split(text, '\n')) {
-		let c = match(line, /^\/\/ (.+)$/);
-
-		if (c) {
-			group = { group: c[1], codes: [] };
-			push(groups, group);
-			continue;
-		}
-
-		let e = match(line, /^export const ([A-Z0-9_]+)\s*=/);
-
-		if (e) {
-			if (!group)
-				die('errors.uc: a code before any group comment');
-			push(group.codes, e[1]);
-		}
-	}
-
-	// Comments above no code, as the file's own heading, are no group.
-	return filter(groups, (g) => length(g.codes));
+	return map(match(text, /(^|\n)export const ([A-Z0-9_]+)\s*=/g) ?? [], (m) => m[2]);
 };
 
 // Whether `text` raises error `code`: errors.<code> as a word.
