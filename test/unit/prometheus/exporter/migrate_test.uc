@@ -3,6 +3,8 @@
 import { describe, it, assert, contains, mock } from 'utest';
 import * as migrate from 'prometheus.exporter.migrate';
 import * as config from 'prometheus.exporter.config';
+import * as wifi from 'prometheus.collectors.wifi';
+import * as ethtool from 'prometheus.collectors.ethtool';
 
 const UCODE = 'prometheus-node-exporter-ucode';
 const LUA = 'prometheus-node-exporter-lua';
@@ -13,9 +15,9 @@ function with_uci(data, cb) {
 	mock.inject('uci', { strict: true, data }, (uci) => cb(uci.cursor()));
 }
 
-function plan_of(data) {
+function plan_of(data, metas) {
 	let out;
-	with_uci(data, (uci) => { out = migrate.plan(uci); });
+	with_uci(data, (uci) => { out = migrate.plan(uci, metas); });
 	return out;
 }
 
@@ -93,6 +95,52 @@ describe('migrate.main_options', () => {
 	});
 });
 
+describe('migrate.collector_options', () => {
+	let source = migrate.SOURCES[0];
+
+	it('takes what the collector installed takes, its own options and the core\'s, as uci holds them', () => {
+		assert.match({ set: { stations: '0', enabled: '1', budget: '3', max_samples: '500' }, skipped: [] },
+			migrate.collector_options(source, 'wifi', { stations: '0', enabled: '1', budget: '3', max_samples: '500' }, wifi.meta));
+	});
+
+	// One value this exporter refuses made the whole configuration invalid,
+	// and the service did not start.
+	it('leaves out a value the collector would refuse, and an option it has not, saying which', () => {
+		assert.match({
+			set: { budget: '2' },
+			skipped: [
+				`${UCODE}: collector wifi, option stations: expected a boolean, got "maybe"; left at its default`,
+				`${UCODE}: collector wifi has no option colour; left out`,
+				`${UCODE}: collector wifi, option max_samples: expected an integer from 1 to ${config.MAX_SAMPLES_MAX}, got 0; left at its default`,
+			],
+		}, migrate.collector_options(source, 'wifi', { stations: 'maybe', colour: 'blue', budget: '2', max_samples: '0' }, wifi.meta));
+	});
+
+	// The uci-defaults script runs as the base package is installed, before
+	// the packages of the collectors installed with it.
+	it('checks a collector not installed against what the feed\'s ucode exporter had of it, and the core\'s options', () => {
+		assert.match({
+			set: { stations: '0', enabled: '0' },
+			skipped: [ `${UCODE}: collector wifi is not installed, and lease_file is not an option it is known to have; left out` ],
+		}, migrate.collector_options(source, 'wifi', { stations: '0', enabled: '0', lease_file: '/tmp/x' }, null));
+		assert.match([ `${UCODE}: collector wifi, option stations: expected a boolean, got "maybe"; left at its default` ],
+			migrate.collector_options(source, 'wifi', { stations: 'maybe' }, null).skipped);
+		assert.match({ set: { budget: '2' }, skipped: [ `${UCODE}: collector netstat is not installed, and fields is not an option it is known to have; left out` ] },
+			migrate.collector_options(source, 'netstat', { fields: '.*', budget: '2' }, null));
+	});
+
+	it('knows of a collector not installed what its module declares', () => {
+		for (let id, specs in migrate.FEED_OPTIONS)
+			for (let name, spec in specs)
+				assert.match([ id, name, spec.default ], [ id, name, { wifi }[id].meta.options[name]?.default ]);
+	});
+
+	it('takes the timeout of a collector that runs programs, once it is installed', () => {
+		assert.match({ set: { timeout: '4' }, skipped: [] }, migrate.collector_options(source, 'ethtool', { timeout: '4' }, ethtool.meta));
+		assert.match(1, length(migrate.collector_options(source, 'ethtool', { timeout: '4' }, null).skipped));
+	});
+});
+
 describe('migrate.plan', () => {
 	it('is nothing without a feed exporter\'s config', () => {
 		assert.match(null, plan_of({ [config.NAME]: { main: SHIPPED_MAIN } }));
@@ -126,6 +174,32 @@ describe('migrate.plan', () => {
 				wifi_stations: { '.type': 'collector', enabled: '1' },
 			},
 		}));
+	});
+
+	it('imports a section without the options it would refuse, none of a section left with none, and asks for the collectors once', () => {
+		let asked = 0;
+
+		assert.match({
+			from: UCODE,
+			main: {},
+			collectors: { wifi: { budget: '2' }, cpu: {} },
+			skipped: [
+				`${UCODE}: collector wifi, option stations: expected a boolean, got "maybe"; left at its default`,
+				`${UCODE}: collector loadavg, option budget: expected an integer, got "soon"; left at its default`,
+			],
+		}, plan_of({
+			[UCODE]: {
+				main: { '.type': UCODE },
+				wifi: { '.type': 'collector', stations: 'maybe', budget: '2' },
+				loadavg: { '.type': 'collector', budget: 'soon' },
+				cpu: { '.type': 'collector' },
+			},
+		}, () => { asked++; return { wifi: wifi.meta }; }));
+		assert.match(1, asked);
+	});
+
+	it('asks for no collectors without a collector section', () => {
+		assert.match({}, plan_of({ [UCODE]: { main: { '.type': UCODE } } }, () => die('asked')).collectors);
 	});
 
 	it('prefers the ucode exporter\'s config to the Lua one\'s', () => {

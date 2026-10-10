@@ -47,20 +47,20 @@ apk add ucode-prometheus-exporter ucode-prometheus-exporter-full
 When the package is installed, its uci-defaults script takes over what the old config sets into `/etc/config/prometheus-exporter`, once:
 
 - From the main section: `listen_interface`, `listen_port`, `http_keepalive`, `cert`, `key` and `omit_zero_values`.
-- From the ucode exporter, each named `config collector` section, option for option, as it is (wifi's `stations`), but for a collector this exporter has not, which the log names.
+- From the ucode exporter, each named `config collector` section, each option the collector takes (wifi's `stations`), but for a collector this exporter has not, which the log names.
 - When both old configs are there, the ucode exporter's.
 
-It does so only while `/etc/config/prometheus-exporter` is as the package ships it. A port left at the old exporter's default (the ucode one's 9101) becomes 9100; a port you chose is kept. A value of the main section this exporter would refuse is left at its default; a collector section's values are taken as they are, and one this exporter refuses makes the configuration invalid, which `check` says. The old config file stays as it was. What is not taken over is in [The configuration](../reference/migration.md#configuration).
+It does so only while `/etc/config/prometheus-exporter` is as the package ships it. A port left at the old exporter's default (the ucode one's 9101) becomes 9100; a port you chose is kept. A value this exporter would refuse is left at its default, and an option a collector has not is left out, each logged, so what it writes is a valid configuration. A collector section's options are checked as the service checks them, against the collector installed; the script runs as the base package is installed, before the packages installed with it, so a collector not installed yet is checked against what the feed's ucode exporter had of it (wifi's `stations`) and the options every collector has (`enabled`, `budget`, `max_samples`). The old config file stays as it was. What is not taken over is in [The configuration](../reference/migration.md#configuration).
 
 ## 3. Check what it took
 
 ```sh
-logread -e prometheus-exporter | grep -e imported -e 'left at the default' -e 'nothing imported'
+logread -e prometheus-exporter | grep -e imported -e 'left at' -e 'left out' -e 'nothing imported'
 uci show prometheus-exporter
 service prometheus-exporter check
 ```
 
-The log names every option it took, and every value it left at the default and why. See [Log messages](../reference/log-messages.md#installation).
+The log names every option it took, and every value it left at the default or option it left out, and why. See [Log messages](../reference/log-messages.md#installation).
 
 ## 4. Update Prometheus
 

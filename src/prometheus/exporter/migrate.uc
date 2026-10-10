@@ -36,6 +36,14 @@ export const GONE = {
 	wifi_stations: 'wifi writes the stations, with its option stations, on by default',
 };
 
+/**
+ * The options of the feed's ucode exporter's collector sections, by collector, as this exporter's collectors declare them:
+ * what one not installed when they are imported is checked against.
+ */
+export const FEED_OPTIONS = {
+	wifi: { stations: { default: true } },
+};
+
 /** The main section's options taken over, as this exporter declares them. */
 export const OPTIONS = [ 'listen_interface', 'listen_port', 'http_keepalive', 'cert', 'key', 'omit_zero_values' ];
 
@@ -127,13 +135,56 @@ export function main_options(source, main) {
 	return { set, skipped };
 };
 
+function specs_of(id, meta) {
+	if (meta != null)
+		return { ...(meta.options ?? {}), ...config.core(meta, config.EXEC_TIMEOUT, null, null) };
+
+	return { ...(FEED_OPTIONS[id] ?? {}), ...config.core(null, null, null, null) };
+}
+
+/**
+ * What to import of collector `id`'s section, its options `options`, and what is skipped, and why.
+ *
+ * @param {MigrationSource} source
+ * @param {string} id
+ * @param {Object<string, (string|string[])>} options
+ * @param {?Meta} meta
+ * @returns {{ set: Object<string, (string|string[])>, skipped: string[] }}
+ */
+export function collector_options(source, id, options, meta) {
+	let specs = specs_of(id, meta);
+	let set = {};
+	let skipped = [];
+
+	for (let name, value in options) {
+		let spec = specs[name];
+
+		if (spec == null) {
+			push(skipped, (meta != null)
+				? `${source.name}: collector ${id} has no option ${name}; left out`
+				: `${source.name}: collector ${id} is not installed, and ${name} is not an option it is known to have; left out`);
+			continue;
+		}
+
+		let res = config.convert(name, value, spec);
+
+		if (res.ok)
+			set[name] = value;
+		else
+			push(skipped, `${source.name}: collector ${id}, option ${res.details}; left at its default`);
+	}
+
+	return { set, skipped };
+};
+
 /**
  * What the first source that has a config would bring, or null when none has.
  *
  * @param {UciCursor} uci
+ * @param {?(Object<string, Meta>|function(): Object<string, Meta>)} metas
  * @returns {?MigrationPlan}
  */
-export function plan(uci) {
+export function plan(uci, metas) {
 	for (let source in SOURCES) {
 		let all = sections(uci, source.name);
 
@@ -143,15 +194,27 @@ export function plan(uci) {
 		let main = filter(all, (s) => s['.name'] == 'main' && s['.type'] == source.name)[0];
 		let res = main_options(source, main ? options_of(main) : {});
 		let collectors = {};
+		let installed = null;
 
 		for (let s in (source.collectors ? all : [])) {
 			if (s['.type'] != 'collector' || s['.anonymous'])
 				continue;
 
-			if (GONE[s['.name']])
-				push(res.skipped, `${source.name}: collector ${s['.name']} is not this exporter's: ${GONE[s['.name']]}`);
-			else
-				collectors[s['.name']] = options_of(s);
+			let id = s['.name'];
+
+			if (GONE[id]) {
+				push(res.skipped, `${source.name}: collector ${id} is not this exporter's: ${GONE[id]}`);
+				continue;
+			}
+
+			installed ??= ((type(metas) == 'function') ? metas() : metas) ?? {};
+
+			let options = options_of(s);
+			let taken = collector_options(source, id, options, installed[id]);
+
+			push(res.skipped, ...taken.skipped);
+			if (length(taken.set) || !length(options))
+				collectors[id] = taken.set;
 		}
 
 		return { from: source.name, main: res.set, collectors, skipped: res.skipped };
@@ -192,10 +255,11 @@ function describe(p) {
  * Imports what a feed exporter's config holds, if this exporter's config is as shipped.
  *
  * @param {UciCursor} uci
+ * @param {?(Object<string, Meta>|function(): Object<string, Meta>)} metas
  * @returns {{ imported: boolean, lines: string[] }}
  */
-export function run(uci) {
-	let p = plan(uci);
+export function run(uci, metas) {
+	let p = plan(uci, metas);
 
 	if (p == null)
 		return { imported: false, lines: [] };

@@ -75,6 +75,9 @@ The uci-defaults script that takes over a feed exporter's settings, and moves ba
 | :--- | :--- |
 | `imported from /etc/config/<old>: <option>=<value>, ..., collector <module>` | It took these. `nothing it changed from the defaults` when there was nothing to take. |
 | `<old>: option <option>: expected <what>, got <value>; left at the default` | A value this exporter does not take. |
+| `<old>: collector <module>, option <option>: expected <what>, got <value>; left at its default` | A value of a collector section the collector does not take. |
+| `<old>: collector <module> has no option <option>; left out` | An option of a collector section the collector installed has not. |
+| `<old>: collector <module> is not installed, and <option> is not an option it is known to have; left out` | An option of a collector section whose collector is not installed yet, and is none the feed's ucode exporter had of it (wifi's `stations`) nor the core's (`enabled`, `budget`, `max_samples`). |
 | `/etc/config/prometheus-exporter is not as the package ships it: nothing imported from /etc/config/<old>` | The config had been changed already. |
 | `auth_password moved from /etc/config/prometheus-exporter to /etc/config/prometheus-exporter-auth` | An upgrade from 0.2.0 found the hash of basic auth's password where 0.2.0 kept it, and moved it where the exporter reads it now. |
 | `auth_password removed from /etc/config/prometheus-exporter: /etc/config/prometheus-exporter-auth has one already, which is kept` | The same, with a hash saved apart already. |
