@@ -14,7 +14,7 @@ This guide loads them into Prometheus or VictoriaMetrics, Grafana and Perses, an
 
 ## Prerequisites
 
-- A Prometheus, or a VictoriaMetrics with vmagent, that scrapes the router: see [Monitor a router with Prometheus](../tutorials/monitor-a-router.md). The rules and dashboards work for every router the server scrapes, whatever its job is called; only `OpenWrtExporterDown` names the job, `openwrt`.
+- A Prometheus, or a VictoriaMetrics with vmagent, that scrapes the router: see [Monitor a router with Prometheus](../tutorials/monitor-a-router.md). The rules and dashboards work for every router the server scrapes, whatever its jobs are called: they find this exporter's targets by what it writes, and leave the others alone. See [Which targets the alerts take](#which-targets-the-alerts-take).
 - The collectors whose panels and alerts you want. A panel whose collector is not installed shows no data, and an alert whose collector is not installed never fires: nothing else breaks. See [Choosing collectors](choose-collectors.md).
 - A copy of `monitoring/`.
 
@@ -34,7 +34,7 @@ alerting:
         - targets: [ 'alertmanager:9093' ]
 ```
 
-If your scrape job is not called `openwrt`, change `job="openwrt"` in `OpenWrtExporterDown`'s expression to yours: a target that does not answer has no metric of the exporter's to find it by. Then check the files and reload:
+No rule names a job or an instance: they load as they are, whatever your scrape jobs are called. Check the files and reload:
 
 ```bash
 promtool check rules /etc/prometheus/rules/openwrt/*.rules.yml
@@ -59,13 +59,14 @@ vmalert -rule='/etc/vmalert/openwrt/*.rules.yml' \
 What differs from Prometheus:
 
 - vmagent writes `scrape_timeout_seconds` for every target, without a flag.
+- `OpenWrtExporterDown` looks for the exporter's `ucode_prometheus_exporter_build_info` over the last 7 days; MetricsQL's `max_over_time`, as PromQL's, leaves out the staleness markers a failed scrape writes.
 - `OpenWrtExporterCollectorFailing`'s description runs a query (`query`, `sortByLabel`), as both servers' templates can.
 - `make monitoring-check` loads the rules with `vmalert -dryRun` and runs their tests with `vmalert-tool unittest` too, so they keep working there.
 - The dashboards take VictoriaMetrics as a Prometheus data source, in Grafana and in Perses: MetricsQL runs their PromQL.
 
 ## 3. Import the dashboards into Grafana
 
-Each dashboard asks for its data source, its job and its instance in the variables at its top, so either way imports it as it is.
+Each dashboard asks for its data source, its job and its instance in the variables at its top, so either way imports it as it is. The job and instance lists are the targets that wrote the exporter's `ucode_prometheus_exporter_build_info` in the dashboard's time range: a node_exporter's are not among them.
 
 - **By hand:** **Dashboards → New → Import**, upload `monitoring/grafana/openwrt-router.json`, then `exporter-health.json`.
 - **Provisioned:** copy the two files into a directory Grafana reads, and add a provider, `/etc/grafana/provisioning/dashboards/openwrt.yaml`:
@@ -102,7 +103,7 @@ Each threshold is in its rule's expression, and a comment above the rule says wh
 promtool test rules monitoring/prometheus/tests/*.test.yml
 ```
 
-From a checkout of the repository, `make monitoring-check` runs them with every other check: see [Make targets](../reference/make-targets.md#monitoring).
+From a checkout of the repository, `make monitoring-check` runs them with every other check: see [Make targets](../reference/make-targets.md#monitoring). It refuses a rule that matches a job or an instance, as `up{job="openwrt"}`, unless a comment above the rule, or in it, says `monitoring-check: allow-target-matcher` and why.
 
 ---
 
@@ -114,7 +115,7 @@ The failures behind these are in [Error codes](../reference/error-codes.md); [Tr
 
 | Alert | Severity | Fires when | Do |
 | :--- | :--- | :--- | :--- |
-| `OpenWrtExporterDown` | critical | `up` has been 0 for 5 minutes: the router or the exporter is down, the scrape timed out, or basic auth refused the scraper. | `service prometheus-exporter status` on the router; Prometheus's **Targets** page says why the scrape failed. See [Prometheus cannot scrape it](troubleshoot.md#prometheus-cannot-scrape-it). |
+| `OpenWrtExporterDown` | critical | `up` has been 0 for 5 minutes, of a target that wrote the exporter's `ucode_prometheus_exporter_build_info` in the last 7 days, whatever its job is called: the router or the exporter is down, the scrape timed out, or basic auth refused the scraper. A target that never answered, or that has been down for more than 7 days, does not fire it: see [Which targets the alerts take](#which-targets-the-alerts-take). | `service prometheus-exporter status` on the router; Prometheus's **Targets** page says why the scrape failed. See [Prometheus cannot scrape it](troubleshoot.md#prometheus-cannot-scrape-it). |
 | `OpenWrtExporterCollectorFailing` | warning | A collector's `node_scrape_collector_success` has been 0 for 15 minutes: it failed, was quarantined or was left out at the deadline in every scrape. The description lists its failures since the service started, by [error code](../reference/error-codes.md). A collector with nothing to observe succeeds, and never fires it. | `service prometheus-exporter check` runs it now and says why it fails. See [A collector fails](troubleshoot.md#a-collector-fails). |
 | `OpenWrtExporterCollectorQuarantined` | warning | A collector's circuit breaker tripped in the last 15 minutes: it hung, was killed, ran over its budget, had a program killed at its timeout, or failed three scrapes in a row. It is left out for 1 to 32 scrapes, then tried again. | `check` says what tripped it, and when it is tried again. See [A collector is quarantined](troubleshoot.md#a-collector-is-quarantined) and [About deadlines and circuit breakers](../explanation/deadlines-and-breakers.md#circuit-breakers). |
 | `OpenWrtExporterDeadlineSkips` | warning | The scrape deadline left a collector out, or killed its program, in more than 2 scrapes of 30 minutes (`SCRAPE_DEADLINE`). The first scrape after a restart can be late once. | The scrapes need more time than the job's `scrape_timeout`: scrape the slow collector in a job of its own with a longer timeout, or raise the job's. See [Collectors are left out at the deadline](troubleshoot.md#collectors-are-left-out-at-the-deadline). |
@@ -137,6 +138,18 @@ The failures behind these are in [Error codes](../reference/error-codes.md); [Tr
 | `OpenWrtWifiRadioDown` | warning | A Wi-Fi radio has had no network up for 10 minutes. A radio disabled on purpose has none either: silence it, or leave it out of the expression. | `wifi status` on the router: the radio is disabled, its driver failed, or it waits for a DFS channel check. |
 | `OpenWrtClockNotSynchronized` | warning | The NTP daemon has not had the clock synchronized for 30 minutes. | No NTP server answers, or none is set: **System → System → Time Synchronization** in LuCI. |
 | `OpenWrtDhcpPoolNearlyExhausted` | warning | An interface has had 135 or more DHCPv4 leases for 15 minutes: 90% of OpenWrt's default pool of 150 addresses. The exporter does not write the pool's size: set 90% of yours in the expression. | Raise the interface's `limit` in `/etc/config/dhcp`, or shorten its `leasetime`. |
+
+### Which targets the alerts take
+
+No rule names a job or an instance. Each takes the targets that write `ucode_prometheus_exporter_build_info`, which every scrape of this exporter has, whatever `collect[]` selects, and only this exporter writes. So the rules load as they are whatever the scrape jobs are called, and a Linux server's node_exporter in the same Prometheus, which writes `node_memory_MemAvailable_bytes` or `node_scrape_collector_success` as well, fires none of them.
+
+`OpenWrtExporterDown` cannot see `ucode_prometheus_exporter_build_info` now: a target that does not answer writes nothing, and its series went stale with the failed scrape. It looks for it over the last 7 days instead, `max_over_time(ucode_prometheus_exporter_build_info[7d])`, and fires for a target that is down and wrote it in that time:
+
+- **7 days**, so that a router down over a weekend, or while you are away for a week, still alerts when someone looks. Past them, the target is no longer known for this exporter's and the alert resolves, though the router is still down. Each evaluation reads 7 days of one series a target: 10,080 samples at a scrape a minute. A Prometheus that keeps less than 7 days looks back as far as it keeps.
+- **A target that never answered**, one added with a wrong address, port or password, has never written it, and cannot be told from another exporter's: it does not fire the alert. Check the **Targets** page of Prometheus, or vmagent's, when you add a router.
+- **A target taken out of the scrape config** has no `up` at all, and fires nothing, as in any Prometheus.
+
+To alert on a job's targets whatever they ran, keep a rule of your own, `up{job="<your job>"} == 0`.
 
 ---
 

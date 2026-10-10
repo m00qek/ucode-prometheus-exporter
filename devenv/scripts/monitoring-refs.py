@@ -2,6 +2,12 @@
 monitoring/ name only metric families and labels that docs/reference/metrics.md
 lists: a family the exporter does not write would only ever be "no data".
 
+And that no rule matches a job or an instance, as `up{job="openwrt"}`: the
+scrape jobs are called whatever their users call them, so a rule finds the
+exporter's targets by what the exporter writes. A rule that must has a comment,
+above it or in it, that says `monitoring-check: allow-target-matcher`, and why.
+A dashboard's job and instance matchers must be its variables.
+
 usage: monitoring-refs.py [FILE...]   (default: every file of monitoring/)
 
 Run by devenv/scripts/monitoring-check.sh, in the docs' mkdocs image, which has
@@ -39,6 +45,14 @@ AGGREGATIONS = {
     'sum', 'min', 'max', 'avg', 'group', 'stddev', 'stdvar', 'count', 'count_values',
     'bottomk', 'topk', 'quantile', 'limitk', 'limit_ratio',
 }
+
+# A matcher of a target label, `job="..."` or `instance=~'...'`, and its value.
+TARGET_MATCHER = re.compile(r'''
+    (?<![\w:])["']?(?P<label>job|instance)["']?\s*(?:=~|!~|!=|=(?!=))\s*
+    (?P<value>"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`[^`]*`)
+''', re.VERBOSE)
+ALLOW_TARGET_MATCHER = 'monitoring-check: allow-target-matcher'
+RULE_START = re.compile(r'^\s*-\s+(?:alert|record):\s*(\S+)')
 
 # Grafana's and Perses's variables, as a query has them before it is run.
 DURATION_VARS = re.compile(r'\$\{?__(rate_interval|interval|range)\}?')
@@ -209,6 +223,36 @@ def check_expr(ref, expr, where, legend=None):
     return errors
 
 
+def target_matchers(expr, where, allowed, why):
+    """Errors for each job or instance matcher of `expr` whose value is not
+    `allowed`."""
+    return [f'{where}: matches {m["label"]}={m["value"]}: {why}'
+            for m in TARGET_MATCHER.finditer(expr) if not allowed(m['value'][1:-1])]
+
+
+def allowed_rules(text):
+    """The rules of a rule file whose comments, above the rule or in it, say
+    ALLOW_TARGET_MATCHER."""
+    lines = text.splitlines()
+    starts = []
+    for n, line in enumerate(lines):
+        if RULE_START.match(line):
+            first = n
+            while first > 0 and lines[first - 1].strip().startswith('#'):
+                first -= 1
+            starts.append((first, n))
+    allowed = set()
+    for i, (first, n) in enumerate(starts):
+        end = starts[i + 1][0] if i + 1 < len(starts) else len(lines)
+        if any(ALLOW_TARGET_MATCHER in line for line in lines[first:end] if line.strip().startswith('#')):
+            allowed.add(RULE_START.match(lines[n]).group(1))
+    return allowed
+
+
+def is_variable(value):
+    return re.fullmatch(r'\$\{?\w+\}?', value) is not None
+
+
 def series_selector(ref, series, where):
     """A test's input series, `name{label="value", ...}`."""
     return check_expr(ref, series, where)
@@ -224,18 +268,25 @@ def walk(node, path=''):
             yield from walk(v, f'{path}[{n}]')
 
 
-def check_rules(ref, doc, name):
+def check_rules(ref, doc, name, source=''):
     errors = []
+    allowed = allowed_rules(source)
+    why = (f'a rule must find its targets whatever the scrape jobs are called; '
+           f'or say why it may not, in a comment `# {ALLOW_TARGET_MATCHER}`')
     for group in doc.get('groups') or []:
         for rule in group.get('rules') or []:
             what = rule.get('alert') or rule.get('record')
             where = f'{name}: {what}'
             errors += check_expr(ref, rule['expr'], where)
+            if what not in allowed:
+                errors += target_matchers(rule['expr'], where, lambda v: False, why)
             # A query an annotation runs: printf's `...`, its %s a value.
             for text in (rule.get('annotations') or {}).values():
                 for q in re.findall(r'`([^`]*\{[^`]*)`', text):
                     if '%s' in q:
                         errors += check_expr(ref, q.replace('%s', 'x'), f'{where} (annotation)')
+                        if what not in allowed:
+                            errors += target_matchers(q, f'{where} (annotation)', lambda v: v == '%s', why)
     return errors
 
 
@@ -273,13 +324,18 @@ def grafana_shape(doc, name):
     return errors
 
 
+DASHBOARD_TARGETS = 'a dashboard takes its job and instance from its variables'
+
+
 def check_grafana(ref, doc, name):
     errors = grafana_shape(doc, name)
     for path, node in walk(doc):
         if 'expr' in node and isinstance(node['expr'], str):
             errors += check_expr(ref, node['expr'], f'{name}: {path}', node.get('legendFormat'))
+            errors += target_matchers(node['expr'], f'{name}: {path}', is_variable, DASHBOARD_TARGETS)
         if node.get('type') == 'query' and 'query' in node:
             q = node['query']['query'] if isinstance(node['query'], dict) else node['query']
+            errors += target_matchers(q, f'{name}: variable {node.get("name")}', is_variable, DASHBOARD_TARGETS)
             m = re.match(r'^\s*label_values\((.*),\s*(\w+)\s*\)\s*$', q)
             if m:
                 errors += check_expr(ref, f'count by ({m.group(2)}) ({m.group(1)})', f'{name}: variable {node.get("name")}')
@@ -294,13 +350,16 @@ def check_perses(ref, doc, name):
         if node.get('kind') == 'PrometheusTimeSeriesQuery':
             spec = node.get('spec') or {}
             errors += check_expr(ref, spec['query'], f'{name}: {path}', spec.get('seriesNameFormat'))
+            errors += target_matchers(spec['query'], f'{name}: {path}', is_variable, DASHBOARD_TARGETS)
         elif node.get('kind') == 'PrometheusLabelValuesVariable':
             spec = node.get('spec') or {}
             for m in spec.get('matchers') or ['up']:
                 errors += check_expr(ref, f'count by ({spec["labelName"]}) ({m})', f'{name}: {path}')
+                errors += target_matchers(m, f'{name}: {path}', is_variable, DASHBOARD_TARGETS)
         elif node.get('kind') == 'PrometheusPromQLVariable':
             spec = node.get('spec') or {}
             errors += check_expr(ref, spec['expr'], f'{name}: {path}')
+            errors += target_matchers(spec['expr'], f'{name}: {path}', is_variable, DASHBOARD_TARGETS)
     return errors
 
 
@@ -308,9 +367,10 @@ def check_file(ref, path):
     name = str(path.relative_to(ROOT)) if path.is_relative_to(ROOT) else str(path)
     if path.suffix == '.json':
         return check_grafana(ref, json.loads(path.read_text()), name)
-    doc = yaml.safe_load(path.read_text())
+    text = path.read_text()
+    doc = yaml.safe_load(text)
     if 'groups' in doc:
-        return check_rules(ref, doc, name)
+        return check_rules(ref, doc, name, text)
     if 'tests' in doc:
         return check_tests(ref, doc, name)
     return check_perses(ref, doc, name)
@@ -327,7 +387,8 @@ def main(argv):
     for e in errors:
         print(e, file=sys.stderr)
     if not errors:
-        print(f'{len(files)} files name only metrics and labels of docs/reference/metrics.md')
+        print(f'{len(files)} files name only metrics and labels of docs/reference/metrics.md, '
+              f'and no job or instance but the dashboards\' variables')
     return 1 if errors else 0
 
 

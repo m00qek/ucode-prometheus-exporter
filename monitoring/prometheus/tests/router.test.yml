@@ -1,6 +1,8 @@
 # promtool test rules (make monitoring-check): the router's rules on made-up
 # series, a sample a minute, each rule firing where it should and quiet where
-# it should not.
+# it should not. The routers are in jobs of any name, and write this
+# exporter's build_info; a Linux server's node_exporter, which writes the
+# same families but no build_info, fires none of them.
 
 rule_files:
   - ../router.rules.yml
@@ -10,19 +12,32 @@ evaluation_interval: 1m
 tests:
   - interval: 1m
     input_series:
+      - series: 'ucode_prometheus_exporter_build_info{job="node-remote", instance="router:9100", version="0.3.0-r1"}'
+        values: '1x40'
+      - series: 'ucode_prometheus_exporter_build_info{job="access-points", instance="ap:9100", version="0.3.0-r1"}'
+        values: '1x40'
       # conntrack: 90% full; another router at 50%.
-      - series: 'node_nf_conntrack_entries{job="openwrt", instance="router:9100"}'
+      - series: 'node_nf_conntrack_entries{job="node-remote", instance="router:9100"}'
         values: '14745x20'
-      - series: 'node_nf_conntrack_entries_limit{job="openwrt", instance="router:9100"}'
+      - series: 'node_nf_conntrack_entries_limit{job="node-remote", instance="router:9100"}'
         values: '16384x20'
-      - series: 'node_nf_conntrack_entries{job="openwrt", instance="ap:9100"}'
+      - series: 'node_nf_conntrack_entries{job="access-points", instance="ap:9100"}'
         values: '8192x20'
-      - series: 'node_nf_conntrack_entries_limit{job="openwrt", instance="ap:9100"}'
+      - series: 'node_nf_conntrack_entries_limit{job="access-points", instance="ap:9100"}'
         values: '16384x20'
-      # meminfo: 5% available.
-      - series: 'node_memory_MemAvailable_bytes{job="openwrt", instance="router:9100"}'
+      # A Linux server's node_exporter, as full and as short of memory.
+      - series: 'node_nf_conntrack_entries{job="node-local", instance="server:9100"}'
+        values: '14745x20'
+      - series: 'node_nf_conntrack_entries_limit{job="node-local", instance="server:9100"}'
+        values: '16384x20'
+      - series: 'node_memory_MemAvailable_bytes{job="node-local", instance="server:9100"}'
         values: '6553600x20'
-      - series: 'node_memory_MemTotal_bytes{job="openwrt", instance="router:9100"}'
+      - series: 'node_memory_MemTotal_bytes{job="node-local", instance="server:9100"}'
+        values: '131072000x20'
+      # meminfo: 5% available.
+      - series: 'node_memory_MemAvailable_bytes{job="node-remote", instance="router:9100"}'
+        values: '6553600x20'
+      - series: 'node_memory_MemTotal_bytes{job="node-remote", instance="router:9100"}'
         values: '131072000x20'
     alert_rule_test:
       - eval_time: 9m
@@ -33,7 +48,7 @@ tests:
         exp_alerts:
           - exp_labels:
               severity: warning
-              job: openwrt
+              job: node-remote
               instance: router:9100
             exp_annotations:
               summary: The connection table of router:9100 is 90% full.
@@ -46,7 +61,7 @@ tests:
         exp_alerts:
           - exp_labels:
               severity: warning
-              job: openwrt
+              job: node-remote
               instance: router:9100
             exp_annotations:
               summary: router:9100 has 5% of its memory available.
@@ -56,36 +71,47 @@ tests:
 
   - interval: 1m
     input_series:
+      - series: 'ucode_prometheus_exporter_build_info{job="node-remote", instance="router:9100", version="0.3.0-r1"}'
+        values: '1x40'
+      - series: 'ucode_prometheus_exporter_build_info{job="access-points", instance="ap:9100", version="0.3.0-r1"}'
+        values: '1x40'
       # The overlay 5% available, the squashfs root full and read-only, /tmp
       # half used.
-      - series: 'node_filesystem_avail_bytes{job="openwrt", instance="router:9100", device="/dev/ubi0_1", fstype="ubifs", mountpoint="/overlay"}'
+      - series: 'node_filesystem_avail_bytes{job="node-remote", instance="router:9100", device="/dev/ubi0_1", fstype="ubifs", mountpoint="/overlay"}'
         values: '1000000x20'
-      - series: 'node_filesystem_size_bytes{job="openwrt", instance="router:9100", device="/dev/ubi0_1", fstype="ubifs", mountpoint="/overlay"}'
+      - series: 'node_filesystem_size_bytes{job="node-remote", instance="router:9100", device="/dev/ubi0_1", fstype="ubifs", mountpoint="/overlay"}'
         values: '20000000x20'
-      - series: 'node_filesystem_readonly{job="openwrt", instance="router:9100", device="/dev/ubi0_1", fstype="ubifs", mountpoint="/overlay"}'
+      - series: 'node_filesystem_readonly{job="node-remote", instance="router:9100", device="/dev/ubi0_1", fstype="ubifs", mountpoint="/overlay"}'
         values: '0x20'
-      - series: 'node_filesystem_avail_bytes{job="openwrt", instance="router:9100", device="/dev/root", fstype="squashfs", mountpoint="/rom"}'
+      - series: 'node_filesystem_avail_bytes{job="node-remote", instance="router:9100", device="/dev/root", fstype="squashfs", mountpoint="/rom"}'
         values: '0x20'
-      - series: 'node_filesystem_size_bytes{job="openwrt", instance="router:9100", device="/dev/root", fstype="squashfs", mountpoint="/rom"}'
+      - series: 'node_filesystem_size_bytes{job="node-remote", instance="router:9100", device="/dev/root", fstype="squashfs", mountpoint="/rom"}'
         values: '5000000x20'
-      - series: 'node_filesystem_readonly{job="openwrt", instance="router:9100", device="/dev/root", fstype="squashfs", mountpoint="/rom"}'
+      - series: 'node_filesystem_readonly{job="node-remote", instance="router:9100", device="/dev/root", fstype="squashfs", mountpoint="/rom"}'
         values: '1x20'
-      - series: 'node_filesystem_avail_bytes{job="openwrt", instance="router:9100", device="tmpfs", fstype="tmpfs", mountpoint="/tmp"}'
+      - series: 'node_filesystem_avail_bytes{job="node-remote", instance="router:9100", device="tmpfs", fstype="tmpfs", mountpoint="/tmp"}'
         values: '50000000x20'
-      - series: 'node_filesystem_size_bytes{job="openwrt", instance="router:9100", device="tmpfs", fstype="tmpfs", mountpoint="/tmp"}'
+      - series: 'node_filesystem_size_bytes{job="node-remote", instance="router:9100", device="tmpfs", fstype="tmpfs", mountpoint="/tmp"}'
         values: '100000000x20'
-      - series: 'node_filesystem_readonly{job="openwrt", instance="router:9100", device="tmpfs", fstype="tmpfs", mountpoint="/tmp"}'
+      - series: 'node_filesystem_readonly{job="node-remote", instance="router:9100", device="tmpfs", fstype="tmpfs", mountpoint="/tmp"}'
+        values: '0x20'
+      # A Linux server's node_exporter, its /var as full.
+      - series: 'node_filesystem_avail_bytes{job="node-local", instance="server:9100", device="/dev/sda2", fstype="ext4", mountpoint="/var"}'
+        values: '1000000x20'
+      - series: 'node_filesystem_size_bytes{job="node-local", instance="server:9100", device="/dev/sda2", fstype="ext4", mountpoint="/var"}'
+        values: '20000000x20'
+      - series: 'node_filesystem_readonly{job="node-local", instance="server:9100", device="/dev/sda2", fstype="ext4", mountpoint="/var"}'
         values: '0x20'
       # Inodes: the overlay 5% free; a jffs2 that reports none.
-      - series: 'node_filesystem_files_free{job="openwrt", instance="router:9100", device="/dev/ubi0_1", fstype="ubifs", mountpoint="/overlay"}'
+      - series: 'node_filesystem_files_free{job="node-remote", instance="router:9100", device="/dev/ubi0_1", fstype="ubifs", mountpoint="/overlay"}'
         values: '500x20'
-      - series: 'node_filesystem_files{job="openwrt", instance="router:9100", device="/dev/ubi0_1", fstype="ubifs", mountpoint="/overlay"}'
+      - series: 'node_filesystem_files{job="node-remote", instance="router:9100", device="/dev/ubi0_1", fstype="ubifs", mountpoint="/overlay"}'
         values: '10000x20'
-      - series: 'node_filesystem_files_free{job="openwrt", instance="router:9100", device="/dev/mtdblock6", fstype="jffs2", mountpoint="/mnt/data"}'
+      - series: 'node_filesystem_files_free{job="node-remote", instance="router:9100", device="/dev/mtdblock6", fstype="jffs2", mountpoint="/mnt/data"}'
         values: '0x20'
-      - series: 'node_filesystem_files{job="openwrt", instance="router:9100", device="/dev/mtdblock6", fstype="jffs2", mountpoint="/mnt/data"}'
+      - series: 'node_filesystem_files{job="node-remote", instance="router:9100", device="/dev/mtdblock6", fstype="jffs2", mountpoint="/mnt/data"}'
         values: '0x20'
-      - series: 'node_filesystem_readonly{job="openwrt", instance="router:9100", device="/dev/mtdblock6", fstype="jffs2", mountpoint="/mnt/data"}'
+      - series: 'node_filesystem_readonly{job="node-remote", instance="router:9100", device="/dev/mtdblock6", fstype="jffs2", mountpoint="/mnt/data"}'
         values: '0x20'
     alert_rule_test:
       - eval_time: 20m
@@ -93,7 +119,7 @@ tests:
         exp_alerts:
           - exp_labels:
               severity: warning
-              job: openwrt
+              job: node-remote
               instance: router:9100
               device: /dev/ubi0_1
               fstype: ubifs
@@ -109,7 +135,7 @@ tests:
         exp_alerts:
           - exp_labels:
               severity: warning
-              job: openwrt
+              job: node-remote
               instance: router:9100
               device: /dev/ubi0_1
               fstype: ubifs
@@ -122,27 +148,38 @@ tests:
 
   - interval: 1m
     input_series:
+      - series: 'ucode_prometheus_exporter_build_info{job="node-remote", instance="router:9100", version="0.3.0-r1"}'
+        values: '1x40'
+      - series: 'ucode_prometheus_exporter_build_info{job="access-points", instance="ap:9100", version="0.3.0-r1"}'
+        values: '1x40'
       # A radio past its max, another past its crit, a chip with no limits
       # (0), and a CPU thermal zone past its passive trip point.
-      - series: 'node_hwmon_temp_celsius{job="openwrt", instance="ap:9100", chip="mt7915_phy0", sensor="temp1"}'
+      - series: 'node_hwmon_temp_celsius{job="access-points", instance="ap:9100", chip="mt7915_phy0", sensor="temp1"}'
         values: '110x10'
-      - series: 'node_hwmon_temp_max_celsius{job="openwrt", instance="ap:9100", chip="mt7915_phy0", sensor="temp1"}'
+      - series: 'node_hwmon_temp_max_celsius{job="access-points", instance="ap:9100", chip="mt7915_phy0", sensor="temp1"}'
         values: '105x10'
-      - series: 'node_hwmon_temp_crit_celsius{job="openwrt", instance="ap:9100", chip="mt7915_phy0", sensor="temp1"}'
+      - series: 'node_hwmon_temp_crit_celsius{job="access-points", instance="ap:9100", chip="mt7915_phy0", sensor="temp1"}'
         values: '120x10'
-      - series: 'node_hwmon_temp_celsius{job="openwrt", instance="ap:9100", chip="mt7915_phy1", sensor="temp1"}'
+      - series: 'node_hwmon_temp_celsius{job="access-points", instance="ap:9100", chip="mt7915_phy1", sensor="temp1"}'
         values: '121x10'
-      - series: 'node_hwmon_temp_max_celsius{job="openwrt", instance="ap:9100", chip="mt7915_phy1", sensor="temp1"}'
+      - series: 'node_hwmon_temp_max_celsius{job="access-points", instance="ap:9100", chip="mt7915_phy1", sensor="temp1"}'
         values: '105x10'
-      - series: 'node_hwmon_temp_crit_celsius{job="openwrt", instance="ap:9100", chip="mt7915_phy1", sensor="temp1"}'
+      - series: 'node_hwmon_temp_crit_celsius{job="access-points", instance="ap:9100", chip="mt7915_phy1", sensor="temp1"}'
         values: '120x10'
-      - series: 'node_hwmon_temp_celsius{job="openwrt", instance="ap:9100", chip="soc", sensor="temp1"}'
+      - series: 'node_hwmon_temp_celsius{job="access-points", instance="ap:9100", chip="soc", sensor="temp1"}'
         values: '50x10'
-      - series: 'node_hwmon_temp_max_celsius{job="openwrt", instance="ap:9100", chip="soc", sensor="temp1"}'
+      - series: 'node_hwmon_temp_max_celsius{job="access-points", instance="ap:9100", chip="soc", sensor="temp1"}'
         values: '0x10'
-      - series: 'node_thermal_zone_temp{job="openwrt", instance="ap:9100", zone="0", type="cpu-thermal"}'
+      # A Linux server's node_exporter, its CPU past its crit.
+      - series: 'node_hwmon_temp_celsius{job="node-local", instance="server:9100", chip="platform_coretemp_0", sensor="temp1"}'
+        values: '101x10'
+      - series: 'node_hwmon_temp_max_celsius{job="node-local", instance="server:9100", chip="platform_coretemp_0", sensor="temp1"}'
+        values: '80x10'
+      - series: 'node_hwmon_temp_crit_celsius{job="node-local", instance="server:9100", chip="platform_coretemp_0", sensor="temp1"}'
+        values: '100x10'
+      - series: 'node_thermal_zone_temp{job="access-points", instance="ap:9100", zone="0", type="cpu-thermal"}'
         values: '86x10'
-      - series: 'node_thermal_zone_passive_celsius{job="openwrt", instance="ap:9100", zone="0", type="cpu-thermal"}'
+      - series: 'node_thermal_zone_passive_celsius{job="access-points", instance="ap:9100", zone="0", type="cpu-thermal"}'
         values: '85x10'
     alert_rule_test:
       - eval_time: 6m
@@ -150,7 +187,7 @@ tests:
         exp_alerts:
           - exp_labels:
               severity: warning
-              job: openwrt
+              job: access-points
               instance: ap:9100
               chip: mt7915_phy0
               sensor: temp1
@@ -161,7 +198,7 @@ tests:
                 110 °C, at or above the chip's maximum, for 5 minutes. Check the airflow.
           - exp_labels:
               severity: warning
-              job: openwrt
+              job: access-points
               instance: ap:9100
               chip: mt7915_phy1
               sensor: temp1
@@ -175,7 +212,7 @@ tests:
         exp_alerts:
           - exp_labels:
               severity: critical
-              job: openwrt
+              job: access-points
               instance: ap:9100
               chip: mt7915_phy1
               sensor: temp1
@@ -189,7 +226,7 @@ tests:
         exp_alerts:
           - exp_labels:
               severity: warning
-              job: openwrt
+              job: access-points
               instance: ap:9100
               zone: "0"
               type: cpu-thermal
@@ -201,32 +238,36 @@ tests:
 
   - interval: 1m
     input_series:
+      - series: 'ucode_prometheus_exporter_build_info{job="node-remote", instance="router:9100", version="0.3.0-r1"}'
+        values: '1x40'
+      - series: 'ucode_prometheus_exporter_build_info{job="access-points", instance="ap:9100", version="0.3.0-r1"}'
+        values: '1x40'
       # wan down, lan up.
-      - series: 'node_openwrt_interface_up{job="openwrt", instance="router:9100", interface="wan"}'
+      - series: 'node_openwrt_interface_up{job="node-remote", instance="router:9100", interface="wan"}'
         values: '1 0x10'
-      - series: 'node_openwrt_interface_up{job="openwrt", instance="router:9100", interface="lan"}'
+      - series: 'node_openwrt_interface_up{job="node-remote", instance="router:9100", interface="lan"}'
         values: '1x10'
       # radio0 has a network up, radio1 none.
-      - series: 'node_wifi_radio_info{job="openwrt", instance="ap:9100", radio="radio0", htmode="HE80", channel="36", country="DE"}'
+      - series: 'node_wifi_radio_info{job="access-points", instance="ap:9100", radio="radio0", htmode="HE80", channel="36", country="DE"}'
         values: '1x40'
-      - series: 'node_wifi_network_info{job="openwrt", instance="ap:9100", radio="radio0", device="phy0-ap0", ssid="example", bssid="02:00:00:00:00:01", mode="Master"}'
+      - series: 'node_wifi_network_info{job="access-points", instance="ap:9100", radio="radio0", device="phy0-ap0", ssid="example", bssid="02:00:00:00:00:01", mode="Master"}'
         values: '1x40'
-      - series: 'node_wifi_radio_info{job="openwrt", instance="ap:9100", radio="radio1", htmode="HE20", channel="1", country="DE"}'
+      - series: 'node_wifi_radio_info{job="access-points", instance="ap:9100", radio="radio1", htmode="HE20", channel="1", country="DE"}'
         values: '1x40'
       # ntpd never synchronized; chronyd elsewhere is.
-      - series: 'node_timesync_synchronized{job="openwrt", instance="router:9100", daemon="ntpd"}'
+      - series: 'node_timesync_synchronized{job="node-remote", instance="router:9100", daemon="ntpd"}'
         values: '0x40'
-      - series: 'node_timesync_synchronized{job="openwrt", instance="ap:9100", daemon="chronyd"}'
+      - series: 'node_timesync_synchronized{job="access-points", instance="ap:9100", daemon="chronyd"}'
         values: '1x40'
       # 140 leases on lan, from dnsmasq and odhcpd; few on guest; many
       # DHCPv6 bindings, which take no pool.
-      - series: 'node_openwrt_dhcp_leases{job="openwrt", instance="router:9100", server="dnsmasq", interface="lan", family="ipv4"}'
+      - series: 'node_openwrt_dhcp_leases{job="node-remote", instance="router:9100", server="dnsmasq", interface="lan", family="ipv4"}'
         values: '120x40'
-      - series: 'node_openwrt_dhcp_leases{job="openwrt", instance="router:9100", server="odhcpd", interface="lan", family="ipv4"}'
+      - series: 'node_openwrt_dhcp_leases{job="node-remote", instance="router:9100", server="odhcpd", interface="lan", family="ipv4"}'
         values: '20x40'
-      - series: 'node_openwrt_dhcp_leases{job="openwrt", instance="router:9100", server="dnsmasq", interface="guest", family="ipv4"}'
+      - series: 'node_openwrt_dhcp_leases{job="node-remote", instance="router:9100", server="dnsmasq", interface="guest", family="ipv4"}'
         values: '12x40'
-      - series: 'node_openwrt_dhcp_leases{job="openwrt", instance="router:9100", server="odhcpd", interface="lan", family="ipv6"}'
+      - series: 'node_openwrt_dhcp_leases{job="node-remote", instance="router:9100", server="odhcpd", interface="lan", family="ipv6"}'
         values: '400x40'
     alert_rule_test:
       - eval_time: 7m
@@ -234,7 +275,7 @@ tests:
         exp_alerts:
           - exp_labels:
               severity: critical
-              job: openwrt
+              job: node-remote
               instance: router:9100
               interface: wan
             exp_annotations:
@@ -248,7 +289,7 @@ tests:
         exp_alerts:
           - exp_labels:
               severity: warning
-              job: openwrt
+              job: access-points
               instance: ap:9100
               radio: radio1
               htmode: HE20
@@ -268,7 +309,7 @@ tests:
         exp_alerts:
           - exp_labels:
               severity: warning
-              job: openwrt
+              job: node-remote
               instance: router:9100
               daemon: ntpd
             exp_annotations:
@@ -281,7 +322,7 @@ tests:
         exp_alerts:
           - exp_labels:
               severity: warning
-              job: openwrt
+              job: node-remote
               instance: router:9100
               interface: lan
             exp_annotations:

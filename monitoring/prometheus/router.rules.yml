@@ -7,6 +7,13 @@
 # edit it here, and its test in tests/router.test.yml, to change it. See
 # docs/how-to/dashboards-and-alerts.md for what each alert means and what to
 # do about it.
+#
+# Most of these families are node_exporter's too, as a Linux server writes
+# them: each rule takes only the targets of this exporter, those that write
+# ucode_prometheus_exporter_build_info, whatever the scrape jobs are called.
+# No rule names a job or an instance; make monitoring-check refuses one that
+# does, unless a comment of the rule says
+# `monitoring-check: allow-target-matcher`.
 
 groups:
   - name: openwrt-router
@@ -14,7 +21,9 @@ groups:
       # conntrack: the connection table more than 80% full for 10 minutes. A
       # full table drops new connections.
       - alert: OpenWrtConntrackTableNearlyFull
-        expr: node_nf_conntrack_entries / node_nf_conntrack_entries_limit > 0.8
+        expr: |
+          node_nf_conntrack_entries / node_nf_conntrack_entries_limit > 0.8
+          and on (job, instance) ucode_prometheus_exporter_build_info
         for: 10m
         labels:
           severity: warning
@@ -28,7 +37,9 @@ groups:
       # meminfo: less than 10% of the memory available for 10 minutes. Past it
       # the kernel's OOM killer picks a process.
       - alert: OpenWrtMemoryLow
-        expr: node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 0.1
+        expr: |
+          node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 0.1
+          and on (job, instance) ucode_prometheus_exporter_build_info
         for: 10m
         labels:
           severity: warning
@@ -45,6 +56,7 @@ groups:
         expr: |
           node_filesystem_avail_bytes / node_filesystem_size_bytes < 0.1
           and node_filesystem_readonly == 0
+          and on (job, instance) ucode_prometheus_exporter_build_info
         for: 15m
         labels:
           severity: warning
@@ -62,6 +74,7 @@ groups:
           node_filesystem_files_free / node_filesystem_files < 0.1
           and node_filesystem_files > 0
           and node_filesystem_readonly == 0
+          and on (job, instance) ucode_prometheus_exporter_build_info
         for: 15m
         labels:
           severity: warning
@@ -74,7 +87,9 @@ groups:
       # hwmon: a sensor at or above the chip's own `max` for 5 minutes. Some
       # chips throttle there (mt76's Wi-Fi radios).
       - alert: OpenWrtTemperatureAboveMax
-        expr: node_hwmon_temp_celsius >= on (job, instance, chip, sensor) (node_hwmon_temp_max_celsius > 0)
+        expr: |
+          node_hwmon_temp_celsius >= on (job, instance, chip, sensor) (node_hwmon_temp_max_celsius > 0)
+          and on (job, instance) ucode_prometheus_exporter_build_info
         for: 5m
         labels:
           severity: warning
@@ -87,7 +102,9 @@ groups:
       # hwmon: a sensor at or above the chip's own `crit` for a minute: the
       # hardware may shut down.
       - alert: OpenWrtTemperatureCritical
-        expr: node_hwmon_temp_celsius >= on (job, instance, chip, sensor) (node_hwmon_temp_crit_celsius > 0)
+        expr: |
+          node_hwmon_temp_celsius >= on (job, instance, chip, sensor) (node_hwmon_temp_crit_celsius > 0)
+          and on (job, instance) ucode_prometheus_exporter_build_info
         for: 1m
         labels:
           severity: critical
@@ -100,7 +117,9 @@ groups:
       # thermal: a zone at or above its passive trip point for 5 minutes, where
       # the kernel throttles the CPU to cool it.
       - alert: OpenWrtThermalZoneThrottling
-        expr: node_thermal_zone_temp >= on (job, instance, zone, type) node_thermal_zone_passive_celsius
+        expr: |
+          node_thermal_zone_temp >= on (job, instance, zone, type) node_thermal_zone_passive_celsius
+          and on (job, instance) ucode_prometheus_exporter_build_info
         for: 5m
         labels:
           severity: warning
@@ -113,7 +132,9 @@ groups:
       # openwrt_interfaces: the logical interface `wan` down for 5 minutes.
       # Name yours in the regex: wan|wan6, wwan, or mwan3's members.
       - alert: OpenWrtWanDown
-        expr: node_openwrt_interface_up{interface=~"wan"} == 0
+        expr: |
+          node_openwrt_interface_up{interface=~"wan"} == 0
+          and on (job, instance) ucode_prometheus_exporter_build_info
         for: 5m
         labels:
           severity: critical
@@ -128,7 +149,9 @@ groups:
       # purpose has none either: silence it, or leave it out in the expression
       # (node_wifi_radio_info{radio!="radio1"}).
       - alert: OpenWrtWifiRadioDown
-        expr: node_wifi_radio_info unless on (job, instance, radio) node_wifi_network_info
+        expr: |
+          node_wifi_radio_info unless on (job, instance, radio) node_wifi_network_info
+          and on (job, instance) ucode_prometheus_exporter_build_info
         for: 10m
         labels:
           severity: warning
@@ -142,7 +165,9 @@ groups:
       # timesync: the NTP daemon has not synchronized the clock for 30
       # minutes. TLS, DNSSEC and logs need the right time.
       - alert: OpenWrtClockNotSynchronized
-        expr: node_timesync_synchronized == 0
+        expr: |
+          node_timesync_synchronized == 0
+          and on (job, instance) ucode_prometheus_exporter_build_info
         for: 30m
         labels:
           severity: warning
@@ -156,7 +181,9 @@ groups:
       # minutes: 90% of OpenWrt's default pool, `limit` 150 in /etc/config/dhcp.
       # The exporter does not write the pool's size: set 90% of yours here.
       - alert: OpenWrtDhcpPoolNearlyExhausted
-        expr: sum by (job, instance, interface) (node_openwrt_dhcp_leases{family="ipv4"}) >= 135
+        expr: |
+          sum by (job, instance, interface) (node_openwrt_dhcp_leases{family="ipv4"}) >= 135
+          and on (job, instance) ucode_prometheus_exporter_build_info
         for: 15m
         labels:
           severity: warning

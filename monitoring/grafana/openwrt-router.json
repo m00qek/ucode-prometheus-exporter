@@ -2252,7 +2252,7 @@
           "type": "prometheus",
           "uid": "${datasource}"
         },
-        "definition": "label_values(node_scrape_collector_success, job)",
+        "definition": "label_values(ucode_prometheus_exporter_build_info, job)",
         "includeAll": false,
         "label": "Job",
         "multi": false,
@@ -2260,7 +2260,7 @@
         "options": [],
         "query": {
           "qryType": 1,
-          "query": "label_values(node_scrape_collector_success, job)",
+          "query": "label_values(ucode_prometheus_exporter_build_info, job)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 2,
@@ -2274,7 +2274,7 @@
           "type": "prometheus",
           "uid": "${datasource}"
         },
-        "definition": "label_values(node_scrape_collector_success{job=\"$job\"}, instance)",
+        "definition": "label_values(ucode_prometheus_exporter_build_info{job=\"$job\"}, instance)",
         "includeAll": false,
         "label": "Instance",
         "multi": false,
@@ -2282,7 +2282,7 @@
         "options": [],
         "query": {
           "qryType": 1,
-          "query": "label_values(node_scrape_collector_success{job=\"$job\"}, instance)",
+          "query": "label_values(ucode_prometheus_exporter_build_info{job=\"$job\"}, instance)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 2,

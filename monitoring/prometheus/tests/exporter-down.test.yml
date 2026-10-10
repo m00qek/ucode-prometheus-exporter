@@ -1,0 +1,37 @@
+# promtool test rules (make monitoring-check): how long OpenWrtExporterDown
+# knows a target that stays down for this exporter's, its lookback, on a
+# sample an hour, evaluated each hour: a week evaluated each minute takes
+# vmalert-tool 15 s.
+
+rule_files:
+  - ../exporter.rules.yml
+
+evaluation_interval: 1h
+
+tests:
+  # A router of this exporter that stays down: still firing after 6 days,
+  # resolved once its last build_info is 7 days old, as it is then no longer
+  # known for this exporter's.
+  - interval: 1h
+    input_series:
+      - series: 'up{job="node-remote", instance="router:9100"}'
+        values: '1 0x200'
+      - series: 'ucode_prometheus_exporter_build_info{job="node-remote", instance="router:9100", version="0.3.0-r1"}'
+        values: '1 stale'
+    alert_rule_test:
+      - eval_time: 6d
+        alertname: OpenWrtExporterDown
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              job: node-remote
+              instance: router:9100
+            exp_annotations:
+              summary: The exporter on router:9100 does not answer.
+              description: >-
+                Scrapes of router:9100 (job node-remote) have failed for 5 minutes:
+                the router or its exporter is down, the scrape times out, or basic auth refuses the scraper.
+                Every other metric of the router is missing meanwhile.
+      - eval_time: 7d1h
+        alertname: OpenWrtExporterDown
+        exp_alerts: []

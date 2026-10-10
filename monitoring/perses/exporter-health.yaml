@@ -39,7 +39,7 @@ spec:
           datasource: $datasource
           labelName: job
           matchers:
-          - node_scrape_collector_success
+          - ucode_prometheus_exporter_build_info
   - kind: ListVariable
     spec:
       name: instance
@@ -54,7 +54,7 @@ spec:
           datasource: $datasource
           labelName: instance
           matchers:
-          - node_scrape_collector_success{job="$job"}
+          - ucode_prometheus_exporter_build_info{job="$job"}
   panels:
     up:
       kind: Panel

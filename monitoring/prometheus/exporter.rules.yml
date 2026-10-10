@@ -7,19 +7,38 @@
 # docs/how-to/dashboards-and-alerts.md for what each alert means and what to
 # do about it.
 #
-# Every rule but OpenWrtExporterDown finds the exporter by its own metrics,
-# whatever the job is called. OpenWrtExporterDown cannot: a target that does
-# not answer has none. It asks for the job `openwrt`, the tutorial's: name
-# yours there.
+# No rule names a job or an instance: each finds the exporter's targets by
+# what only this exporter writes, ucode_prometheus_exporter_build_info or a
+# family of its own, whatever the scrape jobs are called. make
+# monitoring-check refuses a rule with a job or instance matcher, unless a
+# comment of the rule says `monitoring-check: allow-target-matcher`.
 
 groups:
   - name: ucode-prometheus-exporter
     rules:
-      # The scrape failed: the router or the exporter is down, the scrape timed
-      # out, or the scraper's password is refused (401). 5 minutes, so that a
-      # reboot or an upgrade does not page.
+      # The scrape of a target of this exporter failed: the router or the
+      # exporter is down, the scrape timed out, or the scraper's password is
+      # refused (401). 5 minutes, so that a reboot or an upgrade does not page.
+      #
+      # `up` is the scraper's, of every target it has, whatever runs there,
+      # and a target that does not answer writes nothing of its own. A target
+      # is taken for this exporter's where it wrote
+      # ucode_prometheus_exporter_build_info in the last 7 days: every scrape
+      # writes it, whatever collect[] selects. The failed scrape made the
+      # series stale, so it is looked for over a range, which keeps the
+      # samples before it: Prometheus and VictoriaMetrics both leave staleness
+      # markers out of max_over_time.
+      #
+      # 7 days, so that a router down over a weekend, or a week away, still
+      # alerts when someone looks: past them the target is no longer known
+      # for this exporter's, and the alert resolves. It reads a week of one
+      # series a target at each evaluation. A target that never answered, as
+      # one added with a wrong address or password, cannot be told from any
+      # other, and never fires it.
       - alert: OpenWrtExporterDown
-        expr: up{job="openwrt"} == 0
+        expr: |
+          up == 0
+          and on (job, instance) max_over_time(ucode_prometheus_exporter_build_info[7d])
         for: 5m
         labels:
           severity: critical
@@ -34,9 +53,13 @@ groups:
       # node_scrape_collector_success 0, failed, quarantined or left out at
       # the deadline. A collector with nothing to observe succeeds, and is left
       # alone. The description lists its failures since the service started,
-      # by error code, where the exporter collector counts them.
+      # by error code, where the exporter collector counts them. node_exporter
+      # writes node_scrape_collector_success too: build_info keeps its
+      # targets out.
       - alert: OpenWrtExporterCollectorFailing
-        expr: node_scrape_collector_success == 0
+        expr: |
+          node_scrape_collector_success == 0
+          and on (job, instance) ucode_prometheus_exporter_build_info
         for: 15m
         labels:
           severity: warning

@@ -50,7 +50,8 @@ global:
 rule_files:
   - /rules/*.rules.yml
 scrape_configs:
-  - job_name: openwrt
+  # Not the tutorial's job name: no rule or dashboard may depend on it.
+  - job_name: node-remote
     static_configs:
       - targets: [ '$lab:9100' ]
 EOF
