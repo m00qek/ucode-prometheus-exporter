@@ -278,6 +278,21 @@ describe('grant.make', () => {
 		assert.match({ files: { '/etc/config/prometheus-exporter': { gid: 0, mode: 0o600 } } }, json(fs.files[privileges.GRANTED_FILE].data));
 	});
 
+	// uci commit gives a config back to root's group, and keeps its mode.
+	it('gives a config its mode back though uci commit gave it root\'s group already', () => {
+		let fs = filesystem(files());
+		let sys = system(fs);
+
+		grant.make(sys, grants({ files: [ '/etc/config/dhcp', '/etc/config/prometheus-exporter' ] }));
+		fs.files['/etc/config/dhcp'].gid = 0;
+		grant.make(sys, grants({ files: [ '/etc/config/prometheus-exporter' ] }));
+		assert.match([ 0o600, 0 ], [ fs.files['/etc/config/dhcp'].mode, fs.files['/etc/config/dhcp'].gid ]);
+
+		fs.files['/etc/config/prometheus-exporter'].gid = 0;
+		grant.clean(sys);
+		assert.match([ 0o600, 0 ], [ fs.files['/etc/config/prometheus-exporter'].mode, fs.files['/etc/config/prometheus-exporter'].gid ]);
+	});
+
 	it('takes back a config of the group it has no record of, as after a reboot, giving it to root\'s group', () => {
 		let fs = filesystem(files());
 

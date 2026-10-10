@@ -836,11 +836,20 @@ grep -q 'ucode_prometheus_exporter_collector_quarantined{collector="e2e_slow"} 1
 helpers() { ps w | grep -c -e '[r]pc-status.uc' -e '[t]rial.uc'; }
 started=$(date +%s)
 for i in 1 2 3; do ubus -t 60 call "$NAME" status >/tmp/status$i.json 2>/dev/null & sleep 1; done
+# The status helpers running: ucode processes of rpc-status.uc but those its
+# scrape forked, which have its command line.
+status_runs() {
+	for p in $(pgrep -f 'rpc-status.uc'); do
+		case "$(tr '\0' ' ' </proc/$p/cmdline 2>/dev/null)" in *ucode*rpc-status.uc*) ;; *) continue ;; esac
+		pp=$(cut -d' ' -f4 /proc/$p/stat 2>/dev/null)
+		case "$(tr '\0' ' ' </proc/$pp/cmdline 2>/dev/null)" in *ucode*rpc-status.uc*) ;; *) echo "$p" ;; esac
+	done | wc -l
+}
 most=0
 most_status=0
 while [ "$(helpers)" -gt 0 ] && [ $(($(date +%s) - started)) -lt 40 ]; do
 	n=$(helpers); [ "$n" -le "$most" ] || most=$n
-	n=$(ps w | grep -c '[u]code /usr/libexec/prometheus-exporter/rpc-status.uc'); [ "$n" -le "$most_status" ] || most_status=$n
+	n=$(status_runs); [ "$n" -le "$most_status" ] || most_status=$n
 	sleep 1
 done
 wait

@@ -89,12 +89,16 @@ define Package/$(PKG_NAME)/postinst
 }
 endef
 
-# Before its files go, the service gives back all it granted: OpenWrt's
-# default prerm stops it, which does, and jail.uc does again, should it not
-# have run.
+# Before its files go, the service stops, and so gives back all it granted;
+# jail.uc does again, should the stop not have run it. apk's removal does not
+# stop it otherwise, and the instance would outlive its files.
 define Package/$(PKG_NAME)/prerm
 #!/bin/sh
-[ -n "$$IPKG_INSTROOT" ] || /usr/libexec/$(SERVICE)/jail.uc --clean >/dev/null 2>&1
+[ -n "$$IPKG_INSTROOT" ] || [ "$$PKG_UPGRADE" = 1 ] || {
+	/etc/init.d/$(SERVICE) disable 2>/dev/null
+	/etc/init.d/$(SERVICE) stop 2>/dev/null
+	/usr/libexec/$(SERVICE)/jail.uc --clean >/dev/null 2>&1
+}
 exit 0
 endef
 

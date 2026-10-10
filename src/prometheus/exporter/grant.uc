@@ -187,13 +187,14 @@ function give(fs, path, gid, record) {
 
 function take(fs, path, gid, before) {
 	let st = fs.stat(path);
+	let back = (type(before?.mode) == 'int' && st?.mode == shared_mode(before.mode) && st.mode != before.mode);
 
-	if (st == null || st.gid != gid)
+	if (st == null || (st.gid != gid && !(back && st.gid == before.gid)))
 		return false;
 
-	let ok = fs.chown(path, -1, before?.gid ?? 0);
+	let ok = (st.gid == gid) ? fs.chown(path, -1, before?.gid ?? 0) : true;
 
-	if (ok && type(before?.mode) == 'int' && st.mode == shared_mode(before.mode))
+	if (ok && back)
 		ok = fs.chmod(path, before.mode);
 
 	return ok ? true : null;
