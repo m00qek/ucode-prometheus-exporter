@@ -40,14 +40,6 @@ function files(pid, extra) {
 	};
 }
 
-const COUNTERS = {
-	scrapes: 42, auth_failures: 3, collectors: {
-		'nft-counters': { failures: { COMMAND_TIMEOUT: 2, COMMAND_FAILED: 1 }, timeouts: 2, quarantines: 1, deadline_skips: 0 },
-		cpu: { failures: {}, timeouts: 0, quarantines: 0, deadline_skips: 0 },
-		nat_traffic: { failures: {}, timeouts: 0, quarantines: 0, deadline_skips: 5 },
-	},
-};
-
 // The collector as a scrape of the handler runs it: its capability over
 // `data`, with the scrape's view.
 function run(data, view) {
@@ -70,7 +62,7 @@ function samples(lines) {
 
 describe('collectors.exporter', () => {
 	it('describes the serving process as Prometheus\'s client libraries do, its scrapes\' CPU in its own', () => {
-		let r = run(files(1234), { pid: 1234, counters: null, samples: {} });
+		let r = run(files(1234), { pid: 1234 });
 
 		assert.match([ true, true ], [ r.result.ok, r.parsed.ok ]);
 		assert.match([
@@ -84,26 +76,9 @@ describe('collectors.exporter', () => {
 		assert.match(contains([ '# TYPE process_cpu_seconds_total counter', '# TYPE process_open_fds gauge' ]), r.lines);
 	});
 
-	it('writes the ledger\'s counters, by collector and by code, and this scrape\'s samples', () => {
-		let r = run(files(1234), { pid: 1234, counters: COUNTERS, samples: { cpu: 46, 'nft-counters': 0, loadavg: 3 } });
-
-		assert.match(contains([
-			'ucode_prometheus_exporter_scrapes_total 42',
-			'ucode_prometheus_exporter_auth_failures_total 3',
-			'ucode_prometheus_exporter_collector_failures_total{collector="nft-counters",reason="COMMAND_FAILED"} 1',
-			'ucode_prometheus_exporter_collector_failures_total{collector="nft-counters",reason="COMMAND_TIMEOUT"} 2',
-			'ucode_prometheus_exporter_program_timeouts_total{collector="cpu"} 0',
-			'ucode_prometheus_exporter_program_timeouts_total{collector="nft-counters"} 2',
-			'ucode_prometheus_exporter_quarantines_total{collector="nft-counters"} 1',
-			'ucode_prometheus_exporter_deadline_skips_total{collector="nat_traffic"} 5',
-			'ucode_prometheus_exporter_collector_samples{collector="cpu"} 46',
-			'ucode_prometheus_exporter_collector_samples{collector="loadavg"} 3',
-			'ucode_prometheus_exporter_collector_samples{collector="nft-counters"} 0',
-		]), r.lines);
-		assert.match(true, r.parsed.ok);
-	});
-
-	it('leaves the counters out where there is no ledger, as on the command line', () => {
+	// The scrape writes the ledger's counters and the samples itself, after
+	// its runs, whatever this collector does.
+	it('writes the process alone, nothing of the scrape', () => {
 		let r = run(files('self'), null);
 
 		assert.match([ true, -1 ], [ r.result.ok, index(r.text, 'ucode_prometheus_exporter_scrapes_total') ]);
@@ -122,11 +97,10 @@ describe('collectors.exporter', () => {
 		assert.match(-1, index(r.text, 'process_max_fds'));
 	});
 
-	it('fails with SOURCE_UNREADABLE without the process\'s stat, and still writes the counters', () => {
-		let r = run({ '/proc/3/stat': null, '/proc/stat': PROC_STAT }, { pid: 3, counters: COUNTERS, samples: {} });
+	it('fails with SOURCE_UNREADABLE without the process\'s stat', () => {
+		let r = run({ '/proc/3/stat': null, '/proc/stat': PROC_STAT }, { pid: 3 });
 
-		assert.match('SOURCE_UNREADABLE', r.result.error);
-		assert.match(contains([ 'ucode_prometheus_exporter_scrapes_total 42' ]), r.lines);
+		assert.match([ 'SOURCE_UNREADABLE', [] ], [ r.result.error, r.lines ]);
 	});
 
 	it('runs as a scrape runs it, on this process, needing nothing but its capability', () => {

@@ -73,7 +73,6 @@ import { bury, log_breakers } from 'prometheus.exporter.progress';
  *   quarantine: ?boolean,
  *   collectors: ?Collector[],
  *   pid: ?int,
- *   kept: ?boolean,
  *   progress: ?ProgressFile,
  *   omit: ?boolean,
  *   main: ?Result<MainSettings>
@@ -310,6 +309,54 @@ export function own_text(runs, version) {
 	return text + own_header(4) + `${BUILD_INFO}${label} 1\n`;
 };
 
+/** The exporter's own collector: a scrape that runs it writes the ledger's counters and each collector's samples. */
+export const EXPORTER = 'exporter';
+
+/**
+ * The ledger's counters, by collector name, and each run's samples, as the scrape writes them after its runs.
+ *
+ * @param {?LedgerCounters} n
+ * @param {Run[]} runs
+ * @param {?boolean} omit
+ * @returns {string}
+ */
+export function exporter_text(n, runs, omit) {
+	let out = exposition.recorder();
+
+	if (n != null) {
+		out.batch('counter', [
+			[ 'ucode_prometheus_exporter_scrapes_total', 'Scrapes the exporter answered since the service started.', n.scrapes ],
+			[ 'ucode_prometheus_exporter_auth_failures_total', 'Requests basic auth refused since the service started.', n.auth_failures ],
+		]);
+
+		let failures = out.counter('ucode_prometheus_exporter_collector_failures_total', 'Scrapes in which a collector failed, by its error code, since the service started.');
+		let timeouts = out.counter('ucode_prometheus_exporter_program_timeouts_total', 'Programs of a collector killed at their timeout since the service started.');
+		let quarantines = out.counter('ucode_prometheus_exporter_quarantines_total', 'Times a collector\'s circuit breaker tripped since the service started.');
+		let skips = out.counter('ucode_prometheus_exporter_deadline_skips_total', 'Scrapes whose deadline left a collector out, or killed its program, since the service started.');
+
+		for (let name in sort(keys(n.collectors))) {
+			let c = n.collectors[name];
+			let labels = out.labels({ collector: name });
+
+			for (let code in sort(keys(c.failures)))
+				failures({ collector: name, reason: code }, c.failures[code]);
+			timeouts(labels, c.timeouts);
+			quarantines(labels, c.quarantines);
+			skips(labels, c.deadline_skips);
+		}
+	}
+
+	let written = out.gauge('ucode_prometheus_exporter_collector_samples', 'Samples a collector wrote in this scrape.');
+	let samples = {};
+
+	for (let r in runs)
+		samples[r.name] = r.samples;
+	for (let name in sort(keys(samples)))
+		written({ collector: name }, samples[name]);
+
+	return exposition.pack(out.families(), omit).text;
+};
+
 function too_late(l, c, now, cutoff) {
 	let need = ledger.estimate(l, c.id);
 
@@ -345,36 +392,12 @@ export function collect(env, uci, l, chosen, opts) {
 	let by_id = {};
 	let collected = 0;
 	let m = ledger.number(l);
-	let installed = opts?.collectors ?? chosen;
-	let ids = map(installed, (c) => c.id);
 	let deadline = opts?.deadline;
-	let queue = ledger.order(l, chosen, (c) => 'exporter' in c.meta.needs, untimed_rank);
+	let queue = ledger.order(l, chosen, null, untimed_rank);
 	let next = 0;
 	let place = {};
 	let main = opts?.main ?? config.main(uci);
 	let reply_max = main.ok ? main.data.max_scrape_samples : config.MAX_SCRAPE_SAMPLES;
-
-	function view() {
-		let counters = null;
-
-		if (opts?.kept) {
-			let n = ledger.counters_with(l, values(by_id), ids);
-			let named = {};
-
-			for (let c in installed)
-				if (n.collectors[c.id] != null)
-					named[c.meta.name] = n.collectors[c.id];
-
-			counters = { ...n, collectors: named };
-		}
-
-		let samples = {};
-
-		for (let id, r in by_id)
-			samples[r.name] = r.samples;
-
-		return { pid: opts?.pid, counters, samples };
-	}
 
 	for (let i, c in queue)
 		place[c.id] = i;
@@ -424,7 +447,7 @@ export function collect(env, uci, l, chosen, opts) {
 			return {
 				c, cutoff, limit, at_deadline: held, budget, left,
 				settings: s.ok ? s.data : null,
-				view: ('exporter' in c.meta.needs) ? view() : null,
+				view: ('exporter' in c.meta.needs) ? { pid: opts?.pid } : null,
 			};
 		},
 		started: (job, pid) => opts?.progress?.start(job.c.id, pid),
@@ -515,7 +538,7 @@ export function scrape(env, collectors, query_string, opts) {
 	let l = ledger.parse(kept);
 	let progress = st?.progress ? st.progress() : null;
 	let by_id = collect(env, uci, l, sel.data, {
-		deadline: opts?.deadline, quarantine: true, collectors, pid: st ? pid_of(st.id) : null, kept: st != null,
+		deadline: opts?.deadline, quarantine: true, collectors, pid: st ? pid_of(st.id) : null,
 		progress, omit: main.data.omit_zero_values, main: main_read,
 	});
 	let runs = map(sel.data, (c) => by_id[c.id]);
@@ -529,7 +552,25 @@ export function scrape(env, collectors, query_string, opts) {
 
 	let t1 = env.clock();
 
-	let body = join('', map(runs, (r) => r.text ?? '')) + own_text(runs, env.version);
+	let ex = filter(sel.data, (c) => c.own && c.id == EXPORTER)[0];
+	let self = '';
+
+	if (ex != null) {
+		let named = null;
+
+		if (st) {
+			let n = ledger.counters_with(l, runs, ids);
+
+			named = { ...n, collectors: {} };
+			for (let c in collectors)
+				if (n.collectors[c.id] != null)
+					named.collectors[c.meta.name] = n.collectors[c.id];
+		}
+
+		self = exporter_text(named, runs, main.data.omit_zero_values);
+	}
+
+	let body = join('', map(runs, (r) => (r.text ?? '') + ((r.id == ex?.id) ? self : ''))) + own_text(runs, env.version);
 
 	progress?.finish();
 

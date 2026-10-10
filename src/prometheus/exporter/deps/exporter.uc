@@ -9,7 +9,7 @@
 /**
  * The scrape as the `exporter` capability sees it, as data that crosses a process's pipe.
  *
- * @typedef {{ pid: ?int, counters: ?LedgerCounters, samples: Object<string, int> }} ExporterView
+ * @typedef {{ pid: ?int }} ExporterView
  */
 
 /**
@@ -18,9 +18,7 @@
  * @typedef {{
  *   process: (file: string) => ?string,
  *   fds: () => ?int,
- *   system: (file: string) => ?string,
- *   counters: () => ?LedgerCounters,
- *   samples: () => Object<string, int>
+ *   system: (file: string) => ?string
  * }} ExporterCapability
  */
 
@@ -31,7 +29,7 @@ export const PROCESS_FILES = [ 'stat', 'status', 'limits' ];
 export const SYSTEM_FILES = [ '/proc/stat', '/proc/self/auxv' ];
 
 /**
- * The exporter capability: the serving process and its scrapes' counters, read only.
+ * The exporter capability: the serving process, read only.
  *
  * @param {module:fs} fs
  * @param {?ExporterView} view
@@ -48,7 +46,5 @@ export function exporter_channel(fs, view) {
 			return (entries == null) ? null : length(entries);
 		},
 		system: (file) => (file in SYSTEM_FILES) ? fs.readfile(file) : null,
-		counters: () => view?.counters ?? null,
-		samples: () => view?.samples ?? {},
 	};
 };

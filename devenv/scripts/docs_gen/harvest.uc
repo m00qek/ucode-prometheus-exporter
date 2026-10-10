@@ -11,6 +11,8 @@ import * as scrape from 'prometheus.exporter.scrape';
 import * as exposition from 'prometheus.exporter.exposition';
 import * as config from 'prometheus.exporter.config';
 import * as Result from 'prometheus.exporter.result';
+import * as errors from 'prometheus.exporter.errors';
+import * as ledger from 'prometheus.exporter.ledger';
 import * as fixtures from 'docs_gen.fixtures';
 
 export const ROOT = 'test/fixtures';
@@ -111,7 +113,10 @@ export function add(into, families, set, option, collector, problems) {
 
 // The families a scrape writes of itself: node_exporter's
 // node_scrape_collector_* and the exporter's own, from a scrape of the first
-// collector on the first set.
+// collector and the exporter collector on the first set, as the service's
+// handler scrapes, with a ledger in which the first collector failed once:
+// the scrape writes the ledger's counters while the exporter collector is
+// selected.
 function own_families(fs, root, collectors) {
 	let set = sets(fs, root)[0];
 	let mods = fixtures.modules(`${root}/${set}`, {});
@@ -122,11 +127,17 @@ function own_families(fs, root, collectors) {
 		version: 'dev',
 	};
 	let c = collectors[0];
-	let res = scrape.scrape(env, [ c ], '');
+	let chosen = uniq([ c, ...filter(collectors, (x) => x.id == scrape.EXPORTER) ]);
+	let kept = sprintf('%J', { ...ledger.empty(), c: { [c.id]: { fails: { [errors.SOURCE_INVALID]: 1 } } } });
+	let st = { id: null, read: () => kept, update: (name, fn) => { fn(kept); return true; } };
+	let res = scrape.scrape(env, chosen, '', { state: st });
 	let parsed = exposition.parse(res.body);
 	let own = {};
 	let order = [];
-	let written = map(run_with(mods, c).families, (f) => f.name);
+	let written = [];
+
+	for (let x in chosen)
+		push(written, ...map(run_with(mods, x).families, (f) => f.name));
 	let problems = [];
 
 	for (let f in parsed.data) {

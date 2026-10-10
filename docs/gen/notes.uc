@@ -189,6 +189,18 @@ export const family_notes = {
 	} ],
 };
 
+// What a row of the scrape's own families says besides, by family: every
+// entry must name a family a scrape writes.
+export const scrape_notes = {
+	'ucode_prometheus_exporter_scrapes_total': 'While the `exporter` collector is selected, in the service\'s scrapes, which keep the instance\'s ledger; reset when the service restarts.',
+	'ucode_prometheus_exporter_auth_failures_total': 'As scrapes\_total: the requests basic auth refused (401).',
+	'ucode_prometheus_exporter_collector_failures_total': 'As scrapes\_total: a collector\'s failures by error code.',
+	'ucode_prometheus_exporter_program_timeouts_total': 'As scrapes\_total: programs killed at their timeout.',
+	'ucode_prometheus_exporter_quarantines_total': 'As scrapes\_total: times a collector\'s circuit breaker tripped.',
+	'ucode_prometheus_exporter_deadline_skips_total': 'As scrapes\_total: times the deadline left a collector out or killed its program, this scrape\'s included.',
+	'ucode_prometheus_exporter_collector_samples': 'While the `exporter` collector is selected: the samples each collector wrote in this scrape, `check` and the command line\'s scrape included.',
+};
+
 // Families a collector declares that no fixture set makes it write, by
 // collector name, with what the fixtures cannot show: their labels, and why
 // no fixture has them. The type and help are the code's. The generator
@@ -219,13 +231,6 @@ export const unharvested = {
 		{ name: 'process_start_time_seconds', labels: [], why: 'From its /proc/<pid>/stat and /proc/stat\'s btime.' },
 		{ name: 'process_open_fds', labels: [], why: 'Its /proc/<pid>/fd.' },
 		{ name: 'process_max_fds', labels: [], why: 'Its /proc/<pid>/limits; left out where unlimited.' },
-		{ name: 'ucode_prometheus_exporter_scrapes_total', labels: [], why: 'Counted in the instance\'s ledger, which only the handler\'s scrapes keep; reset when the service restarts.' },
-		{ name: 'ucode_prometheus_exporter_auth_failures_total', labels: [], why: 'As scrapes_total: the requests basic auth refused (401).' },
-		{ name: 'ucode_prometheus_exporter_collector_failures_total', labels: [ 'collector', 'reason' ], why: 'As scrapes_total: a collector\'s failures by error code.' },
-		{ name: 'ucode_prometheus_exporter_program_timeouts_total', labels: [ 'collector' ], why: 'As scrapes_total: programs killed at their timeout.' },
-		{ name: 'ucode_prometheus_exporter_quarantines_total', labels: [ 'collector' ], why: 'As scrapes_total: times a collector\'s circuit breaker tripped.' },
-		{ name: 'ucode_prometheus_exporter_deadline_skips_total', labels: [ 'collector' ], why: 'As scrapes_total: times the deadline left a collector out or killed its program.' },
-		{ name: 'ucode_prometheus_exporter_collector_samples', labels: [ 'collector' ], why: 'This scrape\'s: the samples each collector that ran before it wrote.' },
 	],
 	'snmp6': [
 		{ name: 'node_snmp6_ifindex', labels: [ 'device' ], why: 'Written where the `fields` option matches `ifIndex`, which its default does not: netclass\'s `node_network_iface_id` is the same index.' },

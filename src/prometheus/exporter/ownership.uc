@@ -18,12 +18,12 @@ export const EXPORTER_PREFIX = 'ucode_prometheus_exporter_';
 const SCRAPE_LENGTH = length(SCRAPE_PREFIX);
 const EXPORTER_LENGTH = length(EXPORTER_PREFIX);
 
-function family_problem(me, name, owners, exporter) {
+function family_problem(me, name, owners) {
 	let owner = owners[name];
 
 	if (substr(name, 0, SCRAPE_LENGTH) == SCRAPE_PREFIX)
 		return `${name} belongs to the scrape itself`;
-	if (!exporter && substr(name, 0, EXPORTER_LENGTH) == EXPORTER_PREFIX)
+	if (substr(name, 0, EXPORTER_LENGTH) == EXPORTER_PREFIX)
 		return `${name} belongs to the exporter itself`;
 	if (owner != null && owner != me)
 		return `${name} belongs to collector ${owner}`;
@@ -31,7 +31,7 @@ function family_problem(me, name, owners, exporter) {
 	return null;
 }
 
-function clear(runs, by_id) {
+function clear(runs) {
 	let texts = [];
 	let n = 0;
 
@@ -43,9 +43,7 @@ function clear(runs, by_id) {
 
 		let text = '\n' + join('\n', names);
 
-		if (index(text, `\n${SCRAPE_PREFIX}`) >= 0)
-			return false;
-		if (index(text, `\n${EXPORTER_PREFIX}`) >= 0 && !('exporter' in by_id[r.id].meta.needs))
+		if (index(text, `\n${SCRAPE_PREFIX}`) >= 0 || index(text, `\n${EXPORTER_PREFIX}`) >= 0)
 			return false;
 
 		push(texts, text);
@@ -64,7 +62,7 @@ function clear(runs, by_id) {
  * @returns {Run[]}
  */
 export function own(env, runs, by_id) {
-	if (clear(runs, by_id))
+	if (clear(runs))
 		return runs;
 
 	let owners = {};
@@ -72,7 +70,6 @@ export function own(env, runs, by_id) {
 
 	for (let r in [ ...first, ...filter(runs, (r) => !by_id[r.id].own) ]) {
 		let me = r.name;
-		let exporter = 'exporter' in by_id[r.id].meta.needs;
 		let why = null;
 		let i = 0;
 
@@ -80,13 +77,13 @@ export function own(env, runs, by_id) {
 			let owner = owners[name];
 
 			if (owner == me || (owner == null && substr(name, 0, SCRAPE_LENGTH) != SCRAPE_PREFIX &&
-			    (exporter || substr(name, 0, EXPORTER_LENGTH) != EXPORTER_PREFIX))) {
+			    substr(name, 0, EXPORTER_LENGTH) != EXPORTER_PREFIX)) {
 				owners[name] = me;
 				i++;
 				continue;
 			}
 
-			why = family_problem(me, name, owners, exporter);
+			why = family_problem(me, name, owners);
 			break;
 		}
 

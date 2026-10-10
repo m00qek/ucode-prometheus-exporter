@@ -351,6 +351,59 @@ describe('scrape.scrape', () => {
 		assert.match('double', type(l.k));
 	});
 
+	// The exporter collector stands in for its module: the scrape writes the
+	// ledger's counters and the samples itself, after the runs, while it is
+	// selected, whatever its run did. The alert on deadline skips reads them,
+	// so they must be there in the very scrapes the deadline cut.
+	const EXPORTER = collector('exporter', gauge_of('process_open_fds', 5), { needs: [ 'exporter' ] });
+
+	it('writes the ledger\'s counters and the samples itself, in a scrape whose deadline cut the others and the exporter collector', () => {
+		let st = memory_state(ledger_of({ a: 0.1, b_two: 0.1, c: 0.1, exporter: 0.1 }));
+		let r = scrape_with([ A, B, C, EXPORTER ], '', {}, { deadline: 0.9, budget: 0.9, state: st });
+		let parsed = exposition.parse(r.body);
+
+		assert.match(true, parsed.ok, r.body);
+		assert.match(contains([
+			'a_value 1',
+			'ucode_prometheus_exporter_scrapes_total 2',
+			'ucode_prometheus_exporter_auth_failures_total 0',
+			'ucode_prometheus_exporter_deadline_skips_total{collector="a"} 0',
+			'ucode_prometheus_exporter_deadline_skips_total{collector="b-two"} 1',
+			'ucode_prometheus_exporter_deadline_skips_total{collector="c"} 1',
+			'ucode_prometheus_exporter_deadline_skips_total{collector="exporter"} 1',
+			'ucode_prometheus_exporter_collector_samples{collector="a"} 1',
+			'ucode_prometheus_exporter_collector_samples{collector="b-two"} 0',
+			'ucode_prometheus_exporter_collector_samples{collector="exporter"} 0',
+			'node_scrape_collector_success{collector="exporter"} 0',
+		]), lines(r.body));
+		assert.match(-1, index(r.body, 'process_open_fds'));
+		assert.match([ 'scrape deadline: 3 collectors not served in its 0.9 s: b-two, c, exporter' ], r.logs);
+	});
+
+	it('writes them after the exporter collector\'s own families, in its place in the reply', () => {
+		let r = scrape_with([ A, EXPORTER, C ], '', {}, { state: memory_state(null) });
+		let at = (s) => index(r.body, s);
+
+		assert.match(true, at('a_value 1') < at('process_open_fds 5') && at('process_open_fds 5') < at('ucode_prometheus_exporter_scrapes_total 1') &&
+			at('ucode_prometheus_exporter_collector_samples{collector="c"} 1') < at('c_value 3'), r.body);
+	});
+
+	it('writes the samples alone outside the service, where nothing keeps a ledger', () => {
+		let r = scrape_with([ A, EXPORTER ], '');
+
+		assert.match(contains([ 'ucode_prometheus_exporter_collector_samples{collector="a"} 1', 'ucode_prometheus_exporter_collector_samples{collector="exporter"} 1' ]),
+			lines(r.body));
+		assert.match(-1, index(r.body, 'ucode_prometheus_exporter_scrapes_total'));
+	});
+
+	it('writes none of them when the exporter collector is not selected', () => {
+		for (let q in [ 'exclude[]=exporter', 'collect[]=a' ]) {
+			let r = scrape_with([ A, EXPORTER ], q, {}, { state: memory_state(null) });
+
+			assert.match([ -1, -1 ], [ index(r.body, 'ucode_prometheus_exporter_scrapes_total'), index(r.body, 'ucode_prometheus_exporter_collector_samples') ], q);
+		}
+	});
+
 	// The clock reads 0.25 s, then 0.5 s: at 0.25, 0.5 s left before 0.75.
 	it('leaves out a collector the ledger expects to take longer than is left', () => {
 		let ran = [];
@@ -558,10 +611,11 @@ describe('scrape.scrape', () => {
 		assert.match([ "collector 'y': FAMILY_CONFLICT (shared belongs to collector x)" ], r.logs);
 	});
 
-	it('lets a collector that describes the exporter write the exporter\'s families', () => {
+	it('keeps the exporter\'s families from a collector that describes the exporter too, as the scrape writes them', () => {
 		let r = scrape_with([ collector('self', gauge_of('ucode_prometheus_exporter_scrapes_total', 9), { needs: [ 'exporter' ] }) ], '');
 
-		assert.match(contains([ 'ucode_prometheus_exporter_scrapes_total 9', 'node_scrape_collector_success{collector="self"} 1' ]), lines(r.body));
+		assert.match(contains([ 'node_scrape_collector_success{collector="self"} 0' ]), lines(r.body));
+		assert.match(-1, index(r.body, 'ucode_prometheus_exporter_scrapes_total'));
 	});
 
 	prop('serves each family once, from one collector, whatever they write',
@@ -835,6 +889,56 @@ describe('scrape.scrape, with circuit breakers', () => {
 
 			assert.match(length(plan), runs);
 		});
+});
+
+describe('scrape.exporter_text', () => {
+	const COUNTERS = {
+		scrapes: 42, auth_failures: 3, collectors: {
+			'nft-counters': { failures: { COMMAND_TIMEOUT: 2, COMMAND_FAILED: 1 }, timeouts: 2, quarantines: 1, deadline_skips: 0 },
+			cpu: { failures: {}, timeouts: 0, quarantines: 0, deadline_skips: 0 },
+			nat_traffic: { failures: {}, timeouts: 0, quarantines: 0, deadline_skips: 5 },
+		},
+	};
+	const RUNS = [ { name: 'cpu', samples: 46 }, { name: 'nft-counters', samples: 0 }, { name: 'loadavg', samples: 3 } ];
+
+	it('writes the ledger\'s counters, by collector and by code, and each run\'s samples', () => {
+		let text = scrape.exporter_text(COUNTERS, RUNS);
+
+		assert.match(true, exposition.parse(text).ok);
+		assert.match(contains([
+			'# TYPE ucode_prometheus_exporter_scrapes_total counter',
+			'ucode_prometheus_exporter_scrapes_total 42',
+			'ucode_prometheus_exporter_auth_failures_total 3',
+			'ucode_prometheus_exporter_collector_failures_total{collector="nft-counters",reason="COMMAND_FAILED"} 1',
+			'ucode_prometheus_exporter_collector_failures_total{collector="nft-counters",reason="COMMAND_TIMEOUT"} 2',
+			'ucode_prometheus_exporter_program_timeouts_total{collector="cpu"} 0',
+			'ucode_prometheus_exporter_program_timeouts_total{collector="nft-counters"} 2',
+			'ucode_prometheus_exporter_quarantines_total{collector="nft-counters"} 1',
+			'ucode_prometheus_exporter_deadline_skips_total{collector="nat_traffic"} 5',
+			'# TYPE ucode_prometheus_exporter_collector_samples gauge',
+			'ucode_prometheus_exporter_collector_samples{collector="cpu"} 46',
+			'ucode_prometheus_exporter_collector_samples{collector="loadavg"} 3',
+			'ucode_prometheus_exporter_collector_samples{collector="nft-counters"} 0',
+		]), lines(text));
+	});
+
+	it('writes the samples alone without counters', () => {
+		assert.match([
+			'ucode_prometheus_exporter_collector_samples{collector="cpu"} 46',
+			'ucode_prometheus_exporter_collector_samples{collector="loadavg"} 3',
+			'ucode_prometheus_exporter_collector_samples{collector="nft-counters"} 0',
+		], filter(lines(scrape.exporter_text(null, RUNS)), (l) => substr(l, 0, 1) != '#'));
+	});
+
+	it('leaves out the counters that are 0 where the config omits them, as of a collector\'s', () => {
+		let text = scrape.exporter_text(COUNTERS, RUNS, true);
+
+		assert.match([ -1, -1, true ], [
+			index(text, 'ucode_prometheus_exporter_program_timeouts_total{collector="cpu"}'),
+			index(text, 'ucode_prometheus_exporter_deadline_skips_total{collector="cpu"}'),
+			index(text, 'ucode_prometheus_exporter_deadline_skips_total{collector="nat_traffic"} 5') >= 0,
+		]);
+	});
 });
 
 describe('scrape.own_text', () => {
