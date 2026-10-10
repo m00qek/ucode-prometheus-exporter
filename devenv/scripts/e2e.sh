@@ -830,8 +830,10 @@ helpers() { ps w | grep -c -e '[r]pc-status.uc' -e '[t]rial.uc'; }
 started=$(date +%s)
 for i in 1 2 3; do ubus -t 60 call "$NAME" status >/tmp/status$i.json 2>/dev/null & sleep 1; done
 most=0
+most_status=0
 while [ "$(helpers)" -gt 0 ] && [ $(($(date +%s) - started)) -lt 40 ]; do
 	n=$(helpers); [ "$n" -le "$most" ] || most=$n
+	n=$(ps w | grep -c '[r]pc-status.uc'); [ "$n" -le "$most_status" ] || most_status=$n
 	sleep 1
 done
 wait
@@ -840,6 +842,10 @@ echo "info three status calls 1 s apart, with e2e_slow looping: $took s, at most
 check "status helpers end within the scrape's time ($took s), none left" test "$(helpers)" -eq 0 -a "$took" -lt 25
 check "each status call answered, scraping in the jail" sh -c 'for i in 1 2 3; do jsonfilter -i /tmp/status$i.json -e "@.jailed" | grep -qx true || exit 1; done'
 check "saying e2e_slow failed" sh -c "jsonfilter -i /tmp/status1.json -e \"@.collectors[@.name='e2e_slow'].success\" | grep -qx false"
+# A read-only login may call status again and again: one runs at a time, and
+# the calls made meanwhile get its reply.
+check "one status scrape ran at a time ($most_status at most)" test "$most_status" -eq 1
+check "and the calls made while it ran got its reply" sh -c 'cmp -s /tmp/status2.json /tmp/status3.json'
 
 # Gone again.
 rm -f "$DIR"/e2e_*.uc /var/prometheus/e2e-fifo.prom

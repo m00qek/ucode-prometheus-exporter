@@ -361,6 +361,45 @@ export function deferred_json(req, io, command, name, parse) {
 };
 
 /**
+ * deferred_json, one run at a time: a call while `run` is running waits for it, and gets its reply.
+ *
+ * @param {{ waiting: ?RpcRequest[] }} run
+ * @param {RpcRequest} req
+ * @param {RpcIo} io
+ * @param {string} command
+ * @param {?string} name
+ * @returns {Object}
+ */
+export function shared_json(run, req, io, command, name) {
+	if (run.waiting != null) {
+		push(run.waiting, req);
+		return req.defer();
+	}
+
+	run.waiting = [ req ];
+
+	let all = {
+		reply: function(data) {
+			let waiting = run.waiting ?? [];
+
+			run.waiting = null;
+			for (let r in waiting)
+				try {
+					r.reply(data);
+				} catch (e) {
+				}
+		},
+		defer: () => req.defer(),
+	};
+	let out = deferred_json(all, io, command, name);
+
+	if (out?.error != null)
+		run.waiting = null;
+
+	return out;
+};
+
+/**
  * A probe for loader.load in rpcd, run in a helper process.
  *
  * @param {module:fs} fs
@@ -428,6 +467,8 @@ function with_ubus(make_sys, fn) {
  * @returns {Object<string, { args: Object, call: function(RpcRequest): Object }>}
  */
 export function methods(make_sys, io) {
+	let status_run = { waiting: null };
+
 	return {
 		collectors: {
 			args: {},
@@ -439,7 +480,7 @@ export function methods(make_sys, io) {
 		},
 		status: {
 			args: {},
-			call: (req) => deferred_json(req, io, STATUS_COMMAND, STATUS_HELPER),
+			call: (req) => shared_json(status_run, req, io, STATUS_COMMAND, STATUS_HELPER),
 		},
 		interfaces: {
 			args: {},

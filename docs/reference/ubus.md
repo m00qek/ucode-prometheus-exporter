@@ -121,7 +121,7 @@ A client that does not know a code shows `message`.
 
 ## `status`
 
-Runs one scrape of the enabled collectors and replies when it is done: in the service's own jail, with ujail, where it can, as the service's scrapes run them (each collector in a process of its own, stopped at its budget, within `scrape_timeout`). rpcd runs it in a process of its own, `/usr/libexec/prometheus-exporter/rpc-status.uc`, and answers other calls meanwhile, the collectors' calls to objects rpcd serves (`wireguard`, this object's own, `prometheus-exporter.filesystem`) among them; it kills that process, with all it started, if it is still running after 60 s. It runs a collector the service quarantined all the same.
+Runs one scrape of the enabled collectors and replies when it is done: in the service's own jail, with ujail, where it can, as the service's scrapes run them (each collector in a process of its own, stopped at its budget, within `scrape_timeout`). rpcd runs it in a process of its own, `/usr/libexec/prometheus-exporter/rpc-status.uc`, and answers other calls meanwhile, the collectors' calls to objects rpcd serves (`wireguard`, this object's own, `prometheus-exporter.filesystem`) among them; it kills that process, with all it started, if it is still running after 60 s. One runs at a time: a call made while one runs waits for it, and gets its reply, so calls made again and again, as a page refreshed, run no more than one scrape at once. It runs a collector the service quarantined all the same.
 
 | Field | Type | Content |
 | :--- | :--- | :--- |

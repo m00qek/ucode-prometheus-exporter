@@ -325,6 +325,58 @@ describe('rpc.cached_probe', () => {
 	});
 });
 
+// status runs a full scrape, as root, for up to 60 s: a read-only login
+// that calls it again and again must not pile them up.
+describe('rpc.shared_json, and status', () => {
+	function setup(no_process) {
+		let replies = [], commands = [], watched = [];
+		let io = {
+			popen: function(cmd) {
+				push(commands, cmd);
+				return no_process ? null : { read: () => sprintf('{ "n": %d }', length(commands)), close: () => 0 };
+			},
+			watch: (handle, cb) => push(watched, cb),
+		};
+		let req = (name) => ({ defer: () => `deferred ${name}`, reply: (data) => push(replies, [ name, data ]) });
+
+		return { io, req, replies, commands, watched };
+	}
+
+	it('runs one at a time: a call while one runs waits for it, and gets its reply', () => {
+		let t = setup();
+		let m = rpc.methods(() => die('no sys'), t.io);
+
+		assert.match([ 'deferred a', 'deferred b', 'deferred c' ], [ m.status.call(t.req('a')), m.status.call(t.req('b')), m.status.call(t.req('c')) ]);
+		assert.match([ 1, 1 ], [ length(t.commands), length(t.watched) ]);
+		t.watched[0]();
+		assert.match([ [ 'a', { n: 1 } ], [ 'b', { n: 1 } ], [ 'c', { n: 1 } ] ], t.replies);
+
+		// Done, the next call runs again.
+		m.status.call(t.req('d'));
+		t.watched[1]();
+		assert.match([ 2, [ 'd', { n: 2 } ] ], [ length(t.commands), t.replies[-1] ]);
+	});
+
+	it('replies to the others when one of them is gone', () => {
+		let t = setup();
+		let run = { waiting: null };
+		let gone = { defer: () => 'deferred', reply: () => die('Reply has already been sent') };
+
+		rpc.shared_json(run, gone, t.io, 'x', 'x');
+		rpc.shared_json(run, t.req('b'), t.io, 'x', 'x');
+		t.watched[0]();
+		assert.match([ [ [ 'b', { n: 1 } ] ], null ], [ t.replies, run.waiting ]);
+	});
+
+	it('runs again after a command that could not start', () => {
+		let t = setup(true);
+		let run = { waiting: null };
+
+		assert.match({ error: rpc.STATUS_FAILED, message: 'cannot run x' }, rpc.shared_json(run, t.req('a'), t.io, 'x', 'x'));
+		assert.match(null, run.waiting);
+	});
+});
+
 describe('rpc.deferred_json', () => {
 	// A request that records its reply, and io whose command prints `out`.
 	function run(out, opts) {
