@@ -1,28 +1,5 @@
 /**
- * What a module's text loads, read without compiling it: the loader refuses a
- * collector that imports anything but the collector API, before it loads it
- * (prometheus_exporter.loader's import_problem).
- *
- * imports(text): { imports: [ { module, line } ], loads: [ { fn, module, line } ] }
- *   imports  each import statement's module, in order, and the line the
- *            statement starts on
- *   loads    each call of require, loadfile, loadstring or include, which
- *            load code past the imports, and of system, which runs a
- *            program no one stops; `module`, require's module or loadfile's
- *            or include's path when it is a string literal on the call's
- *            line, else null
- *
- * Comments, strings, templates and regular expression literals are passed
- * over as the compiler passes over them, so an import in a comment or a
- * string is none. A string or a template that goes on past the end of its
- * line is taken to end there; ucode allows that, and the rest of it may be
- * read as code, which can only find an import that is not there.
- *
- * It is read when uhttpd starts, every module, and every operation of ucode's
- * VM costs: so it reads only the lines that hold one of the words or open a
- * block comment, which split() and index() find without reading the others,
- * and an import statement or a comment line by one match. Only the rest are
- * read a character at a time: a module has few such lines, often none.
+ * What a module's text imports and loads, read without compiling it.
  *
  * @module prometheus_exporter_loader_imports
  */
@@ -32,30 +9,22 @@
 const KEYWORDS = [ 'import', 'require', 'loadfile', 'loadstring', 'include', 'system' ];
 const CALLS = [ 'require', 'loadfile', 'loadstring', 'include', 'system' ];
 
-// The calls whose argument is code or a command, not a module's name.
 const NOT_NAMED = [ 'loadstring', 'system' ];
 
-// After these words an expression starts, so a '/' begins a regular
-// expression, not a division.
 const BEFORE_EXPRESSION = [ 'return', 'typeof', 'in', 'of', 'case', 'delete', 'void', 'throw', 'else', 'do' ];
 
 const SLASH = 47, STAR = 42, BACKSLASH = 92, QUOTE = 39, DQUOTE = 34, BACKTICK = 96;
 const OPEN_BRACKET = 91, CLOSE_BRACKET = 93, CLOSE_PAREN = 41, DOT = 46;
 
-// A line that is a comment, and one that is an import statement and nothing
-// else, but a comment after it: its module, m[2] or m[3].
 const COMMENT_LINE = /^[ \t]*\/\//;
 const IMPORT_LINE = /^[ \t]*import[ \t]*(\*[ \t]*as[ \t]+[A-Za-z_$][A-Za-z0-9_$]*[ \t]+from|\{[^}'"`\/]*\}[ \t]*from|[A-Za-z_$][A-Za-z0-9_$]*[ \t]+from)?[ \t]*('([^'\\\n]*)'|"([^"\\\n]*)")[ \t]*;?[ \t]*(\/\/.*)?\r?$/;
 
-// A call's argument, a string literal, as it starts the rest of a line.
 const CALL = /^[ \t]*\([ \t]*(('([^'\\]|\\.)*')|("([^"\\]|\\.)*"))?/;
 
 function word_char(c) {
 	return (c >= 97 && c <= 122) || (c >= 65 && c <= 90) || (c >= 48 && c <= 57) || c == 95 || c == 36;
 }
 
-// Where the string or template that starts at `i` ends, past its closing
-// quote, or the end of the line when it does not close on it.
 function string_end(line, i, q) {
 	let n = length(line);
 
@@ -71,8 +40,6 @@ function string_end(line, i, q) {
 	return n;
 }
 
-// Where the regular expression literal that starts at `i` ends, past its
-// flags, or -1 when it does not close on the line: a division then.
 function regex_end(line, i) {
 	let n = length(line);
 	let in_class = false;
@@ -97,15 +64,10 @@ function regex_end(line, i) {
 	return -1;
 }
 
-// A string literal's value, its escapes left as they are: enough for a
-// module's name.
 function literal(s) {
 	return substr(s, 1, length(s) - 2);
 }
 
-// Reads `line`, which starts at offset `at` of the text, from `i` on, a
-// character at a time, as the code it is in st: what it imports and loads go
-// to `found`, by offset.
 function read_line(st, found, line, at, i) {
 	let n = length(line);
 
@@ -186,8 +148,6 @@ function read_line(st, found, line, at, i) {
 	}
 }
 
-// The offsets of `needle` in `text`: index() is several times cheaper than
-// split(), and most of the words are not there.
 function offsets(text, needle) {
 	let out = [];
 	let at = 0;
@@ -203,7 +163,6 @@ function offsets(text, needle) {
 	return out;
 }
 
-// The line `found` (by offset) are on, each counted from the one before.
 function number(text, found) {
 	let line = 1, at = 0;
 
@@ -216,14 +175,10 @@ function number(text, found) {
 }
 
 /**
- * What a module's text imports and loads, read without compiling it: each
- * import statement's module and the line it starts on, and each call of
- * require, loadfile, loadstring, include or system, with its module or path
- * when it is a string literal on the call's line.
+ * Each import of a module's text, and each call that loads code or runs a program.
  *
- * @param {*} text the module's text; anything but a string holds nothing.
+ * @param {*} text
  * @returns {{ imports: { module: string, line: int }[], loads: { fn: string, module: ?string, line: int }[] }}
- *   the imports and the loads, in the order of the text.
  */
 export function imports(text) {
 	let found = [];
@@ -244,7 +199,6 @@ export function imports(text) {
 		if (p < done)
 			continue;
 
-		// The line `p` is on, read from where the text was not read yet.
 		let start = rindex(substr(text, 0, p), '\n') + 1;
 		let from = (done > start) ? done : start;
 
@@ -272,7 +226,6 @@ export function imports(text) {
 				break;
 			}
 
-			// An import's names go on to the next line.
 			if (st.pending == null || end >= n)
 				break;
 

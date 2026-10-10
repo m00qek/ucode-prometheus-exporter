@@ -1,27 +1,5 @@
 /**
- * What a collector module's top level does, read without compiling it: the
- * purity rule (prometheus_exporter.loader's purity_problem). A collector's top
- * level runs twice when it is loaded: in the probe's child, guarded, and again
- * in uhttpd's own process, where nothing stops it (see
- * prometheus_exporter.collection's top_level). So it only declares:
- *
- *   - its 'use strict' directive and its import of the collector API;
- *   - constants and variables (const, let), functions, and their exports,
- *     meta and collect among them;
- *   - values made of literals, regular expressions, templates, objects and
- *     arrays, functions (not called), operators, what it declared before,
- *     and calls of PURE: ucode's functions of strings, arrays and objects,
- *     and those of the collector API that compute alone.
- *
- * Any other statement (a loop, an if, an assignment, a call on its own) or
- * call (a function of its own, sleep, print, getenv, the API's proc reads,
- * services or exposition) is a problem: what it does belongs in collect().
- * A function's body is not read: what a function passed to map() does at the
- * top level, the probe's guard catches when it runs.
- *
- * It reads a character at a time, which a module of 15 kB takes some 50 ms of
- * in the devenv: `collector check` and the tests read it, not the loader,
- * which the probe's guard holds to the same rule at every load.
+ * What a collector module's top level does, read without compiling it: the purity rule.
  *
  * @module prometheus_exporter_loader_purity
  */
@@ -31,29 +9,20 @@
 const SLASH = 47, STAR = 42, BACKSLASH = 92, QUOTE = 39, DQUOTE = 34, BACKTICK = 96, NEWLINE = 10;
 const DOLLAR = 36, OPEN_BRACE = 123, CLOSE_BRACE = 125, OPEN_BRACKET = 91, CLOSE_BRACKET = 93;
 
-// After these words an expression starts, so a '/' begins a regular
-// expression, not a division.
 const BEFORE_EXPRESSION = [ 'return', 'typeof', 'in', 'of', 'case', 'delete', 'void', 'throw', 'else', 'do' ];
 
-// The words before a '(' that is not a call.
 const NOT_CALLEE = [
 	'if', 'for', 'while', 'switch', 'catch', 'function', 'return', 'typeof', 'in', 'of', 'delete', 'void', 'do',
 	'else', 'case', 'throw', 'let', 'const', 'export', 'import',
 ];
 
-// Punctuators of more than one character, longest first.
 const PUNCTUATORS = [
 	'>>>=', '...', '===', '!==', '**=', '<<=', '>>=', '>>>', '&&=', '||=', '??=',
 	'=>', '==', '!=', '<=', '>=', '&&', '||', '??', '?.', '++', '--', '+=', '-=', '*=', '/=', '%=', '&=', '|=', '^=',
 	'**', '<<', '>>',
 ];
 
-/**
- * The functions of ucode a collector's top level may call: they compute from
- * their arguments alone, and touch nothing of the process or the system.
- *
- * @type {string[]}
- */
+/** The functions of ucode a collector's top level may call. */
 export const PURE = [
 	'arrtoip', 'assert', 'b64dec', 'b64enc', 'chr', 'exists', 'filter', 'hex', 'hexdec', 'hexenc', 'index', 'int',
 	'iptoarr', 'join', 'json', 'keys', 'lc', 'length', 'ltrim', 'map', 'match', 'max', 'min', 'ord', 'pop', 'proto',
@@ -61,20 +30,12 @@ export const PURE = [
 	'sprintf', 'substr', 'trim', 'type', 'uc', 'uchr', 'uniq', 'unshift', 'values', 'wildcard',
 ];
 
-/**
- * The collector API's functions a collector's top level may call, by the
- * name the API exports them under: they compute from their arguments alone.
- * The others read through a capability a collector has only in collect()
- * (proc's readers, services), or load the exposition format (exposition's).
- *
- * @type {string[]}
- */
+/** The collector API's functions a collector's top level may call. */
 export const PURE_API = [
 	'Result.ok', 'Result.err', 'Result.none', 'Result.is', 'Result.is_none', 'Result.describe',
 	'proc.fields', 'proc.auxv', 'u16', 'u32',
 ];
 
-// What each of ucode's other functions does, that a top level must not.
 const DOES = {
 	sleep: 'blocks the process',
 	system: 'runs a program',
@@ -102,15 +63,11 @@ const DOES = {
 	sourcepath: 'reads where the module is',
 };
 
-// What each of the API's functions that are not PURE_API does, by the
-// object the API exports it in.
 const API_DOES = {
 	proc: 'reads a file through deps.fs, which collect() alone gets',
 	services: 'calls ubus through deps.ubus, which collect() alone gets',
 	exposition: 'loads the exposition format, the first time one of its functions is called',
 };
-
-// ---- the tokens ----------------------------------------------------------------
 
 function word_char(c) {
 	return (c >= 97 && c <= 122) || (c >= 65 && c <= 90) || (c >= 48 && c <= 57) || c == 95 || c == DOLLAR;
@@ -120,7 +77,6 @@ function space(c) {
 	return c == 32 || c == 9 || c == 13 || c == NEWLINE || c == 11 || c == 12;
 }
 
-// Whether a '/' after token `prev` starts a regular expression.
 function regex_may_start(prev) {
 	if (prev == null)
 		return true;
@@ -132,9 +88,6 @@ function regex_may_start(prev) {
 	return false;
 }
 
-// Where the quoted string or regular expression that starts at `i` ends,
-// past its closing `q`, and the newlines in it; the end of the text when it
-// does not close.
 function quoted_end(text, i, q, n) {
 	let lines = 0, in_class = false;
 
@@ -163,14 +116,10 @@ function quoted_end(text, i, q, n) {
 }
 
 /**
- * A module's tokens, without blank space and comments: { t, v, line }, t
- * one of name, num, str (a string, or the text of a template), regex and
- * punct, v the token's text (a string's without its quotes). A template's
- * `${ ... }` is the punctuators ( and ) round its tokens, so that what it
- * calls is read as any call.
+ * A module's tokens, without blank space and comments: { t, v, line }.
  *
- * @param {string} text the module's text.
- * @returns {{ t: string, v: string, line: int }[]} the tokens, in order.
+ * @param {string} text
+ * @returns {{ t: string, v: string, line: int }[]}
  */
 export function tokens(text) {
 	let out = [];
@@ -180,8 +129,6 @@ export function tokens(text) {
 	let braces = [];
 	let prev = null;
 
-	// The text of a template, from `i` past its backtick or its `}`, to
-	// its closing backtick or its next `${`.
 	function template(from) {
 		let start = line;
 
@@ -244,7 +191,6 @@ export function tokens(text) {
 			line += e[1];
 			i = e[0];
 
-			// A regular expression's flags.
 			while (c == SLASH && i < n && word_char(ord(text, i)))
 				i++;
 			continue;
@@ -266,7 +212,6 @@ export function tokens(text) {
 			push(out, prev = { t: (c >= 48 && c <= 57) ? 'num' : 'name', v, line });
 			i = j;
 
-			// A number's fraction and exponent.
 			while (prev.t == 'num' && i < n && (ord(text, i) == 46 || word_char(ord(text, i)) ||
 			       ((ord(text, i) == 43 || ord(text, i) == 45) && match(chr(ord(text, i - 1)), /[eE]/))))
 				i++;
@@ -290,7 +235,6 @@ export function tokens(text) {
 				break;
 			}
 
-		// `?.` before a digit is a ternary's ? and a number.
 		if (p == '?.' && match(substr(text, i + 2, 1), /[0-9]/))
 			p = '?';
 
@@ -301,14 +245,10 @@ export function tokens(text) {
 	return out;
 };
 
-// ---- the top level -------------------------------------------------------------
-
 const OPENERS = { '(': ')', '[': ']', '{': '}' };
 
-// The words that start a statement that is not an expression.
 const STATEMENTS = [ 'for', 'while', 'do', 'if', 'switch', 'try', 'with', 'return', 'throw', 'break', 'continue', 'delete' ];
 
-// Past the group that opens at toks[i], or past the end.
 function past_group(toks, i) {
 	let depth = 0;
 
@@ -326,8 +266,6 @@ function past_group(toks, i) {
 	return i;
 }
 
-// Past a function expression or declaration whose `function` is toks[i]:
-// its name, its parameters and its body.
 function past_function(toks, i) {
 	i++;
 	if (toks[i]?.t == 'name')
@@ -338,8 +276,6 @@ function past_function(toks, i) {
 	return (toks[i]?.v == '{') ? past_group(toks, i) : i;
 }
 
-// Past the body of an arrow function whose `=>` is toks[i]: a block, or an
-// expression, which ends at a ',', ';' or closing bracket of its own level.
 function past_arrow(toks, i) {
 	i++;
 	if (toks[i]?.v == '{')
@@ -366,8 +302,6 @@ function past_arrow(toks, i) {
 	return i;
 }
 
-// The name a call's callee goes by, from the '(' at toks[i] back: a name, or
-// names joined by '.' (a?.b as a.b); '(...)' for the value of an expression.
 function callee(toks, i) {
 	let j = i - 1;
 
@@ -386,7 +320,6 @@ function callee(toks, i) {
 	return (toks[j - 1]?.v in [ '.', '?.', ')', ']' ]) ? '(...)' : join('.', parts);
 }
 
-// Whether the '(' at toks[i] calls something.
 function is_call(toks, i) {
 	let prev = toks[i - 1];
 
@@ -398,9 +331,6 @@ function is_call(toks, i) {
 	return prev.t == 'punct' && prev.v in [ ')', ']', '?.' ];
 }
 
-// Reads the expression that starts at toks[i] up to the ';' (or the end) of
-// its statement, past the bodies of the functions in it; each call into
-// `calls`. Past the ';'.
 function read_expression(toks, i, calls) {
 	let depth = 0;
 	let n = length(toks);
@@ -439,8 +369,6 @@ function read_expression(toks, i, calls) {
 	return i;
 }
 
-// Past a statement that is not a declaration, whose first token is toks[i]:
-// a block, a loop or an if with its body, or an expression to its ';'.
 function past_statement(toks, i) {
 	let n = length(toks);
 	let w = toks[i];
@@ -473,8 +401,6 @@ function past_statement(toks, i) {
 	return read_expression(toks, i, []);
 }
 
-// What the statement that starts at toks[i] is, as a problem names it: its
-// keyword, 'a block', a call of a name, or 'an expression'.
 function statement_word(toks, i) {
 	let tok = toks[i];
 
@@ -488,9 +414,6 @@ function statement_word(toks, i) {
 	return 'an expression';
 }
 
-// The names an import statement that starts at toks[i] takes of the
-// collector API, into `api`: { local name: the API's name, or '*' for the
-// namespace }. Past its ';', or its module's string.
 function read_import(toks, i, api, module) {
 	let names = {};
 	let n = length(toks);
@@ -523,19 +446,11 @@ function read_import(toks, i, api, module) {
 }
 
 /**
- * What a module's text does at its top level, read without compiling it:
- * each statement that is not a declaration, by its first word ('{' for a
- * block, '(...)' for an expression that starts otherwise), and each call
- * made there, outside the bodies of its functions, by its callee as it is
- * written (`proc.fields`, `(...)` for the value of an expression); and the
- * names it imports the collector API's exports under, and the functions
- * and values it declares.
+ * What a module's text does at its top level: statements, calls, API imports, declarations.
  *
- * @param {*} text the module's text; anything but a string holds nothing.
- * @param {string} api_module the collector API's module name
- *   (prometheus_exporter.loader's API).
+ * @param {*} text
+ * @param {string} api_module
  * @returns {{ statements: { word: string, line: int }[], calls: { callee: string, line: int }[], api: Object<string, string>, declared: string[] }}
- *   what it found, in the order of the text.
  */
 export function top_level(text, api_module) {
 	let found = { statements: [], calls: [], api: {}, declared: [] };
@@ -555,8 +470,6 @@ export function top_level(text, api_module) {
 			continue;
 		}
 
-		// A directive, or a string that does nothing: its statement ends
-		// at a ';', or at the end of its line.
 		if (tok.t == 'str' && (toks[i + 1] == null || toks[i + 1].v == ';' || toks[i + 1].line > tok.line)) {
 			i += (toks[i + 1]?.v == ';') ? 2 : 1;
 			continue;
@@ -604,9 +517,6 @@ export function top_level(text, api_module) {
 	return found;
 };
 
-// What is wrong of calling `name` (as it is written) at the top level, or
-// null; `api`, the names the module takes of the collector API, `declared`,
-// its own.
 function call_problem(name, api, declared) {
 	if (name == '(...)')
 		return 'what it calls cannot be told from its text';
@@ -641,14 +551,11 @@ function call_problem(name, api, declared) {
 }
 
 /**
- * Why a collector module's text does more at its top level than declare,
- * or null: its statements that are not declarations, and its calls of what
- * is not PURE nor PURE_API, each with its line, joined by '; '. What
- * `collector check` fails with, and the tests hold every collector to.
+ * Why a collector module's text does more at its top level than declare, or null.
  *
- * @param {*} text the module's text.
- * @param {string} api_module the collector API's module name.
- * @returns {?string} the problems, or null.
+ * @param {*} text
+ * @param {string} api_module
+ * @returns {?string}
  */
 export function problem(text, api_module) {
 	let found = top_level(text, api_module);

@@ -1,6 +1,5 @@
 /**
- * The exporter's log: syslog, at each message's priority. A collector's log
- * capability writes there, through its scrape's session.
+ * The exporter's log: syslog, at each message's priority.
  *
  * @module prometheus_exporter_deps_log
  */
@@ -10,53 +9,26 @@
 import { openlog, syslog, LOG_PID, LOG_DAEMON, LOG_ERR, LOG_WARNING, LOG_NOTICE, LOG_INFO } from 'log';
 
 /**
- * log(level, msg): the exporter's log, as the loader, the scrapes and the
- * collectors call it; `level` one of LEVELS' names (err, warning, notice,
- * info).
+ * log(level, msg): the exporter's log; `level` one of LEVELS' names.
  *
  * @typedef {(level: string, msg: string) => void} Log
  */
 
-/**
- * The levels the exporter logs at, as syslog's priorities. err: what stops it
- * doing its job (an invalid configuration, a collector that does not load);
- * warning: what it does without (a collector that fails, which the scrape
- * answers without); notice and info: what it says of itself (how many
- * collectors it serves, a directory it made).
- *
- * @type {Object<string, string>}
- */
+/** The levels the exporter logs at, as syslog's priorities. */
 export const LEVELS = { err: 'LOG_ERR', warning: 'LOG_WARNING', notice: 'LOG_NOTICE', info: 'LOG_INFO' };
 
-/**
- * The lines a collector's log capability takes in one run: past them it
- * leaves its lines out, and says how many in one line once the run is over
- * (deps' session). A collector that logs once a device in a loop, or once a
- * line of a file it cannot read, would otherwise flush logd's ring of every
- * other daemon's lines.
- *
- * @type {int}
- */
+/** The lines a collector's log capability takes in one run. */
 export const LOG_LINES = 10;
 
-/**
- * The bytes of a collector's line the log takes; the rest is cut, and '...'
- * says so.
- *
- * @type {int}
- */
+/** The bytes of a collector's line the log takes; the rest is cut, and '...' says so. */
 export const LOG_BYTES = 512;
 
 /**
- * log(level, msg) over a syslog module (the `log` module's openlog, syslog and
- * LOG_*): each message to syslog as the daemon `ident`, with its pid, at its
- * level's priority. procd's log of a service's stderr has one priority for
- * everything, err, which is why the exporter does not write there.
+ * log(level, msg) over a syslog module, as the daemon `ident`, at each level's priority.
  *
- * @param {module:log} mod the log module, or an object of its openlog,
- *   syslog and LOG_* constants (a test's).
- * @param {string} ident the name syslog gives the daemon.
- * @returns {Log} the log; it dies on a level LEVELS does not name.
+ * @param {module:log} mod
+ * @param {string} ident
+ * @returns {Log}
  */
 export function syslog_channel(mod, ident) {
 	mod.openlog(ident, mod.LOG_PID, mod.LOG_DAEMON);
@@ -72,8 +44,8 @@ export function syslog_channel(mod, ident) {
 /**
  * The exporter's log on the real system: syslog_channel over the log module.
  *
- * @param {string} ident the name syslog gives the daemon.
- * @returns {Log} the log.
+ * @param {string} ident
+ * @returns {Log}
  */
 export function system_log(ident) {
 	return syslog_channel({ openlog, syslog, LOG_PID, LOG_DAEMON, LOG_ERR, LOG_WARNING, LOG_NOTICE, LOG_INFO }, ident);

@@ -1,23 +1,3 @@
-// A proxy for ucode-mod-socket, which utest does not ship. Loaded in program
-// mode, hence the bare `return`. Its constants are the real module's.
-//
-// It models the Unix stream sockets deps.socket_channel opens: create(), then
-// setopt(), connect(), send(), recv() and close() on the socket, and error().
-// A server answers once the client reads: whatever was sent by then is the
-// request. Keys are socket paths.
-// data:   path -> the server's reply, or a function of the request that returns
-//         one; recv() reads it in chunks of at most the size it asks for, then
-//         the server closes (recv() gives '').
-// errors: path -> the message error() reports after connect() fails there, as
-//         'connect(): Connection refused'.
-// hangs:  path -> true: the server sends its reply but never closes, so the
-//         recv() after it fails as one whose SO_RCVTIMEO passed (EAGAIN). With
-//         no receive timeout set that recv() would block forever: the proxy
-//         dies instead.
-// Any other path fails connect() as a missing socket file does (ENOENT), or
-// dies when the mock is strict. Socket calls are recorded as 'sock.<method>'.
-
-// The errno of the messages a Unix socket gives, for error(true).
 const ERRNO = {
 	'Resource temporarily unavailable': 11,
 	'No such file or directory': 2,
@@ -26,7 +6,6 @@ const ERRNO = {
 	'Broken pipe': 32,
 };
 
-// Linux's values, for when the real module is not installed.
 const CONSTANTS = {
 	AF_UNIX: 1, SOCK_STREAM: 1, SOL_SOCKET: 1, SO_RCVTIMEO: 20, SO_SNDTIMEO: 21, MSG_NOSIGNAL: 0x4000,
 };

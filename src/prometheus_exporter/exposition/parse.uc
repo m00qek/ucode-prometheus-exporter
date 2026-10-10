@@ -1,7 +1,5 @@
 /**
- * The Prometheus text exposition format, version 0.0.4, read back, strictly:
- * textfile reads its *.prom files with parse(), a recorder's parse() the text
- * a collector adds, and the tests every scrape they make.
+ * The Prometheus text exposition format 0.0.4, read back, strictly.
  *
  * @module prometheus_exporter_exposition_parse
  */
@@ -12,8 +10,6 @@ import * as Result from 'prometheus_exporter.result';
 import * as errors from 'prometheus_exporter.errors';
 import { TYPES, METRIC_NAME, format_value, format_labels, utf8_valid, add_family, family_set, families_of } from 'prometheus_exporter.exposition.format';
 
-// Constants, as format.uc's are: ucode compiles a regex literal each time it
-// is evaluated.
 const LABEL_START = /^\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*"/;
 const LABELS_END = /^\s*\}/;
 const LABEL_SEPARATOR = /^\s*(,|\})/;
@@ -23,15 +19,10 @@ const SAMPLE_NAME = /^([a-zA-Z_:][a-zA-Z0-9_:]*)(.*)$/;
 const SAMPLE_VALUE = /^\s+(\S+)(\s+(-?[0-9]+))?\s*$/;
 const HELP_ESCAPE = /\\(\\|n)/g;
 
-// In one pass, left to right: undoing \n first would read the \\n of a
-// backslash followed by n as a newline.
 function unescape_help(text) {
 	return replace(text, HELP_ESCAPE, (m, c) => c == 'n' ? '\n' : '\\');
 }
 
-// A label value, from after its opening quote: [ value, the rest after its
-// closing quote ], or a string saying what is wrong with it. It is copied up
-// to each backslash or the closing quote at once, not a character at a time.
 function scan_value(s) {
 	let value = '';
 
@@ -59,8 +50,6 @@ function scan_value(s) {
 	}
 }
 
-// { pairs, rest } for the label set that starts `s` (after its '{'), or a string
-// saying what is wrong with it. `utf8`: whether its values are to be checked.
 function scan_labels(s, utf8) {
 	let pairs = [];
 	let seen = {};
@@ -68,7 +57,6 @@ function scan_labels(s, utf8) {
 	while (true) {
 		let m = match(s, LABEL_START);
 
-		// `{}`, or the close after a trailing comma.
 		if (!m) {
 			m = match(s, LABELS_END);
 			return m ? { pairs, rest: substr(s, length(m[0])) } : 'malformed label set';
@@ -97,8 +85,6 @@ function scan_labels(s, utf8) {
 	}
 }
 
-// The family a sample belongs to: its own name, or for a histogram's or
-// summary's _bucket/_sum/_count series, the declared base name.
 function family_of(name, declared) {
 	let m = match(name, SERIES_SUFFIX);
 
@@ -113,15 +99,10 @@ function series_key(name, pairs) {
 }
 
 /**
- * The families in exposition text, or EXPOSITION_INVALID naming the first line
- * that breaks the format: a malformed line, a TYPE or HELP given twice or after
- * the family's samples, a family whose lines are not all together, a value that
- * is not a number, the same series twice, or a label value or HELP text that
- * is not valid UTF-8 (Prometheus refuses a scrape with one).
+ * The families in exposition text, or EXPOSITION_INVALID naming the first bad line.
  *
- * @param {?string} text exposition text; null reads as none.
- * @returns {Result<Family[]>} its families, in the order they first appear,
- *   each { name, type, help, samples }.
+ * @param {?string} text
+ * @returns {Result<Family[]>}
  */
 export function parse(text) {
 	let set = family_set();
@@ -130,8 +111,6 @@ export function parse(text) {
 	let series = {};
 	let current = null;
 	let n = 0;
-	// Only text that is not valid UTF-8 as a whole has a value or HELP that
-	// is not, and nearly none has a byte past ASCII at all.
 	let utf8 = !utf8_valid(text ?? '');
 
 	function fail(msg) {

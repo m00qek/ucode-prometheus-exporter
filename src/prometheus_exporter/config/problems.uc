@@ -1,16 +1,5 @@
 /**
- * What is wrong with an option's value, as a code and its arguments: a
- * Problem (prometheus_exporter.config). The core says each in English from
- * here alone (english), in the log, `check`, the command line and the
- * Results of the config's functions; the ubus object's `validate` answers
- * the Problem itself, with that English as its `message`, and LuCI says it
- * in the user's language by its code. So the English and LuCI's sentences
- * never drift: a code is added here, with its English, and to LuCI's
- * sentences, where a test holds the two to the same codes.
- *
- * The codes are a closed set, CODES: those of a value an option does not
- * take, which say what the option expected, and those of options that go
- * together, which hold no value.
+ * What is wrong with an option's value, as a code and its arguments: a Problem.
  *
  * @module prometheus_exporter_config_problems
  */
@@ -18,146 +7,63 @@
 'use strict';
 
 /**
- * A problem with an option's value: its code, one of CODES, the arguments
- * the code takes (`min` and `max` of RANGE, `min` of ZERO_OR_MIN, `max` of
- * CRYPT_ROUNDS), and
- * `value`, what the exporter read: a string, an integer (RANGE's and
- * UINTEGER's) or a list (SINGLE's, or a list where a boolean or an integer
- * was expected). A secret option's problem has no value, nor has one of
- * options that go together.
+ * A problem with an option's value: its code, one of CODES, its arguments and the value read.
  *
  * @typedef {{ code: string, min: ?int, max: ?int, value: ?(int|string|string[]) }} Problem
  */
 
 /**
- * What a code takes and says: the arguments it holds besides `value`,
- * whether it is of a value the option does not take (which says what the
- * option expected, and what it got), and its English, of a Problem. A
- * value's code says what the option expected (english prefixes "expected
- * "); the others say the whole of it.
+ * What a code takes and says: its arguments, whether it is of a value, and its English.
  *
  * @typedef {{ args: string[], value: boolean, text: function(Problem): string }} ProblemCode
  */
 
-// A value the option does not take.
-
-/**
- * Not one of uci's spellings of a boolean.
- *
- * @type {string}
- */
+/** Not one of uci's spellings of a boolean. */
 export const BOOLEAN = 'BOOLEAN';
 
-/**
- * Not an integer: decimal digits, with an optional '-'.
- *
- * @type {string}
- */
+/** Not an integer: decimal digits, with an optional '-'. */
 export const INTEGER = 'INTEGER';
 
-/**
- * A list, where the option takes a single value.
- *
- * @type {string}
- */
+/** A list, where the option takes a single value. */
 export const SINGLE = 'SINGLE';
 
-/**
- * An integer outside `min` to `max`: the datatype range(min,max).
- *
- * @type {string}
- */
+/** An integer outside `min` to `max`: the datatype range(min,max). */
 export const RANGE = 'RANGE';
 
-/**
- * An integer under 0: the datatype uinteger.
- *
- * @type {string}
- */
+/** An integer under 0: the datatype uinteger. */
 export const UINTEGER = 'UINTEGER';
 
-/**
- * An integer that is neither 0 nor `min` or more: the datatype
- * zero_or_min(min).
- *
- * @type {string}
- */
+/** An integer that is neither 0 nor `min` or more: the datatype zero_or_min(min). */
 export const ZERO_OR_MIN = 'ZERO_OR_MIN';
 
-/**
- * Not an absolute path: the datatypes directory and file.
- *
- * @type {string}
- */
+/** Not an absolute path: the datatypes directory and file. */
 export const ABSOLUTE_PATH = 'ABSOLUTE_PATH';
 
-/**
- * Not a directory the service may make and mount for a collector: one under
- * /var, /tmp or /etc/prometheus-exporter (config.types' OWNED_ROOTS), the
- * datatype owned_directory.
- *
- * @type {string}
- */
+/** Not a directory the service may make and mount for a collector: the datatype owned_directory. */
 export const OWNED_DIRECTORY = 'OWNED_DIRECTORY';
 
-/**
- * Not a regular expression regexp() compiles: the datatype regex.
- *
- * @type {string}
- */
+/** Not a regular expression regexp() compiles: the datatype regex. */
 export const REGEX = 'REGEX';
 
-/**
- * Not a user basic auth takes: the datatype username.
- *
- * @type {string}
- */
+/** Not a user basic auth takes: the datatype username. */
 export const USERNAME = 'USERNAME';
 
-/**
- * Not a crypt hash basic auth takes: the datatype crypt.
- *
- * @type {string}
- */
+/** Not a crypt hash basic auth takes: the datatype crypt. */
 export const CRYPT = 'CRYPT';
 
-/**
- * A crypt hash of more rounds than `max`, which a scrape would compute to
- * check the password: the datatype crypt.
- *
- * @type {string}
- */
+/** A crypt hash of more rounds than `max`: the datatype crypt. */
 export const CRYPT_ROUNDS = 'CRYPT_ROUNDS';
 
-/**
- * An empty listen_interface.
- *
- * @type {string}
- */
+/** An empty listen_interface. */
 export const INTERFACE = 'INTERFACE';
 
-// Options that go together (config.together).
-
-/**
- * auth_user without auth_password.
- *
- * @type {string}
- */
+/** auth_user without auth_password. */
 export const AUTH_NEEDS_PASSWORD = 'AUTH_NEEDS_PASSWORD';
 
-/**
- * Basic auth without cert and key: Basic sends the password in the clear.
- *
- * @type {string}
- */
+/** Basic auth without cert and key: Basic sends the password in the clear. */
 export const AUTH_NEEDS_TLS = 'AUTH_NEEDS_TLS';
 
-/**
- * Every code, with what it takes and says: the closed set of what the
- * exporter finds wrong with an option's value.
- *
- * @type {Object<string, ProblemCode>}
- */
+/** Every code, with what it takes and says: the closed set of problems. */
 export const CODES = {
 	[BOOLEAN]: { args: [], value: true, text: () => 'a boolean' },
 	[INTEGER]: { args: [], value: true, text: () => 'an integer' },
@@ -187,14 +93,11 @@ export const CODES = {
 };
 
 /**
- * A Problem of `code`, with its arguments and, for a code of a value, the
- * value; it dies of a code CODES does not have, or of an argument the code
- * does not take, which only the core's own code can give it.
+ * A Problem of `code`, with its arguments and, for a code of a value, the value.
  *
- * @param {string} code one of CODES.
- * @param {?Object} args the code's arguments (ProblemCode's args), and
- *   `value`, of a value's code, unless the option is a secret.
- * @returns {Problem} { code, ...args }.
+ * @param {string} code
+ * @param {?Object} args
+ * @returns {Problem}
  */
 export function problem(code, args) {
 	let c = CODES[code];
@@ -210,23 +113,20 @@ export function problem(code, args) {
 };
 
 /**
- * What a value's code expected, without what it got: 'an integer from 1 to
- * 30'. The datatypes say it as what they take.
+ * What a value's code expected, without what it got: 'an integer from 1 to 30'.
  *
- * @param {Problem} p the problem.
- * @returns {string} what the option expected.
+ * @param {Problem} p
+ * @returns {string}
  */
 export function expected(p) {
 	return CODES[p.code].text(p);
 };
 
 /**
- * A problem in English, without the option's name: 'expected an integer
- * from 1 to 30, got 0', or the whole of one of options that go together.
- * The value is spelt as JSON: a string in quotes.
+ * A problem in English, without the option's name: 'expected ..., got ...'.
  *
- * @param {Problem} p the problem.
- * @returns {string} the English.
+ * @param {Problem} p
+ * @returns {string}
  */
 export function english(p) {
 	let c = CODES[p.code];
@@ -238,12 +138,11 @@ export function english(p) {
 };
 
 /**
- * A problem in English, after the option's name: what a CONFIG_INVALID's
- * details say.
+ * A problem in English, after the option's name: what a CONFIG_INVALID's details say.
  *
- * @param {string} name the option's name.
- * @param {Problem} p the problem.
- * @returns {string} 'name: ' and its English.
+ * @param {string} name
+ * @param {Problem} p
+ * @returns {string}
  */
 export function message(name, p) {
 	return `${name}: ${english(p)}`;

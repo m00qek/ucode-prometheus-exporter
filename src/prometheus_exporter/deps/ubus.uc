@@ -1,6 +1,5 @@
 /**
- * The ubus capability: a collector's calls of ubus objects, as Results, over
- * one connection a scrape shares (prometheus_exporter.deps' session).
+ * The ubus capability: a collector's ubus calls, as Results, over a scrape's connection.
  *
  * @module prometheus_exporter_deps_ubus
  */
@@ -12,8 +11,7 @@ import * as errors from 'prometheus_exporter.errors';
 import { allows, CANARY, ACL_LINK } from 'prometheus_exporter.privileges';
 
 /**
- * deps.ubus: ubus_channel's object. call() and list() are a collector's;
- * limit() and close() the session's.
+ * deps.ubus: ubus_channel's object.
  *
  * @typedef {{
  *   call: (object: string, method: string, args: ?Object) => Result,
@@ -24,12 +22,10 @@ import { allows, CANARY, ACL_LINK } from 'prometheus_exporter.privileges';
  */
 
 /**
- * The status of a failed ubus call: what ucode's error() puts first, libubus's
- * text for it ('Not found', 'Method not found'), before any ': ' and message.
- * error() clears the error as it reads it, so the status is taken from its text.
+ * The status of a failed ubus call: libubus's text, before any ': '.
  *
- * @param {string} message what the connection's error() said.
- * @returns {string} its status, the text before the first ': '.
+ * @param {string} message
+ * @returns {string}
  */
 export function ubus_status(message) {
 	let i = index(message, ': ');
@@ -37,58 +33,21 @@ export function ubus_status(message) {
 	return i < 0 ? message : substr(message, 0, i);
 };
 
-/**
- * libubus's text for a call the ubusd ACL refuses: a method of an object the
- * caller may call other methods of.
- *
- * @type {string}
- */
+/** libubus's text for a method the ubusd ACL refuses. */
 export const DENIED = 'Permission denied';
 
-/**
- * libubus's text for a call to an object that is not there, or that the
- * ubusd ACL lets the caller call no method of.
- *
- * @type {string}
- */
+/** libubus's text for an object that is not there, or that the ACL allows nothing of. */
 export const NOT_FOUND = 'Not found';
 
-/**
- * The seconds a ubus call waits for its reply when nothing limits it: ucode's
- * own default.
- *
- * @type {int}
- */
+/** The seconds a ubus call waits for its reply when nothing limits it: ucode's own default. */
 export const UBUS_TIMEOUT = 30;
 
 /**
- * A ubus connection opened on first use, so a scrape that needs no ubus makes
- * none. A null reply is not a failure by itself: only error() tells a method
- * without data from a failed call, whose data is { status } (ubus_status).
+ * A ubus connection opened on first use, so a scrape that needs no ubus makes none.
  *
- * The service's user is held to its ubus ACL (prometheus_exporter.privileges),
- * which ubusd says in two ways: a method it may not call is DENIED, and an
- * object it may call nothing of is NOT_FOUND, as one that is not there. So a
- * call ubusd refuses is PERMISSION_DENIED, and so is NOT_FOUND while the
- * ACL's canary (privileges.CANARY) is not there either (a lookup of it
- * finds nothing): ubusd has not loaded the ACL, and the object may well be
- * there. A collector never takes
- * either for nothing to observe. As root nothing is refused.
- *
- * limit(t): the calls after it wait for no reply past `t` (monotonic seconds,
- * clock_fn's), null for UBUS_TIMEOUT: a collector's ubus calls end by the time
- * it is stopped, so a service that does not answer fails the call, saying so,
- * rather than the collector. ucode's ubus takes one timeout per connection, in
- * whole seconds, set when it connects: a call that needs a shorter one than
- * its connection's connects again, which happens at most once a second, as a
- * scrape's time runs down, and so does the first call under a new limit that
- * allows a longer one; a call never waits less than a second.
- *
- * @param {function(?string, int): ?UbusConnection} connect_fn the ubus
- *   module's connect(socket, timeout), or a test's.
- * @param {?function(): int[]} clock_fn a monotonic clock, [ s, ns ];
- *   clock(true) when null.
- * @returns {UbusCapability} the channel.
+ * @param {function(?string, int): ?UbusConnection} connect_fn
+ * @param {?function(): int[]} clock_fn
+ * @returns {UbusCapability}
  */
 export function ubus_channel(connect_fn, clock_fn) {
 	let conn = null;
@@ -96,7 +55,6 @@ export function ubus_channel(connect_fn, clock_fn) {
 	let limit = null;
 	let timeout = null;
 	let connected_for = null;
-	// Whether the canary is there, once a call found no object: per connection.
 	let acl = null;
 
 	clock_fn ??= () => clock(true);
@@ -154,7 +112,6 @@ export function ubus_channel(connect_fn, clock_fn) {
 			return Result.ok(reply);
 		},
 
-		// The names of every published object.
 		list: function() {
 			let c = get();
 
@@ -180,14 +137,11 @@ export function ubus_channel(connect_fn, clock_fn) {
 };
 
 /**
- * A collector's deps.ubus: `channel`, the scrape's, with call() refusing a
- * call `declared` does not allow (UBUS_NOT_ALLOWED), without calling it, as
- * the service's ubus ACL would: in the jail or not, as root too.
+ * A collector's deps.ubus: `channel`, refusing a call `declared` does not allow.
  *
- * @param {UbusCapability} channel the scrape's channel (ubus_channel's).
- * @param {Object<string, string[]>} declared the collector's calls, for its
- *   options (privileges.ubus_of's).
- * @returns {UbusCapability} the collector's.
+ * @param {UbusCapability} channel
+ * @param {Object<string, string[]>} declared
+ * @returns {UbusCapability}
  */
 export function ubus_for(channel, declared) {
 	return {
@@ -202,13 +156,9 @@ export function ubus_for(channel, declared) {
 };
 
 /**
- * The ubus module, loaded by name at run time, as deps.native loads it: the
- * first time a channel connects, in the process that connects, so uhttpd,
- * which never calls ubus itself, holds none of it. Null when it does not
- * load.
+ * The ubus module, loaded by name at run time; null when it does not load.
  *
- * @returns {?{ connect: function(?string, ?int): ?Object }} its connect; null
- *   when it does not load.
+ * @returns {?{ connect: function(?string, ?int): ?Object }}
  */
 export function load_ubus() {
 	try {

@@ -1,10 +1,3 @@
-// A proxy for ucode-mod-rtnl, which utest does not ship. Loaded in program
-// mode, hence the bare `return`. `const` is the real module's.
-//
-// Keys name the command as rtnl's constants do, with the device when the
-// request has one: 'RTM_GETLINK:eth0', else 'RTM_GETLINK' (a dump of every link).
-// data:   key -> a reply, or a function of (flags, attrs) that returns one.
-// errors: key -> the message error() reports after that request fails.
 return {
 	channels: [ 'errors' ],
 

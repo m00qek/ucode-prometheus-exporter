@@ -1,16 +1,3 @@
-// utest's ubus proxy plus what OpenWrt 25.12's ubus connections have and it
-// lacks: list() and error(). Loaded in program mode, hence the bare `return`.
-//
-// data:   'object:method' or 'object' -> a reply, or a function of the call's
-//         args that returns one (as the built-in proxy).
-// errors: 'object:method' or 'object' -> the message error() reports after a
-//         call that fails with a null reply, as a real failed call does.
-// list() names every object the data channel mentions. list(path) answers an
-// object it mentions, and `system`, which every OpenWrt has (the canary of the
-// service's ubus ACL, prometheus_exporter.privileges), with [ {} ] (its
-// methods' signatures are not modeled), and any other with null, 'Not
-// found'; or, for 'list:<path>' in errors, with [], as ubusd answers a lookup
-// of an object the caller's ACL allows nothing of (one ubusd has not loaded).
 return {
 	channels: [ 'errors' ],
 

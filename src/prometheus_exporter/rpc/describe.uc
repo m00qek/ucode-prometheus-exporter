@@ -1,20 +1,5 @@
 /**
- * What the ubus object's `collectors` says of each installed collector, for
- * LuCI (prometheus_exporter.rpc): its options as the exporter reads them
- * from the configuration as saved, its package, and what its jail gives it.
- *
- *   collector: { name, id, title, help, enabled, package, base, options: [ option ],
- *                needs, configs, commands, jail: { paths, owned, commands, mounts, problems, missing,
- *                ubus, capabilities, groups, proc_files }, error }
- *   option:    { name, core, title, type, default, help, datatype, value, set, error }
- *
- * options are the collector's own, in the order it declares them, then the
- * core's `timeout` (core: true) when it runs programs: the seconds they get in
- * each scrape. Its default is the collector's meta.timeout or else the main
- * section's exec_timeout, which `default_from` names ('meta.timeout' or
- * 'exec_timeout'). The core's `enabled` is the collector's own field.
- *
- * sys: prometheus_exporter.rpc's.
+ * What the ubus object's `collectors` says of each installed collector, for LuCI.
  *
  * @module prometheus_exporter_rpc_describe
  */
@@ -29,10 +14,7 @@ import * as jail from 'prometheus_exporter.jail';
 import { collector_value, message } from 'prometheus_exporter.rpc.validate';
 
 /**
- * An option, as the module's top comment lays it out: option_spec's, and in
- * a collector's entry its value, whether its section sets it, and what is
- * wrong with it; the core's timeout also has `default_from`. Its default and
- * value are a boolean, an integer or a string, as its default sets.
+ * An option of a collector's entry: its spec, value, whether it is set, and its error.
  *
  * @typedef {{
  *   name: string,
@@ -50,7 +32,7 @@ import { collector_value, message } from 'prometheus_exporter.rpc.validate';
  */
 
 /**
- * A collector, as the module's top comment lays it out.
+ * A collector's entry in `collectors`.
  *
  * @typedef {{
  *   name: string,
@@ -70,32 +52,25 @@ import { collector_value, message } from 'prometheus_exporter.rpc.validate';
  * }} CollectorEntry
  */
 
-/**
- * apk's lists of each package's files (sys.apk).
- *
- * @type {string}
- */
+/** apk's lists of each package's files (sys.apk). */
 export const APK_LISTS = '/lib/apk/packages';
 
 /**
  * A string that is not empty, or null.
  *
- * @param {*} value anything; only a string that is not empty is kept.
- * @returns {?string} it, or null.
+ * @param {*} value
+ * @returns {?string}
  */
 export function text(value) {
 	return (type(value) == 'string' && value != '') ? value : null;
 };
 
 /**
- * One option of meta.options, in either shape: a bare default (`stations: true`),
- * or { default, title, help, datatype }. datatype names LuCI's datatypes, and
- * 'regex'. Its title is the option's name when it declares none.
+ * One option of meta.options, a bare default or { default, title, help, datatype }.
  *
- * @param {string} name the option's name.
- * @param {*} decl its declaration: { default, title, help, datatype }, or a
- *   bare default of any type.
- * @returns {OptionEntry} the option, without a value.
+ * @param {string} name
+ * @param {*} decl
+ * @returns {OptionEntry}
  */
 export function option_spec(name, decl) {
 	let spec = (type(decl) == 'object') ? decl : { default: decl };
@@ -114,8 +89,8 @@ export function option_spec(name, decl) {
 /**
  * meta.options as a list, in the order the collector declares them.
  *
- * @param {Meta} meta the collector's meta.
- * @returns {OptionEntry[]} its options, without values.
+ * @param {Meta} meta
+ * @returns {OptionEntry[]}
  */
 export function options_of(meta) {
 	let options = meta.options ?? {};
@@ -126,21 +101,19 @@ export function options_of(meta) {
 /**
  * A short label: meta.title, or the collector's name.
  *
- * @param {Meta} meta the collector's meta.
- * @returns {string} the label.
+ * @param {Meta} meta
+ * @returns {string}
  */
 export function title_of(meta) {
 	return text(meta.title) ?? meta.name;
 };
 
 /**
- * { path: package } for the files of the exporter's packages: apk keeps a list
- * of each package's files.
+ * { path: package } for the files of the exporter's packages, from apk's lists.
  *
- * @param {module:fs} fs what reads the lists: an object of fs's glob and
- *   readfile.
- * @param {string} dir apk's lists' directory (APK_LISTS).
- * @returns {Object<string, string>} each file's package, by path.
+ * @param {module:fs} fs
+ * @param {string} dir
+ * @returns {Object<string, string>}
  */
 export function owners(fs, dir) {
 	let out = {};
@@ -168,9 +141,6 @@ function option_entry(c, spec, section) {
 	};
 }
 
-// The core's timeout of a collector that runs programs, whose default follows
-// the configuration as saved: meta.timeout, or else the main section's
-// exec_timeout.
 function timeout_entry(sys, c, section) {
 	let set = ('timeout' in keys(section));
 	let fallback = config.default_timeout(sys.uci, c.meta);
@@ -219,17 +189,15 @@ function collector_entry(sys, c, owner_of) {
 			paths: j.paths, owned: j.owned, commands: j.commands, mounts: j.mounts, problems: j.problems, missing: j.missing,
 			ubus: j.ubus, capabilities: j.capabilities, groups: j.groups, proc_files: j.proc_files,
 		},
-		// The section's first invalid option (or enabled), as the exporter reports it.
 		error: j.options.ok ? null : Result.describe(j.options),
 	};
 }
 
 /**
- * What the ubus object's `collectors` answers: each installed collector,
- * and what the loader logged of those it left out.
+ * What `collectors` answers: each installed collector, and those the loader left out.
  *
- * @param {RpcSys} sys the system.
- * @returns {{ collectors: CollectorEntry[], skipped: string[] }} them.
+ * @param {RpcSys} sys
+ * @returns {{ collectors: CollectorEntry[], skipped: string[] }}
  */
 export function collectors(sys) {
 	let owner_of = owners(sys.fs, sys.apk ?? APK_LISTS);

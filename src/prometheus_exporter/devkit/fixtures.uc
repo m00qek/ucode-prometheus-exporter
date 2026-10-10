@@ -1,30 +1,15 @@
 /**
- * The devkit's fixtures: what a device answered, captured to files under a
- * directory of a collector package's tests, read for the mocks of
- * with_collector (prometheus_exporter.devkit.collector). Files keep their
- * own paths under it, `<dir>/proc/loadavg` for /proc/loadavg, and ubus
- * replies are `<dir>/ubus/<object>.<method>.json`, as `ubus call <object>
- * <method>` prints them.
- *
- *   const DEVICE = fixtures.reader(sourcepath(0, true) + '/fixtures/my-router');
- *   with_collector(mine, { fs: { data: DEVICE.files([ '/proc/loadavg' ]) } }, ...)
- *
- * They are read with the real fs, whatever mock is patched in. A fixture
- * that is not there fails the test that reads it, naming it.
- *
- * What it exports is what a major version of the exporter protects.
+ * The devkit's fixtures: what a device answered, captured to files, for the mocks.
  *
  * @module prometheus_exporter_devkit_fixtures
  */
 
 'use strict';
 
-// The real fs: under utest, an import of fs reaches whatever mock is patched in.
 const real_fs = require('fs');
 
 /**
- * What a reader of a fixtures directory reads: a file's text by the path it
- * has on the device, several as an fs mock's data, and a ubus reply.
+ * What a reader of a fixtures directory reads: files, as an fs mock's data, ubus replies.
  *
  * @typedef {{
  *   file: function(string): string,
@@ -34,11 +19,10 @@ const real_fs = require('fs');
  */
 
 /**
- * A reader of the fixtures under `dir`, a directory relative to the one
- * utest runs in, or absolute (sourcepath(0, true) gives a test's own).
+ * A reader of the fixtures under `dir`, relative to utest's directory or absolute.
  *
- * @param {string} dir the fixtures' directory.
- * @returns {FixtureReader} the reader.
+ * @param {string} dir
+ * @returns {FixtureReader}
  */
 export function reader(dir) {
 	function file(path) {

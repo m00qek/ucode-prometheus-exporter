@@ -1,7 +1,5 @@
 /**
- * The exec capability: the programs a collector declares, run without a
- * shell's interpretation of their arguments, under a watchdog that kills one
- * still running when its seconds are spent.
+ * The exec capability: a collector's programs, under a watchdog.
  *
  * @module prometheus_exporter_deps_exec
  */
@@ -19,36 +17,21 @@ import { EXEC_TIMEOUT } from 'prometheus_exporter.config';
  */
 
 /**
- * `arg` single-quoted for the shell, its own single quotes escaped: no
- * shell interprets what it holds.
+ * `arg` single-quoted for the shell, its own single quotes escaped.
  *
- * @param {*} arg anything: it is made a string first.
- * @returns {string} the quoted string.
+ * @param {*} arg
+ * @returns {string}
  */
 export function shell_quote(arg) {
 	return "'" + replace('' + arg, "'", "'\\''") + "'";
 };
 
-/**
- * The seconds a collector's commands get in all, in one scrape, when nobody
- * says otherwise: the main section's exec_timeout by default (see config).
- *
- * @type {int}
- */
+/** The seconds a collector's programs get in all in a scrape, by default. */
 export const EXEC_SECONDS = EXEC_TIMEOUT;
 
-/**
- * What a program's handle closes with when the watchdog killed it: the shell
- * that ran it, killed by SIGKILL, which nothing else sends it.
- *
- * @type {int}
- */
+/** What a program's handle closes with when the watchdog killed it. */
 export const EXEC_KILLED = -9;
 
-// Stops process $pid, stopped already, and every process under it, found by
-// their parent in /proc/<pid>/stat, until it finds no more (a stopped process
-// starts no other): their pids in $all. Only ash's builtins: the jail has no
-// kill nor pkill program.
 const WALK = [
 	'all=$pid new=$pid',
 	'while [ -n "$new" ]; do',
@@ -64,22 +47,6 @@ const WALK = [
 	'done',
 ];
 
-// The shell script popen runs for a program, after a first line that sets $1 to
-// the seconds it may take and the rest to its argv (exec_script). Only ash's
-// builtins, as procd's jail has /bin/sh and the collectors' programs alone (no
-// timeout, sleep or kill programs), and no process groups: ash turns job
-// control off without a terminal. So:
-//
-// - the program runs in the background with its output on popen's pipe (fd 3),
-//   while a subshell prints its pid and then its exit status into a pipe;
-// - the other end reads the pid, then the status, for at most $1 seconds:
-//   read -t, the shell's only clock, which counts whole seconds;
-// - when no status came, it stops the program and every process under it,
-//   found by their parent in /proc/<pid>/stat, until it finds no more (a
-//   stopped process starts no other), then kills them all, and the shell popen
-//   started with them: EXEC_KILLED. ssh under a script dies with the script.
-//
-// Otherwise the script exits with the program's status.
 const WATCHDOG = join('\n', [
 	't=$1; shift',
 	'exec 3>&1 2>/dev/null',
@@ -95,26 +62,21 @@ const WATCHDOG = join('\n', [
 ]);
 
 /**
- * What popen runs for argv, given `seconds`: the first line sets the watchdog's
- * arguments, each one single-quoted, so no shell interprets them.
+ * The watchdog script popen runs for `argv`, given `seconds`.
  *
- * @param {string[]} argv the program and its arguments.
- * @param {int} seconds what the program may take, in whole seconds.
- * @returns {string} the script.
+ * @param {string[]} argv
+ * @param {int} seconds
+ * @returns {string}
  */
 export function exec_script(argv, seconds) {
 	return `set -- ${seconds} ${join(' ', map(argv, shell_quote))}\n${WATCHDOG}`;
 };
 
 /**
- * Kills process `pid` and every process under it, as the watchdog kills a
- * program: stopped first, then each found by its parent in /proc, and then
- * all of them. A collector's child process a scrape kills (its budget's end,
- * the deadline) may have started a program that would otherwise run on, its
- * parent gone. Nothing when there is no such process.
+ * Kills process `pid` and every process under it, as the watchdog kills a program.
  *
- * @param {function(string, string): ?FsProc} popen_fn fs's popen, or a test's.
- * @param {int} pid the process.
+ * @param {function(string, string): ?FsProc} popen_fn
+ * @param {int} pid
  */
 export function kill_tree(popen_fn, pid) {
 	let p = popen_fn(join('\n', [ `pid=${int(pid)}`, 'kill -STOP "$pid" 2>/dev/null || exit 0', ...WALK, 'kill -KILL $all', '' ]), 'r');
@@ -128,33 +90,14 @@ function milliseconds(t) {
 }
 
 /**
- * run(argv): the standard output of one of the `allowed` programs, run without a
- * shell's interpretation of its arguments. Its standard error is discarded. A
- * failure's data is { status }: the exit status, null when it could not start.
+ * The exec channel of one collector in one scrape: run(argv) of the `allowed` programs.
  *
- * The channel's programs get `seconds` (EXEC_SECONDS by default) in all, from
- * its first run; a channel is one collector's in one scrape. A program still
- * running when they are spent is killed, with whatever it started, and fails
- * with COMMAND_TIMEOUT; so does one asked to run after that, without running.
- * Their data is { status: null, timed_out: true }. The shell counts whole
- * seconds: a program gets what is left rounded up, so the commands of a channel
- * take at most a second more than `seconds`. clock_fn: [ s, ns ], monotonic.
- *
- * `cutoff`, when given, is the time (monotonic seconds) the collector must be
- * done by, for its scrape to answer in time: a program never runs past it. It
- * gets the whole seconds left before it when they are fewer than its own, and
- * does not run when not one is left; killed at the cutoff, or not run, it fails
- * with SCRAPE_DEADLINE, its data { status: null, timed_out: true, deadline: true }.
- *
- * @param {function(string, string): ?FsProc} popen_fn fs's popen, or a test's.
- * @param {string[]} allowed the programs it may run (meta.commands).
- * @param {?int} seconds the seconds its programs get in all; EXEC_SECONDS
- *   when null.
- * @param {?function(): int[]} clock_fn a monotonic clock, [ s, ns ];
- *   clock(true) when null.
- * @param {?float} cutoff when the collector must be done by (monotonic
- *   seconds), or null for no deadline.
- * @returns {ExecCapability} the channel.
+ * @param {function(string, string): ?FsProc} popen_fn
+ * @param {string[]} allowed
+ * @param {?int} seconds
+ * @param {?function(): int[]} clock_fn
+ * @param {?float} cutoff
+ * @returns {ExecCapability}
  */
 export function exec_channel(popen_fn, allowed, seconds, clock_fn, cutoff) {
 	seconds ??= EXEC_SECONDS;

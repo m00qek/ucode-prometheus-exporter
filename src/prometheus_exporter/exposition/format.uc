@@ -1,11 +1,5 @@
 /**
- * The Prometheus text exposition format, version 0.0.4, as it is spelled: a
- * name made valid (sanitize), a value (format_value), a label set and HELP
- * text escaped, a sample's line and a family's header; and what Prometheus
- * would refuse a scrape for, which no collector's text may hold (utf8_valid,
- * label_problem). And the ordered set of families by name that a recorder
- * and parse() add families to (prometheus_exporter.exposition,
- * prometheus_exporter.exposition.parse).
+ * The Prometheus text exposition format 0.0.4, as it is written.
  *
  * @module prometheus_exporter_exposition_format
  */
@@ -13,30 +7,15 @@
 'use strict';
 
 /**
- * The ordered set of families by name: `list` in the order they were first
- * added, `by_name` the same families by their names. A family is parse()'s
- * ({ samples }) or a recorder's ({ lines, values }), as it was added.
+ * The ordered set of families: `list` in the order added, `by_name` by their names.
  *
  * @typedef {{ list: (Family|RecordedFamily)[], by_name: Object<string, (Family|RecordedFamily)> }} FamilySet
  */
 
-/**
- * The family types of the format, as a TYPE line names them.
- *
- * @type {string[]}
- */
+/** The family types of the format, as a TYPE line names them. */
 export const TYPES = [ 'counter', 'gauge', 'histogram', 'summary', 'untyped' ];
 
-// Every regex is a constant: ucode compiles a regex literal each time it is
-// evaluated, which costs more than the match. And no sample takes a regex at
-// all where it can be helped: musl's regexec costs microseconds even on a
-// short string, and a scrape writes thousands of samples.
-
-/**
- * A valid metric name.
- *
- * @type {RegExp}
- */
+/** A valid metric name. */
 export const METRIC_NAME = /^[a-zA-Z_:][a-zA-Z0-9_:]*$/;
 const LABEL_NAME = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 const NUMBER = /^[+-]?([0-9]+\.?[0-9]*|\.[0-9]+)([eE][+-]?[0-9]+)?$/;
@@ -44,56 +23,28 @@ const HEX = /^0[xX][0-9a-fA-F]+$/;
 const NOT_METRIC = /[^a-zA-Z0-9_:]/g;
 const NOT_LABEL = /[^a-zA-Z0-9_]/g;
 const LEADING_DIGIT = /^[0-9]/;
-// A byte past ASCII. In a bracket a backslash is itself; ucode's C locale
-// reads bytes.
 const HIGH = regexp('[\x80-\xff]');
 
-/**
- * What a label value may hold that is not written as it is: a backslash, a
- * quote or a newline, which are escaped, or a byte past ASCII, whose UTF-8
- * is read. Values without any are written as they are (label_text).
- *
- * @type {RegExp}
- */
+/** What a label value may hold that is not written as it is. */
 export const SPECIAL = regexp('[\\\n"\x80-\xff]');
 
-// sanitize()'s answers, [ metric names, label names ]: a scrape asks for the
-// same names again and again (a label name in every sample). uhttpd runs each
-// request in a process of its own, forked from the one that loaded the
-// exporter, so this lives for one scrape there; the memo stops growing at
-// SANITIZED_MAX names all the same, for a process that scrapes many times.
 const SANITIZED = [ {}, {} ];
 
-/**
- * sanitize()'s memo of metric names: a name as written, by the name asked
- * for (SANITIZED's first).
- *
- * @type {Object<string, string>}
- */
+/** sanitize()'s memo of metric names, by the name asked for. */
 export const METRIC_NAMES = SANITIZED[0];
 const LABEL_NAMES = SANITIZED[1];
 const SANITIZED_MAX = 4096;
 let sanitized = 0;
 
-/**
- * What a label starts with in a set, `",name="`: the quote that closes the
- * value before it (the first label's is made a brace), its name and what
- * opens its value. By the name as written, and only for a name that is
- * valid as it is, which no other can be once sanitized: label_text() writes
- * a set as these and the values, a lookup and a concatenation a label, and
- * keeps each name's here as it first writes it.
- *
- * @type {Object<string, string>}
- */
+/** What a label starts with in a set, `",name="`, by the name as written. */
 export const LABEL_PREFIXES = {};
 
 /**
- * A name with every character the format does not allow made an underscore, and
- * a leading digit (or nothing at all) prefixed with one.
+ * A name with every character the format does not allow made an underscore.
  *
- * @param {*} name the name, of whatever type: it is made a string first.
- * @param {?boolean} is_label whether it is a label's name, which takes no ':'.
- * @returns {string} the name, valid.
+ * @param {*} name
+ * @param {?boolean} is_label
+ * @returns {string}
  */
 export function sanitize(name, is_label) {
 	name = '' + name;
@@ -102,7 +53,6 @@ export function sanitize(name, is_label) {
 	let s = memo[name];
 
 	if (s == null) {
-		// Most names are valid already: one regex, not two.
 		if (match(name, is_label ? LABEL_NAME : METRIC_NAME)) {
 			s = name;
 		} else {
@@ -119,14 +69,10 @@ export function sanitize(name, is_label) {
 };
 
 /**
- * The value as the format spells it, or null for what is not a number: an empty
- * string, a word, an object. A double is written so that it reads back as
- * itself. Strings are procfs and sysfs readings, so the
- * surrounding whitespace goes and hex (as in sysfs flags) is read.
+ * The value as the format spells it, or null for what is not a number.
  *
- * @param {*} value anything: a number, a boolean, a string as procfs or
- *   sysfs spell a number, or what is not one.
- * @returns {?string} the value as the format spells it, or null.
+ * @param {*} value
+ * @returns {?string}
  */
 export function format_value(value) {
 	switch (type(value)) {
@@ -134,9 +80,6 @@ export function format_value(value) {
 		return '' + value;
 
 	case 'double':
-		// ucode writes 14 significant digits, which most doubles read back
-		// as: one that does, and is finite (an infinity less itself is NaN,
-		// not 0), is written so, with no more checks.
 		let s = '' + value;
 
 		if (+s == value && value - value == 0)
@@ -148,9 +91,6 @@ export function format_value(value) {
 		if (value == -Infinity)
 			return '-Inf';
 
-		// A counter of bytes as a double past 10^14, or a third, does not
-		// read back as its 14 digits, and is written with the fewest more
-		// that do; 17 always do.
 		for (let digits = 15; digits <= 17 && +s != value; digits++)
 			s = sprintf(`%.${digits}g`, value);
 
@@ -162,7 +102,6 @@ export function format_value(value) {
 	case 'string':
 		value = trim(value);
 
-		// Most are integers as the format spells them already: no regex.
 		let n = +value;
 		if (type(n) == 'int' && '' + n == value)
 			return value;
@@ -179,11 +118,6 @@ export function format_value(value) {
 	return null;
 };
 
-// The bytes a UTF-8 sequence that starts with byte `b` has after it, and the
-// range of the first of them: one past 0xC2-0xF4 rules out overlong forms,
-// surrogates (0xED 0xA0-0xBF) and code points past U+10FFFF, as Go's
-// utf8.ValidString, which Prometheus reads a scrape with, does. Null for a
-// byte that starts none.
 function sequence(b) {
 	if (b >= 0xc2 && b <= 0xdf)
 		return [ 1, 0x80, 0xbf ];
@@ -196,13 +130,10 @@ function sequence(b) {
 }
 
 /**
- * Whether `text` is valid UTF-8, as Prometheus wants a label value and HELP
- * text: a scrape with one that is not is refused whole. Text of ASCII alone,
- * as nearly every one is, takes one match; only text with a byte past it is
- * read a byte at a time.
+ * Whether `text` is valid UTF-8, as Prometheus wants a label value and HELP text.
  *
- * @param {string} text the text.
- * @returns {boolean} whether it is valid UTF-8.
+ * @param {string} text
+ * @returns {boolean}
  */
 export function utf8_valid(text) {
 	if (!match(text, HIGH))
@@ -240,8 +171,8 @@ export function utf8_valid(text) {
 /**
  * Most values have nothing to escape, and index() is cheaper than replace().
  *
- * @param {string} value a label's value.
- * @returns {string} it, its backslashes, quotes and newlines escaped.
+ * @param {string} value
+ * @returns {string}
  */
 export function escape_label(value) {
 	if (index(value, '\\') < 0 && index(value, '"') < 0 && index(value, '\n') < 0)
@@ -260,9 +191,8 @@ function escape_help(text) {
 /**
  * A family's HELP and TYPE lines.
  *
- * @param {(Family|RecordedFamily)} fam the family: its name, type and help.
- * @returns {string} its # HELP line, when it has help, and its # TYPE line,
- *   without the last newline.
+ * @param {(Family|RecordedFamily)} fam
+ * @returns {string}
  */
 export function header(fam) {
 	return (fam.help ? `# HELP ${fam.name} ${escape_help(fam.help)}\n` : '') + `# TYPE ${fam.name} ${fam.type}`;
@@ -271,8 +201,8 @@ export function header(fam) {
 /**
  * The label set `pairs` as the format writes it, each value escaped.
  *
- * @param {string[][]} pairs [ name, value ] pairs, the names valid.
- * @returns {string} '{name="value",...}', or '' for none.
+ * @param {string[][]} pairs
+ * @returns {string}
  */
 export function format_labels(pairs) {
 	let n = length(pairs);
@@ -287,9 +217,6 @@ export function format_labels(pairs) {
 	return s + '}';
 };
 
-// A collector's labels as [ name, value ] pairs, and after them the name as
-// the collector wrote it. A null label is left out, which is what Prometheus
-// makes of an empty one anyway.
 function label_pairs(labels) {
 	let pairs = [];
 
@@ -308,8 +235,6 @@ function label_pairs(labels) {
 	return pairs;
 }
 
-// The first name of `labels` that is another's once sanitized, as [ the
-// name, the other, what both are ]; null when there is none.
 function clash(labels) {
 	let seen = {};
 
@@ -324,8 +249,6 @@ function clash(labels) {
 	return null;
 }
 
-// LABEL_PREFIXES' text for a name, kept there; null for a name that is not
-// valid as it is.
 function label_prefix(name) {
 	if ((LABEL_NAMES[name] ?? sanitize(name, true)) != name)
 		return null;
@@ -339,23 +262,10 @@ function label_prefix(name) {
 }
 
 /**
- * A collector's labels as the format writes them, '' for none: what
- * format_labels(label_pairs(labels)) gives. Null for a set Prometheus would
- * refuse the scrape for: two names that are one once sanitized ('if-name'
- * and 'if_name'), or a value that is not valid UTF-8; label_problem() says
- * which.
+ * A collector's labels as the format writes them, '' for none, null for an invalid set.
  *
- * In one pass, each label a lookup of its name's text (LABEL_PREFIXES) and
- * its value as it is: the set is written again with each value escaped only
- * when one needs it, when the values hold a backslash, a quote or a newline.
- * One check of the values, all together, is cheaper than one for each, and
- * the same match finds a byte past ASCII, the only text whose UTF-8 is read.
- * Names can only clash when one was sanitized: the others are an object's
- * keys, each once.
- *
- * @param {?Object} labels { name: value }; a value that is not a string,
- *   a number or a boolean is left out.
- * @returns {?string} '{name="value",...}', '' for none, or null.
+ * @param {?Object} labels
+ * @returns {?string}
  */
 export function label_text(labels) {
 	if (labels == null)
@@ -389,9 +299,6 @@ export function label_text(labels) {
 		return '';
 	if (renamed && clash(labels) != null)
 		return null;
-	// UTF-8 is read in the text, not in the values: there a value cut short
-	// of a sequence is followed by the quote that ends it, not by the next
-	// value, which might have completed it.
 	if (match(values, SPECIAL))
 		return utf8_valid(text) ? format_labels(label_pairs(labels)) : null;
 
@@ -399,12 +306,10 @@ export function label_text(labels) {
 };
 
 /**
- * What makes `labels` a set the format cannot write, for a collector's
- * failure: the label it is about, and why; null for a valid set. A set is
- * an object, null for none, or what a recorder's labels() made.
+ * What makes `labels` a set the format cannot write, or null for a valid set.
  *
- * @param {*} labels what a collector passed where the labels go.
- * @returns {?{ label: ?string, why: string }} the problem, or null.
+ * @param {*} labels
+ * @returns {?{ label: ?string, why: string }}
  */
 export function label_problem(labels) {
 	let t = type(labels);
@@ -427,22 +332,19 @@ export function label_problem(labels) {
 /**
  * A sample of parse() as the format writes it.
  *
- * @param {Sample} sample the sample.
- * @returns {string} its line, without a newline.
+ * @param {Sample} sample
+ * @returns {string}
  */
 export function sample_line(sample) {
 	return sample.name + format_labels(sample.labels) + ' ' + sample.value + (sample.ts != null ? ' ' + sample.ts : '');
 };
 
 /**
- * Adds a family to `into` (an ordered set: { list, by_name }), merging its
- * samples into a family already there, as parse() keeps them ({ samples })
- * or as a recorder does ({ lines, values }). False when the types disagree;
- * the samples are then dropped.
+ * Adds a family to `into`, merging its samples; false when the types disagree.
  *
- * @param {FamilySet} into the set.
- * @param {(Family|RecordedFamily)} fam the family to add.
- * @returns {boolean} false when the types disagree.
+ * @param {FamilySet} into
+ * @param {(Family|RecordedFamily)} fam
+ * @returns {boolean}
  */
 export function add_family(into, fam) {
 	let have = into.by_name[fam.name];
@@ -471,7 +373,7 @@ export function add_family(into, fam) {
 /**
  * The families in the order they were first added, and by name.
  *
- * @returns {FamilySet} an empty set.
+ * @returns {FamilySet}
  */
 export function family_set() {
 	return { list: [], by_name: {} };
@@ -480,8 +382,8 @@ export function family_set() {
 /**
  * The families of a set, in the order they were first added.
  *
- * @param {FamilySet} set the set.
- * @returns {(Family|RecordedFamily)[]} its families.
+ * @param {FamilySet} set
+ * @returns {(Family|RecordedFamily)[]}
  */
 export function families_of(set) {
 	return set.list;

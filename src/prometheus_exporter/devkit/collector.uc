@@ -1,46 +1,5 @@
 /**
- * The devkit's collector check, for a collector's tests under utest: what a
- * collector of any package is tested with, ours included. It is installed by
- * ucode-prometheus-exporter-devkit, and what it exports is what a major
- * version of the exporter protects, as the collector API's is.
- *
- *   with_collector(mod, cfg, cb)  run a collector module as a scrape does,
- *                                 holding it to its contract
- *   outcome(r)                    what a test checks of a run that fails or
- *                                 has nothing to observe
- *   jail_of(mod, cfg)             what the service's jail gives it
- *   with_mods(cfg, cb)            utest's mocks, as deps.modules() gives the
- *                                 real modules
- *   module_problems(text)         what the loader and `collector check`
- *                                 refuse of a module's text
- *   assert_module(path)           a test of them
- *
- * with_collector runs one collector module the way a scrape does, with only
- * its needs, and calls cb with { result, text, lines, logs, levels, families
- * }; `logs` has what the scrape and the collector itself logged, and `levels`
- * the level of each. It asserts nothing of the result: a test does.
- *
- * It holds the collector to its contract, as the exporter would (the test
- * fails, with assert.fail(), before cb runs):
- * - its meta must be valid, and its output parse as exposition text;
- * - it touches only what its meta declares, in the filesystem the service's
- *   jail gives it: the jail's mounts for its meta (jail_of's) and every
- *   jail's (prometheus_exporter.jail's COMMON). A read, a listing, a glob, a
- *   stat, a realpath or an open of a path outside them answers as it does in
- *   the jail (null, or what the jail makes of a directory above a mount),
- *   whatever the fs mock holds; so does a connection to a socket outside them
- *   ('No such file or directory'). An open for writing fails, as the jail's
- *   mounts are read-only. And a program not in meta.commands is refused
- *   (COMMAND_NOT_ALLOWED), as it always is, and so is a ubus call not in
- *   meta.ubus (UBUS_NOT_ALLOWED), as the service's ubus ACL would.
- * Each such access is recorded, and the test fails after the run, saying what
- * the collector touched and how to declare it. Not from inside the run: the
- * collector's error boundary would take a failure there for a crash, and a
- * collector that falls back on a default (readfile(p) ?? '') would pass.
- *
- * The mocks are utest's: a test's utest config names fs and uci (utest's own
- * proxies) and ubus, rtnl, nl80211 and socket, with the devkit's proxies,
- * proxies/<name>.uc beside this module.
+ * The devkit's collector check, for a collector's tests under utest.
  *
  * @module prometheus_exporter_devkit_collector
  */
@@ -57,49 +16,19 @@ import * as jail from 'prometheus_exporter.jail';
 import * as codes from 'prometheus_exporter.errors';
 import * as Result from 'prometheus_exporter.result';
 
-// The real fs: under utest, an import of fs reaches whatever mock is patched in.
 const real_fs = require('fs');
 
-/**
- * The modules a test's utest config mocks, for with_mods() and
- * with_collector(): fs and uci with utest's own proxies, ubus, rtnl, nl80211
- * and socket with the devkit's (proxies/<name>.uc beside this module).
- *
- * @type {string[]}
- */
+/** The modules a test's utest config mocks. */
 export const MOCKED = [ 'fs', 'ubus', 'uci', 'rtnl', 'nl80211', 'socket' ];
 
 /**
- * What with_collector() and jail_of() take of a test, every key optional:
- *   fs, ubus, uci, rtnl, nl80211, socket
- *                   each mock's config ({ data, errors, behavior, ... }),
- *                   as utest and the devkit's proxies take it
- *   options         the collector's own options, its `config collector`
- *                   section
- *   main            the exporter's main section
- *   no_nl80211, no_rtnl, no_socket
- *                   as if that module were not installed (NEED_MISSING)
- *   time            what deps.time.now() returns
- *   self_status     the text of /proc/self/status the session checks
- *                   meta.capabilities against
- *   unreadable      the paths the process may not read (a config, a proc
- *                   file); without them nothing is checked
- *   outside_jail    paths a collector looks for knowing the service's jail
- *                   never has them, for what it does where it runs outside
- *                   the jail (chrony's command socket): the mocks answer them
- *                   as they hold them, and the contract check lets them be
- *   files, absent   jail_of(): the regular files commands are found among,
- *                   and the paths that are not there (any other path is, as
- *                   a directory)
+ * What with_collector() and jail_of() take of a test, every key optional.
  *
  * @typedef {Object} CollectorTestConfig
  */
 
 /**
- * What with_collector() hands its callback: the collector's Result, the text
- * it wrote and its lines, what was logged and at which level, and its
- * families as the exposition format reads them back, { name, type, help,
- * samples }.
+ * What with_collector() hands its callback.
  *
  * @typedef {{ result: Result, text: string, lines: string[], logs: string[], levels: string[], families: Object[] }} CollectorRun
  */
@@ -129,13 +58,11 @@ function inject_each(cfgs, names, proxies, cb) {
 }
 
 /**
- * Injects utest's mocks (strict unless cfg says otherwise) and calls cb with
- * module-shaped objects for deps.session(), as deps.modules() gives the real
- * ones; `id`, a collector's module name, puts cfg.options in its section.
+ * Injects utest's mocks and calls cb with module-shaped objects for deps.session().
  *
- * @param {CollectorTestConfig} cfg the mocks' configs.
- * @param {function(Object): void} cb what runs with them.
- * @param {?string} id the collector's module name, for cfg.options.
+ * @param {CollectorTestConfig} cfg
+ * @param {function(Object): void} cb
+ * @param {?string} id
  */
 export function with_mods(cfg, cb, id) {
 	let cfgs = {};
@@ -157,8 +84,6 @@ export function with_mods(cfg, cb, id) {
 	}));
 };
 
-// A module's collector, or a failed test: a meta the loader refuses is the
-// collector's to fix, not the test's.
 function valid_collector(mod) {
 	let id = loader.id_of(mod?.meta?.name ?? '');
 	let valid = loader.validate(id, mod);
@@ -170,10 +95,6 @@ function valid_collector(mod) {
 	return valid.data;
 }
 
-// ---- the filesystem of the jail ------------------------------------------------
-
-// A path as the kernel resolves it, without links: '.', '..' and '//' gone.
-// Null for a path that is not absolute.
 function normal(p) {
 	if (type(p) != 'string' || substr(p, 0, 1) != '/')
 		return null;
@@ -192,8 +113,6 @@ function normal(p) {
 	return '/' + join('/', parts);
 }
 
-// Whether `mount` holds path `p`: it, or what is under it; a mount that ends
-// in '*', every path that starts with the rest.
 function holds(mount, p) {
 	if (substr(mount, -1) == '*')
 		return substr(p, 0, length(mount) - 1) == substr(mount, 0, -1);
@@ -209,8 +128,6 @@ function inside(mounts, p) {
 	return false;
 }
 
-// What the jail makes of directory `p` above some mounts: the names in it,
-// the first part of each mount under it, sorted; null when no mount is under it.
 function above(mounts, p) {
 	let prefix = (p == '/') ? '/' : p + '/';
 	let names = {};
@@ -222,8 +139,6 @@ function above(mounts, p) {
 	return length(names) ? sort(keys(names)) : null;
 }
 
-// The directory a glob pattern starts in: its path up to its first part with
-// a pattern character in it.
 function glob_base(pattern) {
 	let parts = [];
 
@@ -236,8 +151,6 @@ function glob_base(pattern) {
 	return normal(join('/', parts) || '/');
 }
 
-// fs, as the jail gives it to a collector with these mounts: what is outside
-// them answers as in the jail, and is recorded with touched(access).
 function jailed_fs(fs, mounts, touched) {
 	function outside(op, path, got, extra) {
 		touched({ kind: 'fs', op, path, got, ...(extra ?? {}) });
@@ -292,7 +205,6 @@ function jailed_fs(fs, mounts, touched) {
 			if (base != null && inside(mounts, base))
 				return fs.glob(pattern, ...rest);
 
-			// The jail has what is mounted under the base, and nothing else.
 			let all = fs.glob(pattern, ...rest) ?? [];
 			let kept = filter(all, (f) => inside(mounts, normal(f) ?? ''));
 
@@ -301,8 +213,6 @@ function jailed_fs(fs, mounts, touched) {
 	};
 }
 
-// ucode-mod-socket, as the jail gives it: a Unix socket outside the mounts is
-// not there.
 function jailed_socket(mod, mounts, touched) {
 	let refused = null;
 
@@ -341,8 +251,6 @@ function jailed_socket(mod, mounts, touched) {
 	};
 }
 
-// The session for a collector's run, whose exec and ubus capabilities record
-// a program or a ubus call they refuse as not declared.
 function watched_session(session, touched) {
 	return {
 		...session,
@@ -388,10 +296,6 @@ function watched_session(session, touched) {
 	};
 }
 
-// ---- what the test says of an access ------------------------------------------
-
-// By fs function: what the collector did, what it would stop doing, and what
-// the jail answers for a path that is not there.
 const VERBS = {
 	readfile: [ 'read', 'reading', 'that path does not exist: the read returns null' ],
 	open: [ 'opened', 'opening', 'that path does not exist: the open returns null' ],
@@ -407,8 +311,6 @@ function dirname(p) {
 	return (m && m[1] != '') ? m[1] : '/';
 }
 
-// Where to declare `path`: the path, or its directory, when that may be one;
-// `doing`, what the collector would stop doing instead.
 function declare(path, doing) {
 	let p = normal(path);
 	let stop = (index(doing, ' it') > 0) ? `stop ${doing}` : `stop ${doing} it`;
@@ -429,8 +331,6 @@ function json_of(v) {
 	return sprintf('%J', v);
 }
 
-// The message of one access, for collector `name` whose declared paths are
-// `declared`, programs `commands` and ubus calls `calls`.
 function message(name, a, declared, commands, calls) {
 	let paths = `Declared: ${join(', ', declared)}`;
 
@@ -493,8 +393,6 @@ function message(name, a, declared, commands, calls) {
 	]);
 }
 
-// The message of everything a run touched outside its contract, each once, or
-// null.
 function contract_failure(name, touched, declared, commands, calls) {
 	let seen = {};
 	let out = [];
@@ -511,27 +409,21 @@ function contract_failure(name, touched, declared, commands, calls) {
 	return length(out) ? join('\n\n', out) : null;
 }
 
-// What the jail gives collector `c` (jail.collector), as with_collector and
-// jail_of see it: `stat` says what is there.
 function jail_in(c, mods, stat) {
 	return jail.collector(c, { uci: mods.uci.cursor(), fs: { stat }, path: jail.PATH });
 }
 
 /**
- * Runs collector module `mod` the way a scrape does, with only its needs and
- * the mocks of `cfg`, holding it to its contract (see the module's comment),
- * and calls cb with its run. A broken contract fails the test, with
- * assert.fail(), before cb runs.
+ * Runs collector module `mod` as a scrape does, held to its contract, and calls cb.
  *
- * @param {CollectorModule} mod the collector module's exports.
- * @param {CollectorTestConfig} cfg the mocks, and the collector's options.
- * @param {function(CollectorRun): void} cb what checks the run.
+ * @param {CollectorModule} mod
+ * @param {CollectorTestConfig} cfg
+ * @param {function(CollectorRun): void} cb
  */
 export function with_collector(mod, cfg, cb) {
 	let c = valid_collector(mod);
 
 	with_mods(cfg, function(mods) {
-		// Every path it declares is there: one that is not is mounted once it is.
 		let j = jail_in(c, mods, (p) => ({ type: 'file' }));
 		let mounts = [ ...jail.COMMON, ...j.configs, ...j.paths, ...filter(values(j.commands), (p) => p != null), ...(cfg.outside_jail ?? []) ];
 		let touched = [];
@@ -568,32 +460,27 @@ export function with_collector(mod, cfg, cb) {
 			lines: text == '' ? [] : split(rtrim(text, '\n'), '\n'),
 			logs,
 			levels,
-			// As parse() reads them back: { name, type, help, samples }.
 			families: parsed.data,
 		});
 	}, c.id);
 };
 
 /**
- * What a test checks of with_collector's run that has nothing to observe,
- * or fails: { ok, none, error, lines, logs }.
+ * What a test checks of a with_collector run that fails or has nothing to observe.
  *
- * @param {CollectorRun} r the run.
- * @returns {{ ok: boolean, none: ?string, error: ?string, lines: string[], logs: string[] }} its outcome.
+ * @param {CollectorRun} r
+ * @returns {{ ok: boolean, none: ?string, error: ?string, lines: string[], logs: string[] }}
  */
 export function outcome(r) {
 	return { ok: r.result.ok, none: r.result.none, error: r.result.error, lines: r.lines, logs: r.logs };
 };
 
 /**
- * What prometheus_exporter.jail gives collector module `mod` in the
- * exporter's jail, its config as with_collector's: cfg.files are the regular
- * files commands are found among, cfg.absent the paths that are not there
- * (any other path is, as a directory).
+ * What the exporter's jail gives collector module `mod`.
  *
- * @param {CollectorModule} mod the collector module's exports.
- * @param {CollectorTestConfig} cfg its options and the mocks.
- * @returns {Object} the jail's mounts, configs, commands and grants for it.
+ * @param {CollectorModule} mod
+ * @param {CollectorTestConfig} cfg
+ * @returns {Object}
  */
 export function jail_of(mod, cfg) {
 	let c = valid_collector(mod);
@@ -607,14 +494,10 @@ export function jail_of(mod, cfg) {
 };
 
 /**
- * What the loader and `prometheus-exporter collector check` refuse of a
- * collector module's text, before loading it: that it is not in strict mode,
- * imports anything but the collector API, or does more than declare at its
- * top level (prometheus_exporter.loader's refusal and purity_problem). Each
- * problem with its line; [] for none.
+ * What the loader and `collector check` refuse of a collector module's text.
  *
- * @param {?string} text the module's text, null when it cannot be read.
- * @returns {string[]} the problems.
+ * @param {?string} text
+ * @returns {string[]}
  */
 export function module_problems(text) {
 	if (text == null)
@@ -631,11 +514,9 @@ export function module_problems(text) {
 };
 
 /**
- * Fails the test, with assert.fail(), when the collector module at `path`
- * (relative to the directory utest runs in, or absolute) has a problem
- * module_problems() names: the exporter would leave it out.
+ * Fails the test when the collector module at `path` has a module_problems() problem.
  *
- * @param {string} path the module's file.
+ * @param {string} path
  */
 export function assert_module(path) {
 	let problems = module_problems(real_fs.readfile(path));

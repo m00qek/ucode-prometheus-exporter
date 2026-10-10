@@ -1,11 +1,3 @@
-// A proxy for ucode-mod-nl80211, which utest does not ship. Loaded in program
-// mode, hence the bare `return`. `const` is the real module's.
-//
-// Keys name the command as nl80211's constants do, with the device when the
-// request has one: 'NL80211_CMD_GET_STATION:phy0-ap0', else
-// 'NL80211_CMD_GET_STATION'.
-// data:   key -> a reply, or a function of (flags, attrs) that returns one.
-// errors: key -> the message error() reports after that request fails.
 return {
 	channels: [ 'errors' ],
 

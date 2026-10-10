@@ -1,6 +1,5 @@
 /**
- * The socket capability: a request to a Unix stream socket's server, and
- * ucode-mod-socket, loaded by name at run time.
+ * The socket capability, and ucode-mod-socket loaded by name at run time.
  *
  * @module prometheus_exporter_deps_socket
  */
@@ -16,19 +15,10 @@ import * as errors from 'prometheus_exporter.errors';
  * @typedef {{ unix_request: (path: string, message: string, timeout_ms: int) => Result<string> }} SocketCapability
  */
 
-// What recv() fails with (errno) once SO_RCVTIMEO passes without data: EAGAIN,
-// 11 on every architecture OpenWrt builds for.
 const EAGAIN = 11;
 
-// What connect() fails with (errno) on a socket the process may not write
-// to: EACCES, 13 on every architecture OpenWrt builds for.
 const EACCES = 13;
 
-// A Unix stream socket's exchange: the message sent whole, then the reply read
-// until the server closes. Every wait (connect, send, each recv) is bounded by
-// `tv`; a failure is `path: <the socket module's error>`. A socket the
-// service's user may not connect to is PERMISSION_DENIED, never a socket that
-// is not there: it is not in a group the socket is opened to (meta.groups).
 function exchange(mod, sock, path, message, tv, timeout_ms) {
 	let failed = () => Result.err(errors.SOCKET_FAILED, `${path}: ${mod.error()}`);
 
@@ -40,8 +30,6 @@ function exchange(mod, sock, path, message, tv, timeout_ms) {
 			? Result.err(errors.PERMISSION_DENIED, `${path}: ${mod.error()}: the service's user is not in a group it is opened to (meta.groups), which the service joins it to when it starts`)
 			: failed();
 
-	// MSG_NOSIGNAL: a server gone before the message is sent is an EPIPE, not a
-	// SIGPIPE that would end uhttpd.
 	for (let sent = 0; sent < length(message);) {
 		let n = sock.send(substr(message, sent), mod.MSG_NOSIGNAL);
 
@@ -68,14 +56,10 @@ function exchange(mod, sock, path, message, tv, timeout_ms) {
 }
 
 /**
- * unix_request(path, message, timeout_ms): the whole reply of the server on the
- * Unix stream socket `path` to `message`, as a Result: SOCKET_FAILED when the
- * socket is missing or refuses, or no more of the reply comes for timeout_ms
- * (a positive integer). The socket is closed either way.
+ * deps.socket: unix_request(path, message, timeout_ms), a Unix stream socket's whole reply.
  *
- * @param {module:socket} mod load_socket's: the socket module's create,
- *   error and constants, or a test's.
- * @returns {SocketCapability} deps.socket.
+ * @param {module:socket} mod
+ * @returns {SocketCapability}
  */
 export function socket_channel(mod) {
 	return {
@@ -97,13 +81,9 @@ export function socket_channel(mod) {
 };
 
 /**
- * ucode-mod-socket by name at run time too: only the collectors that need it
- * (unbound) depend on its package, so a static import would stop the exporter
- * loading where it is not installed. Null then. Lint loads it on 25.12.
+ * ucode-mod-socket, loaded by name at run time; null when it is not installed.
  *
- * @returns {?module:socket} its create, error, AF_UNIX, SOCK_STREAM,
- *   SOL_SOCKET, SO_RCVTIMEO, SO_SNDTIMEO and MSG_NOSIGNAL; null when it is not
- *   installed.
+ * @returns {?module:socket}
  */
 export function load_socket() {
 	try {
