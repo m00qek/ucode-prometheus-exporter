@@ -1624,7 +1624,7 @@
         "type": "prometheus",
         "uid": "${datasource}"
       },
-      "description": "Each thermal zone of the kernel: thermal.",
+      "description": "Each thermal zone of the kernel, and its critical trip point, where the kernel shuts the router down: thermal.",
       "fieldConfig": {
         "defaults": {
           "unit": "celsius",
@@ -1682,6 +1682,16 @@
           "legendFormat": "{{type}} {{zone}}",
           "range": true,
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "node_thermal_zone_critical_celsius{job=\"$job\", instance=\"$instance\"}",
+          "legendFormat": "{{type}} {{zone}} critical",
+          "range": true,
+          "refId": "B"
         }
       ],
       "title": "Thermal zones",

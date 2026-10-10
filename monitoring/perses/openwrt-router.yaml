@@ -744,7 +744,7 @@ spec:
       spec:
         display:
           name: Thermal zones
-          description: 'Each thermal zone of the kernel: thermal.'
+          description: 'Each thermal zone of the kernel, and its critical trip point, where the kernel shuts the router down: thermal.'
         plugin:
           kind: TimeSeriesChart
           spec:
@@ -770,6 +770,14 @@ spec:
                 datasource: $datasource
                 query: node_thermal_zone_temp{job="$job", instance="$instance"}
                 seriesNameFormat: '{{type}} {{zone}}'
+        - kind: TimeSeriesQuery
+          spec:
+            plugin:
+              kind: PrometheusTimeSeriesQuery
+              spec:
+                datasource: $datasource
+                query: node_thermal_zone_critical_celsius{job="$job", instance="$instance"}
+                seriesNameFormat: '{{type}} {{zone}} critical'
     fs_space:
       kind: Panel
       spec:

@@ -129,6 +129,21 @@ groups:
             Thermal zone {{ $labels.zone }} ({{ $labels.type }}) on {{ $labels.instance }} has been at or above
             its passive trip point for 5 minutes, at {{ $value }} °C: the kernel slows the CPU to cool it.
 
+      # thermal: a zone within 10 °C of its critical trip point for a minute:
+      # the kernel shuts the router down at it.
+      - alert: OpenWrtThermalZoneNearCritical
+        expr: |
+          node_thermal_zone_temp >= on (job, instance, zone, type) (node_thermal_zone_critical_celsius - 10)
+          and on (job, instance) ucode_prometheus_exporter_build_info
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Thermal zone {{ $labels.zone }} ({{ $labels.type }}) on {{ $labels.instance }} is near its critical temperature.
+          description: >-
+            Thermal zone {{ $labels.zone }} ({{ $labels.type }}) on {{ $labels.instance }} has been within 10 °C
+            of its critical trip point for a minute, at {{ $value }} °C: the kernel shuts the router down at it.
+
       # openwrt_interfaces: the logical interface `wan` down for 5 minutes.
       # Name yours in the regex: wan|wan6, wwan, or mwan3's members.
       - alert: OpenWrtWanDown
