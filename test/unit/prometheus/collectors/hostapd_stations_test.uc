@@ -4,7 +4,6 @@ import { describe, it, prop, gen, assert, contains } from 'utest';
 import { with_collector, outcome } from 'prometheus.exporter.devkit.collector';
 import * as fixtures from 'lib.fixtures';
 import * as hostapd_stations from 'prometheus.collectors.hostapd_stations';
-import * as rpc from 'prometheus.exporter.rpc';
 
 // caju-ap: phy0-ap0 has one client, phy1-ap0 none, phy1-ap1 four.
 const IFACES = [ 'phy0-ap0', 'phy1-ap0', 'phy1-ap1' ];
@@ -80,7 +79,7 @@ function lab(counts) {
 		data[`hostapd.wlan${i}:get_clients`] = { freq: 5180, clients };
 	}
 
-	data['prometheus-exporter:wireless'] = rpc.wireless({ radio0: { interfaces: ifaces } });
+	data['prometheus-exporter:wireless'] = { radios: { radio0: { disabled: false, config: {}, interfaces: ifaces } } };
 	return { ubus: { data } };
 }
 

@@ -501,7 +501,7 @@ describe('rpc.methods', () => {
 			watch: () => null,
 		});
 
-		assert.match([ 'collectors', 'hash_password', 'interfaces', 'password', 'set_password', 'status', 'time_daemons', 'validate', 'wireguard_peers', 'wireless' ], sort(keys(m)));
+		assert.match([ 'collectors', 'hash_password', 'interfaces', 'password', 'set_password', 'status', 'validate' ], sort(keys(m)));
 		assert.match({ collectors: [], skipped: [] }, m.collectors.call({ args: {} }));
 		assert.match({ ok: true, errors: { main: {}, collectors: {} } }, m.validate.call({ args: { main: { listen_port: '80' } } }));
 		assert.match(2, made);

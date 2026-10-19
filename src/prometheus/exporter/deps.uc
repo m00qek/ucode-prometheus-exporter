@@ -18,6 +18,7 @@ import * as exporter_module from 'prometheus.exporter.deps.exporter';
 import * as uci_module from 'prometheus.exporter.deps.uci';
 import * as log_module from 'prometheus.exporter.deps.log';
 import * as privileges from 'prometheus.exporter.privileges';
+import { NO_UCI_DELTAS } from 'prometheus.exporter.state';
 
 /**
  * deps.fs: the functions of the fs module a collector may use (FS_API), as the fs module has them.
@@ -277,8 +278,6 @@ export function urandom(fs) {
 	};
 };
 
-const UCI_NO_DELTAS = '/var/run/prometheus-exporter/no-uci-deltas';
-
 /**
  * A uci cursor that writes and commits, for set_password alone.
  *
@@ -319,7 +318,7 @@ export function modules() {
 	return {
 		fs: { readfile, open, lsdir, glob, stat, lstat, realpath, popen, writefile, rename, unlink, chmod, mkstemp, stdin },
 		ubus: { connect: (...args) => native('ubus')?.connect(...args) },
-		uci: { cursor: () => cursor(null, UCI_NO_DELTAS) },
+		uci: { cursor: () => cursor(null, NO_UCI_DELTAS) },
 		native,
 		time: () => time(),
 		clock: () => clock(true),

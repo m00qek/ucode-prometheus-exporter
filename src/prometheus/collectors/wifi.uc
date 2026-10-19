@@ -5,8 +5,8 @@ import { Result, errors } from 'prometheus.exporter';
 export const meta = {
 	name: 'wifi',
 	title: 'Wi-Fi',
-	help: 'Wi-Fi radios, networks and stations, from netifd\'s wireless status without its keys (the service\'s ubus object) and nl80211.',
-	needs: [ 'ubus', 'nl80211' ],
+	help: 'Wi-Fi radios, networks and stations, from the wireless config without its keys (the service\'s ubus object), nl80211 and rtnetlink.',
+	needs: [ 'ubus', 'nl80211', 'rtnl' ],
 	ubus: { 'prometheus-exporter': [ 'wireless' ] },
 	options: {
 		stations: { default: true, title: 'Station metrics', help: 'Per-station metrics: signal, rates and traffic of each client. The count of stations of each interface is written either way.' },
@@ -19,6 +19,9 @@ const IFTYPES = [
 ];
 
 const NUMBER = { int: true, double: true };
+
+const NO_DEVICE = 'No such device';
+const IFF_UP = 0x1;
 
 const BITRATE_UNIT = 100000;
 const KBIT = 1000;
@@ -74,7 +77,7 @@ function channel_times(m, labels, survey, freq) {
 function metrics(out) {
 	return {
 		radio_info: out.gauge('node_wifi_radio_info', 'A Wi-Fi radio, by its mode, channel and country.'),
-		radio_up: out.gauge('node_wifi_radio_up', 'Whether netifd has the Wi-Fi radio up (1) or not (0).'),
+		radio_up: out.gauge('node_wifi_radio_up', 'Whether the Wi-Fi radio has a network up (1) or not (0).'),
 		radio_disabled: out.gauge('node_wifi_radio_disabled', 'Whether the Wi-Fi radio is disabled in the wireless config (1) or not (0).'),
 		frequency: out.gauge('node_wifi_interface_frequency_hertz', 'The current frequency a WiFi interface is operating at, in hertz.'),
 		network_info: out.gauge('node_wifi_network_info', 'A Wi-Fi network, by its SSID, BSSID and mode.'),
@@ -148,18 +151,28 @@ function station(m, radio, device, sta) {
 		m.expected_throughput(labels, info.expected_throughput * KBIT);
 }
 
-function network(nl, m, radio, iface, with_stations) {
+function up(rtnl, ifname) {
+	let res = rtnl.request(rtnl.const.RTM_GETLINK, 0, { dev: ifname });
+
+	return res.ok ? ((res.data?.flags ?? 0) & IFF_UP) != 0 : false;
+}
+
+function network(deps, m, radio, iface, with_stations, state) {
+	let nl = deps.nl80211;
 	let C = nl.const;
 	let ifname = iface.ifname;
 	let nc = iface.config ?? {};
 
 	let res = nl.request(C.NL80211_CMD_GET_INTERFACE, 0, { dev: ifname });
 	if (!res.ok)
-		return failed(res, ifname);
+		return (res.details == NO_DEVICE) ? null : failed(res, ifname);
 
 	let wif = res.data;
 	if (type(wif) != 'object')
 		return null;
+
+	if (up(deps.rtnl, ifname))
+		state.up = true;
 
 	let labels = { radio, device: ifname };
 
@@ -168,7 +181,7 @@ function network(nl, m, radio, iface, with_stations) {
 
 	m.network_info({
 		...labels,
-		ssid: nc.ssid || nc.mesh_id,
+		ssid: (type(wif.ssid) == 'string' && wif.ssid != '') ? wif.ssid : (nc.ssid || nc.mesh_id),
 		bssid: wif.mac,
 		mode: IFTYPES[wif.iftype],
 	}, 1);
@@ -192,11 +205,9 @@ function network(nl, m, radio, iface, with_stations) {
 
 	m.stations(labels, length(stations));
 
-	if (!with_stations)
-		return null;
-
-	for (let sta in stations)
-		station(m, radio, ifname, sta);
+	if (with_stations)
+		for (let sta in stations)
+			station(m, radio, ifname, sta);
 
 	return null;
 }
@@ -218,10 +229,9 @@ export function collect(deps, out, options) {
 
 	for (let radio, r in status) {
 		let rc = r?.config ?? {};
+		let state = { up: false };
 
 		m.radio_info({ radio, htmode: rc.htmode, channel: rc.channel, country: rc.country }, 1);
-		if (type(r?.up) == 'bool')
-			m.radio_up({ radio }, r.up);
 		if (type(r?.disabled) == 'bool')
 			m.radio_disabled({ radio }, r.disabled);
 
@@ -229,9 +239,11 @@ export function collect(deps, out, options) {
 			if (type(iface?.ifname) != 'string')
 				continue;
 
-			let fail = network(deps.nl80211, m, radio, iface, options.stations);
+			let fail = network(deps, m, radio, iface, options.stations, state);
 			failure ??= fail;
 		}
+
+		m.radio_up({ radio }, state.up);
 	}
 
 	return failure ?? Result.ok();

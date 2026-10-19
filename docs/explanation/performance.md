@@ -42,6 +42,8 @@ So a scrape has a deadline, the scraper's timeout less half a second, and runs t
 
 On QEMU's 500-MIPS 24Kc (`make bench-qemu`), the full scrape of the benchmark's large world, whose conntrack table holds 20,000 connections, takes 17.8 s without a deadline, nat_traffic 8.9 s of it. With Prometheus's default timeout of 10 s (`deadline:full@20000`), once the first scrape has filled the ledger, it answers in 9.0 to 9.6 s, nat_traffic and dhcp_leases left out, and the rest served: within the timeout, by little, as a collector still running at the deadline is stopped there. The first scrape after a restart, before the ledger knows how long nat_traffic takes, can still be late. See [About deadlines and circuit breakers](deadlines-and-breakers.md).
 
+Each scrape also reads the routes, every table's, to know which end of a connection is on this side of the router, and looks each address it has not seen up among their prefixes. It looked at each prefix in turn, a function call each: a router's 60 or so routes made that some 50 ms of the R3S's scrape. It now keeps a set of the prefixes of each length, and looks an address up in each, a few lookups: on the benchmark's world, whose routes are shaped as such a router's and one connection in eight comes from the internet, 1,000 connections take 10.6 ms in the devenv where they took 32.1, and 20,000 175 ms where they took 375.
+
 It is in the `-network` and `-full` groups. On such a router, leave it out, [disable it](../how-to/choose-collectors.md#disable-a-collector), or scrape it in a job of its own with a longer timeout and a `budget` to match; and watch `node_scrape_collector_duration_seconds{collector="nat_traffic"}`.
 
 ## A process per collector {#a-process-per-collector}
@@ -255,6 +257,26 @@ What that costs uhttpd, and its scrapes, in the devenv (`make bench`, main of 20
 | a scrape of the base collectors (`scrape:base`) | 12.6 ms | 12.7 ms |
 
 uhttpd holds some 0.1 MB more, and takes a fork more when it starts; a scrape takes as long, besides the modules it no longer loads. Of what a scrape spends besides its collectors, a fraction of a millisecond moved from the exporter collector's run to the scrape's own work: the scrape writes the exporter's counters itself (see [About deadlines and circuit breakers](deadlines-and-breakers.md#quarantine-applies-to-every-scrape)).
+
+## The ubus object's sources {#the-ubus-objects-sources}
+
+wifi, hostapd_stations, timesync and wireguard's `peer_names` ask the service's ubus object for what the service's user may not read itself (see [About the security model](security.md#what-the-services-user-reaches-over-ubus)). When they first did, each call cost a scrape on the access point some 15 to 20 ms, where the call it replaced cost a few, for two reasons:
+
+- **rpcd's collection.** rpcd collects a ucode plugin's garbage after every call of one of its methods, a pass over everything the plugin holds, and answers one call at a time. The object's plugin held every module of the object, which its methods for LuCI need: 0.7 MB, collected in 1.5 ms in the devenv, some 6,300 turns of the VM's loop, and so 15 to 20 ms on the AX835, paid by the next call rpcd answered, whoever made it: timesync's `rc list` after its `time_daemons`, hostapd_stations' call after wifi's. The plugin now holds the collectors' methods alone, `rpc/sources.uc`, some 0.1 MB with ucode's own, collected in 0.03 ms, and compiles the rest when one of LuCI's methods is called, some 25 ms in the devenv, letting go of it 120 s after the last.
+- **A program for each call.** `wireless` asked netifd by ubus's command line, in a process of its own so that a busy netifd would not hold rpcd: a fork, a shell and `ubus` at every scrape of wifi and of hostapd_stations, 1.3 ms of a program run in the devenv and 3.4 ms on the AX835 each. It now reads the wireless config, and the collector asks the kernel which interfaces are there and up, as it asked it for the rest; netifd is not asked, so one busy setting a radio up no longer fails the scrape (`network.wireless status: no answer`).
+
+The benchmark's `rpcd:` cases hold what the plugin holds, and time each of the three methods with rpcd's collection after it, on the typical world's configs, sysfs and procd, in the devenv:
+
+| | before | now |
+| :--- | :--- | :--- |
+| what rpcd's plugin holds (`rpcd:rest`) | 0.71 MB | 0.10 MB |
+| its collection, after each call | 1.5 ms | 0.03 ms |
+| programs run by a call of `wireless` | 1, 1.3 ms | none |
+| `wireless`, and the collection (`rpcd:wireless`) | | 0.22 ms |
+| `time_daemons`, and the collection (`rpcd:time_daemons`) | | 0.05 ms |
+| `wireguard_peers`, and the collection (`rpcd:wireguard_peers`) | | 0.04 ms |
+
+Budgets hold them in turns of the VM's loop, under 3,000, so that neither comes back: a program run is some 5,000 turns, the collection of every module 6,300.
 
 ## memory_limit's floor {#memory-floor}
 

@@ -17,7 +17,8 @@
 //
 // bench.world reads a world back as the modules deps.session() takes.
 
-import { readfile, writefile, mkdir, symlink, stat } from 'fs';
+import { readfile, writefile, mkdir, symlink, stat, lsdir, realpath } from 'fs';
+import { cursor } from 'uci';
 import * as rpc from 'prometheus.exporter.rpc';
 
 const FIXTURES = 'test/fixtures';
@@ -280,33 +281,39 @@ function routes() {
 
 // ---- wireless ------------------------------------------------------------------
 
-function wireless(p, rand, world) {
-	let iface_template = fixture_json('caju-ap/ubus/network.wireless.status.json').radio_2G.interfaces[0];
+// The radios, as the wireless config has them and sysfs their phys, the
+// AP's: phy<r>, the r-th of its device's. What the service's ubus object
+// answers is what its method makes of them.
+function wireless(p, rand, world, root) {
 	let sta_template = fixture_json('caju-ap/nl80211/NL80211_CMD_GET_STATION.phy0-ap0.json')[0];
 	let client_template = fixture_json('caju-ap/ubus/hostapd.phy0-ap0.get_clients.json');
 	let status_template = fixture_json('caju-ap/ubus/hostapd.phy0-ap0.get_status.json');
 	let survey = fixture_json('caju-ap/nl80211/NL80211_CMD_GET_SURVEY.phy0-ap0.json');
 	let first_client = client_template.clients[keys(client_template.clients)[0]];
 	let n_ifaces = p.radios * p.ifaces_per_radio;
-	let status = {};
+	let config = '';
 	let sta = 0;
 
+	mkdir_p(`${root}/sys/devices/platform/soc/18000000.wifi`);
 	for (let r = 0; r < p.radios; r++) {
 		let freq = r == 0 ? 2462 : 5745 + 20 * r;
-		let radio = { up: true, pending: false, autostart: true, disabled: false,
-			config: { type: 'mac80211', band: r == 0 ? '2g' : '5g', channel: r == 0 ? '11' : '149', country: 'BR', htmode: r == 0 ? 'HE20' : 'HE80' },
-			interfaces: [] };
+
+		config += `config wifi-device 'radio${r}'\n\toption type 'mac80211'\n\toption path 'platform/soc/18000000.wifi${r ? `+${r}` : ''}'\n` +
+			`\toption band '${r == 0 ? '2g' : '5g'}'\n\toption channel '${r == 0 ? '11' : '149'}'\n\toption country 'BR'\n` +
+			`\toption htmode '${r == 0 ? 'HE20' : 'HE80'}'\n\toption cell_density '0'\n\n`;
+		put(root, `/sys/class/ieee80211/phy${r}/index`, `${r}\n`);
+		put(root, `/sys/class/ieee80211/phy${r}/macaddr`, `${mac(0xa000 + r * 16)}\n`);
+		symlink('../../../devices/platform/soc/18000000.wifi', `${root}/sys/class/ieee80211/phy${r}/device`);
 
 		for (let i = 0; i < p.ifaces_per_radio; i++) {
 			let ifname = `phy${r}-ap${i}`;
 			let n = p.stations / n_ifaces + (r * p.ifaces_per_radio + i < p.stations % n_ifaces ? 1 : 0);
-			let iface = json(sprintf('%J', iface_template));
 			let ssid = `ssid-${i}`;
 			let stations = [], clients = {};
 
-			iface.ifname = ifname;
-			iface.config.ssid = ssid;
-			push(radio.interfaces, iface);
+			config += `config wifi-iface 'radio${r}_${i}'\n\toption device 'radio${r}'\n\toption network 'lan'\n\toption mode 'ap'\n` +
+				`\toption ssid '${ssid}'\n\toption encryption 'psk2'\n\toption key 'not-the-bench-key-${r}${i}'\n\n`;
+			world.rtnl[`RTM_GETLINK:${ifname}`] = { dev: ifname, ifname, flags: 69699, operstate: 6 };
 
 			world.nl80211[`NL80211_CMD_GET_INTERFACE:${ifname}`] = {
 				dev: ifname, ifname, iftype: 3, mac: mac(0xa000 + r * 16 + i), ssid,
@@ -341,11 +348,14 @@ function wireless(p, rand, world) {
 			world.ubus[`hostapd.${ifname}:get_status`] = { ...status_template, bssid: mac(0xa000 + r * 16 + i), ssid, freq };
 			world.ubus[`hostapd.${ifname}:get_clients`] = { freq, clients };
 		}
-
-		status[`radio${r}`] = radio;
 	}
 
-	world.ubus['prometheus-exporter:wireless'] = rpc.wireless(status);
+	put(root, '/etc/config/wireless', config);
+
+	let strip = (q) => (q != null && substr(q, 0, length(root)) == root) ? substr(q, length(root)) : q;
+
+	world.ubus['prometheus-exporter:wireless'] = rpc.wireless(cursor(`${root}/etc/config`, '/nonexistent/uci-deltas'),
+		{ lsdir: (q) => lsdir(root + q), readfile: (q) => readfile(root + q), realpath: (q) => strip(realpath(root + q)) });
 }
 
 // ---- network, DHCP -----------------------------------------------------------
@@ -752,9 +762,11 @@ function generate(dir, profile) {
 	// timesync: busybox ntpd runs, synchronized, as its last event says; no
 	// chronyd (rc knows no init script of that name).
 	world.ubus['prometheus-exporter:time_daemons'] = fixture_json('caju-ap/ubus/prometheus-exporter.time_daemons.json');
+	world.ubus['service:list:sysntpd'] = fixture_json('caju-ap/ubus/service.list.sysntpd.json');
+	world.ubus['service:list:chronyd'] = {};
 	world.ubus['rc:list'] = {};
 	put(root, '/var/run/prometheus-exporter/timesync/ntpd', fixture('synthetic/var/run/prometheus-exporter/timesync/ntpd'));
-	wireless(p, rand, world);
+	wireless(p, rand, world, root);
 
 	// Apart, so a case loads only what its collectors ask: the benchmark
 	// measures their memory, not the world's.

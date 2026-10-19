@@ -1,13 +1,16 @@
 'use strict';
 
-import { popen, stat } from 'fs';
+import { popen, stat, lsdir, readfile, realpath } from 'fs';
+import { cursor } from 'uci';
+import { connect } from 'ubus';
 import * as uloop from 'uloop';
-import * as rpc from 'prometheus.exporter.rpc';
-import { DIR } from 'prometheus.exporter.loader';
+import * as sources from 'prometheus.exporter.rpc.sources';
+import * as plugin from 'prometheus.exporter.rpc.plugin';
 
-const probe = rpc.cached_probe({ stat, popen }, DIR, rpc.PROBE_HELPER);
+const RPC = "import * as rpc from 'prometheus.exporter.rpc';\nimport { DIR } from 'prometheus.exporter.loader';\nreturn { rpc, DIR };";
 
 const watched = {};
+const probed = {};
 let next = 0;
 
 const io = {
@@ -23,4 +26,11 @@ const io = {
 	},
 };
 
-return { [rpc.OBJECT]: rpc.methods((opts) => rpc.system({ ...(opts ?? {}), probe }), io) };
+function compile() {
+	let m = loadstring(RPC, { raw_mode: true })();
+	let probe = m.rpc.cached_probe({ stat, popen }, m.DIR, m.rpc.PROBE_HELPER, probed);
+
+	return { object: m.rpc.OBJECT, methods: m.rpc.methods((opts) => m.rpc.system({ ...(opts ?? {}), probe }), io) };
+}
+
+return plugin.object(compile, sources.methods(sources.system(cursor, { lsdir, readfile, realpath }, connect)), uloop.timer, plugin.IDLE_SECONDS);

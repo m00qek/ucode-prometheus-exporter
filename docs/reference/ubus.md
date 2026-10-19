@@ -1,6 +1,8 @@
 # ubus Object
 
-The ubus object `prometheus-exporter` belongs to the base package. rpcd serves it, from the ucode plugin `/usr/share/rpcd/ucode/prometheus-exporter.uc`, over `src/prometheus/exporter/rpc.uc` and its modules `rpc/describe.uc` and `rpc/validate.uc`, whether or not the service runs. rpcd loads it when it starts or reloads; the package reloads rpcd when it is installed, upgraded or removed.
+The ubus object `prometheus-exporter` belongs to the base package. rpcd serves it, from the ucode plugin `/usr/share/rpcd/ucode/prometheus-exporter.uc`, over `src/prometheus/exporter/rpc.uc` and its modules `rpc/describe.uc`, `rpc/validate.uc`, `rpc/sources.uc` and `rpc/plugin.uc`, whether or not the service runs. rpcd loads it when it starts or reloads; the package reloads rpcd when it is installed, upgraded or removed.
+
+rpcd holds the methods [for the collectors](#for-the-collectors) all along, with `rpc/sources.uc` alone; the others it compiles, with `rpc.uc` and all it imports, when one of them is called, and lets go of 120 s after the last such call. rpcd collects a plugin's garbage after every call of its methods, a pass over all the plugin holds, and the collectors call theirs at every scrape: see [Performance on small routers](../explanation/performance.md#the-ubus-objects-sources).
 
 The object reads with the exporter's own modules, and writes nothing but the hash of basic auth's password, through `set_password`. Each call reads the committed configuration and the installed collectors afresh.
 
@@ -32,7 +34,7 @@ $ ubus -v list prometheus-exporter
 | [`hash_password`](#hash_password) | `{ password }` | `{ hash }` |
 | [`password`](#password) | none | `{ saved }` |
 | [`set_password`](#set_password) | `{ password }` | `{ saved }` |
-| [`wireless`](#for-the-collectors) | none | `{ radios: { <radio>: { up, disabled, config: { channel, country, htmode }, interfaces: [ { ifname, config: { ssid, mesh_id, encryption } } ] } } }` |
+| [`wireless`](#for-the-collectors) | none | `{ radios: { <radio>: { disabled, config: { channel, country, htmode }, interfaces: [ { ifname, config: { ssid, mesh_id, encryption } } ] } } }` |
 | [`wireguard_peers`](#for-the-collectors) | none | `{ interfaces: { <interface>: { <public key>: <description> } } }` |
 | [`time_daemons`](#for-the-collectors) | none | `{ running: { sysntpd, chronyd } }` |
 
@@ -213,18 +215,20 @@ Three methods give collectors, as root, the part they read of what the service's
 
 | Method | Asks, as root | Answers of it | For |
 | :--- | :--- | :--- | :--- |
-| `wireless` | netifd's `network.wireless status`, which holds each network's config, its `key` with it | Each radio's `up` and `disabled`, its config's `channel`, `country` and `htmode`, and each of its interfaces' `ifname` and config's `ssid`, `mesh_id` and `encryption`; `{ radios: {} }` where netifd has no `network.wireless` | wifi, hostapd_stations |
+| `wireless` | uci's `wireless` config, which holds each network's `key`, and its `network` config's interfaces; sysfs's phys | Each radio's `disabled`, its config's `channel`, `country` and `htmode`, and each of its networks' config's `ssid`, `mesh_id` and `encryption`, with the interface netifd names it (`ifname`), where netifd sets it up; `{ radios: {} }` without a wireless config | wifi, hostapd_stations |
 | `wireguard_peers` | uci's `network` config, whose peer sections hold the preshared keys and whose interfaces the private keys | The `description` of each `wireguard_<interface>` section that has one, by interface and `public_key` | wireguard, with `peer_names` |
 | `time_daemons` | procd's `service list` of `sysntpd` and of `chronyd`, which holds each instance's command line and environment | Whether an instance of each runs its daemon, `/usr/sbin/ntpd` and `/usr/sbin/chronyd` | timesync |
 
 ```
 $ ubus call prometheus-exporter wireless
-{ "radios": { "radio0": { "up": true, "disabled": false, "config": { "channel": "36", "country": "DE", "htmode": "HE80" }, "interfaces": [ { "ifname": "phy0-ap0", "config": { "ssid": "example", "encryption": "sae" } } ] } } }
+{ "radios": { "radio0": { "disabled": false, "config": { "channel": "36", "country": "DE", "htmode": "HE80" }, "interfaces": [ { "ifname": "phy0-ap0", "config": { "ssid": "example", "encryption": "sae" } } ] } } }
 ```
 
-`wireless` asks netifd with ubus's command line, `ubus -S -t 3 call network.wireless status`, in a process of its own, as `status` runs its scrape: rpcd answers other calls meanwhile, and a netifd that does not answer costs the call 3 s, never rpcd. `time_daemons` asks procd and `wireguard_peers` reads uci, in rpcd's own process.
+`wireless` and `wireguard_peers` read uci's committed configs, and `wireless` sysfs, in rpcd's own process, and ask no daemon. `wireless` names each network's interface as netifd does, by `mac80211.sh`'s rules: the network's `ifname`, else the phy's name, the radio's index on a phy of several (`phy0.1-`) or its `ifname_prefix`, the network's mode and its index among the radio's networks of that mode (`phy0-ap1`). The phy is the radio's as wifi-scripts find it: by its `path`, `+N` the Nth of the device's phys, by its `macaddr`, or by its `phy`. A network netifd does not set up has no `ifname`: one of a disabled radio, or of a radio without a phy, one whose logical interfaces are all disabled or `auto '0'`, and an MLO network. The collectors take whether each interface is there, and up, from nl80211 and rtnetlink.
 
-A source that cannot be asked is answered `{ error, message }`, as `{ "error": "UBUS_CALL_FAILED", "message": "network.wireless status: Request timed out" }`; the collector then fails with `SOURCE_INVALID`.
+`time_daemons` asks procd, over a connection of its own, without waiting on it: rpcd answers other calls meanwhile, and a procd that does not answer costs the call 3 s, never rpcd.
+
+A source that cannot be asked is answered `{ error, message }`, as `{ "error": "UBUS_CALL_FAILED", "message": "service list sysntpd: Request timed out" }`; the collector then fails with `SOURCE_INVALID`.
 
 ## Errors
 

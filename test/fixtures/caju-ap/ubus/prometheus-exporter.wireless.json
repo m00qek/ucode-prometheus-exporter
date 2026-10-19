@@ -1,7 +1,6 @@
 {
 	"radios": {
 		"radio_2G": {
-			"up": true,
 			"disabled": false,
 			"config": {
 				"channel": "11",
@@ -19,7 +18,6 @@
 			]
 		},
 		"radio_5G": {
-			"up": true,
 			"disabled": false,
 			"config": {
 				"channel": "149",

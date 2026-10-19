@@ -92,7 +92,7 @@ These collectors can have nothing to observe: they succeed without samples, and 
 | [`timesync`](#timesync) | Neither busybox ntpd nor chronyd runs, as procd's instances say (the service's ubus object's `time_daemons`): sysntpd runs ntpd only while `/etc/config/system` turns NTP on. With one running, it observes that one. | `neither ntpd nor chronyd runs` | chronyd enabled and not running, or `chronyc` failing; busybox ntpd's event file unreadable. |
 | [`ubnt-manager`](#ubnt-manager) | ubnt-manager not installed, or `ubnt-manager -l` lists no radio. | `ubnt-manager is not installed`, `ubnt-manager lists no radios` | A radio that fails or does not answer. |
 | [`unbound`](#unbound) | unbound disabled, or not installed. | `unbound is disabled`, `unbound is not installed` | unbound enabled, and its control socket not answering. |
-| [`wifi`](#wifi) | netifd has no radio: the service's ubus object's `wireless` gives none. | `no wireless radios` | Another failed call; an interface nl80211 cannot answer for. |
+| [`wifi`](#wifi) | The wireless config has no radio: the service's ubus object's `wireless` gives none. | `no wireless radios` | Another failed call; an interface that is there and nl80211 cannot answer for. One that is not there, of a network not set up, is left out. |
 | [`wireguard`](#wireguard) | rpcd has no `wireguard` object: rpcd-mod-wireguard not installed. | `rpcd has no wireguard object: rpcd-mod-wireguard is not installed` | Any other failure of `wireguard status`. |
 
 ## `bmx7` {#bmx7}
@@ -830,16 +830,16 @@ Virtual memory statistics, from /proc/vmstat.
 
 ## `wifi` {#wifi}
 
-Wi-Fi radios, networks and stations, from netifd's wireless status without its keys (the service's ubus object) and nl80211.
+Wi-Fi radios, networks and stations, from the wireless config without its keys (the service's ubus object), nl80211 and rtnetlink.
 
 - **Title:** Wi-Fi
 - **Package:** `ucode-prometheus-exporter-wifi`
 - **In the groups:** `ucode-prometheus-exporter-wireless`, `ucode-prometheus-exporter-full`
 - **Depends on:** `ucode-mod-nl80211`
 - **Section:** `config collector 'wifi'`
-- **Needs:** `ubus`, `nl80211`
+- **Needs:** `ubus`, `nl80211`, `rtnl`
 - **Calls over ubus:** `prometheus-exporter wireless`
-- **Nothing to observe:** netifd has no radio: the service's ubus object's `wireless` gives none. See [Nothing to observe](#nothing-to-observe).
+- **Nothing to observe:** The wireless config has no radio: the service's ubus object's `wireless` gives none. See [Nothing to observe](#nothing-to-observe).
 - **Metrics:** [wifi](metrics.md#wifi)
 
 | Option | Title | Type | Default | Datatype | Description |

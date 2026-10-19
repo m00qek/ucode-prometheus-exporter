@@ -862,7 +862,7 @@ Wi-Fi. [Collector](collectors.md#wifi).
 | Family | Type | Labels | Help | Notes |
 | :--- | :--- | :--- | :--- | :--- |
 | `node_wifi_radio_info` | gauge | `radio`, `htmode`, `channel`, `country` | A Wi-Fi radio, by its mode, channel and country. | — |
-| `node_wifi_radio_up` | gauge | `radio` | Whether netifd has the Wi-Fi radio up (1) or not (0). | — |
+| `node_wifi_radio_up` | gauge | `radio` | Whether the Wi-Fi radio has a network up (1) or not (0). | — |
 | `node_wifi_radio_disabled` | gauge | `radio` | Whether the Wi-Fi radio is disabled in the wireless config (1) or not (0). | — |
 | `node_wifi_interface_frequency_hertz` | gauge | `radio`, `device` | The current frequency a WiFi interface is operating at, in hertz. | — |
 | `node_wifi_network_info` | gauge | `radio`, `device`, `ssid`, `bssid`, `mode` | A Wi-Fi network, by its SSID, BSSID and mode. | — |

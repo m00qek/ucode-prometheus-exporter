@@ -39,6 +39,8 @@
 //   noop:<n>                      a scrape of n collectors that write nothing: noop:1 and noop:41
 //                                 give what a scrape costs for each collector besides it
 //   record:<shape>                the recorder's cost per sample, for each shape of sample
+//   rpcd:rest, rpcd:<method>      what rpcd's plugin holds of the ubus object, and a call of each of
+//                                 the sources' methods with the collection rpcd makes after it (rpcd.uc)
 
 import * as fs from 'fs';
 import * as budgets from 'bench.budgets';
@@ -108,6 +110,8 @@ push(cases, [ 'typical', 'rest:base' ], [ 'typical', 'rest:full' ]);
 for (let l in [ 'parse', 'zlib', 'ubus', 'rtnl', 'nl80211' ])
 	push(cases, [ 'typical', `lazy:${l}` ]);
 push(cases, [ 'typical', 'progress:full' ]);
+for (let m in [ 'rest', 'wireless', 'wireguard_peers', 'time_daemons' ])
+	push(cases, [ 'typical', `rpcd:${m}` ]);
 // Basic auth's check of a password: MD5-crypt, SHA-512-crypt at the rounds
 // hash_password makes, SHA-crypt at the most auth_password takes, and a
 // request let in by the cache.
@@ -143,7 +147,8 @@ function host() {
 }
 
 function run_once(world, name) {
-	let cmd = sprintf("ucode %s '%s/run.uc' '%s/%s' '%s' 2>&1", search, here, args.worlds, world, name);
+	let script = (substr(name, 0, 5) == 'rpcd:') ? 'rpcd.uc' : 'run.uc';
+	let cmd = sprintf("ucode %s '%s/%s' '%s/%s' '%s' 2>&1", search, here, script, args.worlds, world, name);
 	let p = fs.popen(cmd, 'r');
 	let out = p.read('all');
 	let status = p.close();
@@ -241,6 +246,8 @@ for (let c in cases) {
 		note = sprintf('%.3f us a sample', r.time.median / r.samples * 1000000);
 	if (r.kind == 'floor' && r.floor_mb != null)
 		note = sprintf('%d collectors, memory_limit %d MB, by %s (tried %s)', r.collectors, r.floor_mb, r.via, join(' ', r.tried));
+	if (r.kind == 'rpcd' && r.ok !== false)
+		note = sprintf('holds %d kB, collected in %.3f ms', r.held_kb, r.gc_ms);
 	if (r.kind == 'lazy' && r.ok !== false)
 		note = r.loaded ? '' : 'not installed';
 	if (r.kind == 'rest' && r.held_kb != null)

@@ -46,6 +46,13 @@
 export const RUN_DIR = '/var/run/prometheus-exporter';
 
 /**
+ * Where uci keeps no staged change, under RUN_DIR: a cursor of it reads the committed configs alone.
+ *
+ * @type {string}
+ */
+export const NO_UCI_DELTAS = `${RUN_DIR}/no-uci-deltas`;
+
+/**
  * The state's directory, under RUN_DIR.
  *
  * @type {string}

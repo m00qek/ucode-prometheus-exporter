@@ -9,6 +9,12 @@
 # Captured by hand, MAC addresses redacted as in the sysfs captures:
 #   rtnl/RTM_GETLINK.json  ucode -e 'import {request,"const" as c} from "rtnl"; let r = request(c.RTM_GETLINK, c.NLM_F_DUMP, {});
 #                          for (let l in r) { delete l.af_spec; delete l.stats; } printf("%.2J\n", r);'
+#   rtnl/RTM_GETLINK.<dev>.json (caju-ap): each Wi-Fi link of RTM_GETLINK.json, as a request
+#                          of that device alone answers it.
+#   uci/wireless.json (caju-ap) is not a capture: the config of each radio and network of
+#                          ubus/network.wireless.status.json, as uci has it, without the key.
+#   sys/class/ieee80211/phy*/index and links.json's phy*/device (caju-ap): its two phys,
+#                          both of the MT7981's 18000000.wifi, as the hwmon links have them.
 #   rtnl/RTM_GETROUTE.json (caju-router) is not a capture: the routes of its
 #                          network.interface dump as rtnl's dump of every table gives them,
 #                          in the addresses of its nf_conntrack capture (main 10.193.13.0/24,
@@ -78,7 +84,8 @@ uci network
 # The service's own object's replies, written from the captures above and below
 # with prometheus.exporter.rpc.sources, as its methods make them (the tests hold
 # them to it): ubus/prometheus-exporter.wireless.json (caju-ap) of
-# network.wireless status, prometheus-exporter.time_daemons.json (caju-ap,
+# uci/wireless.json and the phys of sys/class/ieee80211, which name its
+# interfaces as network.wireless status has them, prometheus-exporter.time_daemons.json (caju-ap,
 # seriguela-router) of service list, prometheus-exporter.wireguard_peers.json
 # (caju-router) of uci.get.json.
 ubus prometheus-exporter wireless

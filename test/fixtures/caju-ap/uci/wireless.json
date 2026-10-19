@@ -1,0 +1,46 @@
+{
+	"radio_2G": {
+		".type": "wifi-device",
+		"type": "mac80211",
+		"band": "2g",
+		"cell_density": "0",
+		"channel": "11",
+		"country": "BR",
+		"htmode": "HE20",
+		"path": "platform/soc/18000000.wifi"
+	},
+	"radio_5G": {
+		".type": "wifi-device",
+		"type": "mac80211",
+		"band": "5g",
+		"cell_density": "0",
+		"channel": "149",
+		"country": "BR",
+		"htmode": "HE80",
+		"path": "platform/soc/18000000.wifi+1"
+	},
+	"WiFi_Guest_5G": {
+		".type": "wifi-iface",
+		"network": "guest",
+		"device": "radio_5G",
+		"mode": "ap",
+		"encryption": "psk2",
+		"ssid": "guest"
+	},
+	"WiFi_IoT_2G": {
+		".type": "wifi-iface",
+		"network": "iot",
+		"device": "radio_2G",
+		"mode": "ap",
+		"encryption": "psk2",
+		"ssid": "iot"
+	},
+	"WiFi_Main_5G": {
+		".type": "wifi-iface",
+		"network": "main",
+		"device": "radio_5G",
+		"mode": "ap",
+		"encryption": "psk2",
+		"ssid": "home"
+	}
+}

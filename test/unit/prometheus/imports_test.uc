@@ -74,6 +74,14 @@ describe('what the programs load', () => {
 			(m) => m in loaded));
 	});
 
+	// rpcd collects the plugin's garbage after every call, a pass over all it
+	// holds: what the collectors call at each scrape is all it keeps, and the
+	// rest of the ubus object it compiles when it is called (rpc.plugin).
+	it('keeps in rpcd\'s plugin the collectors\' sources alone', () => {
+		assert.match([ 'fs', 'prometheus.exporter.errors', 'prometheus.exporter.rpc.plugin', 'prometheus.exporter.rpc.sources',
+			'prometheus.exporter.state', 'ubus', 'uci', 'uloop' ], loaded_by('files/usr/share/rpcd/ucode/prometheus-exporter.uc'));
+	});
+
 	// Nor what only some scrapes, or some routers, need: basic auth and the
 	// hashes it computes (when the config sets it), the exposition parser
 	// (two collectors), and the native modules collectors need, which each
@@ -163,12 +171,23 @@ function facades() {
 		stat(`src/prometheus/exporter/${d}`)?.type == 'directory' && stat(`src/prometheus/exporter/${d}.uc`)?.type == 'file');
 }
 
+// rpcd's plugin holds rpc/'s sources and plugin modules, not its facade:
+// rpcd collects a plugin's garbage after every call, a pass over all the
+// plugin holds, and the facade's would make the collectors' calls of each
+// scrape wait for some 20 ms of it on an A53 (performance.md). The plugin
+// compiles the facade when one of its methods is called. The benchmark's
+// rpcd: cases hold what the plugin holds.
+const PAST_THE_FACADE = {
+	'files/usr/share/rpcd/ucode/prometheus-exporter.uc': [ 'prometheus.exporter.rpc.sources', 'prometheus.exporter.rpc.plugin' ],
+	'test/bench/rpcd.uc': [ 'prometheus.exporter.rpc.sources', 'prometheus.exporter.rpc.plugin' ],
+};
+
 // What is wrong of `importer` importing module `name`, or null when nothing
 // is: an internal module of one of `fronted`'s directories, from outside.
 function boundary_problem(importer, name, fronted) {
 	let m = match(name, INTERNAL);
 
-	if (!m || !(m[1] in fronted))
+	if (!m || !(m[1] in fronted) || (name in (PAST_THE_FACADE[importer] ?? [])))
 		return null;
 	if (importer == `src/prometheus/exporter/${m[1]}.uc` || index(importer, `src/prometheus/exporter/${m[1]}/`) == 0 ||
 	    importer == `test/unit/prometheus/exporter/${m[1]}/${m[2]}_test.uc`)
@@ -212,6 +231,18 @@ describe('modules split into a directory', () => {
 			boundary_problem('src/prometheus/exporter/app.uc', 'prometheus.exporter.deps', fronted),
 			boundary_problem('devenv/scripts/e2e.sh', 'prometheus.collectors.diskstats', fronted),
 			boundary_problem('src/prometheus/exporter/app.uc', 'prometheus.exporter.rpc.validate', fronted),
+		]);
+	});
+
+	it('lets rpcd\'s plugin take rpc/\'s sources and plugin modules, and nothing else of rpc/ nor of any other', () => {
+		let plugin = 'files/usr/share/rpcd/ucode/prometheus-exporter.uc';
+
+		assert.match([ null, null, true, true, true ], [
+			boundary_problem(plugin, 'prometheus.exporter.rpc.sources', [ 'rpc' ]),
+			boundary_problem(plugin, 'prometheus.exporter.rpc.plugin', [ 'rpc' ]),
+			boundary_problem(plugin, 'prometheus.exporter.rpc.validate', [ 'rpc' ]) != null,
+			boundary_problem(plugin, 'prometheus.exporter.deps.exec', [ 'deps' ]) != null,
+			boundary_problem('src/prometheus/exporter/app.uc', 'prometheus.exporter.rpc.sources', [ 'rpc' ]) != null,
 		]);
 	});
 

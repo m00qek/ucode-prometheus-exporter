@@ -341,8 +341,8 @@ tests:
             exp_annotations:
               summary: Wi-Fi radio radio1 of ap:9100 is down.
               description: >-
-                Radio radio1 of ap:9100 is enabled and has not been up for 10 minutes:
-                its driver failed, or it waits for a DFS channel check.
+                Radio radio1 of ap:9100 is enabled and has had no network up for 10 minutes:
+                its driver or hostapd failed, or none of its networks is enabled.
                 `wifi status` on the router says which.
       - eval_time: 20m
         alertname: OpenWrtClockNotSynchronized

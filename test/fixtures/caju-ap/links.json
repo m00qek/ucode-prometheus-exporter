@@ -1,5 +1,7 @@
 {
 	"/sys/class/hwmon/hwmon0/device": "/sys/devices/virtual/thermal/thermal_zone0",
 	"/sys/class/hwmon/hwmon1/device": "/sys/devices/platform/soc/18000000.wifi/ieee80211/phy0",
-	"/sys/class/hwmon/hwmon2/device": "/sys/devices/platform/soc/18000000.wifi/ieee80211/phy1"
+	"/sys/class/hwmon/hwmon2/device": "/sys/devices/platform/soc/18000000.wifi/ieee80211/phy1",
+	"/sys/class/ieee80211/phy0/device": "/sys/devices/platform/soc/18000000.wifi",
+	"/sys/class/ieee80211/phy1/device": "/sys/devices/platform/soc/18000000.wifi"
 }

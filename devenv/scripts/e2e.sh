@@ -392,6 +392,7 @@ check "rpcd's file object is not there for it either, to read /etc/shadow with" 
 check "nor netifd's wireless status, which has every network's key" says 'Not found' as_user call network.wireless status
 check "nor procd's service list, which has every service's command line" says 'Not found' as_user call service list
 check "it asks the service's object for the radios, without their keys" says '"radios"' as_user call $NAME wireless
+check "and whether ntpd and chronyd run, which the object asks procd of without waiting on it" says '"sysntpd"' as_user call $NAME time_daemons
 check "and may call none of its methods for LuCI" says 'Permission denied' as_user call $NAME status
 
 # Fail closed: what the service granted taken away under it, the collectors

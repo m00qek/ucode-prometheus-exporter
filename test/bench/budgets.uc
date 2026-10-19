@@ -59,12 +59,29 @@ const TIME = [
 ];
 
 // [ world/case, turns, what ]: a case's time in turns of an empty loop of
-// the VM (calibrate:vm), which holds on any machine.
+// the VM (calibrate:vm), which holds on any machine. A program run is some
+// 5,000 turns in the devenv (1.3 ms of 0.24 us) and 1,100 on a Cortex-A53, a
+// collection of all the ubus object's modules 6,300 in the devenv: so the
+// sources' methods, as rpcd holds and calls them, are held under either, and
+// the collectors that call them where they are small.
 const TURNS = [
+	// Measured 900 turns (0.22 ms); its source asked by ubus's command line in a
+	// process of its own, and rpcd's collection of all the object's modules, 16,000.
+	[ 'typical/rpcd:wireless', 3000, 'the ubus object\'s wireless, and rpcd\'s collection after it' ],
+	// Measured 220 and 140 turns; with all the object's modules held, 6,300 more.
+	[ 'typical/rpcd:time_daemons', 3000, 'the ubus object\'s time_daemons, and rpcd\'s collection after it' ],
+	[ 'typical/rpcd:wireguard_peers', 3000, 'the ubus object\'s wireguard_peers, and rpcd\'s collection after it' ],
+	// Measured 2,100 turns (0.5 ms).
+	[ 'large/collector:timesync', 4500, 'timesync, without a program of its own' ],
 	// Measured 44,000 turns (10.6 ms); 133,000 checking each address against
 	// each route, a function call each.
 	[ 'large/collector:nat_traffic@1000', 80000, 'nat_traffic on 1,000 entries and a router\'s 63 routes' ],
 ];
+
+// The most rpcd's plugin may hold of the ubus object, in kB (rpcd:rest),
+// the bench's script with it: rpcd collects it all after every call.
+// Measured 97 kB; with all the object's modules, as before, 800.
+const RPCD_HELD_KB = 200;
 
 // How much of the full check of hash_password's hash (SHA-512-crypt of 1000
 // rounds) a request the cache lets in may take: measured about 2% (0.09 ms of
@@ -288,6 +305,9 @@ export function check(results, absolute) {
 	for (let b in TURNS)
 		if (vm?.loop_us > 0 && r[b[0]]?.time && r[b[0]].time.median * 1000000 / vm.loop_us > b[1])
 			push(over, sprintf('%s (%s): %.0f loop turns, over %d', b[0], b[2], r[b[0]].time.median * 1000000 / vm.loop_us, b[1]));
+
+	if (r['typical/rpcd:rest']?.held_kb > RPCD_HELD_KB)
+		push(over, sprintf('typical/rpcd:rest: rpcd\'s plugin holds %d kB, over %d kB', r['typical/rpcd:rest'].held_kb, RPCD_HELD_KB));
 
 	for (let b in MEMORY)
 		if (r[b[0]]?.growth_kb > b[1])

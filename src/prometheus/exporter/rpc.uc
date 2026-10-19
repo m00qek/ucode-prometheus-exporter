@@ -441,10 +441,11 @@ export function shared_json(run, req, io, command, name) {
  * @param {module:fs} fs what looks and runs: an object of fs's stat and popen.
  * @param {string} dir the collectors' directory.
  * @param {string} helper the probe's program (PROBE_HELPER).
+ * @param {?Object} known what it probed, by collector, kept where the probe is not: a new object when null.
  * @returns {function(string[]): Object<string, ProbeOutcome>} the probe, as loader.load takes it.
  */
-export function cached_probe(fs, dir, helper) {
-	let known = {};
+export function cached_probe(fs, dir, helper, known) {
+	known ??= {};
 
 	return function(ids) {
 		let out = {};
@@ -487,16 +488,8 @@ export function cached_probe(fs, dir, helper) {
 	};
 };
 
-function with_ubus(make_sys, fn) {
-	let sys = make_sys({ collectors: false });
-	let out = fn(sys.ubus);
-
-	sys.ubus.close();
-	return out;
-}
-
 /**
- * The methods rpcd serves.
+ * The methods rpcd serves besides the sources' (sources.methods()), which it holds apart.
  *
  * @param {function(?{ collectors: ?boolean }): RpcSys} make_sys a fresh sys.
  * @param {RpcIo} io how deferred_json runs a command.
@@ -527,18 +520,6 @@ export function methods(make_sys, io) {
 				sys.ubus.close();
 				return out;
 			},
-		},
-		wireless: {
-			args: {},
-			call: (req) => deferred_json(req, io, sources.WIRELESS_COMMAND, 'ubus call network.wireless status', sources.wireless_reply),
-		},
-		wireguard_peers: {
-			args: {},
-			call: () => sources.wireguard_peers(make_sys({ collectors: false }).uci),
-		},
-		time_daemons: {
-			args: {},
-			call: () => with_ubus(make_sys, sources.time_daemons_of),
 		},
 		hash_password: {
 			args: { password: '' },

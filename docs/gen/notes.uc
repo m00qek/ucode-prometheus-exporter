@@ -15,8 +15,8 @@
 // Result.none, or one whose code has it and is not here.
 export const nothing_to_observe = {
 	'wifi': {
-		when: 'netifd has no radio: the service\'s ubus object\'s `wireless` gives none.',
-		failure: 'Another failed call; an interface nl80211 cannot answer for.',
+		when: 'The wireless config has no radio: the service\'s ubus object\'s `wireless` gives none.',
+		failure: 'Another failed call; an interface that is there and nl80211 cannot answer for. One that is not there, of a network not set up, is left out.',
 	},
 	'hostapd_stations': {
 		when: 'As wifi, or no `hostapd.<ifname>` object for any interface.',

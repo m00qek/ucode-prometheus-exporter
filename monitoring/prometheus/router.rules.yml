@@ -173,8 +173,8 @@ groups:
         annotations:
           summary: Wi-Fi radio {{ $labels.radio }} of {{ $labels.instance }} is down.
           description: >-
-            Radio {{ $labels.radio }} of {{ $labels.instance }} is enabled and has not been up for 10 minutes:
-            its driver failed, or it waits for a DFS channel check.
+            Radio {{ $labels.radio }} of {{ $labels.instance }} is enabled and has had no network up for 10 minutes:
+            its driver or hostapd failed, or none of its networks is enabled.
             `wifi status` on the router says which.
 
       # timesync: the NTP daemon has not synchronized the clock for 30

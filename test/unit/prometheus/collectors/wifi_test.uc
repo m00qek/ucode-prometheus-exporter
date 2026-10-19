@@ -4,7 +4,6 @@ import { describe, it, prop, gen, assert, contains } from 'utest';
 import { with_collector, outcome } from 'prometheus.exporter.devkit.collector';
 import * as fixtures from 'lib.fixtures';
 import * as wifi from 'prometheus.collectors.wifi';
-import * as rpc from 'prometheus.exporter.rpc';
 import { format_value } from 'prometheus.exporter.exposition';
 
 // caju-ap: radio_2G serves phy0-ap0 (one station), radio_5G phy1-ap0 (none,
@@ -12,23 +11,29 @@ import { format_value } from 'prometheus.exporter.exposition';
 const IFACES = [ 'phy0-ap0', 'phy1-ap0', 'phy1-ap1' ];
 const CMDS = [ 'NL80211_CMD_GET_INTERFACE', 'NL80211_CMD_GET_STATION', 'NL80211_CMD_GET_SURVEY' ];
 
-// What the service's ubus object answers on the AP: netifd's wireless status
-// without its keys.
+// What the service's ubus object answers on the AP: its wireless config
+// without its keys, each network's interface as netifd names it.
 const WIRELESS = fixtures.ubus('caju-ap', 'prometheus-exporter', 'wireless');
 
-// The object's reply of netifd's `status`, as its method makes it.
-function wireless(status) {
-	return { 'prometheus-exporter:wireless': rpc.wireless(status) };
+// The object's reply of these radios.
+function wireless(radios) {
+	return { 'prometheus-exporter:wireless': { radios } };
 }
 const AP = {};
 for (let cmd in CMDS)
 	for (let dev in IFACES)
 		AP[`${cmd}:${dev}`] = json(fixtures.file('caju-ap', `/nl80211/${cmd}.${dev}.json`));
 
+// Each interface's link, all of them up.
+const LINKS = {};
+for (let dev in IFACES)
+	LINKS[`RTM_GETLINK:${dev}`] = json(fixtures.file('caju-ap', `/rtnl/RTM_GETLINK.${dev}.json`));
+
 function ap(overrides) {
 	return {
 		ubus: { data: { 'prometheus-exporter:wireless': WIRELESS } },
 		nl80211: { data: { ...AP, ...(overrides?.data ?? {}) }, errors: overrides?.errors ?? {} },
+		rtnl: { data: { ...LINKS, ...(overrides?.links ?? {}) } },
 		options: overrides?.options,
 	};
 }
@@ -38,7 +43,7 @@ const NETWORKS = [
 	'# TYPE node_wifi_radio_info gauge',
 	'node_wifi_radio_info{radio="radio_2G",htmode="HE20",channel="11",country="BR"} 1',
 	'node_wifi_radio_info{radio="radio_5G",htmode="HE80",channel="149",country="BR"} 1',
-	'# HELP node_wifi_radio_up Whether netifd has the Wi-Fi radio up (1) or not (0).',
+	'# HELP node_wifi_radio_up Whether the Wi-Fi radio has a network up (1) or not (0).',
 	'# TYPE node_wifi_radio_up gauge',
 	'node_wifi_radio_up{radio="radio_2G"} 1',
 	'node_wifi_radio_up{radio="radio_5G"} 1',
@@ -217,8 +222,9 @@ function one_network(signals, bitrates) {
 
 	return {
 		ubus: { data: wireless({
-			radio0: { config: { channel: '36' }, interfaces: [ { ifname: 'wlan0', config: { ssid: 'lab' } } ] },
+			radio0: { disabled: false, config: { channel: '36' }, interfaces: [ { ifname: 'wlan0', config: { ssid: 'lab' } } ] },
 		}) },
+		rtnl: { data: { 'RTM_GETLINK:wlan0': { dev: 'wlan0', flags: 69699 } } },
 		nl80211: { data: {
 			'NL80211_CMD_GET_INTERFACE:wlan0': { mac: '02:00:00:00:b0:00', iftype: 3, wiphy_freq: 5180 },
 			'NL80211_CMD_GET_STATION:wlan0': length(dump) ? dump : null,
@@ -269,14 +275,14 @@ describe('collectors.wifi', () => {
 		assert.match({ 'prometheus-exporter': [ 'wireless' ] }, wifi.meta.ubus);
 	});
 
-	it('has nothing to observe where netifd has no radio, or no network.wireless', () => {
+	it('has nothing to observe where the wireless config has no radio', () => {
 		with_collector(wifi, { ubus: { data: wireless({}) } }, (r) => {
 			assert.match({ ok: true, none: 'no wireless radios', error: null, lines: [], logs: [] }, outcome(r));
 		});
 	});
 
 	it('still observes a radio without interfaces, and says it is down, or disabled', () => {
-		with_collector(wifi, { ubus: { data: wireless({ radio0: { up: false, disabled: true, config: { channel: '1' }, interfaces: [] } }) } }, (r) => {
+		with_collector(wifi, { ubus: { data: wireless({ radio0: { disabled: true, config: { channel: '1' }, interfaces: [] } }) } }, (r) => {
 			assert.match([ true, null ], [ r.result.ok, r.result.none ]);
 			assert.match(contains([
 				'node_wifi_radio_info{radio="radio0",channel="1"} 1',
@@ -286,18 +292,37 @@ describe('collectors.wifi', () => {
 		});
 	});
 
-	it('writes neither up nor disabled of a radio whose status does not say', () => {
+	it('writes no disabled of a radio whose config the object does not say, and it down', () => {
 		with_collector(wifi, { ubus: { data: wireless({ radio0: { config: {}, interfaces: [] } }) } }, (r) => {
 			assert.match(true, r.result.ok);
-			assert.match([], filter(r.lines, (l) => match(l, /^node_wifi_radio_(up|disabled)\{/)));
+			assert.match([ 'node_wifi_radio_up{radio="radio0"} 0' ], filter(r.lines, (l) => match(l, /^node_wifi_radio_(up|disabled)\{/)));
 		});
 	});
 
-	it('fails with SOURCE_INVALID when the object says it could not ask netifd', () => {
-		let c = { ubus: { data: { 'prometheus-exporter:wireless': { error: 'UBUS_CALL_FAILED', message: 'UBUS_CALL_FAILED (network.wireless status: Request timed out)' } } } };
+	// netifd has a radio up once it has set it up; here, once a network of it
+	// is: its interface there, and up. On the AP's captures, which netifd had
+	// up, the same.
+	it('has a radio up while an interface of it is up, and down while none is, or none is there', () => {
+		let lines = (cfg) => {
+			let got = null;
+
+			with_collector(wifi, cfg, (r) => { got = [ r.result.ok, filter(r.lines, (l) => index(l, 'node_wifi_radio_up{') == 0) ]; });
+			return got;
+		};
+		let up = (v2, v5) => [ true, [ `node_wifi_radio_up{radio="radio_2G"} ${v2}`, `node_wifi_radio_up{radio="radio_5G"} ${v5}` ] ];
+
+		assert.match(up(1, 1), lines(ap()));
+		assert.match(up(0, 1), lines(ap({ links: { 'RTM_GETLINK:phy0-ap0': { dev: 'phy0-ap0', flags: 4098 } } })));
+		assert.match(up(1, 1), lines(ap({ links: { 'RTM_GETLINK:phy1-ap0': { dev: 'phy1-ap0', flags: 4098 } } })));
+		assert.match(up(1, 0), lines(ap({ links: { 'RTM_GETLINK:phy1-ap0': { dev: 'phy1-ap0', flags: 4098 }, 'RTM_GETLINK:phy1-ap1': { dev: 'phy1-ap1', flags: 0 } } })));
+		assert.match(up(0, 1), lines(ap({ errors: { 'NL80211_CMD_GET_INTERFACE:phy0-ap0': 'No such device' } })));
+	});
+
+	it('fails with SOURCE_INVALID when the object answers no radios', () => {
+		let c = { ubus: { data: { 'prometheus-exporter:wireless': { error: 'UBUS_CALL_FAILED', message: 'UBUS_CALL_FAILED (wireless: not readable)' } } } };
 
 		with_collector(wifi, c, (r) => {
-			assert.match({ ok: false, error: 'SOURCE_INVALID', details: 'prometheus-exporter wireless: UBUS_CALL_FAILED (network.wireless status: Request timed out)' },
+			assert.match({ ok: false, error: 'SOURCE_INVALID', details: 'prometheus-exporter wireless: UBUS_CALL_FAILED (wireless: not readable)' },
 				{ ok: r.result.ok, error: r.result.error, details: r.result.details });
 			assert.match([], r.lines);
 		});
@@ -337,21 +362,48 @@ describe('collectors.wifi', () => {
 
 	it('says why nl80211 refused a request', () => {
 		let cfg = ap();
-		cfg.nl80211.behavior = refused('No such device');
+		cfg.nl80211.behavior = refused('Operation not permitted');
 
 		with_collector(wifi, cfg, (r) => {
-			assert.match({ ok: false, error: 'NL80211_FAILED', details: 'phy0-ap0: No such device' },
+			assert.match({ ok: false, error: 'NL80211_FAILED', details: 'phy0-ap0: Operation not permitted' },
 				{ ok: r.result.ok, error: r.result.error, details: r.result.details });
 		});
 	});
 
-	it('leaves out a network nl80211 does not know', () => {
+	// A network whose interface is not there is not set up: its radio
+	// disabled, its phy gone, or its network down. netifd's status has no
+	// interface for it either.
+	it('leaves out a network whose interface is not there, and succeeds', () => {
 		with_collector(wifi, ap({ errors: { 'NL80211_CMD_GET_INTERFACE:phy0-ap0': 'No such device' } }), (r) => {
-			assert.match({ error: 'NL80211_FAILED', details: 'phy0-ap0: No such device' },
-				{ error: r.result.error, details: r.result.details });
+			assert.match(true, r.result.ok);
 			assert.match([], filter(r.lines, (l) => index(l, 'phy0-ap0') >= 0));
 			assert.match(contains([ 'node_wifi_stations{radio="radio_5G",device="phy1-ap1"} 4' ]), r.lines);
 		});
+	});
+
+	// The object names a network's interface from the config; while netifd
+	// has left a network out (its logical interface taken down), the next of
+	// its mode has that name. The SSID is the one the interface serves.
+	it('labels a network with the SSID nl80211 says its interface serves, else the config\'s SSID or mesh ID', () => {
+		let info = (wif, config) => {
+			let cfg = one_network([], []);
+			let got = null;
+
+			cfg.nl80211.data['NL80211_CMD_GET_INTERFACE:wlan0'] = { mac: '02:00:00:00:b0:00', iftype: 3, wiphy_freq: 5180, ...wif };
+			cfg.ubus.data['prometheus-exporter:wireless'].radios.radio0.interfaces[0].config = config;
+			with_collector(wifi, cfg, (r) => { got = filter(r.lines, (l) => index(l, 'node_wifi_network_info{') == 0); });
+			return map(got, (l) => match(l, /ssid="([^"]*)"/)?.[1]);
+		};
+
+		assert.match([ [ 'guest' ], [ 'lab' ], [ 'mesh' ] ], [
+			info({ ssid: 'guest' }, { ssid: 'lab' }),
+			info({}, { ssid: 'lab' }),
+			info({ iftype: 7 }, { mesh_id: 'mesh' }),
+		]);
+	});
+
+	it('takes the radio and its networks from the object, never netifd, and their state from nl80211 and rtnetlink', () => {
+		assert.match([ 'ubus', 'nl80211', 'rtnl' ], wifi.meta.needs);
 	});
 
 	it('writes NaN noise, and succeeds, without a channel survey', () => {
