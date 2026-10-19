@@ -1290,7 +1290,8 @@ check "and the grants" test "$(owned /etc/config/dhcp)" = "-rw-r----- root $NAME
 apk del $(apk info 2>/dev/null | grep "^$PKG") >/dev/null 2>&1
 grants_now "removed"
 check "removing its packages leaves the service's user nothing granted" revoked
-check "and no instance running" fails sh -c "ubus call service list '{\"name\":\"$NAME\"}' | grep -q instance1"
+# procd stops an instance after the stop returns: it is gone once procd has.
+eventually "and no instance running" sh -c "! ubus call service list '{\"name\":\"$NAME\"}' | grep -q instance1"
 check "nor an ACL" test ! -e "$ACL"
 
 if [ "$failures" -gt 0 ]; then
