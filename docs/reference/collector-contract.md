@@ -47,6 +47,7 @@ Each module refused is named with what to use instead: the capability, for a mod
 | :--- | :--- |
 | Files and directories | Procfs, sysfs, and what `meta.configs` and `meta.paths` declare. The jail has nothing else a collector would read: see [The jail](jail.md). |
 | Unix sockets | Those in a directory of `meta.paths`. |
+| TCP ports | The device's own, through `deps.socket.tcp_request`: the jail shares the host's network, so they need no declaration. |
 | Programs | Those of `meta.commands`. |
 | ubus, uci, netlink | Through `deps.ubus` (the calls of `meta.ubus`), `deps.uci` (the configs of `meta.configs`), `deps.rtnl`, `deps.nl80211`. |
 | Privileges | As the service's user: the capabilities of `meta.capabilities`, the groups of `meta.groups`, the root-only files of `/proc` of `meta.proc_files`. See [The jail](jail.md#the-services-user). |
@@ -65,6 +66,7 @@ The devkit's `with_collector` (`prometheus.exporter.devkit.collector`, see [The 
 | `glob` | What the pattern matches of the mounts only |
 | `open` to write, of any path | `null`: the mounts are read-only |
 | `deps.socket.unix_request` | `SOCKET_FAILED`, `connect(): No such file or directory` |
+| `deps.socket.tcp_request` | What the mock answers: the jail has the host's network, and the capability itself refuses an address that is not the device's |
 | `deps.exec.run` of a program not in `meta.commands` | `COMMAND_NOT_ALLOWED`, as everywhere |
 | `deps.ubus.call` of a method `meta.ubus` does not list | `UBUS_NOT_ALLOWED`, as everywhere, as the service's ubus ACL would refuse it |
 

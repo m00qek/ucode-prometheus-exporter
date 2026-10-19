@@ -31,7 +31,7 @@ A failure carries an uppercase code, from `src/prometheus/exporter/errors.uc`, a
 | `UBUS_CALL_FAILED` | A ubus call failed. The detail is `<object> <method>: <status>`, as `Not found`. | `deps/ubus.uc`, `rpc/sources.uc`, `services.uc`; the collector `filesystem` |
 | `NL80211_FAILED` | An nl80211 request failed. The detail is the device and the kernel's error. | `deps/netlink.uc` |
 | `RTNL_FAILED` | An rtnetlink request failed. The detail is the kernel's error. | `deps/netlink.uc` |
-| `SOCKET_FAILED` | A Unix socket is missing, refused the connection, or sent no more of its reply in time. The detail names the socket. | `deps/socket.uc` |
+| `SOCKET_FAILED` | A Unix socket is missing, a socket refused the connection or sent no more of its reply in time, or a TCP address is not one of the device's own. The detail names the socket, or the address and port. | `deps/socket.uc` |
 | `COMMAND_NOT_ALLOWED` | The collector ran a program its `meta.commands` does not list. | `conform.uc`, `deps/exec.uc` |
 | `COMMAND_FAILED` | A program could not start or exited with a status other than 0. The detail is `<program>: exit status <n>` or `<program>: cannot start`. | `deps/exec.uc` |
 | `COMMAND_TIMEOUT` | A program was still running when the collector's seconds for programs were spent, and was killed with every process it started; or the collector asked to run one after they were spent. | `deps/exec.uc`, `ledger.uc` |

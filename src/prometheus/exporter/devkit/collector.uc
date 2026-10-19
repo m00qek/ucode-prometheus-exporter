@@ -233,6 +233,9 @@ function jailed_socket(mod, mounts, touched) {
 			return {
 				...sock,
 				connect: function(addr, ...rest) {
+					if (type(addr) == 'object' && addr.family != mod.AF_UNIX)
+						return sock.connect(addr, ...rest);
+
 					let path = (type(addr) == 'string') ? addr : addr?.path;
 					let p = normal(path);
 

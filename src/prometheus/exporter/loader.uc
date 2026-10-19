@@ -300,7 +300,7 @@ const CAPABILITIES = {
 	uci: [ 'uci', 'reads uci configs' ],
 	rtnl: [ 'rtnl', 'asks rtnetlink' ],
 	nl80211: [ 'nl80211', 'asks nl80211' ],
-	socket: [ 'socket', 'talks to a Unix socket' ],
+	socket: [ 'socket', 'talks to a Unix socket or a TCP port of the device' ],
 };
 
 const PARTS = {

@@ -96,6 +96,13 @@ export const TLS_FILE = 'TLS_FILE';
 export const REGEX = 'REGEX';
 
 /**
+ * Not an IPv4 or IPv6 address, without a prefix length: the datatype ipaddr.
+ *
+ * @type {string}
+ */
+export const IPADDR = 'IPADDR';
+
+/**
  * Not a user basic auth takes: the datatype username.
  *
  * @type {string}
@@ -163,6 +170,7 @@ export const CODES = {
 		text: (p) => `a regular file of at most ${p.max} bytes, which its links, if any, leave under /etc/ssl, /etc/acme, /etc/prometheus-exporter or /etc/uhttpd.*`,
 	},
 	[REGEX]: { args: [], value: true, text: () => 'a regular expression' },
+	[IPADDR]: { args: [], value: true, text: () => 'an IPv4 or IPv6 address' },
 	[USERNAME]: { args: [], value: true, text: () => 'a user of 1 to 64 characters, without ":", spaces or control characters' },
 	[CRYPT]: { args: [], value: true, text: () => 'a crypt hash: $1$ (uhttpd -m), $5$ or $6$' },
 	[CRYPT_ROUNDS]: {

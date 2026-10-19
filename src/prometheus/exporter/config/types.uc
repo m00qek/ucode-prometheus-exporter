@@ -154,6 +154,7 @@ export const DATATYPES = {
 	file: datatype_of([ 'string' ], problems.ABSOLUTE_PATH, null, absolute_path),
 	owned_directory: datatype_of([ 'string' ], problems.OWNED_DIRECTORY, null, is_owned_directory),
 	tls_file: datatype_of([ 'string' ], problems.TLS_PATH, null, (v) => v == '' || is_tls_path(v)),
+	ipaddr: datatype_of([ 'string' ], problems.IPADDR, null, (v) => iptoarr(v) != null),
 	regex: datatype_of([ 'string' ], problems.REGEX, null, function(v) {
 		try {
 			regexp(v);

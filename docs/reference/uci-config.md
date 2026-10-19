@@ -92,6 +92,7 @@ What the exporter finds wrong with a value, or with options that go together, ha
 | `TLS_PATH` | `value` | expected a file under /etc/ssl, /etc/acme or /etc/prometheus-exporter, or uhttpd's own, /etc/uhttpd.\*, got `value` |
 | `TLS_FILE` | `max`, `value` | expected a regular file of at most `max` bytes, which its links, if any, leave under /etc/ssl, /etc/acme, /etc/prometheus-exporter or /etc/uhttpd.\*, got `value` |
 | `REGEX` | `value` | expected a regular expression, got `value` |
+| `IPADDR` | `value` | expected an IPv4 or IPv6 address, got `value` |
 | `USERNAME` | `value` | expected a user of 1 to 64 characters, without ":", spaces or control characters, got `value` |
 | `CRYPT` | `value` | expected a crypt hash: $1$ (uhttpd -m), $5$ or $6$, got `value` |
 | `CRYPT_ROUNDS` | `max`, `value` | expected a hash of at most `max` rounds, which a scrape computes to check the password (hash\_password makes one of 1000; one without rounds= has 5000), got `value` |

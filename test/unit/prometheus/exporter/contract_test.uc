@@ -73,6 +73,18 @@ describe('with_collector\'s contract check', () => {
 		assert.match([ false, 'SOCKET_FAILED', '/var/run/foo/foo.sock: connect(): No such file or directory' ], [ got.ok, got.error, got.details ]);
 	});
 
+	// The jail shares the host's network: a TCP port of the device is there, undeclared.
+	it('lets one connect to a TCP port of the device, which the jail has as the host does', () => {
+		let got = null;
+		let tcp = collector('tcp', { needs: [ 'socket' ] }, function(deps) {
+			got = deps.socket.tcp_request('127.0.0.1', 8080, 'GET / HTTP/1.0\r\n\r\n', 100);
+			return Result.ok();
+		});
+
+		assert.match({ ran: true }, run(tcp, { socket: { data: { '127.0.0.1:8080': 'HTTP/1.0 200 OK\r\n\r\n' } } }));
+		assert.match([ true, 'HTTP/1.0 200 OK\r\n\r\n' ], [ got.ok, got.data ]);
+	});
+
 	it('fails one that runs a program its meta.commands does not list, even as the test expects it to fail', () => {
 		let runner = collector('runner', { needs: [ 'exec' ], commands: [ 'true' ] }, (deps) => deps.exec.run([ 'false' ]));
 
