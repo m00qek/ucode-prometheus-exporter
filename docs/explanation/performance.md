@@ -42,7 +42,7 @@ So a scrape has a deadline, the scraper's timeout less half a second, and runs t
 
 On QEMU's 500-MIPS 24Kc (`make bench-qemu`), the full scrape of the benchmark's large world, whose conntrack table holds 20,000 connections, takes 17.8 s without a deadline, nat_traffic 8.9 s of it. With Prometheus's default timeout of 10 s (`deadline:full@20000`), once the first scrape has filled the ledger, it answers in 9.0 to 9.6 s, nat_traffic and dhcp_leases left out, and the rest served: within the timeout, by little, as a collector still running at the deadline is stopped there. The first scrape after a restart, before the ledger knows how long nat_traffic takes, can still be late. See [About deadlines and circuit breakers](deadlines-and-breakers.md).
 
-Each scrape also reads the routes, every table's, to know which end of a connection is on this side of the router, and looks each address it has not seen up among their prefixes. It looked at each prefix in turn, a function call each: a router's 60 or so routes made that some 50 ms of the R3S's scrape. It now keeps a set of the prefixes of each length, and looks an address up in each, a few lookups: on the benchmark's world, whose routes are shaped as such a router's and one connection in eight comes from the internet, 1,000 connections take 10.6 ms in the devenv where they took 32.1, and 20,000 175 ms where they took 375.
+Each scrape also reads the routes, every table's, to know which end of a connection is on this side of the router, and looks each address it has not seen up among their prefixes. It looked at each prefix in turn, a function call each: a router's 60 or so routes made that some 50 ms of the R3S's scrape. It now keeps a set of the prefixes of each length, and looks an address up in each, a few lookups: on the benchmark's world, whose routes are shaped as such a router's and one connection in eight comes from the internet, 1,000 connections take 10.6 ms in the devenv where they took 32.1, and 130 ms on the AX835 where they took 217; 20,000 take 175 ms in the devenv where they took 375. On the R3S, whose 72 routes the world's are shaped as, nat_traffic took 60.8 ms where it had taken 6.9 before it read them; looking an address up costs a ninth of what it did in the devenv (3.8 µs against 33 for those routes), which would leave some 6 ms of the 54 the routes added there.
 
 It is in the `-network` and `-full` groups. On such a router, leave it out, [disable it](../how-to/choose-collectors.md#disable-a-collector), or scrape it in a job of its own with a longer timeout and a `budget` to match; and watch `node_scrape_collector_duration_seconds{collector="nat_traffic"}`.
 
@@ -265,16 +265,18 @@ wifi, hostapd_stations, timesync and wireguard's `peer_names` ask the service's 
 - **rpcd's collection.** rpcd collects a ucode plugin's garbage after every call of one of its methods, a pass over everything the plugin holds, and answers one call at a time. The object's plugin held every module of the object, which its methods for LuCI need: 0.7 MB, collected in 1.5 ms in the devenv, some 6,300 turns of the VM's loop, and so 15 to 20 ms on the AX835, paid by the next call rpcd answered, whoever made it: timesync's `rc list` after its `time_daemons`, hostapd_stations' call after wifi's. The plugin now holds the collectors' methods alone, `rpc/sources.uc`, some 0.1 MB with ucode's own, collected in 0.03 ms, and compiles the rest when one of LuCI's methods is called, some 25 ms in the devenv, letting go of it 120 s after the last.
 - **A program for each call.** `wireless` asked netifd by ubus's command line, in a process of its own so that a busy netifd would not hold rpcd: a fork, a shell and `ubus` at every scrape of wifi and of hostapd_stations, 1.3 ms of a program run in the devenv and 3.4 ms on the AX835 each. It now reads the wireless config, and the collector asks the kernel which interfaces are there and up, as it asked it for the rest; netifd is not asked, so one busy setting a radio up no longer fails the scrape (`network.wireless status: no answer`).
 
-The benchmark's `rpcd:` cases hold what the plugin holds, and time each of the three methods with rpcd's collection after it, on the typical world's configs, sysfs and procd, in the devenv:
+The benchmark's `rpcd:` cases hold what the plugin holds, and time each of the three methods with rpcd's collection after it, on the typical world's configs, sysfs and procd (`make bench`, and `make bench-device` on the YunCore AX835):
 
-| | before | now |
-| :--- | :--- | :--- |
-| what rpcd's plugin holds (`rpcd:rest`) | 0.71 MB | 0.10 MB |
-| its collection, after each call | 1.5 ms | 0.03 ms |
-| programs run by a call of `wireless` | 1, 1.3 ms | none |
-| `wireless`, and the collection (`rpcd:wireless`) | | 0.22 ms |
-| `time_daemons`, and the collection (`rpcd:time_daemons`) | | 0.05 ms |
-| `wireguard_peers`, and the collection (`rpcd:wireguard_peers`) | | 0.04 ms |
+| | devenv, before | devenv, now | AX835, before | AX835, now |
+| :--- | :--- | :--- | :--- | :--- |
+| what rpcd's plugin holds (`rpcd:rest`) | 0.71 MB | 0.10 MB | 0.72 MB | 0.10 MB |
+| its collection, after each call | 1.5 ms | 0.03 ms | 14.4 ms | 0.28 ms |
+| programs run by a call of `wireless` | 1, 1.3 ms | none | 1, 3.4 ms | none |
+| `wireless`, and the collection (`rpcd:wireless`) | | 0.22 ms | | 2.0 ms |
+| `time_daemons`, and the collection (`rpcd:time_daemons`) | | 0.05 ms | | 0.6 ms |
+| `wireguard_peers`, and the collection (`rpcd:wireguard_peers`) | | 0.04 ms | | 0.3 ms |
+
+On the AX835 itself, with the exporter it had installed (main of 2026-10-19, before), a call of `wireless` by ubus's command line took some 17 ms more than one of rpcd's `rc list`, and an `rc list` made right after `time_daemons` up to 10 ms more than the next. Its scrapes, as vmagent timed them: wifi took 36.7 ms where it had taken 14.8 before the object asked for it, timesync 18.5 where 3.4, and the whole scrape 0.216 s where 0.170; on the R3S, which has no radio, wifi 19.5 ms where 1.8 and hostapd_stations 19.1 where 2.4. The calls cost now what the collection of 0.1 MB and the reading of two configs do, a few milliseconds of the A53's: what the calls they replaced cost.
 
 Budgets hold them in turns of the VM's loop, under 3,000, so that neither comes back: a program run is some 5,000 turns, the collection of every module 6,300.
 
