@@ -32,6 +32,7 @@ The labels are those seen on the captures; a collector leaves out a label it has
 | [`loadavg`](#loadavg) | 3 | an access point, a router | — |
 | [`ltq-dsl`](#ltq-dsl) | 15 | made-up captures | — |
 | [`meminfo`](#meminfo) | 50 | an access point, a router | — |
+| [`mmc`](#mmc) | 3 | a second router | — |
 | [`modemmanager`](#modemmanager) | 7 | made-up captures | — |
 | [`mwan3`](#mwan3) | 11 | made-up captures | — |
 | [`nat_traffic`](#nat_traffic) | 1 | a router | — |
@@ -431,6 +432,16 @@ Memory. [Collector](collectors.md#meminfo).
 | :--- | :--- | :--- | :--- | :--- |
 | `node_memory_<Field>_bytes` | gauge | — | Memory information field &lt;Field&gt;\_bytes: each field of `/proc/meminfo` in kB, in bytes. | 46 on the captures |
 | `node_memory_<Field>` | gauge | — | Memory information field &lt;Field&gt;: each field without a unit, the HugePages counts. | 4 on the captures |
+
+## `mmc` {#mmc}
+
+eMMC health. [Collector](collectors.md#mmc).
+
+| Family | Type | Labels | Help | Notes |
+| :--- | :--- | :--- | :--- | :--- |
+| `node_mmc_info` | gauge | `device`, `name`, `manfid`, `oemid`, `rev` | An eMMC that reports its health, by its sysfs device, product name, manufacturer and OEM IDs and revision: always 1. | — |
+| `node_mmc_life_time_step` | gauge | `device`, `type` | Life time used of the eMMC's type A (SLC) or B (MLC) memory, as it estimates it in steps of 10%: 1 is 0-10% used, 10 is 90-100%, 11 past its estimated life. | — |
+| `node_mmc_pre_eol_state` | gauge | `device`, `state` | The eMMC's reserved blocks, its pre-EOL information: 1 for its state, normal, warning (80% of them consumed) or urgent; 0 for the others. | — |
 
 ## `modemmanager` {#modemmanager}
 

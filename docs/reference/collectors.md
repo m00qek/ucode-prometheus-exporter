@@ -26,6 +26,7 @@ Every collector of `ucode-prometheus-exporter 0.2.1`. A collector's name is what
 | [`loadavg`](#loadavg) | Load average | `ucode-prometheus-exporter` (base) | — |
 | [`ltq-dsl`](#ltq-dsl) | Lantiq DSL line | `ucode-prometheus-exporter-ltq-dsl` | — |
 | [`meminfo`](#meminfo) | Memory | `ucode-prometheus-exporter` (base) | — |
+| [`mmc`](#mmc) | eMMC health | `ucode-prometheus-exporter-mmc` | — |
 | [`modemmanager`](#modemmanager) | Cellular modems | `ucode-prometheus-exporter-modemmanager` | — |
 | [`mwan3`](#mwan3) | mwan3 multi-WAN | `ucode-prometheus-exporter-mwan3` | — |
 | [`nat_traffic`](#nat_traffic) | Traffic per host | `ucode-prometheus-exporter-nat_traffic` | `ucode-prometheus-exporter-network`, `ucode-prometheus-exporter-full` |
@@ -65,7 +66,7 @@ The base package, `ucode-prometheus-exporter`, installs `conntrack`, `cpu`, `ent
 | `ucode-prometheus-exporter-hardware` | hardware and filesystems | `diskstats`, `filesystem`, `hwmon`, `thermal` |
 | `ucode-prometheus-exporter-full` | a router or access point | `ethtool`, `nat_traffic`, `netstat`, `nft-counters`, `qdisc`, `snmp6`, `sockstat`, `hostapd_stations`, `hostapd_ubus_stations`, `wifi`, `diskstats`, `filesystem`, `hwmon`, `thermal`, `dhcp_leases`, `dnsmasq`, `openwrt`, `textfile`, `uci_dhcp_host`, `wireguard` |
 
-In no group: `bmx7`, `chrony`, `dawn`, `interrupts`, `ltq-dsl`, `modemmanager`, `mwan3`, `pressure`, `realtek-poe`, `ubnt-manager`, `unbound`.
+In no group: `bmx7`, `chrony`, `dawn`, `interrupts`, `ltq-dsl`, `mmc`, `modemmanager`, `mwan3`, `pressure`, `realtek-poe`, `ubnt-manager`, `unbound`.
 
 ## Nothing to observe {#nothing-to-observe}
 
@@ -83,6 +84,7 @@ These collectors can have nothing to observe: they succeed without samples, and 
 | [`hostapd_stations`](#hostapd_stations) | As wifi, or no `hostapd.<ifname>` object for any interface. | `no wireless radios`, `no hostapd access points` | A hostapd object that does not answer. |
 | [`hostapd_ubus_stations`](#hostapd_ubus_stations) | No `hostapd.*` object. | `no hostapd access points` | A hostapd object that does not answer. |
 | [`ltq-dsl`](#ltq-dsl) | No `dsl` object. | `no DSL modem (no dsl on ubus)` | A `dsl` object that does not answer. |
+| [`mmc`](#mmc) | No eMMC that reports its health: no MMC host, SD or SDIO cards alone, which have no `life_time` or `pre_eol_info`, or an eMMC older than 5.0, whose fields are 0, not defined. | `no eMMC reports its health` | A `life_time` or `pre_eol_info` there and not as the kernel writes it. |
 | [`modemmanager`](#modemmanager) | ModemManager disabled or not installed, or it lists no modem. | `ModemManager lists no modems`, `modemmanager is disabled`, `modemmanager is not installed` | `mmcli` failing or running out of time with ModemManager enabled. |
 | [`mwan3`](#mwan3) | mwan3 disabled, or not installed. | `mwan3 is disabled`, `mwan3 is not installed` | Its `mwan3` object failing. Enabled and stopped is a reading: `mwan3_interface_running 0`. |
 | [`nat_traffic`](#nat_traffic) | nf\_conntrack not loaded: no `/proc/net/nf_conntrack`. | `no connection tracking (nf_conntrack is not loaded)` | The file there and unreadable. |
@@ -412,6 +414,21 @@ Memory statistics from /proc/meminfo.
 - **Section:** `config collector 'meminfo'`
 - **Needs:** `fs`
 - **Metrics:** [meminfo](metrics.md#meminfo)
+
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+
+## `mmc` {#mmc}
+
+The health an eMMC of version 5.0 or later reports of itself, its life time used and its reserved blocks, from /sys/class/mmc\_host.
+
+- **Title:** eMMC health
+- **Package:** `ucode-prometheus-exporter-mmc`
+- **Section:** `config collector 'mmc'`
+- **Needs:** `fs`
+- **Nothing to observe:** No eMMC that reports its health: no MMC host, SD or SDIO cards alone, which have no `life_time` or `pre_eol_info`, or an eMMC older than 5.0, whose fields are 0, not defined. See [Nothing to observe](#nothing-to-observe).
+- **Metrics:** [mmc](metrics.md#mmc)
 
 | Option | Title | Type | Default | Datatype | Description |
 | :--- | :--- | :--- | :--- | :--- | :--- |

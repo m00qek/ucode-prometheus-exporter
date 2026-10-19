@@ -54,6 +54,10 @@ export const nothing_to_observe = {
 		when: 'nf_conntrack not loaded: no `/proc/net/nf_conntrack`.',
 		failure: 'The file there and unreadable.',
 	},
+	'mmc': {
+		when: 'No eMMC that reports its health: no MMC host, SD or SDIO cards alone, which have no `life_time` or `pre_eol_info`, or an eMMC older than 5.0, whose fields are 0, not defined.',
+		failure: 'A `life_time` or `pre_eol_info` there and not as the kernel writes it.',
+	},
 	'pressure': {
 		when: 'No `/proc/pressure`: a kernel without `CONFIG_PSI`, or booted with `psi=0`.',
 		failure: '`/proc/pressure` there, and its `cpu`, `io` or `memory` unreadable or not as the kernel writes it.',

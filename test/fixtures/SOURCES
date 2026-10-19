@@ -138,3 +138,13 @@ ubus network.interface dump
 file /tmp/dhcp.leases
 ubus dhcp ipv4leases
 ubus dhcp ipv6leases
+# mmc: each MMC host's cards, their names and an eMMC's health (seriguela-router:
+# an eMMC, and an SD card, which has neither life_time nor pre_eol_info). Never
+# cid or serial, which hold the card's serial number.
+file /sys/class/mmc_host/*/mmc*:*/type
+file /sys/class/mmc_host/*/mmc*:*/name
+file /sys/class/mmc_host/*/mmc*:*/manfid
+file /sys/class/mmc_host/*/mmc*:*/oemid
+file /sys/class/mmc_host/*/mmc*:*/rev
+file /sys/class/mmc_host/*/mmc*:*/life_time
+file /sys/class/mmc_host/*/mmc*:*/pre_eol_info
