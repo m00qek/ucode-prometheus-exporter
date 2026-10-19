@@ -118,7 +118,10 @@ const HANDLER_SHARE = { 'typical/handler:base': 1.3, 'typical/handler:full': 0.6
 // they read back as it: 3.3. With a call of label_text() and a split of its
 // text for each sample, and a double checked for NaN and the infinities
 // first, they were 3.6 and 4.5 in the devenv, 3.4 and 4.3 on QEMU's 24Kc.
-const RECORD_FACTOR = { 'typical/record:labels': 3.0, 'typical/record:double': 3.9 };
+// With each value and name checked for a NUL byte and a reserved name too,
+// eight runs in the devenv gave 2.64 to 2.99 and 3.32 to 3.78: a tenth over
+// the most, and still under what label_text() for each sample costs.
+const RECORD_FACTOR = { 'typical/record:labels': 3.3, 'typical/record:double': 4.2 };
 
 // What a scrape may cost for each collector besides it (noop:), in seconds:
 // its settings, its start and its run in the file the child process writes
