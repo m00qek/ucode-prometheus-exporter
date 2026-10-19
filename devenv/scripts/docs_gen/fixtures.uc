@@ -12,7 +12,8 @@
 //   <set>/rtnl/<CMD>.json          a netlink dump; <CMD>.<dev>.json for one device
 //   <set>/nl80211/<CMD>.<dev>.json the same for nl80211
 //   <set>/commands/<line>.{txt,json}  what a program prints (command_file())
-//   <set>/sockets/<name>.<request>.txt the reply of a Unix socket's server
+//   <set>/sockets/<name>.<request>.txt the reply of a Unix socket's server, or
+//                                  of a TCP port's: <address>_<port>.<request>.txt
 //
 // What a set has no capture of is not there: a file is missing, a ubus object
 // is 'Not found', a program fails, a socket refuses. rpcd's rc lists an init
@@ -202,19 +203,39 @@ function ubus(dir) {
 
 // A Unix socket whose server answers `<name>.<request>.txt` once, where <name>
 // is the socket's file name without its extension and <request> the last word
-// of what the client sent: unbound.ctl and `UBCT1 stats_noreset`.
+// of what the client sent: unbound.ctl and `UBCT1 stats_noreset`. A TCP port
+// of the device, any address of it, is the same, its <name> `<address>_<port>`
+// and its <request> the second word of the first line, an HTTP request's
+// path, without its first '/' and the others as '_': 127.0.0.1_8080 and
+// `GET /control/stats HTTP/1.0`, control_stats.
 function socket(dir) {
 	let last = null;
 
+	function file_of(st) {
+		if (st.address != null) {
+			let words = split(split(st.sent, '\n')[0], /\s+/);
+
+			return `${st.address}_${st.port}.${replace(replace(words[1] ?? '', /^\//, ''), /\//g, '_')}.txt`;
+		}
+
+		let name = replace(replace(st.path ?? '', /^.*\//, ''), /\.[^.]*$/, '');
+		let words = split(trim(st.sent), /\s+/);
+
+		return `${name}.${words[length(words) - 1]}.txt`;
+	}
+
 	return {
-		AF_UNIX: 1, SOCK_STREAM: 1, SOL_SOCKET: 1, SO_RCVTIMEO: 20, SO_SNDTIMEO: 21, MSG_NOSIGNAL: 0x4000,
+		AF_UNIX: 1, AF_INET: 2, AF_INET6: 10, SOCK_STREAM: 1, SOL_SOCKET: 1, SO_RCVTIMEO: 20, SO_SNDTIMEO: 21, MSG_NOSIGNAL: 0x4000,
 		create: function() {
-			let st = { path: null, sent: '', reply: null };
+			let st = { path: null, address: null, port: null, sent: '', reply: null };
 
 			return {
 				setopt: () => true,
+				bind: () => true,
 				connect: function(addr) {
 					st.path = addr?.path;
+					st.address = addr?.address;
+					st.port = addr?.port;
 					return true;
 				},
 				send: function(data) {
@@ -223,10 +244,7 @@ function socket(dir) {
 				},
 				recv: function() {
 					if (st.reply == null) {
-						let name = replace(replace(st.path ?? '', /^.*\//, ''), /\.[^.]*$/, '');
-						let words = split(trim(st.sent), /\s+/);
-
-						st.reply = fs.readfile(`${dir}/${name}.${words[length(words) - 1]}.txt`);
+						st.reply = fs.readfile(`${dir}/${file_of(st)}`);
 						if (st.reply == null) {
 							last = 'connect(): Connection refused';
 							return null;

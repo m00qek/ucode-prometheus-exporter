@@ -106,7 +106,7 @@ What `ubus`, `capabilities`, `groups` and `proc_files` grant, and when, is in [T
 | `default` | yes | A boolean, an integer or a string: it sets the option's type. |
 | `title` | yes | 1 to 40 characters, no control characters: the label a form shows the option by, short and in sentence case, as `Excluded devices`. LuCI shows it as the collector gives it, untranslated. |
 | `help` | yes | A sentence: what the option does. |
-| `datatype` | no | One of the datatypes the core checks: `uinteger`, `range(min,max)`, `directory`, `file`, `regex`, or `owned_directory`, a directory under `/var`, `/tmp` or `/etc/prometheus-exporter`, for an option that names an owned path. It must take the default. See [UCI configuration](uci-config.md#values). |
+| `datatype` | no | One of the datatypes the core checks: `uinteger`, `range(min,max)`, `directory`, `file`, `regex`, `ipaddr` (an IPv4 or IPv6 address, without a prefix), or `owned_directory`, a directory under `/var`, `/tmp` or `/etc/prometheus-exporter`, for an option that names an owned path. It must take the default. See [UCI configuration](uci-config.md#values). |
 
 `collect` gets the options typed, the defaults for those unset. A value that does not fit fails the collector with `CONFIG_INVALID` in each scrape.
 
@@ -182,7 +182,7 @@ Only `prometheus.exporter.deps`, with its modules of each capability (`prometheu
 | `uci` | `deps.uci.<config>` for each of `meta.configs`, read-only, the committed configuration only: `loaded()`, `get(section, option)`, `get_all(section)`, `sections(type)`, `foreach(type, cb)`. |
 | `rtnl` | `request(cmd, flags, attrs)` as a Result (`RTNL_FAILED`), and `const`. |
 | `nl80211` | The same, for nl80211 (`NL80211_FAILED`). Needs ucode-mod-nl80211. |
-| `socket` | `unix_request(path, message, timeout_ms)`: the whole reply of a Unix stream socket's server, as a Result (`SOCKET_FAILED`). Needs ucode-mod-socket. |
+| `socket` | `unix_request(path, message, timeout_ms)`: the whole reply of a Unix stream socket's server, as a Result (`SOCKET_FAILED`). `tcp_request(address, port, message, timeout_ms)`: the same of a TCP port of the device itself, at an IPv4 or IPv6 address of its own, which it binds to before it connects: another address fails `SOCKET_FAILED` without connecting. Every wait, to connect, send or read, is bounded by `timeout_ms`, and the reply is what the server sent until it closed. Needs ucode-mod-socket. |
 | `exec` | `run(argv)`: a program of `meta.commands`, without a shell's interpretation of its arguments, its standard output as a Result. See [Programs](#programs). |
 | `time` | `now()`: the system time, in seconds. |
 | `log` | `log(msg)`: a line at `warning`, `collector '<name>': <msg>`, for what a collector that succeeds still has to say. At most 10 lines a run, each cut at 512 bytes; past them, one line once the run is over says how many more were left out. |

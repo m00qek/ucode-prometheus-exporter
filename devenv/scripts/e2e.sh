@@ -336,6 +336,26 @@ eventually "textfile reads its directory in the jail" metric 'e2e_textfile_value
 check "nft-counters runs nft in the jail" served nft-counters
 check "and reads the counters" metric 'nft_counter_packets_total{.*name="e2e_hits"'
 
+# --- agh, against a stand-in of AdGuard Home's API
+# AdGuard Home is not installed: nothing answers at agh's address, and it has
+# nothing to observe. A stand-in that answers as the router's AdGuard Home
+# did, with the fixtures' replies, is read from the jail over loopback, which
+# the jail shares with the host. mmc has nothing to observe here either: the
+# container has no eMMC.
+observing() { fetch "collect[]=$1" | grep -qx "node_scrape_collector_observing{collector=\"$1\"} $2"; }
+check "agh has nothing to observe without AdGuard Home" observing agh 0
+check "nor mmc without an eMMC" observing mmc 0
+ucode /exporter/devenv/scripts/agh-stand-in.uc 18080 /exporter/test/fixtures/seriguela-router/sockets &
+stand_in=$!
+set_config "$NAME.agh=collector" "$NAME.agh.port=18080"
+eventually "agh reads AdGuard Home's API from the jail" metric 'adguard_up 1$'
+check "and the totals of its statistics window" metric 'adguard_stats_dns_queries 14496$'
+ranked() { fetch 'collect[]=agh' | grep -q 'ads\.example\.com\|router\.home\.example\|192\.168\.1\.20'; }
+check "and nothing of the domains and clients it ranks" fails ranked
+kill "$stand_in"
+uci delete "$NAME.agh" && set_config
+eventually "without it, agh has nothing to observe again" observing agh 0
+
 # --- a collector of another package: the devkit's template (make template-package)
 # Built in the SDK as a third party builds one, installed beside the exporter's
 # packages, served from the service's jail, then removed.

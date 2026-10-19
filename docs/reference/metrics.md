@@ -12,6 +12,7 @@ The labels are those seen on the captures; a collector leaves out a label it has
 
 | Collector | Families on the captures | Seen on | Listed from the code |
 | :--- | :--- | :--- | :--- |
+| [`agh`](#agh) | 12 | a second router | — |
 | [`bmx7`](#bmx7) | 7 | made-up captures | — |
 | [`chrony`](#chrony) | 38 | a second router | — |
 | [`conntrack`](#conntrack) | 10 | a router | — |
@@ -32,6 +33,7 @@ The labels are those seen on the captures; a collector leaves out a label it has
 | [`loadavg`](#loadavg) | 3 | an access point, a router | — |
 | [`ltq-dsl`](#ltq-dsl) | 15 | made-up captures | — |
 | [`meminfo`](#meminfo) | 50 | an access point, a router | — |
+| [`mmc`](#mmc) | 3 | a second router | — |
 | [`modemmanager`](#modemmanager) | 7 | made-up captures | — |
 | [`mwan3`](#mwan3) | 11 | made-up captures | — |
 | [`nat_traffic`](#nat_traffic) | 1 | a router | — |
@@ -78,6 +80,25 @@ Every scrape ends with these, whatever `collect[]` selects: node_exporter's fami
 | `node_scrape_collector_observing` | gauge | `collector` | Whether a collector had something to observe: 0 when its hardware, kernel feature or service is not there. | — |
 | `ucode_prometheus_exporter_collector_quarantined` | gauge | `collector` | Whether a collector is quarantined: its circuit breaker tripped, and it is not run until its cool-down is over. | — |
 | `ucode_prometheus_exporter_build_info` | gauge | `version` | A metric with a constant '1' value labeled by the version of ucode-prometheus-exporter. | — |
+
+## `agh` {#agh}
+
+AdGuard Home. [Collector](collectors.md#agh).
+
+| Family | Type | Labels | Help | Notes |
+| :--- | :--- | :--- | :--- | :--- |
+| `adguard_up` | gauge | — | Whether AdGuard Home's HTTP API answered: 1 or 0. | — |
+| `adguard_build_info` | gauge | `version` | AdGuard Home's version: always 1. | — |
+| `adguard_running` | gauge | — | Whether AdGuard Home's DNS server runs: 1 or 0. | — |
+| `adguard_protection_enabled` | gauge | — | Whether AdGuard Home's protection, its filtering, is on: 1 or 0. | — |
+| `adguard_start_time_seconds` | gauge | — | When AdGuard Home started, in seconds since the epoch. | — |
+| `adguard_stats_window_seconds` | gauge | — | The statistics window of AdGuard Home, in seconds: its totals, adguard\_stats\_\*, are of that much time up to now; 0 with its statistics off. | — |
+| `adguard_stats_dns_queries` | gauge | — | DNS queries AdGuard Home answered in its statistics window (adguard\_stats\_window\_seconds): a total that drops as the window moves, not a counter. | — |
+| `adguard_stats_blocked_filtering` | gauge | — | Of them, the queries its filter lists and rules blocked, in the statistics window. | — |
+| `adguard_stats_replaced_safebrowsing` | gauge | — | Of them, the queries safe browsing blocked, in the statistics window. | — |
+| `adguard_stats_replaced_safesearch` | gauge | — | Of them, the queries safe search rewrote, in the statistics window. | — |
+| `adguard_stats_replaced_parental` | gauge | — | Of them, the queries parental control blocked, in the statistics window. | — |
+| `adguard_stats_avg_processing_time_seconds` | gauge | — | The mean time AdGuard Home took to answer a query in the statistics window, in seconds. | — |
 
 ## `bmx7` {#bmx7}
 
@@ -431,6 +452,16 @@ Memory. [Collector](collectors.md#meminfo).
 | :--- | :--- | :--- | :--- | :--- |
 | `node_memory_<Field>_bytes` | gauge | — | Memory information field &lt;Field&gt;\_bytes: each field of `/proc/meminfo` in kB, in bytes. | 46 on the captures |
 | `node_memory_<Field>` | gauge | — | Memory information field &lt;Field&gt;: each field without a unit, the HugePages counts. | 4 on the captures |
+
+## `mmc` {#mmc}
+
+eMMC health. [Collector](collectors.md#mmc).
+
+| Family | Type | Labels | Help | Notes |
+| :--- | :--- | :--- | :--- | :--- |
+| `node_mmc_info` | gauge | `device`, `name`, `manfid`, `oemid`, `rev` | An eMMC that reports its health, by its sysfs device, product name, manufacturer and OEM IDs and revision: always 1. | — |
+| `node_mmc_life_time_step` | gauge | `device`, `type` | Life time used of the eMMC's type A (SLC) or B (MLC) memory, as it estimates it in steps of 10%: 1 is 0-10% used, 10 is 90-100%, 11 past its estimated life. | — |
+| `node_mmc_pre_eol_state` | gauge | `device`, `state` | The eMMC's reserved blocks, its pre-EOL information: 1 for its state, normal, warning (80% of them consumed) or urgent; 0 for the others. | — |
 
 ## `modemmanager` {#modemmanager}
 

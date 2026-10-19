@@ -61,6 +61,7 @@ A boolean takes `1`, `yes`, `on`, `true`, `enabled` for true and `0`, `no`, `off
 | :--- | :--- |
 | `crypt` | a crypt hash: $1$ (uhttpd -m), $5$ or $6$ |
 | `file` | an absolute path |
+| `ipaddr` | an IPv4 or IPv6 address |
 | `owned_directory` | a directory under /var, /tmp or /etc/prometheus-exporter, and not under /var/run or /tmp/run, which the service makes and mounts |
 | `range(1,100000)` | an integer from 1 to 100000 |
 | `range(1,1000000)` | an integer from 1 to 1000000 |
@@ -92,6 +93,7 @@ What the exporter finds wrong with a value, or with options that go together, ha
 | `TLS_PATH` | `value` | expected a file under /etc/ssl, /etc/acme or /etc/prometheus-exporter, or uhttpd's own, /etc/uhttpd.\*, got `value` |
 | `TLS_FILE` | `max`, `value` | expected a regular file of at most `max` bytes, which its links, if any, leave under /etc/ssl, /etc/acme, /etc/prometheus-exporter or /etc/uhttpd.\*, got `value` |
 | `REGEX` | `value` | expected a regular expression, got `value` |
+| `IPADDR` | `value` | expected an IPv4 or IPv6 address, got `value` |
 | `USERNAME` | `value` | expected a user of 1 to 64 characters, without ":", spaces or control characters, got `value` |
 | `CRYPT` | `value` | expected a crypt hash: $1$ (uhttpd -m), $5$ or $6$, got `value` |
 | `CRYPT_ROUNDS` | `max`, `value` | expected a hash of at most `max` rounds, which a scrape computes to check the password (hash\_password makes one of 1000; one without rounds= has 5000), got `value` |

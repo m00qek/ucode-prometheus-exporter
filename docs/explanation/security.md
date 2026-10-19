@@ -18,6 +18,8 @@ And `/tmp` is everyone's: on OpenWrt `/var` is a link to it, and any user may ma
 
 The ubus socket matters most of these. ubusd lets root call every object, so a jail of root's with the socket could ask rpcd, netifd or any service for anything they answer: mounts limit what the exporter can see, not what it can do over ubus. So the jail has the socket only while a collector that needs ubus is enabled, and does not run as root: ubusd holds it to an ACL of the calls the enabled collectors declare (see [Not root](#not-root)).
 
+The jail has the host's network, not one of its own: uhttpd must answer on the router's addresses. So a collector that reads a service over TCP, as agh reads AdGuard Home's HTTP API, needs no mount, and the capability is what bounds it: `deps.socket.tcp_request` connects only to an address of the device itself, which it binds to first, so that an address that is not the router's fails before anything is sent. A collector's address is an option, which whoever may write the exporter's configuration sets, a LuCI login allowed this app alone among them: bounded so, it can point the exporter at a port of the router, never at a host of the LAN or past it. And it reads only what answers without a login: agh sends no credentials, since a password the jail's user could read would be a secret in the jail.
+
 The jail is a boundary for the exporter's own mistakes as much as for an attacker's: a collector that parses something wrong cannot write anywhere, and one whose program hangs is killed with everything it started.
 
 Read-only is not the same as harmless, so some files stay out of the jail whoever reads around them. `/etc/config/network` holds WireGuard's private keys: the wireguard collector does not declare it, and names peers by their descriptions only with `peer_names`, asking the service's ubus object, which reads the config as root and hands over each peer's public key and description alone. The keys stay out of the jail's files and out of every reply the service's user may ask for (see [What the service's user reaches over ubus](#what-the-services-user-reaches-over-ubus)). The ubus object's `interfaces`, by contrast, asks netifd, so that a LuCI user allowed the exporter's object alone gets interface names without the file.
@@ -47,7 +49,7 @@ These are every call the ACL can allow, each only while a collector that declare
 | Call | Declared by | What it answers |
 | :--- | :--- | :--- |
 | `system board` | Every ACL (the canary), `openwrt` | The board's model and OpenWrt's release. |
-| `rc list` | `bmx7`, `chrony`, `dawn`, `dhcp_leases`, `dnsmasq`, `modemmanager`, `mwan3`, `timesync`, `unbound` | Each init script's start and stop priorities, and whether it is enabled and running. |
+| `rc list` | `agh`, `bmx7`, `chrony`, `dawn`, `dhcp_leases`, `dnsmasq`, `modemmanager`, `mwan3`, `timesync`, `unbound` | Each init script's start and stop priorities, and whether it is enabled and running. |
 | `network.interface dump` | `dhcp_leases`, `openwrt_interfaces` | netifd's status of each logical interface: its addresses, routes, DNS servers and uptime; not its config. |
 | `prometheus-exporter wireless` | `wifi`, `hostapd_stations` | Each radio's name, `disabled`, channel, country and HT mode, and each of its networks' interface, SSID or mesh ID, and encryption; not the wireless config, which has the keys. |
 | `prometheus-exporter time_daemons` | `timesync` | Whether busybox ntpd and chronyd run: two booleans, not procd's command lines. |

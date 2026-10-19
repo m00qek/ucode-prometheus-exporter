@@ -97,7 +97,7 @@ A path is refused, with a warning, when it is not absolute, holds a space, a con
 
 `/`, `/bin`, `/dev`, `/etc`, `/etc/config`, `/lib`, `/proc`, `/run`, `/sbin`, `/sys`, `/tmp`, `/tmp/run`, `/usr`, `/usr/bin`, `/usr/lib`, `/usr/sbin`, `/usr/share`, `/var`, `/var/run`.
 
-ujail cannot mount a socket: a collector declares the socket's directory.
+ujail cannot mount a socket: a collector declares the socket's directory. A TCP port is not a path: the jail has the host's network, and `deps.socket.tcp_request` connects to an address of the device itself, and to no other (see [About the security model](../explanation/security.md#a-jail-built-from-declarations)).
 
 ### Owned paths {#owned-paths}
 

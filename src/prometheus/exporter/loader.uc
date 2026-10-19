@@ -53,9 +53,9 @@ export const TIMEOUT_MAX = config.EXEC_TIMEOUT_MAX;
  * @type {string[]}
  */
 export const OWN = [
-	'bmx7', 'chrony', 'conntrack', 'cpu', 'dawn', 'dhcp_leases', 'diskstats', 'dnsmasq', 'entropy', 'ethtool',
+	'agh', 'bmx7', 'chrony', 'conntrack', 'cpu', 'dawn', 'dhcp_leases', 'diskstats', 'dnsmasq', 'entropy', 'ethtool',
 	'exporter', 'filefd', 'filesystem', 'hostapd_stations', 'hostapd_ubus_stations', 'hwmon', 'interrupts', 'loadavg', 'ltq_dsl',
-	'meminfo', 'modemmanager', 'mwan3', 'nat_traffic', 'netclass', 'netdev', 'netstat', 'nft_counters', 'openwrt',
+	'meminfo', 'mmc', 'modemmanager', 'mwan3', 'nat_traffic', 'netclass', 'netdev', 'netstat', 'nft_counters', 'openwrt',
 	'openwrt_interfaces', 'pressure', 'qdisc', 'realtek_poe', 'selinux', 'snmp6', 'sockstat', 'softnet', 'textfile', 'thermal',
 	'time', 'timesync', 'ubnt_manager', 'uci_dhcp_host', 'uname', 'unbound', 'vmstat', 'wifi', 'wireguard',
 ];
@@ -300,7 +300,7 @@ const CAPABILITIES = {
 	uci: [ 'uci', 'reads uci configs' ],
 	rtnl: [ 'rtnl', 'asks rtnetlink' ],
 	nl80211: [ 'nl80211', 'asks nl80211' ],
-	socket: [ 'socket', 'talks to a Unix socket' ],
+	socket: [ 'socket', 'talks to a Unix socket or a TCP port of the device' ],
 };
 
 const PARTS = {

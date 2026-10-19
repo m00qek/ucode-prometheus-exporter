@@ -276,7 +276,7 @@ describe('loader.import_problem', () => {
 			"imports fs (line 3): a collector reads files through deps.fs, with 'fs' in meta.needs",
 			"imports ubus (line 4): a collector calls ubus through deps.ubus, with 'ubus' in meta.needs",
 			"imports uci (line 5): a collector reads uci configs through deps.uci, with 'uci' in meta.needs",
-			"imports socket (line 6): a collector talks to a Unix socket through deps.socket, with 'socket' in meta.needs",
+			"imports socket (line 6): a collector talks to a Unix socket or a TCP port of the device through deps.socket, with 'socket' in meta.needs",
 			"imports rtnl (line 7): a collector asks rtnetlink through deps.rtnl, with 'rtnl' in meta.needs",
 			"imports nl80211 (line 8): a collector asks nl80211 through deps.nl80211, with 'nl80211' in meta.needs",
 		]), loader.import_problem(API + join('\n', map([ 'fs', 'ubus', 'uci', 'socket', 'rtnl', 'nl80211' ],

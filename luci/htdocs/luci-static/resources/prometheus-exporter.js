@@ -139,6 +139,7 @@ const PROBLEMS = {
 	TLS_PATH: (p, title) => say(_('%s must be a file under /etc/ssl, /etc/acme or /etc/prometheus-exporter, or uhttpd\'s own /etc/uhttpd.*'), title),
 	TLS_FILE: (p, title) => say(_('%s must be a regular file of at most %s bytes, whose links lead nowhere else'), title, p.max),
 	REGEX: (p, title) => say(_('%s must be a regular expression'), title),
+	IPADDR: (p, title) => say(_('%s must be an IPv4 or IPv6 address'), title),
 	USERNAME: (p, title) => say(_('%s must be 1 to 64 characters, without ":", spaces or control characters'), title),
 	CRYPT: (p, title) => say(_('%s must be a crypt hash: $1$ (uhttpd -m), $5$ or $6$'), title),
 	CRYPT_ROUNDS: (p, title) => say(_('%s must be a hash of at most %s rounds, which a scrape computes to check the password'), title, p.max),

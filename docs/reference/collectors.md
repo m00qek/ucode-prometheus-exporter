@@ -6,6 +6,7 @@ Every collector of `ucode-prometheus-exporter 0.2.1`. A collector's name is what
 
 | Collector | Title | Package | Groups |
 | :--- | :--- | :--- | :--- |
+| [`agh`](#agh) | AdGuard Home | `ucode-prometheus-exporter-agh` | — |
 | [`bmx7`](#bmx7) | bmx7 mesh | `ucode-prometheus-exporter-bmx7` | — |
 | [`chrony`](#chrony) | chrony NTP daemon | `ucode-prometheus-exporter-chrony` | — |
 | [`conntrack`](#conntrack) | Connection tracking | `ucode-prometheus-exporter` (base) | — |
@@ -26,6 +27,7 @@ Every collector of `ucode-prometheus-exporter 0.2.1`. A collector's name is what
 | [`loadavg`](#loadavg) | Load average | `ucode-prometheus-exporter` (base) | — |
 | [`ltq-dsl`](#ltq-dsl) | Lantiq DSL line | `ucode-prometheus-exporter-ltq-dsl` | — |
 | [`meminfo`](#meminfo) | Memory | `ucode-prometheus-exporter` (base) | — |
+| [`mmc`](#mmc) | eMMC health | `ucode-prometheus-exporter-mmc` | — |
 | [`modemmanager`](#modemmanager) | Cellular modems | `ucode-prometheus-exporter-modemmanager` | — |
 | [`mwan3`](#mwan3) | mwan3 multi-WAN | `ucode-prometheus-exporter-mwan3` | — |
 | [`nat_traffic`](#nat_traffic) | Traffic per host | `ucode-prometheus-exporter-nat_traffic` | `ucode-prometheus-exporter-network`, `ucode-prometheus-exporter-full` |
@@ -65,7 +67,7 @@ The base package, `ucode-prometheus-exporter`, installs `conntrack`, `cpu`, `ent
 | `ucode-prometheus-exporter-hardware` | hardware and filesystems | `diskstats`, `filesystem`, `hwmon`, `thermal` |
 | `ucode-prometheus-exporter-full` | a router or access point | `ethtool`, `nat_traffic`, `netstat`, `nft-counters`, `qdisc`, `snmp6`, `sockstat`, `hostapd_stations`, `hostapd_ubus_stations`, `wifi`, `diskstats`, `filesystem`, `hwmon`, `thermal`, `dhcp_leases`, `dnsmasq`, `openwrt`, `textfile`, `uci_dhcp_host`, `wireguard` |
 
-In no group: `bmx7`, `chrony`, `dawn`, `interrupts`, `ltq-dsl`, `modemmanager`, `mwan3`, `pressure`, `realtek-poe`, `ubnt-manager`, `unbound`.
+In no group: `agh`, `bmx7`, `chrony`, `dawn`, `interrupts`, `ltq-dsl`, `mmc`, `modemmanager`, `mwan3`, `pressure`, `realtek-poe`, `ubnt-manager`, `unbound`.
 
 ## Nothing to observe {#nothing-to-observe}
 
@@ -73,6 +75,7 @@ These collectors can have nothing to observe: they succeed without samples, and 
 
 | Collector | Nothing to observe when | Reasons it gives | Still a failure |
 | :--- | :--- | :--- | :--- |
+| [`agh`](#agh) | AdGuard Home disabled, or not installed, and nothing answers at the collector's `address` and `port`. | `adguardhome is disabled`, `adguardhome is not installed` | AdGuard Home enabled, and nothing answering there; a reply that is not its API's; or one that asks for a login, which the collector does not send. |
 | [`bmx7`](#bmx7) | bmx7 disabled, or not installed. | `bmx7 is disabled`, `bmx7 is not installed` | bmx7 enabled, and its status files unreadable. |
 | [`chrony`](#chrony) | chronyd disabled, or not installed. | `chronyd is disabled`, `chronyd is not installed` | chronyd enabled, and `chronyc` failing (chronyd stopped). |
 | [`conntrack`](#conntrack) | nf\_conntrack not loaded: none of its files in `/proc/sys/net/netfilter`. | `no connection tracking (nf_conntrack is not loaded)` | Its files there and unreadable. |
@@ -83,6 +86,7 @@ These collectors can have nothing to observe: they succeed without samples, and 
 | [`hostapd_stations`](#hostapd_stations) | As wifi, or no `hostapd.<ifname>` object for any interface. | `no wireless radios`, `no hostapd access points` | A hostapd object that does not answer. |
 | [`hostapd_ubus_stations`](#hostapd_ubus_stations) | No `hostapd.*` object. | `no hostapd access points` | A hostapd object that does not answer. |
 | [`ltq-dsl`](#ltq-dsl) | No `dsl` object. | `no DSL modem (no dsl on ubus)` | A `dsl` object that does not answer. |
+| [`mmc`](#mmc) | No eMMC that reports its health: no MMC host, SD or SDIO cards alone, which have no `life_time` or `pre_eol_info`, or an eMMC older than 5.0, whose fields are 0, not defined. | `no eMMC reports its health` | A `life_time` or `pre_eol_info` there and not as the kernel writes it. |
 | [`modemmanager`](#modemmanager) | ModemManager disabled or not installed, or it lists no modem. | `ModemManager lists no modems`, `modemmanager is disabled`, `modemmanager is not installed` | `mmcli` failing or running out of time with ModemManager enabled. |
 | [`mwan3`](#mwan3) | mwan3 disabled, or not installed. | `mwan3 is disabled`, `mwan3 is not installed` | Its `mwan3` object failing. Enabled and stopped is a reading: `mwan3_interface_running 0`. |
 | [`nat_traffic`](#nat_traffic) | nf\_conntrack not loaded: no `/proc/net/nf_conntrack`. | `no connection tracking (nf_conntrack is not loaded)` | The file there and unreadable. |
@@ -94,6 +98,25 @@ These collectors can have nothing to observe: they succeed without samples, and 
 | [`unbound`](#unbound) | unbound disabled, or not installed. | `unbound is disabled`, `unbound is not installed` | unbound enabled, and its control socket not answering. |
 | [`wifi`](#wifi) | The wireless config has no radio: the service's ubus object's `wireless` gives none. | `no wireless radios` | Another failed call; an interface that is there and nl80211 cannot answer for. One that is not there, of a network not set up, is left out. |
 | [`wireguard`](#wireguard) | rpcd has no `wireguard` object: rpcd-mod-wireguard not installed. | `rpcd has no wireguard object: rpcd-mod-wireguard is not installed` | Any other failure of `wireguard status`. |
+
+## `agh` {#agh}
+
+AdGuard Home's protection and the totals of its statistics window, from its HTTP API on the device, read without a login.
+
+- **Title:** AdGuard Home
+- **Package:** `ucode-prometheus-exporter-agh`
+- **Depends on:** `ucode-mod-socket`
+- **Section:** `config collector 'agh'`
+- **Needs:** `socket`, `ubus`
+- **Calls over ubus:** `rc list`
+- **Nothing to observe:** AdGuard Home disabled, or not installed, and nothing answers at the collector's `address` and `port`. See [Nothing to observe](#nothing-to-observe).
+- **Metrics:** [agh](metrics.md#agh)
+
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `address` | Address | string | `127.0.0.1` | `ipaddr` | An address of this device that AdGuard Home's web interface listens on (http.address in its adguardhome.yaml): 127.0.0.1 where it listens on every address, 0.0.0.0. |
+| `port` | Port | integer | `8080` | `range(1,65535)` | The port of AdGuard Home's web interface (http.address in its adguardhome.yaml). |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
 ## `bmx7` {#bmx7}
 
@@ -412,6 +435,21 @@ Memory statistics from /proc/meminfo.
 - **Section:** `config collector 'meminfo'`
 - **Needs:** `fs`
 - **Metrics:** [meminfo](metrics.md#meminfo)
+
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
+
+## `mmc` {#mmc}
+
+The health an eMMC of version 5.0 or later reports of itself, its life time used and its reserved blocks, from /sys/class/mmc\_host.
+
+- **Title:** eMMC health
+- **Package:** `ucode-prometheus-exporter-mmc`
+- **Section:** `config collector 'mmc'`
+- **Needs:** `fs`
+- **Nothing to observe:** No eMMC that reports its health: no MMC host, SD or SDIO cards alone, which have no `life_time` or `pre_eol_info`, or an eMMC older than 5.0, whose fields are 0, not defined. See [Nothing to observe](#nothing-to-observe).
+- **Metrics:** [mmc](metrics.md#mmc)
 
 | Option | Title | Type | Default | Datatype | Description |
 | :--- | :--- | :--- | :--- | :--- | :--- |

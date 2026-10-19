@@ -98,7 +98,7 @@ export const NL80211_FAILED       = 'NL80211_FAILED';
 export const RTNL_FAILED          = 'RTNL_FAILED';
 
 /**
- * A Unix socket is missing, refused the connection, or sent no more of its reply in time.
+ * A Unix socket is missing, a socket refused the connection or sent no more of its reply in time, or a TCP address is not the device's own.
  *
  * @type {string}
  */

@@ -31,7 +31,7 @@ msgstr[1] ""
 msgid "%s must be 0, or an integer of %s or more"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter.js:142
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter.js:143
 msgid ""
 "%s must be 1 to 64 characters, without \":\", spaces or control characters"
 msgstr ""
@@ -40,7 +40,7 @@ msgstr ""
 msgid "%s must be a boolean (1 or 0)"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter.js:143
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter.js:144
 msgid "%s must be a crypt hash: $1$ (uhttpd -m), $5$ or $6$"
 msgstr ""
 
@@ -56,7 +56,7 @@ msgid ""
 "uhttpd's own /etc/uhttpd.*"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter.js:144
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter.js:145
 msgid ""
 "%s must be a hash of at most %s rounds, which a scrape computes to check the "
 "password"
@@ -75,6 +75,10 @@ msgstr ""
 msgid "%s must be a single value"
 msgstr ""
 
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter.js:142
+msgid "%s must be an IPv4 or IPv6 address"
+msgstr ""
+
 #: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter.js:137
 msgid "%s must be an absolute path"
 msgstr ""
@@ -91,15 +95,15 @@ msgstr ""
 msgid "%s must be an integer of 0 or more"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter.js:145
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter.js:146
 msgid "%s must be an interface name, or * for every address"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter.js:146
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter.js:147
 msgid "%s must be set along with %s"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter.js:148
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter.js:149
 msgid ""
 "%s needs HTTPS: set %s and %s, or the password crosses the network in the "
 "clear"
@@ -114,7 +118,7 @@ msgstr ""
 msgid "%s → %s"
 msgstr ""
 
-#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter.js:161
+#: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/prometheus-exporter.js:162
 msgid "%s, not %s"
 msgstr ""
 

@@ -4,14 +4,15 @@ const ERRNO = {
 	'Permission denied': 13,
 	'Connection refused': 111,
 	'Broken pipe': 32,
+	'Address not available': 99,
 };
 
 const CONSTANTS = {
-	AF_UNIX: 1, SOCK_STREAM: 1, SOL_SOCKET: 1, SO_RCVTIMEO: 20, SO_SNDTIMEO: 21, MSG_NOSIGNAL: 0x4000,
+	AF_UNIX: 1, AF_INET: 2, AF_INET6: 10, SOCK_STREAM: 1, SOL_SOCKET: 1, SO_RCVTIMEO: 20, SO_SNDTIMEO: 21, MSG_NOSIGNAL: 0x4000,
 };
 
 return {
-	channels: [ 'errors', 'hangs' ],
+	channels: [ 'errors', 'hangs', 'addresses' ],
 
 	create: function(name, real, ctx) {
 		let proxy = ctx.base();
@@ -27,7 +28,24 @@ return {
 			return null;
 		}
 
-		function open_socket() {
+		function key_of(family, addr) {
+			if (family == proxy.AF_UNIX)
+				return type(addr) == 'string' ? addr : addr?.path;
+
+			let a = addr?.address;
+
+			return (index(`${a}`, ':') >= 0) ? `[${a}]:${addr?.port}` : `${a}:${addr?.port}`;
+		}
+
+		function own(address) {
+			let ip = iptoarr(`${address}`);
+
+			return ip != null && (ctx.has('addresses', address) ||
+				(length(ip) == 4 && (ip[0] == 127 || join('.', ip) == '0.0.0.0')) ||
+				(length(ip) == 16 && (address == '::1' || address == '::')));
+		}
+
+		function open_socket(family) {
 			let st = { path: null, request: '', reply: null, pos: 0, rcvtimeo: null, closed: false };
 
 			function live(method, args) {
@@ -44,9 +62,17 @@ return {
 					return true;
 				},
 
+				bind: function(addr) {
+					live('bind', [ addr ]);
+					if (family == proxy.AF_UNIX)
+						die('socket mock: bind() of a Unix socket is not modeled');
+
+					return own(addr?.address) ? true : fail('bind(): Address not available');
+				},
+
 				connect: function(addr) {
 					live('connect', [ addr ]);
-					let path = type(addr) == 'string' ? addr : addr?.path;
+					let path = key_of(family, addr);
 
 					if (ctx.has('errors', path))
 						return fail(ctx.get('errors', path));
@@ -54,7 +80,7 @@ return {
 					if (!ctx.has_data(path) && !ctx.has('hangs', path)) {
 						if (ctx.is_strict())
 							die(sprintf("strict mock: socket connect(%J) is not mocked", path));
-						return fail('connect(): No such file or directory');
+						return fail((family == proxy.AF_UNIX) ? 'connect(): No such file or directory' : 'connect(): Connection refused');
 					}
 
 					st.path = path;
@@ -111,10 +137,10 @@ return {
 			if (override)
 				return override(domain, socktype);
 
-			if (domain != proxy.AF_UNIX || socktype != proxy.SOCK_STREAM)
-				die('socket mock: only AF_UNIX stream sockets are modeled');
+			if (!(domain in [ proxy.AF_UNIX, proxy.AF_INET, proxy.AF_INET6 ]) || socktype != proxy.SOCK_STREAM)
+				die('socket mock: only stream sockets of AF_UNIX, AF_INET and AF_INET6 are modeled');
 
-			return open_socket();
+			return open_socket(domain);
 		};
 
 		proxy.error = function(numeric) {

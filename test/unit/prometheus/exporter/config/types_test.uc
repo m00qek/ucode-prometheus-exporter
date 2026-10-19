@@ -53,8 +53,8 @@ describe('config.types.datatype', () => {
 	it('knows the datatypes the collectors and the main section use, and no other', () => {
 		assert.match([ true, true, true, true, true ],
 			map([ 'uinteger', 'directory', 'file', 'regex', 'range(1,65535)' ], (n) => types.datatype(n) != null));
-		assert.match(true, types.datatype('owned_directory') != null);
-		assert.match([ null, null, null, null ], map([ 'ipaddr', 'range(9,1)', 'range(1)', 7 ], types.datatype));
+		assert.match([ true, true ], map([ 'owned_directory', 'ipaddr' ], (n) => types.datatype(n) != null));
+		assert.match([ null, null, null, null ], map([ 'ip4addr', 'range(9,1)', 'range(1)', 7 ], types.datatype));
 	});
 
 	// cert and key, which root copies for the service's group: where
@@ -162,6 +162,24 @@ describe('config.types.datatype', () => {
 
 	prop('owned_directory takes what is_owned_directory takes', gen.string({ charset: 'atvmp/._', min_len: 0, max_len: 12 }), (s) => {
 		assert.match(types.is_owned_directory(s), check('owned_directory', s) === true, s);
+	});
+
+	// agh's address: an address to connect to, as iptoarr() reads one.
+	function address(value) {
+		let res = types.convert('o', value, spec('', 'ipaddr'));
+		return res.ok ? true : res.details;
+	}
+
+	it('ipaddr takes an IPv4 or IPv6 address, and no prefix, zone or name', () => {
+		assert.match([ true, true, true, true ], map([ '127.0.0.1', '192.168.1.1', '::1', 'fe80::1' ], (a) => address(a)));
+		assert.match('o: expected an IPv4 or IPv6 address, got "localhost"', address('localhost'));
+
+		for (let a in [ '', '192.168.1.1/24', '1.2.3', '256.0.0.1', 'fe80::1%br-lan', ' 127.0.0.1', '[::1]', '127.0.0.1:8080' ])
+			assert.match(false, address(a) === true, a);
+	});
+
+	prop('ipaddr takes what iptoarr() reads', gen.string({ charset: '0129.:af', min_len: 0, max_len: 12 }), (s) => {
+		assert.match(iptoarr(s) != null, address(s) === true, s);
 	});
 
 	it('checks a value only once it has the type of the default', () => {
