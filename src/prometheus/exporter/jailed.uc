@@ -18,29 +18,53 @@ import * as privileges from 'prometheus.exporter.privileges';
  * @typedef {{ jailed: boolean, runs: Run[] }} Trial
  */
 
-/** procd's ujail. */
+/**
+ * procd's ujail.
+ *
+ * @type {string}
+ */
 export const UJAIL = '/sbin/ujail';
 
-/** The ucode interpreter, which runs trial.uc in the jail. */
+/**
+ * The ucode interpreter, which runs trial.uc in the jail.
+ *
+ * @type {string}
+ */
 export const UCODE = '/usr/bin/ucode';
 
-/** The program that runs the collectors in the jail. */
+/**
+ * The program that runs the collectors in the jail.
+ *
+ * @type {string}
+ */
 export const TRIAL = `/usr/libexec/${config.NAME}/trial.uc`;
 
-/** Its code: the exporter's modules, and trial.uc. */
+/**
+ * Its code: the exporter's modules, and trial.uc.
+ *
+ * @type {string[]}
+ */
 export const CODE = [ '/usr/share/ucode/prometheus', TRIAL ];
 
-/** The libraries of ucode's modules, as globs. */
+/**
+ * The libraries of ucode's modules, as globs.
+ *
+ * @type {string[]}
+ */
 export const LIBS = [ '/usr/lib/ucode/*.so', '/lib/libubus.so*', '/lib/libuci.so*', '/usr/lib/libnl*.so*', '/usr/lib/libz.so*' ];
 
-/** The service's priority (the init script's nice). */
+/**
+ * The service's priority (the init script's nice).
+ *
+ * @type {int}
+ */
 export const NICE = 10;
 
 /**
  * Whether ujail is there, and this process can run it: root's.
  *
- * @param {module:fs} fs
- * @returns {boolean}
+ * @param {module:fs} fs what looks: an object of fs's readfile and stat.
+ * @returns {boolean} whether it can.
  */
 export function available(fs) {
 	let uid = match(fs.readfile('/proc/self/status') ?? '', /\nUid:\s+([0-9]+)/);
@@ -51,8 +75,8 @@ export function available(fs) {
 /**
  * The kB of data each process may take, as the init script sets it.
  *
- * @param {JailSys} sys
- * @returns {int}
+ * @param {JailSys} sys the system.
+ * @returns {int} the kB.
  */
 export function data_kb(sys) {
 	let svc = config.service_values(sys.uci);
@@ -65,10 +89,10 @@ export function data_kb(sys) {
 /**
  * The shell command that runs trial.uc with `args` in the service's jail.
  *
- * @param {JailSys} sys
- * @param {Collector[]} collectors
- * @param {string[]} args
- * @returns {string}
+ * @param {JailSys} sys the system.
+ * @param {Collector[]} collectors the installed collectors.
+ * @param {string[]} args trial.uc's arguments.
+ * @returns {string} the command.
  */
 export function command(sys, collectors, args) {
 	let mounts = jail.mounts(collectors, sys).mounts;
@@ -89,8 +113,8 @@ export function command(sys, collectors, args) {
 /**
  * What trial.uc printed, as JSON, less ujail's own lines; null when it printed none.
  *
- * @param {?string} text
- * @returns {?Object}
+ * @param {?string} text what ujail and trial.uc printed.
+ * @returns {?Object} the JSON object.
  */
 export function output(text) {
 	let lines = filter(split(text ?? '', '\n'), (l) => substr(l, 0, 6) != 'jail: ' && l != '');
@@ -108,10 +132,10 @@ export function output(text) {
 /**
  * trial.uc's reply to `args`, run in the service's jail, or null when it could not be.
  *
- * @param {JailSys} sys
- * @param {Collector[]} collectors
- * @param {string[]} args
- * @returns {?Object}
+ * @param {JailSys} sys the system.
+ * @param {Collector[]} collectors the installed collectors.
+ * @param {string[]} args trial.uc's arguments.
+ * @returns {?Object} trial.uc's reply.
  */
 export function run(sys, collectors, args) {
 	if (!available(sys.fs))
@@ -131,11 +155,11 @@ export function run(sys, collectors, args) {
 /**
  * A run of each of the `chosen` collectors in the service's jail, or fallback()'s.
  *
- * @param {JailSys} sys
- * @param {Collector[]} collectors
- * @param {Collector[]} chosen
- * @param {function(): Run[]} fallback
- * @returns {Trial}
+ * @param {JailSys} sys the system.
+ * @param {Collector[]} collectors the installed collectors.
+ * @param {Collector[]} chosen the collectors to run.
+ * @param {function(): Run[]} fallback the runs where the jail cannot be had.
+ * @returns {Trial} the runs.
  */
 export function trial(sys, collectors, chosen, fallback) {
 	let out = run(sys, collectors, [ 'runs' ]);

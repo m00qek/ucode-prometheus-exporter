@@ -9,9 +9,9 @@
 /**
  * The first line, without its newline; null when the file cannot be read.
  *
- * @param {FsCapability} fs
- * @param {string} path
- * @returns {?string}
+ * @param {FsCapability} fs the collector's deps.fs.
+ * @param {string} path the file.
+ * @returns {?string} its first line.
  */
 export function first_line(fs, path) {
 	let s = fs.readfile(path);
@@ -22,9 +22,9 @@ export function first_line(fs, path) {
 /**
  * Every line, without newlines; null when the file cannot be read.
  *
- * @param {FsCapability} fs
- * @param {string} path
- * @returns {?string[]}
+ * @param {FsCapability} fs the collector's deps.fs.
+ * @param {string} path the file.
+ * @returns {?string[]} its lines; a last empty one, after the last newline, is left out.
  */
 export function lines(fs, path) {
 	let s = fs.readfile(path);
@@ -42,10 +42,10 @@ export function lines(fs, path) {
 /**
  * cb(line) for each line, read one at a time, for files as long as the conntrack table.
  *
- * @param {FsCapability} fs
- * @param {string} path
- * @param {function(string)} cb
- * @returns {boolean}
+ * @param {FsCapability} fs the collector's deps.fs.
+ * @param {string} path the file.
+ * @param {function(string)} cb called with each line, without its newline.
+ * @returns {boolean} whether the file could be read.
  */
 export function each_line(fs, path, cb) {
 	let f = fs.open(path, 'r');
@@ -63,10 +63,18 @@ export function each_line(fs, path, cb) {
 
 const AT_NULL = 0;
 
-/** The auxiliary vector's type of the page size, in bytes. */
+/**
+ * The auxiliary vector's type of the page size, in bytes.
+ *
+ * @type {int}
+ */
 export const AT_PAGESZ = 6;
 
-/** The auxiliary vector's type of the clock tick, in ticks a second (USER_HZ). */
+/**
+ * The auxiliary vector's type of the clock tick, in ticks a second (USER_HZ).
+ *
+ * @type {int}
+ */
 export const AT_CLKTCK = 17;
 const AT_MAX = 64;
 
@@ -104,8 +112,8 @@ function type_of(s, at, size, le) {
 /**
  * An auxiliary vector as /proc/self/auxv gives it, { type: value }, or null.
  *
- * @param {?string} bytes
- * @returns {?Object<string, int>}
+ * @param {?string} bytes the bytes of /proc/self/auxv (exporter's system()).
+ * @returns {?Object<string, int>} each value by its type.
  */
 export function auxv(bytes) {
 	let n = length(bytes ?? '');
@@ -142,8 +150,8 @@ const RARE_SPACE = /[\n\v\f\r]/;
 /**
  * The whitespace-separated fields of a line; [] for none or for null.
  *
- * @param {?string} line
- * @returns {string[]}
+ * @param {?string} line the line.
+ * @returns {string[]} its fields.
  */
 export function fields(line) {
 	line = trim(line ?? '');
@@ -159,9 +167,9 @@ export function fields(line) {
 /**
  * The whitespace-separated fields of every line; null when the file cannot be read.
  *
- * @param {FsCapability} fs
- * @param {string} path
- * @returns {?string[][]}
+ * @param {FsCapability} fs the collector's deps.fs.
+ * @param {string} path the file.
+ * @returns {?string[][]} each line's fields.
  */
 export function rows(fs, path) {
 	let s = fs.readfile(path);

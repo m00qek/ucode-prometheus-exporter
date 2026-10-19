@@ -11,7 +11,7 @@ const VERSION = 'dev';
 /**
  * The exporter's version.
  *
- * @returns {string}
+ * @returns {string} PKG_VERSION-rPKG_RELEASE when installed, 'dev' in a source tree.
  */
 export function version() {
 	return VERSION;

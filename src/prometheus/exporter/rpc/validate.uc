@@ -16,10 +16,18 @@ import { NAME } from 'prometheus.exporter.config';
  * @typedef {{ code: string, min: ?int, max: ?int, value: ?(int|string|string[]), message: string }} Refusal
  */
 
-/** What malformed arguments are answered with. */
+/**
+ * What malformed arguments are answered with.
+ *
+ * @type {string}
+ */
 export const ARGS_INVALID = 'ARGS_INVALID';
 
-/** The main section's options as validate takes them. */
+/**
+ * The main section's options as validate takes them.
+ *
+ * @type {string[]}
+ */
 export const MAIN_OPTIONS = [ ...keys(config.SERVICE_OPTIONS), ...keys(config.AUTH_OPTIONS), ...keys(config.MAIN_OPTIONS) ];
 
 function is_unset(value) {
@@ -49,9 +57,9 @@ function lone_section(name, stype, values) {
 /**
  * The details of a CONFIG_INVALID, less the option's name the field already shows.
  *
- * @param {string} name
- * @param {Result} res
- * @returns {string}
+ * @param {string} name the option's name.
+ * @param {Result} res the failed Result.
+ * @returns {string} its details, less 'name: '.
  */
 export function message(name, res) {
 	let d = (type(res.details) == 'string') ? res.details : Result.describe(res);
@@ -63,8 +71,8 @@ export function message(name, res) {
 /**
  * What validate answers of a problem: it, and its English as `message`.
  *
- * @param {Problem} problem
- * @returns {Refusal}
+ * @param {Problem} problem what is wrong with the value.
+ * @returns {Refusal} { code, ...args, message }.
  */
 export function refusal(problem) {
 	return { ...problem, message: config.english(problem) };
@@ -73,9 +81,9 @@ export function refusal(problem) {
 /**
  * What the exporter makes of `value` for main option `name`.
  *
- * @param {string} name
- * @param {?string} value
- * @returns {Result<(boolean|int|string)>}
+ * @param {string} name the option's name.
+ * @param {?string} value its value, as uci holds it.
+ * @returns {Result<(boolean|int|string)>} the typed value, or CONFIG_INVALID.
  */
 export function main_value(name, value) {
 	if (name in keys(config.AUTH_OPTIONS))
@@ -96,10 +104,10 @@ export function main_value(name, value) {
 /**
  * What the exporter makes of `value` for option `name` of `collector`.
  *
- * @param {Collector} collector
- * @param {string} name
- * @param {?string} value
- * @returns {Result<(boolean|int|string)>}
+ * @param {Collector} collector the collector.
+ * @param {string} name the option's name.
+ * @param {?string} value its value, as uci holds it.
+ * @returns {Result<(boolean|int|string)>} the typed value, or CONFIG_INVALID.
  */
 export function collector_value(collector, name, value) {
 	let uci = lone_section(collector.id, 'collector', { [name]: value });
@@ -119,8 +127,8 @@ export function collector_value(collector, name, value) {
 /**
  * The option names a collector's section takes: the core's, then its own.
  *
- * @param {Collector} collector
- * @returns {string[]}
+ * @param {Collector} collector the collector.
+ * @returns {string[]} the names.
  */
 export function option_names(collector) {
 	return [ ...keys(config.core(collector.meta, config.EXEC_TIMEOUT)), ...keys(collector.meta.options ?? {}) ];
@@ -129,8 +137,8 @@ export function option_names(collector) {
 /**
  * The answer to malformed arguments.
  *
- * @param {string} msg
- * @returns {{ error: string, message: string }}
+ * @param {string} msg what is wrong.
+ * @returns {{ error: string, message: string }} { error: ARGS_INVALID, message }.
  */
 export function invalid_args(msg) {
 	return { error: ARGS_INVALID, message: msg };
@@ -139,9 +147,9 @@ export function invalid_args(msg) {
 /**
  * What the ubus object's `validate` answers.
  *
- * @param {RpcSys} sys
- * @param {?Object} args
- * @returns {Object}
+ * @param {RpcSys} sys the system: its collectors, and its uci, for the saved hash.
+ * @param {?Object} args the method's arguments: { main, collectors }.
+ * @returns {Object} { ok, errors: { main, collectors } }, or { error: ARGS_INVALID, message }.
  */
 export function validate(sys, args) {
 	let main = args?.main ?? {};

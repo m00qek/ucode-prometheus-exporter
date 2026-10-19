@@ -12,15 +12,19 @@
  * @typedef {{ status: string, headers: string[][], body: string }} HttpReply
  */
 
-/** zlib's level: 1, the fastest. */
+/**
+ * zlib's level: 1, the fastest.
+ *
+ * @type {int}
+ */
 export const GZIP_LEVEL = 1;
 
 /**
  * A request header's value, or null; `name` in lower case.
  *
- * @param {?Object} env
- * @param {string} name
- * @returns {?string}
+ * @param {?Object} env uhttpd-mod-ucode's env of the request: its headers are env.headers.
+ * @param {string} name the header's name, in lower case.
+ * @returns {?string} its value.
  */
 export function header(env, name) {
 	let v = env?.headers?.[name];
@@ -38,8 +42,8 @@ function positive(q) {
 /**
  * Whether an Accept-Encoding takes gzip (RFC 9110, 12.5.3).
  *
- * @param {?string} value
- * @returns {boolean}
+ * @param {?string} value the Accept-Encoding header's value, or null.
+ * @returns {boolean} whether it takes gzip.
  */
 export function accepts_gzip(value) {
 	if (type(value) != 'string')
@@ -73,7 +77,7 @@ let deflate = null;
 /**
  * Whether zlib loads, loaded the first time it is asked, and kept.
  *
- * @returns {boolean}
+ * @returns {boolean} whether zlib's deflate loaded.
  */
 export function load_zlib() {
 	if (deflate == null) {
@@ -90,8 +94,8 @@ export function load_zlib() {
 /**
  * gzip of `text`, or null when zlib does not load.
  *
- * @param {string} text
- * @returns {?string}
+ * @param {string} text the text.
+ * @returns {?string} its gzip.
  */
 export function gzip(text) {
 	return load_zlib() ? deflate(text, true, GZIP_LEVEL) : null;
@@ -100,10 +104,10 @@ export function gzip(text) {
 /**
  * The reply of a scrape, gzip-compressed when `compress` is on and the scraper takes it.
  *
- * @param {ScrapeReply} res
- * @param {?string} accept
- * @param {boolean} compress
- * @returns {HttpReply}
+ * @param {ScrapeReply} res the scrape's reply.
+ * @param {?string} accept the request's Accept-Encoding, or null.
+ * @param {boolean} compress the main section's compress.
+ * @returns {HttpReply} the reply.
  */
 export function scrape_reply(res, accept, compress) {
 	let headers = [ [ 'Content-Type', res.content_type ] ];
@@ -126,10 +130,10 @@ export function scrape_reply(res, accept, compress) {
 /**
  * A reply with a plain text body, and `extra` headers.
  *
- * @param {string} status
- * @param {string} body
- * @param {?string[][]} extra
- * @returns {HttpReply}
+ * @param {string} status the status line, as '403 Forbidden'.
+ * @param {string} body the body.
+ * @param {?string[][]} extra more headers, [ name, value ] pairs.
+ * @returns {HttpReply} the reply.
  */
 export function text_reply(status, body, extra) {
 	return { status, headers: [ [ 'Content-Type', 'text/plain; charset=utf-8' ], ...(extra ?? []) ], body };
@@ -138,8 +142,8 @@ export function text_reply(status, body, extra) {
 /**
  * The head of a reply, as the handler sends it before the body.
  *
- * @param {HttpReply} reply
- * @returns {string}
+ * @param {HttpReply} reply the reply.
+ * @returns {string} its Status line and headers, each ended by CRLF, and the empty line.
  */
 export function head(reply) {
 	let out = `Status: ${reply.status}\r\n`;

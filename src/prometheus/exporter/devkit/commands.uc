@@ -13,8 +13,8 @@ const real = require('fs');
 /**
  * A command line as the exec capability runs it, each argument single-quoted.
  *
- * @param {string[]} argv
- * @returns {string}
+ * @param {string[]} argv the program and its arguments.
+ * @returns {string} the command line.
  */
 export function line(argv) {
 	return join(' ', map(argv, shell_quote));
@@ -25,8 +25,8 @@ const TAIL = substr(exec_script([ '' ], 1), length("set -- 1 ''"));
 /**
  * { seconds, line } of a script deps' exec runs, or null for any other command.
  *
- * @param {string} script
- * @returns {?{ seconds: int, line: string }}
+ * @param {string} script what popen was given.
+ * @returns {?{ seconds: int, line: string }} its limit and command line.
  */
 export function parse(script) {
 	let head = match(script, /^set -- ([0-9]+) /);
@@ -44,8 +44,8 @@ export function parse(script) {
  * An fs mock config whose popen runs the programs of `outputs`, by command line.
  *
  * @param {Object<string, { out: ?string, status: ?int, hangs: ?boolean, run: ?string[], seconds: ?int }>} outputs
- * @param {?Object} extra
- * @returns {Object}
+ * @param {?Object} extra the rest of the fs mock's config.
+ * @returns {Object} the fs mock's config.
  */
 export function fs(outputs, extra) {
 	return {
@@ -70,8 +70,8 @@ export function fs(outputs, extra) {
 /**
  * The processes whose command line holds `text`, to see that none a program started outlives it.
  *
- * @param {string} text
- * @returns {string[]}
+ * @param {string} text what their command line holds.
+ * @returns {string[]} their command lines.
  */
 export function running(text) {
 	let found;

@@ -18,7 +18,11 @@ import * as Result from 'prometheus.exporter.result';
 
 const real_fs = require('fs');
 
-/** The modules a test's utest config mocks. */
+/**
+ * The modules a test's utest config mocks.
+ *
+ * @type {string[]}
+ */
 export const MOCKED = [ 'fs', 'ubus', 'uci', 'rtnl', 'nl80211', 'socket' ];
 
 /**
@@ -60,9 +64,9 @@ function inject_each(cfgs, names, proxies, cb) {
 /**
  * Injects utest's mocks and calls cb with module-shaped objects for deps.session().
  *
- * @param {CollectorTestConfig} cfg
- * @param {function(Object): void} cb
- * @param {?string} id
+ * @param {CollectorTestConfig} cfg the mocks' configs.
+ * @param {function(Object): void} cb what runs with them.
+ * @param {?string} id the collector's module name, for cfg.options.
  */
 export function with_mods(cfg, cb, id) {
 	let cfgs = {};
@@ -416,9 +420,9 @@ function jail_in(c, mods, stat) {
 /**
  * Runs collector module `mod` as a scrape does, held to its contract, and calls cb.
  *
- * @param {CollectorModule} mod
- * @param {CollectorTestConfig} cfg
- * @param {function(CollectorRun): void} cb
+ * @param {CollectorModule} mod the collector module's exports.
+ * @param {CollectorTestConfig} cfg the mocks, and the collector's options.
+ * @param {function(CollectorRun): void} cb what checks the run.
  */
 export function with_collector(mod, cfg, cb) {
 	let c = valid_collector(mod);
@@ -468,7 +472,7 @@ export function with_collector(mod, cfg, cb) {
 /**
  * What a test checks of a with_collector run that fails or has nothing to observe.
  *
- * @param {CollectorRun} r
+ * @param {CollectorRun} r the run.
  * @returns {{ ok: boolean, none: ?string, error: ?string, lines: string[], logs: string[] }}
  */
 export function outcome(r) {
@@ -478,9 +482,9 @@ export function outcome(r) {
 /**
  * What the exporter's jail gives collector module `mod`.
  *
- * @param {CollectorModule} mod
- * @param {CollectorTestConfig} cfg
- * @returns {Object}
+ * @param {CollectorModule} mod the collector module's exports.
+ * @param {CollectorTestConfig} cfg its options and the mocks.
+ * @returns {Object} the jail's mounts, configs, commands and grants for it.
  */
 export function jail_of(mod, cfg) {
 	let c = valid_collector(mod);
@@ -496,8 +500,8 @@ export function jail_of(mod, cfg) {
 /**
  * What the loader and `collector check` refuse of a collector module's text.
  *
- * @param {?string} text
- * @returns {string[]}
+ * @param {?string} text the module's text, null when it cannot be read.
+ * @returns {string[]} the problems.
  */
 export function module_problems(text) {
 	if (text == null)
@@ -516,7 +520,7 @@ export function module_problems(text) {
 /**
  * Fails the test when the collector module at `path` has a module_problems() problem.
  *
- * @param {string} path
+ * @param {string} path the module's file.
  */
 export function assert_module(path) {
 	let problems = module_problems(real_fs.readfile(path));

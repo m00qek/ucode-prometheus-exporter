@@ -9,24 +9,40 @@
 import * as Result from 'prometheus.exporter.result';
 import * as errors from 'prometheus.exporter.errors';
 
-/** An init script enabled: its service is watched. */
+/**
+ * An init script enabled: its service is watched.
+ *
+ * @type {string}
+ */
 export const ENABLED = 'enabled';
 
-/** An init script someone disabled: nothing to observe. */
+/**
+ * An init script someone disabled: nothing to observe.
+ *
+ * @type {string}
+ */
 export const DISABLED = 'disabled';
 
-/** No such init script: nothing to observe. */
+/**
+ * No such init script: nothing to observe.
+ *
+ * @type {string}
+ */
 export const NOT_INSTALLED = 'not installed';
 
-/** What libubus calls a call to an object that is not there. */
+/**
+ * What libubus calls a call to an object that is not there.
+ *
+ * @type {string}
+ */
 export const NOT_FOUND = 'Not found';
 
 /**
  * A Result of ENABLED, DISABLED or NOT_INSTALLED for the init script `name`.
  *
- * @param {UbusCapability} ubus
- * @param {string} name
- * @returns {Result<string>}
+ * @param {UbusCapability} ubus the collector's deps.ubus.
+ * @param {string} name the init script's name.
+ * @returns {Result<string>} ENABLED, DISABLED or NOT_INSTALLED.
  */
 export function state(ubus, name) {
 	let res = ubus.call('rc', 'list', { name, skip_running_check: true });
@@ -49,9 +65,9 @@ export function state(ubus, name) {
 /**
  * Why the service `name` is not watched, or null.
  *
- * @param {UbusCapability} ubus
- * @param {string} name
- * @returns {?string}
+ * @param {UbusCapability} ubus the collector's deps.ubus.
+ * @param {string} name the init script's name.
+ * @returns {?string} '<name> is disabled' or '<name> is not installed', or null.
  */
 export function idle(ubus, name) {
 	let res = state(ubus, name);
@@ -62,10 +78,10 @@ export function idle(ubus, name) {
 /**
  * Nothing to observe when service `name` is not watched; else `failure`.
  *
- * @param {UbusCapability} ubus
- * @param {string} name
- * @param {Result} failure
- * @returns {Result}
+ * @param {UbusCapability} ubus the collector's deps.ubus.
+ * @param {string} name the init script's name.
+ * @param {Result} failure what the collector's source failed with.
+ * @returns {Result} Result.none(why), or `failure`.
  */
 export function unless_disabled(ubus, name, failure) {
 	let why = idle(ubus, name);
@@ -76,8 +92,8 @@ export function unless_disabled(ubus, name, failure) {
 /**
  * Whether a ubus call failed for its object not being there.
  *
- * @param {Result} res
- * @returns {boolean}
+ * @param {Result} res a ubus call's Result.
+ * @returns {boolean} whether it is UBUS_CALL_FAILED with the status NOT_FOUND.
  */
 export function object_missing(res) {
 	return res.ok === false && res.error == errors.UBUS_CALL_FAILED && res.data?.status == NOT_FOUND;

@@ -25,13 +25,21 @@ import * as config from 'prometheus.exporter.config';
  * }} MigrationPlan
  */
 
-/** The feed's exporters, the ucode one first. */
+/**
+ * The feed's exporters, the ucode one first.
+ *
+ * @type {MigrationSource[]}
+ */
 export const SOURCES = [
 	{ name: 'prometheus-node-exporter-ucode', port: '9101', collectors: true },
 	{ name: 'prometheus-node-exporter-lua', port: '9100', collectors: false },
 ];
 
-/** The collectors the feed's exporters had that this one has not, by module. */
+/**
+ * The collectors the feed's exporters had that this one has not, by module.
+ *
+ * @type {Object<string, string>}
+ */
 export const GONE = {
 	wifi_stations: 'wifi writes the stations, with its option stations, on by default',
 };
@@ -39,15 +47,25 @@ export const GONE = {
 /**
  * The options of the feed's ucode exporter's collector sections, by collector, as this exporter's collectors declare them:
  * what one not installed when they are imported is checked against.
+ *
+ * @type {Object<string, Object<string, OptionSpec>>}
  */
 export const FEED_OPTIONS = {
 	wifi: { stations: { default: true } },
 };
 
-/** The main section's options taken over, as this exporter declares them. */
+/**
+ * The main section's options taken over, as this exporter declares them.
+ *
+ * @type {string[]}
+ */
 export const OPTIONS = [ 'listen_interface', 'listen_port', 'http_keepalive', 'cert', 'key', 'omit_zero_values' ];
 
-/** The main section as the package ships it (files/etc/config/prometheus-exporter). */
+/**
+ * The main section as the package ships it (files/etc/config/prometheus-exporter).
+ *
+ * @type {Object<string, string>}
+ */
 export const SHIPPED = {
 	enabled: '1', listen_interface: 'loopback', listen_port: '9100', http_keepalive: '70', omit_zero_values: '0', exec_timeout: '5',
 	scrape_timeout: '10', collector_budget: '5', max_samples: '20000', max_scrape_samples: '200000', compress: '1',
@@ -90,8 +108,8 @@ function sections(uci, name) {
 /**
  * Whether this exporter's config is as the package ships it.
  *
- * @param {UciCursor} uci
- * @returns {boolean}
+ * @param {UciCursor} uci the cursor.
+ * @returns {boolean} whether it is.
  */
 export function pristine(uci) {
 	let all = sections(uci, config.NAME);
@@ -107,9 +125,9 @@ export function pristine(uci) {
 /**
  * What to import from the main section `main` of `source`, and what is skipped, and why.
  *
- * @param {MigrationSource} source
- * @param {?Object} main
- * @returns {{ set: Object<string, string>, skipped: string[] }}
+ * @param {MigrationSource} source the feed exporter.
+ * @param {?Object} main its main section's options, as uci holds them.
+ * @returns {{ set: Object<string, string>, skipped: string[] }} what to set, and what it skips.
  */
 export function main_options(source, main) {
 	let set = {};
@@ -145,11 +163,11 @@ function specs_of(id, meta) {
 /**
  * What to import of collector `id`'s section, its options `options`, and what is skipped, and why.
  *
- * @param {MigrationSource} source
- * @param {string} id
- * @param {Object<string, (string|string[])>} options
- * @param {?Meta} meta
- * @returns {{ set: Object<string, (string|string[])>, skipped: string[] }}
+ * @param {MigrationSource} source the feed exporter.
+ * @param {string} id the collector's id.
+ * @param {Object<string, (string|string[])>} options its section's options, as uci holds them.
+ * @param {?Meta} meta its meta; null when it is not installed (FEED_OPTIONS).
+ * @returns {{ set: Object<string, (string|string[])>, skipped: string[] }} as main_options()'s.
  */
 export function collector_options(source, id, options, meta) {
 	let specs = specs_of(id, meta);
@@ -180,9 +198,9 @@ export function collector_options(source, id, options, meta) {
 /**
  * What the first source that has a config would bring, or null when none has.
  *
- * @param {UciCursor} uci
- * @param {?(Object<string, Meta>|function(): Object<string, Meta>)} metas
- * @returns {?MigrationPlan}
+ * @param {UciCursor} uci the cursor.
+ * @param {?(Object<string, Meta>|function(): Object<string, Meta>)} metas the metas, by id.
+ * @returns {?MigrationPlan} the plan.
  */
 export function plan(uci, metas) {
 	for (let source in SOURCES) {
@@ -226,8 +244,8 @@ export function plan(uci, metas) {
 /**
  * Writes plan `p` into this exporter's config, and commits it.
  *
- * @param {UciCursor} uci
- * @param {MigrationPlan} p
+ * @param {UciCursor} uci a cursor that can write and commit.
+ * @param {MigrationPlan} p the plan.
  */
 export function apply(uci, p) {
 	for (let name, value in p.main)
@@ -254,9 +272,9 @@ function describe(p) {
 /**
  * Imports what a feed exporter's config holds, if this exporter's config is as shipped.
  *
- * @param {UciCursor} uci
- * @param {?(Object<string, Meta>|function(): Object<string, Meta>)} metas
- * @returns {{ imported: boolean, lines: string[] }}
+ * @param {UciCursor} uci a cursor that can write and commit.
+ * @param {?(Object<string, Meta>|function(): Object<string, Meta>)} metas the metas, by id.
+ * @returns {{ imported: boolean, lines: string[] }} whether it wrote anything, and what to log.
  */
 export function run(uci, metas) {
 	let p = plan(uci, metas);
@@ -281,8 +299,8 @@ export function run(uci, metas) {
 /**
  * Moves the main section's auth_password, where 0.2.0 kept it, into config.AUTH_CONFIG.
  *
- * @param {UciCursor} uci
- * @returns {{ moved: boolean, lines: string[] }}
+ * @param {UciCursor} uci a cursor that can write and commit.
+ * @returns {{ moved: boolean, lines: string[] }} whether it moved one, and what to log.
  */
 export function move_hash(uci) {
 	let hash = uci.get(config.NAME, 'main', 'auth_password');

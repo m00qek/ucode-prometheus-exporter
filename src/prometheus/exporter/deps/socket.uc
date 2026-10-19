@@ -58,8 +58,8 @@ function exchange(mod, sock, path, message, tv, timeout_ms) {
 /**
  * deps.socket: unix_request(path, message, timeout_ms), a Unix stream socket's whole reply.
  *
- * @param {module:socket} mod
- * @returns {SocketCapability}
+ * @param {module:socket} mod load_socket()'s module, or a test's.
+ * @returns {SocketCapability} deps.socket.
  */
 export function socket_channel(mod) {
 	return {
@@ -83,7 +83,7 @@ export function socket_channel(mod) {
 /**
  * ucode-mod-socket, loaded by name at run time; null when it is not installed.
  *
- * @returns {?module:socket}
+ * @returns {?module:socket} create, error and the constants used; null when it is not installed.
  */
 export function load_socket() {
 	try {

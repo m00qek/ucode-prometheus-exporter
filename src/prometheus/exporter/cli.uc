@@ -37,7 +37,11 @@ import { import_path } from 'prometheus.exporter.collection';
  * }} CliSys
  */
 
-/** The command line's usage, as docopt parses it and -h prints it. */
+/**
+ * The command line's usage, as docopt parses it and -h prints it.
+ *
+ * @type {string}
+ */
 export const USAGE = `prometheus-exporter: metrics of OpenWrt for Prometheus.
 
 Usage:
@@ -81,9 +85,9 @@ function urlencode(s) {
 /**
  * The parsed arguments, by docopt, which exits itself on -h, --version or bad usage.
  *
- * @param {string[]} argv
- * @param {string} version
- * @returns {Object}
+ * @param {string[]} argv the arguments.
+ * @param {string} version the exporter's version, which --version prints.
+ * @returns {Object} the arguments, by docopt's names ('scrape', '--dir', '<collector>').
  */
 export function parse(argv, version) {
 	return docopt(USAGE, argv, true, `prometheus-exporter ${version}`);
@@ -151,9 +155,9 @@ function hash_cmd(sys) {
 /**
  * The exit status of a command, for args as parse() gives them.
  *
- * @param {Object} args
- * @param {CliSys} sys
- * @returns {int}
+ * @param {Object} args the arguments, as parse() gives them.
+ * @param {CliSys} sys the system.
+ * @returns {int} the exit status.
  */
 export function run(args, sys) {
 	if (args.scrape)
@@ -171,14 +175,18 @@ export function run(args, sys) {
 	return 1;
 };
 
-/** The shell command that reads a password from the terminal, without echo. */
+/**
+ * The shell command that reads a password from the terminal, without echo.
+ *
+ * @type {string}
+ */
 export const READ_PASSWORD = "IFS= read -rs p && printf '%s' \"$p\"";
 
 /**
  * A password as a line read gives it, without its line end; null for an empty one.
  *
- * @param {?string} line
- * @returns {?string}
+ * @param {?string} line the line read, or null.
+ * @returns {?string} the password, or null.
  */
 export function password_of(line) {
 	let password = (type(line) == 'string') ? rtrim(line, '\r\n') : null;
@@ -189,9 +197,9 @@ export function password_of(line) {
 /**
  * A password from the terminal, or else a line of standard input.
  *
- * @param {module:fs} fs
- * @param {?function(string): void} prompt
- * @returns {?string}
+ * @param {module:fs} fs what reads: an object of fs's stdin and popen.
+ * @param {?function(string): void} prompt what asks for it on the terminal; warn when null.
+ * @returns {?string} the password, or null.
  */
 export function read_password(fs, prompt) {
 	if (fs.stdin.isatty()) {
@@ -212,7 +220,7 @@ export function read_password(fs, prompt) {
 /**
  * sys on the real system, for run().
  *
- * @returns {CliSys}
+ * @returns {CliSys} the system.
  */
 export function system() {
 	let mods = deps.modules();

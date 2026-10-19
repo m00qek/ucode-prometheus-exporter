@@ -22,20 +22,36 @@ import * as collection from 'prometheus.exporter.collection';
  * @typedef {{ id: string, meta: Meta, collect: Collect, own: boolean }} Collector
  */
 
-/** The installed collectors' directory. */
+/**
+ * The installed collectors' directory.
+ *
+ * @type {string}
+ */
 export const DIR = collection.DIR;
 
 const NAME = /^[a-z0-9][a-z0-9_-]*$/;
 const OPTION_TYPES = [ 'bool', 'int', 'string' ];
 const OPTION_KEYS = [ 'default', 'title', 'help', 'datatype' ];
 
-/** The most characters of a collector's title and of an option's. */
+/**
+ * The most characters of a collector's title and of an option's.
+ *
+ * @type {int}
+ */
 export const TITLE_MAX = 40;
 
-/** The most seconds meta.timeout may give a collector's commands. */
+/**
+ * The most seconds meta.timeout may give a collector's commands.
+ *
+ * @type {int}
+ */
 export const TIMEOUT_MAX = config.EXEC_TIMEOUT_MAX;
 
-/** The collectors of the exporter's own packages, by module. */
+/**
+ * The collectors of the exporter's own packages, by module.
+ *
+ * @type {string[]}
+ */
 export const OWN = [
 	'bmx7', 'chrony', 'conntrack', 'cpu', 'dawn', 'dhcp_leases', 'diskstats', 'dnsmasq', 'entropy', 'ethtool',
 	'exporter', 'filefd', 'filesystem', 'hostapd_stations', 'hostapd_ubus_stations', 'hwmon', 'interrupts', 'loadavg', 'ltq_dsl',
@@ -44,7 +60,11 @@ export const OWN = [
 	'time', 'timesync', 'ubnt_manager', 'uci_dhcp_host', 'uname', 'unbound', 'vmstat', 'wifi', 'wireguard',
 ];
 
-/** What meta.cost takes: how much a run costs, roughly, before the ledger has timed it. */
+/**
+ * What meta.cost takes: how much a run costs, roughly, before the ledger has timed it.
+ *
+ * @type {string[]}
+ */
 export const COSTS = [ 'light', 'heavy' ];
 
 export const id_of = collection.id_of;
@@ -128,9 +148,9 @@ function validate_paths(id, meta) {
 /**
  * { id, meta, collect } for a module's exports, or COLLECTOR_INVALID.
  *
- * @param {string} id
- * @param {?CollectorModule} mod
- * @returns {Result<Collector>}
+ * @param {string} id the module's name.
+ * @param {?CollectorModule} mod its exports, as import_module gives them.
+ * @returns {Result<Collector>} the collector, or COLLECTOR_INVALID saying what is wrong.
  */
 export function validate(id, mod) {
 	let meta = mod?.meta;
@@ -242,8 +262,8 @@ function leading(text) {
 /**
  * Whether a module's text is in strict mode: its first statement is 'use strict'.
  *
- * @param {*} text
- * @returns {boolean}
+ * @param {*} text the module's text; anything but a string is not.
+ * @returns {boolean} whether its first statement is 'use strict'.
  */
 export function is_strict(text) {
 	if (type(text) != 'string')
@@ -265,7 +285,11 @@ export function is_strict(text) {
 	return rest == '' || substr(rest, 0, 1) in [ ';', '\n' ];
 };
 
-/** The one module a collector imports: the collector API. */
+/**
+ * The one module a collector imports: the collector API.
+ *
+ * @type {string}
+ */
 export const API = 'prometheus.exporter';
 
 export const imports = scan.imports;
@@ -303,8 +327,8 @@ const INSTEAD_OF_SYSTEM = "a collector runs programs through deps.exec, with 'ex
 /**
  * Why a collector module's text loads what a collector may not, or null.
  *
- * @param {string} text
- * @returns {?string}
+ * @param {string} text the collector module's text.
+ * @returns {?string} the problems, joined by '; ', or null.
  */
 export function import_problem(text) {
 	let found = imports(text);
@@ -323,8 +347,8 @@ export function import_problem(text) {
 /**
  * Why a collector module's text does more at its top level than declare, or null.
  *
- * @param {string} text
- * @returns {?string}
+ * @param {string} text the collector module's text.
+ * @returns {?string} the problems, joined by '; ', or null.
  */
 export function purity_problem(text) {
 	return purity.problem(text, API);
@@ -333,8 +357,8 @@ export function purity_problem(text) {
 /**
  * Why the loader leaves a module out by its text alone, before it loads it, or null.
  *
- * @param {?string} text
- * @returns {?string}
+ * @param {?string} text the module's text, null when it cannot be read.
+ * @returns {?string} why, or null.
  */
 export function refusal(text) {
 	if (!is_strict(text))
@@ -370,11 +394,11 @@ function probed_ok(id, p, log) {
 /**
  * What a child process of the probe reports of module `id` of `dir`, checked as load() does.
  *
- * @param {module:fs} fs
- * @param {string} dir
- * @param {string} id
- * @param {function(string): CollectorModule} import_fn
- * @returns {{ meta: ?string, own: ?boolean, invalid: ?string }}
+ * @param {module:fs} fs what reads the module: an object of fs's readfile.
+ * @param {string} dir the collectors' directory (DIR).
+ * @param {string} id the module's name.
+ * @param {function(string): CollectorModule} import_fn what loads it.
+ * @returns {{ meta: ?string, own: ?boolean, invalid: ?string }} the report.
  */
 export function check_module(fs, dir, id, import_fn) {
 	let why = refusal(fs.readfile(`${dir}/${id}.uc`));
@@ -390,13 +414,13 @@ export function check_module(fs, dir, id, import_fn) {
 /**
  * The valid collectors in `dir`, sorted by name; each left out is logged at err.
  *
- * @param {module:fs} fs
- * @param {string} dir
- * @param {function(string): CollectorModule} import_fn
- * @param {Log} log
- * @param {?function(string[]): Object<string, ProbeOutcome>} probe
- * @param {?function(string[]): Object<string, CollectorModule>} import_all
- * @returns {Collector[]}
+ * @param {module:fs} fs what reads the directory: an object of fs's lsdir and readfile.
+ * @param {string} dir the collectors' directory (DIR).
+ * @param {function(string): CollectorModule} import_fn import_module, or a test's.
+ * @param {Log} log the exporter's log.
+ * @param {?function(string[]): Object<string, ProbeOutcome>} probe loads them in a child first.
+ * @param {?function(string[]): Object<string, CollectorModule>} import_all import_modules, or null.
+ * @returns {Collector[]} the valid collectors, sorted by name.
  */
 export function load(fs, dir, import_fn, log, probe, import_all) {
 	let collectors = [];

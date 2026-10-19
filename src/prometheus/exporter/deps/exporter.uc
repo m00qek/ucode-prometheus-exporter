@@ -22,18 +22,26 @@
  * }} ExporterCapability
  */
 
-/** The files of the serving process's /proc/<pid> exporter_channel reads. */
+/**
+ * The files of the serving process's /proc/<pid> exporter_channel reads.
+ *
+ * @type {string[]}
+ */
 export const PROCESS_FILES = [ 'stat', 'status', 'limits' ];
 
-/** The system's files exporter_channel reads: the boot time and the auxiliary vector. */
+/**
+ * The system's files exporter_channel reads: the boot time and the auxiliary vector.
+ *
+ * @type {string[]}
+ */
 export const SYSTEM_FILES = [ '/proc/stat', '/proc/self/auxv' ];
 
 /**
  * The exporter capability: the serving process, read only.
  *
- * @param {module:fs} fs
- * @param {?ExporterView} view
- * @returns {ExporterCapability}
+ * @param {module:fs} fs the fs module, or an object of its readfile and lsdir.
+ * @param {?ExporterView} view the scrape's, or null.
+ * @returns {ExporterCapability} the capability.
  */
 export function exporter_channel(fs, view) {
 	let base = `/proc/${view?.pid ?? 'self'}`;

@@ -192,9 +192,9 @@ function describe_collectors(sys, add_line, add) {
 /**
  * A run of each of `chosen`, in the service's jail where it can be had.
  *
- * @param {CheckSys} sys
- * @param {Collector[]} chosen
- * @returns {Trial}
+ * @param {CheckSys} sys the system.
+ * @param {Collector[]} chosen the collectors to run.
+ * @returns {Trial} the runs.
  */
 export function trial(sys, chosen) {
 	let here = () => scrape.trial(sys.env, sys.uci, sys.ledger, chosen, sys.collectors);
@@ -238,9 +238,9 @@ function check_service(sys, add) {
 /**
  * { ok, report }: ok unless the configuration is invalid.
  *
- * @param {CheckSys} sys
- * @param {?{ config_only: ?boolean }} opts
- * @returns {{ ok: boolean, report: string }}
+ * @param {CheckSys} sys the system.
+ * @param {?{ config_only: ?boolean }} opts config_only: check --config.
+ * @returns {{ ok: boolean, report: string }} whether the config is valid, and the report.
  */
 export function run(sys, opts) {
 	let lines = [];
@@ -271,14 +271,18 @@ export function run(sys, opts) {
 	return { ok, report: join('\n', lines) };
 };
 
-/** uhttpd, the program a serving instance runs. */
+/**
+ * uhttpd, the program a serving instance runs.
+ *
+ * @type {string}
+ */
 export const UHTTPD = '/usr/sbin/uhttpd';
 
 /**
  * The service's instances that serve /metrics, of all procd lists for it.
  *
- * @param {?Object[]} instances
- * @returns {Object[]}
+ * @param {?Object[]} instances procd's instances of the service.
+ * @returns {Object[]} those whose command runs UHTTPD.
  */
 export function exporters(instances) {
 	return filter(instances ?? [], (i) => i?.command?.[0] == UHTTPD);
@@ -287,8 +291,8 @@ export function exporters(instances) {
 /**
  * The addresses of uhttpd's command line, as URLs: what follows each -p (HTTP) and -s (HTTPS).
  *
- * @param {string[]} command
- * @returns {string[]}
+ * @param {string[]} command uhttpd's command line.
+ * @returns {string[]} the URLs of /metrics.
  */
 export function listening(command) {
 	let urls = [];
@@ -307,8 +311,8 @@ export function listening(command) {
 /**
  * Whether uhttpd's command line has it check basic auth: a config file (-c) other than /dev/null.
  *
- * @param {string[]} command
- * @returns {boolean}
+ * @param {string[]} command uhttpd's command line.
+ * @returns {boolean} whether it does.
  */
 export function logs_in(command) {
 	for (let i = 0; i < length(command) - 1; i++)
@@ -321,10 +325,10 @@ export function logs_in(command) {
 /**
  * What status prints of a running exporter.
  *
- * @param {string[]} command
- * @param {Collector[]} collectors
- * @param {UciCursor} uci
- * @returns {string}
+ * @param {string[]} command uhttpd's command line.
+ * @param {Collector[]} collectors the installed collectors.
+ * @param {UciCursor} uci the cursor.
+ * @returns {string} the line.
  */
 export function status(command, collectors, uci) {
 	let serving = length(filter(collectors, (c) => config.enabled(uci, c.id)));
@@ -339,8 +343,8 @@ export function status(command, collectors, uci) {
 /**
  * sys on the real system, for run(); the ledger is not read for `config_only`.
  *
- * @param {?{ config_only: ?boolean }} opts
- * @returns {CheckSys}
+ * @param {?{ config_only: ?boolean }} opts config_only: check --config, which reads no ledger.
+ * @returns {CheckSys} the system.
  */
 export function system(opts) {
 	let mods = deps.modules();

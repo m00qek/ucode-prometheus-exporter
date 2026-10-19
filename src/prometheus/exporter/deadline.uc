@@ -8,10 +8,18 @@
 
 import { SCRIPT_TIMEOUT } from 'prometheus.exporter.config';
 
-/** The request header, as uhttpd-mod-ucode names headers: in lower case. */
+/**
+ * The request header, as uhttpd-mod-ucode names headers: in lower case.
+ *
+ * @type {string}
+ */
 export const HEADER = 'x-prometheus-scrape-timeout-seconds';
 
-/** The seconds the timeout keeps back, at most, for the network and the scraper. */
+/**
+ * The seconds the timeout keeps back, at most, for the network and the scraper.
+ *
+ * @type {float}
+ */
 export const MARGIN = 0.5;
 
 const NUMBER = /^[0-9]+(\.[0-9]*)?$|^\.[0-9]+$/;
@@ -19,8 +27,8 @@ const NUMBER = /^[0-9]+(\.[0-9]*)?$|^\.[0-9]+$/;
 /**
  * A monotonic clock's [ s, ns ] as seconds.
  *
- * @param {int[]} t
- * @returns {float}
+ * @param {int[]} t [ s, ns ], as clock(true) gives it.
+ * @returns {float} the seconds.
  */
 export function seconds(t) {
 	return t[0] + t[1] / 1000000000.0;
@@ -29,9 +37,9 @@ export function seconds(t) {
 /**
  * The seconds a scrape may take, never more than uhttpd gives the handler.
  *
- * @param {?string} value
- * @param {(int|float)} fallback
- * @returns {(int|float)}
+ * @param {?string} value the header's value, or null without it.
+ * @param {(int|float)} fallback the seconds without one: scrape_timeout.
+ * @returns {(int|float)} the seconds, at most SCRIPT_TIMEOUT.
  */
 export function timeout(value, fallback) {
 	let v = (type(value) == 'string') ? trim(value) : '';
@@ -46,8 +54,8 @@ export function timeout(value, fallback) {
 /**
  * The seconds the collectors may take of `timeout`: all but MARGIN, and never less than half of it.
  *
- * @param {(int|float)} timeout
- * @returns {float}
+ * @param {(int|float)} timeout the scrape's seconds.
+ * @returns {float} the collectors' seconds.
  */
 export function budget(timeout) {
 	return max(timeout - MARGIN, timeout / 2.0);

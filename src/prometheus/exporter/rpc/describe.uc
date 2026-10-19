@@ -52,14 +52,18 @@ import { collector_value, message } from 'prometheus.exporter.rpc.validate';
  * }} CollectorEntry
  */
 
-/** apk's lists of each package's files (sys.apk). */
+/**
+ * apk's lists of each package's files (sys.apk).
+ *
+ * @type {string}
+ */
 export const APK_LISTS = '/lib/apk/packages';
 
 /**
  * A string that is not empty, or null.
  *
- * @param {*} value
- * @returns {?string}
+ * @param {*} value anything; only a string that is not empty is kept.
+ * @returns {?string} it, or null.
  */
 export function text(value) {
 	return (type(value) == 'string' && value != '') ? value : null;
@@ -68,9 +72,9 @@ export function text(value) {
 /**
  * One option of meta.options, a bare default or { default, title, help, datatype }.
  *
- * @param {string} name
- * @param {*} decl
- * @returns {OptionEntry}
+ * @param {string} name the option's name.
+ * @param {*} decl a bare default, or { default, title, help, datatype }.
+ * @returns {OptionEntry} the option, without a value.
  */
 export function option_spec(name, decl) {
 	let spec = (type(decl) == 'object') ? decl : { default: decl };
@@ -89,8 +93,8 @@ export function option_spec(name, decl) {
 /**
  * meta.options as a list, in the order the collector declares them.
  *
- * @param {Meta} meta
- * @returns {OptionEntry[]}
+ * @param {Meta} meta the collector's meta.
+ * @returns {OptionEntry[]} its options, without values.
  */
 export function options_of(meta) {
 	let options = meta.options ?? {};
@@ -101,8 +105,8 @@ export function options_of(meta) {
 /**
  * A short label: meta.title, or the collector's name.
  *
- * @param {Meta} meta
- * @returns {string}
+ * @param {Meta} meta the collector's meta.
+ * @returns {string} the label.
  */
 export function title_of(meta) {
 	return text(meta.title) ?? meta.name;
@@ -111,9 +115,9 @@ export function title_of(meta) {
 /**
  * { path: package } for the files of the exporter's packages, from apk's lists.
  *
- * @param {module:fs} fs
- * @param {string} dir
- * @returns {Object<string, string>}
+ * @param {module:fs} fs what reads the lists: an object of fs's glob and readfile.
+ * @param {string} dir apk's lists' directory (APK_LISTS).
+ * @returns {Object<string, string>} each file's package, by path.
  */
 export function owners(fs, dir) {
 	let out = {};
@@ -196,8 +200,8 @@ function collector_entry(sys, c, owner_of) {
 /**
  * What `collectors` answers: each installed collector, and those the loader left out.
  *
- * @param {RpcSys} sys
- * @returns {{ collectors: CollectorEntry[], skipped: string[] }}
+ * @param {RpcSys} sys the system.
+ * @returns {{ collectors: CollectorEntry[], skipped: string[] }} them.
  */
 export function collectors(sys) {
 	let owner_of = owners(sys.fs, sys.apk ?? APK_LISTS);

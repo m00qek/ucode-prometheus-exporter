@@ -19,22 +19,34 @@ import * as config from 'prometheus.exporter.config';
  * }} WatchSys
  */
 
-/** The procd trigger that reloads the service. */
+/**
+ * The procd trigger that reloads the service.
+ *
+ * @type {string}
+ */
 export const EVENT = `${config.NAME}.path`;
 
-/** How often it looks, in ms, while nothing is there. */
+/**
+ * How often it looks, in ms, while nothing is there.
+ *
+ * @type {int}
+ */
 export const INTERVAL_MS = 5000;
 
-/** How long it waits after it asked for a reload, in ms. */
+/**
+ * How long it waits after it asked for a reload, in ms.
+ *
+ * @type {int}
+ */
 export const QUIET_MS = 60000;
 
 /**
  * Looks `rounds` times, for ever without, and says what it did each round.
  *
- * @param {WatchSys} sys
- * @param {string[]} paths
- * @param {?int} rounds
- * @returns {{ found: string[], reloaded: boolean }[]}
+ * @param {WatchSys} sys the system.
+ * @param {string[]} paths the paths it waits for.
+ * @param {?int} rounds how many times it looks; null for ever.
+ * @returns {{ found: string[], reloaded: boolean }[]} what it did, each round.
  */
 export function run(sys, paths, rounds) {
 	let done = [];

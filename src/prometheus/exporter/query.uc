@@ -13,8 +13,8 @@ function urldecode(s) {
 /**
  * { collect, exclude }: names in order, without repeats.
  *
- * @param {?string} query
- * @returns {{ collect: string[], exclude: string[] }}
+ * @param {?string} query the query string, without its '?'; null for none.
+ * @returns {{ collect: string[], exclude: string[] }} the names given each, URL-decoded.
  */
 export function parse(query) {
 	let collect = [], exclude = [];

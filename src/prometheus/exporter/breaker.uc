@@ -12,18 +12,26 @@
  * @typedef {{ entry: LedgerEntry, tripped: boolean, closed: boolean }} BreakerChange
  */
 
-/** Failures in a row that trip a breaker. */
+/**
+ * Failures in a row that trip a breaker.
+ *
+ * @type {int}
+ */
 export const FAILURES = 3;
 
-/** The most scrapes a quarantine lasts: 1, 2, 4, 8, 16, 32. */
+/**
+ * The most scrapes a quarantine lasts: 1, 2, 4, 8, 16, 32.
+ *
+ * @type {int}
+ */
 export const COOLDOWN_MAX = 32;
 
 /**
  * 'closed', 'open' (quarantined) or 'trial', for scrape number `m`.
  *
- * @param {?LedgerEntry} entry
- * @param {int} m
- * @returns {string}
+ * @param {?LedgerEntry} entry the collector's entry; null for none.
+ * @param {int} m the scrape's number.
+ * @returns {string} the phase.
  */
 export function phase(entry, m) {
 	if (entry?.q == null)
@@ -35,9 +43,9 @@ export function phase(entry, m) {
 /**
  * The scrapes left before the trial, seen from scrape `m`; null for a closed breaker.
  *
- * @param {?LedgerEntry} entry
- * @param {int} m
- * @returns {?int}
+ * @param {?LedgerEntry} entry the collector's entry; null for none.
+ * @param {int} m the scrape's number.
+ * @returns {?int} the scrapes.
  */
 export function left(entry, m) {
 	return (entry?.q == null) ? null : max(entry.q - m + 1, 0);
@@ -46,8 +54,8 @@ export function left(entry, m) {
 /**
  * The cool-down after one of `cd` scrapes: twice it, up to COOLDOWN_MAX.
  *
- * @param {?int} cd
- * @returns {int}
+ * @param {?int} cd the last cool-down, or null for none.
+ * @returns {int} the next, in scrapes.
  */
 export function next_cooldown(cd) {
 	return (cd == null) ? 1 : min(cd * 2, COOLDOWN_MAX);
@@ -64,11 +72,11 @@ function trip(entry, held, n, why) {
 /**
  * What after() makes of `entry`, made of `entry` itself rather than of a copy.
  *
- * @param {LedgerEntry} entry
- * @param {string} outcome
- * @param {int} n
- * @param {?string} why
- * @returns {?string}
+ * @param {LedgerEntry} entry the collector's entry, changed.
+ * @param {string} outcome 'ok', 'failed', 'trip' or 'neutral'.
+ * @param {int} n the scrape's number.
+ * @param {?string} why what tripped it, when it trips.
+ * @returns {?string} 'tripped' or 'closed' when the breaker did, else null.
  */
 export function apply(entry, outcome, n, why) {
 	let held = (entry.q != null);
@@ -101,11 +109,11 @@ export function apply(entry, outcome, n, why) {
 /**
  * What scrape `n` makes of entry `previous` (left as it is) by an outcome.
  *
- * @param {?LedgerEntry} previous
- * @param {string} outcome
- * @param {int} n
- * @param {?string} why
- * @returns {BreakerChange}
+ * @param {?LedgerEntry} previous the collector's entry; null for none.
+ * @param {string} outcome 'ok', 'failed', 'trip' or 'neutral'.
+ * @param {int} n the scrape's number.
+ * @param {?string} why what tripped it, when it trips.
+ * @returns {BreakerChange} the change.
  */
 export function after(previous, outcome, n, why) {
 	let entry = { ...(previous ?? {}) };

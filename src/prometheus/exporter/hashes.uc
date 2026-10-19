@@ -6,7 +6,11 @@
 
 'use strict';
 
-/** The rounds of a $5$ or $6$ hash that names none. */
+/**
+ * The rounds of a $5$ or $6$ hash that names none.
+ *
+ * @type {int}
+ */
 export const ROUNDS_DEFAULT = 5000;
 
 const FORMATS = { '1': [ 8, 22 ], '5': [ 16, 43 ], '6': [ 16, 86 ] };
@@ -16,8 +20,8 @@ const ROUNDS = /^rounds=[1-9][0-9]*$/;
 /**
  * Whether `value` is a hash of one of the formats.
  *
- * @param {*} value
- * @returns {boolean}
+ * @param {*} value anything; only a string is a hash.
+ * @returns {boolean} whether it is one.
  */
 export function is_hash(value) {
 	if (type(value) != 'string')
@@ -47,8 +51,8 @@ export function is_hash(value) {
 /**
  * The rounds computing `hash` takes, or null when it is not of one of the formats.
  *
- * @param {*} hash
- * @returns {?int}
+ * @param {*} hash anything; only a string is a hash.
+ * @returns {?int} the rounds.
  */
 export function rounds(hash) {
 	if (!is_hash(hash))
@@ -65,21 +69,25 @@ export function rounds(hash) {
 /**
  * Whether `user` is a user basic auth takes: 1 to 64 bytes, no ':', space or control.
  *
- * @param {*} user
- * @returns {boolean}
+ * @param {*} user anything; only a string is a user.
+ * @returns {boolean} whether it is one.
  */
 export function is_user(user) {
 	return type(user) == 'string' && match(user, /^[^:[:space:][:cntrl:]]{1,64}$/) != null;
 };
 
-/** The most rounds a hash of auth_password may take (see rounds). */
+/**
+ * The most rounds a hash of auth_password may take (see rounds).
+ *
+ * @type {int}
+ */
 export const AUTH_ROUNDS_MAX = 2000;
 
 /**
  * Whether `value` is a hash basic auth takes: of at most AUTH_ROUNDS_MAX rounds.
  *
- * @param {*} value
- * @returns {boolean}
+ * @param {*} value anything; only a string is a hash.
+ * @returns {boolean} whether it is one.
  */
 export function is_auth_hash(value) {
 	let n = rounds(value);

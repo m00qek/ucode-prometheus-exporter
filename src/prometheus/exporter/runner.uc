@@ -13,16 +13,32 @@ import * as exposition from 'prometheus.exporter.exposition';
 import { seconds } from 'prometheus.exporter.deadline';
 import { POLL_MS } from 'prometheus.exporter.probe';
 
-/** Seconds to a collector's limit under which the child tells of its start at once. */
+/**
+ * Seconds to a collector's limit under which the child tells of its start at once.
+ *
+ * @type {float}
+ */
 export const SOON = 2 * POLL_MS / 1000.0;
 
-/** The child tells this process of every WAKE-th collector it starts. */
+/**
+ * The child tells this process of every WAKE-th collector it starts.
+ *
+ * @type {int}
+ */
 export const WAKE = 4;
 
-/** Bytes of untold runs after which the child tells of the next start. */
+/**
+ * Bytes of untold runs after which the child tells of the next start.
+ *
+ * @type {int}
+ */
 export const WAKE_BYTES = 16384;
 
-/** Seconds a child holding no collector may run past the deadline. */
+/**
+ * Seconds a child holding no collector may run past the deadline.
+ *
+ * @type {float}
+ */
 export const GRACE = POLL_MS / 1000.0;
 
 /**
@@ -74,9 +90,9 @@ function stopped(job, res, took) {
 /**
  * The run of a collector stopped at its budget's end or the deadline.
  *
- * @param {Job} job
- * @param {float} took
- * @returns {Run}
+ * @param {Job} job its job.
+ * @param {float} took the seconds it ran.
+ * @returns {Run} the run: SCRAPE_DEADLINE or COLLECTOR_CANCELLED.
  */
 export function cancelled(job, took) {
 	if (job.at_deadline)
@@ -90,9 +106,9 @@ export function cancelled(job, took) {
 /**
  * The run of a collector whose process ended under it.
  *
- * @param {Job} job
- * @param {float} took
- * @returns {Run}
+ * @param {Job} job its job.
+ * @param {float} took the seconds it ran.
+ * @returns {Run} the run: COLLECTOR_KILLED.
  */
 export function killed(job, took) {
 	return stopped(job, Result.err(errors.COLLECTOR_KILLED,
@@ -102,8 +118,8 @@ export function killed(job, took) {
 /**
  * The run of a collector no child could be forked for.
  *
- * @param {Job} job
- * @returns {Run}
+ * @param {Job} job its job.
+ * @returns {Run} the run: COLLECTOR_NOT_RUN.
  */
 export function not_run(job) {
 	return { ...stopped(job, Result.err(errors.COLLECTOR_NOT_RUN,
@@ -113,8 +129,8 @@ export function not_run(job) {
 /**
  * The run of a collector left out at the deadline after its child was stopped.
  *
- * @param {Job} job
- * @returns {Run}
+ * @param {Job} job its job.
+ * @returns {Run} the run: SCRAPE_DEADLINE.
  */
 export function late(job) {
 	return { ...stopped(job, Result.err(errors.SCRAPE_DEADLINE, 'not run: the scrape\'s time was spent'), 0), skipped: 'deadline' };
@@ -123,17 +139,21 @@ export function late(job) {
 /**
  * The run of a collector stopped, or not run, as this process was asked to stop.
  *
- * @param {Job} job
- * @param {int} signal
- * @param {boolean} running
- * @returns {Run}
+ * @param {Job} job the collector's job.
+ * @param {int} signal the signal this process was asked to stop by.
+ * @param {boolean} running whether it was running, or not yet run.
+ * @returns {Run} its run, failing COLLECTOR_NOT_RUN.
  */
 export function signalled(job, signal, running) {
 	return { ...stopped(job, Result.err(errors.COLLECTOR_NOT_RUN,
 		sprintf('%s: this process was asked to stop (signal %d)', running ? 'stopped' : 'not run', signal), { signal }), 0), skipped: 'signal' };
 };
 
-/** The digits of a packed run's head's length, in hex. */
+/**
+ * The digits of a packed run's head's length, in hex.
+ *
+ * @type {int}
+ */
 export const HEAD_DIGITS = 8;
 
 const HEAD = [ 'name', 'id', 'samples', 'duration', 'budget', 'skipped', 'logs', 'ok', 'error', 'details', 'data', 'none', 'families', 'size' ];
@@ -144,9 +164,9 @@ const MARK = length([ 'id', 'limit', 'at_deadline', 'budget', 'started' ]);
 /**
  * A run and its logs, packed as the child hands them over.
  *
- * @param {Run} run
- * @param {string[][]} logs
- * @returns {string}
+ * @param {Run} run the run: its text written, and its families' names alone (exposition.pack's).
+ * @param {string[][]} logs what was logged with it: [ level, msg ] pairs.
+ * @returns {string} the run, packed.
  */
 export function pack(run, logs) {
 	let res = run.result;
@@ -162,9 +182,9 @@ export function pack(run, logs) {
 /**
  * A collector's start, as the child writes it before it runs it.
  *
- * @param {Job} job
- * @param {float} t
- * @returns {string}
+ * @param {Job} job its job.
+ * @param {float} t when it started.
+ * @returns {string} the start, packed.
  */
 export function started(job, t) {
 	let head = sprintf('%J\n', [ job.c.id, job.limit, job.at_deadline, job.budget, t ]);
@@ -175,9 +195,9 @@ export function started(job, t) {
 /**
  * The run, or start, written at `at` of `text`, and where the next begins.
  *
- * @param {string} text
- * @param {?int} at
- * @returns {?{ run: ?Run, logs: ?string[][], start: ?Array, end: int }}
+ * @param {string} text what pack() and started() wrote, one after another.
+ * @param {?int} at where the run begins; 0 when null.
+ * @returns {?{ run: ?Run, logs: ?string[][], start: ?Array, end: int }} null if none is whole.
  */
 export function unpack(text, at) {
 	at ??= 0;
@@ -236,10 +256,10 @@ function log_stopped(env, r) {
 /**
  * The runner in this process, for the tests: nothing stops a collector.
  *
- * @param {ScrapeEnv} env
- * @param {RunFn} run_fn
- * @param {?{ omit: ?boolean }} opts
- * @returns {Runner}
+ * @param {ScrapeEnv} env the scrape's env.
+ * @param {RunFn} run_fn what runs one collector.
+ * @param {?{ omit: ?boolean }} opts omit: omit_zero_values.
+ * @returns {Runner} the runner.
  */
 export function inline(env, run_fn, opts) {
 	return {
@@ -267,8 +287,8 @@ const STATUS = /^(VmHWM|VmData|VmRSS):\s+([0-9]+) kB/;
 /**
  * This process's memory, in kB: { VmHWM, VmData, VmRSS }, for the benchmark.
  *
- * @param {function(string): ?string} readfile
- * @returns {Object<string, int>}
+ * @param {function(string): ?string} readfile fs's readfile.
+ * @returns {Object<string, int>} VmHWM, VmData and VmRSS, in kB.
  */
 export function memory(readfile) {
 	let m = {};
@@ -329,10 +349,10 @@ function child_of(st) {
 /**
  * The runner in a forked child, stopped at a collector's limit or the deadline.
  *
- * @param {ScrapeEnv} env
- * @param {RunFn} run_fn
+ * @param {ScrapeEnv} env the scrape's env.
+ * @param {RunFn} run_fn what runs one collector.
  * @param {?{ collectors: ?Collector[], omit: ?boolean, stats: ?Object, tmp: ?string, deadline: ?float }} opts
- * @returns {Runner}
+ * @returns {Runner} the runner.
  */
 export function forked(env, run_fn, opts) {
 	return {

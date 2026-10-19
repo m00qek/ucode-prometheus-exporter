@@ -32,7 +32,11 @@ const LABELS = { ok: 'ok  ', warn: 'warn', fail: 'FAIL' };
 
 const FAMILIES_SHOWN = 8;
 
-/** What a run fails with that breaks the contract, whatever the device. */
+/**
+ * What a run fails with that breaks the contract, whatever the device.
+ *
+ * @type {string[]}
+ */
 export const BROKEN = [
 	errors.COLLECTOR_CANCELLED, errors.COLLECTOR_KILLED, errors.SAMPLE_LIMIT, errors.FAMILY_CONFLICT,
 	errors.COLLECTOR_CRASHED, errors.COLLECTOR_NO_RESULT, errors.SCRAPE_DEADLINE, errors.CONFIG_INVALID,
@@ -42,8 +46,8 @@ export const BROKEN = [
 /**
  * A module's file's name, less .uc: its module name, which meta.name follows.
  *
- * @param {?string} path
- * @returns {?string}
+ * @param {?string} path the module's file.
+ * @returns {?string} the module name, or null for what is not a .uc file.
  */
 export function id_of_path(path) {
 	let m = match(path ?? '', /(^|\/)([^\/]+)\.uc$/);
@@ -64,9 +68,9 @@ function writers(runs) {
 /**
  * { ok, report }: ok unless a rule is broken.
  *
- * @param {ConformSys} sys
- * @param {string} path
- * @returns {{ ok: boolean, report: string }}
+ * @param {ConformSys} sys the system.
+ * @param {string} path the module's file.
+ * @returns {{ ok: boolean, report: string }} whether it keeps the contract, and the report.
  */
 export function run(sys, path) {
 	let lines = [];

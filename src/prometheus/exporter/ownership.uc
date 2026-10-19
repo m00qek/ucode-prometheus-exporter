@@ -9,10 +9,18 @@
 import * as Result from 'prometheus.exporter.result';
 import * as errors from 'prometheus.exporter.errors';
 
-/** node_exporter's node_scrape_collector_*, of every collector. */
+/**
+ * node_exporter's node_scrape_collector_*, of every collector.
+ *
+ * @type {string}
+ */
 export const SCRAPE_PREFIX = 'node_scrape_collector_';
 
-/** The exporter's own, ucode_prometheus_exporter_*. */
+/**
+ * The exporter's own, ucode_prometheus_exporter_*.
+ *
+ * @type {string}
+ */
 export const EXPORTER_PREFIX = 'ucode_prometheus_exporter_';
 
 const SCRAPE_LENGTH = length(SCRAPE_PREFIX);
@@ -56,10 +64,10 @@ function clear(runs) {
 /**
  * Each family to the first collector of `runs` that writes it; any other fails FAMILY_CONFLICT.
  *
- * @param {ScrapeEnv} env
- * @param {Run[]} runs
- * @param {Object<string, Collector>} by_id
- * @returns {Run[]}
+ * @param {ScrapeEnv} env the scrape's env, whose log it logs at.
+ * @param {Run[]} runs the runs, in the reply's order; one that may not write a family fails.
+ * @param {Object<string, Collector>} by_id their collectors, by id.
+ * @returns {Run[]} `runs`.
  */
 export function own(env, runs, by_id) {
 	if (clear(runs))

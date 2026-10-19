@@ -12,10 +12,18 @@
  * @typedef {{ list: (Family|RecordedFamily)[], by_name: Object<string, (Family|RecordedFamily)> }} FamilySet
  */
 
-/** The family types of the format, as a TYPE line names them. */
+/**
+ * The family types of the format, as a TYPE line names them.
+ *
+ * @type {string[]}
+ */
 export const TYPES = [ 'counter', 'gauge', 'histogram', 'summary', 'untyped' ];
 
-/** A valid metric name. */
+/**
+ * A valid metric name.
+ *
+ * @type {RegExp}
+ */
 export const METRIC_NAME = /^[a-zA-Z_:][a-zA-Z0-9_:]*$/;
 const LABEL_NAME = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 const NUMBER = /^[+-]?([0-9]+\.?[0-9]*|\.[0-9]+)([eE][+-]?[0-9]+)?$/;
@@ -25,26 +33,38 @@ const NOT_LABEL = /[^a-zA-Z0-9_]/g;
 const LEADING_DIGIT = /^[0-9]/;
 const HIGH = regexp('[\x80-\xff]');
 
-/** What a label value may hold that is not written as it is. */
+/**
+ * What a label value may hold that is not written as it is.
+ *
+ * @type {RegExp}
+ */
 export const SPECIAL = regexp('[\\\n"\x80-\xff]');
 
 const SANITIZED = [ {}, {} ];
 
-/** sanitize()'s memo of metric names, by the name asked for. */
+/**
+ * sanitize()'s memo of metric names, by the name asked for.
+ *
+ * @type {Object<string, string>}
+ */
 export const METRIC_NAMES = SANITIZED[0];
 const LABEL_NAMES = SANITIZED[1];
 const SANITIZED_MAX = 4096;
 let sanitized = 0;
 
-/** What a label starts with in a set, `",name="`, by the name as written. */
+/**
+ * What a label starts with in a set, `",name="`, by the name as written.
+ *
+ * @type {Object<string, string>}
+ */
 export const LABEL_PREFIXES = {};
 
 /**
  * A name with every character the format does not allow made an underscore.
  *
- * @param {*} name
- * @param {?boolean} is_label
- * @returns {string}
+ * @param {*} name the name, of whatever type: it is made a string first.
+ * @param {?boolean} is_label whether it is a label's name, which takes no ':'.
+ * @returns {string} the name, valid.
  */
 export function sanitize(name, is_label) {
 	name = '' + name;
@@ -71,8 +91,8 @@ export function sanitize(name, is_label) {
 /**
  * The value as the format spells it, or null for what is not a number.
  *
- * @param {*} value
- * @returns {?string}
+ * @param {*} value a number, a boolean, a string as procfs or sysfs spell a number, or anything.
+ * @returns {?string} the value as the format spells it, or null.
  */
 export function format_value(value) {
 	switch (type(value)) {
@@ -132,8 +152,8 @@ function sequence(b) {
 /**
  * Whether `text` is valid UTF-8, as Prometheus wants a label value and HELP text.
  *
- * @param {string} text
- * @returns {boolean}
+ * @param {string} text the text.
+ * @returns {boolean} whether it is valid UTF-8.
  */
 export function utf8_valid(text) {
 	if (!match(text, HIGH) && index(text, '\0') < 0)
@@ -171,8 +191,8 @@ export function utf8_valid(text) {
 /**
  * Most values have nothing to escape, and index() is cheaper than replace().
  *
- * @param {string} value
- * @returns {string}
+ * @param {string} value a label's value.
+ * @returns {string} it, its backslashes, quotes and newlines escaped.
  */
 export function escape_label(value) {
 	if (index(value, '\\') < 0 && index(value, '"') < 0 && index(value, '\n') < 0)
@@ -191,8 +211,8 @@ function escape_help(text) {
 /**
  * A family's HELP and TYPE lines.
  *
- * @param {(Family|RecordedFamily)} fam
- * @returns {string}
+ * @param {(Family|RecordedFamily)} fam the family: its name, type and help.
+ * @returns {string} its # HELP line, if it has help, and its # TYPE line, without a newline.
  */
 export function header(fam) {
 	return (fam.help ? `# HELP ${fam.name} ${escape_help(fam.help)}\n` : '') + `# TYPE ${fam.name} ${fam.type}`;
@@ -201,8 +221,8 @@ export function header(fam) {
 /**
  * The label set `pairs` as the format writes it, each value escaped.
  *
- * @param {string[][]} pairs
- * @returns {string}
+ * @param {string[][]} pairs [ name, value ] pairs, the names valid.
+ * @returns {string} '{name="value",...}', or '' for none.
  */
 export function format_labels(pairs) {
 	let n = length(pairs);
@@ -252,8 +272,8 @@ function clash(labels) {
 /**
  * Whether a label name is one Prometheus reserves, `__name__` and the rest of `__*`.
  *
- * @param {string} name
- * @returns {boolean}
+ * @param {string} name the label's name.
+ * @returns {boolean} whether it starts with `__`.
  */
 export function reserved(name) {
 	return substr(name, 0, 2) == '__';
@@ -274,8 +294,8 @@ function label_prefix(name) {
 /**
  * A collector's labels as the format writes them, '' for none, null for an invalid set.
  *
- * @param {?Object} labels
- * @returns {?string}
+ * @param {?Object} labels { name: value }; a value not a string, a number or a boolean is left out.
+ * @returns {?string} '{name="value",...}', '' for none, or null.
  */
 export function label_text(labels) {
 	if (labels == null)
@@ -324,8 +344,8 @@ export function label_text(labels) {
 /**
  * What makes `labels` a set the format cannot write, or null for a valid set.
  *
- * @param {*} labels
- * @returns {?{ label: ?string, why: string }}
+ * @param {*} labels what a collector passed where the labels go.
+ * @returns {?{ label: ?string, why: string }} the problem, or null.
  */
 export function label_problem(labels) {
 	let t = type(labels);
@@ -353,8 +373,8 @@ export function label_problem(labels) {
 /**
  * A sample of parse() as the format writes it.
  *
- * @param {Sample} sample
- * @returns {string}
+ * @param {Sample} sample the sample.
+ * @returns {string} its line, without a newline.
  */
 export function sample_line(sample) {
 	return sample.name + format_labels(sample.labels) + ' ' + sample.value + (sample.ts != null ? ' ' + sample.ts : '');
@@ -363,9 +383,9 @@ export function sample_line(sample) {
 /**
  * Adds a family to `into`, merging its samples; false when the types disagree.
  *
- * @param {FamilySet} into
- * @param {(Family|RecordedFamily)} fam
- * @returns {boolean}
+ * @param {FamilySet} into the set.
+ * @param {(Family|RecordedFamily)} fam the family to add.
+ * @returns {boolean} false when the types disagree.
  */
 export function add_family(into, fam) {
 	let have = into.by_name[fam.name];
@@ -394,7 +414,7 @@ export function add_family(into, fam) {
 /**
  * The families in the order they were first added, and by name.
  *
- * @returns {FamilySet}
+ * @returns {FamilySet} an empty set.
  */
 export function family_set() {
 	return { list: [], by_name: {} };
@@ -403,8 +423,8 @@ export function family_set() {
 /**
  * The families of a set, in the order they were first added.
  *
- * @param {FamilySet} set
- * @returns {(Family|RecordedFamily)[]}
+ * @param {FamilySet} set the set.
+ * @returns {(Family|RecordedFamily)[]} its families.
  */
 export function families_of(set) {
 	return set.list;

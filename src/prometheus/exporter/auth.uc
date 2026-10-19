@@ -26,19 +26,39 @@ import { GROUP } from 'prometheus.exporter.privileges';
  * @typedef {{ user: string, password: string }} Credentials
  */
 
-/** The path basic auth guards: the handler's prefix. */
+/**
+ * The path basic auth guards: the handler's prefix.
+ *
+ * @type {string}
+ */
 export const PATH = '/metrics';
 
-/** The realm uhttpd (-r) and the handler's 401 name. */
+/**
+ * The realm uhttpd (-r) and the handler's 401 name.
+ *
+ * @type {string}
+ */
 export const REALM = 'prometheus-exporter';
 
-/** The directory of uhttpd's config file: the state's RUN_DIR. */
+/**
+ * The directory of uhttpd's config file: the state's RUN_DIR.
+ *
+ * @type {string}
+ */
 export const DIR = state.RUN_DIR;
 
-/** uhttpd's config file, which the init script writes. */
+/**
+ * uhttpd's config file, which the init script writes.
+ *
+ * @type {string}
+ */
 export const FILE = `${DIR}/uhttpd.conf`;
 
-/** The longest password hash_password takes: the longest musl hashes. */
+/**
+ * The longest password hash_password takes: the longest musl hashes.
+ *
+ * @type {int}
+ */
 export const PASSWORD_MAX = crypt.KEY_MAX;
 
 export const is_user = hashes.is_user;
@@ -48,9 +68,9 @@ export const is_hash = hashes.is_auth_hash;
 /**
  * uhttpd's config file for user and hash.
  *
- * @param {string} user
- * @param {string} hash
- * @returns {string}
+ * @param {string} user the user.
+ * @param {string} hash the hash.
+ * @returns {string} its one line, PATH:user:hash, ended by a newline.
  */
 export function conf(user, hash) {
 	return `${PATH}:${user}:${hash}\n`;
@@ -59,9 +79,9 @@ export function conf(user, hash) {
 /**
  * Writes uhttpd's config file for `auth` whole, or removes it for null.
  *
- * @param {module:fs} fs
- * @param {?BasicAuth} auth
- * @returns {Result<?string>}
+ * @param {module:fs} fs the fs module, or a test's object of its functions.
+ * @param {?BasicAuth} auth basic auth, or null for none.
+ * @returns {Result<?string>} FILE, or null when it removed it; or FILE_UNWRITABLE.
  */
 export function write_conf(fs, auth) {
 	let failed = (what) => Result.err(errors.FILE_UNWRITABLE, `cannot ${what} ${FILE}: ${fs.error()}`);
@@ -94,8 +114,8 @@ export function write_conf(fs, auth) {
 /**
  * { user, hash } of uhttpd's config file, or null when it is not one.
  *
- * @param {?string} text
- * @returns {?BasicAuth}
+ * @param {?string} text the file's text.
+ * @returns {?BasicAuth} basic auth, or null.
  */
 export function parse_conf(text) {
 	let m = (type(text) == 'string') ? match(text, /^([^:\n]*):([^:\n]*):([^:\n]*)\n?$/) : null;
@@ -109,8 +129,8 @@ export function parse_conf(text) {
 /**
  * { user, password } of an Authorization header of the Basic scheme, or null.
  *
- * @param {?string} value
- * @returns {?Credentials}
+ * @param {?string} value the header's value.
+ * @returns {?Credentials} the user and password, or null.
  */
 export function credentials(value) {
 	let m = (type(value) == 'string') ? match(value, /^[Bb][Aa][Ss][Ii][Cc][ \t]+([A-Za-z0-9+\/]+={0,2})[ \t]*$/) : null;
@@ -123,15 +143,19 @@ export function credentials(value) {
 	return { user: substr(text, 0, i), password: substr(text, i + 1) };
 };
 
-/** The name of basic auth's cache in the state: one entry, the digest of the last header let in. */
+/**
+ * The name of basic auth's cache in the state: one entry, the digest of the last header let in.
+ *
+ * @type {string}
+ */
 export const CACHE = 'auth';
 
 /**
  * The digest the cache keeps of an Authorization header that `auth` let in.
  *
- * @param {BasicAuth} auth
- * @param {string} value
- * @returns {string}
+ * @param {BasicAuth} auth the basic auth it let the header in by.
+ * @param {string} value the header's value.
+ * @returns {string} the digest, as hex.
  */
 export function digest(auth, value) {
 	return sha256(`${value}\0${auth.user}\0${auth.hash}\0`);
@@ -140,10 +164,10 @@ export function digest(auth, value) {
 /**
  * Whether an Authorization header carries the user and password of `auth` ({ user, hash }).
  *
- * @param {BasicAuth} auth
- * @param {?string} value
- * @param {?State} instance
- * @returns {boolean}
+ * @param {BasicAuth} auth basic auth.
+ * @param {?string} value the Authorization header's value, or null.
+ * @param {?State} instance the instance's state, for the cache; null for none.
+ * @returns {boolean} whether the request is let in.
  */
 export function allowed(auth, value, instance) {
 	let d = (instance != null && type(value) == 'string') ? digest(auth, value) : null;
@@ -168,8 +192,8 @@ export function allowed(auth, value, instance) {
 /**
  * Why `password` cannot be hashed, or null.
  *
- * @param {*} password
- * @returns {?string}
+ * @param {*} password anything a caller gave: a ubus argument, a line read.
+ * @returns {?string} why it cannot be, or null.
  */
 export function password_problem(password) {
 	if (type(password) != 'string' || password == '')
@@ -182,15 +206,19 @@ export function password_problem(password) {
 	return null;
 };
 
-/** The rounds of the hashes hash_password makes: musl's least. */
+/**
+ * The rounds of the hashes hash_password makes: musl's least.
+ *
+ * @type {int}
+ */
 export const HASH_ROUNDS = 1000;
 
 /**
  * A Result of a new SHA-512-crypt hash of `password`.
  *
- * @param {*} password
- * @param {function(int): ?string} random
- * @returns {Result<string>}
+ * @param {*} password the password; anything but a string fails.
+ * @param {function(int): ?string} random n random bytes.
+ * @returns {Result<string>} the hash, or CONFIG_INVALID.
  */
 export function hash_password(password, random) {
 	let problem = password_problem(password);

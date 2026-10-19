@@ -20,8 +20,8 @@ const MARK = 'prometheus_exporter_result';
 /**
  * Whether `obj` is a Result, whichever copy of this module made it.
  *
- * @param {*} obj
- * @returns {boolean}
+ * @param {*} obj anything: what a collector returned, say.
+ * @returns {boolean} whether it is a Result.
  */
 export function is(obj) {
 	return type(obj) == 'object' && proto(obj)?.[MARK] === true;
@@ -31,8 +31,8 @@ export function is(obj) {
  * An ok Result of `data`.
  *
  * @template T
- * @param {T} data
- * @returns {Result<T>}
+ * @param {T} data the payload, null for none.
+ * @returns {Result<T>} { ok: true, data }.
  */
 export function ok(data) {
 	return proto({ ok: true, data: data }, ResultMethods);
@@ -41,8 +41,8 @@ export function ok(data) {
 /**
  * Nothing to observe: a success without samples, and why in `none`.
  *
- * @param {?string} reason
- * @returns {Result<null>}
+ * @param {?string} reason why there is nothing to observe; 'nothing there' when null.
+ * @returns {Result<null>} { ok: true, data: null, none: reason }.
  */
 export function none(reason) {
 	return proto({ ok: true, data: null, none: '' + (reason ?? 'nothing there') }, ResultMethods);
@@ -51,8 +51,8 @@ export function none(reason) {
 /**
  * Whether a Result is none's: ok, with nothing to observe.
  *
- * @param {?Result} res
- * @returns {boolean}
+ * @param {?Result} res a Result, or null.
+ * @returns {boolean} whether it is ok and has `none`.
  */
 export function is_none(res) {
 	return res?.ok === true && res.none != null;
@@ -61,10 +61,10 @@ export function is_none(res) {
 /**
  * `details` is for the log; `data`, if any, for the caller to act on.
  *
- * @param {string} error
- * @param {?(string|Object)} details
- * @param {*} data
- * @returns {Result}
+ * @param {string} error the error code, one of prometheus.exporter.errors' (or a collector's own).
+ * @param {?(string|Object)} details for the log; describe() leaves an object out.
+ * @param {*} data what the caller may act on, shaped by the edge ({ status } of a failed call).
+ * @returns {Result} { ok: false, error, details, data }.
  */
 export function err(error, details, data) {
 	return proto({ ok: false, error: error, details: details, data: data }, ResultMethods);
@@ -73,8 +73,8 @@ export function err(error, details, data) {
 /**
  * Only string details are shown: object details are diagnostics, not log text.
  *
- * @param {Result} res
- * @returns {string}
+ * @param {Result} res a failed Result.
+ * @returns {string} 'CODE (details)', or 'CODE' without string details.
  */
 export function describe(res) {
 	return (type(res.details) == 'string' && length(res.details) > 0)

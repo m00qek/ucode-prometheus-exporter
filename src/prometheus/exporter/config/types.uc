@@ -23,20 +23,36 @@ import { is_user, is_hash, is_auth_hash, AUTH_ROUNDS_MAX } from 'prometheus.expo
  * }} Datatype
  */
 
-/** The spellings of true. */
+/**
+ * The spellings of true.
+ *
+ * @type {string[]}
+ */
 export const TRUE = [ '1', 'yes', 'on', 'true', 'enabled' ];
 
-/** The spellings of false. */
+/**
+ * The spellings of false.
+ *
+ * @type {string[]}
+ */
 export const FALSE = [ '0', 'no', 'off', 'false', 'disabled' ];
 
 function absolute_path(v) {
 	return substr(v, 0, 1) == '/' && !match(v, /[[:cntrl:]]/);
 }
 
-/** The directories under which the service makes and mounts a collector's own directories. */
+/**
+ * The directories under which the service makes and mounts a collector's own directories.
+ *
+ * @type {string[]}
+ */
 export const OWNED_ROOTS = [ '/var', '/tmp', '/etc/prometheus-exporter' ];
 
-/** The run directories of every service, under OWNED_ROOTS, where an option names no directory of its own. */
+/**
+ * The run directories of every service, under OWNED_ROOTS, where an option names no directory of its own.
+ *
+ * @type {string[]}
+ */
 export const RUN_ROOTS = [ '/var/run', '/tmp/run' ];
 
 function under(p, roots) {
@@ -50,8 +66,8 @@ function under(p, roots) {
 /**
  * Whether `v` is a directory the service may make and mount as a collector's own.
  *
- * @param {*} v
- * @returns {boolean}
+ * @param {*} v anything; only a string is a directory.
+ * @returns {boolean} whether it is one.
  */
 export function is_owned_directory(v) {
 	if (type(v) != 'string' || !absolute_path(v) || match(v, /\/\.\.?(\/|$)/))
@@ -62,10 +78,18 @@ export function is_owned_directory(v) {
 	return under(p, OWNED_ROOTS) && !under(p, RUN_ROOTS) && !(p in RUN_ROOTS);
 };
 
-/** The directories `cert` and `key` may be under: where certificates are kept, and the exporter's own. */
+/**
+ * The directories `cert` and `key` may be under: where certificates are kept, and the exporter's own.
+ *
+ * @type {string[]}
+ */
 export const TLS_DIRS = [ '/etc/ssl', '/etc/acme', '/etc/prometheus-exporter' ];
 
-/** The most bytes the service copies of `cert` or `key`. */
+/**
+ * The most bytes the service copies of `cert` or `key`.
+ *
+ * @type {int}
+ */
 export const TLS_FILE_MAX = 65536;
 
 const UHTTPD_FILE = /^\/etc\/uhttpd[A-Za-z0-9._-]*$/;
@@ -73,8 +97,8 @@ const UHTTPD_FILE = /^\/etc\/uhttpd[A-Za-z0-9._-]*$/;
 /**
  * Whether `v` is a path the service may copy a TLS file from: under TLS_DIRS, or uhttpd's own /etc/uhttpd.*.
  *
- * @param {*} v
- * @returns {boolean}
+ * @param {*} v the path, of any type.
+ * @returns {boolean} whether the service may copy a TLS file from it.
  */
 export function is_tls_path(v) {
 	if (type(v) != 'string' || !absolute_path(v) || match(v, /\/\/|\/\.\.?(\/|$)|\/$/))
@@ -92,9 +116,9 @@ export function is_tls_path(v) {
 /**
  * The TLS_FILE problem of the TLS file at `path`, or null: not a regular file of at most TLS_FILE_MAX bytes, or its links lead past is_tls_path(). A file not there is none.
  *
- * @param {module:fs} fs
- * @param {string} path
- * @returns {?Problem}
+ * @param {module:fs} fs the fs module, or an object of its stat and realpath.
+ * @param {string} path the TLS file's path.
+ * @returns {?Problem} TLS_FILE, or null when it is fine or not there.
  */
 export function tls_problem(fs, path) {
 	let st = fs.stat(path);
@@ -116,7 +140,11 @@ function datatype_of(types, code, args, check, why) {
 	return { types, problem: p, expected: problems.expected(p), check, why };
 }
 
-/** The datatypes the core enforces, by LuCI's names, and its own. */
+/**
+ * The datatypes the core enforces, by LuCI's names, and its own.
+ *
+ * @type {Object<string, Datatype>}
+ */
 export const DATATYPES = {
 	username: datatype_of([ 'string' ], problems.USERNAME, null, is_user),
 	crypt: datatype_of([ 'string' ], problems.CRYPT, null, is_auth_hash,
@@ -150,8 +178,8 @@ function zero_or_min_of(lo) {
 /**
  * { types, problem, expected, check } of a datatype name, or null for one the core does not know.
  *
- * @param {*} name
- * @returns {?Datatype}
+ * @param {*} name the datatype's name; anything but a string is none.
+ * @returns {?Datatype} the datatype, or null.
  */
 export function datatype(name) {
 	if (type(name) != 'string')
@@ -190,11 +218,11 @@ export function datatype(name) {
 /**
  * The CONFIG_INVALID of a value option `spec` does not take.
  *
- * @param {string} name
- * @param {Problem} problem
- * @param {*} value
- * @param {?OptionSpec} spec
- * @returns {Result}
+ * @param {string} name the option's name.
+ * @param {Problem} problem what is wrong with the value, without it.
+ * @param {*} value what it got: a uci value, or one typed already.
+ * @param {?OptionSpec} spec the option; its `secret` keeps the value out.
+ * @returns {Result} CONFIG_INVALID.
  */
 export function invalid(name, problem, value, spec) {
 	let p = spec?.secret ? problem : { ...problem, value };
@@ -230,10 +258,10 @@ function typed(name, value, spec) {
 /**
  * A uci value as option `spec` ({ default, datatype, secret }) takes it.
  *
- * @param {string} name
- * @param {?(string|string[])} value
- * @param {OptionSpec} spec
- * @returns {Result<(boolean|int|string)>}
+ * @param {string} name the option's name.
+ * @param {?(string|string[])} value the uci value.
+ * @param {OptionSpec} spec the option.
+ * @returns {Result<(boolean|int|string)>} the value, typed, or CONFIG_INVALID.
  */
 export function convert(name, value, spec) {
 	let res = typed(name, value, spec);

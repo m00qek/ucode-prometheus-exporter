@@ -9,18 +9,34 @@
 import { md5, sha256, sha512 } from 'digest';
 import * as hashes from 'prometheus.exporter.hashes';
 
-/** The crypt alphabet: 64 characters, each 6 bits of a digest or a salt. */
+/**
+ * The crypt alphabet: 64 characters, each 6 bits of a digest or a salt.
+ *
+ * @type {string}
+ */
 export const ITOA64 = './0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
 
 export const ROUNDS_DEFAULT = hashes.ROUNDS_DEFAULT;
 
-/** The fewest rounds a $5$ or $6$ hash may name. */
+/**
+ * The fewest rounds a $5$ or $6$ hash may name.
+ *
+ * @type {int}
+ */
 export const ROUNDS_MIN = 1000;
 
-/** The most rounds a $5$ or $6$ hash may name. */
+/**
+ * The most rounds a $5$ or $6$ hash may name.
+ *
+ * @type {int}
+ */
 export const ROUNDS_MAX = 9999999;
 
-/** The longest password musl hashes with $5$ and $6$, in bytes. */
+/**
+ * The longest password musl hashes with $5$ and $6$, in bytes.
+ *
+ * @type {int}
+ */
 export const KEY_MAX = 256;
 
 function to64(v, n) {
@@ -59,9 +75,9 @@ function stretch(s, n) {
 /**
  * MD5-crypt of `key` with `salt` (up to 8 characters), as FreeBSD's md5crypt.
  *
- * @param {string} key
- * @param {string} salt
- * @returns {string}
+ * @param {string} key the password.
+ * @param {string} salt the salt, up to 8 characters of the crypt alphabet.
+ * @returns {string} the hash: $1$<salt>$<digest>.
  */
 export function md5_crypt(key, salt) {
 	let h = (s) => hexdec(md5(s));
@@ -104,11 +120,11 @@ const SHA512_ORDER = [
 /**
  * SHA-crypt of `key`: id '5' (SHA-256) or '6' (SHA-512).
  *
- * @param {string} id
- * @param {string} key
- * @param {string} salt
- * @param {?int} rounds
- * @returns {string}
+ * @param {string} id '5' or '6'.
+ * @param {string} key the password.
+ * @param {string} salt the salt, up to 16 characters of the crypt alphabet.
+ * @param {?int} rounds the rounds, or null for ROUNDS_DEFAULT.
+ * @returns {string} the hash: $<id>$[rounds=<n>$]<salt>$<digest>.
  */
 export function sha_crypt(id, key, salt, rounds) {
 	let sha = (id == '5') ? sha256 : sha512;
@@ -153,9 +169,9 @@ export const rounds = hashes.rounds;
 /**
  * crypt(key, hash): the hash of `key` with the salt and rounds of `hash`, or null.
  *
- * @param {string} key
- * @param {string} hash
- * @returns {?string}
+ * @param {string} key the password.
+ * @param {string} hash a hash, whose salt and rounds it takes.
+ * @returns {?string} the hash of `key`.
  */
 export function crypt(key, hash) {
 	if (type(key) != 'string' || index(key, '\0') >= 0 || !is_hash(hash))
@@ -179,9 +195,9 @@ export function crypt(key, hash) {
 /**
  * Whether a and b are the same string, in a time that depends on their lengths alone.
  *
- * @param {*} a
- * @param {*} b
- * @returns {boolean}
+ * @param {*} a a string; anything else is never the same.
+ * @param {*} b a string; anything else is never the same.
+ * @returns {boolean} whether they are the same.
  */
 export function same(a, b) {
 	if (type(a) != 'string' || type(b) != 'string' || length(a) != length(b))
@@ -198,9 +214,9 @@ export function same(a, b) {
 /**
  * Whether `key` is the password of `hash`.
  *
- * @param {string} key
- * @param {string} hash
- * @returns {boolean}
+ * @param {string} key the password.
+ * @param {string} hash the hash.
+ * @returns {boolean} whether it is.
  */
 export function verify(key, hash) {
 	let h = crypt(key, hash);
@@ -208,16 +224,20 @@ export function verify(key, hash) {
 	return h != null && same(h, hash);
 };
 
-/** The bytes of randomness a salt takes: 16 characters of 6 bits. */
+/**
+ * The bytes of randomness a salt takes: 16 characters of 6 bits.
+ *
+ * @type {int}
+ */
 export const SALT_BYTES = 12;
 
 /**
  * A new SHA-512-crypt hash of `key`, its salt made of `bytes`.
  *
- * @param {string} key
- * @param {string} bytes
- * @param {?int} rounds
- * @returns {string}
+ * @param {string} key the password.
+ * @param {string} bytes SALT_BYTES random bytes.
+ * @param {?int} rounds the rounds, or null for the default.
+ * @returns {string} the hash.
  */
 export function hash(key, bytes, rounds) {
 	let salt = '';

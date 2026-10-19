@@ -18,58 +18,130 @@
  * @typedef {{ args: string[], value: boolean, text: function(Problem): string }} ProblemCode
  */
 
-/** Not one of uci's spellings of a boolean. */
+/**
+ * Not one of uci's spellings of a boolean.
+ *
+ * @type {string}
+ */
 export const BOOLEAN = 'BOOLEAN';
 
-/** Not an integer: decimal digits, with an optional '-'. */
+/**
+ * Not an integer: decimal digits, with an optional '-'.
+ *
+ * @type {string}
+ */
 export const INTEGER = 'INTEGER';
 
-/** A list, where the option takes a single value. */
+/**
+ * A list, where the option takes a single value.
+ *
+ * @type {string}
+ */
 export const SINGLE = 'SINGLE';
 
-/** An integer outside `min` to `max`: the datatype range(min,max). */
+/**
+ * An integer outside `min` to `max`: the datatype range(min,max).
+ *
+ * @type {string}
+ */
 export const RANGE = 'RANGE';
 
-/** An integer under 0: the datatype uinteger. */
+/**
+ * An integer under 0: the datatype uinteger.
+ *
+ * @type {string}
+ */
 export const UINTEGER = 'UINTEGER';
 
-/** An integer that is neither 0 nor `min` or more: the datatype zero_or_min(min). */
+/**
+ * An integer that is neither 0 nor `min` or more: the datatype zero_or_min(min).
+ *
+ * @type {string}
+ */
 export const ZERO_OR_MIN = 'ZERO_OR_MIN';
 
-/** Not an absolute path: the datatypes directory and file. */
+/**
+ * Not an absolute path: the datatypes directory and file.
+ *
+ * @type {string}
+ */
 export const ABSOLUTE_PATH = 'ABSOLUTE_PATH';
 
-/** Not a directory the service may make and mount for a collector: the datatype owned_directory. */
+/**
+ * Not a directory the service may make and mount for a collector: the datatype owned_directory.
+ *
+ * @type {string}
+ */
 export const OWNED_DIRECTORY = 'OWNED_DIRECTORY';
 
-/** Not a path the service copies a TLS file from: the datatype tls_file. */
+/**
+ * Not a path the service copies a TLS file from: the datatype tls_file.
+ *
+ * @type {string}
+ */
 export const TLS_PATH = 'TLS_PATH';
 
-/** A TLS file there that is not a regular file of at most `max` bytes, or whose links lead elsewhere. */
+/**
+ * A TLS file there that is not a regular file of at most `max` bytes, or whose links lead elsewhere.
+ *
+ * @type {string}
+ */
 export const TLS_FILE = 'TLS_FILE';
 
-/** Not a regular expression regexp() compiles: the datatype regex. */
+/**
+ * Not a regular expression regexp() compiles: the datatype regex.
+ *
+ * @type {string}
+ */
 export const REGEX = 'REGEX';
 
-/** Not a user basic auth takes: the datatype username. */
+/**
+ * Not a user basic auth takes: the datatype username.
+ *
+ * @type {string}
+ */
 export const USERNAME = 'USERNAME';
 
-/** Not a crypt hash basic auth takes: the datatype crypt. */
+/**
+ * Not a crypt hash basic auth takes: the datatype crypt.
+ *
+ * @type {string}
+ */
 export const CRYPT = 'CRYPT';
 
-/** A crypt hash of more rounds than `max`: the datatype crypt. */
+/**
+ * A crypt hash of more rounds than `max`: the datatype crypt.
+ *
+ * @type {string}
+ */
 export const CRYPT_ROUNDS = 'CRYPT_ROUNDS';
 
-/** An empty listen_interface. */
+/**
+ * An empty listen_interface.
+ *
+ * @type {string}
+ */
 export const INTERFACE = 'INTERFACE';
 
-/** auth_user without auth_password. */
+/**
+ * auth_user without auth_password.
+ *
+ * @type {string}
+ */
 export const AUTH_NEEDS_PASSWORD = 'AUTH_NEEDS_PASSWORD';
 
-/** Basic auth without cert and key: Basic sends the password in the clear. */
+/**
+ * Basic auth without cert and key: Basic sends the password in the clear.
+ *
+ * @type {string}
+ */
 export const AUTH_NEEDS_TLS = 'AUTH_NEEDS_TLS';
 
-/** Every code, with what it takes and says: the closed set of problems. */
+/**
+ * Every code, with what it takes and says: the closed set of problems.
+ *
+ * @type {Object<string, ProblemCode>}
+ */
 export const CODES = {
 	[BOOLEAN]: { args: [], value: true, text: () => 'a boolean' },
 	[INTEGER]: { args: [], value: true, text: () => 'an integer' },
@@ -109,9 +181,9 @@ export const CODES = {
 /**
  * A Problem of `code`, with its arguments and, for a code of a value, the value.
  *
- * @param {string} code
- * @param {?Object} args
- * @returns {Problem}
+ * @param {string} code one of CODES.
+ * @param {?Object} args its args, and `value` of a value's code unless the option is a secret.
+ * @returns {Problem} { code, ...args }.
  */
 export function problem(code, args) {
 	let c = CODES[code];
@@ -129,8 +201,8 @@ export function problem(code, args) {
 /**
  * What a value's code expected, without what it got: 'an integer from 1 to 30'.
  *
- * @param {Problem} p
- * @returns {string}
+ * @param {Problem} p the problem.
+ * @returns {string} what the option expected.
  */
 export function expected(p) {
 	return CODES[p.code].text(p);
@@ -139,8 +211,8 @@ export function expected(p) {
 /**
  * A problem in English, without the option's name: 'expected ..., got ...'.
  *
- * @param {Problem} p
- * @returns {string}
+ * @param {Problem} p the problem.
+ * @returns {string} the English.
  */
 export function english(p) {
 	let c = CODES[p.code];
@@ -154,9 +226,9 @@ export function english(p) {
 /**
  * A problem in English, after the option's name: what a CONFIG_INVALID's details say.
  *
- * @param {string} name
- * @param {Problem} p
- * @returns {string}
+ * @param {string} name the option's name.
+ * @param {Problem} p the problem.
+ * @returns {string} 'name: ' and its English.
  */
 export function message(name, p) {
 	return `${name}: ${english(p)}`;

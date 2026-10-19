@@ -24,8 +24,8 @@ import { allows, CANARY, ACL_LINK } from 'prometheus.exporter.privileges';
 /**
  * The status of a failed ubus call: libubus's text, before any ': '.
  *
- * @param {string} message
- * @returns {string}
+ * @param {string} message what the connection's error() said.
+ * @returns {string} its status, the text before the first ': '.
  */
 export function ubus_status(message) {
 	let i = index(message, ': ');
@@ -33,21 +33,33 @@ export function ubus_status(message) {
 	return i < 0 ? message : substr(message, 0, i);
 };
 
-/** libubus's text for a method the ubusd ACL refuses. */
+/**
+ * libubus's text for a method the ubusd ACL refuses.
+ *
+ * @type {string}
+ */
 export const DENIED = 'Permission denied';
 
-/** libubus's text for an object that is not there, or that the ACL allows nothing of. */
+/**
+ * libubus's text for an object that is not there, or that the ACL allows nothing of.
+ *
+ * @type {string}
+ */
 export const NOT_FOUND = 'Not found';
 
-/** The seconds a ubus call waits for its reply when nothing limits it: ucode's own default. */
+/**
+ * The seconds a ubus call waits for its reply when nothing limits it: ucode's own default.
+ *
+ * @type {int}
+ */
 export const UBUS_TIMEOUT = 30;
 
 /**
  * A ubus connection opened on first use, so a scrape that needs no ubus makes none.
  *
- * @param {function(?string, int): ?UbusConnection} connect_fn
- * @param {?function(): int[]} clock_fn
- * @returns {UbusCapability}
+ * @param {function(?string, int): ?UbusConnection} connect_fn ubus's connect(socket, timeout).
+ * @param {?function(): int[]} clock_fn a monotonic clock, [ s, ns ]; clock(true) when null.
+ * @returns {UbusCapability} the channel.
  */
 export function ubus_channel(connect_fn, clock_fn) {
 	let conn = null;
@@ -139,9 +151,9 @@ export function ubus_channel(connect_fn, clock_fn) {
 /**
  * A collector's deps.ubus: `channel`, refusing a call `declared` does not allow.
  *
- * @param {UbusCapability} channel
- * @param {Object<string, string[]>} declared
- * @returns {UbusCapability}
+ * @param {UbusCapability} channel the scrape's channel (ubus_channel's).
+ * @param {Object<string, string[]>} declared the calls it may make (privileges.ubus_of's).
+ * @returns {UbusCapability} the collector's.
  */
 export function ubus_for(channel, declared) {
 	return {
@@ -158,7 +170,7 @@ export function ubus_for(channel, declared) {
 /**
  * The ubus module, loaded by name at run time; null when it does not load.
  *
- * @returns {?{ connect: function(?string, ?int): ?Object }}
+ * @returns {?{ connect: function(?string, ?int): ?Object }} its connect; null if it does not load.
  */
 export function load_ubus() {
 	try {

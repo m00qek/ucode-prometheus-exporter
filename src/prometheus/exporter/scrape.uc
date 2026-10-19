@@ -79,13 +79,25 @@ import { bury, log_breakers } from 'prometheus.exporter.progress';
  * }} CollectOptions
  */
 
-/** The content type of a scrape's reply: the text exposition format, 0.0.4. */
+/**
+ * The content type of a scrape's reply: the text exposition format, 0.0.4.
+ *
+ * @type {string}
+ */
 export const CONTENT_TYPE = 'text/plain; version=0.0.4; charset=utf-8';
 
-/** The family that says the exporter's version. */
+/**
+ * The family that says the exporter's version.
+ *
+ * @type {string}
+ */
 export const BUILD_INFO = 'ucode_prometheus_exporter_build_info';
 
-/** The family that says whether a collector is quarantined. */
+/**
+ * The family that says whether a collector is quarantined.
+ *
+ * @type {string}
+ */
 export const QUARANTINED = 'ucode_prometheus_exporter_collector_quarantined';
 
 function seconds(t1, t2) {
@@ -95,10 +107,10 @@ function seconds(t1, t2) {
 /**
  * The collectors a query string selects, in the order it names them.
  *
- * @param {Collector[]} collectors
- * @param {?string} query_string
- * @param {?string[]} disabled
- * @returns {Result<Collector[]>}
+ * @param {Collector[]} collectors the installed collectors.
+ * @param {?string} query_string the scrape's query string.
+ * @param {?string[]} disabled the module names of the disabled ones.
+ * @returns {Result<Collector[]>} the collectors selected, or COLLECTOR_INVALID.
  */
 export function select(collectors, query_string, disabled) {
 	let q = query.parse(query_string);
@@ -153,11 +165,11 @@ function refused(bad) {
 /**
  * Runs one collector, within its budget and sample limit.
  *
- * @param {ScrapeEnv} env
- * @param {Session} session
- * @param {Collector} collector
- * @param {?Job} job
- * @returns {Run}
+ * @param {ScrapeEnv} env the scrape's env.
+ * @param {Session} session the scrape's session.
+ * @param {Collector} collector the collector.
+ * @param {?Job} job its job, or null.
+ * @returns {Run} the run.
  */
 export function run_one(env, session, collector, job) {
 	let t1 = env.clock();
@@ -219,10 +231,10 @@ export function run_one(env, session, collector, job) {
 /**
  * A collector left out, without running.
  *
- * @param {Collector} collector
- * @param {Result} res
- * @param {string} why
- * @returns {Run}
+ * @param {Collector} collector the collector.
+ * @param {Result} res what it fails with.
+ * @param {string} why 'quarantine', 'deadline', or 'samples' (max_scrape_samples reached).
+ * @returns {Run} the run.
  */
 export function not_run(collector, res, why) {
 	return { name: collector.meta.name, id: collector.id, result: res, families: [], samples: 0, duration: 0, skipped: why };
@@ -235,9 +247,9 @@ function at_deadline(r) {
 /**
  * The line logged of the collectors the deadline left out or cut, or null.
  *
- * @param {Run[]} runs
- * @param {float} budget
- * @returns {?string}
+ * @param {Run[]} runs the scrape's runs.
+ * @param {float} budget the seconds the collectors had.
+ * @returns {?string} the line.
  */
 export function deadline_line(runs, budget) {
 	let names = map(filter(runs, at_deadline), (r) => r.name);
@@ -271,9 +283,9 @@ function own_header(i) {
 /**
  * The scrape's own families, as the reply ends with them.
  *
- * @param {Run[]} runs
- * @param {string} version
- * @returns {string}
+ * @param {Run[]} runs the scrape's runs, in the order of the reply.
+ * @param {string} version the exporter's version.
+ * @returns {string} their text, each line ended by a newline.
  */
 export function own_text(runs, version) {
 	let parts = [ [], [], [], [] ];
@@ -309,16 +321,20 @@ export function own_text(runs, version) {
 	return text + own_header(4) + `${BUILD_INFO}${label} 1\n`;
 };
 
-/** The exporter's own collector: a scrape that runs it writes the ledger's counters and each collector's samples. */
+/**
+ * The exporter's own collector: a scrape that runs it writes the ledger's counters and each collector's samples.
+ *
+ * @type {string}
+ */
 export const EXPORTER = 'exporter';
 
 /**
  * The ledger's counters, by collector name, and each run's samples, as the scrape writes them after its runs.
  *
- * @param {?LedgerCounters} n
- * @param {Run[]} runs
- * @param {?boolean} omit
- * @returns {string}
+ * @param {?LedgerCounters} n the ledger's counters, by collector name; null writes none.
+ * @param {Run[]} runs the scrape's runs, whose samples it writes.
+ * @param {?boolean} omit omit_zero_values.
+ * @returns {string} the exposition text.
  */
 export function exporter_text(n, runs, omit) {
 	let out = exposition.recorder();
@@ -381,12 +397,12 @@ function runner_of(env, chosen, omit, deadline) {
 /**
  * Runs the `chosen` collectors, fastest first by the ledger: each run, by id.
  *
- * @param {ScrapeEnv} env
- * @param {UciCursor} uci
- * @param {Ledger} l
- * @param {Collector[]} chosen
- * @param {?CollectOptions} opts
- * @returns {Object<string, Run>}
+ * @param {ScrapeEnv} env the scrape's env.
+ * @param {UciCursor} uci the scrape's cursor.
+ * @param {Ledger} l the ledger.
+ * @param {Collector[]} chosen the collectors to run.
+ * @param {?CollectOptions} opts the options.
+ * @returns {Object<string, Run>} each collector's run, by id.
  */
 export function collect(env, uci, l, chosen, opts) {
 	let by_id = {};
@@ -483,12 +499,12 @@ export function collect(env, uci, l, chosen, opts) {
 /**
  * A guarded run of `chosen` outside the service's scrapes.
  *
- * @param {ScrapeEnv} env
- * @param {UciCursor} uci
- * @param {?Ledger} l
- * @param {Collector[]} chosen
- * @param {?Collector[]} installed
- * @returns {Run[]}
+ * @param {ScrapeEnv} env the env.
+ * @param {UciCursor} uci the cursor.
+ * @param {?Ledger} l the service's ledger, or null.
+ * @param {Collector[]} chosen the collectors to run.
+ * @param {?Collector[]} installed every collector; `chosen` when null.
+ * @returns {Run[]} the runs.
  */
 export function trial(env, uci, l, chosen, installed) {
 	let main = config.main(uci);
@@ -503,11 +519,11 @@ export function trial(env, uci, l, chosen, installed) {
 /**
  * { status, content_type, body } for a scrape with this query string.
  *
- * @param {ScrapeEnv} env
- * @param {Collector[]} collectors
- * @param {?string} query_string
- * @param {?ScrapeOptions} opts
- * @returns {ScrapeReply}
+ * @param {ScrapeEnv} env the scrape's env.
+ * @param {Collector[]} collectors the installed collectors.
+ * @param {?string} query_string the request's query string.
+ * @param {?ScrapeOptions} opts the options.
+ * @returns {ScrapeReply} the reply.
  */
 export function scrape(env, collectors, query_string, opts) {
 	let session = env.session();

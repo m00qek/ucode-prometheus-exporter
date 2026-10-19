@@ -15,28 +15,40 @@ import { seconds } from 'prometheus.exporter.deadline';
  * @typedef {{ ok: boolean, error: ?string, hung: boolean, seconds: float, unprobed: ?boolean, data: ?Object, stopped: ?int }} ProbeOutcome
  */
 
-/** How often, in milliseconds, this process looks whether its child is still there. */
+/**
+ * How often, in milliseconds, this process looks whether its child is still there.
+ *
+ * @type {int}
+ */
 export const POLL_MS = 100;
 
 function now(env) {
 	return seconds(env.clock());
 }
 
-/** The seconds a collector module may take to load. */
+/**
+ * The seconds a collector module may take to load.
+ *
+ * @type {int}
+ */
 export const LOAD_TIMEOUT = 5;
 
-/** The characters of an outcome's base64 in each message of the child, which crosses the pipe whole. */
+/**
+ * The characters of an outcome's base64 in each message of the child, which crosses the pipe whole.
+ *
+ * @type {int}
+ */
 export const PART = 2048;
 
 /**
  * Each of the modules `ids` loaded in a child process first, stopped past `seconds`.
  *
- * @param {string[]} ids
- * @param {function(string): CollectorModule} import_fn
- * @param {?(int|float)} seconds
- * @param {?function(): int[]} clock_fn
- * @param {?boolean} report
- * @returns {Object<string, ProbeOutcome>}
+ * @param {string[]} ids the modules' names.
+ * @param {function(string): CollectorModule} import_fn what loads a module.
+ * @param {?(int|float)} seconds what loading one may take; LOAD_TIMEOUT when null.
+ * @param {?function(): int[]} clock_fn a monotonic clock, [ s, ns ]; clock(true) when null.
+ * @param {?boolean} report whether import_fn's value is reported.
+ * @returns {Object<string, ProbeOutcome>} each module's, by name.
  */
 export function probe(ids, import_fn, seconds, clock_fn, report) {
 	let out = {};

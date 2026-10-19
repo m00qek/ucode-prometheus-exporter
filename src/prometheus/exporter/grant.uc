@@ -12,8 +12,8 @@ import { TLS_FILE_MAX } from 'prometheus.exporter.config';
 /**
  * One map of the ubus calls of many: each object's methods, sorted, once each.
  *
- * @param {Object<string, string[]>[]} maps
- * @returns {Object<string, string[]>}
+ * @param {Object<string, string[]>[]} maps the calls, as ubus_of gives them.
+ * @returns {Object<string, string[]>} their union, by object, sorted.
  */
 export function merge(maps) {
 	let all = {};
@@ -35,8 +35,8 @@ export function merge(maps) {
 /**
  * The ubus ACL of the service's user for these calls, and CANARY.
  *
- * @param {Object<string, string[]>} ubus
- * @returns {Object}
+ * @param {Object<string, string[]>} ubus the calls (merge's).
+ * @returns {Object} the ACL.
  */
 export function acl(ubus) {
 	let access = {};
@@ -51,8 +51,8 @@ export function acl(ubus) {
 /**
  * The capabilities file of these capabilities, as procd hands ujail one (-C).
  *
- * @param {string[]} caps
- * @returns {Object}
+ * @param {string[]} caps the capabilities.
+ * @returns {Object} the file's contents.
  */
 export function capabilities_doc(caps) {
 	let set = sort(uniq(caps));
@@ -63,8 +63,8 @@ export function capabilities_doc(caps) {
 /**
  * The capabilities the jail has for these grants, sorted.
  *
- * @param {Grants} grants
- * @returns {string[]}
+ * @param {Grants} grants the grants.
+ * @returns {string[]} the capabilities.
  */
 export function service_capabilities(grants) {
 	let caps = [ ...grants.capabilities ];
@@ -78,10 +78,10 @@ export function service_capabilities(grants) {
 /**
  * /etc/group's text with `user` in the groups `want` says true of, and out of the others.
  *
- * @param {string} text
- * @param {string} user
- * @param {Object<string, boolean>} want
- * @returns {{ text: ?string, missing: string[] }}
+ * @param {string} text the file's text.
+ * @param {string} user the user.
+ * @param {Object<string, boolean>} want membership by group.
+ * @returns {{ text: ?string, missing: string[] }} the new text, and what is not there.
  */
 export function membership(text, user, want) {
 	let changed = false;
@@ -114,9 +114,9 @@ export function membership(text, user, want) {
 /**
  * The groups of the text of /etc/group that `user` is a member of, but its own.
  *
- * @param {?string} text
- * @param {string} user
- * @returns {string[]}
+ * @param {?string} text the text of /etc/group.
+ * @param {string} user the user's name.
+ * @returns {string[]} the groups' names, without the user's own.
  */
 export function member_of(text, user) {
 	let out = [];
@@ -134,9 +134,9 @@ export function member_of(text, user) {
 /**
  * The gid of `group` in the text of /etc/group, or null.
  *
- * @param {string} text
- * @param {string} group
- * @returns {?int}
+ * @param {string} text the file's text.
+ * @param {string} group the group's name.
+ * @returns {?int} its gid.
  */
 export function gid_of(text, group) {
 	for (let line in split(text ?? '', '\n')) {
@@ -268,8 +268,8 @@ function take_files(fs, gid, record, keep, extra, made, problems) {
  * Grants what `grants` says, and takes back what it says to: lines for the log.
  *
  * @param {{ fs: module:fs, lock: function(): function(): void, reload_ubus: function(): boolean }} sys
- * @param {Grants} grants
- * @returns {{ made: string[], problems: string[] }}
+ * @param {Grants} grants what to grant; port, the port the service listens on.
+ * @returns {{ made: string[], problems: string[] }} what it did, and what it could not.
  */
 export function make(sys, grants) {
 	let fs = sys.fs;
@@ -342,7 +342,7 @@ export function make(sys, grants) {
  * Takes away all make() gave, giving each file its group and mode back, and the files of the running service: lines for the log.
  *
  * @param {{ fs: module:fs, lock: function(): function(): void, reload_ubus: function(): boolean }} sys
- * @returns {{ ok: boolean, made: string[], problems: string[] }}
+ * @returns {{ ok: boolean, made: string[], problems: string[] }} ok when it had no problem.
  */
 export function clean(sys) {
 	let fs = sys.fs;

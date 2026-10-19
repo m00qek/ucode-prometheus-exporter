@@ -38,13 +38,25 @@
  * @typedef {{ id: string, read: (name: string) => ?string }} ReadOnlyState
  */
 
-/** The run directory of uhttpd's config file (prometheus.exporter.auth's DIR). */
+/**
+ * The run directory of uhttpd's config file (prometheus.exporter.auth's DIR).
+ *
+ * @type {string}
+ */
 export const RUN_DIR = '/var/run/prometheus-exporter';
 
-/** The state's directory, under RUN_DIR. */
+/**
+ * The state's directory, under RUN_DIR.
+ *
+ * @type {string}
+ */
 export const DIR = `${RUN_DIR}/state`;
 
-/** The most bytes a state file holds. */
+/**
+ * The most bytes a state file holds.
+ *
+ * @type {int}
+ */
 export const SIZE_MAX = 32768;
 
 const NAME = /^[a-z][a-z0-9_]*$/;
@@ -58,8 +70,8 @@ const STARTED = /^start ([a-z0-9_]+)( ([0-9]+)-([0-9]+))?$/;
 /**
  * This process's instance id, "<pid>-<start time>", or null.
  *
- * @param {module:fs} fs
- * @returns {?string}
+ * @param {module:fs} fs what reads /proc/self/stat: an object of fs's readfile.
+ * @returns {?string} "<pid>-<start time>".
  */
 export function instance_id(fs) {
 	let stat = fs.readfile('/proc/self/stat');
@@ -80,9 +92,9 @@ export function instance_id(fs) {
 /**
  * The start time of process `pid`, as a string, or null.
  *
- * @param {module:fs} fs
- * @param {(int|string)} pid
- * @returns {?string}
+ * @param {module:fs} fs what reads /proc/<pid>/stat: an object of fs's readfile.
+ * @param {(int|string)} pid the process.
+ * @returns {?string} its start time, in clock ticks since boot.
  */
 export function start_of(fs, pid) {
 	let stat = fs.readfile(`/proc/${pid}/stat`);
@@ -94,8 +106,8 @@ export function start_of(fs, pid) {
 /**
  * The pid of instance `id`: the uhttpd that loaded the handler.
  *
- * @param {?string} id
- * @returns {?int}
+ * @param {?string} id the instance's id, "<pid>-<start time>".
+ * @returns {?int} the pid, or null for what is not an id.
  */
 export function pid_of(id) {
 	let m = (type(id) == 'string') ? match(id, ID) : null;
@@ -106,9 +118,9 @@ export function pid_of(id) {
 /**
  * Makes DIR and RUN_DIR, as needed, closed to their owner (0700).
  *
- * @param {module:fs} fs
- * @param {?string} owner
- * @returns {{ ok: boolean, problem: ?string }}
+ * @param {module:fs} fs the fs module, or an object of its stat, mkdir, chmod, chown and error.
+ * @param {?string} owner the user, and group, DIR is given to; null keeps it as it is.
+ * @returns {{ ok: boolean, problem: ?string }} whether it made them, and what failed.
  */
 export function make(fs, owner) {
 	for (let d in [ RUN_DIR, DIR ])
@@ -159,10 +171,10 @@ function writable(p, data) {
 /**
  * The state of instance `id` in `dir`.
  *
- * @param {module:fs} fs
- * @param {string} dir
- * @param {?string} id
- * @returns {State}
+ * @param {module:fs} fs the fs module, or a test's object of its functions.
+ * @param {string} dir the state's directory.
+ * @param {?string} id the instance's id (instance_id), or null.
+ * @returns {State} the state.
  */
 export function open(fs, dir, id) {
 	if (id != null)
@@ -266,11 +278,11 @@ export function open(fs, dir, id) {
 /**
  * At most `max` bytes of `path`, a regular file of `uid` with one link, opened so that no FIFO blocks; else null.
  *
- * @param {module:fs} fs
- * @param {string} path
- * @param {int} max
- * @param {?int} uid
- * @returns {?string}
+ * @param {module:fs} fs the fs module: its lstat, open and stat.
+ * @param {string} path the file's path.
+ * @param {int} max the most bytes it reads.
+ * @param {?int} uid the owner it must have; any when null.
+ * @returns {?string} its text, or null.
  */
 export function read_closed(fs, path, max, uid) {
 	let st = fs.lstat(path);
@@ -294,9 +306,9 @@ export function read_closed(fs, path, max, uid) {
 /**
  * The state of the instance that started last in `dir`, to read only.
  *
- * @param {module:fs} fs
- * @param {string} dir
- * @returns {?ReadOnlyState}
+ * @param {module:fs} fs what reads it: fs, or an object of its lsdir, lstat and open.
+ * @param {string} dir the state's directory.
+ * @returns {?ReadOnlyState} the state, or null.
  */
 export function latest(fs, dir) {
 	let best = null, start = -1;

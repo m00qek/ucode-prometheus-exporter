@@ -19,11 +19,23 @@ function loaded(name) {
 	};
 }
 
-/** The exposition format's parse(). */
+/**
+ * The exposition format's parse().
+ *
+ * @type {function(?string): Result<Family[]>}
+ */
 export const parse = loaded('parse');
 
-/** The exposition format's format_value(). */
+/**
+ * The exposition format's format_value().
+ *
+ * @type {function(*): ?string}
+ */
 export const format_value = loaded('format_value');
 
-/** The exposition format's sanitize(). */
+/**
+ * The exposition format's sanitize().
+ *
+ * @type {function(*, ?boolean): string}
+ */
 export const sanitize = loaded('sanitize');

@@ -47,19 +47,39 @@ import * as format from 'prometheus.exporter.api.exposition';
  * @typedef {{ meta: Meta, collect: Collect }} CollectorModule
  */
 
-/** What collect() returns: ok, err, none; is, is_none, describe (prometheus.exporter.result). Constant. */
+/**
+ * What collect() returns: ok, err, none; is, is_none, describe (prometheus.exporter.result). Constant.
+ *
+ * @type {module:prometheus.exporter.result}
+ */
 export const Result = result;
 
-/** The error codes a collector and its capabilities fail with. Constant. */
+/**
+ * The error codes a collector and its capabilities fail with. Constant.
+ *
+ * @type {module:prometheus.exporter.api.errors}
+ */
 export const errors = codes;
 
-/** Whether a service is watched, for nothing to observe (prometheus.exporter.services). Constant. */
+/**
+ * Whether a service is watched, for nothing to observe (prometheus.exporter.services). Constant.
+ *
+ * @type {module:prometheus.exporter.services}
+ */
 export const services = watched;
 
-/** Reading procfs and sysfs through deps.fs (prometheus.exporter.proc). Constant. */
+/**
+ * Reading procfs and sysfs through deps.fs (prometheus.exporter.proc). Constant.
+ *
+ * @type {module:prometheus.exporter.proc}
+ */
 export const proc = procfs;
 
-/** The exposition format's functions, each loaded the first time it is called. Constant. */
+/**
+ * The exposition format's functions, each loaded the first time it is called. Constant.
+ *
+ * @type {module:prometheus.exporter.api.exposition}
+ */
 export const exposition = format;
 
 function unsigned(v, bits) {
@@ -69,8 +89,8 @@ function unsigned(v, bits) {
 /**
  * A ubus INT16, which ucode's ubus gives signed, as the unsigned integer meant.
  *
- * @param {*} v
- * @returns {*}
+ * @param {*} v anything a ubus reply holds; only a negative 16-bit integer changes.
+ * @returns {*} v, unsigned when it is a negative 16-bit integer.
  */
 export function u16(v) {
 	return unsigned(v, 16);
@@ -79,8 +99,8 @@ export function u16(v) {
 /**
  * A ubus INT32, which ucode's ubus gives signed, as the unsigned integer meant.
  *
- * @param {*} v
- * @returns {*}
+ * @param {*} v anything a ubus reply holds; only a negative 32-bit integer changes.
+ * @returns {*} v, unsigned when it is a negative 32-bit integer.
  */
 export function u32(v) {
 	return unsigned(v, 32);

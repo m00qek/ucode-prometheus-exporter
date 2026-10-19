@@ -46,8 +46,8 @@ function netlink_channel(mod, code) {
 /**
  * The nl80211 capability over the nl80211 module: its failures are NL80211_FAILED.
  *
- * @param {NetlinkModule} mod
- * @returns {NetlinkCapability}
+ * @param {NetlinkModule} mod load_nl80211's, or a test's.
+ * @returns {NetlinkCapability} deps.nl80211.
  */
 export function nl80211_channel(mod) {
 	return netlink_channel(mod, errors.NL80211_FAILED);
@@ -56,8 +56,8 @@ export function nl80211_channel(mod) {
 /**
  * The rtnl capability over the rtnl module: its failures are RTNL_FAILED.
  *
- * @param {NetlinkModule} mod
- * @returns {NetlinkCapability}
+ * @param {NetlinkModule} mod load_rtnl's, or a test's.
+ * @returns {NetlinkCapability} deps.rtnl.
  */
 export function rtnl_channel(mod) {
 	return netlink_channel(mod, errors.RTNL_FAILED);
@@ -77,7 +77,7 @@ function load_netlink(name) {
 /**
  * The rtnl module, loaded by name at run time (load_netlink).
  *
- * @returns {?NetlinkModule}
+ * @returns {?NetlinkModule} its request, error and const; null when it does not load.
  */
 export function load_rtnl() {
 	return load_netlink('rtnl');
@@ -86,7 +86,7 @@ export function load_rtnl() {
 /**
  * The nl80211 module, loaded by name at run time (load_netlink): a separate package.
  *
- * @returns {?NetlinkModule}
+ * @returns {?NetlinkModule} its request, error and const; null when it does not load.
  */
 export function load_nl80211() {
 	return load_netlink('nl80211');

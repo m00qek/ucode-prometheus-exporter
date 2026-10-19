@@ -22,7 +22,11 @@ const PUNCTUATORS = [
 	'**', '<<', '>>',
 ];
 
-/** The functions of ucode a collector's top level may call. */
+/**
+ * The functions of ucode a collector's top level may call.
+ *
+ * @type {string[]}
+ */
 export const PURE = [
 	'arrtoip', 'assert', 'b64dec', 'b64enc', 'chr', 'exists', 'filter', 'hex', 'hexdec', 'hexenc', 'index', 'int',
 	'iptoarr', 'join', 'json', 'keys', 'lc', 'length', 'ltrim', 'map', 'match', 'max', 'min', 'ord', 'pop',
@@ -30,7 +34,11 @@ export const PURE = [
 	'sprintf', 'substr', 'trim', 'type', 'uc', 'uchr', 'uniq', 'unshift', 'values', 'wildcard',
 ];
 
-/** The collector API's functions a collector's top level may call. */
+/**
+ * The collector API's functions a collector's top level may call.
+ *
+ * @type {string[]}
+ */
 export const PURE_API = [
 	'Result.ok', 'Result.err', 'Result.none', 'Result.is', 'Result.is_none', 'Result.describe',
 	'proc.fields', 'proc.auxv', 'u16', 'u32',
@@ -119,8 +127,8 @@ function quoted_end(text, i, q, n) {
 /**
  * A module's tokens, without blank space and comments: { t, v, line }.
  *
- * @param {string} text
- * @returns {{ t: string, v: string, line: int }[]}
+ * @param {string} text the module's text.
+ * @returns {{ t: string, v: string, line: int }[]} the tokens, in order.
  */
 export function tokens(text) {
 	let out = [];
@@ -449,8 +457,8 @@ function read_import(toks, i, api, module) {
 /**
  * What a module's text does at its top level: statements, calls, API imports, declarations.
  *
- * @param {*} text
- * @param {string} api_module
+ * @param {*} text the module's text; anything but a string holds nothing.
+ * @param {string} api_module the collector API's module name (prometheus.exporter.loader's API).
  * @returns {{ statements: { word: string, line: int }[], calls: { callee: string, line: int }[], api: Object<string, string>, declared: string[] }}
  */
 export function top_level(text, api_module) {
@@ -554,9 +562,9 @@ function call_problem(name, api, declared) {
 /**
  * Why a collector module's text does more at its top level than declare, or null.
  *
- * @param {*} text
- * @param {string} api_module
- * @returns {?string}
+ * @param {*} text the module's text.
+ * @param {string} api_module the collector API's module name.
+ * @returns {?string} the problems, or null.
  */
 export function problem(text, api_module) {
 	let found = top_level(text, api_module);

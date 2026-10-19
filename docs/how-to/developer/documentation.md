@@ -41,20 +41,27 @@ The reasoning a reader needs lives in the explanation pages: when a change rests
 
 The code under `src/`, `files/` and `luci/` carries no explanatory comments: its explanation is here, in the docs. A reason that shapes the design goes in the explanation page it belongs to; a quirk of ucode, of a module or of the kernel that the code works round, or why a piece of code is shaped as it is, goes in [About the implementation](../../explanation/internals.md). Tests may keep their comments: they do not ship.
 
-An exported symbol of a module has a JSDoc block for the language server, and nothing more: a one-line summary, and its types.
+An exported symbol of a module has a JSDoc block for the language server, which shows it on hover, and nothing more: a one-line summary, its types, and a line on each parameter and on what a function returns.
 
 ```js
 /**
  * The scrapes left before the trial, seen from scrape `m`; null for a closed breaker.
  *
- * @param {?LedgerEntry} entry
- * @param {int} m
- * @returns {?int}
+ * @param {?LedgerEntry} entry the collector's entry; null for none.
+ * @param {int} m the scrape's number.
+ * @returns {?int} the scrapes.
  */
 export function left(entry, m) {
+
+/**
+ * The scrapes after which the deadline leaving a collector out is old news.
+ *
+ * @type {int}
+ */
+export const RECENT = 10;
 ```
 
-The tags are `@module`, `@typedef` (record types too, where the type is defined), `@template`, `@param {T} name` and `@returns {T}`, and `{@link}` in a summary; an exported constant has its summary alone, `/** … */`. A function that is not exported has no comment.
+The tags are `@module`, `@typedef` (record types too, where the type is defined), `@template`, `@param {T} name description`, `@returns {T} description` and, on an exported constant, `@type {T}`; and `{@link}` in a summary. Each description is one line: what the value is, not why. A function or a constant that is not exported has no comment.
 
 The package build strips every comment that is left, JSDoc too, from the ucode and JavaScript files it installs, and keeps a newline for each line it empties, so a device gets no comments and the line of an error on it is the line here. To check that a change to comments changed nothing else:
 

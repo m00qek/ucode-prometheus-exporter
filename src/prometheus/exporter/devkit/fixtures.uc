@@ -21,8 +21,8 @@ const real_fs = require('fs');
 /**
  * A reader of the fixtures under `dir`, relative to utest's directory or absolute.
  *
- * @param {string} dir
- * @returns {FixtureReader}
+ * @param {string} dir the fixtures' directory.
+ * @returns {FixtureReader} the reader.
  */
 export function reader(dir) {
 	function file(path) {

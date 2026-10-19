@@ -105,8 +105,8 @@ function series_key(name, pairs) {
 /**
  * The families in exposition text, or EXPOSITION_INVALID naming the first bad line.
  *
- * @param {?string} text
- * @returns {Result<Family[]>}
+ * @param {?string} text exposition text; null reads as none.
+ * @returns {Result<Family[]>} its families, in the order they first appear.
  */
 export function parse(text) {
 	let set = family_set();

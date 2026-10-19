@@ -8,20 +8,28 @@
 
 import * as errors from 'prometheus.exporter.errors';
 
-/** The installed collectors' directory, as the packages install them. */
+/**
+ * The installed collectors' directory, as the packages install them.
+ *
+ * @type {string}
+ */
 export const DIR = '/usr/share/ucode/prometheus/collectors';
 
 /**
  * A collector's module name: its name (meta.name) with _ for -.
  *
- * @param {string} name
- * @returns {string}
+ * @param {string} name a collector's name (meta.name).
+ * @returns {string} its module's name: name with _ for -.
  */
 export function id_of(name) {
 	return replace(name, '-', '_');
 };
 
-/** What each function a collector's top level may not call does, by name. */
+/**
+ * What each function a collector's top level may not call does, by name.
+ *
+ * @type {Object<string, string>}
+ */
 export const TRAPPED = {
 	sleep: 'blocks the process',
 	system: 'runs a program',
@@ -38,7 +46,11 @@ export const TRAPPED = {
 	signal: 'changes how the process takes a signal',
 };
 
-/** The prefix of what top_level() throws. */
+/**
+ * The prefix of what top_level() throws.
+ *
+ * @type {string}
+ */
 export const IMPURE = errors.COLLECTOR_IMPURE;
 
 function trap(st, name, does) {
@@ -76,8 +88,8 @@ function restore(saved) {
 /**
  * Runs `program` with each function of TRAPPED replaced by one that refuses it, and the global scope as it was after.
  *
- * @param {function(): *} program
- * @returns {*}
+ * @param {function(): *} program the compiled program.
+ * @returns {*} what it returns.
  */
 export function top_level(program) {
 	let saved = {};
@@ -114,8 +126,8 @@ export function top_level(program) {
 /**
  * A module's exports, by name.
  *
- * @param {string} id
- * @returns {CollectorModule}
+ * @param {string} id the module's name, in the collectors' directory.
+ * @returns {CollectorModule} its exports; it throws what loading it throws.
  */
 export function import_module(id) {
 	return top_level(loadstring(sprintf('import * as c from %J;\nreturn c;', 'prometheus.collectors.' + id),
@@ -125,8 +137,8 @@ export function import_module(id) {
 /**
  * A module's exports, by its path, its top level guarded.
  *
- * @param {string} path
- * @returns {CollectorModule}
+ * @param {string} path the module's file.
+ * @returns {CollectorModule} its exports; it throws what loading it throws.
  */
 export function import_path(path) {
 	return top_level(loadstring(sprintf('import * as c from %J;\nreturn c;', path), { raw_mode: true }));
@@ -135,8 +147,8 @@ export function import_path(path) {
 /**
  * The exports of each of the modules `ids`, by name, compiled as one program.
  *
- * @param {string[]} ids
- * @returns {Object<string, CollectorModule>}
+ * @param {string[]} ids the modules' names, in the collectors' directory.
+ * @returns {Object<string, CollectorModule>} their exports, by name; throws what loading throws.
  */
 export function import_modules(ids) {
 	let lines = map(ids, (id, i) => sprintf('import * as c%d from %J;', i, 'prometheus.collectors.' + id));
@@ -153,9 +165,9 @@ export function import_modules(ids) {
 /**
  * The module names in `dir`, sorted.
  *
- * @param {module:fs} fs
- * @param {string} dir
- * @returns {string[]}
+ * @param {module:fs} fs what lists the directory: an object of fs's lsdir.
+ * @param {string} dir the directory.
+ * @returns {string[]} the names of its [a-z0-9_]+.uc files, without .uc.
  */
 export function discover(fs, dir) {
 	let files = filter(fs.lsdir(dir) ?? [], (f) => match(f, /^[a-z0-9_]+\.uc$/));
@@ -172,9 +184,9 @@ export function discover(fs, dir) {
 /**
  * What the exporter logs of module `id`, whose loading threw `error`.
  *
- * @param {string} id
- * @param {string} error
- * @returns {string}
+ * @param {string} id the module's name.
+ * @param {string} error the first line of what loading it threw.
+ * @returns {string} the message.
  */
 export function load_error(id, error) {
 	let m = match(error, /^([A-Z_]+) \((.*)\)$/);
@@ -188,9 +200,9 @@ export function load_error(id, error) {
 /**
  * Why the probe's outcome for a module leaves it out, or null when it does not.
  *
- * @param {string} id
- * @param {?ProbeOutcome} p
- * @returns {?string}
+ * @param {string} id the module's name.
+ * @param {?ProbeOutcome} p the outcome, or null for none.
+ * @returns {?string} why, or null.
  */
 export function left_out(id, p) {
 	if (p?.hung)
@@ -204,8 +216,8 @@ export function left_out(id, p) {
 /**
  * A meta's fingerprint: its JSON, functions and all, as ucode writes them (their signatures).
  *
- * @param {Meta} meta
- * @returns {string}
+ * @param {Meta} meta the meta, as the loader takes it (options {} when it declares none).
+ * @returns {string} its fingerprint.
  */
 export function fingerprint(meta) {
 	return sprintf('%J', meta);

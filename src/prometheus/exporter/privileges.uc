@@ -22,55 +22,123 @@
  * }} Grants
  */
 
-/** The service's user, which uhttpd runs as in the jail, made by the package. */
+/**
+ * The service's user, which uhttpd runs as in the jail, made by the package.
+ *
+ * @type {string}
+ */
 export const USER = 'prometheus-exporter';
 
-/** The service's group, the user's own. */
+/**
+ * The service's group, the user's own.
+ *
+ * @type {string}
+ */
 export const GROUP = USER;
 
-/** The capabilities a collector may declare, with their numbers. */
+/**
+ * The capabilities a collector may declare, with their numbers.
+ *
+ * @type {Object<string, int>}
+ */
 export const COLLECTOR_CAPABILITIES = { CAP_NET_ADMIN: 12, CAP_NET_RAW: 13 };
 
-/** Every capability the service may grant, with its number. */
+/**
+ * Every capability the service may grant, with its number.
+ *
+ * @type {Object<string, int>}
+ */
 export const CAPABILITIES = { CAP_NET_BIND_SERVICE: 10, ...COLLECTOR_CAPABILITIES };
 
-/** The lowest port that needs no capability to listen on. */
+/**
+ * The lowest port that needs no capability to listen on.
+ *
+ * @type {int}
+ */
 export const UNPRIVILEGED_PORT = 1024;
 
-/** The run directory of the service (prometheus.exporter.state's RUN_DIR). */
+/**
+ * The run directory of the service (prometheus.exporter.state's RUN_DIR).
+ *
+ * @type {string}
+ */
 export const RUN_DIR = `/var/run/${USER}`;
 
-/** The capabilities file procd has ujail apply to the jail (-C). */
+/**
+ * The capabilities file procd has ujail apply to the jail (-C).
+ *
+ * @type {string}
+ */
 export const CAPABILITIES_FILE = `${RUN_DIR}/capabilities.json`;
 
-/** The copies of the TLS certificate and key uhttpd reads. */
+/**
+ * The copies of the TLS certificate and key uhttpd reads.
+ *
+ * @type {string}
+ */
 export const TLS_CERT = `${RUN_DIR}/tls.crt`;
 
-/** The copy of the TLS key, readable by GROUP. */
+/**
+ * The copy of the TLS key, readable by GROUP.
+ *
+ * @type {string}
+ */
 export const TLS_KEY = `${RUN_DIR}/tls.key`;
 
-/** uhttpd's file of basic auth, which auth.uc writes at each start (prometheus.exporter.auth's FILE). */
+/**
+ * uhttpd's file of basic auth, which auth.uc writes at each start (prometheus.exporter.auth's FILE).
+ *
+ * @type {string}
+ */
 export const AUTH_FILE = `${RUN_DIR}/uhttpd.conf`;
 
-/** What grant's make() gave the service's group, with each file's group and mode before: root's alone. */
+/**
+ * What grant's make() gave the service's group, with each file's group and mode before: root's alone.
+ *
+ * @type {string}
+ */
 export const GRANTED_FILE = `${RUN_DIR}/granted.json`;
 
-/** Where uci's configs are, whose files make() may give the service's group. */
+/**
+ * Where uci's configs are, whose files make() may give the service's group.
+ *
+ * @type {string}
+ */
 export const CONFIG_DIR = '/etc/config';
 
-/** The ubus ACL, outside the run directory, which ubusd's user may not enter. */
+/**
+ * The ubus ACL, outside the run directory, which ubusd's user may not enter.
+ *
+ * @type {string}
+ */
 export const ACL_FILE = `/var/run/${USER}.acl.json`;
 
-/** The link the package installs in ubusd's ACL directory, to ACL_FILE. */
+/**
+ * The link the package installs in ubusd's ACL directory, to ACL_FILE.
+ *
+ * @type {string}
+ */
 export const ACL_LINK = `/usr/share/acl.d/${USER}.json`;
 
-/** The call every ACL of the service allows: 'Not found' only when ubusd has not loaded it. */
+/**
+ * The call every ACL of the service allows: 'Not found' only when ubusd has not loaded it.
+ *
+ * @type {{ object: string, method: string }}
+ */
 export const CANARY = { object: 'system', method: 'board' };
 
-/** The file of the system's groups. */
+/**
+ * The file of the system's groups.
+ *
+ * @type {string}
+ */
 export const GROUP_FILE = '/etc/group';
 
-/** The lock OpenWrt's tools take to change GROUP_FILE (lock /var/lock/passwd). */
+/**
+ * The lock OpenWrt's tools take to change GROUP_FILE (lock /var/lock/passwd).
+ *
+ * @type {string}
+ */
 export const GROUP_LOCK = '/var/lock/passwd';
 
 const OBJECT = /^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)*(\.\*)?$/;
@@ -92,8 +160,8 @@ function is_strings(v, pattern) {
 /**
  * What is wrong with a collector's declared privileges, or null.
  *
- * @param {Meta} meta
- * @returns {?string}
+ * @param {Meta} meta the collector's meta; its needs already checked.
+ * @returns {?string} what is wrong, as the loader says it.
  */
 export function meta_problem(meta) {
 	let needs = meta.needs ?? [];
@@ -137,9 +205,9 @@ export function meta_problem(meta) {
 /**
  * The ubus calls a collector declares for its options, and what a function got wrong.
  *
- * @param {Meta} meta
- * @param {?Object} options
- * @returns {{ ubus: Object<string, string[]>, problems: string[] }}
+ * @param {Meta} meta the collector's meta.
+ * @param {?Object} options its options, typed.
+ * @returns {{ ubus: Object<string, string[]>, problems: string[] }} the calls, and what went wrong.
  */
 export function ubus_of(meta, options) {
 	let ubus = {};
@@ -173,10 +241,10 @@ export function ubus_of(meta, options) {
 /**
  * Whether `declared` allows `method` of `object`, as ubusd matches an ACL.
  *
- * @param {Object<string, string[]>} declared
- * @param {string} object
- * @param {string} method
- * @returns {boolean}
+ * @param {Object<string, string[]>} declared the calls.
+ * @param {string} object the object called.
+ * @param {string} method its method.
+ * @returns {boolean} whether it is declared.
  */
 export function allows(declared, object, method) {
 	if (type(object) != 'string' || type(method) != 'string')
@@ -196,9 +264,9 @@ export function allows(declared, object, method) {
 /**
  * The capabilities of `wanted` that a process lacks, by its /proc/<pid>/status, or null.
  *
- * @param {?string} status
- * @param {string[]} wanted
- * @returns {?string[]}
+ * @param {?string} status the text of /proc/<pid>/status.
+ * @param {string[]} wanted capabilities of CAPABILITIES.
+ * @returns {?string[]} those it lacks, or null.
  */
 export function lacking(status, wanted) {
 	let m = match(status ?? '', /\nCapEff:\s*([0-9a-fA-F]+)/);

@@ -64,9 +64,9 @@ function uci_handle(cursor_fn, name) {
 /**
  * Read-only handles over uci configs: { <config>: handle } for each of `configs`.
  *
- * @param {function(): UciCursor} cursor_fn
- * @param {string[]} configs
- * @returns {Object<string, UciHandle>}
+ * @param {function(): UciCursor} cursor_fn the scrape's cursor, opened on first use.
+ * @param {string[]} configs the configs' names (meta.configs).
+ * @returns {Object<string, UciHandle>} a handle by config name.
  */
 export function uci_handles(cursor_fn, configs) {
 	let handles = {};

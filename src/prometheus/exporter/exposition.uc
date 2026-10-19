@@ -62,8 +62,8 @@ let parser = null;
 /**
  * The families in exposition text, or EXPOSITION_INVALID naming the first bad line.
  *
- * @param {?string} text
- * @returns {Result<Family[]>}
+ * @param {?string} text exposition text; null reads as none.
+ * @returns {Result<Family[]>} its families, in the order they first appear.
  */
 export function parse(text) {
 	parser ??= loadstring("import { parse } from 'prometheus.exporter.exposition.parse';\nreturn parse;", { raw_mode: true })();
@@ -79,10 +79,18 @@ function as_lines(fam) {
 	};
 }
 
-/** What a recorder dies with at the sample past its `max` (see recorder). */
+/**
+ * What a recorder dies with at the sample past its `max` (see recorder).
+ *
+ * @type {string}
+ */
 export const OVER_LIMIT = 'prometheus_exporter: over the sample limit';
 
-/** What a recorder dies with at text Prometheus would refuse (see recorder). */
+/**
+ * What a recorder dies with at text Prometheus would refuse (see recorder).
+ *
+ * @type {string}
+ */
 export const INVALID = 'prometheus_exporter: text Prometheus refuses';
 
 const TYPES_RECORDED = [ 'counter', 'gauge', 'untyped' ];
@@ -95,8 +103,8 @@ function dropped(labels, value) {
 /**
  * What a collector writes to.
  *
- * @param {?int} max
- * @returns {Recorder}
+ * @param {?int} max the most samples it takes; null for no limit.
+ * @returns {Recorder} the recorder.
  */
 export function recorder(max) {
 	let set = family_set();
@@ -306,9 +314,9 @@ export function recorder(max) {
 /**
  * The text of families as a recorder keeps them, or as parse() gives them.
  *
- * @param {(RecordedFamily|Family)[]} families
- * @param {?{ omit_zero_counters: ?boolean }} opts
- * @returns {string}
+ * @param {(RecordedFamily|Family)[]} families the families.
+ * @param {?{ omit_zero_counters: ?boolean }} opts the options; null for none.
+ * @returns {string} the text, each line ended by a newline; '' for none.
  */
 export function render(families, opts) {
 	let parts = [];
@@ -345,9 +353,9 @@ export function render(families, opts) {
 /**
  * A collector's families as a scrape keeps its run: their names, and their text.
  *
- * @param {RecordedFamily[]} families
- * @param {?boolean} omit
- * @returns {{ families: string[], text: string }}
+ * @param {RecordedFamily[]} families the collector's families.
+ * @param {?boolean} omit omit_zero_values.
+ * @returns {{ families: string[], text: string }} its families' names, and their text.
  */
 export function pack(families, omit) {
 	let names = [];

@@ -12,8 +12,8 @@ import { SIZE_MAX } from 'prometheus.exporter.state';
 /**
  * Logs what changed of the breakers: a trip at warning, a close at notice.
  *
- * @param {ScrapeEnv} env
- * @param {BreakerEvent[]} events
+ * @param {ScrapeEnv} env the scrape's env, whose log it logs at.
+ * @param {BreakerEvent[]} events what changed.
  */
 export function log_breakers(env, events) {
 	for (let e in events) {
@@ -27,9 +27,9 @@ export function log_breakers(env, events) {
 /**
  * The collectors running when a scrape process died fail COLLECTOR_KILLED; their children die.
  *
- * @param {ScrapeEnv} env
- * @param {State} state
- * @param {Collector[]} collectors
+ * @param {ScrapeEnv} env the scrape's env: its log, and kill.
+ * @param {State} state the instance's state.
+ * @param {Collector[]} collectors the installed collectors.
  */
 export function bury(env, state, collectors) {
 	let dead = state.dead();

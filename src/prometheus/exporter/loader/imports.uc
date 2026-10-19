@@ -177,7 +177,7 @@ function number(text, found) {
 /**
  * Each import of a module's text, and each call that loads code or runs a program.
  *
- * @param {*} text
+ * @param {*} text the module's text; anything but a string holds nothing.
  * @returns {{ imports: { module: string, line: int }[], loads: { fn: string, module: ?string, line: int }[] }}
  */
 export function imports(text) {

@@ -19,17 +19,25 @@ import { EXEC_TIMEOUT } from 'prometheus.exporter.config';
 /**
  * `arg` single-quoted for the shell, its own single quotes escaped.
  *
- * @param {*} arg
- * @returns {string}
+ * @param {*} arg anything: it is made a string first.
+ * @returns {string} the quoted string.
  */
 export function shell_quote(arg) {
 	return "'" + replace('' + arg, "'", "'\\''") + "'";
 };
 
-/** The seconds a collector's programs get in all in a scrape, by default. */
+/**
+ * The seconds a collector's programs get in all in a scrape, by default.
+ *
+ * @type {int}
+ */
 export const EXEC_SECONDS = EXEC_TIMEOUT;
 
-/** What a program's handle closes with when the watchdog killed it. */
+/**
+ * What a program's handle closes with when the watchdog killed it.
+ *
+ * @type {int}
+ */
 export const EXEC_KILLED = -9;
 
 const WALK = [
@@ -64,9 +72,9 @@ const WATCHDOG = join('\n', [
 /**
  * The watchdog script popen runs for `argv`, given `seconds`.
  *
- * @param {string[]} argv
- * @param {int} seconds
- * @returns {string}
+ * @param {string[]} argv the program and its arguments.
+ * @param {int} seconds what the program may take, in whole seconds.
+ * @returns {string} the script.
  */
 export function exec_script(argv, seconds) {
 	return `set -- ${seconds} ${join(' ', map(argv, shell_quote))}\n${WATCHDOG}`;
@@ -75,8 +83,8 @@ export function exec_script(argv, seconds) {
 /**
  * Kills process `pid` and every process under it, as the watchdog kills a program.
  *
- * @param {function(string, string): ?FsProc} popen_fn
- * @param {int} pid
+ * @param {function(string, string): ?FsProc} popen_fn fs's popen, or a test's.
+ * @param {int} pid the process.
  */
 export function kill_tree(popen_fn, pid) {
 	let p = popen_fn(join('\n', [ `pid=${int(pid)}`, 'kill -STOP "$pid" 2>/dev/null || exit 0', ...WALK, 'kill -KILL $all', '' ]), 'r');
@@ -92,12 +100,12 @@ function milliseconds(t) {
 /**
  * The exec channel of one collector in one scrape: run(argv) of the `allowed` programs.
  *
- * @param {function(string, string): ?FsProc} popen_fn
- * @param {string[]} allowed
- * @param {?int} seconds
- * @param {?function(): int[]} clock_fn
- * @param {?float} cutoff
- * @returns {ExecCapability}
+ * @param {function(string, string): ?FsProc} popen_fn fs's popen, or a test's.
+ * @param {string[]} allowed the programs it may run (meta.commands).
+ * @param {?int} seconds the seconds its programs get in all; EXEC_SECONDS when null.
+ * @param {?function(): int[]} clock_fn a monotonic clock, [ s, ns ]; clock(true) when null.
+ * @param {?float} cutoff when the collector must be done (monotonic seconds); null for no deadline.
+ * @returns {ExecCapability} the channel.
  */
 export function exec_channel(popen_fn, allowed, seconds, clock_fn, cutoff) {
 	seconds ??= EXEC_SECONDS;

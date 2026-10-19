@@ -119,20 +119,32 @@ export const LOG_BYTES = log_module.LOG_BYTES;
 export const syslog_channel = log_module.syslog_channel;
 export const system_log = log_module.system_log;
 
-/** The capabilities a collector may need (meta.needs), each the name of what it gets in deps. */
+/**
+ * The capabilities a collector may need (meta.needs), each the name of what it gets in deps.
+ *
+ * @type {string[]}
+ */
 export const NEEDS = [ 'fs', 'ubus', 'uci', 'rtnl', 'nl80211', 'socket', 'exec', 'time', 'log', 'exporter' ];
 
-/** The functions of fs a collector may use. */
+/**
+ * The functions of fs a collector may use.
+ *
+ * @type {string[]}
+ */
 export const FS_API = [ 'readfile', 'open', 'lsdir', 'glob', 'stat', 'realpath' ];
 
-/** Where uci's configs are, which a collector's meta.configs name. */
+/**
+ * Where uci's configs are, which a collector's meta.configs name.
+ *
+ * @type {string}
+ */
 export const CONFIG_DIR = '/etc/config';
 
 /**
  * One scrape's capabilities, closed once it is over.
  *
- * @param {Modules} mods
- * @returns {Session}
+ * @param {Modules} mods the modules: modules()'s, or utest's proxies.
+ * @returns {Session} the session.
  */
 export function session(mods) {
 	let ubus = ubus_channel(mods.ubus.connect, mods.clock);
@@ -242,14 +254,18 @@ export function session(mods) {
 	};
 };
 
-/** Where urandom reads. */
+/**
+ * Where urandom reads.
+ *
+ * @type {string}
+ */
 export const RANDOM_DEVICE = '/dev/urandom';
 
 /**
  * The kernel's random bytes: random(n) gives n of them, or null.
  *
- * @param {module:fs} fs
- * @returns {function(int): ?string}
+ * @param {module:fs} fs what reads: an object of fs's open.
+ * @returns {function(int): ?string} random(n).
  */
 export function urandom(fs) {
 	return function(n) {
@@ -266,7 +282,7 @@ const UCI_NO_DELTAS = '/var/run/prometheus-exporter/no-uci-deltas';
 /**
  * A uci cursor that writes and commits, for set_password alone.
  *
- * @returns {UciCursor}
+ * @returns {UciCursor} the cursor.
  */
 export function writable_cursor() {
 	return cursor();
@@ -284,8 +300,8 @@ const loaded = {};
 /**
  * The native module `name`, loaded the first time it is asked for, and kept.
  *
- * @param {string} name
- * @returns {?Object}
+ * @param {string} name the module's name.
+ * @returns {?Object} the module; null when it does not load, or is not one of NATIVES.
  */
 export function native(name) {
 	if (!(name in loaded))
@@ -297,7 +313,7 @@ export function native(name) {
 /**
  * The real system's modules, the native ones loaded when a collector needs one.
  *
- * @returns {Modules}
+ * @returns {Modules} the modules.
  */
 export function modules() {
 	return {

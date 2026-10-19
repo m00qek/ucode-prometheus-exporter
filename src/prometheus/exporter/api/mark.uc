@@ -6,5 +6,9 @@
 
 'use strict';
 
-/** What marks a Result, whichever copy of prometheus.exporter.result made it. */
+/**
+ * What marks a Result, whichever copy of prometheus.exporter.result made it.
+ *
+ * @type {boolean}
+ */
 export const prometheus_exporter_result = true;

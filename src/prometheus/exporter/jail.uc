@@ -39,37 +39,73 @@ import { DIR as STATE_DIR, RUN_DIR } from 'prometheus.exporter.state';
  * }} CollectorJail
  */
 
-/** Where uci's configs are. */
+/**
+ * Where uci's configs are.
+ *
+ * @type {string}
+ */
 export const CONFIG_DIR = '/etc/config';
 
-/** The exporter's own config, which every jail has. */
+/**
+ * The exporter's own config, which every jail has.
+ *
+ * @type {string}
+ */
 export const OWN_CONFIG = `${CONFIG_DIR}/${config.NAME}`;
 
-/** popen's shell, which a collector that runs programs gets. */
+/**
+ * popen's shell, which a collector that runs programs gets.
+ *
+ * @type {string}
+ */
 export const SHELL = '/bin/sh';
 
-/** The ubus socket, which procd's jail option `ubus` mounts. */
+/**
+ * The ubus socket, which procd's jail option `ubus` mounts.
+ *
+ * @type {string}
+ */
 export const UBUS_SOCKET = '/var/run/ubus/ubus.sock';
 
-/** The service's own read-only mounts, which every instance has. */
+/**
+ * The service's own read-only mounts, which every instance has.
+ *
+ * @type {string[]}
+ */
 export const SERVICE = [
 	'/usr/lib/uhttpd_ucode.so', '/lib/libubus.so*', '/lib/libuci.so*', '/usr/lib/libnl*.so*', '/usr/lib/libz.so*',
 	'/usr/lib/ucode', '/usr/share/ucode/prometheus', `/usr/libexec/${config.NAME}/handler.uc`, SHELL,
 ];
 
-/** What procd's jail options and ujail itself give every instance. */
+/**
+ * What procd's jail options and ujail itself give every instance.
+ *
+ * @type {string[]}
+ */
 export const GIVEN = [
 	'/proc', '/sys', '/dev/log',
 	'/dev/null', '/dev/zero', '/dev/full', '/dev/random', '/dev/urandom', '/etc/resolv.conf',
 ];
 
-/** What every jail of the service has, whatever its collectors declare. */
+/**
+ * What every jail of the service has, whatever its collectors declare.
+ *
+ * @type {string[]}
+ */
 export const COMMON = [ ...GIVEN, ...SERVICE, OWN_CONFIG, STATE_DIR ];
 
-/** procd's PATH, which the jailed uhttpd and so popen's shell have. */
+/**
+ * procd's PATH, which the jailed uhttpd and so popen's shell have.
+ *
+ * @type {string}
+ */
 export const PATH = '/usr/sbin:/usr/bin:/sbin:/bin';
 
-/** Directories that hold what belongs to every service: never mounted whole for one collector. */
+/**
+ * Directories that hold what belongs to every service: never mounted whole for one collector.
+ *
+ * @type {string[]}
+ */
 export const BROAD = [
 	'/', '/bin', '/dev', '/etc', '/etc/config', '/lib', '/proc', '/run', '/sbin', '/sys', '/tmp', '/tmp/run',
 	'/usr', '/usr/bin', '/usr/lib', '/usr/sbin', '/usr/share', '/var', '/var/run',
@@ -80,8 +116,8 @@ const PLACEHOLDER = /\{([a-z][a-z0-9_]*)\}/g;
 /**
  * Why `path` cannot be a mount, or null.
  *
- * @param {*} path
- * @returns {?string}
+ * @param {*} path the path; anything but an absolute path string is a problem.
+ * @returns {?string} why, or null.
  */
 export function path_problem(path) {
 	if (type(path) != 'string' || substr(path, 0, 1) != '/')
@@ -99,8 +135,8 @@ export function path_problem(path) {
 /**
  * Why the exporter cannot make and mount `path` as its own, or null.
  *
- * @param {*} path
- * @returns {?string}
+ * @param {*} path the path; anything but an absolute path string is a problem.
+ * @returns {?string} why, or null.
  */
 export function owned_problem(path) {
 	let why = path_problem(path);
@@ -116,10 +152,10 @@ export function owned_problem(path) {
 /**
  * Why root may not make or mount `path` as the exporter's own, or null: each directory down to it must be root's, writable by no one else unless sticky, and a link in it root's; `make` makes those not there (0755), else the walk ends at the first.
  *
- * @param {module:fs} fs
- * @param {string} path
- * @param {boolean} make
- * @returns {?string}
+ * @param {module:fs} fs the fs module: its lstat, stat, mkdir and error.
+ * @param {string} path the absolute path.
+ * @param {boolean} make whether to make the directories not there (0755).
+ * @returns {?string} why not, or null.
  */
 export function owned_walk(fs, path, make) {
 	let dir = '';
@@ -157,8 +193,8 @@ export function owned_walk(fs, path, make) {
 /**
  * The option names a path of meta.paths holds as {name}.
  *
- * @param {string} template
- * @returns {string[]}
+ * @param {string} template a path of meta.paths.
+ * @returns {string[]} the names, in order.
  */
 export function placeholders(template) {
 	return map(match(template, PLACEHOLDER) ?? [], (m) => m[1]);
@@ -167,9 +203,9 @@ export function placeholders(template) {
 /**
  * A path of meta.paths with its {option}s filled in, or null when one of them is not a string.
  *
- * @param {string} template
- * @param {?Object} options
- * @returns {?string}
+ * @param {string} template a path of meta.paths.
+ * @param {?Object} options the collector's options, typed.
+ * @returns {?string} the path.
  */
 export function fill(template, options) {
 	let missing = false;
@@ -190,10 +226,10 @@ export function fill(template, options) {
 /**
  * Where the shell finds `cmd` on `search` (a PATH), or null.
  *
- * @param {module:fs} fs
- * @param {string} search
- * @param {string} cmd
- * @returns {?string}
+ * @param {module:fs} fs what looks: an object of fs's stat.
+ * @param {string} search a PATH: directories, separated by ':'.
+ * @param {string} cmd the command: a name, or a path when it holds a '/'.
+ * @returns {?string} the command's path.
  */
 export function which(fs, search, cmd) {
 	if (index(cmd, '/') >= 0)
@@ -224,10 +260,10 @@ function call_paths(fn, options, handles) {
 /**
  * meta.paths for these typed options and uci handles: the paths, the owned ones, the problems.
  *
- * @param {Meta} meta
- * @param {Object} options
- * @param {Object<string, UciHandle>} handles
- * @returns {{ paths: string[], owned: string[], problems: string[] }}
+ * @param {Meta} meta the collector's meta.
+ * @param {Object} options its options, typed.
+ * @param {Object<string, UciHandle>} handles uci handles over its configs.
+ * @returns {{ paths: string[], owned: string[], problems: string[] }} the paths sorted, once each.
  */
 export function resolve_paths(meta, options, handles) {
 	let paths = [];
@@ -281,9 +317,9 @@ export function resolve_paths(meta, options, handles) {
 /**
  * What one collector gets in the jail, and what its user may do there.
  *
- * @param {Collector} c
- * @param {JailSys} sys
- * @returns {CollectorJail}
+ * @param {Collector} c the collector.
+ * @param {JailSys} sys the system.
+ * @returns {CollectorJail} what it gets.
  */
 export function collector(c, sys) {
 	let meta = c.meta;
@@ -349,8 +385,8 @@ export function collector(c, sys) {
 /**
  * The jail's mounts, problems, missing and owned paths for these installed collectors.
  *
- * @param {Collector[]} collectors
- * @param {JailSys} sys
+ * @param {Collector[]} collectors the installed collectors.
+ * @param {JailSys} sys the system.
  * @returns {{ mounts: string[], problems: string[], missing: string[], owned: string[] }}
  */
 export function mounts(collectors, sys) {
@@ -380,9 +416,9 @@ export function mounts(collectors, sys) {
 /**
  * What the service's user may do in the jail of these collectors, for grant's make().
  *
- * @param {Collector[]} collectors
- * @param {JailSys} sys
- * @returns {Grants}
+ * @param {Collector[]} collectors the installed collectors.
+ * @param {JailSys} sys the system.
+ * @returns {Grants} what to grant.
  */
 export function grants(collectors, sys) {
 	let ubus = [], capabilities = [], groups = [], groups_off = [];
@@ -443,9 +479,9 @@ export function grants(collectors, sys) {
 /**
  * Makes the directories of `paths` that are not there, and their parents, as owned_walk() takes them.
  *
- * @param {module:fs} fs
- * @param {string[]} paths
- * @returns {{ made: string[], problems: string[] }}
+ * @param {module:fs} fs the fs module, or an object of its stat, mkdir and error.
+ * @param {string[]} paths the directories.
+ * @returns {{ made: string[], problems: string[] }} what it made, and why it could not.
  */
 export function make(fs, paths) {
 	let made = [];

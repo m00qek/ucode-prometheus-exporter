@@ -9,8 +9,8 @@
 /**
  * rc's `list` method, of the init scripts `scripts` names.
  *
- * @param {Object<string, boolean>} scripts
- * @returns {function(Object): Object}
+ * @param {Object<string, boolean>} scripts each script, and whether it is enabled.
+ * @returns {function(Object): Object} the method.
  */
 export function list(scripts) {
 	return function(args) {
@@ -23,8 +23,8 @@ export function list(scripts) {
 /**
  * A ubus mock's data of rc's `list`, for the init scripts `scripts` names.
  *
- * @param {Object<string, boolean>} scripts
- * @returns {Object}
+ * @param {Object<string, boolean>} scripts each script, and whether it is enabled.
+ * @returns {Object} the data, { 'rc:list': list(scripts) }.
  */
 export function rc(scripts) {
 	return { 'rc:list': list(scripts) };

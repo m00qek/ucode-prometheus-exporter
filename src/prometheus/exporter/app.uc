@@ -48,10 +48,18 @@ import { version } from 'prometheus.exporter.version';
  * }} Handler
  */
 
-/** uhttpd's config file of basic auth, which the init script writes. */
+/**
+ * uhttpd's config file of basic auth, which the init script writes.
+ *
+ * @type {string}
+ */
 export const AUTH_FILE = `${state.RUN_DIR}/uhttpd.conf`;
 
-/** The program that loads basic auth's module, compiled the first time it is needed. */
+/**
+ * The program that loads basic auth's module, compiled the first time it is needed.
+ *
+ * @type {string}
+ */
 export const AUTH_PROGRAM = "import * as auth from 'prometheus.exporter.auth';\nreturn auth;";
 
 let auth_loaded = null;
@@ -81,8 +89,8 @@ function auth_module(source) {
 /**
  * Whether the config sets basic auth (the main section's auth_user).
  *
- * @param {UciCursor} uci
- * @returns {boolean}
+ * @param {UciCursor} uci the cursor.
+ * @returns {boolean} whether it sets a user.
  */
 export function auth_wanted(uci) {
 	let s = uci.get_all(config.NAME, 'main');
@@ -94,10 +102,10 @@ export function auth_wanted(uci) {
 /**
  * Basic auth as the handler finds it when it starts.
  *
- * @param {module:fs} fs
- * @param {boolean} wanted
- * @param {?string} program
- * @returns {?(BasicAuth|BrokenAuth)}
+ * @param {module:fs} fs what reads AUTH_FILE: an object of fs's readfile.
+ * @param {boolean} wanted whether the config sets basic auth (auth_wanted).
+ * @param {?string} program what loads basic auth's module; AUTH_PROGRAM when null.
+ * @returns {?(BasicAuth|BrokenAuth)} basic auth.
  */
 export function load_auth(fs, wanted, program) {
 	let text = fs.readfile(AUTH_FILE);
@@ -120,11 +128,11 @@ export function load_auth(fs, wanted, program) {
 /**
  * What the handler sends instead of a scrape, or null for a request it serves.
  *
- * @param {?(BasicAuth|BrokenAuth)} credentials
- * @param {?Object} env
- * @param {?State} instance
- * @param {?string} program
- * @returns {?HttpReply}
+ * @param {?(BasicAuth|BrokenAuth)} credentials basic auth, as load_auth gives it.
+ * @param {?Object} env uhttpd-mod-ucode's env of the request.
+ * @param {?State} instance the instance's state.
+ * @param {?string} program what loads basic auth's module; AUTH_PROGRAM when null.
+ * @returns {?HttpReply} the reply, or null.
  */
 export function refusal(credentials, env, instance, program) {
 	let broken = () => http.text_reply('500 Internal Server Error', 'Basic auth is not configured as it should be; see the log.\n');
@@ -160,10 +168,10 @@ export function refusal(credentials, env, instance, program) {
 /**
  * The env a scrape runs collectors in, over the modules `mods` and log(level, msg).
  *
- * @param {Modules} mods
- * @param {Log} log
- * @param {?{ fork: ?boolean, tmp: ?string, observed: ?Modules }} opts
- * @returns {ScrapeEnv}
+ * @param {Modules} mods the modules.
+ * @param {Log} log the exporter's log.
+ * @param {?{ fork: ?boolean, tmp: ?string, observed: ?Modules }} opts the options.
+ * @returns {ScrapeEnv} the env.
  */
 export function scrape_env(mods, log, opts) {
 	let observed = opts?.observed ?? mods;
@@ -186,7 +194,11 @@ function loader_program() {
 	return loadstring("import * as loader from 'prometheus.exporter.loader';\nreturn loader;", { raw_mode: true })();
 }
 
-/** How many times a module whose file changed between check and load is tried. */
+/**
+ * How many times a module whose file changed between check and load is tried.
+ *
+ * @type {int}
+ */
 export const CHECK_ROUNDS = 3;
 
 function take(checked, log, import_all, import_one, changed) {
@@ -235,9 +247,9 @@ function by_name(collectors) {
 /**
  * The collectors of `checked`, loaded here as the probe's child checked them.
  *
- * @param {CheckedModule[]} checked
- * @param {Log} log
- * @returns {Collector[]}
+ * @param {CheckedModule[]} checked the modules, as the loader's check gives them.
+ * @param {Log} log the exporter's log.
+ * @returns {Collector[]} the collectors.
  */
 export function load_checked(checked, log) {
 	return by_name(take(checked, log, collection.import_modules, collection.import_module));
@@ -252,11 +264,11 @@ export function load_checked(checked, log) {
 /**
  * The collectors `ids`, each checked in the probe's child, then loaded here.
  *
- * @param {string[]} ids
- * @param {function(string[]): Object<string, ProbeOutcome>} probe_fn
- * @param {Log} log
+ * @param {string[]} ids the modules' names.
+ * @param {function(string[]): Object<string, ProbeOutcome>} probe_fn checks the modules in a child.
+ * @param {Log} log the exporter's log.
  * @param {?{ all: function(string[]): Object<string, CollectorModule>, one: function(string): CollectorModule }} imports
- * @returns {ProbedLoad}
+ * @returns {ProbedLoad} the collectors, or why there are none.
  */
 export function load_probed(ids, probe_fn, log, imports) {
 	let all = imports?.all ?? collection.import_modules;
@@ -310,11 +322,11 @@ export function load_probed(ids, probe_fn, log, imports) {
 /**
  * The collectors in `dir`, checked in a process of their own and loaded as one program.
  *
- * @param {Modules} mods
- * @param {?string} dir
- * @param {Log} log
- * @param {?{ fork: ?boolean }} opts
- * @returns {Collector[]}
+ * @param {Modules} mods the modules.
+ * @param {?string} dir the collectors' directory; collection.DIR when null.
+ * @param {Log} log the exporter's log.
+ * @param {?{ fork: ?boolean }} opts the options.
+ * @returns {Collector[]} the collectors.
  */
 export function load(mods, dir, log, opts) {
 	dir ??= collection.DIR;
@@ -336,18 +348,26 @@ export function load(mods, dir, log, opts) {
 	return loader_program().load(mods.fs, dir, collection.import_module, log, null, collection.import_modules);
 };
 
-/** The native modules uhttpd loads when it starts, where an enabled collector needs one: scrapes then load none. */
+/**
+ * The native modules uhttpd loads when it starts, where an enabled collector needs one: scrapes then load none.
+ *
+ * @type {string[]}
+ */
 export const NATIVES = [ 'ubus', 'rtnl', 'nl80211' ];
 
-/** What uhttpd loads when it starts whatever the collectors need: zlib, for gzip. */
+/**
+ * What uhttpd loads when it starts whatever the collectors need: zlib, for gzip.
+ *
+ * @type {string[]}
+ */
 export const ALWAYS = [ 'zlib' ];
 
 /**
  * The native modules of NATIVES that the enabled collectors of `collectors` need, in NATIVES' order.
  *
- * @param {Collector[]} collectors
- * @param {?string[]} disabled
- * @returns {string[]}
+ * @param {Collector[]} collectors the installed collectors.
+ * @param {?string[]} disabled the ids of those disabled; none when null.
+ * @returns {string[]} the native modules they need.
  */
 export function natives_of(collectors, disabled) {
 	let wanted = {};
@@ -369,11 +389,11 @@ export function natives_of(collectors, disabled) {
 /**
  * The modules `names`, each loaded in the probe's child first, then here when it loaded there.
  *
- * @param {string[]} names
- * @param {?function(string[]): Object<string, ProbeOutcome>} probe_fn
- * @param {function(string): boolean} load
- * @param {Log} log
- * @returns {Preloaded}
+ * @param {string[]} names the modules' names.
+ * @param {?function(string[]): Object<string, ProbeOutcome>} probe_fn loads them in a child first.
+ * @param {function(string): boolean} load loads a module here, and says whether it loaded.
+ * @param {Log} log the exporter's log.
+ * @returns {Preloaded} what loaded, or the signal that stopped the probe.
  */
 export function preload(names, probe_fn, load, log) {
 	let probed = (probe_fn && length(names)) ? probe_fn(names) : null;
@@ -405,10 +425,10 @@ function load_native(native, name) {
 /**
  * { collectors(), scrape(query_string) }.
  *
- * @param {Log} log
- * @param {?string} dir
- * @param {?{ fork: ?boolean, tmp: ?string, observed: ?Modules }} opts
- * @returns {App}
+ * @param {Log} log the exporter's log.
+ * @param {?string} dir the collectors' directory; collection.DIR when null.
+ * @param {?{ fork: ?boolean, tmp: ?string, observed: ?Modules }} opts the options: scrape_env()'s.
+ * @returns {App} the exporter.
  */
 export function create(log, dir, opts) {
 	let mods = deps.modules();
@@ -425,11 +445,11 @@ export function create(log, dir, opts) {
 /**
  * The exporter as uhttpd's handler.
  *
- * @param {Log} log
- * @param {?string} dir
- * @param {?string} state_dir
- * @param {?{ fork: ?boolean, observed: ?Modules, auth_program: ?string }} opts
- * @returns {Handler}
+ * @param {Log} log the exporter's log.
+ * @param {?string} dir the collectors' directory; collection.DIR when null.
+ * @param {?string} state_dir the state's directory; state.DIR when null.
+ * @param {?{ fork: ?boolean, observed: ?Modules, auth_program: ?string }} opts create()'s and more.
+ * @returns {Handler} the handler.
  */
 export function handler(log, dir, state_dir, opts) {
 	let app = create(log, dir, { tmp: state_dir ?? state.DIR, ...(opts ?? {}) });

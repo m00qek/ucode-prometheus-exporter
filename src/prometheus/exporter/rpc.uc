@@ -98,31 +98,59 @@ export const TIME_DAEMONS = sources.TIME_DAEMONS;
 export const NAME = config.NAME;
 export const PACKAGE = config.PACKAGE;
 
-/** The ubus object's name: the service's. */
+/**
+ * The ubus object's name: the service's.
+ *
+ * @type {string}
+ */
 export const OBJECT = NAME;
 
-/** The program rpcd runs for status, in a process of its own. */
+/**
+ * The program rpcd runs for status, in a process of its own.
+ *
+ * @type {string}
+ */
 export const STATUS_HELPER = `/usr/libexec/${NAME}/rpc-status.uc`;
 
-/** The seconds the status helper may take before it is killed. */
+/**
+ * The seconds the status helper may take before it is killed.
+ *
+ * @type {int}
+ */
 export const STATUS_SECONDS = config.SCRIPT_TIMEOUT;
 
-/** The command rpcd runs for status: the helper, under exec's watchdog. */
+/**
+ * The command rpcd runs for status: the helper, under exec's watchdog.
+ *
+ * @type {string}
+ */
 export const STATUS_COMMAND = deps.exec_script([ STATUS_HELPER ], STATUS_SECONDS);
 
-/** The program that probes the collector modules for rpcd (cached_probe). */
+/**
+ * The program that probes the collector modules for rpcd (cached_probe).
+ *
+ * @type {string}
+ */
 export const PROBE_HELPER = `/usr/libexec/${NAME}/probe.uc`;
 
-/** Where the init scripts' start links are. */
+/**
+ * Where the init scripts' start links are.
+ *
+ * @type {string}
+ */
 export const RC_DIR = '/etc/rc.d';
 
-/** What status answers when its helper cannot run, or prints no reply. */
+/**
+ * What status answers when its helper cannot run, or prints no reply.
+ *
+ * @type {string}
+ */
 export const STATUS_FAILED = 'STATUS_FAILED';
 
 /**
  * Whether the service is enabled and running, and where it listens.
  *
- * @param {RpcSys} sys
+ * @param {RpcSys} sys the system.
  * @returns {{ service: { enabled: ?boolean, boot: boolean, running: ?boolean, error: ?string, auth: ?boolean, compress: ?boolean }, listen: string[] }}
  */
 export function service(sys) {
@@ -152,8 +180,8 @@ export function service(sys) {
 /**
  * The logical interfaces, in netifd's order.
  *
- * @param {RpcSys} sys
- * @returns {Object}
+ * @param {RpcSys} sys the system.
+ * @returns {Object} { interfaces: [ { name, proto } ] }, or { error, message }.
  */
 export function interfaces(sys) {
 	let res = sys.ubus.call('network.interface', 'dump', {});
@@ -173,8 +201,8 @@ export function interfaces(sys) {
 /**
  * One scrape of the enabled collectors, and whether it ran in the jail.
  *
- * @param {RpcSys} sys
- * @returns {{ jailed: boolean, collectors: CollectorStatus[] }}
+ * @param {RpcSys} sys the system.
+ * @returns {{ jailed: boolean, collectors: CollectorStatus[] }} each installed collector's status.
  */
 export function scrape_run(sys) {
 	let chosen = filter(sys.collectors, (c) => config.enabled(sys.uci, c.id));
@@ -207,8 +235,8 @@ export function scrape_run(sys) {
 /**
  * scrape_run's collectors alone.
  *
- * @param {RpcSys} sys
- * @returns {CollectorStatus[]}
+ * @param {RpcSys} sys the system.
+ * @returns {CollectorStatus[]} each installed collector.
  */
 export function scrape_report(sys) {
 	return scrape_run(sys).collectors;
@@ -217,8 +245,8 @@ export function scrape_report(sys) {
 /**
  * What the ubus object's status answers.
  *
- * @param {RpcSys} sys
- * @returns {Object}
+ * @param {RpcSys} sys the system.
+ * @returns {Object} { service, listen, collectors, jailed }.
  */
 export function status(sys) {
 	let report = scrape_run(sys);
@@ -229,9 +257,9 @@ export function status(sys) {
 /**
  * { hash } of args.password, for auth_password.
  *
- * @param {RpcSys} sys
- * @param {?Object} args
- * @returns {Object}
+ * @param {RpcSys} sys the system: its random.
+ * @param {?Object} args the method's arguments: { password }.
+ * @returns {Object} { hash }, or { error, message }.
  */
 export function hash_password(sys, args) {
 	let password = args?.password;
@@ -245,17 +273,25 @@ export function hash_password(sys, args) {
 	return res.ok ? { hash: res.data } : { error: res.error, message: Result.describe(res) };
 };
 
-/** The event procd's reload triggers take of a changed config. */
+/**
+ * The event procd's reload triggers take of a changed config.
+ *
+ * @type {string}
+ */
 export const CONFIG_CHANGE = 'config.change';
 
-/** The file of the hash's config. */
+/**
+ * The file of the hash's config.
+ *
+ * @type {string}
+ */
 export const AUTH_FILE = `/etc/config/${config.AUTH_CONFIG}`;
 
 /**
  * { saved }: whether a hash of basic auth's password is saved.
  *
- * @param {RpcSys} sys
- * @returns {{ saved: boolean }}
+ * @param {RpcSys} sys the system: its uci.
+ * @returns {{ saved: boolean }} whether one is.
  */
 export function password(sys) {
 	let hash = sys.uci.get(config.AUTH_CONFIG, config.AUTH_SECTION, 'auth_password');
@@ -266,9 +302,9 @@ export function password(sys) {
 /**
  * Writes `hash` as the saved one, '' removing it, and commits: a Result.
  *
- * @param {RpcSys} sys
- * @param {string} hash
- * @returns {Result<boolean>}
+ * @param {RpcSys} sys the system: its fs and uci_writer.
+ * @param {string} hash the hash, or ''.
+ * @returns {Result<boolean>} whether a hash is saved now, or FILE_UNWRITABLE.
  */
 export function save_hash(sys, hash) {
 	let failed = (why) => Result.err(errors.FILE_UNWRITABLE, `cannot write ${AUTH_FILE}: ${why}`);
@@ -294,9 +330,9 @@ export function save_hash(sys, hash) {
 /**
  * { saved } of set_password: the password hashed and saved, or removed.
  *
- * @param {RpcSys} sys
- * @param {?Object} args
- * @returns {Object}
+ * @param {RpcSys} sys the system: its random, fs, uci_writer and ubus.
+ * @param {?Object} args the method's arguments: { password }.
+ * @returns {Object} { saved }, or { error, message }.
  */
 export function set_password(sys, args) {
 	let password = args?.password;
@@ -323,12 +359,12 @@ export function set_password(sys, args) {
 /**
  * Runs `command` without blocking rpcd, and replies with the JSON object it prints, or with what `parse` makes of its output.
  *
- * @param {RpcRequest} req
- * @param {RpcIo} io
- * @param {string} command
- * @param {?string} name
- * @param {?function(?string): Object} parse
- * @returns {Object}
+ * @param {RpcRequest} req the request.
+ * @param {RpcIo} io how it runs the command.
+ * @param {string} command the shell command.
+ * @param {?string} name what the reply calls it.
+ * @param {?function(?string): Object} parse what makes the reply of its output; json() when null.
+ * @returns {Object} req.defer()'s, or { error: STATUS_FAILED, message }.
  */
 export function deferred_json(req, io, command, name, parse) {
 	let p = io.popen(command);
@@ -363,12 +399,12 @@ export function deferred_json(req, io, command, name, parse) {
 /**
  * deferred_json, one run at a time: a call while `run` is running waits for it, and gets its reply.
  *
- * @param {{ waiting: ?RpcRequest[] }} run
- * @param {RpcRequest} req
- * @param {RpcIo} io
- * @param {string} command
- * @param {?string} name
- * @returns {Object}
+ * @param {{ waiting: ?RpcRequest[] }} run the method's run; waiting, the calls that get its reply.
+ * @param {RpcRequest} req the request.
+ * @param {RpcIo} io how it runs the command.
+ * @param {string} command the shell command.
+ * @param {?string} name what the reply calls it.
+ * @returns {Object} req.defer()'s, or { error: STATUS_FAILED, message }.
  */
 export function shared_json(run, req, io, command, name) {
 	if (run.waiting != null) {
@@ -402,10 +438,10 @@ export function shared_json(run, req, io, command, name) {
 /**
  * A probe for loader.load in rpcd, run in a helper process.
  *
- * @param {module:fs} fs
- * @param {string} dir
- * @param {string} helper
- * @returns {function(string[]): Object<string, ProbeOutcome>}
+ * @param {module:fs} fs what looks and runs: an object of fs's stat and popen.
+ * @param {string} dir the collectors' directory.
+ * @param {string} helper the probe's program (PROBE_HELPER).
+ * @returns {function(string[]): Object<string, ProbeOutcome>} the probe, as loader.load takes it.
  */
 export function cached_probe(fs, dir, helper) {
 	let known = {};
@@ -462,9 +498,9 @@ function with_ubus(make_sys, fn) {
 /**
  * The methods rpcd serves.
  *
- * @param {function(?{ collectors: ?boolean }): RpcSys} make_sys
- * @param {RpcIo} io
- * @returns {Object<string, { args: Object, call: function(RpcRequest): Object }>}
+ * @param {function(?{ collectors: ?boolean }): RpcSys} make_sys a fresh sys.
+ * @param {RpcIo} io how deferred_json runs a command.
+ * @returns {Object<string, { args: Object, call: function(RpcRequest): Object }>} by method name.
  */
 export function methods(make_sys, io) {
 	let status_run = { waiting: null };
@@ -529,7 +565,7 @@ export function methods(make_sys, io) {
  * sys on the real system; the ledger is read only for `ledger`.
  *
  * @param {?{ collectors: ?boolean, ledger: ?boolean, probe: ?function(string[]): Object<string, ProbeOutcome> }} opts
- * @returns {RpcSys}
+ * @returns {RpcSys} the system.
  */
 export function system(opts) {
 	let mods = deps.modules();
