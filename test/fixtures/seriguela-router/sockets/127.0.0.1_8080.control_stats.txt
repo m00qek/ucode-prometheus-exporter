@@ -1,0 +1,6 @@
+HTTP/1.0 200 OK
+Content-Type: application/json
+Vary: Accept-Encoding
+Date: Mon, 19 Oct 2026 16:48:00 GMT
+
+{"time_units":"hours","top_queried_domains":[{"router.home.example":4120},{"time.example.org":1310},{"cdn.example.net":902}],"top_clients":[{"192.168.1.20":6011},{"192.168.1.31":3402},{"fd00:db8::20":1290}],"top_blocked_domains":[{"ads.example.com":611},{"tracker.example.net":402},{"telemetry.example.org":199}],"top_upstreams_responses":[{"https://dns.example.net:443/dns-query":919},{"https://dns.example.org:443/dns-query":706},{"192.168.1.1:5354":262},{"192.168.2.1:53":14}],"top_upstreams_avg_time":[{"https://dns.example.net:443/dns-query":0.061897117519042436},{"https://dns.example.org:443/dns-query":0.044953822946175635},{"192.168.1.1:5354":0.02890235714285714},{"192.168.2.1:53":0.0032155}],"dns_queries":[120,120,120,120,120,120,120,120,120,120,122,120,120,120,120,337,1536,2280,958,1160,1167,2106,1906,1244],"blocked_filtering":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,190,297,135,165,173,274,168,76],"replaced_safebrowsing":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"replaced_parental":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"num_dns_queries":14496,"num_blocked_filtering":1482,"num_replaced_safebrowsing":0,"num_replaced_safesearch":0,"num_replaced_parental":0,"avg_processing_time":0.003338}

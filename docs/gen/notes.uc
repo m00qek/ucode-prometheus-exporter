@@ -14,6 +14,10 @@
 // of which the code must hold. It refuses a collector here whose code has no
 // Result.none, or one whose code has it and is not here.
 export const nothing_to_observe = {
+	'agh': {
+		when: 'AdGuard Home disabled, or not installed, and nothing answers at the collector\'s `address` and `port`.',
+		failure: 'AdGuard Home enabled, and nothing answering there; a reply that is not its API\'s; or one that asks for a login, which the collector does not send.',
+	},
 	'wifi': {
 		when: 'netifd has no radio: the service\'s ubus object\'s `wireless` gives none.',
 		failure: 'Another failed call; an interface nl80211 cannot answer for.',

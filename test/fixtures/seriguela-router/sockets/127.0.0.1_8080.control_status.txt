@@ -1,0 +1,6 @@
+HTTP/1.0 200 OK
+Content-Type: application/json
+Vary: Accept-Encoding
+Date: Mon, 19 Oct 2026 16:48:00 GMT
+
+{"version":"0.107.79","language":"","dns_addresses":["127.0.0.1","192.168.1.1","::1","fd00:db8::1","fe80::1%br-lan"],"dns_port":53,"http_port":8080,"protection_disabled_duration":0,"start_time":1792437171928.4565,"protection_enabled":true,"dhcp_available":true,"running":true}

@@ -61,6 +61,7 @@ A boolean takes `1`, `yes`, `on`, `true`, `enabled` for true and `0`, `no`, `off
 | :--- | :--- |
 | `crypt` | a crypt hash: $1$ (uhttpd -m), $5$ or $6$ |
 | `file` | an absolute path |
+| `ipaddr` | an IPv4 or IPv6 address |
 | `owned_directory` | a directory under /var, /tmp or /etc/prometheus-exporter, and not under /var/run or /tmp/run, which the service makes and mounts |
 | `range(1,100000)` | an integer from 1 to 100000 |
 | `range(1,1000000)` | an integer from 1 to 1000000 |

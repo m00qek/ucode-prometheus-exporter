@@ -75,6 +75,7 @@ nav:
           - Pushing Metrics from the Router: how-to/push-metrics.md
           - Monitoring with the Bundled Dashboards and Alerts: how-to/dashboards-and-alerts.md
           - Monitoring Unbound: how-to/unbound.md
+          - Monitoring AdGuard Home: how-to/adguard-home.md
           - Monitoring chrony: how-to/chrony.md
           - Monitoring SQM and CAKE: how-to/sqm-cake.md
           - Using the LuCI App: how-to/luci.md

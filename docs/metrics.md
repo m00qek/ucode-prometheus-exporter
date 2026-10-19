@@ -8,7 +8,7 @@ This exporter replaces OpenWrt's `prometheus-node-exporter-ucode` and `prometheu
 - a boolean is a gauge of 0 or 1, an enumeration one series per state with the value 1 or 0;
 - snake_case metric and label names, and no unit on a unitless value.
 
-Each service keeps its own prefix (`dnsmasq_`, `dsl_`, `wireguard_`, `mwan3_`, `hostapd_`, `dawn_`, `bmx7_`, `realtek_poe_`, `ubnt_`, `modemmanager_`, `unbound_`, `nft_counter_`), and OpenWrt's own metrics are `node_openwrt_*`. Where a widely used standalone exporter exists for a service and its names follow the conventions, this exporter uses them too: see [Standalone exporters](#standalone-exporters).
+Each service keeps its own prefix (`adguard_`, `dnsmasq_`, `dsl_`, `wireguard_`, `mwan3_`, `hostapd_`, `dawn_`, `bmx7_`, `realtek_poe_`, `ubnt_`, `modemmanager_`, `unbound_`, `nft_counter_`), and OpenWrt's own metrics are `node_openwrt_*`. Where a widely used standalone exporter exists for a service and its names follow the conventions, this exporter uses them too: see [Standalone exporters](#standalone-exporters).
 
 There is no option to get the old names back. The table below lists, per collector, every family whose name, type, labels or unit changed, from the names of the exporters this one replaces to this one's; a family not listed has kept its name. In the Type column, `a → b` is a type that changed.
 

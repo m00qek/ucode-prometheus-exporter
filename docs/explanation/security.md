@@ -48,7 +48,7 @@ These are every call the ACL can allow, each only while a collector that declare
 | Call | Declared by | What it answers |
 | :--- | :--- | :--- |
 | `system board` | Every ACL (the canary), `openwrt` | The board's model and OpenWrt's release. |
-| `rc list` | `bmx7`, `chrony`, `dawn`, `dhcp_leases`, `dnsmasq`, `modemmanager`, `mwan3`, `timesync`, `unbound` | Each init script's start and stop priorities, and whether it is enabled and running. |
+| `rc list` | `agh`, `bmx7`, `chrony`, `dawn`, `dhcp_leases`, `dnsmasq`, `modemmanager`, `mwan3`, `timesync`, `unbound` | Each init script's start and stop priorities, and whether it is enabled and running. |
 | `network.interface dump` | `dhcp_leases`, `openwrt_interfaces` | netifd's status of each logical interface: its addresses, routes, DNS servers and uptime; not its config. |
 | `prometheus-exporter wireless` | `wifi`, `hostapd_stations` | Each radio's name, `up`, `disabled`, channel, country and HT mode, and each of its networks' interface, SSID or mesh ID, and encryption; not netifd's status, which has the keys. |
 | `prometheus-exporter time_daemons` | `timesync` | Whether busybox ntpd and chronyd run: two booleans, not procd's command lines. |

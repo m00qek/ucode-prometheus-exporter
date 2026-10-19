@@ -20,7 +20,13 @@ Most of what a router has, node_exporter does not: netifd's interfaces, DHCP lea
 
 The feed's exporters broke these here and there: gauges with `_total`, kilobits, percentages, milliseconds, labels that changed with the state and so started a new series. Each such name is fixed, and each fix is listed in [Renamed metrics](../metrics.md).
 
-A service keeps its own prefix, `dnsmasq_`, `wireguard_`, `unbound_`, and OpenWrt's own metrics are `node_openwrt_*`. Where a widely used standalone exporter exists for a service and its names follow the conventions, they are taken too: letsencrypt's unbound_exporter, prometheus_wireguard_exporter, chrony_exporter. Someone who monitors Unbound on a server already has queries for those names.
+A service keeps its own prefix, `dnsmasq_`, `wireguard_`, `unbound_`, `adguard_`, and OpenWrt's own metrics are `node_openwrt_*`. Where a widely used standalone exporter exists for a service and its names follow the conventions, they are taken too: letsencrypt's unbound_exporter, prometheus_wireguard_exporter, chrony_exporter. Someone who monitors Unbound on a server already has queries for those names.
+
+## A window's totals are gauges
+
+A counter only goes up, but for a restart, and that is what `rate()` and `increase()` rely on: a value lower than the one before is a reset, and they count what follows from zero. Some services give totals that are not counters: AdGuard Home's statistics are the queries of its last 24 hours, by default, and as the window moves an hour falls out of them, so a total falls too. Written as a counter, each fall would read as a reset, and `increase()` would count the window's whole total again, a silently wrong number that looks right.
+
+So such a total is a gauge, named for what it is, `adguard_stats_dns_queries`, without `_total`, beside the length of its window, `adguard_stats_window_seconds`. A counter could be made of it only by keeping the last scrape's totals and adding the differences, and the exporter keeps nothing from one scrape to the next that a restart would lose. See [How to monitor AdGuard Home](../how-to/adguard-home.md#query-the-statistics-window) for the queries that use them as they are.
 
 ## Modern names only
 

@@ -138,6 +138,11 @@ ubus network.interface dump
 file /tmp/dhcp.leases
 ubus dhcp ipv4leases
 ubus dhcp ipv6leases
+# sockets/127.0.0.1_8080.control_{status,stats}.txt (seriguela-router): AdGuard
+# Home 0.107.79's replies to agh's HTTP/1.0 requests, written from the shape and
+# the totals of `uclient-fetch -q -O - http://127.0.0.1:8080/control/status` and
+# `/control/stats`, with the headers Go's server sends an HTTP/1.0 client. The
+# top_* lists name made-up domains, clients and upstreams, never the router's.
 # mmc: each MMC host's cards, their names and an eMMC's health (seriguela-router:
 # an eMMC, and an SD card, which has neither life_time nor pre_eol_info). Never
 # cid or serial, which hold the card's serial number.

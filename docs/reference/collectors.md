@@ -6,6 +6,7 @@ Every collector of `ucode-prometheus-exporter 0.2.1`. A collector's name is what
 
 | Collector | Title | Package | Groups |
 | :--- | :--- | :--- | :--- |
+| [`agh`](#agh) | AdGuard Home | `ucode-prometheus-exporter-agh` | — |
 | [`bmx7`](#bmx7) | bmx7 mesh | `ucode-prometheus-exporter-bmx7` | — |
 | [`chrony`](#chrony) | chrony NTP daemon | `ucode-prometheus-exporter-chrony` | — |
 | [`conntrack`](#conntrack) | Connection tracking | `ucode-prometheus-exporter` (base) | — |
@@ -66,7 +67,7 @@ The base package, `ucode-prometheus-exporter`, installs `conntrack`, `cpu`, `ent
 | `ucode-prometheus-exporter-hardware` | hardware and filesystems | `diskstats`, `filesystem`, `hwmon`, `thermal` |
 | `ucode-prometheus-exporter-full` | a router or access point | `ethtool`, `nat_traffic`, `netstat`, `nft-counters`, `qdisc`, `snmp6`, `sockstat`, `hostapd_stations`, `hostapd_ubus_stations`, `wifi`, `diskstats`, `filesystem`, `hwmon`, `thermal`, `dhcp_leases`, `dnsmasq`, `openwrt`, `textfile`, `uci_dhcp_host`, `wireguard` |
 
-In no group: `bmx7`, `chrony`, `dawn`, `interrupts`, `ltq-dsl`, `mmc`, `modemmanager`, `mwan3`, `pressure`, `realtek-poe`, `ubnt-manager`, `unbound`.
+In no group: `agh`, `bmx7`, `chrony`, `dawn`, `interrupts`, `ltq-dsl`, `mmc`, `modemmanager`, `mwan3`, `pressure`, `realtek-poe`, `ubnt-manager`, `unbound`.
 
 ## Nothing to observe {#nothing-to-observe}
 
@@ -74,6 +75,7 @@ These collectors can have nothing to observe: they succeed without samples, and 
 
 | Collector | Nothing to observe when | Reasons it gives | Still a failure |
 | :--- | :--- | :--- | :--- |
+| [`agh`](#agh) | AdGuard Home disabled, or not installed, and nothing answers at the collector's `address` and `port`. | `adguardhome is disabled`, `adguardhome is not installed` | AdGuard Home enabled, and nothing answering there; a reply that is not its API's; or one that asks for a login, which the collector does not send. |
 | [`bmx7`](#bmx7) | bmx7 disabled, or not installed. | `bmx7 is disabled`, `bmx7 is not installed` | bmx7 enabled, and its status files unreadable. |
 | [`chrony`](#chrony) | chronyd disabled, or not installed. | `chronyd is disabled`, `chronyd is not installed` | chronyd enabled, and `chronyc` failing (chronyd stopped). |
 | [`conntrack`](#conntrack) | nf\_conntrack not loaded: none of its files in `/proc/sys/net/netfilter`. | `no connection tracking (nf_conntrack is not loaded)` | Its files there and unreadable. |
@@ -96,6 +98,25 @@ These collectors can have nothing to observe: they succeed without samples, and 
 | [`unbound`](#unbound) | unbound disabled, or not installed. | `unbound is disabled`, `unbound is not installed` | unbound enabled, and its control socket not answering. |
 | [`wifi`](#wifi) | netifd has no radio: the service's ubus object's `wireless` gives none. | `no wireless radios` | Another failed call; an interface nl80211 cannot answer for. |
 | [`wireguard`](#wireguard) | rpcd has no `wireguard` object: rpcd-mod-wireguard not installed. | `rpcd has no wireguard object: rpcd-mod-wireguard is not installed` | Any other failure of `wireguard status`. |
+
+## `agh` {#agh}
+
+AdGuard Home's protection and the totals of its statistics window, from its HTTP API on the device, read without a login.
+
+- **Title:** AdGuard Home
+- **Package:** `ucode-prometheus-exporter-agh`
+- **Depends on:** `ucode-mod-socket`
+- **Section:** `config collector 'agh'`
+- **Needs:** `socket`, `ubus`
+- **Calls over ubus:** `rc list`
+- **Nothing to observe:** AdGuard Home disabled, or not installed, and nothing answers at the collector's `address` and `port`. See [Nothing to observe](#nothing-to-observe).
+- **Metrics:** [agh](metrics.md#agh)
+
+| Option | Title | Type | Default | Datatype | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `address` | Address | string | `127.0.0.1` | `ipaddr` | An address of this device that AdGuard Home's web interface listens on (http.address in its adguardhome.yaml): 127.0.0.1 where it listens on every address, 0.0.0.0. |
+| `port` | Port | integer | `8080` | `range(1,65535)` | The port of AdGuard Home's web interface (http.address in its adguardhome.yaml). |
+| `enabled` | Enabled | boolean | `1` | — | Serve this collector; 0 leaves it out, and naming it in a query is a 400. |
 
 ## `bmx7` {#bmx7}
 
