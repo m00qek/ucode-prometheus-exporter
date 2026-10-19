@@ -230,7 +230,12 @@ function conntrack_table(n, seed) {
 		let family = v6 ? 'ipv6     10' : 'ipv4     2';
 		let wan = v6 ? '2001:0db8:0000:0002:0000:0000:0000:0001' : '100.64.0.1';
 
-		if (rand(3) == 0)
+		// One in eight comes in from the internet to the router, as a
+		// WireGuard peer's, a ping's or a scanner's: its sender is not here.
+		if (i % 8 == 7)
+			push(lines, `${family} udp      17 ${rand(180)} src=${dst} dst=${wan} sport=${sport} dport=51820 ${acct} ` +
+				`src=${wan} dst=${dst} sport=51820 dport=${sport} ${reply} mark=0 zone=0 use=2`);
+		else if (rand(3) == 0)
 			push(lines, `${family} udp      17 ${rand(180)} src=${src} dst=${dst} sport=${sport} dport=${dport} ${acct} ` +
 				`src=${dst} dst=${wan} sport=${dport} dport=${sport} ${reply} [ASSURED] mark=0 zone=0 use=2`);
 		else
@@ -239,6 +244,38 @@ function conntrack_table(n, seed) {
 	}
 
 	return join('\n', lines) + '\n';
+}
+
+// The routes of the conntrack tables' router, every table, as rtnl dumps
+// them, shaped as the seriguela router's (49 IPv4 and 23 IPv6 routes): its
+// clients on br-lan, four VLANs more, two WireGuard tunnels, the default
+// routes and its WAN addresses on eth1; the local table's own addresses and
+// broadcasts, the link-local, anycast and multicast routes of each link.
+function routes() {
+	let r = (family, type, table, dst, oif, more) => ({ family, type, table, dst, oif, ...(more ?? {}) });
+	let out = [
+		r(2, 1, 254, null, 'eth1', { gateway: '100.64.0.254' }),
+		r(10, 1, 254, null, 'eth1', { gateway: 'fe80::1', src: '2001:db8:0:2::1/128' }),
+		r(10, 1, 254, null, 'eth1', { gateway: 'fe80::1', src: '2001:db8::/56' }),
+		r(2, 1, 254, '100.64.0.0/20', 'eth1', { prefsrc: '100.64.0.1' }),
+		r(10, 7, 254, '2001:db8::/56', 'lo'),
+		r(2, 2, 255, '100.64.0.1/32', 'eth1'), r(2, 3, 255, '100.64.15.255/32', 'eth1'),
+		r(10, 2, 255, '2001:db8:0:2::1/128', 'eth1'),
+		r(2, 2, 255, '127.0.0.0/8', 'lo'), r(2, 2, 255, '127.0.0.1/32', 'lo'), r(2, 3, 255, '127.255.255.255/32', 'lo'),
+		r(10, 2, 255, '::1/128', 'lo'),
+	];
+	let lans = [ [ 'br-lan', '192.168.1' ], [ 'vlan-guest', '172.16.1' ], [ 'vlan-iot', '10.0.17' ], [ 'vlan-mgmt', '10.0.11' ], [ 'vlan-main', '10.0.13' ] ];
+
+	for (let i, l in lans)
+		push(out, r(2, 1, 254, `${l[1]}.0/24`, l[0], { prefsrc: `${l[1]}.1` }), r(2, 2, 255, `${l[1]}.1/32`, l[0]),
+			r(2, 3, 255, `${l[1]}.255/32`, l[0]), r(10, 1, 254, sprintf('2001:db8:0:%x::/64', i + 1), l[0]),
+			r(10, 2, 255, sprintf('2001:db8:0:%x::1/128', i + 1), l[0]), r(10, 4, 255, sprintf('2001:db8:0:%x::/128', i + 1), l[0]),
+			r(10, 1, 254, 'fe80::/64', l[0]), r(10, 2, 255, sprintf('fe80::%x/128', i + 1), l[0]), r(10, 5, 255, 'ff00::/8', l[0]));
+	for (let i, wg in [ 'wg0', 'wg1' ])
+		push(out, r(2, 1, 254, sprintf('10.251.%d.0/24', 223 + i), wg), r(2, 2, 255, sprintf('10.251.%d.12/32', 223 + i), wg),
+			r(2, 1, 254, sprintf('10.%d.0.0/16', 197 + i), wg));
+
+	return out;
 }
 
 // ---- wireless ------------------------------------------------------------------
@@ -622,16 +659,7 @@ function generate(dir, profile) {
 	let snmp6 = fixture('caju-ap/proc/net/dev_snmp6/eth0');
 	let all = links(p, rand);
 	world.rtnl.RTM_GETLINK = all;
-	// The routes of the conntrack tables' router: its clients on br-lan, the
-	// default routes and its WAN addresses on eth1.
-	world.rtnl.RTM_GETROUTE = [
-		{ family: 2, type: 1, table: 254, oif: 'eth1', gateway: '100.64.0.254' },
-		{ family: 10, type: 1, table: 254, oif: 'eth1', gateway: 'fe80::1' },
-		{ family: 2, type: 1, table: 254, dst: '192.168.1.0/24', oif: 'br-lan' },
-		{ family: 10, type: 1, table: 254, dst: '2001:db8:0:1::/64', oif: 'br-lan' },
-		{ family: 2, type: 2, table: 255, dst: '100.64.0.1/32', oif: 'eth1' },
-		{ family: 10, type: 2, table: 255, dst: '2001:db8:0:2::1/128', oif: 'eth1' },
-	];
+	world.rtnl.RTM_GETROUTE = routes();
 	mkdir_p(`${dir}/commands`);
 	for (let i, l in all) {
 		sysfs_link(root, l, i, rand);

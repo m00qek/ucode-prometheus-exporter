@@ -65,43 +65,80 @@ export function local_prefixes(routes, c) {
 	return prefixes;
 };
 
-function within(a, p) {
-	let b = p[0], len = p[1];
+const FULL6 = '%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x';
+const FULL6_LENGTH = 39;
 
-	if (length(a) != length(b))
-		return false;
+function bits6(text, len) {
+	let r = len & 3, n = len >> 2, k = substr(text, 0, n + (n >> 2));
 
-	let n = len >> 3;
-
-	for (let i = 0; i < n; i++)
-		if (a[i] != b[i])
-			return false;
-
-	let r = len & 7;
-
-	return r == 0 || ((a[n] ^ b[n]) & (0xff << (8 - r)) & 0xff) == 0;
+	return r ? k + (hex(substr(text, n + (n >> 2), 1)) >> (4 - r)) : k;
 }
 
-export function is_local(prefixes, addr) {
-	let a = iptoarr(addr);
+function sets_of(lens) {
+	return map(sort(map(keys(lens), (l) => +l), (x, y) => y - x), (l) => [ l, lens[l] ]);
+}
 
-	if (a == null)
+export function matcher(prefixes) {
+	let four = {}, six = {};
+
+	for (let p in prefixes) {
+		let a = p[0], len = p[1];
+
+		if (length(a) == 4)
+			(four[len] ??= {})[((a[0] << 24) | (a[1] << 16) | (a[2] << 8) | a[3]) >> (32 - len)] = true;
+		else
+			(six[len] ??= {})[bits6(sprintf(FULL6, ...a), len)] = true;
+	}
+
+	four = sets_of(four);
+	six = sets_of(six);
+
+	return function(addr) {
+		if (index(addr, ':') < 0) {
+			let a = iptoarr(addr);
+
+			if (length(a) != 4)
+				return false;
+
+			let x = (a[0] << 24) | (a[1] << 16) | (a[2] << 8) | a[3];
+
+			for (let s in four)
+				if (s[1][x >> (32 - s[0])])
+					return true;
+
+			return false;
+		}
+
+		let text = addr;
+
+		if (length(text) != FULL6_LENGTH || index(text, '::') >= 0) {
+			let a = iptoarr(addr);
+
+			if (length(a) != 16)
+				return false;
+			text = sprintf(FULL6, ...a);
+		}
+
+		for (let s in six)
+			if (s[1][bits6(text, s[0])])
+				return true;
+
 		return false;
+	};
+};
 
-	for (let p in prefixes)
-		if (within(a, p))
-			return true;
-
-	return false;
+export function is_local(prefixes, addr) {
+	return matcher(prefixes)(addr);
 };
 
 function read(f, peers, prefixes) {
 	let totals = {};
 	let known = {};
+	let is_here = matcher(prefixes);
 	let line;
 
 	function local(addr) {
-		return known[addr] ??= is_local(prefixes, addr);
+		return known[addr] ??= is_here(addr);
 	}
 
 	while (length(line = f.read('line'))) {

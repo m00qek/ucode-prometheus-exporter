@@ -527,6 +527,66 @@ describe('collectors.nat_traffic.local_prefixes', () => {
 			nat_traffic.local_prefixes(routes, c));
 	});
 
+	// The check the matcher replaced: each prefix in turn, a byte at a time.
+	function within(a, p) {
+		let b = p[0], len = p[1];
+
+		if (length(a) != length(b))
+			return false;
+
+		let n = len >> 3;
+
+		for (let i = 0; i < n; i++)
+			if (a[i] != b[i])
+				return false;
+
+		let r = len & 7;
+
+		return r == 0 || ((a[n] ^ b[n]) & (0xff << (8 - r)) & 0xff) == 0;
+	}
+
+	function bytes(n, seed) {
+		let out = [];
+
+		for (let i = 0; i < n; i++)
+			push(out, (seed[i % length(seed)] * (i + 7)) & 0xff);
+
+		return out;
+	}
+
+	// conntrack writes an IPv6 address uncompressed, the tests compressed too.
+	function text(a) {
+		return (length(a) == 4) ? arrtoip(a) : sprintf('%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x', ...a);
+	}
+
+	prop('the matcher takes an address a prefix holds, as checking each prefix does, whatever the lengths',
+		gen.tuple(gen.array(gen.tuple(gen.bool(), gen.array(gen.int(0, 255), { min_len: 1, max_len: 4 }), gen.int(1, 128)), { min_len: 1, max_len: 8 }),
+			gen.array(gen.tuple(gen.bool(), gen.int(0, 7), gen.int(0, 128), gen.bool()), { min_len: 1, max_len: 12 })), (t) => {
+			let prefixes = map(t[0], (p) => {
+				let a = bytes(p[0] ? 16 : 4, p[1]);
+
+				return [ a, p[0] ? p[2] : 1 + (p[2] % 32) ];
+			});
+			let is_here = nat_traffic.matcher(prefixes);
+
+			for (let x in t[1]) {
+				let base = prefixes[x[1] % length(prefixes)][0];
+				let a = [ ...base ];
+				let bit = x[2] % (length(a) * 8);
+
+				// A neighbour of a prefix's address, a bit flipped, or another family's.
+				if (x[3])
+					a[bit >> 3] ^= 0x80 >> (bit & 7);
+				else if (x[2] % 5 == 0)
+					a = bytes(length(a) == 4 ? 16 : 4, a);
+
+				let want = length(filter(prefixes, (p) => within(a, p))) > 0;
+
+				assert.match(want, is_here(text(a)), sprintf('%s in %J', text(a), map(prefixes, (p) => `${arrtoip(p[0])}/${p[1]}`)));
+				assert.match(want, is_here(arrtoip(a)), arrtoip(a));
+			}
+		});
+
 	it('takes an address within a prefix, of either family, and nothing else', () => {
 		let p = nat_traffic.local_prefixes([ route('10.0.0.0/23', 'br-lan'), route('2001:db8:1:10::/61', 'br-lan'), own('100.64.0.1', 'eth1') ], rtnl_const());
 

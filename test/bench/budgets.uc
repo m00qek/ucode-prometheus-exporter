@@ -27,7 +27,8 @@ const TIME = [
 	[ 'typical/scrape:full', 1.0, 'a typical router\'s full scrape' ],
 	// Measured 0.67 s; 12.7 s before.
 	[ 'large/scrape:full', 5.0, 'a busy router\'s full scrape' ],
-	// Measured 0.21 s; 0.25 s with a call to check each sample's labels, 9.2 s before.
+	// Measured 0.18 s on a router's 63 routes, 0.38 s checking each address against each
+	// route; 0.21 s before it read the routes, 0.25 s with a call to check each sample's labels, 9.2 s before.
 	[ 'large/collector:nat_traffic@20000', 0.6, 'nat_traffic on 20k entries' ],
 	// Measured 1.3 ms; 2.4 ms checking each of 400 fields against the
 	// default, 6.8 ms matching each against the pattern.
@@ -55,6 +56,14 @@ const TIME = [
 	[ 'typical/auth:sha512@2000', 0.03, 'basic auth\'s check of a SHA-512-crypt hash of the most rounds it takes' ],
 	// Measured 1.0 ms, for 35 collectors.
 	[ 'typical/ledger:full', 0.01, 'what the ledger adds to a full scrape' ],
+];
+
+// [ world/case, turns, what ]: a case's time in turns of an empty loop of
+// the VM (calibrate:vm), which holds on any machine.
+const TURNS = [
+	// Measured 44,000 turns (10.6 ms); 133,000 checking each address against
+	// each route, a function call each.
+	[ 'large/collector:nat_traffic@1000', 80000, 'nat_traffic on 1,000 entries and a router\'s 63 routes' ],
 ];
 
 // How much of the full check of hash_password's hash (SHA-512-crypt of 1000
@@ -275,6 +284,10 @@ export function check(results, absolute) {
 
 	if (each != null && vm?.loop_us > 0 && each * 1000000 / vm.loop_us > PER_COLLECTOR_TURNS)
 		push(over, sprintf('noop: %.0f loop turns a collector besides it, over %d', each * 1000000 / vm.loop_us, PER_COLLECTOR_TURNS));
+
+	for (let b in TURNS)
+		if (vm?.loop_us > 0 && r[b[0]]?.time && r[b[0]].time.median * 1000000 / vm.loop_us > b[1])
+			push(over, sprintf('%s (%s): %.0f loop turns, over %d', b[0], b[2], r[b[0]].time.median * 1000000 / vm.loop_us, b[1]));
 
 	for (let b in MEMORY)
 		if (r[b[0]]?.growth_kb > b[1])
