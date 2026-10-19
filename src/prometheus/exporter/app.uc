@@ -356,7 +356,7 @@ export function load(mods, dir, log, opts) {
 export const NATIVES = [ 'ubus', 'rtnl', 'nl80211' ];
 
 /**
- * What uhttpd loads when it starts whatever the collectors need: zlib, for gzip.
+ * What uhttpd loads when it starts, whatever the collectors need, while `compress` is on: zlib, for gzip.
  *
  * @type {string[]}
  */
@@ -460,7 +460,7 @@ export function handler(log, dir, state_dir, opts) {
 	let credentials = load_auth(app.mods.fs, auth_wanted(app.mods.uci.cursor()), program);
 	let instance = state.open(app.mods.fs, state_dir ?? state.DIR, state.instance_id(app.mods.fs));
 	let native = (opts?.observed ?? app.mods).native;
-	let names = [ ...(native ? natives_of(app.collectors(), config.disabled(app.mods.uci.cursor(), map(app.collectors(), (c) => c.id))) : []), ...ALWAYS ];
+	let names = [ ...(native ? natives_of(app.collectors(), config.disabled(app.mods.uci.cursor(), map(app.collectors(), (c) => c.id))) : []), ...(compress ? ALWAYS : []) ];
 	let probe_fn = (opts?.fork ?? true) ? (pending) => probe_modules(pending, (name) => load_native(native, name), null, null, true) : null;
 	let natives = preload(names, probe_fn, (name) => load_native(native, name), log);
 

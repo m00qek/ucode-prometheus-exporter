@@ -187,7 +187,7 @@ What a scrape pays for them instead, the first time it needs each (`make bench`'
 
 An access point's scrape needs all but the parser: 4.6 ms more of its 0.17 s on the AX835, for 0.25 MB less held for as long as uhttpd runs. A scrape with unbound pays the parser too; textfile's paid it before.
 
-That was paid by every scrape, for modules every scrape of the same collectors needs. So the native modules are a middle way now (see [Native modules when uhttpd starts](#natives-at-start)): uhttpd loads, when it starts, ubus, rtnl and nl80211 where an enabled collector needs one, and zlib, and a scrape loads none of them; basic auth's modules, the exposition parser and socket are still loaded where they are needed.
+That was paid by every scrape, for modules every scrape of the same collectors needs. So the native modules are a middle way now (see [Native modules when uhttpd starts](#natives-at-start)): uhttpd loads, when it starts, ubus, rtnl and nl80211 where an enabled collector needs one, and zlib while `compress` is on, and a scrape loads none of them; basic auth's modules, the exposition parser and socket are still loaded where they are needed.
 
 What uhttpd holds, before (main of 2026-10-09) and now:
 
@@ -241,7 +241,7 @@ Shipping bytecode instead of source would cut nothing more: see [What is left](#
 
 ### Native modules when uhttpd starts {#natives-at-start}
 
-The `lazy:` costs above, some 0.8 ms in the devenv, 4.6 ms on the AX835 and 7 ms on QEMU's 24Kc for an access point's collectors, were paid by each scrape, in its child, for modules that do not change between scrapes. uhttpd now loads them once, when it starts: ubus, rtnl and nl80211 where an enabled collector needs one, and zlib, whatever the collectors. Each is loaded in the probe's child first, as the collectors are, so that one whose C crashes as it loads costs that child and is left to the scrapes, where a crash costs the collector that needs it.
+The `lazy:` costs above, some 0.8 ms in the devenv, 4.6 ms on the AX835 and 7 ms on QEMU's 24Kc for an access point's collectors, were paid by each scrape, in its child, for modules that do not change between scrapes. uhttpd now loads them once, when it starts: ubus, rtnl and nl80211 where an enabled collector needs one, and zlib, whatever the collectors, while `compress` is on. Each is loaded in the probe's child first, as the collectors are, so that one whose C crashes as it loads costs that child and is left to the scrapes, where a crash costs the collector that needs it.
 
 What that costs uhttpd, and its scrapes, in the devenv (`make bench`, main of 2026-10-10 against now, run back to back; the benchmark's worlds stand in for the native modules, so its scrapes show what moved, not what they no longer load):
 

@@ -273,7 +273,7 @@ describe('app.handler', () => {
 	}
 
 	// Loaded when uhttpd starts, every scrape is forked with them: none loads
-	// them again. zlib whatever the collectors need. The native modules are
+	// them again. zlib whatever the collectors need, while compress is on. The native modules are
 	// the scrapes' (`observed`), here a stand-in that loads each, in this
 	// process or the probe's child, as utest's proxies do not.
 	function with_natives(cb) {
@@ -294,6 +294,11 @@ describe('app.handler', () => {
 		let one = with_natives((observed) => handler(() => null, '/one', null, { observed }));
 
 		assert.match([ [ 'loadavg' ], [ 'zlib' ] ], [ map(one.collectors(), (c) => c.id), one.natives ]);
+	});
+
+	it('leaves zlib to the requests while compress is off', () => {
+		patch_main({ compress: '0' });
+		assert.match([ 'ubus', 'rtnl', 'nl80211' ], with_natives((observed) => handler(() => null, SOURCES, null, { observed }).natives));
 	});
 
 	it('leaves out the native modules only disabled collectors need', () => {
