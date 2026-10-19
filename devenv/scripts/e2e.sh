@@ -45,7 +45,32 @@ for w in /dev/watchdog*; do
 	echo "FAIL $w is the host's watchdog, not /dev/null: stop this container from a shell that disarms it first" >&2
 	exit 1
 done
-install() { for p in "$@"; do apk_file "$p"; done | xargs apk add --allow-untrusted --no-network >/dev/null 2>&1; }
+# A package that adds, changes or removes an rpcd plugin reloads rpcd in its
+# scripts, and rpcd's reload execs it again: for a moment it is gone from
+# ubus, and what is asked of it meanwhile is Not found. Runs a command that
+# installs or removes packages and, where it changed a plugin, waits for
+# rpcd to be back, its objects with new ids and the exporter's answering.
+rpcd_id() { ubus -v list session 2>/dev/null | sed -n "s/^'session' @//p"; }
+plugins() { md5sum /usr/share/rpcd/ucode/*.uc 2>/dev/null; }
+with_rpcd() {
+	plugins_before=$(plugins) id_before=$(rpcd_id)
+	"$@"
+	rpcd_status=$?
+	[ "$(plugins)" = "$plugins_before" ] && return $rpcd_status
+	rpcd_i=0
+	while [ $rpcd_i -lt 30 ]; do
+		rpcd_now=$(rpcd_id)
+		if [ -n "$rpcd_now" ] && [ "$rpcd_now" != "$id_before" ] &&
+		   { [ ! -e "/usr/share/rpcd/ucode/$NAME.uc" ] || ubus -t 10 call "$NAME" password >/dev/null 2>&1; }; then
+			return $rpcd_status
+		fi
+		rpcd_i=$((rpcd_i + 1)); sleep 1
+	done
+	echo "info rpcd was not back 30 s after: $*"
+	return $rpcd_status
+}
+install() { for p in "$@"; do apk_file "$p"; done | with_rpcd xargs apk add --allow-untrusted --no-network >/dev/null 2>&1; }
+remove() { with_rpcd apk del "$@" >/dev/null 2>&1; }
 
 fetch() { wget -q -O - "$URL${1:+?$1}"; }
 served() { fetch | grep -q "^node_scrape_collector_success{collector=\"$1\"} 1$"; }
@@ -361,7 +386,7 @@ eventually "without it, agh has nothing to observe again" observing agh 0
 # packages, served from the service's jail, then removed.
 TEMPLATE=$(ls /artifacts/template/ucode-prometheus-exporter-example-*.apk 2>/dev/null | head -1)
 before=$(pid)
-check "the template collector's package installs offline beside the exporter" apk add --allow-untrusted --no-network "$TEMPLATE"
+check "the template collector's package installs offline beside the exporter" with_rpcd apk add --allow-untrusted --no-network "$TEMPLATE"
 eventually "which restarts the instance" restarted_from "$before"
 eventually "its collector is served from the jail" served example
 check "with its samples" metric 'example_uptime_seconds_total [0-9]'
@@ -369,7 +394,7 @@ check "collector check passes it" $NAME collector check /usr/share/ucode/prometh
 template_listed() { rpc collectors | jsonfilter -e "@.collectors[@.name='example'].package" | grep -qx ucode-prometheus-exporter-example; }
 check "the ubus object lists it, by its package" template_listed
 before=$(pid)
-check "it removes cleanly" apk del ucode-prometheus-exporter-example
+check "it removes cleanly" with_rpcd apk del ucode-prometheus-exporter-example
 eventually "which restarts the instance" restarted_from "$before"
 eventually "without it" not_served example
 
@@ -1259,12 +1284,12 @@ eventually "without cert and key it serves HTTP again" served loadavg
 
 # --- removing a package
 # ltq-dsl is in no group, which would keep it installed.
-apk del "$PKG-ltq-dsl" >/dev/null 2>&1
+remove "$PKG-ltq-dsl"
 eventually "a removed collector is not served" not_served ltq-dsl
 # What a removed collector was granted is taken back: chrony's config, and
 # unbound's group.
 check "chrony's config is the group's while chrony is installed" test "$(owned /etc/config/chrony)" = "-rw-r----- root $NAME"
-apk del "$PKG-chrony" "$PKG-unbound" >/dev/null 2>&1
+remove "$PKG-chrony" "$PKG-unbound"
 eventually "a removed collector's config is as it was before" test "$(owned /etc/config/chrony)" = "$chrony_before"
 check "and the user is in the group of none removed" fails grep -q "^unbound:.*[:,]$NAME\(,\|$\)" /etc/group
 check "and the jail has neither's config" test "$(jail_configs | tr '\n' ' ')" = "dhcp $NAME ubnt-manager "
@@ -1308,7 +1333,7 @@ check "and every grant" revoked
 eventually "and starting it brings it back" served loadavg
 check "and the grants" test "$(owned /etc/config/dhcp)" = "-rw-r----- root $NAME"
 # Removing the exporter: its prerm stops it, which takes every grant back.
-apk del $(apk info 2>/dev/null | grep "^$PKG") >/dev/null 2>&1
+remove $(apk info 2>/dev/null | grep "^$PKG")
 grants_now "removed"
 check "removing its packages leaves the service's user nothing granted" revoked
 # procd stops an instance after the stop returns: it is gone once procd has.
