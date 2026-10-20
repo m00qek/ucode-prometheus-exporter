@@ -9,6 +9,9 @@ Some collectors take options of their own, such as wifi's `stations`, dhcp_lease
     1. Open **Services → Prometheus exporter**, tab **Collectors**.
     2. Press **Edit** on the collector's row, such as **Wi-Fi**. The dialog shows each option by its title, with its help: wifi's `stations` is **Station metrics**.
     3. Change the field, and press **Save**. The values are staged, not applied.
+
+        ![The Edit dialog of the Wi-Fi collector: the Station metrics checkbox with its help, the jail mounts, and the Dismiss and Save buttons](img/luci-edit.png)
+
     4. Press **Save & Apply** on the page.
 
 === "Terminal (SSH)"

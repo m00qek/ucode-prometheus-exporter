@@ -15,6 +15,9 @@
     - **HTTPS & login**: the TLS certificate and key, and basic auth;
     - **Limits**: the seconds programs, a scrape and a collector get.
 2. Change the fields. As you type, the form marks a value the exporter would not take, and says why. A tab with such fields shows how many in its title.
+
+    ![The General tab of Services → Prometheus exporter: Enable, Listen on, Port, Keep-alive, Compress and Leave out zero values, above Save & Apply](img/luci-general.png)
+
 3. Press **Save & Apply**. If the exporter would refuse a value, nothing is saved. A **Save error** dialog lists each problem and why, with each field under its tab. Press a field's name to go to it, fix it, and save again.
 
 To serve the LAN, pick its interface in **Listen on**, on **General**.
@@ -32,6 +35,8 @@ To turn basic auth off, empty **Basic auth user** and press **Save & Apply**. A 
 ## Switch a collector off or on
 
 1. Open the **Collectors** tab. It lists the collectors by title, and above them, how many are switched on.
+
+    ![The Collectors tab: how many collectors are enabled, then a row per collector with its title, package, Enabled checkbox and Edit button](img/luci-collectors.png)
 2. Untick the collector to stop serving its metrics, or tick it to serve them again.
 3. Press **Save & Apply**.
 
@@ -49,6 +54,8 @@ To turn basic auth off, empty **Basic auth user** and press **Save & Apply**. A 
     - A banner above the tables, for what needs attention: the exporter is enabled but not running, collectors failed, or the service quarantined collectors.
     - Whether the service runs, is enabled and starts at boot, and where it serves `/metrics`.
     - Each collector, failed ones first. **Test run** says **OK**, **Failed** with why and its error code, *Nothing to observe* with why, or *Not run: switched off*. **Service's scrapes** says whether the service quarantined the collector, or its deadline left the collector out lately.
+
+    ![Status → Prometheus exporter: the Service table, with State Running and the Metrics address, then the Collectors table with each collector's Test run and Duration](img/luci-status.png)
 2. If the banner says the exporter is enabled but not running, press **System → Startup** to start it, or **System log** to see why it stopped.
 3. If a collector failed, its error code links to what the code means. See [How to troubleshoot](troubleshoot.md).
 4. **Refresh** runs the test run again.

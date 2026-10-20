@@ -49,6 +49,8 @@ The service starts on its own. Let's ask it how it is doing:
 
     Open **Status → Prometheus exporter**. Under **Service**, **State** says **Running**, and **Metrics** says `http://127.0.0.1:9100/metrics` (reachable from the router only).
 
+    ![Status → Prometheus exporter: the Service table, with State Running and the Metrics address, then the Collectors table with each collector's Test run](../how-to/img/luci-status.png)
+
 === "Terminal (SSH)"
 
     ```sh

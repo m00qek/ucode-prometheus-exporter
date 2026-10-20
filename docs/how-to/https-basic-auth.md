@@ -30,6 +30,8 @@ Have the exporter hash the password and save the hash there, so the password app
     2. Fill in **TLS certificate** and **TLS key** with the files of the prerequisites, such as `/etc/prometheus-exporter/tls.crt` and `/etc/prometheus-exporter/tls.key`. **Change password…** needs them.
     3. Press **Change password…**, type the password in **New password** and again in **Confirmation**, and press **Change password**.
 
+        ![The Change the basic auth password dialog: New password, Confirmation, and the Cancel and Change password buttons](img/luci-change-password.png)
+
     The hash is saved at once, separately from **Save & Apply**. See [How to use the LuCI app](luci.md#change-basic-auths-password).
 
 === "Terminal (SSH)"

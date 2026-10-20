@@ -119,7 +119,7 @@ Reference pages describe the code as it is. When you change one of these, update
 | `runner.uc`, `probe.uc`, `jailed.uc`, `conform.uc`, the guards of `scrape.uc`, `ownership.uc`, `progress.uc`, `exposition.uc`, `loader.uc` | [Collector contract](../../reference/collector-contract.md) |
 | `http.uc`, `app.uc`, `auth.uc`, `query.uc`, `scrape.uc` | [HTTP endpoint](../../reference/http.md) |
 | `rpc.uc` and `rpc/`, the rpcd plugin | [ubus object](../../reference/ubus.md) |
-| `luci/` | [LuCI app](../../reference/luci.md), [How to use the LuCI app](../luci.md) |
+| `luci/` | [LuCI app](../../reference/luci.md), [How to use the LuCI app](../luci.md), the Browser (LuCI) tabs, and the screenshots: `make luci-screenshots` |
 | `jail.uc`, `state.uc`, the init script's mounts | [The jail](../../reference/jail.md) |
 | `loader.uc`, `deps.uc` and `deps/`, `result.uc`, `services.uc`, `exposition.uc`'s recorder | [Collector interface](../../reference/collector-interface.md) |
 | A log line | [Log messages](../../reference/log-messages.md) |
@@ -150,6 +150,8 @@ An operator step that LuCI can do gets two content tabs, LuCI first, with exactl
 ````
 
 Picking a tab picks it on every page (`content.tabs.link`). Name menus, tabs, fields and buttons by the app's English source strings, in `luci/`. A step LuCI cannot do, such as adding the feed's signing key, stays SSH only.
+
+The LuCI screenshots, `docs/how-to/img/luci-*.png`, come from the lab: `make luci-screenshots` takes them again after a change to the app. Add one only where a picture makes a LuCI step clearer, with alt text that says what it shows.
 
 ## Examples
 
