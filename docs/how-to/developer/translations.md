@@ -1,6 +1,6 @@
 # How to Update the Translation Template
 
-The LuCI app's strings, every `_('...')` of `luci/`, are in the translation template `luci/po/templates/prometheus-exporter.pot`. `make lint` fails while it is out of date.
+The translation template `luci/po/templates/prometheus-exporter.pot` holds the LuCI app's strings: every `_('...')` in `luci/`. `make lint` fails while the template is out of date.
 
 ## Update it
 
@@ -10,11 +10,11 @@ After you add, change or move a string in the LuCI app:
 make pot
 ```
 
-It runs openwrt/luci's own scanner, `build/i18n-scan.pl`, over `luci/` laid out as `applications/luci-app-prometheus-exporter` of the luci tree, so the template's location comments are the ones upstream would write. Commit the template with the change.
+It runs openwrt/luci's own scanner, `build/i18n-scan.pl`, over `luci/`, laid out as `applications/luci-app-prometheus-exporter` in the luci tree. So the template's location comments are the ones upstream would write. Commit the template with the change.
 
 ## If it fails
 
-`pot: the scanner warned, so a string may be missing from the template` means the scanner lost its way in a file: it printed which, above. Fix the string it stumbled on, often a quote inside `_()`, and run it again. It writes nothing while it warns.
+`pot: the scanner warned, so a string may be missing from the template` means the scanner lost its way in a file. The lines above name the file. Fix the string it stumbled on, often a quote inside `_()`, and run it again. It writes nothing while it warns.
 
 ---
 
