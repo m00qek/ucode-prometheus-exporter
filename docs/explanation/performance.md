@@ -428,6 +428,18 @@ A budget holds a family declared again to 2.7 times a sample of a `labels()` set
 
 A recorder reused from one collector to the next would save 36 µs a collector on the AX835: 0.8 ms of its scrape. But a writer of one collector would then count against the next one's samples, if it were ever called while the next one ran. So each collector still gets a recorder of its own. Its `deps` already holds only what `meta.needs` names.
 
+**The child's pages.** The scrape's child is forked from uhttpd, and the kernel copies each page the child writes to. A collection of the garbage would mark every object, and write to its page. But uhttpd's ucode collects no garbage on its own, so the child never does (see [About the implementation](internals.md#ucode)). Turned on in the child, it only costs: a typical full scrape on the AX835, with the child's minor page faults, which the benchmark's `scrape:` notes now give:
+
+| The child's collection | devenv | YunCore AX835 |
+| :--- | :--- | :--- |
+| none, as uhttpd runs it | 94 ms, 3,310 faults | 846 ms, 3,700 faults |
+| every 65,535 allocations, the most `gc()` takes | 90 ms, 3,300 faults | 852 ms, 3,700 faults |
+| every 10,000 | 97 ms, 3,350 faults | 868 ms, 3,690 faults |
+| every 1,000, `gc('start')`'s default | 121 ms, 3,380 faults, netclass crashed | 1,097 ms, 3,730 faults, netclass crashed |
+
+One collection of the whole heap in a fresh child takes 1.7 ms and 104 faults in the devenv, 12.8 ms and 385 faults on the AX835. So nothing changed: the child still collects nothing, and its data limit still bounds a collector that leaves cycles behind. Its faults are mostly the pages it allocates and the scrape's pages it writes to as it counts their references.
+
+
 
 ## memory_limit's floor {#memory-floor}
 

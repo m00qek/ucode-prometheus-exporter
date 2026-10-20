@@ -296,13 +296,13 @@ export function inline(env, run_fn, opts) {
 const STATUS = /^(VmHWM|VmData|VmRSS):\s+([0-9]+) kB/;
 
 /**
- * This process's memory, in kB: { VmHWM, VmData, VmRSS }, for the benchmark.
+ * This process's memory, in kB: { VmHWM, VmData, VmRSS }, and its minor page faults (minflt), for the benchmark.
  *
  * @param {function(string): ?string} readfile fs's readfile.
- * @returns {Object<string, int>} VmHWM, VmData and VmRSS, in kB.
+ * @returns {Object<string, int>} VmHWM, VmData and VmRSS, in kB, and minflt.
  */
 export function memory(readfile) {
-	let m = {};
+	let m = { minflt: +split(readfile('/proc/self/stat') ?? '', ' ')[9] };
 
 	for (let line in split(readfile('/proc/self/status') ?? '', '\n')) {
 		let f = match(line, STATUS);
@@ -322,7 +322,9 @@ function child_of(st) {
 		let session = st.env.session(log);
 		let out = st.out;
 		let told = (st.reader == null), started_n = 0, pending = 0;
-		let pid = int(split(st.env.readfile?.('/proc/self/stat') ?? '', ' ')[0]);
+		let stat = split(st.env.readfile?.('/proc/self/stat') ?? '', ' ');
+		let pid = int(stat[0]);
+		let faults = +stat[9];
 
 		if (type(pid) != 'int')
 			pid = null;
@@ -353,7 +355,11 @@ function child_of(st) {
 
 		out.flush();
 		session.close();
-		return { end: true, memory: st.stats ? memory(st.env.readfile) : null };
+		let m = st.stats ? memory(st.env.readfile) : null;
+
+		if (m)
+			m.minflt -= faults;
+		return { end: true, memory: m };
 	};
 }
 

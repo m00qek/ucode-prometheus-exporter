@@ -303,6 +303,9 @@ if (kind == 'calibrate') {
 	result.children = stats.children;
 	result.child_hwm_kb = stats.child?.VmHWM;
 	result.child_data_kb = stats.child?.VmData;
+	// The pages the last child wrote to, most of them the kernel's copies of
+	// the scrape's own (copy-on-write): its minor page faults.
+	result.child_minflt = stats.child?.minflt;
 	result.data_kb = memory().VmData;
 } else if (kind == 'rest') {
 	// What the handler's process holds once it has loaded, which uhttpd

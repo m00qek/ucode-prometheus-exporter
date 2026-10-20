@@ -261,7 +261,7 @@ for (let c in cases) {
 		let top = slice(sort(keys(r.durations ?? {}), (a, b) => r.durations[b] - r.durations[a]), 0, 4);
 		note = sprintf('collectors %s ms (%s), outside %s ms, load %s ms%s %s', ms(r.collecting),
 			join(' ', map(top, (n) => `${n} ${ms(r.durations[n])}`)), ms(r.outside), ms(r.load),
-			(r.child_hwm_kb != null) ? sprintf(', data %d kB, child peak %d kB data %d kB', r.data_kb, r.child_hwm_kb, r.child_data_kb) : '', note);
+			(r.child_hwm_kb != null) ? sprintf(', data %d kB, child peak %d kB data %d kB faults %d', r.data_kb, r.child_hwm_kb, r.child_data_kb, r.child_minflt ?? -1) : '', note);
 	}
 
 	print(sprintf('%-8s %-32s %10s %10s %10s %8s %9s  %s\n', c[0], c[1], ms(r.time?.min), ms(r.time?.median),
