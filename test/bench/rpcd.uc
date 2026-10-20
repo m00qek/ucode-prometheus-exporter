@@ -55,7 +55,10 @@ function connect() {
 
 let sys = {
 	cursor: () => cursor(`${root}/etc/config`, '/nonexistent/uci-deltas'),
-	fs: { lsdir: (p) => fs.lsdir(root + p), readfile: (p) => fs.readfile(root + p), realpath: (p) => strip(fs.realpath(root + p)) },
+	fs: {
+		lsdir: (p) => fs.lsdir(root + p), readfile: (p) => fs.readfile(root + p), realpath: (p) => strip(fs.realpath(root + p)),
+		stat: (p) => fs.stat(root + p),
+	},
 	connect,
 };
 

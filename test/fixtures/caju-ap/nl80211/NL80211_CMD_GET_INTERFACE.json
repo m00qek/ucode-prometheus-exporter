@@ -1,0 +1,48 @@
+[
+	{
+		"4addr": 0,
+		"center_freq1": 5775,
+		"channel_width": 3,
+		"dev": "phy1-ap1",
+		"ifname": "phy1-ap1",
+		"iftype": 3,
+		"mac": "02:00:00:00:a0:03",
+		"ssid": "home",
+		"wdev": 4294967299,
+		"wiphy": 1,
+		"wiphy_freq": 5745,
+		"wiphy_tx_power_level": 2700,
+		"vif_radio_mask": 0
+	},
+	{
+		"4addr": 0,
+		"center_freq1": 5775,
+		"channel_width": 3,
+		"dev": "phy1-ap0",
+		"ifname": "phy1-ap0",
+		"iftype": 3,
+		"mac": "02:00:00:00:a0:02",
+		"ssid": "guest",
+		"wdev": 4294967297,
+		"wiphy": 1,
+		"wiphy_freq": 5745,
+		"wiphy_tx_power_level": 2700,
+		"vif_radio_mask": 0
+	},
+	{
+		"4addr": 0,
+		"center_freq1": 2462,
+		"channel_width": 1,
+		"dev": "phy0-ap0",
+		"ifname": "phy0-ap0",
+		"iftype": 3,
+		"mac": "02:00:00:00:a0:01",
+		"ssid": "iot",
+		"wdev": 1,
+		"wiphy": 0,
+		"wiphy_channel_type": 1,
+		"wiphy_freq": 2462,
+		"wiphy_tx_power_level": 2600,
+		"vif_radio_mask": 0
+	}
+]

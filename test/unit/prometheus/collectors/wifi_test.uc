@@ -19,21 +19,35 @@ const WIRELESS = fixtures.ubus('caju-ap', 'prometheus-exporter', 'wireless');
 function wireless(radios) {
 	return { 'prometheus-exporter:wireless': { radios } };
 }
-const AP = {};
+// Every interface, as one dump answers; each one's stations and survey, as a
+// request of that interface answers.
+const DUMP = json(fixtures.file('caju-ap', '/nl80211/NL80211_CMD_GET_INTERFACE.json'));
+const AP = { NL80211_CMD_GET_INTERFACE: DUMP };
 for (let cmd in CMDS)
 	for (let dev in IFACES)
 		AP[`${cmd}:${dev}`] = json(fixtures.file('caju-ap', `/nl80211/${cmd}.${dev}.json`));
 
-// Each interface's link, all of them up.
-const LINKS = {};
-for (let dev in IFACES)
-	LINKS[`RTM_GETLINK:${dev}`] = json(fixtures.file('caju-ap', `/rtnl/RTM_GETLINK.${dev}.json`));
+// Each interface's flags in sysfs, all of them up.
+function flags_of(devs) {
+	let data = {};
+
+	for (let dev in devs)
+		data[`/sys/class/net/${dev}/flags`] = fixtures.file('caju-ap', `/sys/class/net/${dev}/flags`);
+
+	return data;
+}
+const FLAGS = flags_of(IFACES);
+
+// The dump without these interfaces.
+function without(...devs) {
+	return { NL80211_CMD_GET_INTERFACE: filter(DUMP, (w) => !(w.ifname in devs)) };
+}
 
 function ap(overrides) {
 	return {
 		ubus: { data: { 'prometheus-exporter:wireless': WIRELESS } },
 		nl80211: { data: { ...AP, ...(overrides?.data ?? {}) }, errors: overrides?.errors ?? {} },
-		rtnl: { data: { ...LINKS, ...(overrides?.links ?? {}) } },
+		fs: { data: { ...FLAGS, ...(overrides?.flags ?? {}) } },
 		options: overrides?.options,
 	};
 }
@@ -75,7 +89,7 @@ const NETWORKS = [
 	'# TYPE node_wifi_network_noise_dbm gauge',
 	'node_wifi_network_noise_dbm{radio="radio_2G",device="phy0-ap0"} -88',
 	'node_wifi_network_noise_dbm{radio="radio_5G",device="phy1-ap0"} -92',
-	'node_wifi_network_noise_dbm{radio="radio_5G",device="phy1-ap1"} -91',
+	'node_wifi_network_noise_dbm{radio="radio_5G",device="phy1-ap1"} -92',
 	'# HELP node_wifi_network_signal_dbm Average signal of the network\'s stations, in dBm.',
 	'# TYPE node_wifi_network_signal_dbm gauge',
 	'node_wifi_network_signal_dbm{radio="radio_2G",device="phy0-ap0"} -63',
@@ -83,14 +97,16 @@ const NETWORKS = [
 	'node_wifi_network_signal_dbm{radio="radio_5G",device="phy1-ap1"} -77.5',
 ];
 
-// The channel each interface is on, as its survey says: the time the radio
-// was on it, sensed it busy, received and transmitted, in seconds.
+// The channel each interface is on, as its radio's survey says: the time the
+// radio was on it, sensed it busy, received and transmitted, in seconds. Both
+// of radio_5G's interfaces have phy1-ap0's, the survey of their phy, which
+// nl80211 is asked once: the captures of the two were taken apart.
 const CHANNEL = [
 	'# HELP node_wifi_channel_active_seconds_total Time the radio has been on the interface\'s channel, in seconds.',
 	'# TYPE node_wifi_channel_active_seconds_total counter',
 	'node_wifi_channel_active_seconds_total{radio="radio_2G",device="phy0-ap0"} 12078.755',
 	'node_wifi_channel_active_seconds_total{radio="radio_5G",device="phy1-ap0"} 12079.591',
-	'node_wifi_channel_active_seconds_total{radio="radio_5G",device="phy1-ap1"} 12079.616',
+	'node_wifi_channel_active_seconds_total{radio="radio_5G",device="phy1-ap1"} 12079.591',
 	'# HELP node_wifi_channel_busy_seconds_total Time the radio has sensed the interface\'s channel busy, in seconds.',
 	'# TYPE node_wifi_channel_busy_seconds_total counter',
 	'node_wifi_channel_busy_seconds_total{radio="radio_2G",device="phy0-ap0"} 7969.429',
@@ -224,13 +240,24 @@ function one_network(signals, bitrates) {
 		ubus: { data: wireless({
 			radio0: { disabled: false, config: { channel: '36' }, interfaces: [ { ifname: 'wlan0', config: { ssid: 'lab' } } ] },
 		}) },
-		rtnl: { data: { 'RTM_GETLINK:wlan0': { dev: 'wlan0', flags: 69699 } } },
+		fs: { data: { '/sys/class/net/wlan0/flags': '0x11043\n' } },
 		nl80211: { data: {
-			'NL80211_CMD_GET_INTERFACE:wlan0': { mac: '02:00:00:00:b0:00', iftype: 3, wiphy_freq: 5180 },
+			NL80211_CMD_GET_INTERFACE: [ { ifname: 'wlan0', wiphy: 0, mac: '02:00:00:00:b0:00', iftype: 3, wiphy_freq: 5180 } ],
 			'NL80211_CMD_GET_STATION:wlan0': length(dump) ? dump : null,
 			'NL80211_CMD_GET_SURVEY:wlan0': [ { survey_info: { frequency: 5180, noise: -95 } } ],
 		} },
 	};
+}
+
+// The mock's replies of `data`, each recording its key in `asked` as it is asked.
+function counted(data, asked) {
+	let out = {};
+	let answer = (key, reply) => () => { push(asked, key); return (reply == null) ? null : json(sprintf('%J', reply)); };
+
+	for (let key, reply in data)
+		out[key] = answer(key, reply);
+
+	return out;
 }
 
 function sample(lines, name) {
@@ -312,10 +339,10 @@ describe('collectors.wifi', () => {
 		let up = (v2, v5) => [ true, [ `node_wifi_radio_up{radio="radio_2G"} ${v2}`, `node_wifi_radio_up{radio="radio_5G"} ${v5}` ] ];
 
 		assert.match(up(1, 1), lines(ap()));
-		assert.match(up(0, 1), lines(ap({ links: { 'RTM_GETLINK:phy0-ap0': { dev: 'phy0-ap0', flags: 4098 } } })));
-		assert.match(up(1, 1), lines(ap({ links: { 'RTM_GETLINK:phy1-ap0': { dev: 'phy1-ap0', flags: 4098 } } })));
-		assert.match(up(1, 0), lines(ap({ links: { 'RTM_GETLINK:phy1-ap0': { dev: 'phy1-ap0', flags: 4098 }, 'RTM_GETLINK:phy1-ap1': { dev: 'phy1-ap1', flags: 0 } } })));
-		assert.match(up(0, 1), lines(ap({ errors: { 'NL80211_CMD_GET_INTERFACE:phy0-ap0': 'No such device' } })));
+		assert.match(up(0, 1), lines(ap({ flags: { '/sys/class/net/phy0-ap0/flags': '0x1002\n' } })));
+		assert.match(up(1, 1), lines(ap({ flags: { '/sys/class/net/phy1-ap0/flags': '0x1002\n' } })));
+		assert.match(up(1, 0), lines(ap({ flags: { '/sys/class/net/phy1-ap0/flags': '0x1002\n', '/sys/class/net/phy1-ap1/flags': '0\n' } })));
+		assert.match(up(0, 1), lines(ap({ data: without('phy0-ap0') })));
 	});
 
 	it('fails with SOURCE_INVALID when the object answers no radios', () => {
@@ -360,13 +387,52 @@ describe('collectors.wifi', () => {
 		});
 	});
 
-	it('says why nl80211 refused a request', () => {
+	it('says why nl80211 refused the interfaces, and writes the radios, down', () => {
 		let cfg = ap();
 		cfg.nl80211.behavior = refused('Operation not permitted');
 
 		with_collector(wifi, cfg, (r) => {
-			assert.match({ ok: false, error: 'NL80211_FAILED', details: 'phy0-ap0: Operation not permitted' },
+			assert.match({ ok: false, error: 'NL80211_FAILED', details: 'interfaces: Operation not permitted' },
 				{ ok: r.result.ok, error: r.result.error, details: r.result.details });
+			assert.match([], filter(r.lines, (l) => index(l, 'device=') >= 0));
+			assert.match(contains([ 'node_wifi_radio_up{radio="radio_2G"} 0', 'node_wifi_radio_up{radio="radio_5G"} 0' ]), r.lines);
+		});
+	});
+
+	// A phy's survey is the phy's: nl80211 gives each of its interfaces the
+	// same. The interfaces are one dump, and whether each is up is sysfs's.
+	it('asks nl80211 for every interface in one dump, for each one\'s stations, and for each phy\'s survey once', () => {
+		let asked = [];
+		let cfg = ap();
+
+		cfg.nl80211.data = counted(cfg.nl80211.data, asked);
+		with_collector(wifi, cfg, (r) => {
+			assert.match(true, r.result.ok);
+		});
+		assert.match([
+			'NL80211_CMD_GET_INTERFACE',
+			'NL80211_CMD_GET_STATION:phy0-ap0', 'NL80211_CMD_GET_SURVEY:phy0-ap0',
+			'NL80211_CMD_GET_STATION:phy1-ap0', 'NL80211_CMD_GET_SURVEY:phy1-ap0',
+			'NL80211_CMD_GET_STATION:phy1-ap1',
+		], asked);
+	});
+
+	it('asks a phy\'s survey again of an interface whose phy nl80211 does not say', () => {
+		let asked = [];
+		let cfg = ap();
+
+		cfg.nl80211.data.NL80211_CMD_GET_INTERFACE = map(DUMP, (w) => { let c = { ...w }; delete c.wiphy; return c; });
+		cfg.nl80211.data = counted(cfg.nl80211.data, asked);
+		with_collector(wifi, cfg, (r) => {
+			assert.match(true, r.result.ok);
+		});
+		assert.match(3, length(filter(asked, (k) => index(k, 'NL80211_CMD_GET_SURVEY:') == 0)));
+	});
+
+	it('writes no network of an interface the dump does not have, and none when the dump is empty', () => {
+		with_collector(wifi, ap({ data: { NL80211_CMD_GET_INTERFACE: null } }), (r) => {
+			assert.match(true, r.result.ok);
+			assert.match([], filter(r.lines, (l) => index(l, 'device=') >= 0));
 		});
 	});
 
@@ -374,7 +440,7 @@ describe('collectors.wifi', () => {
 	// disabled, its phy gone, or its network down. netifd's status has no
 	// interface for it either.
 	it('leaves out a network whose interface is not there, and succeeds', () => {
-		with_collector(wifi, ap({ errors: { 'NL80211_CMD_GET_INTERFACE:phy0-ap0': 'No such device' } }), (r) => {
+		with_collector(wifi, ap({ data: without('phy0-ap0') }), (r) => {
 			assert.match(true, r.result.ok);
 			assert.match([], filter(r.lines, (l) => index(l, 'phy0-ap0') >= 0));
 			assert.match(contains([ 'node_wifi_stations{radio="radio_5G",device="phy1-ap1"} 4' ]), r.lines);
@@ -389,7 +455,7 @@ describe('collectors.wifi', () => {
 			let cfg = one_network([], []);
 			let got = null;
 
-			cfg.nl80211.data['NL80211_CMD_GET_INTERFACE:wlan0'] = { mac: '02:00:00:00:b0:00', iftype: 3, wiphy_freq: 5180, ...wif };
+			cfg.nl80211.data.NL80211_CMD_GET_INTERFACE = [ { ifname: 'wlan0', wiphy: 0, mac: '02:00:00:00:b0:00', iftype: 3, wiphy_freq: 5180, ...wif } ];
 			cfg.ubus.data['prometheus-exporter:wireless'].radios.radio0.interfaces[0].config = config;
 			with_collector(wifi, cfg, (r) => { got = filter(r.lines, (l) => index(l, 'node_wifi_network_info{') == 0); });
 			return map(got, (l) => match(l, /ssid="([^"]*)"/)?.[1]);
@@ -402,8 +468,8 @@ describe('collectors.wifi', () => {
 		]);
 	});
 
-	it('takes the radio and its networks from the object, never netifd, and their state from nl80211 and rtnetlink', () => {
-		assert.match([ 'ubus', 'nl80211', 'rtnl' ], wifi.meta.needs);
+	it('takes the radio and its networks from the object, never netifd, and their state from nl80211 and sysfs', () => {
+		assert.match([ 'ubus', 'nl80211', 'fs' ], wifi.meta.needs);
 	});
 
 	it('writes NaN noise, and succeeds, without a channel survey', () => {

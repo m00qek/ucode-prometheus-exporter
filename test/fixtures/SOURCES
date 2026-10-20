@@ -9,8 +9,8 @@
 # Captured by hand, MAC addresses redacted as in the sysfs captures:
 #   rtnl/RTM_GETLINK.json  ucode -e 'import {request,"const" as c} from "rtnl"; let r = request(c.RTM_GETLINK, c.NLM_F_DUMP, {});
 #                          for (let l in r) { delete l.af_spec; delete l.stats; } printf("%.2J\n", r);'
-#   rtnl/RTM_GETLINK.<dev>.json (caju-ap): each Wi-Fi link of RTM_GETLINK.json, as a request
-#                          of that device alone answers it.
+#   nl80211/NL80211_CMD_GET_INTERFACE.json (caju-ap): its three NL80211_CMD_GET_INTERFACE.<dev>.json,
+#                          as a dump of every interface gives them, in the AP's dump's order.
 #   uci/wireless.json (caju-ap) is not a capture: the config of each radio and network of
 #                          ubus/network.wireless.status.json, as uci has it, without the key.
 #   sys/class/ieee80211/phy*/index and links.json's phy*/device (caju-ap): its two phys,

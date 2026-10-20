@@ -5,8 +5,8 @@ import { Result, errors } from 'prometheus.exporter';
 export const meta = {
 	name: 'wifi',
 	title: 'Wi-Fi',
-	help: 'Wi-Fi radios, networks and stations, from the wireless config without its keys (the service\'s ubus object), nl80211 and rtnetlink.',
-	needs: [ 'ubus', 'nl80211', 'rtnl' ],
+	help: 'Wi-Fi radios, networks and stations, from the wireless config without its keys (the service\'s ubus object), nl80211 and /sys/class/net.',
+	needs: [ 'ubus', 'nl80211', 'fs' ],
 	ubus: { 'prometheus-exporter': [ 'wireless' ] },
 	options: {
 		stations: { default: true, title: 'Station metrics', help: 'Per-station metrics: signal, rates and traffic of each client. The count of stations of each interface is written either way.' },
@@ -20,7 +20,6 @@ const IFTYPES = [
 
 const NUMBER = { int: true, double: true };
 
-const NO_DEVICE = 'No such device';
 const IFF_UP = 0x1;
 
 const BITRATE_UNIT = 100000;
@@ -151,33 +150,49 @@ function station(m, radio, device, sta) {
 		m.expected_throughput(labels, info.expected_throughput * KBIT);
 }
 
-function up(rtnl, ifname) {
-	let res = rtnl.request(rtnl.const.RTM_GETLINK, 0, { dev: ifname });
+function up(fs, ifname) {
+	let flags = hex(trim(fs.readfile(`/sys/class/net/${ifname}/flags`) ?? ''));
 
-	return res.ok ? ((res.data?.flags ?? 0) & IFF_UP) != 0 : false;
+	return type(flags) == 'int' && (flags & IFF_UP) != 0;
 }
 
-function network(deps, m, radio, iface, with_stations, state) {
-	let nl = deps.nl80211;
-	let C = nl.const;
-	let ifname = iface.ifname;
-	let nc = iface.config ?? {};
+function interfaces(nl) {
+	let res = nl.request(nl.const.NL80211_CMD_GET_INTERFACE, nl.const.NLM_F_DUMP);
 
-	let res = nl.request(C.NL80211_CMD_GET_INTERFACE, 0, { dev: ifname });
 	if (!res.ok)
-		return (res.details == NO_DEVICE) ? null : failed(res, ifname);
+		return res;
 
-	let wif = res.data;
-	if (type(wif) != 'object')
-		return null;
+	let by_name = {};
 
-	if (up(deps.rtnl, ifname))
-		state.up = true;
+	for (let wif in (type(res.data) == 'array') ? res.data : [])
+		if (type(wif?.ifname) == 'string')
+			by_name[wif.ifname] = wif;
 
+	return Result.ok(by_name);
+}
+
+function survey(nl, surveys, wif) {
+	let phy = (type(wif.wiphy) == 'int') ? '' + wif.wiphy : null;
+
+	if (phy != null && phy in surveys)
+		return surveys[phy];
+
+	let res = nl.request(nl.const.NL80211_CMD_GET_SURVEY, nl.const.NLM_F_DUMP, { dev: wif.ifname });
+
+	if (phy != null)
+		surveys[phy] = res;
+
+	return res;
+}
+
+function network(deps, m, radio, wif, nc, with_stations, surveys) {
+	let nl = deps.nl80211;
+	let ifname = wif.ifname;
 	let labels = { radio, device: ifname };
+	let l = m.labels(labels);
 
 	if (type(wif.wiphy_freq) == 'int')
-		m.frequency(labels, wif.wiphy_freq * 1000000);
+		m.frequency(l, wif.wiphy_freq * 1000000);
 
 	m.network_info({
 		...labels,
@@ -186,7 +201,7 @@ function network(deps, m, radio, iface, with_stations, state) {
 		mode: IFTYPES[wif.iftype],
 	}, 1);
 
-	res = nl.request(C.NL80211_CMD_GET_STATION, C.NLM_F_DUMP, { dev: ifname });
+	let res = nl.request(nl.const.NL80211_CMD_GET_STATION, nl.const.NLM_F_DUMP, { dev: ifname });
 	if (!res.ok)
 		return failed(res, ifname);
 
@@ -194,16 +209,16 @@ function network(deps, m, radio, iface, with_stations, state) {
 	let bitrate = mean(stations, (s) => s?.sta_info?.tx_bitrate?.bitrate32);
 	let signal = mean(stations, (s) => s?.sta_info?.signal);
 
-	m.network_bitrate(labels, bitrate * BITRATE_UNIT);
-	m.network_signal(labels, signal);
-	m.network_quality(labels, quality(signal));
+	m.network_bitrate(l, bitrate * BITRATE_UNIT);
+	m.network_signal(l, signal);
+	m.network_quality(l, quality(signal));
 
-	res = nl.request(C.NL80211_CMD_GET_SURVEY, C.NLM_F_DUMP, { dev: ifname });
-	m.network_noise(labels, res.ok ? noise_at(res.data, wif.wiphy_freq) : NaN);
+	res = survey(nl, surveys, wif);
+	m.network_noise(l, res.ok ? noise_at(res.data, wif.wiphy_freq) : NaN);
 	if (res.ok)
 		channel_times(m, labels, res.data, wif.wiphy_freq);
 
-	m.stations(labels, length(stations));
+	m.stations(l, length(stations));
 
 	if (with_stations)
 		for (let sta in stations)
@@ -226,10 +241,12 @@ export function collect(deps, out, options) {
 
 	let m = metrics(out);
 	let failure = null;
+	let wifs = null;
+	let surveys = {};
 
 	for (let radio, r in status) {
 		let rc = r?.config ?? {};
-		let state = { up: false };
+		let radio_up = false;
 
 		m.radio_info({ radio, htmode: rc.htmode, channel: rc.channel, country: rc.country }, 1);
 		if (type(r?.disabled) == 'bool')
@@ -239,11 +256,24 @@ export function collect(deps, out, options) {
 			if (type(iface?.ifname) != 'string')
 				continue;
 
-			let fail = network(deps, m, radio, iface, options.stations, state);
+			wifs ??= interfaces(deps.nl80211);
+			if (!wifs.ok) {
+				failure ??= failed(wifs, 'interfaces');
+				break;
+			}
+
+			let wif = wifs.data[iface.ifname];
+			if (type(wif) != 'object')
+				continue;
+
+			if (up(deps.fs, iface.ifname))
+				radio_up = true;
+
+			let fail = network(deps, m, radio, wif, iface.config ?? {}, options.stations, surveys);
 			failure ??= fail;
 		}
 
-		m.radio_up({ radio }, state.up);
+		m.radio_up({ radio }, radio_up);
 	}
 
 	return failure ?? Result.ok();

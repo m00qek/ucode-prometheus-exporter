@@ -14,7 +14,7 @@ import { NO_UCI_DELTAS } from 'prometheus.exporter.state';
  *
  * @typedef {{
  *   cursor: function(): UciCursor,
- *   fs: { lsdir: function(string): ?string[], readfile: function(string): ?string, realpath: function(string): ?string },
+ *   fs: { lsdir: function(string): ?string[], readfile: function(string): ?string, realpath: function(string): ?string, stat: ?function(string): ?Object },
  *   connect: function(?string, int): ?UbusConnection
  * }} SourcesSys
  */
@@ -162,10 +162,11 @@ function vif_runs(vif, enabled) {
  *
  * @param {UciCursor} uci a cursor that reads the wireless and network configs.
  * @param {Object} fs what reads sysfs, to find each radio's phy: lsdir, readfile and realpath.
+ * @param {?Array} all the phys, as phys() gives them; null to read them where a radio needs one.
  * @returns {{ radios: Object<string, Object> }} by radio: disabled, config and interfaces ({ ifname, config }); no ifname where the network is not set up.
  */
-export function wireless(uci, fs) {
-	let radios = {}, prefixes = {}, vifs = [], all = null;
+export function wireless(uci, fs, all) {
+	let radios = {}, prefixes = {}, vifs = [];
 
 	if (!uci.load('wireless'))
 		return { radios };
@@ -218,6 +219,40 @@ export function wireless(uci, fs) {
 	}
 
 	return { radios };
+};
+
+/**
+ * The configs' files that wireless() reads.
+ *
+ * @type {string[]}
+ */
+export const WIRELESS_FILES = [ '/etc/config/wireless', '/etc/config/network' ];
+
+function file_key(fs, path) {
+	let st = fs.stat(path);
+
+	return st ? `${st.inode}:${st.size}:${st.mtime}:${st.ctime}` : '-';
+}
+
+/**
+ * wireless() of the committed configs, or the reply `held` keeps while the configs' files and the phys are as they were for it.
+ *
+ * @param {SourcesSys} sys the system; without fs.stat, nothing is kept.
+ * @param {{ key: ?string, reply: ?Object }} held the last reply and what it was of, which it updates.
+ * @returns {{ radios: Object<string, Object> }} wireless()'s reply.
+ */
+export function wireless_held(sys, held) {
+	let all = phys(sys.fs);
+	let key = (sys.fs?.stat != null) ? sprintf('%s %J', join(' ', map(WIRELESS_FILES, (f) => file_key(sys.fs, f))), all) : null;
+
+	if (key != null && key === held.key)
+		return held.reply;
+
+	let reply = wireless(sys.cursor(), sys.fs, all);
+
+	held.key = key;
+	held.reply = reply;
+	return reply;
 };
 
 /**
@@ -324,11 +359,12 @@ export function ask_time_daemons(state, connect, req) {
  */
 export function methods(sys) {
 	let procd = { conn: null };
+	let held = { key: null, reply: null };
 
 	return {
 		wireless: {
 			args: {},
-			call: () => wireless(sys.cursor(), sys.fs),
+			call: () => wireless_held(sys, held),
 		},
 		wireguard_peers: {
 			args: {},
@@ -345,14 +381,14 @@ export function methods(sys) {
  * The system the sources' methods take, of the modules rpcd's plugin loads.
  *
  * @param {function(?string, ?string): UciCursor} cursor uci's cursor().
- * @param {Object} fs fs's lsdir, readfile and realpath.
+ * @param {Object} fs fs's lsdir, readfile, realpath and stat.
  * @param {function(?string, int): ?UbusConnection} connect ubus's connect().
  * @returns {SourcesSys} the system, its cursors on the committed configs.
  */
 export function system(cursor, fs, connect) {
 	return {
 		cursor: () => cursor(null, NO_UCI_DELTAS),
-		fs: { lsdir: fs.lsdir, readfile: fs.readfile, realpath: fs.realpath },
+		fs: { lsdir: fs.lsdir, readfile: fs.readfile, realpath: fs.realpath, stat: fs.stat },
 		connect,
 	};
 };

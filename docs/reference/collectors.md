@@ -868,14 +868,14 @@ Virtual memory statistics, from /proc/vmstat.
 
 ## `wifi` {#wifi}
 
-Wi-Fi radios, networks and stations, from the wireless config without its keys (the service's ubus object), nl80211 and rtnetlink.
+Wi-Fi radios, networks and stations, from the wireless config without its keys (the service's ubus object), nl80211 and /sys/class/net.
 
 - **Title:** Wi-Fi
 - **Package:** `ucode-prometheus-exporter-wifi`
 - **In the groups:** `ucode-prometheus-exporter-wireless`, `ucode-prometheus-exporter-full`
 - **Depends on:** `ucode-mod-nl80211`
 - **Section:** `config collector 'wifi'`
-- **Needs:** `ubus`, `nl80211`, `rtnl`
+- **Needs:** `ubus`, `nl80211`, `fs`
 - **Calls over ubus:** `prometheus-exporter wireless`
 - **Nothing to observe:** The wireless config has no radio: the service's ubus object's `wireless` gives none. See [Nothing to observe](#nothing-to-observe).
 - **Metrics:** [wifi](metrics.md#wifi)

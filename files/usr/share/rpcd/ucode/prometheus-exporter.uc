@@ -33,4 +33,4 @@ function compile() {
 	return { object: m.rpc.OBJECT, methods: m.rpc.methods((opts) => m.rpc.system({ ...(opts ?? {}), probe }), io) };
 }
 
-return plugin.object(compile, sources.methods(sources.system(cursor, { lsdir, readfile, realpath }, connect)), uloop.timer, plugin.IDLE_SECONDS);
+return plugin.object(compile, sources.methods(sources.system(cursor, { lsdir, readfile, realpath, stat }, connect)), uloop.timer, plugin.IDLE_SECONDS);

@@ -313,12 +313,14 @@ function wireless(p, rand, world, root) {
 
 			config += `config wifi-iface 'radio${r}_${i}'\n\toption device 'radio${r}'\n\toption network 'lan'\n\toption mode 'ap'\n` +
 				`\toption ssid '${ssid}'\n\toption encryption 'psk2'\n\toption key 'not-the-bench-key-${r}${i}'\n\n`;
+			// What wifi asked of each link before it read sysfs: for BENCH_REV.
 			world.rtnl[`RTM_GETLINK:${ifname}`] = { dev: ifname, ifname, flags: 69699, operstate: 6 };
 
 			world.nl80211[`NL80211_CMD_GET_INTERFACE:${ifname}`] = {
 				dev: ifname, ifname, iftype: 3, mac: mac(0xa000 + r * 16 + i), ssid,
 				wiphy: r, wiphy_freq: freq, wiphy_tx_power_level: 2600,
 			};
+			push(world.nl80211.NL80211_CMD_GET_INTERFACE ??= [], world.nl80211[`NL80211_CMD_GET_INTERFACE:${ifname}`]);
 			world.nl80211[`NL80211_CMD_GET_SURVEY:${ifname}`] = map(survey, (s) => ({
 				dev: ifname, survey_info: { ...s.survey_info, frequency: s.survey_info.frequency == 2412 ? freq : s.survey_info.frequency },
 			}));

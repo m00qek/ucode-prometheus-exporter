@@ -325,4 +325,45 @@ describe('rpc.sources.methods', () => {
 		assert.match({ interfaces: {} }, m.wireguard_peers.call({}));
 		assert.match([ [ null, NO_UCI_DELTAS ], [ null, NO_UCI_DELTAS ] ], opened);
 	});
+
+	// rpcd answers a scrape's wireless twice (wifi's, hostapd_stations'),
+	// and the configs and the phys rarely change: reading them again costs
+	// an access point's scrape some 2 ms a call.
+	it('answer wireless again, without reading the configs, while their files and the phys are as they were', () => {
+		let opened = 0;
+		let files = { '/etc/config/wireless': { inode: 7, size: 900, mtime: 1, ctime: 1 }, '/etc/config/network': { inode: 8, size: 1700, mtime: 1, ctime: 1 } };
+		let phys = { ...PHYS };
+		let wireless = { radio0: radio(), wifinet0: vif('radio0') };
+		let fs = { ...sysfs(phys), stat: (p) => files[p] };
+		let open = function() {
+			opened++;
+			return configs({ wireless });
+		};
+		let m = sources.methods(sources.system(open, fs, () => null));
+		let first = m.wireless.call({});
+
+		assert.match([ 'phy0-ap0' ], names(wireless).radio0);
+		assert.match([ first, 1 ], [ m.wireless.call({}), opened ]);
+
+		files['/etc/config/wireless'] = { ...files['/etc/config/wireless'], inode: 9 };
+		m.wireless.call({});
+		files['/etc/config/network'] = { ...files['/etc/config/network'], mtime: 2 };
+		m.wireless.call({});
+		delete files['/etc/config/network'];
+		m.wireless.call({});
+		assert.match(4, opened);
+
+		phys.phy0 = [ 0, '/sys/devices/platform/soc/18000001.wifi', '02:00:00:00:a0:00' ];
+		assert.match([ 'phy1-ap0' ], map(m.wireless.call({}).radios.radio0.interfaces, (i) => i.ifname));
+		assert.match([ 5, 5 ], [ opened, (m.wireless.call({}), opened) ]);
+	});
+
+	it('read the configs at each call without stat', () => {
+		let opened = 0;
+		let m = sources.methods(sources.system(() => { opened++; return configs({}); }, { ...sysfs(PHYS), stat: null }, () => null));
+
+		m.wireless.call({});
+		m.wireless.call({});
+		assert.match(2, opened);
+	});
 });
