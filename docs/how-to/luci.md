@@ -53,7 +53,7 @@ To turn basic auth off, empty **Basic auth user** and press **Save & Apply**. A 
 3. If a collector failed, its error code links to what the code means. See [How to troubleshoot](troubleshoot.md).
 4. **Refresh** runs the test run again.
 
-The test run is separate from the service's scrapes. It runs outside the service's jail and without the scrape deadline. If a collector is OK in **Test run** but fails in Prometheus, it lacks something in the jail, or the service quarantined it or left it out, as **Service's scrapes** says. See [How to troubleshoot](troubleshoot.md).
+The test run is not one of the service's scrapes. It is a scrape of its own, in a jail like the service's and with the same deadline, so its results can differ from what Prometheus gets. If a collector is OK in **Test run** but fails in Prometheus, the service quarantined it or left it out, as **Service's scrapes** says. See [How to troubleshoot](troubleshoot.md).
 
 ## If a page says the ubus object is not available
 
