@@ -1,6 +1,6 @@
 # How to Troubleshoot
 
-Start from what is wrong: the service, one collector, or the scrape as Prometheus sees it.
+Start from what is wrong: the service, one collector, or the scrape as Prometheus sees it. Each section below covers one case.
 
 ## The service does not run
 
@@ -17,11 +17,11 @@ logread -e prometheus-exporter
 | `basic auth takes HTTPS only, and <cert> or <key> is missing: not starting` | The TLS files are not there. See [How to serve HTTPS with basic auth](https-basic-auth.md). |
 | `cannot make <path>: <error>` | The service could not make a directory: tmpfs is full, or the path is wrong. |
 
-A reload with an invalid configuration keeps the running exporter, and logs `invalid configuration, keeping the running instance`.
+If you reload with an invalid configuration, the service keeps the running exporter and logs `invalid configuration, keeping the running instance`.
 
 ## A collector fails
 
-`check` runs a scrape and says, for each collector, whether it succeeded, failed and why, or had nothing to observe and why:
+`check` runs a scrape. For each collector, it says whether the collector succeeded, failed, or had nothing to observe, and why:
 
 ```sh
 service prometheus-exporter check
@@ -32,14 +32,14 @@ warn scrape: dnsmasq: UBUS_CALL_FAILED (dnsmasq metrics: Not found)
 ok   scrape: wifi has nothing to observe: no wireless radios
 ```
 
-- **Nothing to observe** is not a failure: the device has no such hardware, kernel feature, or running service. The collector succeeds without samples, and its `node_scrape_collector_observing` is 0. If you do not want it, [disable it](choose-collectors.md#disable-a-collector). Each collector's cases are in [Collectors](../reference/collectors.md#nothing-to-observe).
-- **A failure** is a `warn` line with a code. [Error codes](../reference/error-codes.md) says what each means. Under procd, each failing scrape also logs it at `warning`:
+- **Nothing to observe** is not a failure. It means the device lacks the hardware, kernel feature or running service the collector reads. The collector succeeds without samples, and its `node_scrape_collector_observing` is 0. If you do not want the collector, [disable it](choose-collectors.md#disable-a-collector). [Collectors](../reference/collectors.md#nothing-to-observe) lists when each collector has nothing to observe.
+- **A failure** is a `warn` line with a code. [Error codes](../reference/error-codes.md) says what each code means. Under procd, the service also logs each failing scrape at `warning`:
 
     ```sh
     logread -e prometheus-exporter | grep "collector '"
     ```
 
-The same is on LuCI's **Status → Prometheus exporter** page, and in the ubus object's `status`:
+LuCI's **Status → Prometheus exporter** page shows the same, and so does the ubus object's `status`:
 
 ```sh
 ubus call prometheus-exporter status
@@ -47,21 +47,28 @@ ubus call prometheus-exporter status
 
 ## A collector is quarantined
 
-A collector whose program was killed at its timeout, that was still running at the end of its budget, whose process ended under it, or that failed three scrapes in a row is left out for a few scrapes, then tried again. Its `node_scrape_collector_success` is 0 and its `ucode_prometheus_exporter_collector_quarantined` is 1. `check` says why, and when the service tries it again:
+The service quarantines a collector when:
+
+- the exporter killed its program at its timeout,
+- it was still running at the end of its budget (the time it may take),
+- its process ended under it, or
+- it failed three scrapes in a row.
+
+The service then leaves the collector out for a few scrapes, and tries it again. Meanwhile, its `node_scrape_collector_success` is 0 and its `ucode_prometheus_exporter_collector_quarantined` is 1. `check` says why, and when the service tries it again:
 
 ```
 warn service: nat_traffic is quarantined: COLLECTOR_OVERRUN (took 7.84 s, over its budget of 5 s); the service tries it again in 8 scrapes, or at once once restarted
 ```
 
-1. Fix what tripped it: the `warn scrape:` line of `check` runs it now and says how it fails.
-2. If it is slow but you want it, raise its budget: `uci set prometheus-exporter.<module>=collector`, `uci set prometheus-exporter.<module>.budget=15`, commit, `reload_config`. For a program, raise its `timeout`: [How to give programs more time](exec-timeout.md).
-3. To try it at once rather than at its trial, `service prometheus-exporter restart`: a restart forgets every quarantine.
+1. Fix what tripped it. `check` runs the collector now, and its `warn scrape:` line says how it fails.
+2. If the collector is slow but you want it, raise its budget: `uci set prometheus-exporter.<module>=collector`, `uci set prometheus-exporter.<module>.budget=15`, commit, `reload_config`. If a program is slow, raise its `timeout`: see [How to give programs more time](exec-timeout.md).
+3. To try it at once rather than wait for its trial, run `service prometheus-exporter restart`. A restart forgets every quarantine.
 
-LuCI's **Status → Prometheus exporter** shows the same in its **Service's scrapes** column, and names the quarantined collectors in a notice above the tables. How often it happened since the service started is the `exporter` collector's `ucode_prometheus_exporter_quarantines_total{collector}`.
+LuCI's **Status → Prometheus exporter** page shows the same in its **Service's scrapes** column, and names the quarantined collectors in a notice above the tables. The `exporter` collector counts quarantines since the service started, in `ucode_prometheus_exporter_quarantines_total{collector}`.
 
 ## A collector breaks the contract
 
-The log says `collector '<name>': ` and one of these, and the collector fails alone: every other is served as before.
+The log says `collector '<name>': ` followed by one of the errors below. Only that collector fails. The exporter serves every other collector as before.
 
 | Error | What happened | Do |
 | :--- | :--- | :--- |
@@ -73,22 +80,24 @@ The log says `collector '<name>': ` and one of these, and the collector fails al
 | `hung at load` (at `err`) | Its module's top level did not return in 5 s: it is left out until the service restarts. | A bug of the module. |
 | `COLLECTOR_IMPURE` (at `err`) | Its module's top level called what only `collect()` may, as `sleep()` or `print()`: it is left out until the service restarts. `prometheus-exporter collector check <file>` names the line. | A bug of the module: see [The top level](../reference/collector-interface.md#the-top-level). |
 
-`prometheus-exporter collector check <module file>` (`ucode-prometheus-exporter-cli`) runs a module as the service would and says which rule it breaks: see [Collector contract](../reference/collector-contract.md).
+`prometheus-exporter collector check <module file>` (from `ucode-prometheus-exporter-cli`) runs a module as the service would, and says which rule it breaks: see [Collector contract](../reference/collector-contract.md).
 
 ## Collectors are left out at the deadline
 
-The log says `scrape deadline: <n> collectors not served in its <seconds> s: ...`, and `check` says `the scrape deadline left <name> out`: a scrape ran out of the time the scraper gives it. Collectors run fastest first, so the ones left out are the slowest.
+A scrape ran out of the time the scraper gives it. The log says `scrape deadline: <n> collectors not served in its <seconds> s: ...`, and `check` says `the scrape deadline left <name> out`. Collectors run fastest first, so the ones left out are the slowest.
 
-- Leave the slow collector out of this job, `params: { 'exclude[]': [ nat_traffic ] }`, and scrape it in a job of its own with a longer `scrape_timeout` (and a `budget` to match).
-- Or raise the job's `scrape_timeout`: Prometheus sends it with each scrape.
-- A scraper that does not send `X-Prometheus-Scrape-Timeout-Seconds` gets the main section's `scrape_timeout`, 10 seconds.
-- `ucode_prometheus_exporter_deadline_skips_total{collector}` counts them since the service started.
+- Leave the slow collector out of this job, with `params: { 'exclude[]': [ nat_traffic ] }`. Scrape it in a job of its own with a longer `scrape_timeout`, and a `budget` to match.
+- Or raise the job's `scrape_timeout`. Prometheus sends it with each scrape.
+- If a scraper does not send `X-Prometheus-Scrape-Timeout-Seconds`, the exporter uses the main section's `scrape_timeout`, 10 seconds.
+- `ucode_prometheus_exporter_deadline_skips_total{collector}` counts the skips since the service started.
 
 See [About deadlines and circuit breakers](../explanation/deadlines-and-breakers.md).
 
 ## A collector works in `check` and fails under procd
 
-`check`, the ubus object's `status`, LuCI's status page and `prometheus-exporter scrape` run the collectors in the service's own jail, as Prometheus's scrapes do: they find what Prometheus gets. Where ujail cannot run they run outside the jail, as root, and `check` says `scrape, outside the jail`; a collector that works there and fails under procd lacks something the jail does not give it.
+`check`, the ubus object's `status`, LuCI's status page and `prometheus-exporter scrape` run the collectors in the service's own jail, as Prometheus's scrapes do. So they see what Prometheus gets.
+
+Where ujail cannot run, they run the collectors outside the jail, as root, and `check` says `scrape, outside the jail`. A collector that works there and fails under procd needs something the jail does not give it.
 
 1. See what the jail gives it:
 
@@ -97,12 +106,12 @@ See [About deadlines and circuit breakers](../explanation/deadlines-and-breakers
     ubus call service list '{"name":"prometheus-exporter"}'
     ```
 
-    `check` warns of a path or program it cannot mount; procd's list shows what it mounted.
+    `check` warns about a path or program it cannot mount. procd's list shows what it mounted.
 
-2. A path that was not there when the service started is mounted once it is: `check` says `<path> is not there; the service mounts it once it is`, and the `watch` instance reloads the service when it appears. To mount it at once, `service prometheus-exporter restart`.
-3. A program that is not installed is a `jail: <collector>: command <name> is not on ...` warning: install its package.
+2. If a path was missing when the service started, the service mounts it once it appears. `check` says `<path> is not there; the service mounts it once it is`, and the `watch` instance reloads the service when the path appears. To mount it at once, run `service prometheus-exporter restart`.
+3. A program that is not installed shows as a `jail: <collector>: command <name> is not on ...` warning. Install its package.
 
-What the jail holds is in [The jail](../reference/jail.md).
+[The jail](../reference/jail.md) lists what the jail holds.
 
 ## Prometheus cannot scrape it
 
@@ -117,13 +126,15 @@ What the jail holds is in [The jail](../reference/jail.md).
 
 ## The metrics are not what you expect
 
-- A name changed from the feed's exporters: see [Renamed metrics](../metrics.md).
-- A label is missing: a collector leaves out a label it has no value for.
-- Counters that are 0 are missing: `option omit_zero_values '1'` leaves them out.
-- What the scrape says of itself: `node_scrape_collector_success` 0 for a failure, `node_scrape_collector_observing` 0 for nothing to observe, `node_scrape_collector_duration_seconds` for the time each took.
+- **A name differs from the feed's exporters**: see [Renamed metrics](../metrics.md).
+- **A label is missing**: a collector leaves out a label it has no value for.
+- **Counters that are 0 are missing**: `option omit_zero_values '1'` leaves them out.
+- **To see how the scrape went**, read what each collector reports about itself: `node_scrape_collector_success` is 0 for a failure, `node_scrape_collector_observing` is 0 for nothing to observe, and `node_scrape_collector_duration_seconds` is the time each took.
+
+This query alerts on a failing collector, and ignores one with nothing to observe:
 
 ```promql
 node_scrape_collector_success == 0
 ```
 
-alerts on a failing collector, and leaves alone one with nothing to observe. The bundled rules alert on it and on the rest of the exporter's health: see [How to monitor a router with the bundled dashboards and alerts](dashboards-and-alerts.md#what-each-alert-means).
+The bundled rules alert on it, and on the rest of the exporter's health: see [How to monitor a router with the bundled dashboards and alerts](dashboards-and-alerts.md#what-each-alert-means).
