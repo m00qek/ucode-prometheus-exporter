@@ -453,6 +453,9 @@ One collection of the whole heap in a fresh child takes 1.7 ms and 104 faults in
 
 A budget holds `ledger:full` under 4,000 turns of the VM's loop on any machine: it is 3,400 to 3,700 now, and was 4,050 to 4,400.
 
+**A run's checks.** The recorder checks a sample's label values with one match and one `index()` over all of them, joined. That is 12 µs of a sample's 77 on the AX835 (0.9 of 5.5 in the devenv), and a check of a run's text at its end would save it. But a sample Prometheus would refuse stops its collector at once, and the collector can see that: `out` throws there (see [Collector interface](../reference/collector-interface.md#out)). Checked at the end, the collector would run on. So each sample is still checked as it is written. A batch's rows checked in one pass, their values joined as its names and HELP texts are, saved nothing: rows with labels took 112 µs each on the AX835 either way, and rows without took 65 µs where they take 57.
+
+
 
 
 
