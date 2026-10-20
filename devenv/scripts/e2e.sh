@@ -20,7 +20,19 @@ COLLECTORS_DIR=/usr/share/ucode/prometheus/collectors
 failures=0
 
 pass() { echo "ok   $*"; }
-fail() { echo "FAIL $*"; failures=$((failures + 1)); }
+fail() { echo "FAIL $*"; failures=$((failures + 1)); [ "$failures" -eq 1 ] && first_failure; }
+# What rpcd, ubusd and procd were doing at the first failure.
+first_failure() {
+	echo "info first failure: rpcd $(pidof rpcd) ubusd $(pidof ubusd)"
+	for p in $(pidof rpcd) $(pidof ubusd); do
+		echo "info   $p: $(tr '\0' ' ' </proc/$p/cmdline) state $(sed -n 's/^State:\t//p' /proc/$p/status) wchan $(cat /proc/$p/wchan 2>/dev/null) fds $(ls /proc/$p/fd | wc -l)"
+	done
+	echo "info   password: $(ubus -t 5 call $NAME password 2>&1 | tr '\n' ' ')"
+	echo "info   rc list: $(ubus -t 5 call rc list 2>&1 | head -c 120 | tr '\n' ' ')"
+	echo "info   objects: $(ubus list 2>&1 | tr '\n' ' ' | head -c 400)"
+	logread | grep -iE 'rpcd|ubusd|segfault|exception|error' | tail -25 | sed 's/^/info   log: /'
+	dmesg 2>/dev/null | tail -5 | sed 's/^/info   dmesg: /'
+}
 # A check the host cannot run, as a CI runner whose kernel or hardware lacks
 # what it needs: said, and not counted.
 skip() { echo "skip $*"; }
