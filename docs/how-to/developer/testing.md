@@ -44,6 +44,8 @@ make e2e
 
 This boots OpenWrt in a privileged container, without network. It checks the service in its jail while packages are installed and removed and the configuration changes. It needs Docker to allow privileged containers.
 
+A check the host cannot run prints `skip`, with why, and is not counted: on a kernel without `/proc/net/nf_conntrack` (Ubuntu's, as GitHub's runners have), on a machine without a hwmon chip, where chronyd cannot start, and, on 25.12.0's rpcd, every check of the ubus object's `status`. `make package-check` skips its `status` checks there too.
+
 ## The LuCI app
 
 ```bash

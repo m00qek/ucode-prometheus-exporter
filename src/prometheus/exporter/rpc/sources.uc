@@ -313,19 +313,41 @@ function ask(state, name, done) {
 	}
 }
 
+function ask_now(state, names) {
+	let lists = {};
+
+	for (let name in names) {
+		let data = state.conn.call('service', 'list', { name });
+
+		if (data == null) {
+			let why = state.conn.error() ?? 'Connection failed';
+
+			state.conn = null;
+			return failed(errors.UBUS_CALL_FAILED, `service list ${name}: ${why}`);
+		}
+
+		lists[name] = data;
+	}
+
+	return time_daemons(lists);
+}
+
 /**
- * Asks procd for the `service list` of each of TIME_DAEMONS, without waiting on it, and replies time_daemons() of them.
+ * Asks procd for the `service list` of each of TIME_DAEMONS, without waiting on it, and replies time_daemons() of them; where the request has no defer(), as 25.12.0's rpcd gives it, waits for procd, at most PROCD_SECONDS a call, and returns that reply.
  *
  * @param {{ conn: ?UbusConnection }} state the connection the calls go over, made again when it fails.
  * @param {function(?string, int): ?UbusConnection} connect ubus's connect(socket, timeout).
  * @param {RpcRequest} req the request, which defer() holds until procd answers, at most PROCD_SECONDS.
- * @returns {*} req.defer()'s, or { error, message } without a connection.
+ * @returns {*} req.defer()'s, the reply without defer(), or { error, message } without a connection.
  */
 export function ask_time_daemons(state, connect, req) {
 	state.conn ??= connect(null, PROCD_SECONDS);
 
 	if (state.conn == null)
 		return failed(errors.UBUS_CONNECT_FAILED, 'cannot connect to ubus');
+
+	if (type(req.defer) != 'function')
+		return ask_now(state, keys(TIME_DAEMONS));
 
 	let names = keys(TIME_DAEMONS);
 	let lists = {}, left = length(names), failure = null;

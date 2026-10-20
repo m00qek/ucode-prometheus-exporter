@@ -21,6 +21,16 @@ failures=0
 
 pass() { echo "ok   $*"; }
 fail() { echo "FAIL $*"; failures=$((failures + 1)); }
+# A check the host cannot run, as a CI runner whose kernel or hardware lacks
+# what it needs: said, and not counted.
+skip() { echo "skip $*"; }
+# rpcd's ucode plugins can defer a reply from rpcd 2026 on; 25.12.0's image has
+# rpcd 2025.12.03, whose status answers at once that rpcd must be upgraded.
+rpcd_defers() { grep -ao '[a-z_]*defer[a-z_]*' /usr/lib/rpcd/ucode.so | grep -qx defer; }
+# A check of the ubus object's status, which needs rpcd to defer its reply.
+status_check() {
+	if rpcd_defers; then check "$@"; else skip "$1: this rpcd cannot defer a reply"; fi
+}
 check() {
 	desc=$1; shift
 	if "$@" >/dev/null 2>&1; then pass "$desc"; else fail "$desc"; fi
@@ -28,12 +38,17 @@ check() {
 # Retries for up to 20 seconds: reloads come from procd's triggers, a second late.
 eventually() {
 	desc=$1; shift
+	soon "$@" && { pass "$desc"; return 0; }
+	fail "$desc"
+}
+# Whether the command succeeds within 20 seconds.
+soon() {
 	i=0
 	while [ $i -lt 20 ]; do
-		"$@" >/dev/null 2>&1 && { pass "$desc"; return 0; }
+		"$@" >/dev/null 2>&1 && return 0
 		i=$((i + 1)); sleep 1
 	done
-	fail "$desc"
+	return 1
 }
 apk_file() { echo "/artifacts/$PKG${1:+-$1}-$PKG_FULLVERSION.apk"; }
 
@@ -238,7 +253,7 @@ check "nor in what jail.uc prints" fails says "^$UBUS_SOCKET$" "$LIBEXEC/jail.uc
 check "the exporter collector is served without it" served exporter
 check "its mounts are still what jail.uc prints" mounts_match_jail
 check "check scrapes in the jail without it" says "^ok   scrape, in the service's jail: " "$INIT" check
-check "and so does the ubus object's status" jailed_status
+status_check "and so does the ubus object's status" jailed_status
 before=$(pid)
 uci delete "$NAME.timesync" && uci delete "$NAME.openwrt_interfaces"
 set_config
@@ -323,7 +338,7 @@ check "no LuCI app is installed" fails apk info -e "luci-app-$NAME"
 eventually "rpcd serves the service's ubus object" rpc collectors
 check "collectors lists every installed collector" rpc_lists_all
 check "interfaces lists netifd's interfaces, by name and protocol" rpc_interfaces_are_netifds
-check "status says it runs, where it listens, and scrapes every base collector" rpc_status_running
+status_check "status says it runs, where it listens, and scrapes every base collector" rpc_status_running
 check "validate refuses what the init script would" says 'expected an integer from 1 to 65535, got 0' \
 	rpc validate '{"main":{"listen_port":"0"}}'
 check "validate says what is wrong by its code" says '"code": "RANGE"' \
@@ -407,7 +422,13 @@ in_unbound() { grep -q "^unbound:.*[:,]$NAME\(,\|$\)" /etc/group && echo " $(of_
 all_acl() { acl_has dnsmasq metrics && acl_has 'hostapd.*' get_clients && acl_has prometheus-exporter.filesystem mounts && acl_has dhcp ipv4leases &&
 	acl_has $NAME wireless && acl_has $NAME time_daemons; }
 check "uhttpd has CAP_NET_ADMIN alone, for nft-counters" caps_are 0000000000001000
-check "nat_traffic's table is the service's group's to read" test "$(owned /proc/net/nf_conntrack)" = "-r--r----- root $NAME"
+# Ubuntu's kernels, as GitHub's runners have, leave out /proc/net/nf_conntrack
+# (CONFIG_NF_CONNTRACK_PROCFS): nat_traffic then has nothing to observe.
+if [ -e /proc/net/nf_conntrack ]; then
+	check "nat_traffic's table is the service's group's to read" test "$(owned /proc/net/nf_conntrack)" = "-r--r----- root $NAME"
+else
+	skip "nat_traffic's table is the service's group's to read: the host's kernel has no /proc/net/nf_conntrack"
+fi
 check "nat_traffic reads it in the jail" served nat_traffic
 check "the user is in unbound's group, and uhttpd with it" in_unbound
 check "the configs the jail mounts are the group's to read" test "$(owned /etc/config/dhcp) $(owned /etc/config/chrony)" = "-rw-r----- root $NAME -rw-r----- root $NAME"
@@ -451,8 +472,12 @@ check "with PERMISSION_DENIED, naming the ACL" says "collector 'openwrt': PERMIS
 check "and dnsmasq, which would have nothing to observe if it took that for its service's absence" says "collector 'dnsmasq': PERMISSION_DENIED" code_of dnsmasq
 "$INIT" reload
 eventually "a reload writes it again" served openwrt
-chgrp root /proc/net/nf_conntrack
-eventually "without read access to its table, nat_traffic fails" says "collector 'nat_traffic': PERMISSION_DENIED (/proc/net/nf_conntrack: the service's group may not read it" code_of nat_traffic
+if [ -e /proc/net/nf_conntrack ]; then
+	chgrp root /proc/net/nf_conntrack
+	eventually "without read access to its table, nat_traffic fails" says "collector 'nat_traffic': PERMISSION_DENIED (/proc/net/nf_conntrack: the service's group may not read it" code_of nat_traffic
+else
+	skip "without read access to its table, nat_traffic fails: the host's kernel has no /proc/net/nf_conntrack"
+fi
 "$INIT" reload
 eventually "a reload gives it again" served nat_traffic
 mv "/var/run/$NAME/capabilities.json" /tmp/e2e-caps.json
@@ -468,6 +493,11 @@ check "with it the scrape has the counters" says '^nft_counter_packets_total{' "
 # WireGuard interface is set up. The exporter's own samples are counted
 # after it, not in what it writes.
 MAY_BE_EMPTY="dhcp_leases ethtool qdisc wireguard exporter"
+# A virtual machine, as GitHub's runners are, may have no sensor at all.
+if [ -z "$(ls /sys/class/hwmon 2>/dev/null)" ]; then
+	MAY_BE_EMPTY="$MAY_BE_EMPTY hwmon"
+	skip "hwmon writes samples: the host has no hwmon chip"
+fi
 # The collectors that succeed, observing, and wrote no sample, in this scrape.
 silent() {
 	fetch | ucode -e '
@@ -549,7 +579,7 @@ check "wifi, without a radio here, succeeds" served wifi
 check "with nothing to observe" observing wifi 0
 check "and writes no sample" fails metric 'node_wifi_'
 check "check says why" says '^ok   scrape: wifi has nothing to observe: no wireless radios$' "$INIT" check
-check "and so does the ubus object's status" is_reason wifi 'no wireless radios'
+status_check "and so does the ubus object's status" is_reason wifi 'no wireless radios'
 check "modemmanager asks ModemManager, which lists no modem" says '^ok   scrape: modemmanager has nothing to observe: ModemManager lists no modems$' "$INIT" check
 
 # --- diskstats, sockstat and hwmon: the host's kernel, read in the jail
@@ -595,14 +625,14 @@ before_logs=$(logged dnsmasq)
 fetch >/dev/null; fetch >/dev/null
 check "a scrape logs nothing of it" test "$(logged dnsmasq)" = "$before_logs"
 check "check says why" says '^ok   scrape: dnsmasq has nothing to observe: dnsmasq is disabled$' "$INIT" check
-check "and so does the ubus object's status" is_reason dnsmasq 'dnsmasq is disabled'
+status_check "and so does the ubus object's status" is_reason dnsmasq 'dnsmasq is disabled'
 /etc/init.d/dnsmasq enable
 failing_dnsmasq() { metric 'node_scrape_collector_success{collector="dnsmasq"} 0$'; }
 eventually "enabled and still stopped, dnsmasq fails" failing_dnsmasq
 check "observing it, and failing" observing dnsmasq 1
 check "logged at warning" says "daemon.warn $NAME\[[0-9]*\]: collector 'dnsmasq': UBUS_CALL_FAILED (dnsmasq metrics: Not found" logread
 check "check says why" says '^warn scrape: dnsmasq: UBUS_CALL_FAILED (dnsmasq metrics: Not found' "$INIT" check
-check "and the ubus object's status gives no reason" is_reason dnsmasq ''
+status_check "and the ubus object's status gives no reason" is_reason dnsmasq ''
 /etc/init.d/dnsmasq start
 eventually "started again, dnsmasq is read again" metric 'dnsmasq_'
 check "and succeeds" served dnsmasq
@@ -613,23 +643,30 @@ check "chronyd disabled, chrony has nothing to observe" observing chrony 0
 check "check says why" says '^ok   scrape: chrony has nothing to observe: chronyd is disabled$' "$INIT" check
 /etc/init.d/chronyd enable
 /etc/init.d/chronyd start
-eventually "chronyd starts" chronyc -c tracking
-eventually "chrony reads chronyd in the jail" metric 'chrony_tracking_stratum 0$'
-check "observing it" observing chrony 1
-check "its tracking, unsynchronized" metric 'chrony_tracking_info{tracking_address="",tracking_name="",tracking_refid="00000000"} 1$'
-check "but no serverstats in the jail, which gives chronyc no command socket" fails metric 'chrony_serverstats_'
-check "nor in the command line's scrape, which runs in the service's jail too" fails says '^chrony_serverstats_' "$NAME" scrape chrony
-check "timesync says chronyd is not synchronized, running chronyc in the jail" metric 'node_timesync_synchronized{daemon="chronyd"} 0$'
-check "beside busybox ntpd" metric 'node_timesync_synchronized{daemon="ntpd"} '
-/etc/init.d/chronyd stop
-failing() { metric "node_scrape_collector_success{collector=\"$1\"} 0$"; }
-eventually "enabled and stopped, chronyd fails chrony" failing chrony
-# One scrape, before three failures in a row quarantine them.
-fetch >/tmp/chrony_down
-check "observing it" grep -qx 'node_scrape_collector_observing{collector="chrony"} 1' /tmp/chrony_down
-check "logged at warning" says "daemon.warn $NAME\[[0-9]*\]: collector 'chrony': COMMAND_FAILED (chronyc: exit status 1)" logread
-check "and timesync" grep -qx 'node_scrape_collector_success{collector="timesync"} 0' /tmp/chrony_down
-check "which still says what busybox ntpd does" grep -q '^node_timesync_synchronized{daemon="ntpd"} ' /tmp/chrony_down
+# chronyd needs to adjust the clock, which a CI runner's container may not
+# let it: its checks are then skipped, with what it logged.
+if soon chronyc -c tracking; then
+	pass "chronyd starts"
+	eventually "chrony reads chronyd in the jail" metric 'chrony_tracking_stratum 0$'
+	check "observing it" observing chrony 1
+	check "its tracking, unsynchronized" metric 'chrony_tracking_info{tracking_address="",tracking_name="",tracking_refid="00000000"} 1$'
+	check "but no serverstats in the jail, which gives chronyc no command socket" fails metric 'chrony_serverstats_'
+	check "nor in the command line's scrape, which runs in the service's jail too" fails says '^chrony_serverstats_' "$NAME" scrape chrony
+	check "timesync says chronyd is not synchronized, running chronyc in the jail" metric 'node_timesync_synchronized{daemon="chronyd"} 0$'
+	check "beside busybox ntpd" metric 'node_timesync_synchronized{daemon="ntpd"} '
+	/etc/init.d/chronyd stop
+	failing() { metric "node_scrape_collector_success{collector=\"$1\"} 0$"; }
+	eventually "enabled and stopped, chronyd fails chrony" failing chrony
+	# One scrape, before three failures in a row quarantine them.
+	fetch >/tmp/chrony_down
+	check "observing it" grep -qx 'node_scrape_collector_observing{collector="chrony"} 1' /tmp/chrony_down
+	check "logged at warning" says "daemon.warn $NAME\[[0-9]*\]: collector 'chrony': COMMAND_FAILED (chronyc: exit status 1)" logread
+	check "and timesync" grep -qx 'node_scrape_collector_success{collector="timesync"} 0' /tmp/chrony_down
+	check "which still says what busybox ntpd does" grep -q '^node_timesync_synchronized{daemon="ntpd"} ' /tmp/chrony_down
+else
+	skip "chronyd starts, and chrony and timesync read it: chronyd does not start on this host ($(logread -e chronyd | tail -2 | tr '\n' ' '))"
+	/etc/init.d/chronyd stop
+fi
 /etc/init.d/chronyd disable
 eventually "disabled again, chrony has nothing to observe" observing chrony 0
 eventually "and timesync observes busybox ntpd alone" served timesync
@@ -724,7 +761,7 @@ check "serving the others" grep -qx 'node_scrape_collector_success{collector="lo
 check "check says the service quarantined it, why, and when it tries again" \
 	says '^warn service: ubnt-manager is quarantined: COMMAND_TIMEOUT (ubnt-manager: still running after 5 s, killed); the service tries it again' "$INIT" check
 service_quarantined() { rpc status | jsonfilter -e "@.collectors[@.name='ubnt-manager'].service.quarantined" | grep -qx true; }
-check "so does the ubus object's status" service_quarantined
+status_check "so does the ubus object's status" service_quarantined
 check "the ledger is the instance's, in the state directory" test -s "$(ls "$STATE"/*.scrape)"
 ledger=$(ls "$STATE"/*.scrape)
 "$INIT" restart
@@ -879,35 +916,42 @@ grep -q 'ucode_prometheus_exporter_collector_quarantined{collector="e2e_slow"} 1
 # The ubus object's status, with a collector that never returns: each run
 # is stopped by its scrape's deadline, so a page refreshed again and again
 # leaves no helper behind.
-helpers() { ps w | grep -c -e '[r]pc-status.uc' -e '[t]rial.uc'; }
-started=$(date +%s)
-for i in 1 2 3; do ubus -t 60 call "$NAME" status >/tmp/status$i.json 2>/dev/null & sleep 1; done
-# The status helpers running: ucode processes of rpc-status.uc but those its
-# scrape forked, which have its command line.
-status_runs() {
-	for p in $(pgrep -f 'rpc-status.uc'); do
-		case "$(tr '\0' ' ' </proc/$p/cmdline 2>/dev/null)" in *ucode*rpc-status.uc*) ;; *) continue ;; esac
-		pp=$(cut -d' ' -f4 /proc/$p/stat 2>/dev/null)
-		case "$(tr '\0' ' ' </proc/$pp/cmdline 2>/dev/null)" in *ucode*rpc-status.uc*) ;; *) echo "$p" ;; esac
-	done | wc -l
-}
-most=0
-most_status=0
-while [ "$(helpers)" -gt 0 ] && [ $(($(date +%s) - started)) -lt 40 ]; do
-	n=$(helpers); [ "$n" -le "$most" ] || most=$n
-	n=$(status_runs); [ "$n" -le "$most_status" ] || most_status=$n
-	sleep 1
-done
-wait
-took=$(($(date +%s) - started))
-echo "info three status calls 1 s apart, with e2e_slow looping: $took s, at most $most processes of theirs at once (helpers, ujail, their children)"
-check "status helpers end within the scrape's time ($took s), none left" test "$(helpers)" -eq 0 -a "$took" -lt 25
-check "each status call answered, scraping in the jail" sh -c 'for i in 1 2 3; do jsonfilter -i /tmp/status$i.json -e "@.jailed" | grep -qx true || exit 1; done'
-check "saying e2e_slow failed" sh -c "jsonfilter -i /tmp/status1.json -e \"@.collectors[@.name='e2e_slow'].success\" | grep -qx false"
-# A read-only login may call status again and again: one runs at a time, and
-# the calls made meanwhile get its reply.
-check "one status scrape ran at a time ($most_status at most)" test "$most_status" -eq 1
-check "and the calls made while it ran got its reply" sh -c 'cmp -s /tmp/status2.json /tmp/status3.json'
+if rpcd_defers; then
+	helpers() { ps w | grep -c -e '[r]pc-status.uc' -e '[t]rial.uc'; }
+	started=$(date +%s)
+	for i in 1 2 3; do ubus -t 60 call "$NAME" status >/tmp/status$i.json 2>/dev/null & sleep 1; done
+	# The status helpers running: ucode processes of rpc-status.uc but those its
+	# scrape forked, which have its command line.
+	status_runs() {
+		for p in $(pgrep -f 'rpc-status.uc'); do
+			case "$(tr '\0' ' ' </proc/$p/cmdline 2>/dev/null)" in *ucode*rpc-status.uc*) ;; *) continue ;; esac
+			pp=$(cut -d' ' -f4 /proc/$p/stat 2>/dev/null)
+			case "$(tr '\0' ' ' </proc/$pp/cmdline 2>/dev/null)" in *ucode*rpc-status.uc*) ;; *) echo "$p" ;; esac
+		done | wc -l
+	}
+	most=0
+	most_status=0
+	while [ "$(helpers)" -gt 0 ] && [ $(($(date +%s) - started)) -lt 40 ]; do
+		n=$(helpers); [ "$n" -le "$most" ] || most=$n
+		n=$(status_runs); [ "$n" -le "$most_status" ] || most_status=$n
+		sleep 1
+	done
+	wait
+	took=$(($(date +%s) - started))
+	echo "info three status calls 1 s apart, with e2e_slow looping: $took s, at most $most processes of theirs at once (helpers, ujail, their children)"
+	check "status helpers end within the scrape's time ($took s), none left" test "$(helpers)" -eq 0 -a "$took" -lt 25
+	check "each status call answered, scraping in the jail" sh -c 'for i in 1 2 3; do jsonfilter -i /tmp/status$i.json -e "@.jailed" | grep -qx true || exit 1; done'
+	check "saying e2e_slow failed" sh -c "jsonfilter -i /tmp/status1.json -e \"@.collectors[@.name='e2e_slow'].success\" | grep -qx false"
+	# A read-only login may call status again and again: one runs at a time, and
+	# the calls made meanwhile get its reply.
+	check "one status scrape ran at a time ($most_status at most)" test "$most_status" -eq 1
+	check "and the calls made while it ran got its reply" sh -c 'cmp -s /tmp/status2.json /tmp/status3.json'
+else
+	skip "three status calls, one scrape at a time: this rpcd cannot defer a reply"
+	status_now=$(ubus -t 30 call "$NAME" status 2>/dev/null)
+	says_upgrade() { echo "$status_now" | grep -q 'apk upgrade rpcd rpcd-mod-ucode'; }
+	check "status says to upgrade rpcd, which cannot defer its reply" says_upgrade
+fi
 
 # Gone again.
 rm -f "$DIR"/e2e_*.uc /var/prometheus/e2e-fifo.prom
@@ -1151,7 +1195,7 @@ eventually "which serves with it" logs_in
 check "plain HTTP is not served" fails wget -q -O /dev/null "$URL"
 check "check says basic auth is on, and for whom" says 'ok   main: HTTPS on interface loopback, port 9100, .*basic auth as user "prom"' "$INIT" check
 check "status says it" says '^listening on https://127.0.0.1:9100/metrics, basic auth, gzip when asked, serving' "$INIT" status
-check "so does the ubus object's status" auth_true
+status_check "so does the ubus object's status" auth_true
 check "the hash is in no reply of the ubus object, nor in check, status or the log" no_hash_in secret_free
 # The hash, apart from the exporter's config, which LuCI's ACL lets a login read.
 check "the hash is in its own config, mode 0600" sh -c "grep -qF '$HASH' $AUTH_CONFIG && ls -l $AUTH_CONFIG | grep -q '^-rw------- '"
@@ -1304,7 +1348,7 @@ check "status says where it listens and what it serves" \
 check "info shows the jail" says '"jail"' "$INIT" info
 check "and its user" says '"user": "prometheus-exporter"' "$INIT" info
 check "check says the jail's user and its ubus ACL" says "^jail user: $NAME, capabilities: CAP_NET_ADMIN$" "$INIT" check
-check "the ubus object's status scrapes in the jail too, as the user, with its capability" sh -c \
+status_check "the ubus object's status scrapes in the jail too, as the user, with its capability" sh -c \
 	"ubus -t 30 call $NAME status | jsonfilter -e \"@.collectors[@.name='nft-counters'].success\" | grep -qx true"
 set_config "$NAME.main.enabled=0"
 eventually "disabling the service stops it" fails "$INIT" running

@@ -302,6 +302,33 @@ describe('rpc.sources.ask_time_daemons', () => {
 			sources.ask_time_daemons({ conn: null }, () => null, req));
 		assert.match([], req.replies);
 	});
+
+	// 25.12.0's rpcd gives its ucode plugins requests without defer().
+	it('waits for procd, and returns the reply, where the request has no defer()', () => {
+		let calls = [];
+		let conn = {
+			call: function(object, method, args) {
+				push(calls, [ object, method, args ]);
+				return (args.name == 'sysntpd') ? fixtures.ubus('caju-ap', 'service.list', 'sysntpd') : {};
+			},
+			error: () => null,
+		};
+
+		assert.match([ { running: { sysntpd: true, chronyd: false } }, [ [ 'service', 'list', { name: 'sysntpd' } ], [ 'service', 'list', { name: 'chronyd' } ] ] ],
+			[ sources.ask_time_daemons({ conn: null }, () => conn, { reply: () => die('replied') }), calls ]);
+	});
+
+	it('returns UBUS_CALL_FAILED when procd does not answer a request without defer(), and connects again for the next', () => {
+		let made = 0, state = { conn: null };
+		let connect = function() {
+			made++;
+			return { call: () => null, error: () => 'Request timed out' };
+		};
+
+		assert.match({ error: 'UBUS_CALL_FAILED', message: 'service list sysntpd: Request timed out' }, sources.ask_time_daemons(state, connect, {}));
+		sources.ask_time_daemons(state, connect, {});
+		assert.match(2, made);
+	});
 });
 
 describe('rpc.sources.methods', () => {

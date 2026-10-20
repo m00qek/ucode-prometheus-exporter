@@ -375,6 +375,16 @@ describe('rpc.shared_json, and status', () => {
 		assert.match({ error: rpc.STATUS_FAILED, message: 'cannot run x' }, rpc.shared_json(run, t.req('a'), t.io, 'x', 'x'));
 		assert.match(null, run.waiting);
 	});
+
+	// 25.12.0's rpcd gives its ucode plugins requests without defer(): waiting
+	// for the scrape would hold rpcd, which its collectors call.
+	it('without defer(), runs nothing, and says to upgrade rpcd', () => {
+		let t = setup();
+		let m = rpc.methods(() => die('no sys'), t.io);
+
+		assert.match([ { error: rpc.STATUS_FAILED, message: rpc.NO_DEFER }, 0 ], [ m.status.call({ args: {} }), length(t.commands) ]);
+		assert.match(true, index(rpc.NO_DEFER, 'apk upgrade rpcd rpcd-mod-ucode') > 0);
+	});
 });
 
 describe('rpc.deferred_json', () => {

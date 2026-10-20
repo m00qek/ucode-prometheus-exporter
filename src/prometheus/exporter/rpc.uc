@@ -53,7 +53,7 @@ import { invalid_args } from 'prometheus.exporter.rpc.validate';
 /**
  * A request of rpcd's ucode plugins.
  *
- * @typedef {{ args: ?Object, reply: function(Object): void, defer: function(): Object }} RpcRequest
+ * @typedef {{ args: ?Object, reply: function(Object): void, defer: ?function(): Object }} RpcRequest
  */
 
 /**
@@ -145,6 +145,13 @@ export const RC_DIR = '/etc/rc.d';
  * @type {string}
  */
 export const STATUS_FAILED = 'STATUS_FAILED';
+
+/**
+ * STATUS_FAILED's message where rpcd cannot defer a reply, as 25.12.0's rpcd 2025.12.03: waiting for the scrape would hold rpcd, which the collectors call.
+ *
+ * @type {string}
+ */
+export const NO_DEFER = 'this rpcd cannot answer a call later, and waiting for the scrape would hold it from the collectors\' calls to it: upgrade it (apk upgrade rpcd rpcd-mod-ucode)';
 
 /**
  * Whether the service is enabled and running, and where it listens.
@@ -396,7 +403,7 @@ export function deferred_json(req, io, command, name, parse) {
 };
 
 /**
- * deferred_json, one run at a time: a call while `run` is running waits for it, and gets its reply.
+ * deferred_json, one run at a time: a call while `run` is running waits for it, and gets its reply; without defer(), as 25.12.0's rpcd gives requests, STATUS_FAILED saying to upgrade rpcd.
  *
  * @param {{ waiting: ?RpcRequest[] }} run the method's run; waiting, the calls that get its reply.
  * @param {RpcRequest} req the request.
@@ -406,6 +413,9 @@ export function deferred_json(req, io, command, name, parse) {
  * @returns {Object} req.defer()'s, or { error: STATUS_FAILED, message }.
  */
 export function shared_json(run, req, io, command, name) {
+	if (type(req.defer) != 'function')
+		return { error: STATUS_FAILED, message: NO_DEFER };
+
 	if (run.waiting != null) {
 		push(run.waiting, req);
 		return req.defer();

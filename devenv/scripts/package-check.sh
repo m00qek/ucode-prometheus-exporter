@@ -213,10 +213,17 @@ check "validate refuses what the init script would" sh -c \
 hashes() { ubus -t 30 call "$NAME" hash_password '{"password":"pkg-secret"}' | jsonfilter -e '@.hash' | grep -q '^\$6\$rounds=1000\$'; }
 check "hash_password hashes a password, as SHA-512-crypt" hashes
 # No procd here: status says so, and still scrapes, in a process of its own.
+# rpcd's ucode plugins can defer a reply from rpcd 2026 on; 25.12.0's image has
+# rpcd 2025.12.03, whose status answers at once that rpcd must be upgraded.
 reply=$(ubus -t 30 call "$NAME" status 2>/dev/null)
-check "status scrapes every enabled collector" test "$(collectors_in "$reply")" -eq "$(installed)"
-status_unknown() { echo "$reply" | grep -q '"running": null'; }
-check "status says when procd cannot be asked" status_unknown
+if grep -ao '[a-z_]*defer[a-z_]*' /usr/lib/rpcd/ucode.so | grep -qx defer; then
+	check "status scrapes every enabled collector" test "$(collectors_in "$reply")" -eq "$(installed)"
+	status_unknown() { echo "$reply" | grep -q '"running": null'; }
+	check "status says when procd cannot be asked" status_unknown
+else
+	says_upgrade() { echo "$reply" | grep -q 'apk upgrade rpcd rpcd-mod-ucode'; }
+	check "status says to upgrade rpcd, which cannot defer its reply" says_upgrade
+fi
 # netifd's stand-in answers the caju router's interfaces: their names and
 # protocols, and nothing else.
 interfaces_are_netifds() {

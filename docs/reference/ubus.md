@@ -142,6 +142,13 @@ rpcd runs the scrape in a process of its own, `/usr/libexec/prometheus-exporter/
 
 One scrape runs at a time. A call made while one runs waits for it, and gets its reply. So repeated calls, such as from a page being refreshed, never run more than one scrape at once.
 
+rpcd answers `status` later, once the scrape is done: a ucode plugin's `defer()`, which rpcd has from its 2026 releases. 25.12.0's image has rpcd 2025.12.03, without it. Waiting for the scrape there would hold rpcd, and the scrape's collectors call rpcd's objects. So on that rpcd, `status` runs nothing, and answers `STATUS_FAILED` at once, saying to upgrade it:
+
+```sh
+apk update
+apk upgrade rpcd rpcd-mod-ucode
+```
+
 | Field | Type | Content |
 | :--- | :--- | :--- |
 | `service.enabled` | boolean or null | `option enabled` of the main section; null when that section is not valid. |
@@ -261,7 +268,7 @@ The collectors learn whether each interface is there from nl80211, and whether i
 
 rpcd keeps the last reply of `wireless`. It gives the same reply again while the phys and the two configs' files (their inode, size and times) are unchanged. A scrape calls `wireless` twice, for wifi and for hostapd_stations, and the configs rarely change.
 
-`time_daemons` asks procd over a connection of its own, without waiting on it, so rpcd answers other calls meanwhile. A procd that does not answer costs the call 3 s, and never blocks rpcd.
+`time_daemons` asks procd over a connection of its own, without waiting on it, so rpcd answers other calls meanwhile. A procd that does not answer costs the call 3 s, and never blocks rpcd. An rpcd that cannot defer a reply, as 25.12.0's (see [`status`](#status)), waits for procd instead: at most 3 s for each of its two calls, during which it answers nothing else.
 
 A source that cannot be asked is answered `{ error, message }`, such as `{ "error": "UBUS_CALL_FAILED", "message": "service list sysntpd: Request timed out" }`. The collector then fails with `SOURCE_INVALID`.
 
@@ -273,6 +280,7 @@ A source that cannot be asked is answered `{ error, message }`, such as `{ "erro
 | `ARGS_INVALID` | `password: expected a password`, `password: expected a password of at most 256 bytes`, `password: expected a password without control characters` | `hash_password` or `set_password` was given a password it does not take. |
 | `FILE_UNWRITABLE` | `FILE_UNWRITABLE (cannot write /etc/config/prometheus-exporter-auth: ...)` | `set_password` could not save the hash. |
 | `STATUS_FAILED` | `cannot run /usr/libexec/prometheus-exporter/rpc-status.uc`, `... printed no reply` | `status` could not run its scrape, or the scrape printed no reply (or was killed at 60 s). |
+| `STATUS_FAILED` | `this rpcd cannot answer a call later, ...: upgrade it (apk upgrade rpcd rpcd-mod-ucode)` | `status` was called on an rpcd that cannot defer a reply, as 25.12.0's: see [`status`](#status). |
 | A [code](error-codes.md) | `CODE (detail)` | `interfaces` could not ask netifd; `hash_password` or `set_password` had no random bytes. |
 
 ubus itself refuses arguments of the wrong type, such as a string for `main`, with `Invalid argument`.
