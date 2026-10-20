@@ -39,7 +39,7 @@ git push -u origin main
     make lint
     ```
 
-Commit the change and push it to `main`. Which link goes where is in [Links to the documentation](../../reference/docs-publishing.md#links-to-the-documentation).
+Commit the change and push it to `main`. [Links to the documentation](../../reference/docs-publishing.md#links-to-the-documentation) says which link goes where.
 
 ## 3. Tag the first release
 
@@ -67,7 +67,7 @@ Doc fixes for 0.1 go through this branch: see [How to fix the docs of the releas
 
 ## Clear an unversioned deploy from `gh-pages`
 
-If `gh-pages` carries files from an earlier unversioned deploy, for example from `mkdocs gh-deploy`, remove them once: they shadow the [404 redirect](../../reference/docs-publishing.md#404-redirect) and keep serving stale pages. Do it while no `docs` workflow is running.
+If `gh-pages` carries files from an earlier unversioned deploy, for example from `mkdocs gh-deploy`, remove them once. They shadow the [404 redirect](../../reference/docs-publishing.md#404-redirect) and keep serving stale pages. Do this while no `docs` workflow is running.
 
 1. Check out `gh-pages` and list its root:
 
@@ -77,7 +77,7 @@ If `gh-pages` carries files from an earlier unversioned deploy, for example from
     git ls-tree --name-only HEAD
     ```
 
-2. Remove everything that is not part of the [versioned layout](../../reference/docs-publishing.md#site-layout): the version folders, `latest`, `versions.json`, `index.html`, `404.html` and `.nojekyll` stay.
+2. Remove everything that is not part of the [versioned layout](../../reference/docs-publishing.md#site-layout). Keep the version folders, `latest`, `versions.json`, `index.html`, `404.html` and `.nojekyll`.
 
     ```bash
     git ls-tree --name-only HEAD |
@@ -88,4 +88,4 @@ If `gh-pages` carries files from an earlier unversioned deploy, for example from
     git switch main
     ```
 
-If `gh-pages` has not been published with mike yet, publish first (step 3), so that `index.html` is mike's redirect and not the old site's home page.
+If nothing has been published to `gh-pages` with mike yet, publish first (step 3), so that `index.html` is mike's redirect and not the old site's home page.

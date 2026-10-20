@@ -1,10 +1,10 @@
 # How to Use the LuCI App
 
-`luci-app-prometheus-exporter` sets up the exporter and shows how it does, from LuCI.
+`luci-app-prometheus-exporter` lets you set up the exporter from LuCI, and see how it is doing.
 
 ## Prerequisites
 
-- `luci-app-prometheus-exporter` is installed, of the same version as the base package. After installing it, reload LuCI in the browser.
+- `luci-app-prometheus-exporter` is installed, at the same version as the base package. After installing it, reload LuCI in the browser.
 
 ---
 
@@ -14,51 +14,60 @@
     - **General**: whether it runs, where it listens, keep-alive, compression and zero values;
     - **HTTPS & login**: the TLS certificate and key, and basic auth;
     - **Limits**: the seconds programs, a scrape and a collector get.
-2. Change the fields. A value the exporter would not take is marked as you type, with why; a tab with such a field shows how many on its title.
-3. **Save & Apply**. If the exporter would refuse a value, nothing is saved: a **Save error** dialog lists what and why, each field by its tab. Press a field's name to go to it, fix it, and save again.
+2. Change the fields. As you type, the form marks a value the exporter would not take, and says why. A tab with such fields shows how many in its title.
 
-To serve the LAN, pick its interface in **Listen on**, on **General**. Basic auth needs HTTPS: on **HTTPS & login**, fill in **TLS certificate** and **TLS key** first, then **Basic auth user**, and **Save & Apply**. The password is no field of the form, and not part of Save, Save & Apply or Revert: as LuCI's own router password, it is changed apart, and at once.
+    ![The General tab of Services → Prometheus exporter: Enable, Listen on, Port, Keep-alive, Compress and Leave out zero values, above Save & Apply](img/luci-general.png)
+
+3. Press **Save & Apply**. If the exporter would refuse a value, nothing is saved. A **Save error** dialog lists each problem and why, with each field under its tab. Press a field's name to go to it, fix it, and save again.
+
+To serve the LAN, pick its interface in **Listen on**, on **General**.
+
+Basic auth needs HTTPS. On **HTTPS & login**, fill in **TLS certificate** and **TLS key** first, then **Basic auth user**, and press **Save & Apply**. The password is not a field of the form, and Save, Save & Apply and Revert do not touch it. As with LuCI's own router password, you change it separately, and the change applies at once.
 
 ## Change basic auth's password
 
-1. On **HTTPS & login**, **Basic auth password** says whether one is saved: **Set** or **Not set**. Press **Change password…**: it needs **TLS certificate** and **TLS key** filled in.
+1. On **HTTPS & login**, **Basic auth password** says whether a password is saved: **Set** or **Not set**. Press **Change password…**. It needs **TLS certificate** and **TLS key** filled in.
 2. Type the new password in **New password** and again in **Confirmation**, and press **Change password**.
-3. The hash is saved at once, and the exporter reloads with it: give every scraper the new password. The password itself is never stored, and the page never sees the hash.
+3. The hash is saved at once, and the exporter reloads with it. Give every scraper the new password. The password itself is never stored, and the page never sees the hash.
 
-To take basic auth away, empty **Basic auth user** and **Save & Apply**: a saved password is then unused. **Remove password** removes it too, once the user is empty; it is applied at once, as a change is.
+To turn basic auth off, empty **Basic auth user** and press **Save & Apply**. A saved password is then unused. Once the user is empty, **Remove password** also removes the password. Like a change, the removal applies at once.
 
 ## Switch a collector off or on
 
-1. Open the **Collectors** tab. The collectors are listed by title; above them, how many are switched on.
+1. Open the **Collectors** tab. It lists the collectors by title, and above them, how many are switched on.
+
+    ![The Collectors tab: how many collectors are enabled, then a row per collector with its title, package, Enabled checkbox and Edit button](img/luci-collectors.png)
 2. Untick the collector to stop serving its metrics, or tick it to serve them again.
-3. **Save & Apply**.
+3. Press **Save & Apply**.
 
 ## Set a collector's options
 
-1. On the **Collectors** tab, press **Edit** on the collector's row. The dialog shows its options, and for a collector that runs programs, the seconds they get; below, what it reads and runs, and what its jail mounts.
+1. On the **Collectors** tab, press **Edit** on the collector's row. The dialog shows the collector's options, and, if it runs programs, the seconds they get. Below them, it shows what the collector reads and runs, and what its jail mounts.
 2. Change the fields, and press **Save**. The values are staged, not applied: they show among LuCI's unsaved changes.
-3. **Save & Apply** on the page.
+3. Press **Save & Apply** on the page.
 
-**Dismiss**, or Escape, drops what the dialog changed.
+**Dismiss**, or Escape, drops the dialog's changes.
 
 ## See how the exporter does
 
-1. Open **Status → Prometheus exporter**. The page runs each enabled collector once on the router, a test run, and shows:
-    - a banner, above the tables, for what needs attention: the exporter enabled but not running, collectors that failed, collectors the service quarantined;
-    - whether the service runs, is enabled and starts at boot, and where it serves `/metrics`;
-    - each collector, failed ones first: in **Test run**, **OK**, **Failed** with why and its error code, *Nothing to observe* with why, or *Not run: switched off*; in **Service's scrapes**, whether the service quarantined it or its deadline left it out lately.
+1. Open **Status → Prometheus exporter**. The page runs each enabled collector once on the router, as a test run. It shows:
+    - A banner above the tables, for what needs attention: the exporter is enabled but not running, collectors failed, or the service quarantined collectors.
+    - Whether the service runs, is enabled and starts at boot, and where it serves `/metrics`.
+    - Each collector, failed ones first. **Test run** says **OK**, **Failed** with why and its error code, *Nothing to observe* with why, or *Not run: switched off*. **Service's scrapes** says whether the service quarantined the collector, or its deadline left the collector out lately.
+
+    ![Status → Prometheus exporter: the Service table, with State Running and the Metrics address, then the Collectors table with each collector's Test run and Duration](img/luci-status.png)
 2. If the banner says the exporter is enabled but not running, press **System → Startup** to start it, or **System log** to see why it stopped.
-3. If a collector failed, its error code links to what it means. See [How to troubleshoot](troubleshoot.md).
+3. If a collector failed, its error code links to what the code means. See [How to troubleshoot](troubleshoot.md).
 4. **Refresh** runs the test run again.
 
-The test run is not the service's: it runs outside the service's jail and without its scrape deadline. A collector that is OK in **Test run** and failing in Prometheus lacks something in the jail, or is quarantined or left out by the service, as **Service's scrapes** says: see [How to troubleshoot](troubleshoot.md).
+The test run is not one of the service's scrapes. It is a scrape of its own, in a jail like the service's and with the same deadline, so its results can differ from what Prometheus gets. If a collector is OK in **Test run** but fails in Prometheus, the service quarantined it or left it out, as **Service's scrapes** says. See [How to troubleshoot](troubleshoot.md).
 
 ## If a page says the ubus object is not available
 
-The pages talk to the exporter through its ubus object, which rpcd serves. While rpcd reloads, or the package is being upgraded, it is not there: the pages say so, and the settings are read-only. Reload the page in a moment. If it stays, check that rpcd runs and loaded the object: `ubus list prometheus-exporter`.
+The pages talk to the exporter through its ubus object, which rpcd serves. The object is missing while rpcd reloads, or while the package is being upgraded. The pages then say so, and the settings are read-only. Reload the page in a moment. If the message stays, check that rpcd runs and loaded the object: `ubus list prometheus-exporter`.
 
 ---
 
 ## Let another user in
 
-The app's ACL is `luci-app-prometheus-exporter`. A LuCI user granted it reads and writes `/etc/config/prometheus-exporter` and calls the exporter's ubus object, and nothing else; read access alone shows the pages, and a collector's options under **Edit**, without saving. See [LuCI app](../reference/luci.md#acl).
+The app's ACL is `luci-app-prometheus-exporter`. A LuCI user granted it can read and write `/etc/config/prometheus-exporter` and call the exporter's ubus object, and nothing else. With read access alone, the user sees the pages and a collector's options under **Edit**, but cannot save. See [LuCI app](../reference/luci.md#acl).

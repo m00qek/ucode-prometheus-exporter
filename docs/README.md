@@ -18,11 +18,11 @@ make docs-gen            # Write the generated reference pages (from the reposit
 
 ## Generated pages
 
-`reference/collectors.md`, `reference/metrics.md`, `reference/uci-config.md`, `reference/error-codes.md`, `reference/command.md` and `reference/migration.md` are written by `make docs-gen` from the code, with `gen/notes.uc` for what the code does not say, and `gen/migration.md`, `gen/migration.uc` and `gen/feed-exporters.json` (`make feed-inventory`) for the migration page. Never edit them by hand: `make lint` fails while one is out of date. See [how-to/developer/documentation.md](how-to/developer/documentation.md).
+`make docs-gen` writes `reference/collectors.md`, `reference/metrics.md`, `reference/uci-config.md`, `reference/error-codes.md`, `reference/command.md` and `reference/migration.md` from the code. It also reads `gen/notes.uc` for what the code does not say, and `gen/migration.md`, `gen/migration.uc` and `gen/feed-exporters.json` (`make feed-inventory`) for the migration page. Never edit these pages by hand: `make lint` fails while one is out of date. See [how-to/developer/documentation.md](how-to/developer/documentation.md).
 
 ## Publishing
 
-The site is published per minor release with mike (`/X.Y/`, `/latest/`), from release tags and `docs/X.Y` branches, never from `main`. See [reference/docs-publishing.md](reference/docs-publishing.md) for the machinery and the how-to guides in `how-to/developer/` for releasing and fixing the docs.
+mike publishes the site per minor release (`/X.Y/`, `/latest/`), from release tags and `docs/X.Y` branches, never from `main`. [reference/docs-publishing.md](reference/docs-publishing.md) describes the machinery, and the how-to guides in `how-to/developer/` cover releasing and fixing the docs.
 
 ## Structure
 

@@ -1,18 +1,24 @@
 # Renamed Metrics
 
-This exporter replaces OpenWrt's `prometheus-node-exporter-ucode` and `prometheus-node-exporter-lua` (it conflicts with both, and takes over their settings), but not their metric names. Where the Prometheus [node_exporter](https://github.com/prometheus/node_exporter) has an equivalent metric, this exporter uses node_exporter's name, type, labels and help text, so dashboards made for it (such as Grafana's "Node Exporter Full") work. Elsewhere, the names follow the [Prometheus naming conventions](https://prometheus.io/docs/practices/naming/):
+This exporter replaces OpenWrt's `prometheus-node-exporter-ucode` and `prometheus-node-exporter-lua`. It conflicts with both and takes over their settings, but not their metric names.
 
-- base units in the name (`_seconds`, `_bytes`, `_hertz`, `_bits_per_second`, `_celsius`, `_ratio`, and `_dbm` or `_db` for radio levels);
-- `_total` on counters only, and every counter ends in `_total`;
-- a metric of labels only is `<name>_info` with the value 1;
-- a boolean is a gauge of 0 or 1, an enumeration one series per state with the value 1 or 0;
-- snake_case metric and label names, and no unit on a unitless value.
+Where the Prometheus [node_exporter](https://github.com/prometheus/node_exporter) has an equivalent metric, this exporter uses node_exporter's name, type, labels and help text. So dashboards made for node_exporter (such as Grafana's "Node Exporter Full") work. Elsewhere, the names follow the [Prometheus naming conventions](https://prometheus.io/docs/practices/naming/):
 
-Each service keeps its own prefix (`adguard_`, `dnsmasq_`, `dsl_`, `wireguard_`, `mwan3_`, `hostapd_`, `dawn_`, `bmx7_`, `realtek_poe_`, `ubnt_`, `modemmanager_`, `unbound_`, `nft_counter_`), and OpenWrt's own metrics are `node_openwrt_*`. Where a widely used standalone exporter exists for a service and its names follow the conventions, this exporter uses them too: see [Standalone exporters](#standalone-exporters).
+- base units in the name (`_seconds`, `_bytes`, `_hertz`, `_bits_per_second`, `_celsius`, `_ratio`, and `_dbm` or `_db` for radio levels)
+- `_total` on counters only, and every counter ends in `_total`
+- a metric made only of labels is `<name>_info`, with the value 1
+- a boolean is a gauge of 0 or 1; an enumeration is one series per state, with the value 1 or 0
+- snake_case metric and label names, and no unit on a unitless value
 
-There is no option to get the old names back. The table below lists, per collector, every family whose name, type, labels or unit changed, from the names of the exporters this one replaces to this one's; a family not listed has kept its name. In the Type column, `a → b` is a type that changed.
+Each service keeps its own prefix (`adguard_`, `dnsmasq_`, `dsl_`, `wireguard_`, `mwan3_`, `hostapd_`, `dawn_`, `bmx7_`, `realtek_poe_`, `ubnt_`, `modemmanager_`, `unbound_`, `nft_counter_`). OpenWrt's own metrics are `node_openwrt_*`. Some services have a widely used standalone exporter whose names follow the conventions. For those, this exporter uses the standalone exporter's names: see [Standalone exporters](#standalone-exporters).
 
-Every family as the collectors write it now is in [Metrics](reference/metrics.md), and every family of the feed's exporters with this exporter's for it in [Migrate from prometheus-node-exporter-lua/-ucode](reference/migration.md); why the names are what they are, in [About metric names](explanation/metric-names.md).
+No option brings the old names back. The tables below list, per collector, every family whose name, type, labels or unit changed. Each row goes from the name in the exporters this one replaces to this exporter's name. A family that is not listed kept its name. In the Type column, `a → b` is a type that changed.
+
+See also:
+
+- [Metrics](reference/metrics.md), for every family as the collectors write it now
+- [Migrate from prometheus-node-exporter-lua/-ucode](reference/migration.md), for every family of the feed's exporters and this exporter's equivalent
+- [About metric names](explanation/metric-names.md), for why the names are what they are
 
 ## Base collectors
 
@@ -49,7 +55,7 @@ conntrack, entropy, filefd, loadavg, time and uname already had node_exporter's 
 
 ## Wireless collectors
 
-wifi writes node_exporter's wifi collector families, with its help texts and its labels: `device` (was `ifname`) and `mac_address` (was `mac`), and a `radio` label on every family. Its option `stations`, on by default, writes the station metrics, which the Lua exporter's separate wifi_stations collector wrote: this exporter has no wifi_stations collector since 0.2.0.
+wifi writes the families of node_exporter's wifi collector, with its help texts and labels: `device` (was `ifname`) and `mac_address` (was `mac`). It adds a `radio` label to every family. Its option `stations`, on by default, writes the station metrics. The Lua exporter wrote those in a separate wifi_stations collector, which this exporter has not had since 0.2.0.
 
 | Before | After | Type | Why |
 |---|---|---|---|
@@ -188,7 +194,7 @@ Every family is a gauge (`ubnt_uptime` and `ubnt_timestamp` were counters) label
 
 ### unbound
 
-The counters of each thread (`threadN.*` in unbound's statistics), labeled `thread`, where the Lua exporter had the `total.*` ones without labels, as letsencrypt/unbound_exporter has them; `sum without (thread)` gives the totals.
+The collector writes the counters of each thread (`threadN.*` in unbound's statistics), labeled `thread`, as letsencrypt/unbound_exporter does. The Lua exporter wrote the `total.*` counters, without labels. `sum without (thread)` gives the totals.
 
 | Before | After | Type | Why |
 |---|---|---|---|
@@ -214,7 +220,7 @@ The counters of each thread (`threadN.*` in unbound's statistics), labeled `thre
 
 ## New metrics
 
-Neither upstream exporter had these. Where node_exporter has the metric, the name, type, labels and help are its own.
+Neither upstream exporter had these. Where node_exporter has the metric, the name, type, labels and help are node_exporter's.
 
 | Collector | Families | Type | Source |
 |---|---|---|---|

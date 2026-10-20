@@ -10,7 +10,7 @@ RUN          = $(COMPOSE) --progress quiet run --rm $(if $(CI),-T) openwrt
 IMAGE_STAMP := devenv/.built-$(IMAGE_TAG)
 TEST_ARGS    = $(if $(FILTER),-f '$(FILTER)') $(if $(VERBOSE),-v) $(if $(TEST_TIMEOUT),-t $(TEST_TIMEOUT)) $(MODULES)
 
-.PHONY: test unit integration watch lint same-code shell image fixtures package template-package pkgcheck-image package-check e2e lab lab-down browser pot bench bench-src bench-worlds bench-device bench-qemu failure-demo docs docs-mike docs-test docs-serve docs-gen feed-inventory feed-makefile monitoring-check monitoring-lab monitoring-lab-down
+.PHONY: test unit integration watch lint same-code shell image fixtures package template-package pkgcheck-image package-check e2e lab lab-down browser pot bench bench-src bench-worlds bench-device bench-qemu failure-demo docs docs-mike docs-test docs-serve docs-gen feed-inventory feed-makefile monitoring-check monitoring-lab monitoring-lab-down luci-screenshots
 
 test:        $(IMAGE_STAMP) ; @$(RUN) devenv/scripts/test.sh all $(TEST_ARGS)
 unit:        $(IMAGE_STAMP) ; @$(RUN) devenv/scripts/test.sh unit $(TEST_ARGS)
@@ -280,6 +280,20 @@ monitoring-lab:
 
 monitoring-lab-down:
 	@LAB_NAME=$(LAB_NAME) devenv/scripts/monitoring-lab.sh down
+
+# The LuCI app's screenshots in the docs, docs/how-to/img/luci-*.png, from a lab
+# of their own (make lab under SCREENSHOTS_LAB, on ports of its own), removed
+# afterwards; see devenv/scripts/luci-screenshots.sh.
+SCREENSHOTS_LAB          ?= ucode-prometheus-exporter-luci-screenshots
+SCREENSHOTS_LUCI_PORT    ?= 18080
+SCREENSHOTS_METRICS_PORT ?= 19100
+
+luci-screenshots:
+	docker build -q -t $(BROWSER_IMAGE) devenv/services/browser >/dev/null
+	@trap 'LAB_NAME=$(SCREENSHOTS_LAB) devenv/scripts/lab.sh down' EXIT; \
+	$(MAKE) --no-print-directory lab LAB_NAME=$(SCREENSHOTS_LAB) LAB_LUCI_PORT=$(SCREENSHOTS_LUCI_PORT) \
+		LAB_METRICS_PORT=$(SCREENSHOTS_METRICS_PORT) && \
+	LAB_NAME=$(SCREENSHOTS_LAB) BROWSER_IMAGE=$(BROWSER_IMAGE) devenv/scripts/luci-screenshots.sh
 
 # ---- release -----------------------------------------------------------------
 # The ucode-prometheus-exporter Makefile for the packages.ucode.dev feed, built

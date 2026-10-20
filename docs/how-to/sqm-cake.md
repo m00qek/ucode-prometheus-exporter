@@ -1,6 +1,6 @@
 # How to Monitor SQM and CAKE
 
-The qdisc collector reads each network device's root queueing discipline with `tc`: what it sent, dropped and holds, with node_exporter's names. Where SQM shapes with CAKE, it also reads CAKE's capacity, memory and, per tin, its traffic, drops, ECN marks and delays.
+The qdisc collector runs `tc` to read each network device's root queueing discipline (qdisc): what it sent, dropped and holds, with node_exporter's names. Where SQM shapes traffic with CAKE, the collector also reads CAKE's capacity and memory, and for each tin (CAKE's priority classes) its traffic, drops, ECN marks and delays.
 
 ## Prerequisites
 
@@ -14,14 +14,14 @@ The qdisc collector reads each network device's root queueing discipline with `t
 apk add ucode-prometheus-exporter-qdisc
 ```
 
-It brings `tc`. It is in the `-network` and `-full` groups too.
+It brings `tc`. The `-network` and `-full` groups also install it.
 
 ## 2. Find the devices SQM shapes
 
-SQM puts CAKE as the root qdisc of the interface it shapes, for upload, and of an `ifb4<device>` it makes for download:
+SQM makes CAKE the root qdisc of two devices: the interface it shapes, for upload, and an `ifb4<device>` it creates, for download:
 
 ```sh
-prometheus-exporter qdisc | grep '^node_qdisc_cake_capacity_estimate_bytes_per_second'
+prometheus-exporter scrape qdisc | grep '^node_qdisc_cake_capacity_estimate_bytes_per_second'
 ```
 
 ```
@@ -29,7 +29,7 @@ node_qdisc_cake_capacity_estimate_bytes_per_second{device="eth1"} 2500000
 node_qdisc_cake_capacity_estimate_bytes_per_second{device="ifb4eth1"} 11875000
 ```
 
-Here `eth1` is the WAN's upload, shaped to 20 Mbit/s, and `ifb4eth1` its download, to 95 Mbit/s.
+Here `eth1` is the WAN's upload, shaped to 20 Mbit/s, and `ifb4eth1` is its download, shaped to 95 Mbit/s.
 
 ## 3. Query it
 
@@ -45,7 +45,7 @@ The worst queueing delay of each tin, which SQM is there to keep low:
 node_qdisc_cake_tin_peak_delay_seconds
 ```
 
-How much of the shaped rate the download uses, in bytes per second over bytes per second:
+The share of the shaped rate that the download uses (bytes per second over bytes per second):
 
 ```promql
 rate(node_qdisc_bytes_total{device="ifb4eth1"}[5m])
@@ -58,12 +58,19 @@ ECN marks, which CAKE uses before it drops:
 rate(node_qdisc_cake_tin_ecn_marks_total[5m])
 ```
 
-A tin is labeled by its index, as `tc` numbers them: a `besteffort` CAKE has tin `0` only, `diffserv4` tins `0` to `3`, Bulk to Voice.
+Each tin is labeled by its index, as `tc` numbers them. A `besteffort` CAKE has only tin `0`. A `diffserv4` CAKE has tins `0` to `3`, from Bulk to Voice.
 
 ---
 
 ## What it leaves out
 
-Only the root qdisc of each device is read: SQM's `ingress` qdisc, which shapes nothing itself, a multiqueue NIC's per-queue children and HTB's leaves are left out, and so is `noqueue`, the qdisc of bridges, VLANs and WireGuard, whose counters are always 0. A device SQM does not shape still shows its default qdisc, `fq_codel`, with `node_qdisc_*` and no `node_qdisc_cake_*`.
+The collector reads only the root qdisc of each device. So it leaves out:
 
-Every family is in [Metrics](../reference/metrics.md#qdisc).
+- SQM's `ingress` qdisc, which shapes nothing itself
+- a multiqueue NIC's per-queue children
+- HTB's leaves
+- `noqueue`, the qdisc of bridges, VLANs and WireGuard, whose counters are always 0
+
+A device that SQM does not shape still shows its default qdisc, `fq_codel`, with `node_qdisc_*` and no `node_qdisc_cake_*`.
+
+[Metrics](../reference/metrics.md#qdisc) lists every family.

@@ -35,6 +35,7 @@ theme:
     - search.suggest
     - search.highlight
     - content.code.copy
+    - content.tabs.link
 
 markdown_extensions:
   - admonition
@@ -82,7 +83,7 @@ nav:
           - Troubleshooting: how-to/troubleshoot.md
       - Collector Authors:
           - Writing a Collector in Your Own Package: how-to/collector-package.md
-      - Developer:
+      - Maintainers:
           - Running the Tests: how-to/developer/testing.md
           - Using the Lab: how-to/developer/lab.md
           - Running the Benchmark: how-to/developer/benchmarks.md

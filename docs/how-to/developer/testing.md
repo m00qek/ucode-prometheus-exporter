@@ -1,6 +1,6 @@
 # How to Run the Tests
 
-Everything runs in Docker, on OpenWrt's own images, on the release in `OPENWRT_VERSION` (25.12.5 by default). You need Docker and `make`.
+Everything runs in Docker, on OpenWrt's own images of the release in `OPENWRT_VERSION` (25.12.5 by default). You need Docker and `make`.
 
 ## Unit and integration tests
 
@@ -8,7 +8,7 @@ Everything runs in Docker, on OpenWrt's own images, on the release in `OPENWRT_V
 make test
 ```
 
-The template collector package's tests, `devkit/template/test/`, run with the unit tests, on the devkit of the tree. `make unit` and `make integration` run one suite. To narrow a run:
+The tests of the template collector package, `devkit/template/test/`, run with the unit tests, on the tree's devkit. `make unit` and `make integration` each run one suite. To narrow a run:
 
 ```bash
 make unit MODULES=test/unit/prometheus/collectors/wifi_test.uc
@@ -16,9 +16,9 @@ make test FILTER='collectors.wifi' VERBOSE=1
 make watch
 ```
 
-A full run first checks the comment stripper the package build runs: its own tests, `test/strip/`, and every ucode and JavaScript file the packages install, stripped. Each ucode file must compile to the same stripped bytecode as its source, which proves the stripper took comments and nothing else; a narrowed run skips it.
+A full run first checks the comment stripper that the package build runs. It runs the stripper's own tests, `test/strip/`, and strips every ucode and JavaScript file the packages install. Each ucode file must compile to the same stripped bytecode as its source, which proves the stripper removed comments and nothing else. A narrowed run skips this check.
 
-`watch` runs the tests again whenever a file under `src/`, `test/`, `files/`, `devenv/scripts/`, `docs/gen/` or `devkit/` changes. To run them on the API floor, the first 25.12 release, as CI does too: `make test OPENWRT_VERSION=25.12.0`.
+`watch` runs the tests again whenever a file under `src/`, `test/`, `files/`, `devenv/scripts/`, `docs/gen/` or `devkit/` changes. To run them on the API floor, the first 25.12 release, as CI also does: `make test OPENWRT_VERSION=25.12.0`.
 
 ## Lint
 
@@ -26,7 +26,7 @@ A full run first checks the comment stripper the package build runs: its own tes
 make lint
 ```
 
-It loads every module on the release's ucode, so a function that ucode lacks fails here and not on a router. It also fails when the translation template or a generated reference page is out of date: run `make pot` or `make docs-gen`, and commit the result.
+It loads every module on the release's ucode, so a call to a function that ucode lacks fails here, not on a router. It also fails when the translation template or a generated reference page is out of date. Run `make pot` or `make docs-gen`, and commit the result.
 
 ## The packages
 
@@ -34,7 +34,7 @@ It loads every module on the release's ucode, so a function that ucode lacks fai
 make package-check
 ```
 
-Builds the apks with the SDK, installs them offline in an OpenWrt image, scrapes a real uhttpd and calls the ubus object in a real rpcd, with the base package alone and then with the LuCI app. It checks that each installed ucode file, stripped of comments by the build, compiles to the same code as its source. Then it installs the devkit and runs the template collector's tests on it, as a collector package's own CI would.
+This builds the apks with the SDK and installs them offline in an OpenWrt image. It scrapes a real uhttpd and calls the ubus object in a real rpcd, first with the base package alone, then with the LuCI app. It checks that each installed ucode file, which the build stripped of comments, compiles to the same code as its source. Then it installs the devkit and runs the template collector's tests on it, as a collector package's own CI would.
 
 ## The service under procd
 
@@ -42,7 +42,7 @@ Builds the apks with the SDK, installs them offline in an OpenWrt image, scrapes
 make e2e
 ```
 
-Boots OpenWrt in a privileged container, without network, and checks the service in its jail as packages come and go and its configuration changes. It needs Docker to allow privileged containers.
+This boots OpenWrt in a privileged container, without network. It checks the service in its jail while packages are installed and removed and the configuration changes. It needs Docker to allow privileged containers.
 
 ## The LuCI app
 
@@ -51,7 +51,7 @@ make browser
 make browser FILTER='settings'
 ```
 
-Runs the Playwright tests of `test/browser/` against LuCI with the built packages, and compares the app's JavaScript as LuCI serves it, stripped of comments, with its sources, token by token. Screenshots, and on a failure the error context and LuCI's log, are in `bin/browser/`.
+This runs the Playwright tests of `test/browser/` against LuCI with the built packages. It also compares the app's JavaScript as LuCI serves it, stripped of comments, with its sources, token by token. Screenshots go to `bin/browser/`, and on a failure so do the error context and LuCI's log.
 
 ## The documentation tooling
 
@@ -60,8 +60,8 @@ make docs-test
 make docs
 ```
 
-`docs-test` runs the publishing scripts' tests; `docs` builds the site, strictly. See [How to write documentation](documentation.md).
+`docs-test` runs the publishing scripts' tests. `docs` builds the site, strictly. See [How to write documentation](documentation.md).
 
 ---
 
-CI runs `lint`, `test` and `package-check` on 25.12.0 and 25.12.5, `e2e` on both, `bench`, and `browser`; and the docs workflow builds the site. Every target is in [Make targets](../../reference/make-targets.md).
+CI runs `lint`, `test`, `package-check` and `e2e` on 25.12.0 and 25.12.5, and `bench` and `browser` once. The docs workflow builds the site. [Make targets](../../reference/make-targets.md) lists every target.

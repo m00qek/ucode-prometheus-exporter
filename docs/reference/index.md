@@ -1,8 +1,10 @@
 # Reference
 
-Technical descriptions of the exporter, to consult while you work. Six pages are generated from the code by `make docs-gen`: [Collectors](collectors.md), [Metrics](metrics.md), [UCI configuration](uci-config.md), [Error codes](error-codes.md), [The `prometheus-exporter` command](command.md) and [Migrate from prometheus-node-exporter-lua/-ucode](migration.md).
+Technical descriptions of the exporter, to consult while you work. Six pages are generated from the code by `make docs-gen`: [Collectors](collectors.md), [Metrics](metrics.md), [UCI configuration](uci-config.md), [Error codes](error-codes.md), [The `prometheus-exporter` command](command.md) and [Migrate from prometheus-node-exporter-lua/-ucode](migration.md). The pages are grouped by reader: [who these docs are for](../index.md#who-these-docs-are-for).
 
 ## What it collects
+
+For operators.
 
 | Page | Content |
 | :--- | :--- |
@@ -12,6 +14,8 @@ Technical descriptions of the exporter, to consult while you work. Six pages are
 | [Migrate from prometheus-node-exporter-lua/-ucode](migration.md) | Every package and metric family of the feed's exporters, and this exporter's for each; PromQL rewrites, a relabeling for a transition, and what the configuration import takes over. |
 
 ## Configuring and running it
+
+For operators.
 
 | Page | Content |
 | :--- | :--- |
@@ -28,10 +32,12 @@ Technical descriptions of the exporter, to consult while you work. Six pages are
 
 ## Developing it
 
-| Page | Content |
-| :--- | :--- |
-| [Collector interface](collector-interface.md) | `meta`, `collect(deps, out, options)`, the capabilities and Results. |
-| [Collector contract](collector-contract.md) | What a collector may do, what the exporter enforces, what breaking a rule costs, and `collector check`. |
-| [The devkit](devkit.md) | What a collector's tests run on, in the exporter's tree or a package of its own: `with_collector`, the mocks and fixtures. |
-| [Make targets](make-targets.md) | The targets of the root `Makefile` and `docs/Makefile`, and their variables. |
-| [Documentation publishing](docs-publishing.md) | How the versioned site is published. |
+For collector authors and maintainers.
+
+| Page | For | Content |
+| :--- | :--- | :--- |
+| [Collector interface](collector-interface.md) | Collector authors | `meta`, `collect(deps, out, options)`, the capabilities and Results. |
+| [Collector contract](collector-contract.md) | Collector authors | What a collector may do, what the exporter enforces, what breaking a rule costs, and `collector check`. |
+| [The devkit](devkit.md) | Collector authors | What a collector's tests run on, in the exporter's tree or a package of its own: `with_collector`, the mocks and fixtures. |
+| [Make targets](make-targets.md) | Maintainers | The targets of the root `Makefile` and `docs/Makefile`, and their variables. |
+| [Documentation publishing](docs-publishing.md) | Maintainers | How the versioned site is published. |

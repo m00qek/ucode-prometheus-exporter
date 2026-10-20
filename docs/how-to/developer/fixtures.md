@@ -1,6 +1,6 @@
 # How to Capture Fixtures from a Device
 
-The tests, the benchmark's worlds and the metrics reference read what real devices answered, from `test/fixtures/<set>/`. Capture a device's answers when you write a collector for something the sets do not have yet.
+The tests, the benchmark's worlds and the metrics reference read what real devices answered, from `test/fixtures/<set>/`. When you write a collector for something the sets do not cover yet, capture a device's answers.
 
 ## Prerequisites
 
@@ -26,23 +26,26 @@ Add the sources to `test/fixtures/SOURCES`, one per line:
 make fixtures HOST=root@router.lan NAME=my-router
 ```
 
-Everything is read-only on the device. Only files not there yet are added to `test/fixtures/my-router/`, so the values tests assert on do not change under them; `FORCE=1` replaces them all.
+Everything is read-only on the device. The target adds only files that are not in `test/fixtures/my-router/` yet, so the values the tests assert on do not change under them. `FORCE=1` replaces them all.
 
-What `make fixtures` cannot read, capture by hand into the same set and say how in `SOURCES`' comments: a program's output as `commands/<program>_<arguments>.txt` (`commands/ethtool_S_lan.txt` for `ethtool -S lan`), an rtnetlink or nl80211 reply as `rtnl/<CMD>.json` or `nl80211/<CMD>.<device>.json`.
+Capture by hand, into the same set, what `make fixtures` cannot read, and say how in comments in `SOURCES`:
+
+- a program's output, as `commands/<program>_<arguments>.txt` (`commands/ethtool_S_lan.txt` for `ethtool -S lan`)
+- an rtnetlink or nl80211 reply, as `rtnl/<CMD>.json` or `nl80211/<CMD>.<device>.json`
 
 ## 3. Redact
 
 Before you commit, replace in every file of the set:
 
-- MAC addresses, with locally administered ones, `02:00:00:…`;
-- public IP addresses, with `192.0.2.0/24`, `198.51.100.0/24`, `203.0.113.0/24` or `2001:db8::/32`;
-- SSIDs, hostnames, domain names, user names and keys.
+- MAC addresses, with locally administered ones, `02:00:00:…`
+- public IP addresses, with `192.0.2.0/24`, `198.51.100.0/24`, `203.0.113.0/24` or `2001:db8::/32`
+- SSIDs, hostnames, domain names, user names and keys
 
-uci captures leave out secret options, but not names and addresses.
+uci captures leave out secret options, but they keep names and addresses.
 
 ## 4. Name the set in the docs
 
-The metrics reference runs every collector on every set, and names each set without its device's name. Add the new set to `capture_sets` in `docs/gen/notes.uc`, then:
+The metrics reference runs every collector on every set, and names each set without the device's name. Add the new set to `capture_sets` in `docs/gen/notes.uc`, then run:
 
 ```bash
 make docs-gen
@@ -50,4 +53,4 @@ make docs-gen
 
 ---
 
-What neither device has is written by hand in `test/fixtures/synthetic/`, each file with the format it follows in `test/fixtures/synthetic/SOURCES`.
+What no captured device has is written by hand in `test/fixtures/synthetic/`. `test/fixtures/synthetic/SOURCES` gives the format each file follows.

@@ -18,9 +18,9 @@ Open `http://localhost:8000`. The page reloads when you save a file under `docs/
 make docs
 ```
 
-The site goes to `bin/site/`, and `make -C docs clean` removes it. The build runs `mkdocs build --strict`, so a broken link or any other warning fails it. CI runs the same strict build on pushes and pull requests to `main` that touch the docs, and a second one with the versioned config, `mkdocs.mike.yml` (`make docs-mike` locally).
+The site goes to `bin/site/`, and `make -C docs clean` removes it. The build runs `mkdocs build --strict`, so a broken link or any other warning fails it. On pushes and pull requests to `main` that touch the docs, CI runs the same strict build. It also runs a second one with the versioned config, `mkdocs.mike.yml` (`make docs-mike` locally).
 
-Merging to `main` publishes nothing: the docs go online with the next release. To correct the docs already online, see [How to fix the docs of the released version](fix-released-docs.md); what publishes when is in [Documentation publishing](../../reference/docs-publishing.md).
+Merging to `main` publishes nothing: the docs go online with the next release. To correct the docs already online, see [How to fix the docs of the released version](fix-released-docs.md). [Documentation publishing](../../reference/docs-publishing.md) says what publishes when.
 
 ## Where a page goes
 
@@ -33,9 +33,9 @@ Pick the folder by what the reader is doing, following [Diátaxis](https://diata
 | `reference/` | looking up a fact | Every option of the configuration |
 | `explanation/` | trying to understand why | Nothing to observe |
 
-Keep one type per page and link to the others instead of mixing them. Add every new page to `nav` in `mkdocs.yml` and to the `index.md` of its folder. Link between pages with relative paths, never with the site's URL, so each published version links to itself.
+Keep one type per page, and link to pages of the other types instead of mixing them. Add every new page to `nav` in `mkdocs.yml` and to the `index.md` of its folder. Link between pages with relative paths, never with the site's URL, so each published version links to itself.
 
-The reasoning a reader needs lives in the explanation pages: when a change rests on a new reason, write it there, in the same change.
+The reasoning a reader needs lives in the explanation pages. When a change rests on a new reason, write the reason there, in the same change.
 
 ## Comments in the code
 
@@ -82,7 +82,17 @@ Six reference pages are written from the code by `make docs-gen`, and never by h
 | `docs/reference/command.md` | The command's usage, `cli.uc`'s `USAGE`, which docopt parses its arguments by. |
 | `docs/reference/migration.md` | `docs/gen/migration.md`, its text, with the tables of the feed exporters' packages and families and this exporter's for each: from `docs/gen/feed-exporters.json`, what `make feed-inventory` read of their sources, `docs/gen/migration.uc`, the mapping, and what the collectors write, as for `metrics.md`. |
 
-What the code does not say is in `docs/gen/notes.uc`: when each collector has nothing to observe, what a computed jail path is, the patterns that fold a driver's statistics into one row, the families no fixture shows, the meaning of each error code and the section of the page it is in, what each command of the command line does, and a name for each fixture set. The generator checks the notes against the code and refuses, writing nothing, an entry the code contradicts.
+`docs/gen/notes.uc` holds what the code does not say:
+
+- when each collector has nothing to observe
+- what a computed jail path is
+- the patterns that fold a driver's statistics into one row
+- the families no fixture shows
+- the meaning of each error code, and the section of the page it is in
+- what each command of the command line does
+- a name for each fixture set
+
+The generator checks the notes against the code. If the code contradicts an entry, the generator refuses and writes nothing.
 
 1. Change the code, or the notes.
 2. Regenerate:
@@ -91,8 +101,11 @@ What the code does not say is in `docs/gen/notes.uc`: when each collector has no
     make docs-gen
     ```
 
-3. If it refuses, its message says which note to change: a new collector that can have nothing to observe needs an entry in `nothing_to_observe`; a family the collector declares that no fixture makes it write needs a fixture, or an entry in `unharvested`; a new fixture set needs a name in `capture_sets`, which keeps the device's own name out of the docs.
-4. Commit the pages with the change. `make lint` fails while a page is not what `make docs-gen` would write.
+3. If it refuses, its message says which note to change:
+    - A new collector that can have nothing to observe needs an entry in `nothing_to_observe`.
+    - A family the collector declares, but that no fixture makes it write, needs a fixture or an entry in `unharvested`.
+    - A new fixture set needs a name in `capture_sets`, which keeps the device's own name out of the docs.
+4. Commit the pages with the change. `make lint` fails while a page differs from what `make docs-gen` would write.
 
 ## Keep it true
 
@@ -106,7 +119,7 @@ Reference pages describe the code as it is. When you change one of these, update
 | `runner.uc`, `probe.uc`, `jailed.uc`, `conform.uc`, the guards of `scrape.uc`, `ownership.uc`, `progress.uc`, `exposition.uc`, `loader.uc` | [Collector contract](../../reference/collector-contract.md) |
 | `http.uc`, `app.uc`, `auth.uc`, `query.uc`, `scrape.uc` | [HTTP endpoint](../../reference/http.md) |
 | `rpc.uc` and `rpc/`, the rpcd plugin | [ubus object](../../reference/ubus.md) |
-| `luci/` | [LuCI app](../../reference/luci.md), [How to use the LuCI app](../luci.md) |
+| `luci/` | [LuCI app](../../reference/luci.md), [How to use the LuCI app](../luci.md), the Browser (LuCI) tabs, and the screenshots: `make luci-screenshots` |
 | `jail.uc`, `state.uc`, the init script's mounts | [The jail](../../reference/jail.md) |
 | `loader.uc`, `deps.uc` and `deps/`, `result.uc`, `services.uc`, `exposition.uc`'s recorder | [Collector interface](../../reference/collector-interface.md) |
 | A log line | [Log messages](../../reference/log-messages.md) |
@@ -118,8 +131,30 @@ Reference pages describe the code as it is. When you change one of these, update
 | `monitoring/`: a rule, a threshold, a panel | [How to monitor a router with the bundled dashboards and alerts](../dashboards-and-alerts.md), and its screenshots: `make monitoring-lab` |
 | A renamed metric | [Renamed metrics](../../metrics.md) |
 
+## Steps in LuCI and over SSH
+
+An operator step that LuCI can do gets two content tabs, LuCI first, with exactly these labels:
+
+````markdown
+=== "Browser (LuCI)"
+
+    On **Services → Prometheus exporter**, tab **General**, untick **Compress**, and press **Save & Apply**.
+
+=== "Terminal (SSH)"
+
+    ```sh
+    uci set prometheus-exporter.main.compress=0
+    uci commit prometheus-exporter
+    service prometheus-exporter reload
+    ```
+````
+
+Picking a tab picks it on every page (`content.tabs.link`). Name menus, tabs, fields and buttons by the app's English source strings, in `luci/`. A step LuCI cannot do, such as adding the feed's signing key, stays SSH only.
+
+The LuCI screenshots, `docs/how-to/img/luci-*.png`, come from the lab: `make luci-screenshots` takes them again after a change to the app. Add one only where a picture makes a LuCI step clearer, with alt text that says what it shows.
+
 ## Examples
 
 - Use generic names (router, ap) and documentation addresses: `192.0.2.0/24`, `198.51.100.0/24` and `203.0.113.0/24` for IPv4, `2001:db8::/32` for IPv6. Never paste a real device's name, MAC address, SSID, key or public address.
-- Output captured from the lab is the exception: paste it as it is. Its addresses are docker's and disposable.
+- Output captured from the lab is the exception: paste it as it is. Its addresses are docker's, and disposable.
 - Use Mermaid in a fenced block with the `mermaid` language, only where a picture explains more than a paragraph.

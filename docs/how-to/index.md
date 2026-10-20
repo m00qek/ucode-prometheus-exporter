@@ -1,8 +1,10 @@
 # How-to Guides
 
-Directions for a goal you already have. Each assumes the exporter is installed, unless it is about installing it.
+Directions for a goal you already have. Each assumes the exporter is installed, unless it is about installing it. The guides are grouped by reader: [who these docs are for](../index.md#who-these-docs-are-for).
 
 ## Operators
+
+For whoever runs the exporter on their routers and watches the metrics.
 
 | Guide | Goal |
 | :--- | :--- |
@@ -29,11 +31,15 @@ Directions for a goal you already have. Each assumes the exporter is installed, 
 
 ## Collector authors
 
+For whoever writes a collector, in this repository or in their own package. The [maintainers' guides](#maintainers) on tests, fixtures, the benchmark and packaging also apply to a collector in this repository.
+
 | Guide | Goal |
 | :--- | :--- |
 | [Writing a collector in your own package](collector-package.md) | Write, test and package a collector outside the exporter's tree, with its devkit. |
 
-## Developers
+## Maintainers
+
+For whoever builds, tests, releases and publishes this repository.
 
 | Guide | Goal |
 | :--- | :--- |

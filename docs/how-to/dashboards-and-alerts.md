@@ -1,6 +1,6 @@
 # How to Monitor a Router with the Bundled Dashboards and Alerts
 
-The exporter comes with alerting rules and dashboards, in `monitoring/` of the [repository](https://github.com/m00qek/ucode-prometheus-exporter), or of a release's tarball:
+The exporter comes with alerting rules and dashboards. They are in `monitoring/`, in the [repository](https://github.com/m00qek/ucode-prometheus-exporter) and in each release's tarball:
 
 | File | What it is |
 | :--- | :--- |
@@ -10,12 +10,12 @@ The exporter comes with alerting rules and dashboards, in `monitoring/` of the [
 | `monitoring/grafana/` | The dashboards **OpenWrt router** and **OpenWrt exporter health**, for Grafana. |
 | `monitoring/perses/` | The same two dashboards, for Perses. |
 
-This guide loads them into Prometheus or VictoriaMetrics, Grafana and Perses, and says what each alert means and what to do about it.
+This guide loads them into Prometheus or VictoriaMetrics, Grafana and Perses. It then says what each alert means and what to do about it.
 
 ## Prerequisites
 
-- A Prometheus, or a VictoriaMetrics with vmagent, that scrapes the router: see [Monitor a router with Prometheus](../tutorials/monitor-a-router.md). The rules and dashboards work for every router the server scrapes, whatever its jobs are called: they find this exporter's targets by what it writes, and leave the others alone. See [Which targets the alerts take](#which-targets-the-alerts-take).
-- The collectors whose panels and alerts you want. A panel whose collector is not installed shows no data, and an alert whose collector is not installed never fires: nothing else breaks. See [Choosing collectors](choose-collectors.md).
+- A Prometheus, or a VictoriaMetrics with vmagent, that scrapes the router: see [Monitor a router with Prometheus](../tutorials/monitor-a-router.md). The rules and dashboards work for every router the server scrapes, whatever you named the jobs. They find this exporter's targets by the metrics it writes, and leave other targets alone. See [Which targets the alerts take](#which-targets-the-alerts-take).
+- The collectors whose panels and alerts you want. If a collector is not installed, its panels show no data and its alerts never fire. Nothing else breaks. See [Choosing collectors](choose-collectors.md).
 - A copy of `monitoring/`.
 
 ---
@@ -34,20 +34,20 @@ alerting:
         - targets: [ 'alertmanager:9093' ]
 ```
 
-No rule names a job or an instance: they load as they are, whatever your scrape jobs are called. Check the files and reload:
+No rule names a job or an instance, so the rules load unchanged, whatever you named your scrape jobs. Check the files and reload:
 
 ```bash
 promtool check rules /etc/prometheus/rules/openwrt/*.rules.yml
 curl -X POST http://localhost:9090/-/reload    # with --web.enable-lifecycle; or send Prometheus SIGHUP
 ```
 
-Run Prometheus with `--enable-feature=extra-scrape-metrics`: it then writes `scrape_timeout_seconds`, which `OpenWrtExporterScrapeSlow` and the **Scrape duration and timeout** panel compare the scrape's duration with. Without it, the alert takes the timeout to be 10 seconds, Prometheus's default, and the panel shows the duration alone.
+Run Prometheus with `--enable-feature=extra-scrape-metrics`. With it, Prometheus writes `scrape_timeout_seconds`. `OpenWrtExporterScrapeSlow` and the **Scrape duration and timeout** panel compare each scrape's duration with it. Without the flag, the alert assumes Prometheus's default timeout of 10 seconds, and the panel shows only the duration.
 
-The alerts carry `severity: critical` or `severity: warning`, for Alertmanager's routes.
+Each alert carries `severity: critical` or `severity: warning`, for Alertmanager's routes.
 
 ## 2. Or load them into VictoriaMetrics
 
-vmalert reads the same files, as they are:
+vmalert reads the same files, unchanged:
 
 ```bash
 vmalert -rule='/etc/vmalert/openwrt/*.rules.yml' \
@@ -59,17 +59,17 @@ vmalert -rule='/etc/vmalert/openwrt/*.rules.yml' \
 What differs from Prometheus:
 
 - vmagent writes `scrape_timeout_seconds` for every target, without a flag.
-- `OpenWrtExporterDown` looks for the exporter's `ucode_prometheus_exporter_build_info` over the last 7 days; MetricsQL's `max_over_time`, as PromQL's, leaves out the staleness markers a failed scrape writes.
-- `OpenWrtExporterCollectorFailing`'s description runs a query (`query`, `sortByLabel`), as both servers' templates can.
-- `make monitoring-check` loads the rules with `vmalert -dryRun` and runs their tests with `vmalert-tool unittest` too, so they keep working there.
-- The dashboards take VictoriaMetrics as a Prometheus data source, in Grafana and in Perses: MetricsQL runs their PromQL.
+- `OpenWrtExporterDown` looks for the exporter's `ucode_prometheus_exporter_build_info` over the last 7 days. MetricsQL's `max_over_time`, like PromQL's, ignores the staleness markers that a failed scrape writes.
+- The description of `OpenWrtExporterCollectorFailing` runs a query (`query`, `sortByLabel`). Both servers' templates can do this.
+- `make monitoring-check` also loads the rules with `vmalert -dryRun` and runs their tests with `vmalert-tool unittest`, so the rules keep working in VictoriaMetrics.
+- In Grafana and in Perses, the dashboards take VictoriaMetrics as a Prometheus data source. MetricsQL runs their PromQL.
 
 ## 3. Import the dashboards into Grafana
 
-Each dashboard asks for its data source, its job and its instance in the variables at its top, so either way imports it as it is. The job and instance lists are the targets that wrote the exporter's `ucode_prometheus_exporter_build_info` in the dashboard's time range: a node_exporter's are not among them.
+Each dashboard picks its data source, job and instance from variables at its top, so either way below imports it unchanged. The job and instance lists hold the targets that wrote the exporter's `ucode_prometheus_exporter_build_info` in the dashboard's time range. A node_exporter's targets are not among them.
 
 - **By hand:** **Dashboards → New → Import**, upload `monitoring/grafana/openwrt-router.json`, then `exporter-health.json`.
-- **Provisioned:** copy the two files into a directory Grafana reads, and add a provider, `/etc/grafana/provisioning/dashboards/openwrt.yaml`:
+- **Provisioned:** copy the two files into a directory Grafana reads, and add a provider in `/etc/grafana/provisioning/dashboards/openwrt.yaml`:
 
     ```yaml
     apiVersion: 1
@@ -81,11 +81,11 @@ Each dashboard asks for its data source, its job and its instance in the variabl
           path: /var/lib/grafana/dashboards/openwrt
     ```
 
-A link at the top of each dashboard opens the other, with the same router.
+A link at the top of each dashboard opens the other one, for the same router.
 
 ## 4. Apply the dashboards to Perses
 
-The dashboards take their data source from a variable that lists the Prometheus data sources of the project, and the global ones: the project needs one, or Perses a global one. Then, with percli logged in to your Perses:
+The dashboards take their data source from a variable. It lists the project's Prometheus data sources and the global ones, so you need one of either. Then log percli in to your Perses and apply the dashboards:
 
 ```bash
 percli login https://perses.example.net
@@ -93,17 +93,17 @@ percli apply -f monitoring/perses/openwrt-router.yaml --project <project>
 percli apply -f monitoring/perses/exporter-health.yaml --project <project>
 ```
 
-`percli lint -f <file> --online` checks a dashboard against your server's plugins first.
+To check a dashboard against your server's plugins first, run `percli lint -f <file> --online`.
 
 ## 5. Change a threshold
 
-Each threshold is in its rule's expression, and a comment above the rule says what it means. Edit it there, and in the rule's test in `monitoring/prometheus/tests/`, then run the tests:
+Each threshold is in its rule's expression. A comment above the rule says what it means. Edit the threshold there and in the rule's test in `monitoring/prometheus/tests/`, then run the tests:
 
 ```bash
 promtool test rules monitoring/prometheus/tests/*.test.yml
 ```
 
-From a checkout of the repository, `make monitoring-check` runs them with every other check: see [Make targets](../reference/make-targets.md#monitoring). It refuses a rule that matches a job or an instance, as `up{job="openwrt"}`, unless a comment above the rule, or in it, says `monitoring-check: allow-target-matcher` and why.
+In a checkout of the repository, `make monitoring-check` runs the tests along with every other check: see [Make targets](../reference/make-targets.md#monitoring). It refuses a rule that matches a job or an instance, such as `up{job="openwrt"}`. To allow one, put a comment above or in the rule that says `monitoring-check: allow-target-matcher` and why.
 
 ---
 
@@ -111,7 +111,7 @@ From a checkout of the repository, `make monitoring-check` runs them with every 
 
 ### The exporter's health
 
-The failures behind these are in [Error codes](../reference/error-codes.md); [Troubleshooting](troubleshoot.md) says how to find them on the router.
+[Error codes](../reference/error-codes.md) lists the failures behind these alerts. [Troubleshooting](troubleshoot.md) says how to find them on the router.
 
 | Alert | Severity | Fires when | Do |
 | :--- | :--- | :--- | :--- |
@@ -142,15 +142,18 @@ The failures behind these are in [Error codes](../reference/error-codes.md); [Tr
 
 ### Which targets the alerts take
 
-No rule names a job or an instance. Each takes the targets that write `ucode_prometheus_exporter_build_info`, which every scrape of this exporter has, whatever `collect[]` selects, and only this exporter writes. So the rules load as they are whatever the scrape jobs are called, and a Linux server's node_exporter in the same Prometheus, which writes `node_memory_MemAvailable_bytes` or `node_scrape_collector_success` as well, fires none of them.
+No rule names a job or an instance. Instead, each rule takes the targets that write `ucode_prometheus_exporter_build_info`. Only this exporter writes it, and every scrape has it, whatever `collect[]` selects. So:
 
-`OpenWrtExporterDown` cannot see `ucode_prometheus_exporter_build_info` now: a target that does not answer writes nothing, and its series went stale with the failed scrape. It looks for it over the last 7 days instead, `max_over_time(ucode_prometheus_exporter_build_info[7d])`, and fires for a target that is down and wrote it in that time:
+- The rules load unchanged, whatever you named the scrape jobs.
+- A Linux server's node_exporter in the same Prometheus fires none of them, even though it also writes `node_memory_MemAvailable_bytes` or `node_scrape_collector_success`.
 
-- **7 days**, so that a router down over a weekend, or while you are away for a week, still alerts when someone looks. Past them, the target is no longer known for this exporter's and the alert resolves, though the router is still down. Each evaluation reads 7 days of one series a target: 10,080 samples at a scrape a minute. A Prometheus that keeps less than 7 days looks back as far as it keeps.
-- **A target that never answered**, one added with a wrong address, port or password, has never written it, and cannot be told from another exporter's: it does not fire the alert. Check the **Targets** page of Prometheus, or vmagent's, when you add a router.
-- **A target taken out of the scrape config** has no `up` at all, and fires nothing, as in any Prometheus.
+`OpenWrtExporterDown` cannot look at the current `ucode_prometheus_exporter_build_info`. A target that does not answer writes nothing, and its series went stale with the failed scrape. So the alert looks over the last 7 days instead, with `max_over_time(ucode_prometheus_exporter_build_info[7d])`. It fires for a target that is down and wrote the metric in that time:
 
-To alert on a job's targets whatever they ran, keep a rule of your own, `up{job="<your job>"} == 0`.
+- **7 days** means a router that is down over a weekend, or while you are away for a week, still alerts when someone looks. After 7 days, the alert no longer knows the target as this exporter's and resolves, even though the router is still down. Each evaluation reads 7 days of one series per target: 10,080 samples at one scrape a minute. If Prometheus keeps less than 7 days, the alert looks back as far as Prometheus keeps.
+- **A target that never answered** never wrote the metric. This happens when you add a target with a wrong address, port or password. The alert cannot tell it from another exporter's target, so it does not fire. When you add a router, check the **Targets** page of Prometheus, or of vmagent.
+- **A target removed from the scrape config** has no `up` at all, so it fires nothing, as in any Prometheus.
+
+To alert on a job's targets whatever they run, keep a rule of your own: `up{job="<your job>"} == 0`.
 
 ---
 
@@ -158,7 +161,17 @@ To alert on a job's targets whatever they ran, keep a rule of your own, `up{job=
 
 ### OpenWrt router
 
-A router or an access point: its uptime, clock, load and release at the top; then CPU and load, memory, the network devices' traffic, errors and drops, the logical interfaces, the Wi-Fi clients, their signal and the channels' use, the connection table and the traffic per host, the temperatures, the filesystems' space and inodes, the DHCP leases, the WireGuard peers' handshakes and traffic, and the clock's offset.
+This dashboard shows a router or an access point. At the top are its uptime, clock, load and release. Below them are panels for:
+
+- CPU and load, and memory
+- the network devices' traffic, errors and drops, and the logical interfaces
+- the Wi-Fi clients, their signal, and the channels' use
+- the connection table and the traffic per host
+- the temperatures
+- the filesystems' space and inodes
+- the DHCP leases
+- the WireGuard peers' handshakes and traffic
+- the clock's offset
 
 === "Grafana"
 
@@ -168,11 +181,20 @@ A router or an access point: its uptime, clock, load and release at the top; the
 
     ![The OpenWrt router dashboard in Perses, on the lab's data](img/perses-openwrt-router.png)
 
-The lab, `make lab`, has no Wi-Fi radio, no WireGuard interface and no firewall: those panels show no data, as on a router without those collectors.
+The lab (`make lab`) has no Wi-Fi radio, no WireGuard interface and no firewall. Those panels show no data there, as on a router without those collectors.
 
 ### OpenWrt exporter health
 
-The exporter itself: whether its scrapes succeed, its version, how many collectors fail or are quarantined, each scrape's duration against the scraper's timeout and the time in each collector, each collector's success, samples and failures by error code, its circuit breakers and deadline, and the memory, CPU and descriptors of the uhttpd instance that serves the scrapes. The counters come from the `exporter` collector, in the base package, and start again at 0 when the service restarts.
+This dashboard shows the exporter itself:
+
+- whether its scrapes succeed, and its version
+- how many collectors fail or are quarantined
+- each scrape's duration against the scraper's timeout, and the time spent in each collector
+- each collector's success, samples, and failures by error code
+- the circuit breakers and the deadline
+- the memory, CPU and file descriptors of the uhttpd instance that serves the scrapes
+
+The counters come from the `exporter` collector, in the base package. They restart at 0 when the service restarts.
 
 === "Grafana"
 
@@ -184,6 +206,6 @@ The exporter itself: whether its scrapes succeed, its version, how many collecto
 
 ## See also
 
-- [Metrics](../reference/metrics.md): every family the dashboards and alerts use is there, and `make monitoring-check` fails on one that is not.
+- [Metrics](../reference/metrics.md) lists every family the dashboards and alerts use. `make monitoring-check` fails on a family that is not there.
 - [About deadlines and circuit breakers](../explanation/deadlines-and-breakers.md)
 - [Pushing metrics from the router](push-metrics.md), where nothing can scrape it.

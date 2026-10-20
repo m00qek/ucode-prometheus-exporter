@@ -1,18 +1,23 @@
 # How to Monitor AdGuard Home
 
-The agh collector reads AdGuard Home's HTTP API on the router: `/control/status`, whether it runs and protects, and `/control/stats`, the totals of its statistics window. It reads them without a login, at an address of the router.
+The agh collector reads two endpoints of AdGuard Home's HTTP API on the router:
+
+- `/control/status`: whether AdGuard Home runs and protects
+- `/control/stats`: the totals of its statistics window
+
+It reads them without a login, at an address of the router.
 
 ## Prerequisites
 
 - AdGuard Home runs on the router (`adguardhome`), enabled, and its setup is done.
-- Its web interface has no users: `users: []` in `/etc/adguardhome/adguardhome.yaml`. The collector sends no credentials; see [If it fails](#if-it-fails).
-- `ucode-prometheus-exporter-agh` is installed. It brings `ucode-mod-socket`, and not AdGuard Home.
+- Its web interface has no users: `users: []` in `/etc/adguardhome/adguardhome.yaml`. The collector sends no credentials. See [If it fails](#if-it-fails).
+- `ucode-prometheus-exporter-agh` is installed. It brings `ucode-mod-socket`, but not AdGuard Home.
 
 ---
 
 ## 1. Point the collector at AdGuard Home's web interface
 
-The collector connects to `127.0.0.1`, port `8080`, by default. Find where AdGuard Home listens, `http.address` in its config:
+By default, the collector connects to `127.0.0.1`, port `8080`. Find where AdGuard Home listens: `http.address` in its config.
 
 ```sh
 grep -A12 '^http:' /etc/adguardhome/adguardhome.yaml | grep address
@@ -23,8 +28,8 @@ grep -A12 '^http:' /etc/adguardhome/adguardhome.yaml | grep address
 ```
 
 - `0.0.0.0` or `127.0.0.1`, port 8080: nothing to do.
-- Another port, as the setup's 3000: set `port`.
-- One address of the router, as `192.168.1.1:8080`, which OpenWrt's guide to AdGuard Home has you choose: set `address` to it, since AdGuard Home does not answer on `127.0.0.1` then.
+- Another port, such as the setup's 3000: set `port`.
+- One address of the router, such as `192.168.1.1:8080`, which OpenWrt's guide to AdGuard Home has you choose: set `address` to it. AdGuard Home then does not answer on `127.0.0.1`.
 
 ```sh
 uci set prometheus-exporter.agh=collector
@@ -34,7 +39,7 @@ uci commit prometheus-exporter
 service prometheus-exporter reload
 ```
 
-`address` is an address of the router itself, IPv4 or IPv6: the collector refuses any other, without connecting (see [About the security model](../explanation/security.md#a-jail-built-from-declarations)).
+`address` must be an address of the router itself, IPv4 or IPv6. The collector refuses any other address, without connecting (see [About the security model](../explanation/security.md#a-jail-built-from-declarations)).
 
 ## 2. Check it
 
@@ -54,13 +59,15 @@ adguard_stats_blocked_filtering 1482
 ...
 ```
 
-The families and what each means are in [Metrics](../reference/metrics.md#agh).
+[Metrics](../reference/metrics.md#agh) lists the families and what each means.
 
 ---
 
 ## Query the statistics window
 
-`/control/stats` gives totals over AdGuard Home's statistics window, the last 24 hours by default (its `statistics.interval`), not counters since it started: as the window moves, the oldest hour drops out and a total can fall. So they are gauges, `adguard_stats_*`, beside the window's length, `adguard_stats_window_seconds`, and not `_total` counters. `rate()` and `increase()` take a fall for a counter reset, and would count the whole total again; use them as gauges:
+`/control/stats` gives totals over AdGuard Home's statistics window, not counters since it started. The window is the last 24 hours by default (its `statistics.interval`). As the window moves, the oldest hour drops out, and a total can fall.
+
+So the collector writes them as gauges, `adguard_stats_*`, not as `_total` counters, along with the window's length, `adguard_stats_window_seconds`. Do not use `rate()` or `increase()` on them: these take a fall for a counter reset, and would count the whole total again. Query them as gauges:
 
 | For | Query |
 | :--- | :--- |
@@ -72,13 +79,13 @@ The families and what each means are in [Metrics](../reference/metrics.md#agh).
 | AdGuard Home down, or not answering | `adguard_up == 0`, or `node_scrape_collector_success{collector="agh"} == 0` |
 | Filtering paused | `adguard_protection_enabled == 0` |
 
-A rate over a few minutes is not there to be had: the window's totals move by the hour, as AdGuard Home rolls its hourly units. For counters of every query, read AdGuard Home's query log, or a resolver that counts, as [Unbound](unbound.md) does.
+You cannot get a rate over a few minutes. The window's totals move by the hour, as AdGuard Home rolls its hourly units. For counters of every query, read AdGuard Home's query log, or use a resolver that counts, as [Unbound](unbound.md) does.
 
-The collector writes nothing of the domains, clients and upstreams AdGuard Home ranks (`top_queried_domains`, `top_clients`, `top_blocked_domains`): they would be a series for each, without bound, and what the people on the network browse.
+The collector writes nothing about the domains, clients and upstreams that AdGuard Home ranks (`top_queried_domains`, `top_clients`, `top_blocked_domains`). They would need one series each, without bound, and would expose what the people on the network browse.
 
 ### From dashboards of other names
 
-A dashboard written for `node_adguard_*` names, as some scripts for the textfile collector wrote them, needs these:
+Some scripts for the textfile collector wrote `node_adguard_*` names. A dashboard built on those names needs these changes:
 
 | Was | Is | Change |
 | :--- | :--- | :--- |

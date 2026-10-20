@@ -1,25 +1,39 @@
 # How to Choose Collectors
 
-What a scrape holds is decided three ways: which collector packages are installed, which collectors are enabled, and what each scrape asks for.
+Three things decide what a scrape holds:
+
+- which collector packages are installed
+- which collectors are enabled
+- what each scrape asks for
 
 ## Install collectors
 
 Install a collector's package, or a group of them:
 
-```sh
-apk add ucode-prometheus-exporter-wireguard
-apk add ucode-prometheus-exporter-network
-```
+=== "Browser (LuCI)"
+
+    1. Open **System → Software** and press **Update lists…**.
+    2. Type the package's name in **Filter**, such as `ucode-prometheus-exporter-wireguard` or the group `ucode-prometheus-exporter-network`.
+    3. On the **Available** tab, press **Install…** on its row, then **Install** in the dialog.
+
+=== "Terminal (SSH)"
+
+    ```sh
+    apk add ucode-prometheus-exporter-wireguard
+    apk add ucode-prometheus-exporter-network
+    ```
 
 The service reloads with the new collector. [Collectors](../reference/collectors.md) lists each collector, its package, its groups and what it depends on.
 
-A collector in no group is installed only by its own package: those of particular hardware or services; `interrupts`, which node_exporter has off by default for its many series, one per interrupt and CPU; and `pressure`, which needs a kernel with `CONFIG_PSI`, which OpenWrt's kernels leave off. Installing its package is turning it on:
+Some collectors are in no group, so only their own package installs them:
 
-```sh
-apk add ucode-prometheus-exporter-interrupts
-```
+- the collectors for particular hardware or services
+- `interrupts`, which node_exporter turns off by default because it writes many series, one per interrupt and CPU
+- `pressure`, which needs a kernel with `CONFIG_PSI`, which OpenWrt's kernels leave off
 
-`pressure` has nothing to observe without `/proc/pressure`: install it on a kernel built with `CONFIG_PSI` (and not booted with `psi=0`):
+Installing the package turns the collector on, as above: `ucode-prometheus-exporter-interrupts`, for example.
+
+`pressure` has nothing to observe without `/proc/pressure`. Install it only on a kernel built with `CONFIG_PSI`, and not booted with `psi=0`. Check for the directory first, over SSH:
 
 ```sh
 ls /proc/pressure
@@ -28,24 +42,42 @@ apk add ucode-prometheus-exporter-pressure
 
 ## Disable a collector
 
-To stop serving a collector that is installed, base collectors included, set `enabled` to 0 in its section. The section is named after the collector's module: the name with `_` for `-`, as `ltq_dsl` for `ltq-dsl`.
+You can stop serving any installed collector, including a base collector.
 
-```sh
-uci set prometheus-exporter.softnet=collector
-uci set prometheus-exporter.softnet.enabled=0
-uci commit prometheus-exporter
-service prometheus-exporter reload
-```
+=== "Browser (LuCI)"
 
-A disabled collector is not run, the jail mounts nothing for it, and a scrape that names it in `collect[]` is refused with a 400. To serve it again, set `enabled` back to 1, or delete its section if nothing else is set there:
+    1. Open **Services → Prometheus exporter**, tab **Collectors**. It lists the collectors by title: softnet is **Network softirq statistics**.
+    2. Untick the collector in the **Enabled** column.
+    3. Press **Save & Apply**.
 
-```sh
-uci delete prometheus-exporter.softnet
-uci commit prometheus-exporter
-service prometheus-exporter reload
-```
+    See [How to use the LuCI app](luci.md).
 
-In LuCI, the switch of its row on the Collectors tab does the same: see [How to use the LuCI app](luci.md).
+=== "Terminal (SSH)"
+
+    Set `enabled` to 0 in the collector's section. The section is named after the collector's module: the collector's name with `_` for `-`, such as `ltq_dsl` for `ltq-dsl`.
+
+    ```sh
+    uci set prometheus-exporter.softnet=collector
+    uci set prometheus-exporter.softnet.enabled=0
+    uci commit prometheus-exporter
+    service prometheus-exporter reload
+    ```
+
+The exporter does not run a disabled collector, and the jail mounts nothing for it. A scrape that names it in `collect[]` gets a 400. To serve it again:
+
+=== "Browser (LuCI)"
+
+    Tick the collector again in the **Enabled** column, and press **Save & Apply**.
+
+=== "Terminal (SSH)"
+
+    Set `enabled` back to 1, or delete the collector's section if nothing else is set there:
+
+    ```sh
+    uci delete prometheus-exporter.softnet
+    uci commit prometheus-exporter
+    service prometheus-exporter reload
+    ```
 
 ## Remove a collector
 
@@ -53,7 +85,7 @@ Remove its package: see [How to remove the exporter](uninstall.md#remove-a-colle
 
 ## Choose per scrape
 
-To have one scrape job take some collectors only, give Prometheus the query parameters:
+To make one scrape job take only some collectors, give Prometheus the query parameters:
 
 ```yaml
 scrape_configs:
@@ -64,13 +96,19 @@ scrape_configs:
       - targets: [ 'router.lan:9100' ]
 ```
 
-`exclude[]` leaves collectors out instead. A name that is not installed, or a disabled one in `collect[]`, makes the scrape fail with a 400. See [HTTP endpoint](../reference/http.md#query-string).
+`exclude[]` leaves collectors out instead. The scrape fails with a 400 if it names a collector that is not installed, or names a disabled one in `collect[]`. See [HTTP endpoint](../reference/http.md#query-string).
 
 ## Check
 
-```sh
-service prometheus-exporter status
-service prometheus-exporter check
-```
+=== "Browser (LuCI)"
 
-`status` counts the collectors served; `check` lists each, enabled or not.
+    The **Collectors** tab of **Services → Prometheus exporter** says how many collectors are enabled, as `15 of 16 collectors enabled`. **Status → Prometheus exporter** lists each collector, with **Not run: switched off** for a disabled one.
+
+=== "Terminal (SSH)"
+
+    ```sh
+    service prometheus-exporter status
+    service prometheus-exporter check
+    ```
+
+    `status` counts the collectors served. `check` lists each collector, enabled or not.
