@@ -37,7 +37,7 @@ Every target runs in Docker, but `feed-makefile`, a shell script with `curl`; no
 
 | Target | Description |
 | :--- | :--- |
-| `bench` | Each collector and whole scrapes on the generated worlds, in the package-check image: a table, and `bin/bench/<label>.json`. Checks the scaling and memory budgets of `test/bench/budgets.uc`, and, unconstrained, the time budgets too. |
+| `bench` | Each collector and whole scrapes on the generated worlds, in the package-check image: a table, and `bin/bench/<label>.json`. Checks the scaling, memory, turn and request budgets of `test/bench/budgets.uc`, and, unconstrained, the time budgets too. |
 | `bench-worlds` | Writes the worlds to `bin/bench/worlds/`. |
 | `bench-device` | The benchmark on `HOST` over ssh, from its `/tmp`, with its own ucode; nothing is installed and everything copied is removed. |
 | `bench-qemu` | `package` and `bench-worlds`, then the benchmark on OpenWrt's malta target, a MIPS 24Kc, little-endian in qemu-system-mipsel or big-endian in qemu-system-mips (`QEMU_ENDIAN`), with the built packages installed from the release's feed. Before the bench, the guest checks what reads data in the CPU's byte order (`devenv/scripts/qemu-checks.uc`), and the target fails if a check does. |

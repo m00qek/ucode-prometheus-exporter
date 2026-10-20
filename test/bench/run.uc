@@ -108,12 +108,16 @@ function anon_kb() {
 	return m ? +m[1] : null;
 }
 
+// Whether reset_peak() could start the peak again: where it could not, a
+// run's growth holds what loading the world peaked at too.
+let peak_reset = false;
+
 // Frees what loading left and, where the kernel lets a process (Linux 4.0's
 // clear_refs, which OpenWrt's kernels leave out), starts VmHWM again from the
 // current RSS: the peak is then the run's own.
 function reset_peak() {
 	gc();
-	fs.writefile('/proc/self/clear_refs', '5');
+	peak_reset = fs.writefile('/proc/self/clear_refs', '5') != null;
 	return memory();
 }
 
@@ -224,7 +228,8 @@ if (kind == 'calibrate') {
 	c = c.data;
 
 	let redirect = entries != null ? { '/proc/net/nf_conntrack': `${world_dir}/conntrack/${entries}` } : {};
-	let mods = bench_world.modules(world, c.meta.needs, { redirect });
+	let tally = {};
+	let mods = bench_world.modules(world, c.meta.needs, { redirect, tally });
 	let env = { clock: () => clock(true), log };
 
 	mem_before = reset_peak();
@@ -241,6 +246,7 @@ if (kind == 'calibrate') {
 
 	result.collector = parts[0];
 	result.entries = entries;
+	result.asked = tally;
 	result.ok = run.result.ok;
 	result.error = run.result.ok ? null : Result.describe(run.result);
 	result.samples = samples(text);
@@ -740,6 +746,7 @@ let mem = memory();
 result.hwm_kb = mem.VmHWM;
 result.rss_before_kb = mem_before.VmRSS;
 result.growth_kb = mem.VmHWM - mem_before.VmRSS;
+result.peak_reset = peak_reset;
 result.logs = slice(uniq(logs), 0, 5);
 
 print(sprintf('%J\n', result));

@@ -3,9 +3,11 @@
 // A world gen.uc wrote, as the modules prometheus.exporter.deps.session()
 // takes: the real fs under the world's root, the real uci on its
 // /etc/config, and stand-ins for ubus, rtnl and nl80211 answering from
-// its JSON files. Programs (nft, ethtool) run for real, under deps' own watchdog,
+// its JSON files, and for socket answering a TCP port's requests from its
+// files. Programs (nft, ethtool) run for real, under deps' own watchdog,
 // as `cat` of what the world says they print: a scrape pays for each process
-// as on a router.
+// as on a router. opts.tally counts what the modules were asked: netlink
+// requests, the watchdog's runs and the programs in them, connections.
 
 import * as fs from 'fs';
 import { cursor } from 'uci';
@@ -85,7 +87,7 @@ const PROCESS = /^\/proc\/(self|[0-9]+)\/(stat|status|limits|fd|auxv)$/;
 
 // fs over the world's root. `redirect` maps a path to another file: the
 // conntrack table of a scaling case.
-function rooted_fs(world, redirect) {
+function rooted_fs(world, redirect, tally) {
 	let root = world.root;
 	let at = (p) => redirect[p] ?? (match(p, PROCESS) ? p : (root + p));
 	let strip = (p) => (p != null && substr(p, 0, length(root)) == root) ? substr(p, length(root)) : p;
@@ -99,6 +101,12 @@ function rooted_fs(world, redirect) {
 		realpath: (p) => strip(fs.realpath(at(p))),
 		popen: function(script, mode) {
 			let batch = parse_batch(script);
+			let cmd = batch ? null : parse(script);
+
+			if (batch || cmd) {
+				tally.runs++;
+				tally.programs += batch ? length(batch.lines) : 1;
+			}
 
 			// The programs of a batch, each `cat` of its output or `false`, in
 			// one watchdog as exec runs them.
@@ -106,7 +114,6 @@ function rooted_fs(world, redirect) {
 				return fs.popen(deps.batch_script(map(batch.lines, (l) => (world.commands[l] != null) ? [ 'cat', `${world.dir}/${world.commands[l]}` ] : [ 'false' ]),
 					batch.seconds, batch.mark), mode);
 
-			let cmd = parse(script);
 			let out = cmd ? world.commands[cmd.line] : null;
 
 			// A program the world has no output for fails, as ethtool -S does
@@ -145,19 +152,63 @@ function ubus(world) {
 }
 
 // replies(): the source's replies, read when first asked.
-function netlink(replies, consts) {
+function netlink(replies, consts, count) {
 	let last = null;
 
 	return {
 		const: consts,
 		request: function(cmd, flags, attrs) {
 			let key = attrs?.dev != null ? `${cmd}:${attrs.dev}` : cmd;
+
+			count();
 			let r = replies();
 
 			last = (key in r) ? null : 'No such device';
 			return r[key];
 		},
 		error: () => last,
+	};
+}
+
+// A TCP port's server: the reply to a request is the world's file for its
+// address, port and path (world.sockets['<address>:<port> <path>']), sent
+// whole at the first read; one it has none for is refused.
+function socket(world, tally) {
+	let last = null;
+	let at = (st) => world.sockets?.[`${st.to} ${split(split(st.sent, '\r\n')[0], ' ')[1]}`];
+
+	return {
+		AF_UNIX: 1, AF_INET: 2, AF_INET6: 10, SOCK_STREAM: 1, SOL_SOCKET: 1, SO_RCVTIMEO: 20, SO_SNDTIMEO: 21, MSG_NOSIGNAL: 0x4000,
+		create: function() {
+			let st = { to: null, sent: '', reply: null };
+
+			return {
+				setopt: () => true,
+				bind: () => true,
+				connect: function(addr) {
+					tally.connections++;
+					st.to = `${addr?.address}:${addr?.port}`;
+					return true;
+				},
+				send: function(data) {
+					st.sent += data;
+					return length(data);
+				},
+				recv: function() {
+					if (st.reply != null)
+						return '';
+
+					let file = at(st);
+
+					st.reply = (file != null) ? fs.readfile(`${world.dir}/${file}`) : null;
+					if (st.reply == null)
+						last = 'connect(): Connection refused';
+					return st.reply;
+				},
+				close: () => true,
+			};
+		},
+		error: (numeric) => numeric ? 111 : last,
 	};
 }
 
@@ -168,17 +219,22 @@ function netlink(replies, consts) {
 // world it would not have on a router. opts.redirect: { path: file } read in
 // place of the world's.
 export function modules(world, needs, opts) {
+	let tally = opts?.tally ?? {};
+
+	for (let k in [ 'rtnl', 'nl80211', 'runs', 'programs', 'connections' ])
+		tally[k] = 0;
+
 	for (let need in (opts?.lazy ? [] : needs))
 		if (need in [ 'ubus', 'nl80211', 'rtnl' ])
 			source(world, need);
 
 	return {
-		fs: rooted_fs(world, opts?.redirect ?? {}),
+		fs: rooted_fs(world, opts?.redirect ?? {}, tally),
 		ubus: ubus(world),
 		uci: { cursor: () => cursor(`${world.root}/etc/config`, '/nonexistent/uci-deltas') },
-		rtnl: netlink(() => source(world, 'rtnl'), RTNL_CONST),
-		nl80211: netlink(() => source(world, 'nl80211'), NL80211_CONST),
-		socket: null,
+		rtnl: netlink(() => source(world, 'rtnl'), RTNL_CONST, () => tally.rtnl++),
+		nl80211: netlink(() => source(world, 'nl80211'), NL80211_CONST, () => tally.nl80211++),
+		socket: socket(world, tally),
 		time: () => 1790850000,
 		clock: () => clock(true),
 	};

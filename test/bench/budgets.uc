@@ -73,15 +73,44 @@ const TURNS = [
 	[ 'typical/rpcd:wireguard_peers', 3000, 'the ubus object\'s wireguard_peers, and rpcd\'s collection after it' ],
 	// Measured 2,100 turns (0.5 ms).
 	[ 'large/collector:timesync', 4500, 'timesync, without a program of its own' ],
+	// Measured 43,000 turns (10.2 ms), most of them the 200 stations'
+	// samples.
+	[ 'large/collector:wifi', 60000, 'wifi on 3 radios of 3 networks and 200 stations' ],
+	// Measured 2,900 turns (0.69 ms); 4,000 parsing the whole statistics.
+	[ 'large/collector:agh', 6000, 'agh' ],
 	// Measured 44,000 turns (10.6 ms); 133,000 checking each address against
 	// each route, a function call each.
 	[ 'large/collector:nat_traffic@1000', 80000, 'nat_traffic on 1,000 entries and a router\'s 63 routes' ],
+];
+
+// [ world/case, { what: most }, why ]: how many times a collector's case may
+// ask its sources (the world's tally of what its modules were asked): rtnl
+// and nl80211 requests, the watchdog's runs and the programs in them, TCP
+// connections. A count is the same on any machine, and these are what cost
+// a router most: a request converts its whole reply, a run is a shell and
+// a watchdog besides the program, a few milliseconds there.
+const ASKED = [
+	// Measured 13 and 0: one interface dump, a station dump for each of the 9
+	// interfaces and a survey for each of the 3 phys; 27 and 9 asking each
+	// interface its own GET_INTERFACE, survey and rtnetlink link.
+	[ 'large/collector:wifi', { nl80211: 13, rtnl: 0 }, 'wifi on 3 radios of 3 networks' ],
+	// Measured 1 and 39: one batch of ethtool -S and -i of each of the 16
+	// ports, and the link settings of the 7 wired; 48 runs of a watchdog each,
+	// the radios' link settings asked too.
+	[ 'large/collector:ethtool', { runs: 1, programs: 39 }, 'ethtool on 7 wired ports and 9 radios\' interfaces' ],
+	// Measured 2: the status and the statistics, at once.
+	[ 'large/collector:agh', { connections: 2 }, 'agh' ],
 ];
 
 // The most rpcd's plugin may hold of the ubus object, in kB (rpcd:rest),
 // the bench's script with it: rpcd collects it all after every call.
 // Measured 97 kB; with all the object's modules, as before, 800.
 const RPCD_HELD_KB = 200;
+
+// The configs wireless may read again for a call after another, the
+// configs' files and the phys as they were: none, as it keeps its reply;
+// reading them was 2 ms of each of an access point's two calls a scrape.
+const RPCD_WIRELESS_CURSORS = 0;
 
 // How much of the full check of hash_password's hash (SHA-512-crypt of 1000
 // rounds) a request the cache lets in may take: measured about 2% (0.09 ms of
@@ -161,10 +190,13 @@ const PER_COLLECTOR = 0.0005;
 // on a Cortex-A53, where 0.2.1 took 570 and 510.
 const PER_COLLECTOR_TURNS = 450;
 
-// [ world/case, kB, what ]: how far a run's peak memory may rise, about three
-// times what was measured on x86_64 (a 32-bit router's is less), which a
+// [ world/case, kB, what, own ]: how far a run's peak memory may rise, about
+// three times what was measured on x86_64 (a 32-bit router's is less), which a
 // return of per-sample objects (67 MB for the large full scrape before) or of
-// reading the conntrack table whole would pass.
+// reading the conntrack table whole would pass. With `own`, only where the
+// run's peak is its own (peak_reset): an OpenWrt kernel cannot start a
+// process's peak again, which then holds what loading the world peaked at,
+// a few MB.
 const MEMORY = [
 	// Measured 3.8 MB; 10.4 MB before.
 	[ 'typical/scrape:full', 12 * 1024, 'a typical router\'s full scrape' ],
@@ -172,6 +204,9 @@ const MEMORY = [
 	[ 'large/scrape:full', 48 * 1024, 'a busy router\'s full scrape' ],
 	// Measured 5.2 MB; 26 MB before.
 	[ 'large/collector:nat_traffic@20000', 16 * 1024, 'nat_traffic on 20k entries' ],
+	// Measured 24 to 52 kB, parsing the statistics' totals alone; 216 to 260
+	// kB parsing the whole reply, its top lists of domains and clients with it.
+	[ 'large/collector:agh', 128, 'agh, AdGuard Home\'s statistics of a day', true ],
 ];
 
 // [ world/case, kB, what ]: how much the handler's process may hold once it
@@ -306,11 +341,21 @@ export function check(results, absolute) {
 		if (vm?.loop_us > 0 && r[b[0]]?.time && r[b[0]].time.median * 1000000 / vm.loop_us > b[1])
 			push(over, sprintf('%s (%s): %.0f loop turns, over %d', b[0], b[2], r[b[0]].time.median * 1000000 / vm.loop_us, b[1]));
 
+	for (let b in ASKED)
+		for (let what, most in b[1])
+			if (r[b[0]]?.asked != null && (r[b[0]].asked[what] ?? 0) > most)
+				push(over, sprintf('%s (%s): asked %s %d times, over %d', b[0], b[2], what, r[b[0]].asked[what], most));
+
+	let wireless = r['typical/rpcd:wireless'];
+
+	if (wireless?.cursors > RPCD_WIRELESS_CURSORS)
+		push(over, sprintf('typical/rpcd:wireless: read the configs %d times, over %d, the configs as they were', wireless.cursors, RPCD_WIRELESS_CURSORS));
+
 	if (r['typical/rpcd:rest']?.held_kb > RPCD_HELD_KB)
 		push(over, sprintf('typical/rpcd:rest: rpcd\'s plugin holds %d kB, over %d kB', r['typical/rpcd:rest'].held_kb, RPCD_HELD_KB));
 
 	for (let b in MEMORY)
-		if (r[b[0]]?.growth_kb > b[1])
+		if (r[b[0]]?.growth_kb > b[1] && (!b[3] || r[b[0]].peak_reset))
 			push(over, sprintf('%s (%s): grows %d kB, over %d kB', b[0], b[2], r[b[0]].growth_kb, b[1]));
 
 	for (let b in REST)

@@ -13,7 +13,8 @@
 //   rpcd:rest        what the process holds once the plugin's object is made, in kB (held_kb),
 //                    this script's own few with it, and a collection of it (gc_ms)
 //   rpcd:<method>    a call of a sources' method, wireless, wireguard_peers or time_daemons,
-//                    and the collection rpcd makes after it; after a first call, untimed
+//                    and the collection rpcd makes after it; after a first call, untimed;
+//                    and how many cursors of the configs it made (cursors)
 
 import * as fs from 'fs';
 import { cursor } from 'uci';
@@ -53,8 +54,12 @@ function connect() {
 	};
 }
 
+let cursors = 0;
 let sys = {
-	cursor: () => cursor(`${root}/etc/config`, '/nonexistent/uci-deltas'),
+	cursor: function() {
+		cursors++;
+		return cursor(`${root}/etc/config`, '/nonexistent/uci-deltas');
+	},
 	fs: {
 		lsdir: (p) => fs.lsdir(root + p), readfile: (p) => fs.readfile(root + p), realpath: (p) => strip(fs.realpath(root + p)),
 		stat: (p) => fs.stat(root + p),
@@ -93,12 +98,14 @@ if (method == 'rest') {
 	methods[method].call(req);
 	reply = null;
 	gc('collect');
+	cursors = 0;
 	t = now();
 
 	let out = methods[method].call(req);
 
 	gc('collect');
 	result.time = now() - t;
+	result.cursors = cursors;
 	reply ??= out;
 	result.ok = type(reply) == 'object' && reply.error == null;
 	result.error = result.ok ? null : sprintf('%J', reply);

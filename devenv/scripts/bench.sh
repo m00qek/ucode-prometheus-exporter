@@ -14,7 +14,7 @@ gen() {
 	# and, alone, collectors in no group that the worlds have a service for.
 	base=$(devenv/scripts/package-info.sh base-collectors)
 	full=$(devenv/scripts/package-info.sh groups | sed -n 's/^full //p')
-	extra=chrony
+	extra='chrony agh'
 	ucode -e 'let b = split(trim(ARGV[0]), " "); printf("%J\n", { base: b, full: [ ...b, ...split(trim(ARGV[1]), " ") ], extra: split(trim(ARGV[2]), " ") });' \
 		"$base" "$full" "$extra" >"$1/sets.json"
 }

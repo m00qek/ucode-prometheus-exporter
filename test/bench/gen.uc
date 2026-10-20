@@ -583,6 +583,35 @@ function chrony(dir, world, n, rand) {
 	}
 }
 
+// ---- AdGuard Home ----------------------------------------------------------------
+
+// AdGuard Home's API on 127.0.0.1:8080, as the seriguela router's answers
+// it: its status, and its statistics of a day in hours with the top lists
+// as long as the router's (100 domains, 13 clients, 65 blocked, 4
+// upstreams), some 6.6 kB, its fields in AdGuard Home's order, compact.
+function adguard(dir, world, rand) {
+	let reply = (name) => fixture(`seriguela-router/sockets/127.0.0.1_8080.control_${name}.txt`);
+	let head = (text) => substr(text, 0, index(text, '\r\n\r\n') + 4);
+	let stats = json(substr(reply('stats'), length(head(reply('stats')))));
+	let top = (n, name) => join(',', times(n, (i) => sprintf('{%J:%d}', name(i), rand(5000))));
+	let hours = () => '[' + join(',', times(24, () => rand(1000))) + ']';
+	let body = sprintf('{"time_units":"hours","top_queried_domains":[%s],"top_clients":[%s],"top_blocked_domains":[%s],',
+		top(100, (i) => `host${i}.cdn${i % 7}.example.com`), top(13, (i) => `192.168.1.${20 + i}`), top(65, (i) => `ads${i}.tracker.example.net`)) +
+		sprintf('"top_upstreams_responses":[%s],"top_upstreams_avg_time":[%s],', top(4, (i) => `[2001:db8::${i + 1}]:53`),
+			join(',', times(4, (i) => sprintf('{"[2001:db8::%d]:53":0.0%d}', i + 1, rand(90) + 10)))) +
+		sprintf('"dns_queries":%s,"blocked_filtering":%s,"replaced_safebrowsing":%s,"replaced_parental":%s,', hours(), hours(), hours(), hours()) +
+		sprintf('"num_dns_queries":%d,"num_blocked_filtering":%d,"num_replaced_safebrowsing":0,"num_replaced_safesearch":0,"num_replaced_parental":0,"avg_processing_time":%J}\n',
+			stats.num_dns_queries + rand(1000), stats.num_blocked_filtering + rand(100), stats.avg_processing_time);
+
+	mkdir_p(`${dir}/sockets`);
+	writefile(`${dir}/sockets/agh-status.txt`, reply('status'));
+	writefile(`${dir}/sockets/agh-stats.txt`, head(reply('stats')) + body);
+	world.sockets = {
+		'127.0.0.1:8080 /control/status': 'sockets/agh-status.txt',
+		'127.0.0.1:8080 /control/stats': 'sockets/agh-stats.txt',
+	};
+}
+
 // ---- block devices ---------------------------------------------------------------
 
 // /proc/diskstats of a kernel 5.5 or later (20 fields): loop devices, flash,
@@ -704,6 +733,7 @@ function generate(dir, profile) {
 	// chronyd serving time to the lan, its command socket there (as outside
 	// the jail): so the collector asks for serverstats too.
 	chrony(dir, world, p.ntp_sources, rng(44));
+	adguard(dir, world, rng(47));
 	put(root, '/etc/config/chrony', "config server\n\toption hostname 'time.example'\n\nconfig allow\n\toption interface 'lan'\n");
 	put(root, '/var/run/chrony/chronyd.sock', 'a file where the socket is: the collector only sees it is there\n');
 	world.commands["'tc' '-s' '-j' 'qdisc' 'show'"] = 'commands/tc.json';
