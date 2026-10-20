@@ -41,7 +41,7 @@ import { METRIC_NAME, METRIC_NAMES, LABEL_PREFIXES, SPECIAL, label_text, label_p
  *   counter: (name: string, help: ?string) => SampleWriter,
  *   gauge: (name: string, help: ?string) => SampleWriter,
  *   untyped: (name: string, help: ?string) => SampleWriter,
- *   batch: (type: string, rows: Array<[string, ?string, *]>) => void,
+ *   batch: (type: string, rows: Array<[string, ?string, *, ?(Object|string)]>) => void,
  *   labels: (labels: ?Object) => string,
  *   parse: (text: string) => Result<null>,
  *   add: (families: Family[]) => void,
@@ -238,7 +238,7 @@ export function recorder(max) {
 		let counter = (mtype == 'counter');
 
 		for (let r in rows) {
-			let name = r[0], help = r[1], value = r[2];
+			let name = r[0], help = r[1], value = r[2], labels = r[3];
 
 			named(name);
 			name = METRIC_NAMES[name] ?? ((type(name) == 'string' && match(name, METRIC_NAME)) ? name : sanitize(name));
@@ -262,7 +262,15 @@ export function recorder(max) {
 			if (++count > cap)
 				stop(name);
 
-			push(target.lines, name + ' ' + v);
+			let text = '';
+
+			if (labels != null) {
+				text = (type(labels) == 'string') ? made[labels] : ((type(labels) == 'object') ? label_text(labels) : null);
+				if (text == null)
+					refuse_labels(name, labels);
+			}
+
+			push(target.lines, name + text + ' ' + v);
 			if (counter)
 				push(target.values, v);
 		}

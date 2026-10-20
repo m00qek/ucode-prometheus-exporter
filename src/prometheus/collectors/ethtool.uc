@@ -69,29 +69,45 @@ function names(stat) {
 	return n;
 }
 
+function names_of(stats) {
+	let out = [];
+
+	for (let s in stats)
+		push(out, NAMES[s[0]] ?? names(s[0]));
+
+	return out;
+}
+
 export function family(stat) {
 	return names(stat)[1];
 };
 
-export function exported(stats) {
+function kept(named) {
 	let by_fq = {};
 	let written = {};
 
-	for (let s in stats) {
-		let n = names(s[0]);
-
-		by_fq[n[0]] = (n[0] in by_fq) ? false : s;
+	for (let i, n in named) {
+		by_fq[n[0]] = (n[0] in by_fq) ? -1 : i;
 		written[n[1][0]] = !(n[1][0] in written);
 	}
 
 	let out = [];
 	for (let fq in sort(keys(by_fq))) {
-		let s = by_fq[fq];
-		let fam = s ? names(s[0])[1][0] : null;
+		let i = by_fq[fq];
 
-		if (s && written[fam] && fam != INFO)
-			push(out, s);
+		if (i >= 0 && written[named[i][1][0]] && named[i][1][0] != INFO)
+			push(out, i);
 	}
+
+	return out;
+}
+
+export function exported(stats) {
+	let named = names_of(stats);
+	let out = [];
+
+	for (let i in kept(named))
+		push(out, stats[i]);
 
 	return out;
 };
@@ -189,6 +205,15 @@ export function backed(fs, dev) {
 	return fs.stat(`/sys/class/net/${dev}/device`) != null;
 };
 
+export function wireless(fs, dev) {
+	return fs.stat(`/sys/class/net/${dev}/phy80211`) != null;
+};
+
+function written(out, rows, res) {
+	out.batch('untyped', rows);
+	return res;
+}
+
 function cannot_run(res) {
 	return res.data?.status == null || res.data.status in [ 126, 127 ];
 }
@@ -200,7 +225,7 @@ export function collect(deps, out) {
 	if (!links.ok)
 		return links;
 
-	let families = {};
+	let rows = [];
 	let info = out.gauge('node_ethtool_info', 'A metric with a constant \'1\' value labeled by bus_info, device, driver, expansion_rom_version, firmware_version, version.');
 	let port = out.gauge('node_network_supported_port_info', 'Type of ports or PHYs supported by network device');
 	let speeds = {
@@ -221,38 +246,56 @@ export function collect(deps, out) {
 	};
 	let autonegotiate = out.gauge('node_network_autonegotiate', 'If this port is using autonegotiate');
 
+	let devices = [];
+	let argvs = [];
+
 	for (let link in links.data ?? []) {
 		let device = link.dev ?? link.ifname;
 
 		if (device == null || !backed(deps.fs, device))
 			continue;
 
+		let modes = !wireless(deps.fs, device);
+
+		push(devices, [ device, modes ]);
+		push(argvs, [ 'ethtool', '-S', device ], [ 'ethtool', '-i', device ]);
+		if (modes)
+			push(argvs, [ 'ethtool', device ]);
+	}
+
+	let runs = length(argvs) ? deps.exec.run_all(argvs) : [];
+	let next = 0;
+
+	for (let entry in devices) {
+		let device = entry[0];
 		let labels = out.labels({ device });
-		let res = deps.exec.run([ 'ethtool', '-S', device ]);
+		let res = runs[next++];
 
 		if (res.ok) {
-			for (let s in exported(statistics(res.data))) {
-				let f = family(s[0]);
+			let stats = statistics(res.data);
+			let named = names_of(stats);
 
-				families[f[0]] ??= out.untyped(f[0], f[1]);
-				families[f[0]](labels, s[1]);
-			}
+			for (let i in kept(named))
+				push(rows, [ named[i][1][0], named[i][1][1], stats[i][1], labels ]);
 		} else if (cannot_run(res))
-			return res;
+			return written(out, rows, res);
 
-		res = deps.exec.run([ 'ethtool', '-i', device ]);
+		res = runs[next++];
 		if (res.ok) {
 			let d = driver_info(res.data);
 
 			info({ bus_info: d.bus_info, device, driver: d.driver, expansion_rom_version: d.expansion_rom_version,
 				firmware_version: d.firmware_version, version: d.version }, 1);
 		} else if (cannot_run(res))
-			return res;
+			return written(out, rows, res);
 
-		res = deps.exec.run([ 'ethtool', device ]);
+		if (!entry[1])
+			continue;
+
+		res = runs[next++];
 		if (!res.ok) {
 			if (cannot_run(res))
-				return res;
+				return written(out, rows, res);
 			continue;
 		}
 
@@ -273,5 +316,5 @@ export function collect(deps, out) {
 			autonegotiate(labels, s.autonegotiate);
 	}
 
-	return Result.ok();
+	return written(out, rows, Result.ok());
 };

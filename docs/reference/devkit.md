@@ -78,9 +78,10 @@ For a collector that needs `exec`: an fs mock whose `popen` answers each program
 
 | Export | Is |
 | :--- | :--- |
-| `fs(outputs, extra)` | An fs mock config whose `popen` answers `outputs[line(argv)]`: `{ out, status }`; `{ hangs: true }`, a program its watchdog killed (`COMMAND_TIMEOUT`); `{ run: argv, seconds }`, `argv` run for real under the real watchdog. A command line not there cannot start (`COMMAND_FAILED`). `extra` is merged into the config: its `data`, say. |
+| `fs(outputs, extra)` | An fs mock config whose `popen` answers `outputs[line(argv)]`: `{ out, status }`; `{ hangs: true }`, a program its watchdog killed (`COMMAND_TIMEOUT`); `{ run: argv, seconds }`, `argv` run for real under the real watchdog. A command line not there cannot start (`COMMAND_FAILED`). It answers the batch of a `run_all()` too, each program as alone, one that hangs stopping the batch there; a batch with a command line not there cannot start. `extra` is merged into the config: its `data`, say. |
 | `line(argv)` | A command line as the capability runs it, each argument single-quoted: the key of `outputs`. |
 | `parse(script)` | `{ seconds, line }` of a script the capability gives `popen`, or null. |
+| `parse_batch(script)` | `{ seconds, mark, lines }` of the script of a `run_all()`, or null: its seconds, the mark of the line after each program's output, and each program's command line. |
 | `running(text)` | The command lines of the processes whose command line holds `text`, looked for again for up to a second: that none a program started outlives it. |
 
 ```js

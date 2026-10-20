@@ -183,7 +183,7 @@ Only `prometheus.exporter.deps`, with its modules of each capability (`prometheu
 | `rtnl` | `request(cmd, flags, attrs)` as a Result (`RTNL_FAILED`), and `const`. |
 | `nl80211` | The same, for nl80211 (`NL80211_FAILED`). Needs ucode-mod-nl80211. |
 | `socket` | `unix_request(path, message, timeout_ms)`: the whole reply of a Unix stream socket's server, as a Result (`SOCKET_FAILED`). `tcp_request(address, port, message, timeout_ms)`: the same of a TCP port of the device itself, at an IPv4 or IPv6 address of its own, which it binds to before it connects: another address fails `SOCKET_FAILED` without connecting. Every wait, to connect, send or read, is bounded by `timeout_ms`, and the reply is what the server sent until it closed. Needs ucode-mod-socket. |
-| `exec` | `run(argv)`: a program of `meta.commands`, without a shell's interpretation of its arguments, its standard output as a Result. See [Programs](#programs). |
+| `exec` | `run(argv)`: a program of `meta.commands`, without a shell's interpretation of its arguments, its standard output as a Result. `run_all(argvs)`: several, one after the other under one watchdog, a Result for each, as `run` gives it. See [Programs](#programs). |
 | `time` | `now()`: the system time, in seconds. |
 | `log` | `log(msg)`: a line at `warning`, `collector '<name>': <msg>`, for what a collector that succeeds still has to say. At most 10 lines a run, each cut at 512 bytes; past them, one line once the run is over says how many more were left out. |
 | `exporter` | The exporter itself, read-only: `process(file)`, the serving uhttpd's `/proc/<pid>/stat`, `status` or `limits`; `fds()`, how many descriptors it has open; `system(file)`, `/proc/stat` or `/proc/self/auxv`. The `exporter` collector's. What the instance's ledger counts, and each collector's samples, the scrape writes itself while that collector is selected (see [Metrics](metrics.md#scrape)). |
@@ -196,6 +196,7 @@ A need the system lacks (`nl80211`, `socket`) fails the collector with `NEED_MIS
 - Its standard error is discarded. An exit status other than 0 is `COMMAND_FAILED`, with `data.status`; one that cannot start, `COMMAND_FAILED` with `data.status` null.
 - A collector's programs get, in all per scrape, the seconds of its section's `timeout`, else `meta.timeout`, else the main section's `exec_timeout` (5), at most 30. The shell counts whole seconds: they take at most one second more.
 - One still running then is killed, with every process it started, and is `COMMAND_TIMEOUT` with `data.timed_out`. So is any `run` after the seconds are spent, without running.
+- `run_all` runs its programs in one shell, a program after another, for a fork and an exec each where `run` costs a shell and a watchdog besides: a few milliseconds a program on a router. They share the seconds as `run`'s do. One still running when they are spent is killed as with `run`, those before it keep their Results, and those after it are `COMMAND_TIMEOUT` without running; a batch that cannot start is `COMMAND_FAILED` for each.
 
 ## `out`
 
@@ -204,7 +205,7 @@ A need the system lacks (`nl80211`, `socket`) fails the collector with `NEED_MIS
 | Call | Does |
 | :--- | :--- |
 | `out.gauge(name, help)`, `out.counter(name, help)`, `out.untyped(name, help)` | Declares a family, and returns `(labels, value)`, which records a sample and returns itself, so calls chain. |
-| `out.batch(type, rows)` | Records families of one sample each, without labels: for each row `[ name, help, value ]`, in order, what `out[type](name, help)(null, value)` records, with less work for each. `type` is `'gauge'`, `'counter'` or `'untyped'`. |
+| `out.batch(type, rows)` | Records families of one sample each: for each row `[ name, help, value, labels ]`, in order, what `out[type](name, help)(labels, value)` records, with less work for each. `labels` is optional, as a writer's: null, an object, or what `out.labels()` made. `type` is `'gauge'`, `'counter'` or `'untyped'`. |
 | `out.labels(labels)` | Makes a label set several samples share, once, to pass in place of the object. |
 | `out.parse(text)` | Adds exposition text, which must be valid as a whole: a Result, `EXPOSITION_INVALID` otherwise. |
 

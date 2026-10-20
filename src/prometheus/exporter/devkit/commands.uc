@@ -6,7 +6,7 @@
 
 'use strict';
 
-import { shell_quote, exec_script, EXEC_KILLED } from 'prometheus.exporter.deps';
+import { shell_quote, exec_script, EXEC_KILLED, BATCH } from 'prometheus.exporter.deps';
 
 const real = require('fs');
 
@@ -40,8 +40,75 @@ export function parse(script) {
 	};
 };
 
+const BATCH_HEAD = `${BATCH}() {\n`;
+const BATCH_LINE = "\nprintf '\\n%s %d\\n' '";
+
 /**
- * An fs mock config whose popen runs the programs of `outputs`, by command line.
+ * { seconds, mark, lines } of a script deps' exec runs for run_all(), or null for any other command.
+ *
+ * @param {string} script what popen was given.
+ * @returns {?{ seconds: int, mark: string, lines: string[] }} its limit, the mark after each output, and its command lines.
+ */
+export function parse_batch(script) {
+	let end = index(script, '\n}\nset -- ');
+
+	if (substr(script, 0, length(BATCH_HEAD)) != BATCH_HEAD || end < 0)
+		return null;
+
+	let run = parse(substr(script, end + 3));
+	let body = substr(script, length(BATCH_HEAD), end + 1 - length(BATCH_HEAD));
+	let at = index(body, BATCH_LINE);
+
+	if (run?.line != shell_quote(BATCH) || at < 0)
+		return null;
+
+	let mark = substr(body, at + length(BATCH_LINE));
+	mark = substr(mark, 0, index(mark, "'"));
+
+	let lines = split(body, `${BATCH_LINE}${mark}' "$?"\n`);
+
+	if (pop(lines) != '')
+		return null;
+
+	return { seconds: run.seconds, mark, lines };
+};
+
+function answer(o, seconds) {
+	if (o.run) {
+		let p = real.popen(exec_script(o.run, o.seconds ?? seconds), 'r');
+		let out = p.read('all');
+		let status = p.close();
+
+		return { out, status, killed: status == EXEC_KILLED };
+	}
+
+	return { out: o.out ?? '', status: o.status ?? 0, killed: o.hangs == true };
+}
+
+function batch_handle(outputs, b) {
+	for (let line in b.lines)
+		if (outputs[line] == null)
+			return null;
+
+	let text = '';
+	let killed = false;
+
+	for (let line in b.lines) {
+		let a = answer(outputs[line], b.seconds);
+
+		text += a.out;
+		if (a.killed) {
+			killed = true;
+			break;
+		}
+		text += `\n${b.mark} ${a.status}\n`;
+	}
+
+	return { read: () => text, close: () => killed ? EXEC_KILLED : 0 };
+}
+
+/**
+ * An fs mock config whose popen runs the programs of `outputs`, by command line, alone or in a batch (run_all()).
  *
  * @param {Object<string, { out: ?string, status: ?int, hangs: ?boolean, run: ?string[], seconds: ?int }>} outputs
  * @param {?Object} extra the rest of the fs mock's config.
@@ -53,6 +120,11 @@ export function fs(outputs, extra) {
 		behavior: {
 			...(extra?.behavior ?? {}),
 			popen: function(cmd, mode) {
+				let b = parse_batch(cmd);
+
+				if (b)
+					return batch_handle(outputs, b);
+
 				let script = parse(cmd);
 				let o = script ? outputs[script.line] : null;
 

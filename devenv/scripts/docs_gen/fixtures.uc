@@ -25,6 +25,7 @@
 // which was captured for those links only.
 
 import * as fs from 'fs';
+import { parse_batch } from 'prometheus.exporter.devkit.commands';
 
 // The time deps.time.now() gives: any fixed second.
 export const NOW = 1790850000;
@@ -87,20 +88,22 @@ export function command_file(files, argv) {
 	return best;
 };
 
+// The words of a command line exec quoted, each single-quoted.
+function line_argv(line) {
+	let argv = [];
+
+	for (let q in match(line, /'([^']|'\\'')*'/g) ?? [])
+		push(argv, replace(substr(q[0], 1, length(q[0]) - 2), "'\\''", "'"));
+
+	return argv;
+}
+
 // A script deps' exec runs: its argv, single-quoted after `set -- SECONDS`.
 export function script_argv(script) {
 	let first = split(script, '\n')[0];
 	let m = match(first, /^set -- [0-9]+ (.*)$/);
 
-	if (!m)
-		return null;
-
-	let argv = [];
-
-	for (let q in match(m[1], /'([^']|'\\'')*'/g) ?? [])
-		push(argv, replace(substr(q[0], 1, length(q[0]) - 2), "'\\''", "'"));
-
-	return argv;
+	return m ? line_argv(m[1]) : null;
 };
 
 // The const of a netlink module, each name as its own value, as replies are
@@ -275,14 +278,34 @@ export function modules(dir, overlay) {
 		return m && fs.stat(`${dir}/commands/ethtool_S_${m[1]}.txt`) != null;
 	}
 
+	function capture(argv) {
+		let f = command_file(fs.lsdir(`${dir}/commands`) ?? [], argv);
+
+		return (f != null) ? fs.readfile(`${dir}/commands/${f}`) : null;
+	}
+
+	// A batch of run_all(): each program's capture and 0, or nothing and 1.
 	function popen(script, mode) {
+		let batch = parse_batch(script);
+
+		if (batch) {
+			let text = '';
+
+			for (let line in batch.lines) {
+				let out = capture(line_argv(line));
+
+				text += `${out ?? ''}\n${batch.mark} ${(out != null) ? 0 : 1}\n`;
+			}
+
+			return { read: () => text, close: () => 0 };
+		}
+
 		let argv = script_argv(script);
 
 		if (argv == null)
 			return null;
 
-		let f = command_file(fs.lsdir(`${dir}/commands`) ?? [], argv);
-		let out = (f != null) ? fs.readfile(`${dir}/commands/${f}`) : null;
+		let out = capture(argv);
 
 		return (out != null) ? { read: () => out, close: () => 0 } : { read: () => '', close: () => 1 };
 	}

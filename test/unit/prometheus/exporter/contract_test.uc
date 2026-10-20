@@ -97,6 +97,18 @@ describe('with_collector\'s contract check', () => {
 		]) }, run(runner));
 	});
 
+	it('fails one that runs a program its meta.commands does not list in a batch', () => {
+		let runner = collector('runner', { needs: [ 'exec' ], commands: [ 'true' ] }, (deps) => deps.exec.run_all([ [ 'true' ], [ 'false' ] ])[1]);
+
+		assert.match({ kind: 'fail', message: join('\n', [
+			"collector 'runner' ran 'false', which its meta.commands does not list.",
+			'The exporter refuses it, in the jail or not: run() returns COMMAND_NOT_ALLOWED without running it, as it did here. ' +
+			'A test that expects the collector to fail may pass by accident.',
+			"List it in meta.commands, with 'exec' in meta.needs, or stop running it.",
+			'Declared commands: true',
+		]) }, run(runner, { fs: { behavior: { popen: () => null } } }));
+	});
+
 	it('fails one that calls a ubus method its meta.ubus does not list, which the service\'s ACL would refuse', () => {
 		let got = null;
 		let caller = collector('caller', { needs: [ 'ubus' ], ubus: { dnsmasq: [ 'metrics' ], rc: [ 'list' ] } }, function(deps) {

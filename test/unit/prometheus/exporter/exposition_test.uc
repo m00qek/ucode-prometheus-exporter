@@ -334,9 +334,15 @@ describe('exposition: properties', () => {
 		gen.tuple(gen.elements('counter', 'gauge', 'untyped'), gen.int(0, 6), gen.array(gen.tuple(
 			gen.elements('a', 'b', 'node_x_total', 'if-name', '1x', '', 'a:b', 'a\0b', 'b\0\n'),
 			gen.elements(null, '', 'Help.', 'caf\xc3\xa9', 'caf\xe9', 'a\\b\nc', 'x', 'a\0b', 'x\0\xe9'),
-			gen.oneof(gen.int(-3, 3), gen.elements('7', ' 0x1f\n', 'word', '', null, 0.5, 1 / 3.0, true, NaN))),
+			gen.oneof(gen.int(-3, 3), gen.elements('7', ' 0x1f\n', 'word', '', null, 0.5, 1 / 3.0, true, NaN)),
+			gen.elements(null, 'made', { device: 'eth0' }, { a: 'x"y', b: '1' }, { 'bad-name': 'v' }, 'not made', 7)),
 			{ min_len: 0, max_len: 8 })), (t) => {
-			let mtype = t[0], max = t[1], rows = t[2];
+			let mtype = t[0], max = t[1];
+
+			// A row's labels: none, a set the recorder made, an object, or neither.
+			function labelled(out) {
+				return map(t[2], (r) => [ r[0], r[1], r[2], (r[3] == 'made') ? out.labels({ device: 'lan', port: '1' }) : r[3] ]);
+			}
 
 			// What a recorder holds after fill(out), and what fill threw.
 			function after(fill) {
@@ -355,11 +361,11 @@ describe('exposition: properties', () => {
 			}
 
 			let want = after(function(out) {
-				for (let r in rows)
-					out[mtype](r[0], r[1])(null, r[2]);
+				for (let r in labelled(out))
+					out[mtype](r[0], r[1])(r[3], r[2]);
 			});
 
-			assert.match(want, after((out) => out.batch(mtype, rows)), sprintf('%J', t));
+			assert.match(want, after((out) => out.batch(mtype, labelled(out))), sprintf('%J', t));
 		});
 
 	prop('renders a label value that parses back unchanged', gen.ascii({ min_len: 0, max_len: 24 }), (v) => {

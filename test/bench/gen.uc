@@ -184,6 +184,14 @@ function sysfs_link(root, l, i, rand) {
 		mkdir_p(root + dev);
 		symlink(`../../../devices/platform/soc/1510000${i % 10}.ethernet/${l.dev}`, `${root}${dir}/device`);
 	}
+
+	// A Wi-Fi interface's phy, as cfg80211 links each of its interfaces to it.
+	let phy = match(l.dev, /^(phy[0-9]+)-/);
+
+	if (phy) {
+		mkdir_p(`${root}/sys/devices/platform/soc/18000000.wifi/ieee80211/${phy[1]}`);
+		symlink(`../../../devices/platform/soc/18000000.wifi/ieee80211/${phy[1]}`, `${root}${dir}/phy80211`);
+	}
 }
 
 // ---- /proc -------------------------------------------------------------------

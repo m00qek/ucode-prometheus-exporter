@@ -9,10 +9,18 @@
 
 import * as fs from 'fs';
 import { cursor } from 'uci';
-import { exec_script } from 'prometheus.exporter.deps';
+import * as deps from 'prometheus.exporter.deps';
+
+const exec_script = deps.exec_script;
 
 // What follows the command line in every script exec_script makes.
 const TAIL = substr(exec_script([ '' ], 1), length("set -- 1 ''"));
+
+// The shell function of a script of run_all(), which another revision's exec
+// may not have.
+const BATCH = deps.BATCH ?? '_prometheus_exporter_batch';
+const BATCH_HEAD = `${BATCH}() {\n`;
+const BATCH_LINE = "\nprintf '\\n%s %d\\n' '";
 
 // { seconds, line } of a script deps' exec runs, or null for any other
 // command: the devkit's commands.parse, here so that the bench runs on the
@@ -27,6 +35,30 @@ function parse(script) {
 		seconds: +head[1],
 		line: substr(script, length(head[0]), length(script) - length(head[0]) - length(TAIL)),
 	};
+}
+
+// { seconds, mark, lines } of a script of run_all(), or null: the devkit's
+// commands.parse_batch, here for the same reason.
+function parse_batch(script) {
+	let end = index(script, '\n}\nset -- ');
+
+	if (substr(script, 0, length(BATCH_HEAD)) != BATCH_HEAD || end < 0)
+		return null;
+
+	let run = parse(substr(script, end + 3));
+	let body = substr(script, length(BATCH_HEAD), end + 1 - length(BATCH_HEAD));
+	let at = index(body, BATCH_LINE);
+
+	if (run?.line != `'${BATCH}'` || at < 0)
+		return null;
+
+	let mark = substr(body, at + length(BATCH_LINE));
+	mark = substr(mark, 0, index(mark, "'"));
+
+	let lines = split(body, `${BATCH_LINE}${mark}' "$?"\n`);
+
+	pop(lines);
+	return { seconds: run.seconds, mark, lines };
 }
 
 // The constants are their own names: the stand-ins key replies by them.
@@ -66,6 +98,14 @@ function rooted_fs(world, redirect) {
 		stat: (p) => fs.stat(at(p)),
 		realpath: (p) => strip(fs.realpath(at(p))),
 		popen: function(script, mode) {
+			let batch = parse_batch(script);
+
+			// The programs of a batch, each `cat` of its output or `false`, in
+			// one watchdog as exec runs them.
+			if (batch)
+				return fs.popen(deps.batch_script(map(batch.lines, (l) => (world.commands[l] != null) ? [ 'cat', `${world.dir}/${world.commands[l]}` ] : [ 'false' ]),
+					batch.seconds, batch.mark), mode);
+
 			let cmd = parse(script);
 			let out = cmd ? world.commands[cmd.line] : null;
 

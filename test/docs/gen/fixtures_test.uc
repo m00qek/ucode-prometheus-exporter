@@ -2,7 +2,7 @@
 
 import { describe, it, assert } from 'utest';
 import * as fixtures from 'docs_gen.fixtures';
-import { exec_script } from 'prometheus.exporter.deps';
+import { exec_script, batch_script } from 'prometheus.exporter.deps';
 
 const FILES = [
 	'ethtool_S_lan.txt', 'ethtool_S_lan2.txt', 'ethtool_S_ifb4vlan-guest.txt',
@@ -78,6 +78,14 @@ describe('docs_gen.fixtures.modules', () => {
 		assert.match(true, length(p.read('all')) > 0);
 		assert.match(0, p.close());
 		assert.match(1, mods.fs.popen(exec_script([ 'nft', 'list', 'ruleset' ], 5), 'r').close());
+	});
+
+	it('runs a batch of programs as run_all does, each the cat of its capture or a failure', () => {
+		let nft = mods.fs.popen(exec_script([ 'nft', '--json', 'list', 'counters' ], 5), 'r').read('all');
+		let p = mods.fs.popen(batch_script([ [ 'nft', '--json', 'list', 'counters' ], [ 'nft', 'list', 'ruleset' ] ], 5, 'end'), 'r');
+
+		assert.match(`${nft}\nend 0\n\nend 1\n`, p.read('all'));
+		assert.match(0, p.close());
 	});
 
 	it('serves the exporter\'s own config from the overlay', () => {

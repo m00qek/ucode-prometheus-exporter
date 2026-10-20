@@ -52,11 +52,15 @@ const AP = {
 	backed: [ 'eth0', 'lan', 'wan', 'phy0-ap0', 'phy1-ap0', 'phy1-ap1' ],
 };
 
-// An fs mock's stat that finds /sys/class/net/<link>/device for the `backed` links.
-function devices(backed) {
+// An fs mock's stat that finds /sys/class/net/<link>/device for the `backed`
+// links, and /sys/class/net/<link>/phy80211 for the `radios` among them.
+function devices(backed, radios) {
 	return (p) => {
-		let m = match(p, /^\/sys\/class\/net\/([^\/]+)\/device$/);
-		return (m && m[1] in backed) ? { type: 'directory' } : null;
+		let m = match(p, /^\/sys\/class\/net\/([^\/]+)\/(device|phy80211)$/);
+
+		if (!m || !(m[1] in backed))
+			return null;
+		return (m[2] == 'device' || m[1] in (radios ?? [])) ? { type: 'directory' } : null;
 	};
 }
 
@@ -74,9 +78,9 @@ function without_link(links, outputs) {
 	return all;
 }
 
-// A device backs every link unless `backed` says which.
-function with_ethtool(links, outputs, cb, backed) {
-	let stat = devices(backed ?? map(links, (l) => l.dev));
+// A device backs every link unless `backed` says which; `radios` are Wi-Fi interfaces.
+function with_ethtool(links, outputs, cb, backed, radios) {
+	let stat = devices(backed ?? map(links, (l) => l.dev), radios);
 
 	with_collector(ethtool, { rtnl: { data: { RTM_GETLINK: links } }, fs: commands.fs(without_link(links, outputs), { behavior: { stat } }) }, cb);
 }
@@ -449,10 +453,12 @@ describe('collectors.ethtool', () => {
 			}
 
 			let fs = { behavior: {
-				stat: devices(backed),
+				stat: devices(backed, [ 'phy0-ap0' ]),
 				popen: function(cmd) {
-					push(ran, commands.parse(cmd).line);
-					return { read: () => '', close: () => 94 };
+					let b = commands.parse_batch(cmd);
+
+					push(ran, b.lines);
+					return { read: () => join('', map(b.lines, () => `\n${b.mark} 94\n`)), close: () => 0 };
 				},
 			} };
 
@@ -460,10 +466,57 @@ describe('collectors.ethtool', () => {
 				assert.match(true, r.result.ok);
 			});
 			let want = [];
-			for (let dev in backed)
-				push(want, run(dev), commands.line([ 'ethtool', '-i', dev ]), commands.line([ 'ethtool', dev ]));
-			assert.match(want, ran);
+			for (let dev in backed) {
+				push(want, run(dev), commands.line([ 'ethtool', '-i', dev ]));
+				if (dev != 'phy0-ap0')
+					push(want, commands.line([ 'ethtool', dev ]));
+			}
+			assert.match(length(want) ? [ want ] : [], ran);
 		});
+
+	// A program costs a router a few milliseconds to start, and a watchdog's
+	// shell as much again: the collector's are run one after the other, in
+	// one watchdog, rather than three for each port.
+	it('runs every ethtool of a scrape in one batch, under one watchdog', () => {
+		let scripts = [];
+		let links = [ { dev: 'eth0' }, { dev: 'lan1' }, { dev: 'phy0-ap0' } ];
+		let outputs = without_link(links, link_outputs([ 'eth0', 'lan1', 'phy0-ap0' ]));
+		let answer = commands.fs(outputs).behavior.popen;
+		let fs = { behavior: {
+			stat: devices(map(links, (l) => l.dev), [ 'phy0-ap0' ]),
+			popen: function(cmd, mode) {
+				push(scripts, cmd);
+				return answer(cmd, mode);
+			},
+		} };
+
+		with_collector(ethtool, { rtnl: { data: { RTM_GETLINK: links } }, fs }, (r) => {
+			assert.match(true, r.result.ok);
+		});
+		assert.match(1, length(scripts));
+		assert.match(8, length(commands.parse_batch(scripts[0]).lines));
+	});
+
+	// cfg80211 gives a Wi-Fi interface no link settings: ethtool says only
+	// whether it has a link, which no family writes.
+	it('asks no link settings of a Wi-Fi interface, and writes the same', () => {
+		let links = [ { dev: 'eth0' }, { dev: 'lan1' }, { dev: 'phy0-ap0' } ];
+		let outputs = link_outputs([ 'eth0', 'lan1', 'phy0-ap0' ]);
+		let all = null;
+
+		with_ethtool(links, outputs, (r) => { all = r.lines; });
+		delete outputs[commands.line([ 'ethtool', 'phy0-ap0' ])];
+		with_ethtool(links, outputs, (r) => {
+			assert.match(true, r.result.ok);
+			assert.match(all, r.lines);
+		}, null, [ 'phy0-ap0' ]);
+	});
+
+	it('asks sysfs whether a link is a Wi-Fi interface', () => {
+		let fs = { stat: (p) => (p == '/sys/class/net/phy0-ap0/phy80211') ? { type: 'directory' } : null };
+
+		assert.match([ true, false ], [ ethtool.wireless(fs, 'phy0-ap0'), ethtool.wireless(fs, 'eth0') ]);
+	});
 
 	it('asks sysfs whether a device backs a link', () => {
 		let asked = [];

@@ -283,6 +283,15 @@ function watched_session(session, touched) {
 
 						return r;
 					},
+					run_all: function(argvs, ...rest) {
+						let rs = exec.run_all(argvs, ...rest);
+
+						for (let i, r in rs)
+							if (!r.ok && r.error == codes.COMMAND_NOT_ALLOWED)
+								touched({ kind: 'exec', program: argvs[i]?.[0] });
+
+						return rs;
+					},
 				};
 
 			if (ubus)
