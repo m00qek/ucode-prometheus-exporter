@@ -81,6 +81,10 @@ const TURNS = [
 	// Measured 44,000 turns (10.6 ms); 133,000 checking each address against
 	// each route, a function call each.
 	[ 'large/collector:nat_traffic@1000', 80000, 'nat_traffic on 1,000 entries and a router\'s 63 routes' ],
+	// Measured 3,400 to 3,700 turns (0.9 ms in the devenv, 10.2 ms on a
+	// Cortex-A53); 4,050 to 4,400 recording the whole scrape a second time
+	// for the exporter collector's counters, and asking each run's outcome.
+	[ 'typical/ledger:full', 4000, 'the ledger in a scrape of 36 collectors' ],
 ];
 
 // [ world/case, { what: most }, why ]: how many times a collector's case may

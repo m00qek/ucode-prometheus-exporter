@@ -2,6 +2,7 @@
 
 import { describe, it, prop, gen, assert } from 'utest';
 import * as ledger from 'prometheus.exporter.ledger';
+import * as breaker from 'prometheus.exporter.breaker';
 import * as Result from 'prometheus.exporter.result';
 
 function ran(id, duration, samples, result) {
@@ -222,6 +223,74 @@ describe('ledger.counters_with', () => {
 				l = ledger.record(l, runs_of(scrape), null, ids);
 
 			assert.match(ledger.counters(ledger.record(l, runs, null, ids)), ledger.counters_with(l, runs, ids), sprintf('%J', t));
+		});
+
+	// record() as it was before a run that succeeded took a path of its own:
+	// each run's outcome asked of outcome_of() and applied to its breaker.
+	function recorded_before(l, runs, ids, events) {
+		let n = ledger.number(l);
+		let c = {};
+
+		for (let id in ids)
+			if (l.c[id] != null)
+				c[id] = l.c[id];
+
+		for (let r in runs) {
+			let e = { ...(c[r.id] ?? {}) };
+			let code = r.result?.error;
+
+			if (r.skipped == null) {
+				e.d = (e.d == null) ? r.duration : e.d + ledger.ALPHA * (r.duration - e.d);
+				e.n = r.samples ?? 0;
+				if (code != null && code != 'SCRAPE_DEADLINE') {
+					let fails = { ...(e.fails ?? {}) };
+
+					if (type(code) != 'string' || length(code) > ledger.CODE_MAX || !match(code, ledger.CODE))
+						code = ledger.OTHER;
+
+					let key = (fails[code] != null || length(fails) < ledger.REASONS_MAX) ? code : ledger.OTHER;
+
+					fails[key] = (fails[key] ?? 0) + 1;
+					e.fails = fails;
+					code = r.result?.error;
+				}
+				if (code == 'COMMAND_TIMEOUT')
+					e.to = (e.to ?? 0) + 1;
+			}
+			if (code == 'SCRAPE_DEADLINE') {
+				e.late = n;
+				e.dl = (e.dl ?? 0) + 1;
+			}
+			if (r.skipped == 'deadline' && e.d != null)
+				e.d *= ledger.DEADLINE_DECAY;
+
+			let o = ledger.outcome_of(r);
+			let b = breaker.after(e, o[0], n, (o[1] != null) ? substr(o[1], 0, 200) : null);
+
+			e = b.entry;
+			if (b.tripped || b.closed)
+				push(events, { name: r.name, tripped: b.tripped, closed: b.closed, cooldown: e.cd, why: e.why });
+			if (b.tripped)
+				e.qn = (e.qn ?? 0) + 1;
+			c[r.id] = e;
+		}
+
+		return { ...l, scrapes: n, c };
+	}
+
+	prop('records each run, its breaker and what changed as it did before a run that succeeded took a path of its own',
+		gen.array(gen.array(gen.tuple(gen.int(0, 5), gen.elements(...keys(KINDS))), { min_len: 0, max_len: 6 }), { min_len: 1, max_len: 8 }), (t) => {
+			let ids = [ 'c0', 'c1', 'c2', 'c3', 'c4' ];
+			let l = ledger.empty();
+
+			for (let scrape in t) {
+				let runs = runs_of(scrape);
+				let want = [], got = [];
+				let before = recorded_before(l, runs, ids, want);
+
+				l = ledger.record(l, runs, null, ids, got);
+				assert.match([ before, want ], [ l, got ], sprintf('%J', t));
+			}
 		});
 });
 

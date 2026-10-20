@@ -42,8 +42,10 @@
 //                             after a first scrape that leaves the ledger, the time to
 //                             answer, which must be within the timeout
 //   ledger:<set>              what the ledger adds to a scrape of the set: reading and
-//                             parsing it, ordering the collectors, and recording the
-//                             scrape under the state's lock, with every collector in it
+//                             parsing it, ordering the collectors and looking at each one's
+//                             breaker and estimate, the exporter collector's counters, and
+//                             recording the scrape under the state's lock, with every
+//                             collector in it
 //   noop:<n>                  a scrape of n collectors that write nothing, each in a child
 //                             process: what a scrape costs for each collector besides it
 //   record:<shape>            samples of one shape recorded and their text written: labels
@@ -738,11 +740,25 @@ if (kind == 'calibrate') {
 
 	mem_before = reset_peak();
 
+	// As a scrape does: the ledger read and parsed once, each collector's
+	// breaker, estimate and samples looked at as the plan takes it, the
+	// exporter collector's counters, and the scrape recorded under the lock,
+	// the ledger read again there and parsed only if another scrape changed it.
 	let t = now();
-	let read = ledger.parse(st.read(ledger.NAME));
+	let kept = st.read(ledger.NAME);
+	let read = ledger.parse(kept);
 	let order = ledger.order(read, collectors);
+	let m = ledger.number(read);
 
-	st.update(ledger.NAME, (text) => ledger.serialize(ledger.record(ledger.parse(text), runs, { seconds: 0.05, samples: 2000 }, ids)));
+	for (let c in order) {
+		ledger.phase(read, c.id, m);
+		ledger.estimate(read, c.id);
+		ledger.writing(read, ledger.samples(read, c.id));
+	}
+
+	ledger.counters_with(read, runs, ids);
+	st.update(ledger.NAME, (text) => ledger.serialize(ledger.record((text == kept) ? read : ledger.parse(text), runs,
+		{ seconds: 0.05, samples: 2000 }, ids, []), state.SIZE_MAX));
 	result.time = now() - t;
 	result.ok = length(order) == length(collectors);
 	result.collectors = length(collectors);

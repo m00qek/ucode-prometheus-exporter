@@ -252,7 +252,12 @@ export function order(ledger, collectors, last, rank) {
 		by_key[k] = c;
 	}
 
-	return map(sort(places), (k) => by_key[k]);
+	let out = [];
+
+	for (let k in sort(places))
+		push(out, by_key[k]);
+
+	return out;
 };
 
 function average(old, value) {
@@ -295,6 +300,50 @@ function count_failure(e, code) {
 	e.fails = fails;
 }
 
+function update(e, r, n, events) {
+	let res = r.result;
+	let code = res?.error;
+	let skipped = r.skipped;
+
+	if (skipped == null) {
+		e.d = (e.d == null) ? r.duration : e.d + ALPHA * (r.duration - e.d);
+		e.n = r.samples ?? 0;
+
+		if (code != null && code != errors.SCRAPE_DEADLINE)
+			count_failure(e, code);
+		if (code == errors.COMMAND_TIMEOUT)
+			e.to = (e.to ?? 0) + 1;
+	}
+
+	if (code == errors.SCRAPE_DEADLINE) {
+		e.late = n;
+		e.dl = (e.dl ?? 0) + 1;
+	}
+	if (skipped == 'deadline' && e.d != null)
+		e.d *= DEADLINE_DECAY;
+
+	let change = null;
+
+	if (skipped == null && code == null && res?.ok && (r.budget == null || r.duration <= r.budget)) {
+		delete e.f;
+		if (e.q != null)
+			change = breaker.apply(e, 'ok', n, null);
+	} else {
+		let o = outcome_of(r);
+
+		change = breaker.apply(e, o[0], n, (o[1] != null) ? substr(o[1], 0, WHY_MAX) : null);
+	}
+
+	if (change == null)
+		return e;
+	if (events)
+		push(events, { name: r.name, tripped: change == 'tripped', closed: change == 'closed', cooldown: e.cd, why: e.why });
+	if (change == 'tripped')
+		e.qn = (e.qn ?? 0) + 1;
+
+	return e;
+}
+
 /**
  * The ledger `ledger` with scrape `runs` recorded, as the scrape counts it.
  *
@@ -307,43 +356,18 @@ function count_failure(e, code) {
  */
 export function record(ledger, runs, written, ids, events) {
 	let n = number(ledger);
+	let had = ledger.c;
 	let c = {};
 
-	for (let id in ids)
-		if (ledger.c[id] != null)
-			c[id] = ledger.c[id];
+	for (let id in ids) {
+		let e = had[id];
 
-	for (let r in runs) {
-		let e = { ...(c[r.id] ?? {}) };
-		let code = r.result?.error;
-
-		if (r.skipped == null) {
-			e.d = average(e.d, r.duration);
-			e.n = r.samples ?? 0;
-
-			if (code != null && code != errors.SCRAPE_DEADLINE)
-				count_failure(e, code);
-			if (code == errors.COMMAND_TIMEOUT)
-				e.to = (e.to ?? 0) + 1;
-		}
-
-		if (code == errors.SCRAPE_DEADLINE) {
-			e.late = n;
-			e.dl = (e.dl ?? 0) + 1;
-		}
-		if (r.skipped == 'deadline' && e.d != null)
-			e.d *= DEADLINE_DECAY;
-
-		let o = outcome_of(r);
-		let change = breaker.apply(e, o[0], n, (o[1] != null) ? substr(o[1], 0, WHY_MAX) : null);
-
-		if (events && change != null)
-			push(events, { name: r.name, tripped: change == 'tripped', closed: change == 'closed', cooldown: e.cd, why: e.why });
-		if (change == 'tripped')
-			e.qn = (e.qn ?? 0) + 1;
-
-		c[r.id] = e;
+		if (e != null)
+			c[id] = e;
 	}
+
+	for (let r in runs)
+		c[r.id] = update({ ...(c[r.id] ?? {}) }, r, n, events);
 
 	let k = ledger.k;
 
@@ -389,6 +413,10 @@ export function auth_failure(ledger) {
 	return { ...ledger, auth_failures: (ledger.auth_failures ?? 0) + 1 };
 };
 
+function counted(e) {
+	return { failures: e.fails ?? {}, timeouts: e.to ?? 0, quarantines: e.qn ?? 0, deadline_skips: e.dl ?? 0 };
+}
+
 /**
  * What the ledger counts, for the exporter's own collector.
  *
@@ -399,7 +427,7 @@ export function counters(ledger) {
 	let out = { scrapes: ledger.scrapes, auth_failures: ledger.auth_failures ?? 0, collectors: {} };
 
 	for (let id, e in ledger.c)
-		out.collectors[id] = { failures: e.fails ?? {}, timeouts: e.to ?? 0, quarantines: e.qn ?? 0, deadline_skips: e.dl ?? 0 };
+		out.collectors[id] = counted(e);
 
 	return out;
 };
@@ -413,9 +441,31 @@ export function counters(ledger) {
  * @returns {LedgerCounters} the counters, each collector's by id.
  */
 export function counters_with(ledger, runs, ids) {
-	let counting = filter(runs, (r) => r.result?.error != null || outcome_of(r)[0] == 'trip');
-	let out = counters(record(ledger, counting, null, ids));
+	let n = number(ledger);
+	let had = ledger.c;
+	let installed = {};
+	let after = {};
+	let counting = [];
+	let out = { scrapes: n, auth_failures: ledger.auth_failures ?? 0, collectors: {} };
 
+	for (let id in ids)
+		installed[id] = true;
+
+	for (let r in runs) {
+		if (r.result?.error == null && (r.skipped != null || r.budget == null || !(r.duration > r.budget)))
+			continue;
+
+		let e = after[r.id] ?? (installed[r.id] ? had[r.id] : null);
+
+		after[r.id] = update({ ...(e ?? {}) }, r, n, null);
+		push(counting, r.id);
+	}
+
+	for (let id in ids)
+		if (had[id] != null)
+			out.collectors[id] = counted(after[id] ?? had[id]);
+	for (let id in counting)
+		out.collectors[id] ??= counted(after[id]);
 	for (let r in runs)
 		out.collectors[r.id] ??= { failures: {}, timeouts: 0, quarantines: 0, deadline_skips: 0 };
 

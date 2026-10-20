@@ -439,6 +439,21 @@ A recorder reused from one collector to the next would save 36 µs a collector o
 
 One collection of the whole heap in a fresh child takes 1.7 ms and 104 faults in the devenv, 12.8 ms and 385 faults on the AX835. So nothing changed: the child still collects nothing, and its data limit still bounds a collector that leaves cycles behind. Its faults are mostly the pages it allocates and the scrape's pages it writes to as it counts their references.
 
+**The ledger.** The ledger changes at every scrape: it counts the scrapes, and each run moves its collector's average. So a scrape still reads it once when it starts, and records itself once under the lock, where it parses the file again only if another scrape wrote it in between. uhttpd cannot keep it parsed for its requests: each is a process of its own, and what one learns goes with it. On the AX835, for 36 collectors, parsing the ledger took 0.7 ms, ordering the collectors 1.7, recording the scrape 3.9, and the exporter collector's counters 3.6. Now:
+
+- A run that succeeded within its budget is recorded as a success at once. Its breaker is looked at only if it had tripped.
+- The exporter collector's counters are the ledger's, with only the runs that count something recorded on top, not the whole scrape recorded a second time.
+
+`ledger:full` now does what a scrape does with the ledger, these counters and each collector's breaker and estimate included. A property test holds `record()` to what it recorded before, breaker events and all.
+
+| | devenv | YunCore AX835 |
+| :--- | :--- | :--- |
+| the ledger in a scrape of 36 collectors (`ledger:full`) | 1.0 → 0.9 ms | 12.1 → 10.2 ms |
+| recording the scrape alone | 0.30 → 0.20 ms | 3.9 → 2.6 ms |
+
+A budget holds `ledger:full` under 4,000 turns of the VM's loop on any machine: it is 3,400 to 3,700 now, and was 4,050 to 4,400.
+
+
 
 
 ## memory_limit's floor {#memory-floor}
