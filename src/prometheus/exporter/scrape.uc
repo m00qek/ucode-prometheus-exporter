@@ -116,6 +116,23 @@ export function select(collectors, query_string, disabled) {
 	let q = query.parse(query_string);
 	let by_name = {};
 
+	disabled ??= [];
+
+	if (!length(q.collect) && !length(q.exclude)) {
+		let off = {}, out = [];
+
+		for (let id in disabled)
+			off[id] = true;
+		for (let c in collectors) {
+			if (!off[c.id]) {
+				off[c.id] = true;
+				push(out, c);
+			}
+		}
+
+		return Result.ok(out);
+	}
+
 	for (let c in collectors) {
 		by_name[c.meta.name] = c;
 		by_name[c.id] = c;
@@ -288,33 +305,38 @@ function own_header(i) {
  * @returns {string} their text, each line ended by a newline.
  */
 export function own_text(runs, version) {
-	let parts = [ [], [], [], [] ];
+	let durations = [], success = [], observing = [], quarantined = [];
+	let names = [];
+
+	for (let r in runs)
+		push(names, r.name);
+
+	let all = join('', names);
+	let plain = index(all, '\\') < 0 && index(all, '"') < 0 && index(all, '\n') < 0;
 
 	for (let r in runs) {
-		let name = r.name;
-
-		if (index(name, '\\') >= 0 || index(name, '"') >= 0 || index(name, '\n') >= 0)
-			name = exposition.escape_label(name);
-
-		let label = '{collector="' + name + '"} ';
+		let name = plain ? r.name : exposition.escape_label(r.name);
+		let res = r.result;
 		let v = r.duration;
 		let d = '' + v;
 
-		if (type(v) != 'int' && (type(v) != 'double' || +d != v || v - v != 0))
-			d = exposition.format_value(v);
+		if (type(v) != 'double' || +d != v || v - v != 0) {
+			if (type(v) != 'int')
+				d = exposition.format_value(v);
+		}
 
 		if (d != null)
-			push(parts[0], 'node_scrape_collector_duration_seconds' + label + d);
-		push(parts[1], 'node_scrape_collector_success' + label + (r.result.ok ? '1' : '0'));
-		push(parts[2], 'node_scrape_collector_observing' + label + ((r.result.ok === true && r.result.none != null) ? '0' : '1'));
-		push(parts[3], QUARANTINED + label + ((r.skipped == 'quarantine') ? '1' : '0'));
+			push(durations, 'node_scrape_collector_duration_seconds{collector="', name, '"} ', d, '\n');
+		push(success, 'node_scrape_collector_success{collector="', name, res.ok ? '"} 1\n' : '"} 0\n');
+		push(observing, 'node_scrape_collector_observing{collector="', name, (res.ok === true && res.none != null) ? '"} 0\n' : '"} 1\n');
+		push(quarantined, QUARANTINED, '{collector="', name, (r.skipped == 'quarantine') ? '"} 1\n' : '"} 0\n');
 	}
 
 	let text = '';
 
-	for (let i, p in parts)
+	for (let i, p in [ durations, success, observing, quarantined ])
 		if (length(p))
-			text += own_header(i) + join('\n', p) + '\n';
+			text += own_header(i) + join('', p);
 
 	let label = (version != null) ? `{version="${exposition.escape_label('' + version)}"}` : '';
 

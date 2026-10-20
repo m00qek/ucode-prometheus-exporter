@@ -363,6 +363,21 @@ describe('runner.forked', () => {
 		assert.match('COLLECTOR_NO_RESULT', runner.unpack(packed).run.result.error);
 	});
 
+	// The scrape reads a start's head only when no run follows it yet: the
+	// run that follows says the collector is done.
+	it('reads a start\'s head only when asked, and a run\'s family names as lines after its head', () => {
+		let job = { c: { id: 'a' }, limit: 12.5, at_deadline: true, budget: 5 };
+		let run = { name: 'a', id: 'a', samples: 2, duration: 0.25, budget: 5, families: [ 'a_x', 'a_y' ], text: 'a_x 1\na_y 2\n', result: Result.ok() };
+		let text = runner.started(job, 10.5) + runner.pack(run, []);
+		let lazy = runner.unpack(text, 0, true);
+		let start = runner.unpack(text, 0);
+		let got = runner.unpack(text, lazy.end, true);
+
+		assert.match([ true, [ 'a', 12.5, true, 5, 10.5 ], lazy.end ], [ lazy.start, start.start, start.end ]);
+		assert.match([ [ 'a_x', 'a_y' ], 'a_x 1\na_y 2\n', 2, length(text) ], [ got.run.families, got.run.text, got.run.samples, got.end ]);
+		assert.match([ [], '' ], (function(u) { return [ u.run.families, u.run.text ]; })(runner.unpack(runner.pack({ ...run, families: [], text: '' }, []))));
+	});
+
 	// A child stopped while it wrote a run leaves part of one: it is not a run.
 	prop('unpacks the runs packed one after another, and none of what is cut short of one',
 		gen.tuple(gen.array(gen.tuple(gen.string({ min_len: 0, max_len: 40 }), gen.elements('ok', 'err', 'none')), { min_len: 1, max_len: 4 }),

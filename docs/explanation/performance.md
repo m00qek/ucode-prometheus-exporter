@@ -413,6 +413,22 @@ On the YunCore AX835, a scrape of the access point's 21 collectors took about 19
 
 A budget holds a family declared again to 2.7 times a sample of a `labels()` set, on any machine: it is 2.2 to 2.4 now, and was 3.0.
 
+**A collector.** A collector that writes nothing cost 0.89 ms of the AX835's scrape, some 300 turns of the VM's loop. Of that, timed apart there: its recorder 64 µs, its settings 71, its start and its run packed in the child 111, read back by the scrape 267, its four samples of the scrape's own 97, and its place in the ledger's order 42. Now:
+
+- The scrape reads a collector's start only when no run follows it yet. Once the run follows, the collector is done.
+- A run's family names cross as lines after its head, not as JSON strings, and are read with one `split()`.
+- The scrape's own four samples of each collector are written with one push each, and the collectors' names are checked for what a label must escape all at once.
+- A query that names no collector selects them in one loop.
+
+| | devenv | YunCore AX835 |
+| :--- | :--- | :--- |
+| a collector besides it (`noop:`) | 0.082 → 0.074 ms | 0.887 → 0.860 ms |
+| outside the collectors, a typical full scrape (`scrape:full`) | 11.9 → 10.9 ms | 107 → 100 ms |
+| outside the collectors, a large full scrape | 18.1 → 17.1 ms | 143 → 133 ms |
+
+A recorder reused from one collector to the next would save 36 µs a collector on the AX835: 0.8 ms of its scrape. But a writer of one collector would then count against the next one's samples, if it were ever called while the next one ran. So each collector still gets a recorder of its own. Its `deps` already holds only what `meta.needs` names.
+
+
 ## memory_limit's floor {#memory-floor}
 
 `memory_limit` limits each of uhttpd's processes (RLIMIT_DATA): the one that loads the handler and the collectors, each request's, and the child its collectors run in. With too little, uhttpd does not load the handler, and procd starts it again and again; or a scrape, or a collector, runs out. The least it takes is 8 MB (MEMORY_LIMIT_MIN), and the config refuses less. `make bench`'s `floor:` cases find the least limit, in whole MB, under which uhttpd loads the handler with a set's collectors and the typical world's scrape of them has every collector succeed:

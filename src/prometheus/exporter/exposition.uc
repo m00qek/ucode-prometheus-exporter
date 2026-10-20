@@ -401,6 +401,9 @@ export function render(families, opts) {
  * @returns {{ families: string[], text: string }} its families' names, and their text.
  */
 export function pack(families, omit) {
+	if (!length(families))
+		return { families: [], text: '' };
+
 	let names = [];
 	let parts = [];
 

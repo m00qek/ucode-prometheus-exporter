@@ -51,7 +51,7 @@ A double is written with ucode's 14 significant digits when they read back as th
 
 `out.batch()` checks its rows' names with one match over all of them, one name to a line, when no name holds a NUL byte (a C string ends there, and so does a regex) and each is one line. Otherwise it matches each name on its own. On a router's CPU, a turn of the VM costs as much as a regex reading some 30 bytes, so one regex over all the names costs less than a match of each.
 
-A run's text crosses from the scrape's child as it is, after a head that is a JSON array. The text is not JSON, which would escape every quote of every label. The head is an array, not an object, because ucode makes and reads an array for less.
+A run's text crosses from the scrape's child as it is, after a head that is a JSON array and its families' names, one to a line. Neither the text nor the names are JSON, which would escape every quote of every label and read each name as a token of its own. The head is an array, not an object, because ucode makes and reads an array for less. A collector's start is a head alone, marked as one. The scrape reads it only when nothing follows it yet: once its run follows, the collector is done.
 
 ## Reading a collector's text
 

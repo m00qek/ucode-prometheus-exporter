@@ -156,8 +156,10 @@ export function signalled(job, signal, running) {
  */
 export const HEAD_DIGITS = 8;
 
-const HEAD = [ 'name', 'id', 'samples', 'duration', 'budget', 'skipped', 'logs', 'ok', 'error', 'details', 'data', 'none', 'families', 'size' ];
+const HEAD = [ 'name', 'id', 'samples', 'duration', 'budget', 'skipped', 'logs', 'ok', 'error', 'details', 'data', 'none', 'names', 'size' ];
+const NAMES = index(HEAD, 'names');
 const SIZE = index(HEAD, 'size');
+const STARTED = 's';
 const NUMBER = [ 'int', 'double' ];
 const MARK = length([ 'id', 'limit', 'at_deadline', 'budget', 'started' ]);
 
@@ -171,12 +173,13 @@ const MARK = length([ 'id', 'limit', 'at_deadline', 'budget', 'started' ]);
 export function pack(run, logs) {
 	let res = run.result;
 	let text = run.text ?? '';
+	let names = length(run.families) ? join('\n', run.families) : '';
 	let head = sprintf('%J\n', [
 		run.name, run.id, run.samples, run.duration, run.budget, run.skipped, logs,
-		res.ok, res.error, res.details, res.data, res.none, run.families, length(text),
+		res.ok, res.error, res.details, res.data, res.none, length(names), length(text),
 	]);
 
-	return sprintf('%08x', length(head)) + head + text;
+	return sprintf('%08x', length(head)) + head + names + text;
 };
 
 /**
@@ -187,7 +190,7 @@ export function pack(run, logs) {
  * @returns {string} the start, packed.
  */
 export function started(job, t) {
-	let head = sprintf('%J\n', [ job.c.id, job.limit, job.at_deadline, job.budget, t ]);
+	let head = STARTED + sprintf('%J\n', [ job.c.id, job.limit, job.at_deadline, job.budget, t ]);
 
 	return sprintf('%08x', length(head)) + head;
 };
@@ -197,9 +200,10 @@ export function started(job, t) {
  *
  * @param {string} text what pack() and started() wrote, one after another.
  * @param {?int} at where the run begins; 0 when null.
- * @returns {?{ run: ?Run, logs: ?string[][], start: ?Array, end: int }} null if none is whole.
+ * @param {?boolean} lazy a start's head left unread: its `start` is then true.
+ * @returns {?{ run: ?Run, logs: ?string[][], start: ?(Array|boolean), end: int }} null if none is whole.
  */
-export function unpack(text, at) {
+export function unpack(text, at, lazy) {
 	at ??= 0;
 
 	let n = hex(substr(text, at, HEAD_DIGITS));
@@ -208,10 +212,15 @@ export function unpack(text, at) {
 	if (type(n) != 'int' || n <= 0 || start > length(text))
 		return null;
 
+	let mark = (substr(text, at + HEAD_DIGITS, 1) == STARTED);
+
+	if (mark && lazy)
+		return { start: true, end: start };
+
 	let h = null;
 
 	try {
-		h = json(substr(text, at + HEAD_DIGITS, n));
+		h = mark ? json(substr(text, at + HEAD_DIGITS + 1, n - 1)) : json(substr(text, at + HEAD_DIGITS, n));
 	} catch (e) {
 		return null;
 	}
@@ -219,10 +228,12 @@ export function unpack(text, at) {
 	if (type(h) != 'array')
 		return null;
 
-	if (length(h) == MARK)
-		return { start: h, end: start };
+	if (mark)
+		return (length(h) == MARK) ? { start: h, end: start } : null;
 
-	if (type(h[SIZE]) != 'int' || start + h[SIZE] > length(text))
+	let names = h[NAMES];
+
+	if (type(names) != 'int' || type(h[SIZE]) != 'int' || start + names + h[SIZE] > length(text))
 		return null;
 
 	let result = h[7]
@@ -231,11 +242,11 @@ export function unpack(text, at) {
 
 	return {
 		run: {
-			name: h[0], id: h[1], result, families: h[12] ?? [], samples: h[2], duration: h[3], budget: h[4],
-			skipped: h[5], text: substr(text, start, h[SIZE]),
+			name: h[0], id: h[1], result, families: names ? split(substr(text, start, names), '\n') : [], samples: h[2], duration: h[3],
+			budget: h[4], skipped: h[5], text: substr(text, start + names, h[SIZE]),
 		},
 		logs: h[6] ?? [],
-		end: start + h[SIZE],
+		end: start + names + h[SIZE],
 	};
 };
 
@@ -416,10 +427,18 @@ export function forked(env, run_fn, opts) {
 					let text = h.read('all') ?? '';
 					let at = 0;
 
-					for (let got = unpack(text, 0); got != null; got = unpack(text, got.end)) {
+					for (let got = unpack(text, 0, true), next; got != null; got = next) {
+						let from = at;
+
 						at = got.end;
+						next = unpack(text, at, true);
 						if (got.start) {
-							hold(got.start);
+							let s = (next == null) ? unpack(text, from)?.start : null;
+
+							if (s)
+								hold(s);
+							else if (next != null)
+								st.lost = 0;
 							continue;
 						}
 

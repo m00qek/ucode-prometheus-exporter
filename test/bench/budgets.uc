@@ -191,9 +191,11 @@ const RECORD_FACTOR = { 'typical/record:labels': 3.3, 'typical/record:double': 4
 const PER_COLLECTOR = 0.0005;
 
 // The same, in turns of an empty loop of the VM (calibrate:vm), which holds
-// on any machine: measured 330 in the devenv (0.077 ms of 0.234 us) and 310
-// on a Cortex-A53, where 0.2.1 took 570 and 510.
-const PER_COLLECTOR_TURNS = 450;
+// on any machine: measured 290 in the devenv (0.074 ms of 0.253 us) and on a
+// Cortex-A53 (0.860 ms of 2.97 us), with a start's head read only when no run
+// follows it and a run's family names not JSON; 300 to 335 before, and 570
+// and 510 in 0.2.1.
+const PER_COLLECTOR_TURNS = 400;
 
 // [ world/case, kB, what, own ]: how far a run's peak memory may rise, about
 // three times what was measured on x86_64 (a 32-bit router's is less), which a

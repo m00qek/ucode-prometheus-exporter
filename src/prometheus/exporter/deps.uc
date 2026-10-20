@@ -169,7 +169,7 @@ export function session(mods) {
 				return `this process lacks ${join(', ', lack)}, which the service grants when it starts with ${meta.name} enabled`;
 		}
 
-		if (mods.readable)
+		if (mods.readable && (meta.configs || meta.proc_files))
 			for (let p in [ ...map(meta.configs ?? [], (c) => `${CONFIG_DIR}/${c}`), ...(meta.proc_files ?? []) ])
 				if (!mods.readable(p))
 					return `${p}: the service's group may not read it, as the service has it when it starts with ${meta.name} enabled`;
