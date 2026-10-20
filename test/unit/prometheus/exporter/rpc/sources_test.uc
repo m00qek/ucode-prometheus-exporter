@@ -243,6 +243,14 @@ function request() {
 	return { replies, reply: (r) => push(replies, r), defer: () => 'deferred' };
 }
 
+// /proc, as rpcd reads it: each process's command line, by pid.
+function proc_fs(cmdlines) {
+	return {
+		lsdir: (path) => (path == '/proc') ? [ ...keys(cmdlines), 'self', 'net' ] : null,
+		readfile: (path) => cmdlines[split(path, '/')[2]],
+	};
+}
+
 describe('rpc.sources.ask_time_daemons', () => {
 	it('asks procd of each daemon at once, without waiting, and replies once both answered', () => {
 		let conn = procd(), req = request(), timeouts = [];
@@ -303,31 +311,29 @@ describe('rpc.sources.ask_time_daemons', () => {
 		assert.match([], req.replies);
 	});
 
-	// 25.12.0's rpcd gives its ucode plugins requests without defer().
-	it('waits for procd, and returns the reply, where the request has no defer()', () => {
-		let calls = [];
-		let conn = {
-			call: function(object, method, args) {
-				push(calls, [ object, method, args ]);
-				return (args.name == 'sysntpd') ? fixtures.ubus('caju-ap', 'service.list', 'sysntpd') : {};
-			},
-			error: () => null,
-		};
+	// 25.12.0's rpcd gives its ucode plugins requests without defer(), and
+	// waiting for procd would hold rpcd: /proc says it at once.
+	it('answers from /proc, asking nothing of ubus, where the request has no defer()', () => {
+		let fs = proc_fs({ '1': '/sbin/procd\0', '812': '/usr/sbin/ntpd\0-n\0-N\0', '813': '/usr/sbin/ntpd-hotplug\0', '900': '' });
 
-		assert.match([ { running: { sysntpd: true, chronyd: false } }, [ [ 'service', 'list', { name: 'sysntpd' } ], [ 'service', 'list', { name: 'chronyd' } ] ] ],
-			[ sources.ask_time_daemons({ conn: null }, () => conn, { reply: () => die('replied') }), calls ]);
+		assert.match({ running: { sysntpd: true, chronyd: false } },
+			sources.ask_time_daemons({ conn: null }, () => die('connected'), { reply: () => die('replied') }, fs));
 	});
+});
 
-	it('returns UBUS_CALL_FAILED when procd does not answer a request without defer(), and connects again for the next', () => {
-		let made = 0, state = { conn: null };
-		let connect = function() {
-			made++;
-			return { call: () => null, error: () => 'Request timed out' };
-		};
+describe('rpc.sources.running_in_proc', () => {
+	it('says a daemon runs while a process runs its program, as procd starts it', () => {
+		let running = (cmdlines) => sources.running_in_proc(proc_fs(cmdlines)).running;
 
-		assert.match({ error: 'UBUS_CALL_FAILED', message: 'service list sysntpd: Request timed out' }, sources.ask_time_daemons(state, connect, {}));
-		sources.ask_time_daemons(state, connect, {});
-		assert.match(2, made);
+		assert.match([
+			{ sysntpd: false, chronyd: false },
+			{ sysntpd: true, chronyd: true },
+			{ sysntpd: false, chronyd: false },
+		], [
+			running({ '1': '/sbin/procd\0' }),
+			running({ '7': '/usr/sbin/ntpd\0-n\0', '8': '/usr/sbin/chronyd\0-n\0' }),
+			running({ '7': '/usr/sbin/ntpd-hotplug\0', '8': 'chronyd\0', '9': '' }),
+		]);
 	});
 });
 

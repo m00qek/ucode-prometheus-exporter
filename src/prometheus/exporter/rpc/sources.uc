@@ -313,41 +313,51 @@ function ask(state, name, done) {
 	}
 }
 
-function ask_now(state, names) {
-	let lists = {};
+/**
+ * Whether a process runs each of TIME_DAEMONS' programs, by the first word of its command line in /proc: time_daemons()'s reply, without asking procd.
+ *
+ * @param {Object} fs what reads /proc: lsdir and readfile.
+ * @returns {{ running: Object<string, boolean> }} whether each runs, by name.
+ */
+export function running_in_proc(fs) {
+	let running = {};
+	let names = {};
 
-	for (let name in names) {
-		let data = state.conn.call('service', 'list', { name });
-
-		if (data == null) {
-			let why = state.conn.error() ?? 'Connection failed';
-
-			state.conn = null;
-			return failed(errors.UBUS_CALL_FAILED, `service list ${name}: ${why}`);
-		}
-
-		lists[name] = data;
+	for (let name, program in TIME_DAEMONS) {
+		running[name] = false;
+		names[program] = name;
 	}
 
-	return time_daemons(lists);
-}
+	for (let pid in fs.lsdir('/proc') ?? []) {
+		if (!match(pid, /^[0-9]+$/))
+			continue;
+
+		let name = names[split(fs.readfile(`/proc/${pid}/cmdline`) ?? '', '\0')[0]];
+
+		if (name != null)
+			running[name] = true;
+	}
+
+	return { running };
+};
 
 /**
- * Asks procd for the `service list` of each of TIME_DAEMONS, without waiting on it, and replies time_daemons() of them; where the request has no defer(), as 25.12.0's rpcd gives it, waits for procd, at most PROCD_SECONDS a call, and returns that reply.
+ * Asks procd for the `service list` of each of TIME_DAEMONS, without waiting on it, and replies time_daemons() of them; where the request has no defer(), as 25.12.0's rpcd gives it, answers running_in_proc() at once, as waiting for procd would hold rpcd.
  *
  * @param {{ conn: ?UbusConnection }} state the connection the calls go over, made again when it fails.
  * @param {function(?string, int): ?UbusConnection} connect ubus's connect(socket, timeout).
  * @param {RpcRequest} req the request, which defer() holds until procd answers, at most PROCD_SECONDS.
- * @returns {*} req.defer()'s, the reply without defer(), or { error, message } without a connection.
+ * @param {Object} fs what reads /proc, for a request without defer(): lsdir and readfile.
+ * @returns {*} req.defer()'s, running_in_proc()'s without defer(), or { error, message } without a connection.
  */
-export function ask_time_daemons(state, connect, req) {
+export function ask_time_daemons(state, connect, req, fs) {
+	if (type(req.defer) != 'function')
+		return running_in_proc(fs);
+
 	state.conn ??= connect(null, PROCD_SECONDS);
 
 	if (state.conn == null)
 		return failed(errors.UBUS_CONNECT_FAILED, 'cannot connect to ubus');
-
-	if (type(req.defer) != 'function')
-		return ask_now(state, keys(TIME_DAEMONS));
 
 	let names = keys(TIME_DAEMONS);
 	let lists = {}, left = length(names), failure = null;
@@ -394,7 +404,7 @@ export function methods(sys) {
 		},
 		time_daemons: {
 			args: {},
-			call: (req) => ask_time_daemons(procd, sys.connect, req),
+			call: (req) => ask_time_daemons(procd, sys.connect, req, sys.fs),
 		},
 	};
 };

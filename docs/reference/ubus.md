@@ -268,7 +268,7 @@ The collectors learn whether each interface is there from nl80211, and whether i
 
 rpcd keeps the last reply of `wireless`. It gives the same reply again while the phys and the two configs' files (their inode, size and times) are unchanged. A scrape calls `wireless` twice, for wifi and for hostapd_stations, and the configs rarely change.
 
-`time_daemons` asks procd over a connection of its own, without waiting on it, so rpcd answers other calls meanwhile. A procd that does not answer costs the call 3 s, and never blocks rpcd. An rpcd that cannot defer a reply, as 25.12.0's (see [`status`](#status)), waits for procd instead: at most 3 s for each of its two calls, during which it answers nothing else.
+`time_daemons` asks procd over a connection of its own, without waiting on it, so rpcd answers other calls meanwhile. A procd that does not answer costs the call 3 s, and never blocks rpcd. An rpcd that cannot defer a reply, as 25.12.0's (see [`status`](#status)), would be held while it waited for procd. So there `time_daemons` asks procd nothing: it reads `/proc`, and a daemon runs while a process's command line starts with its program, `/usr/sbin/ntpd` or `/usr/sbin/chronyd`.
 
 A source that cannot be asked is answered `{ error, message }`, such as `{ "error": "UBUS_CALL_FAILED", "message": "service list sysntpd: Request timed out" }`. The collector then fails with `SOURCE_INVALID`.
 
