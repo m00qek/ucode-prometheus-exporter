@@ -6,7 +6,7 @@ A scrape that answers late is worth nothing: Prometheus drops all of it, not onl
 
 ## The problem
 
-Prometheus waits `scrape_timeout`, 10 seconds unless a job says otherwise, and then gives up on the scrape. It does not keep what came in time: `up` is 0, and every series of the target has a gap. On a fast router that never happens. On a 500-MIPS MIPS router, nat_traffic alone takes 7.5 to 12 seconds on a table of 20,000 connections. One busy evening, and every metric of the router goes dark, its load, its memory and its interfaces with it.
+Prometheus waits `scrape_timeout`, 10 seconds unless a job says otherwise, and then gives up on the scrape. It does not keep what came in time: `up` is 0, and every series of the target has a gap. On a fast router that never happens. On a 500-MIPS MIPS router, nat_traffic alone takes 8 to 9 seconds on a table of 20,000 connections. One busy evening, and every metric of the router goes dark, its load, its memory and its interfaces with it.
 
 The same is true of a program that hangs. ubnt-manager logging in to a radio that does not answer holds its collector for its whole timeout, 5 seconds, every scrape.
 
