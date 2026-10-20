@@ -15,6 +15,14 @@ wget -qO- http://127.0.0.1:9100/metrics
 
 It targets OpenWrt 25.12, and uses no ucode API newer than that release's. Apache License 2.0.
 
+## Who these docs are for
+
+| Reader | Who | Tutorial | How-tos | Reference | Explanation |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Operator** | Runs the exporter on routers and watches the metrics: newcomers, people moving from the feed's exporters, LuCI-only users, security-minded admins. | [Monitor a router](tutorials/monitor-a-router.md) | [Operators](how-to/index.md#operators) | [UCI configuration](reference/uci-config.md), [Metrics](reference/metrics.md) | [Security model](explanation/security.md) |
+| **Collector author** | Writes a collector, in this repository or in their own package. | [Write your first collector](tutorials/first-collector.md) | [Collector authors](how-to/index.md#collector-authors) | [Collector interface](reference/collector-interface.md) | [Nothing to observe](explanation/nothing-to-observe.md) |
+| **Maintainer** | Builds, tests, releases and publishes this repository. | [Write your first collector](tutorials/first-collector.md) | [Maintainers](how-to/index.md#maintainers) | [Make targets](reference/make-targets.md) | [Architecture](explanation/architecture.md) |
+
 ## Documentation map
 
 ### [Tutorials](tutorials/index.md)
