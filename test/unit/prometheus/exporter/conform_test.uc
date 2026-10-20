@@ -1,6 +1,6 @@
 'use strict';
 
-import { describe, it, assert, contains } from 'utest';
+import { describe, it, assert } from 'utest';
 import * as conform from 'prometheus.exporter.conform';
 import * as loader from 'prometheus.exporter.loader';
 import * as deps from 'prometheus.exporter.deps';

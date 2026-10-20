@@ -1,7 +1,6 @@
 'use strict';
 
 import { describe, it, prop, gen, assert } from 'utest';
-import { popen } from 'fs';
 import * as deps from 'prometheus.exporter.deps';
 import * as config from 'prometheus.exporter.config';
 import { with_mods } from 'prometheus.exporter.devkit.collector';

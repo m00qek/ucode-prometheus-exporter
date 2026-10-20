@@ -15,7 +15,6 @@ import * as deps from 'prometheus.exporter.deps';
 import * as app from 'prometheus.exporter.app';
 import * as check from 'prometheus.exporter.check';
 import * as conform from 'prometheus.exporter.conform';
-import * as runner from 'prometheus.exporter.runner';
 import * as probe from 'prometheus.exporter.probe';
 import * as jail from 'prometheus.exporter.jail';
 import * as jailed from 'prometheus.exporter.jailed';

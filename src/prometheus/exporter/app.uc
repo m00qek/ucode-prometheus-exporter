@@ -15,7 +15,6 @@ import * as http from 'prometheus.exporter.http';
 import * as state from 'prometheus.exporter.state';
 import * as deadline from 'prometheus.exporter.deadline';
 import * as ledger from 'prometheus.exporter.ledger';
-import * as runner from 'prometheus.exporter.runner';
 import { probe as probe_modules } from 'prometheus.exporter.probe';
 import { version } from 'prometheus.exporter.version';
 

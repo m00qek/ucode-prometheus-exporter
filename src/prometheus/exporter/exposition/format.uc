@@ -22,7 +22,7 @@ export const TYPES = [ 'counter', 'gauge', 'histogram', 'summary', 'untyped' ];
 /**
  * A valid metric name.
  *
- * @type {RegExp}
+ * @type {regexp}
  */
 export const METRIC_NAME = /^[a-zA-Z_:][a-zA-Z0-9_:]*$/;
 const LABEL_NAME = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
@@ -36,7 +36,7 @@ const HIGH = regexp('[\x80-\xff]');
 /**
  * What a label value may hold that is not written as it is.
  *
- * @type {RegExp}
+ * @type {regexp}
  */
 export const SPECIAL = regexp('[\\\n"\x80-\xff]');
 

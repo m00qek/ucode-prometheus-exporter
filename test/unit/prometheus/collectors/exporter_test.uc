@@ -5,7 +5,6 @@ import { with_collector } from 'prometheus.exporter.devkit.collector';
 import * as exporter from 'prometheus.collectors.exporter';
 import * as deps from 'prometheus.exporter.deps';
 import * as exposition from 'prometheus.exporter.exposition';
-import * as Result from 'prometheus.exporter.result';
 
 // A uhttpd instance of pid 1234 that started 4 s (400 ticks) after boot, with
 // 1.5 s of its own CPU and 12.25 s of its reaped scrapes', as a 24Kc router's.

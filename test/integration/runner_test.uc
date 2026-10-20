@@ -96,7 +96,6 @@ function summary(r) {
 
 describe('runner.forked', () => {
 	it('runs each collector in a child process and hands back its run, its families\' names and its text', () => {
-		let pids = [];
 		let me = collector('me', function(d, out) {
 			out.gauge('me_value')(null, 1);
 			return Result.ok();

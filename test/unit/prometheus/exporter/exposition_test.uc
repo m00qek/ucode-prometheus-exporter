@@ -1,6 +1,6 @@
 'use strict';
 
-import { describe, it, prop, gen, assert, contains, regex } from 'utest';
+import { describe, it, prop, gen, assert } from 'utest';
 import * as exposition from 'prometheus.exporter.exposition';
 
 function text_of(fill) {

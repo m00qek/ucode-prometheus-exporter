@@ -12,7 +12,6 @@ import * as config from 'prometheus.exporter.config';
 import * as deps from 'prometheus.exporter.deps';
 import * as loader from 'prometheus.exporter.loader';
 import * as jail from 'prometheus.exporter.jail';
-import * as scrape from 'prometheus.exporter.scrape';
 import * as check from 'prometheus.exporter.check';
 import * as auth from 'prometheus.exporter.auth';
 import * as state from 'prometheus.exporter.state';

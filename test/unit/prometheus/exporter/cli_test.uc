@@ -1,6 +1,6 @@
 'use strict';
 
-import { describe, it, prop, gen, assert, contains } from 'utest';
+import { describe, it, prop, gen, assert } from 'utest';
 import * as cli from 'prometheus.exporter.cli';
 import * as config from 'prometheus.exporter.config';
 import * as crypt from 'prometheus.exporter.crypt';

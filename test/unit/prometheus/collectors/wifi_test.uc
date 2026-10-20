@@ -507,6 +507,20 @@ describe('collectors.wifi', () => {
 		});
 	});
 
+	it('writes NaN noise and no channel times, and succeeds, for an interface on no channel whose survey has entries without survey_info', () => {
+		let cfg = one_network([], []);
+		cfg.nl80211.data.NL80211_CMD_GET_INTERFACE = [ { ifname: 'wlan0', wiphy: 0, mac: '02:00:00:00:b0:00', iftype: 3 } ];
+		cfg.nl80211.data['NL80211_CMD_GET_SURVEY:wlan0'] = [ {}, null, { survey_info: { frequency: 5180, noise: -95, time: 7 } } ];
+
+		with_collector(wifi, cfg, (r) => {
+			assert.match([ true, [ 'node_wifi_network_noise_dbm{radio="radio0",device="wlan0"} NaN' ], [] ], [
+				r.result.ok,
+				filter(r.lines, (l) => index(l, 'node_wifi_network_noise_dbm{') == 0),
+				filter(r.lines, (l) => index(l, 'node_wifi_channel_') == 0),
+			]);
+		});
+	});
+
 	prop('converts the channel\'s times from milliseconds to seconds',
 		gen.tuple(gen.int(0, 4000000000000), gen.int(0, 4000000000000), gen.int(0, 4000000000000), gen.int(0, 4000000000000)), (t) => {
 			let cfg = one_network([], []);

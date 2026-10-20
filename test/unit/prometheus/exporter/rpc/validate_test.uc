@@ -5,7 +5,7 @@ import * as rpc_validate from 'prometheus.exporter.rpc.validate';
 import * as config from 'prometheus.exporter.config';
 import * as crypt from 'prometheus.exporter.crypt';
 import * as auth from 'prometheus.exporter.auth';
-import { collector, ALL, with_sys } from 'lib.rpc';
+import { ALL, with_sys } from 'lib.rpc';
 
 // The refusals of a reply by field, as their English alone.
 function messages(errors) {

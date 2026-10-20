@@ -1,6 +1,6 @@
 'use strict';
 
-import { describe, it, prop, gen, assert, contains, regex } from 'utest';
+import { describe, it, prop, gen, assert, contains } from 'utest';
 import * as scrape from 'prometheus.exporter.scrape';
 import * as loader from 'prometheus.exporter.loader';
 import * as deps from 'prometheus.exporter.deps';

@@ -6,7 +6,7 @@ import * as config from 'prometheus.exporter.config';
 import * as Result from 'prometheus.exporter.result';
 import * as ledger from 'prometheus.exporter.ledger';
 import * as crypt from 'prometheus.exporter.crypt';
-import { NAME, ROUTER_INTERFACES, collector, LOADAVG, WIFI, TEXTFILE, WIREGUARD, FAILING, IDLE, with_sys, entry } from 'lib.rpc';
+import { NAME, ROUTER_INTERFACES, LOADAVG, WIFI, TEXTFILE, WIREGUARD, FAILING, IDLE, with_sys } from 'lib.rpc';
 
 describe('rpc.hash_password', () => {
 	function hash_password(args, random) {

@@ -94,7 +94,7 @@ export const OTHER = 'OTHER';
 /**
  * What a failure's code must be to be counted by it: an uppercase word, of at most CODE_MAX.
  *
- * @type {RegExp}
+ * @type {regexp}
  */
 export const CODE = /^[A-Z][A-Z0-9_]*$/;
 

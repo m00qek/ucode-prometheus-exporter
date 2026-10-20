@@ -58,7 +58,7 @@ function channel_times(m, labels, survey, freq) {
 	for (let s in (type(survey) == 'array' ? survey : [])) {
 		let info = s?.survey_info;
 
-		if (info?.frequency != freq)
+		if (info == null || info.frequency != freq)
 			continue;
 
 		let l = m.labels(labels);
@@ -117,8 +117,10 @@ export function quality(signal) {
 
 function noise_at(survey, freq) {
 	for (let s in (type(survey) == 'array' ? survey : [])) {
-		if (s?.survey_info?.frequency == freq)
-			return s.survey_info.noise || NaN;
+		let info = s?.survey_info;
+
+		if (info != null && info.frequency == freq)
+			return info.noise || NaN;
 	}
 
 	return NaN;
