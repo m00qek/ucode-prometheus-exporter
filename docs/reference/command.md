@@ -2,7 +2,7 @@
 
 # The `prometheus-exporter` Command
 
-`/usr/bin/prometheus-exporter`, which the package `ucode-prometheus-exporter-cli` installs: a scrape on standard output, the checks of the service and of a collector module, and the hash of a password for basic auth. It parses its arguments with docopt (the `ucode-docopt` package, which only this package depends on) by the usage below, which is also what `-h` prints. The service needs none of it: its init script checks the configuration with the base package's own `/usr/libexec/prometheus-exporter/check.uc`, which `check` runs too, and the ubus object (`set_password`, LuCI's \*\*Change password\*\*) sets basic auth's password. `apk add ucode-prometheus-exporter-cli` installs it.
+`/usr/bin/prometheus-exporter`, installed by the package `ucode-prometheus-exporter-cli`. It prints a scrape on standard output, checks the service and a collector module, and hashes a password for basic auth. It parses its arguments with docopt (the `ucode-docopt` package, which only this package depends on) by the usage below, which `-h` also prints. The service needs none of it. Its init script checks the configuration with the base package's own `/usr/libexec/prometheus-exporter/check.uc`, which `check` also runs. The ubus object sets basic auth's password (`set_password`, LuCI's \*\*Change password\*\*). `apk add ucode-prometheus-exporter-cli` installs it.
 
 ```
 prometheus-exporter: metrics of OpenWrt for Prometheus.
@@ -41,21 +41,21 @@ Options:
   --version              Show the version.
 ```
 
-Up to 0.1, the command took the collectors alone, `prometheus-exporter [COLLECTOR...]`, and `-l` listed them: they are `prometheus-exporter scrape [<collector>...]` and `prometheus-exporter collector list` now. Arguments the usage does not take print it on standard error, with exit status `1`.
+Up to 0.1, the command took only collectors, `prometheus-exporter [COLLECTOR...]`, and `-l` listed them. They are now `prometheus-exporter scrape [<collector>...]` and `prometheus-exporter collector list`. Given arguments the usage does not take, the command prints the usage on standard error, and exits with status `1`.
 
 ## `prometheus-exporter scrape` {#scrape}
 
-Prints a scrape on standard output, as `/metrics` answers it: of every enabled collector, or of those named, by name (`ltq-dsl`) or module (`ltq_dsl`), in that order. For cron and push (see [How to push metrics](../how-to/push-metrics.md)), and for debugging.
+Prints a scrape on standard output, as `/metrics` answers it: of every enabled collector, or of the collectors named, in that order, by name (`ltq-dsl`) or module (`ltq_dsl`). For cron and push (see [How to push metrics](../how-to/push-metrics.md)), and for debugging.
 
-- Each collector runs as the service runs it: in a process of its own, stopped at its `budget`, at most its `max_samples`, its families its own; the scrape has the main section's `scrape_timeout` (see [Collector contract](collector-contract.md)).
+- Each collector runs as the service runs it: in a process of its own, stopped at its `budget`, with at most its `max_samples`, and with families of its own. The scrape has the main section's `scrape_timeout` (see [Collector contract](collector-contract.md)).
 - It has no ledger: nothing is quarantined, and the collectors run in their order, slow ones too, within the scrape's time.
-- `--dir` loads the collectors of a directory on ucode's module path, as a source tree's with `ucode -L src`, not the installed ones.
+- `--dir` loads the collectors of a directory on ucode's module path, such as a source tree's with `ucode -L src`, instead of the installed ones.
 - It never compresses and never asks for basic auth: those are the HTTP endpoint's.
 
 | Exit status | When |
 | :--- | :--- |
 | `0` | The scrape was printed, whatever its collectors did. |
-| `1` | The scrape was refused: a collector that is not installed, or one that is disabled, said on standard error as `COLLECTOR_INVALID (unknown collector 'nope')`. |
+| `1` | The scrape was refused, for a collector that is not installed or that is disabled. It says why on standard error, such as `COLLECTOR_INVALID (unknown collector 'nope')`. |
 
 ```
 $ prometheus-exporter scrape loadavg
@@ -68,7 +68,7 @@ ucode_prometheus_exporter_build_info{version="0.2.0-r1"} 1
 
 ## `prometheus-exporter check` {#check}
 
-Checks the configuration as the exporter and the init script read it, describes every installed collector (its section, options, needs and what the jail gives it), and runs a scrape of the enabled ones, outside the jail, each as the service runs it; then what the service's own scrapes found: each collector quarantined, and each the deadline left out lately. `service prometheus-exporter check` runs the same, the base package's `/usr/libexec/prometheus-exporter/check.uc`, without the command line. With `--config`, the configuration alone, as `start` and `reload` check it. See [Service commands](service-commands.md#check).
+Checks the configuration as the exporter and the init script read it, and describes every installed collector: its section, options, needs, and what the jail gives it. Then it runs a scrape of the enabled collectors, each as the service runs it, in the service's jail where ujail can run. Last, it shows what the service's own scrapes found: each collector quarantined, and each the deadline left out lately. `service prometheus-exporter check` runs the same, the base package's `/usr/libexec/prometheus-exporter/check.uc`, without the command line. With `--config`, it checks only the configuration, as `start` and `reload` do. See [Service commands](service-commands.md#check).
 
 | Exit status | When |
 | :--- | :--- |
@@ -94,11 +94,11 @@ cpu                      enabled  CPU time per mode, from /proc/stat.
 
 ## `prometheus-exporter collector check` {#collector-check}
 
-Checks a collector module before it is installed, on the device it is meant for: whether it keeps the [collector contract](collector-contract.md). It reads `<path>`, which must be `<module>.uc`, and its text for strict mode and its imports, loads it under the load timer (5 s), validates its `meta`, and runs it as the service would, in a process of its own, at most its budget and its `max_samples`. It says how long it took to load and to run, the samples it wrote and its families, and then whether its text is valid exposition, each series once, and whether a family is one an installed collector or the exporter writes.
+Checks a collector module before it is installed, on the device it is meant for: whether it keeps the [collector contract](collector-contract.md). It reads `<path>`, which must be `<module>.uc`, and checks its text for strict mode and its imports. It loads the module under the load timer (5 s), validates its `meta`, and runs it as the service would: in a process of its own, with at most its budget and its `max_samples`. It says how long the module took to load and to run, the samples it wrote, and its families. Then it checks that its text is valid exposition with each series once, and whether an installed collector or the exporter already writes one of its families.
 
-- A line starts `ok`, `warn` or `FAIL`. A rule broken is `FAIL`: not in strict mode; importing a module other than `prometheus.exporter`, or calling `require`, `loadfile`, `loadstring`, `include` or `system`, with the text the loader logs (`FAIL imports fs (line 3): a collector reads files through deps.fs, with 'fs' in meta.needs`); not loading, or not in time; a `meta` that is not valid; stopped at its budget or at the deadline, killed, over its `max_samples`, crashing, or not returning a Result; text that is not valid; a family another writes.
-- A failure that is the device's (`SOURCE_*`, `UBUS_*`, `COMMAND_FAILED`, `NEED_MISSING`) is `warn`, and so is nothing to observe: it may do its job on another device.
-- A module of the same name already installed is left out of the families it is compared with: a new version of a collector can be checked beside the old.
+- A line starts `ok`, `warn` or `FAIL`. Each broken rule is a `FAIL`: not in strict mode; importing a module other than `prometheus.exporter`, or calling `require`, `loadfile`, `loadstring`, `include` or `system`, with the text the loader logs (`FAIL imports fs (line 3): a collector reads files through deps.fs, with 'fs' in meta.needs`); not loading, or not in time; a `meta` that is not valid; stopped at its budget or at the deadline, killed, over its `max_samples`, crashing, or not returning a Result; text that is not valid; a family another collector writes.
+- A failure that comes from the device (`SOURCE_*`, `UBUS_*`, `COMMAND_FAILED`, `NEED_MISSING`) is a `warn`, and so is nothing to observe: the collector may do its job on another device.
+- An installed module of the same name is left out of the families the module is compared with, so a new version of a collector can be checked beside the old one.
 
 | Exit status | When |
 | :--- | :--- |
@@ -119,12 +119,12 @@ ok   exposition: valid text, each series once
 
 ## `prometheus-exporter hash-password` {#hash-password}
 
-Reads a password and prints its hash, SHA-512-crypt of 1000 rounds, freshly salted: the value `auth_password` takes. From a terminal it asks for the password, which it does not echo; otherwise it reads the first line of standard input. The password is never printed, nor taken as an argument, where `ps` would show it.
+Reads a password and prints its hash: SHA-512-crypt of 1000 rounds, freshly salted, the value `auth_password` takes. From a terminal, it asks for the password without echoing it. Otherwise it reads the first line of standard input. It never prints the password, and never takes it as an argument, where `ps` would show it.
 
 | Exit status | When |
 | :--- | :--- |
 | `0` | The hash was printed. |
-| `1` | No password, or one it does not take: why, on standard error. |
+| `1` | No password, or one it does not accept. It says why on standard error. |
 
 ```
 $ prometheus-exporter hash-password
@@ -134,7 +134,7 @@ $6$rounds=1000$...
 
 ## Everywhere {#everywhere}
 
-- It reads the committed configuration, as the service does: a collector disabled in `/etc/config/prometheus-exporter` is left out, and naming it is refused.
-- It runs as the user who runs it, outside the jail: a collector that works here and fails under the service lacks something in the jail; see [The jail](jail.md).
-- What the exporter logs goes to standard error, whatever its level.
+- It reads the committed configuration, as the service does: it leaves out a collector disabled in `/etc/config/prometheus-exporter`, and refuses a query that names one.
+- `scrape` and `check` run the collectors in the service's jail where ujail can run. `scrape --dir` and `collector check` run them outside the jail, as the user who runs the command. A collector that works there and fails under the service lacks something in the jail; see [The jail](jail.md).
+- The exporter's log goes to standard error, whatever its level.
 - The version (`--version`, and the build info's `version`) is the package's, `<version>-r<release>`, or `dev` from a source tree.

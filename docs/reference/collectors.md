@@ -78,25 +78,25 @@ These collectors can have nothing to observe: they succeed without samples, and 
 | [`agh`](#agh) | AdGuard Home disabled, or not installed, and nothing answers at the collector's `address` and `port`. | `adguardhome is disabled`, `adguardhome is not installed` | AdGuard Home enabled, and nothing answering there; a reply that is not its API's; or one that asks for a login, which the collector does not send. |
 | [`bmx7`](#bmx7) | bmx7 disabled, or not installed. | `bmx7 is disabled`, `bmx7 is not installed` | bmx7 enabled, and its status files unreadable. |
 | [`chrony`](#chrony) | chronyd disabled, or not installed. | `chronyd is disabled`, `chronyd is not installed` | chronyd enabled, and `chronyc` failing (chronyd stopped). |
-| [`conntrack`](#conntrack) | nf\_conntrack not loaded: none of its files in `/proc/sys/net/netfilter`. | `no connection tracking (nf_conntrack is not loaded)` | Its files there and unreadable. |
+| [`conntrack`](#conntrack) | nf\_conntrack not loaded: none of its files in `/proc/sys/net/netfilter`. | `no connection tracking (nf_conntrack is not loaded)` | Its files there, but unreadable. |
 | [`dawn`](#dawn) | DAWN disabled, or not installed. | `dawn is disabled`, `dawn is not installed` | DAWN enabled, and its `dawn` object missing or failing. |
-| [`dhcp_leases`](#dhcp_leases) | dnsmasq (or no dnsmasq instance in `/etc/config/dhcp`) and odhcpd both disabled or not installed. With one of them enabled, it observes that one. | `dnsmasq is disabled`, `dnsmasq is not installed`, `odhcpd is disabled`, `odhcpd is not installed` | An enabled server that is not there: no dnsmasq lease file, odhcpd not on ubus. |
-| [`diskstats`](#diskstats) | Every block device in `/proc/diskstats` is one `device_exclude` leaves out (by default flash, loop devices, zram and partitions): a router without a disk. Or no block device at all. | `device_exclude leaves out every block device`, `no block devices` | `/proc/diskstats` not there or unreadable; a line of a device it exports that is malformed. |
+| [`dhcp_leases`](#dhcp_leases) | dnsmasq disabled, not installed, or without an instance in `/etc/config/dhcp`; and odhcpd disabled or not installed. When one of them is enabled, the collector observes that one. | `dnsmasq is disabled`, `dnsmasq is not installed`, `odhcpd is disabled`, `odhcpd is not installed` | An enabled server that is not there: no dnsmasq lease file, odhcpd not on ubus. |
+| [`diskstats`](#diskstats) | `device_exclude` leaves out every block device in `/proc/diskstats` (by default: flash, loop devices, zram and partitions), as on a router without a disk. Or there is no block device at all. | `device_exclude leaves out every block device`, `no block devices` | `/proc/diskstats` missing or unreadable, or a malformed line for a device it exports. |
 | [`dnsmasq`](#dnsmasq) | dnsmasq disabled, or not installed. | `dnsmasq is disabled`, `dnsmasq is not installed` | dnsmasq enabled, and its `dnsmasq` object missing or failing. |
 | [`hostapd_stations`](#hostapd_stations) | As wifi, or no `hostapd.<ifname>` object for any interface. | `no wireless radios`, `no hostapd access points` | A hostapd object that does not answer. |
 | [`hostapd_ubus_stations`](#hostapd_ubus_stations) | No `hostapd.*` object. | `no hostapd access points` | A hostapd object that does not answer. |
 | [`ltq-dsl`](#ltq-dsl) | No `dsl` object. | `no DSL modem (no dsl on ubus)` | A `dsl` object that does not answer. |
-| [`mmc`](#mmc) | No eMMC that reports its health: no MMC host, SD or SDIO cards alone, which have no `life_time` or `pre_eol_info`, or an eMMC older than 5.0, whose fields are 0, not defined. | `no eMMC reports its health` | A `life_time` or `pre_eol_info` there and not as the kernel writes it. |
-| [`modemmanager`](#modemmanager) | ModemManager disabled or not installed, or it lists no modem. | `ModemManager lists no modems`, `modemmanager is disabled`, `modemmanager is not installed` | `mmcli` failing or running out of time with ModemManager enabled. |
-| [`mwan3`](#mwan3) | mwan3 disabled, or not installed. | `mwan3 is disabled`, `mwan3 is not installed` | Its `mwan3` object failing. Enabled and stopped is a reading: `mwan3_interface_running 0`. |
-| [`nat_traffic`](#nat_traffic) | nf\_conntrack not loaded: no `/proc/net/nf_conntrack`. | `no connection tracking (nf_conntrack is not loaded)` | The file there and unreadable. |
-| [`pressure`](#pressure) | No `/proc/pressure`: a kernel without `CONFIG_PSI`, or booted with `psi=0`. | `no PSI (no /proc/pressure: a kernel without CONFIG_PSI, or booted with psi=0)` | `/proc/pressure` there, and its `cpu`, `io` or `memory` unreadable or not as the kernel writes it. |
+| [`mmc`](#mmc) | No eMMC that reports its health: no MMC host; only SD or SDIO cards, which have no `life_time` or `pre_eol_info`; or an eMMC older than 5.0, whose fields are 0 (not defined). | `no eMMC reports its health` | A `life_time` or `pre_eol_info` there, but not as the kernel writes it. |
+| [`modemmanager`](#modemmanager) | ModemManager disabled or not installed, or it lists no modem. | `ModemManager lists no modems`, `modemmanager is disabled`, `modemmanager is not installed` | ModemManager enabled, and `mmcli` failing or running out of time. |
+| [`mwan3`](#mwan3) | mwan3 disabled, or not installed. | `mwan3 is disabled`, `mwan3 is not installed` | Its `mwan3` object failing. mwan3 enabled but stopped is a reading, not a failure: `mwan3_interface_running 0`. |
+| [`nat_traffic`](#nat_traffic) | nf\_conntrack not loaded: no `/proc/net/nf_conntrack`. | `no connection tracking (nf_conntrack is not loaded)` | The file there, but unreadable. |
+| [`pressure`](#pressure) | No `/proc/pressure`: a kernel without `CONFIG_PSI`, or booted with `psi=0`. | `no PSI (no /proc/pressure: a kernel without CONFIG_PSI, or booted with psi=0)` | `/proc/pressure` there, but its `cpu`, `io` or `memory` unreadable or not as the kernel writes it. |
 | [`realtek-poe`](#realtek-poe) | No `poe` object. | `no PoE switch (no poe on ubus)` | A `poe` object that does not answer. |
-| [`snmp6`](#snmp6) | No `/proc/net/dev_snmp6` (IPv6 disabled). | `no IPv6 (no /proc/net/dev_snmp6)` | The directory there and unreadable. |
-| [`timesync`](#timesync) | Neither busybox ntpd nor chronyd runs, as procd's instances say (the service's ubus object's `time_daemons`): sysntpd runs ntpd only while `/etc/config/system` turns NTP on. With one running, it observes that one. | `neither ntpd nor chronyd runs` | chronyd enabled and not running, or `chronyc` failing; busybox ntpd's event file unreadable. |
+| [`snmp6`](#snmp6) | No `/proc/net/dev_snmp6` (IPv6 disabled). | `no IPv6 (no /proc/net/dev_snmp6)` | The directory there, but unreadable. |
+| [`timesync`](#timesync) | Neither busybox ntpd nor chronyd runs, by procd's instances (the service's ubus object's `time_daemons`). sysntpd runs ntpd only while `/etc/config/system` turns NTP on. When one of them runs, the collector observes that one. | `neither ntpd nor chronyd runs` | chronyd enabled and not running, or `chronyc` failing; busybox ntpd's event file unreadable. |
 | [`ubnt-manager`](#ubnt-manager) | ubnt-manager not installed, or `ubnt-manager -l` lists no radio. | `ubnt-manager is not installed`, `ubnt-manager lists no radios` | A radio that fails or does not answer. |
 | [`unbound`](#unbound) | unbound disabled, or not installed. | `unbound is disabled`, `unbound is not installed` | unbound enabled, and its control socket not answering. |
-| [`wifi`](#wifi) | The wireless config has no radio: the service's ubus object's `wireless` gives none. | `no wireless radios` | Another failed call; an interface that is there and nl80211 cannot answer for. One that is not there, of a network not set up, is left out. |
+| [`wifi`](#wifi) | The wireless config has no radio: the service's ubus object's `wireless` gives none. | `no wireless radios` | Another failed call, or an interface that is there but that nl80211 cannot answer for. An interface that is not there, because its network is not set up, is left out. |
 | [`wireguard`](#wireguard) | rpcd has no `wireguard` object: rpcd-mod-wireguard not installed. | `rpcd has no wireguard object: rpcd-mod-wireguard is not installed` | Any other failure of `wireguard status`. |
 
 ## `agh` {#agh}
@@ -212,7 +212,7 @@ Active DHCP leases of dnsmasq and odhcpd, by interface and family.
 - **Reads the configs:** `/etc/config/dhcp`
 - **Calls over ubus:** `dhcp ipv4leases|ipv6leases`, `network.interface dump`, `rc list`
 - **Jail paths:** The lease file of each `dnsmasq` section of `/etc/config/dhcp`: its `leasefile`, or `/tmp/dhcp.leases`.
-- **Nothing to observe:** dnsmasq (or no dnsmasq instance in `/etc/config/dhcp`) and odhcpd both disabled or not installed. With one of them enabled, it observes that one. See [Nothing to observe](#nothing-to-observe).
+- **Nothing to observe:** dnsmasq disabled, not installed, or without an instance in `/etc/config/dhcp`; and odhcpd disabled or not installed. When one of them is enabled, the collector observes that one. See [Nothing to observe](#nothing-to-observe).
 - **Metrics:** [dhcp\_leases](metrics.md#dhcp_leases)
 
 | Option | Title | Type | Default | Datatype | Description |
@@ -229,7 +229,7 @@ Reads, writes, discards and flushes of each disk, and the time spent on them, fr
 - **In the groups:** `ucode-prometheus-exporter-hardware`, `ucode-prometheus-exporter-full`
 - **Section:** `config collector 'diskstats'`
 - **Needs:** `fs`
-- **Nothing to observe:** Every block device in `/proc/diskstats` is one `device_exclude` leaves out (by default flash, loop devices, zram and partitions): a router without a disk. Or no block device at all. See [Nothing to observe](#nothing-to-observe).
+- **Nothing to observe:** `device_exclude` leaves out every block device in `/proc/diskstats` (by default: flash, loop devices, zram and partitions), as on a router without a disk. Or there is no block device at all. See [Nothing to observe](#nothing-to-observe).
 - **Metrics:** [diskstats](metrics.md#diskstats)
 
 | Option | Title | Type | Default | Datatype | Description |
@@ -448,7 +448,7 @@ The health an eMMC of version 5.0 or later reports of itself, its life time used
 - **Package:** `ucode-prometheus-exporter-mmc`
 - **Section:** `config collector 'mmc'`
 - **Needs:** `fs`
-- **Nothing to observe:** No eMMC that reports its health: no MMC host, SD or SDIO cards alone, which have no `life_time` or `pre_eol_info`, or an eMMC older than 5.0, whose fields are 0, not defined. See [Nothing to observe](#nothing-to-observe).
+- **Nothing to observe:** No eMMC that reports its health: no MMC host; only SD or SDIO cards, which have no `life_time` or `pre_eol_info`; or an eMMC older than 5.0, whose fields are 0 (not defined). See [Nothing to observe](#nothing-to-observe).
 - **Metrics:** [mmc](metrics.md#mmc)
 
 | Option | Title | Type | Default | Datatype | Description |
@@ -774,7 +774,7 @@ Whether busybox ntpd or chronyd keeps the clock synchronized: stratum, offset an
 - **Calls over ubus:** `prometheus-exporter time_daemons`, `rc list`
 - **Jail paths:** `/var/run/prometheus-exporter/timesync`, which the service makes when it is not there
 - **Seconds for its programs:** The main section's `exec_timeout`, unless its section sets `timeout`
-- **Nothing to observe:** Neither busybox ntpd nor chronyd runs, as procd's instances say (the service's ubus object's `time_daemons`): sysntpd runs ntpd only while `/etc/config/system` turns NTP on. With one running, it observes that one. See [Nothing to observe](#nothing-to-observe).
+- **Nothing to observe:** Neither busybox ntpd nor chronyd runs, by procd's instances (the service's ubus object's `time_daemons`). sysntpd runs ntpd only while `/etc/config/system` turns NTP on. When one of them runs, the collector observes that one. See [Nothing to observe](#nothing-to-observe).
 - **Metrics:** [timesync](metrics.md#timesync)
 
 | Option | Title | Type | Default | Datatype | Description |

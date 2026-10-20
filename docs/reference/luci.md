@@ -135,7 +135,7 @@ The page takes the object as missing on:
 
 ## Status → Prometheus exporter
 
-The page runs each enabled collector once, a **test run**, when it opens and on **Refresh**, never on a timer. The test run is the ubus object's `status`. It runs on the router, outside the service's jail and without its deadline, and it runs a quarantined collector all the same. So its results can differ from what Prometheus gets, and the page says so above the tables.
+The page runs each enabled collector once, a **test run**, when it opens and on **Refresh**, never on a timer. The test run is the ubus object's [`status`](ubus.md#status): a scrape of its own on the router, apart from the service's scrapes, which runs a quarantined collector all the same. So its results can differ from what Prometheus gets, and the page says so above the tables.
 
 | Part | Content |
 | :--- | :--- |
