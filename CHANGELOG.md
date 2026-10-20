@@ -4,7 +4,9 @@ What each release changes, for those who run the exporter and those who write co
 
 ## [Unreleased]
 
-0.3.0 is the first release candidate for 1.0: its metrics, configuration, HTTP endpoint, ubus methods, command, error codes, packages, alert names and collector API are those 1.0 keeps, and from here only a major version breaks them (see [About versions](docs/explanation/versions.md#what-10-keeps)). Upgrading from 0.2.1 relabels or drops a few series, runs the jail as a user of its own, wants collectors of other packages to declare their ubus calls and to import the collector API by its new name, and moves the `prometheus-exporter` command to a package of its own: see [Upgrading the exporter](docs/how-to/upgrade.md#from-021-to-030).
+## [0.3.0] - 2026-10-20
+
+0.3.0 is the first release candidate for 1.0: its metrics, configuration, HTTP endpoint, ubus methods, command, error codes, packages, alert names and collector API are those 1.0 keeps, and from here only a major version breaks them (see [About versions](https://m00qek.github.io/ucode-prometheus-exporter/0.3/explanation/versions/#what-10-keeps)). Upgrading from 0.2.1 relabels or drops a few series, runs the jail as a user of its own, wants collectors of other packages to declare their ubus calls and to import the collector API by its new name, and moves the `prometheus-exporter` command to a package of its own: see [Upgrading the exporter](https://m00qek.github.io/ucode-prometheus-exporter/0.3/how-to/upgrade/#from-021-to-030).
 
 ### Added
 
@@ -188,7 +190,8 @@ The first release: a rewrite of the packages feed's `prometheus-node-exporter-uc
 - A ubus object, `prometheus-exporter`, which the LuCI app, `luci-app-prometheus-exporter`, uses for its settings and status pages.
 - The documentation site, in the Diátaxis structure, published per minor version.
 
-[Unreleased]: https://github.com/m00qek/ucode-prometheus-exporter/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/m00qek/ucode-prometheus-exporter/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/m00qek/ucode-prometheus-exporter/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/m00qek/ucode-prometheus-exporter/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/m00qek/ucode-prometheus-exporter/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/m00qek/ucode-prometheus-exporter/releases/tag/v0.1.0

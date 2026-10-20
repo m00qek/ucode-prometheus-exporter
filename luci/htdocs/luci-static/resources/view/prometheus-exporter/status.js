@@ -6,7 +6,7 @@
 
 const fill = exporter.fill;
 
-const ERROR_CODES = 'https://m00qek.github.io/ucode-prometheus-exporter/0.2/reference/error-codes/';
+const ERROR_CODES = 'https://m00qek.github.io/ucode-prometheus-exporter/0.3/reference/error-codes/';
 
 const FAIL_STYLE = 'background-color:var(--error-color-high,var(--danger-color));color:var(--on-error-color,var(--on-danger-color))';
 

@@ -33,7 +33,7 @@ If the new version adds a dependency, apk takes it from the feeds the device has
 
 ## From 0.2.1 to 0.3.0
 
-0.3.0 is the first release candidate for 1.0: 1.0 keeps the names and labels of its metrics. The changes below break something that worked in 0.2.1. The [CHANGELOG](https://github.com/m00qek/ucode-prometheus-exporter/blob/main/CHANGELOG.md) marks each one **BREAKING**.
+0.3.0 is the first release candidate for 1.0: 1.0 keeps its metrics, options, methods and collector API, as [About versions](../explanation/versions.md#what-10-keeps) lists them. The changes below break something that worked in 0.2.1. The [CHANGELOG](https://github.com/m00qek/ucode-prometheus-exporter/blob/main/CHANGELOG.md) marks each one **BREAKING**.
 
 - **snmp6 exports 13 fields of each device by default**, where 0.2.1 wrote every one, some 70. By default it now keeps only these `node_snmp6_*_total` fields of each device: `Ip6_InOctets`, `Ip6_OutOctets`, `Ip6_OutForwDatagrams`, `Ip6_InDiscards`, `Ip6_OutDiscards`, `Ip6_InNoRoutes`, `Ip6_OutNoRoutes`, `Ip6_InHdrErrors`, `Ip6_InAddrErrors`, `Ip6_InTooBigErrors`, `Icmp6_InMsgs`, `Icmp6_OutMsgs` and `Icmp6_InErrors`. It also drops `node_snmp6_ifindex`, since netclass's `node_network_iface_id` has the same index. To export other fields, set the new option `fields`, a regular expression of `<Protocol>_<Field>`. `.*` exports every field, as 0.2.1 did:
 

@@ -4,7 +4,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=ucode-prometheus-exporter
 # Semantic versions: see docs/explanation/versions.md.
-PKG_VERSION:=0.2.1
+PKG_VERSION:=0.3.0
 PKG_RELEASE:=1
 PKG_LICENSE:=Apache-2.0
 PKG_LICENSE_FILES:=LICENSE NOTICE
@@ -44,7 +44,7 @@ define Package/$(PKG_NAME)/Default
   SECTION:=utils
   CATEGORY:=Utilities
   TITLE:=Prometheus exporter
-  URL:=https://m00qek.github.io/ucode-prometheus-exporter/0.2/
+  URL:=https://m00qek.github.io/ucode-prometheus-exporter/0.3/
   PKGARCH:=all
 endef
 
@@ -324,7 +324,7 @@ define Package/$(LUCI_APP)
   CATEGORY:=LuCI
   SUBMENU:=3. Applications
   TITLE:=LuCI support for the Prometheus exporter
-  URL:=https://m00qek.github.io/ucode-prometheus-exporter/0.2/
+  URL:=https://m00qek.github.io/ucode-prometheus-exporter/0.3/
   DEPENDS:=+luci-base +$(PKG_NAME)
   EXTRA_DEPENDS:=$(PKG_NAME) (=$(PKG_VERSION)-r$(PKG_RELEASE))
   PKGARCH:=all

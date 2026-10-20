@@ -16,7 +16,7 @@ function cell(page, id, n) {
 // The columns of a collector's row.
 const NAME = 0, RESULT = 1, DURATION = 2, SERVICE = 3;
 
-const ERROR_CODES = 'https://m00qek.github.io/ucode-prometheus-exporter/0.2/reference/error-codes/';
+const ERROR_CODES = 'https://m00qek.github.io/ucode-prometheus-exporter/0.3/reference/error-codes/';
 
 function banner(page, kind) {
   return page.locator(`#view .exporter-banners .alert-message.${kind}`);
