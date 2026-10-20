@@ -56,8 +56,8 @@ Usage:
 Commands:
   scrape            Print a scrape, as /metrics answers it: of every enabled
                     collector, or of those named, in that order. Each runs as
-                    the service runs it, in a process of its own, stopped at
-                    its budget, within scrape_timeout.
+                    the service runs it, in a child process of the scrape,
+                    stopped at its budget, within scrape_timeout.
   check             Check the configuration, describe the installed
                     collectors and run a scrape of them, as the init script's
                     check does.

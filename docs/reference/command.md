@@ -19,8 +19,8 @@ Usage:
 Commands:
   scrape            Print a scrape, as /metrics answers it: of every enabled
                     collector, or of those named, in that order. Each runs as
-                    the service runs it, in a process of its own, stopped at
-                    its budget, within scrape_timeout.
+                    the service runs it, in a child process of the scrape,
+                    stopped at its budget, within scrape_timeout.
   check             Check the configuration, describe the installed
                     collectors and run a scrape of them, as the init script's
                     check does.
@@ -47,7 +47,7 @@ Up to 0.1, the command took only collectors, `prometheus-exporter [COLLECTOR...]
 
 Prints a scrape on standard output, as `/metrics` answers it: of every enabled collector, or of the collectors named, in that order, by name (`ltq-dsl`) or module (`ltq_dsl`). For cron and push (see [How to push metrics](../how-to/push-metrics.md)), and for debugging.
 
-- Each collector runs as the service runs it: in a process of its own, stopped at its `budget`, with at most its `max_samples`, and with families of its own. The scrape has the main section's `scrape_timeout` (see [Collector contract](collector-contract.md)).
+- Each collector runs as the service runs it: in a child process of the scrape, one after the other, stopped at its `budget`, with at most its `max_samples`, and with families of its own. The scrape has the main section's `scrape_timeout` (see [Collector contract](collector-contract.md)).
 - It has no ledger: nothing is quarantined, and the collectors run in their order, slow ones too, within the scrape's time.
 - `--dir` loads the collectors of a directory on ucode's module path, such as a source tree's with `ucode -L src`, instead of the installed ones.
 - It never compresses and never asks for basic auth: those are the HTTP endpoint's.
@@ -94,7 +94,7 @@ cpu                      enabled  CPU time per mode, from /proc/stat.
 
 ## `prometheus-exporter collector check` {#collector-check}
 
-Checks a collector module before it is installed, on the device it is meant for: whether it keeps the [collector contract](collector-contract.md). It reads `<path>`, which must be `<module>.uc`, and checks its text for strict mode and its imports. It loads the module under the load timer (5 s), validates its `meta`, and runs it as the service would: in a process of its own, with at most its budget and its `max_samples`. It says how long the module took to load and to run, the samples it wrote, and its families. Then it checks that its text is valid exposition with each series once, and whether an installed collector or the exporter already writes one of its families.
+Checks a collector module before it is installed, on the device it is meant for: whether it keeps the [collector contract](collector-contract.md). It reads `<path>`, which must be `<module>.uc`, and checks its text for strict mode and its imports. It loads the module under the load timer (5 s), validates its `meta`, and runs it as the service would: in a child process, with at most its budget and its `max_samples`. It says how long the module took to load and to run, the samples it wrote, and its families. Then it checks that its text is valid exposition with each series once, and whether an installed collector or the exporter already writes one of its families.
 
 - A line starts `ok`, `warn` or `FAIL`. Each broken rule is a `FAIL`: not in strict mode; importing a module other than `prometheus.exporter`, or calling `require`, `loadfile`, `loadstring`, `include` or `system`, with the text the loader logs (`FAIL imports fs (line 3): a collector reads files through deps.fs, with 'fs' in meta.needs`); not loading, or not in time; a `meta` that is not valid; stopped at its budget or at the deadline, killed, over its `max_samples`, crashing, or not returning a Result; text that is not valid; a family another collector writes.
 - A failure that comes from the device (`SOURCE_*`, `UBUS_*`, `COMMAND_FAILED`, `NEED_MISSING`) is a `warn`, and so is nothing to observe: the collector may do its job on another device.
