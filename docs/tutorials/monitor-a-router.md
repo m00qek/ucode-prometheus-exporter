@@ -2,6 +2,17 @@
 
 In this tutorial we will install the exporter on an OpenWrt router and look at its metrics on the router itself. Then we will open it to the LAN, and have a Prometheus on our computer scrape it and graph the router's load and traffic. Along the way we will meet the service's `status` and `check` commands, which tell us what the exporter is doing.
 
+```mermaid
+flowchart LR
+    subgraph router [Router]
+        C[collectors] --> E["exporter<br/>port 9100, /metrics"]
+    end
+    subgraph computer [Our computer]
+        P[Prometheus] --> G[graphs]
+    end
+    E -- "scraped over the LAN" --> P
+```
+
 It takes about twenty minutes.
 
 ## What you need

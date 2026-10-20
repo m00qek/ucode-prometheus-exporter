@@ -2,6 +2,14 @@
 
 Make every scrape log in with a user and password, over TLS. The exporter accepts basic auth only over HTTPS. Set the certificate and key along with it, or the service refuses the configuration.
 
+```mermaid
+flowchart LR
+    P[Prometheus] -- "HTTPS, user and password" --> U["uhttpd, port 9100<br/>TLS with cert and key"]
+    U --> H{"the handler: do they match<br/>auth_user and the hash?"}
+    H -- yes --> M[the scrape]
+    H -- no --> R[401 Unauthorized]
+```
+
 ## Prerequisites
 
 - A TLS library for uhttpd: `ls /lib/libustream-ssl.so` finds it. If it is missing, install one, such as `apk add libustream-mbedtls`.
