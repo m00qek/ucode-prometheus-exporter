@@ -8,10 +8,10 @@ The init script is `/etc/init.d/prometheus-exporter` (procd, `START=60`). Every 
 
 | Action | What it does |
 | :--- | :--- |
-| `start` | Unless `option enabled '0'`: checks the configuration (`/usr/libexec/prometheus-exporter/check.uc --config`), sets up basic auth's file, makes the directories the collectors own and the state directory, and hands procd the uhttpd instance, in its jail. Refuses an invalid configuration, logging why at `err`. Waits for the listen interface: with no address on it yet, it logs `deferring start until listen interface <interface> becomes ready` and starts once the interface comes up. |
+| `start` | Does nothing with `option enabled '0'`. Otherwise it checks the configuration (`/usr/libexec/prometheus-exporter/check.uc --config`), sets up basic auth's file, and makes the state directory and the directories the collectors own. Then it hands procd the uhttpd instance, in its jail. It refuses an invalid configuration, and logs why at `err`. It waits for the listen interface: while the interface has no address, it logs `deferring start until listen interface <interface> becomes ready`, and starts once the interface comes up. |
 | `stop` | Stops the instances. |
 | `restart` | `stop`, then `start`. The new instance starts without [state](jail.md#state). |
-| `reload` | Checks the configuration. Invalid, it keeps the running instance and logs why; valid, it runs `start` again, and procd restarts the instance only if its command line, mounts or watched files changed. |
+| `reload` | Checks the configuration. If it is invalid, keeps the running instance and logs why. If it is valid, runs `start` again; procd restarts the instance only if its command line, mounts or watched files changed. |
 | `enable`, `disable` | Adds or removes the boot link `/etc/rc.d/S60prometheus-exporter`. |
 | `enabled` | Exits 0 when the boot link is there. |
 | `running` | Exits 0 when procd runs the service. |
@@ -38,7 +38,7 @@ listening on http://127.0.0.1:9100/metrics, gzip when asked, serving 16 collecto
 
 ## `check`
 
-`service prometheus-exporter check` runs `/usr/libexec/prometheus-exporter/check.uc`, the base package's, which needs no command line; `prometheus-exporter check` (see [The command](command.md#check)) runs the same. It prints a line per finding, then every installed collector, then the jail's mounts:
+`service prometheus-exporter check` runs the base package's `/usr/libexec/prometheus-exporter/check.uc`, which needs no command line. `prometheus-exporter check` (see [The command](command.md#check)) runs the same. It prints a line per finding, then every installed collector, then the jail's mounts:
 
 ```
 ok   main: HTTP on every address, port 9100, keepalive 70s, exec_timeout 5s, scrape_timeout 10s, collector_budget 5s, max_samples 20000, memory_limit 64 MB (a quarter of the RAM, at most 64), gzip when asked
@@ -69,7 +69,7 @@ jail mounts:
 
 ### Findings
 
-Each finding starts with `ok`, `warn` or `FAIL`. Only a `FAIL` makes `check` exit 1; it exits 0 otherwise.
+Each finding starts with `ok`, `warn` or `FAIL`. Only a `FAIL` makes `check` exit 1. Otherwise it exits 0.
 
 | Finding | Level |
 | :--- | :--- |
@@ -108,7 +108,11 @@ One block per installed collector, enabled or not:
 | `commands` | Each program it runs, `<name>=<path>`, or `(not found)`. |
 | `mounts` | What the jail mounts for it, when it is enabled. |
 
-The scrape `check` runs is in the service's own jail, with ujail, as the service's scrapes run (each collector in a process of its own, stopped at its budget, within `scrape_timeout`), with the committed configuration, and runs a collector the service quarantined all the same. Where ujail cannot run (not root, or a kernel or container that refuses it a namespace), it runs outside the jail, as root, with the same guards, and says `outside the jail`: a collector that works there and fails under procd lacks something in the jail; see [The jail](jail.md). The `service:` findings are what the service's own scrapes found, from its running instance's ledger: see [The jail](jail.md#the-ledger).
+`check` runs its scrape as the service's scrapes run: in the service's own jail, with ujail; the collectors in a child process, each stopped at its budget, within `scrape_timeout`. It uses the committed configuration, and runs a collector the service quarantined all the same.
+
+Where ujail cannot run (not root, or a kernel or container that refuses it a namespace), `check` runs the scrape outside the jail, as root, with the same guards, and says `outside the jail`. A collector that works there and fails under procd lacks something in the jail: see [The jail](jail.md).
+
+The `service:` findings are what the service's own scrapes found, from its running instance's ledger: see [The jail](jail.md#the-ledger).
 
 ## procd
 
@@ -117,7 +121,7 @@ The scrape `check` runs is in the service's own jail, with ujail, as the service
 | `instance1` | `/usr/sbin/uhttpd -f -c <auth file or /dev/null> -h /dev/null -S -D -o /metrics -O /usr/libexec/prometheus-exporter/handler.uc [-r prometheus-exporter] -k <keepalive> -t 60 -n 3 -N 10 [-C <cert> -K <key>] -p\|-s <address>:<port> ...` | While the service is enabled. `-s` (HTTPS) with `cert` and `key` both set and both there, `-p` (HTTP) otherwise. One `-p` or `-s` per address of the listen interface, IPv4 and IPv6, or the port alone for `*`. `-r` only with basic auth. `-t`, `-n` and `-N`: see [HTTP endpoint](http.md#connections). |
 | `watch` | `/usr/libexec/prometheus-exporter/watch.uc <path>...` | While a path an enabled collector reads is not there. See [The jail](jail.md#missing-paths). |
 
-Both are respawned by procd. The uhttpd instance runs in a jail: see [The jail](jail.md).
+procd respawns both. The uhttpd instance runs in a jail: see [The jail](jail.md).
 
 ### Triggers
 

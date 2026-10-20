@@ -1,6 +1,6 @@
 # Documentation Publishing
 
-The documentation is published with [mike](https://github.com/jimporter/mike) to the `gh-pages` branch, one version per minor release, by the `docs` workflow in `.github/workflows/docs.yml`. The make targets that build and test it locally are in [Make targets](make-targets.md#docsmakefile). For the reasons behind this design, see [About versioned documentation](../explanation/versioned-docs.md).
+The `docs` workflow, `.github/workflows/docs.yml`, publishes the documentation to the `gh-pages` branch with [mike](https://github.com/jimporter/mike), one version per minor release. [Make targets](make-targets.md#docsmakefile) lists the targets that build and test it locally. For the reasons behind this design, see [About versioned documentation](../explanation/versioned-docs.md).
 
 ---
 
@@ -41,7 +41,7 @@ Runs on pull requests and on pushes to `main`.
 Runs on release tags, `docs/*` branches and manual runs. `REF` is the manual run's `ref` input, or else the pushed ref.
 
 1. Checks out `REF` with its full history and tags.
-2. Takes `docs/Makefile` from the commit the workflow runs from, which is `REF` on a push; releases before 0.2.1 have no `publish` target. It runs on `REF`'s checkout, with `PROJECT_ROOT` set to it.
+2. Takes `docs/Makefile` from the commit the workflow runs from, which is `REF` on a push, because releases before 0.2.1 have no `publish` target. That Makefile runs on `REF`'s checkout, with `PROJECT_ROOT` set to it.
 3. Sets the git committer to `github-actions[bot]`, in the repository's config.
 4. `build-mike`: strict build with `mkdocs.mike.yml`, in the docs tools image built from `REF`'s `devenv/services/docs`.
 5. `publish`: `devenv/scripts/docs-publish.sh "$REF"` in the same image, with the network, and the checkout's credentials and committer from its `.git/config`.
@@ -58,7 +58,12 @@ One `publish` job runs at a time; a later one waits. GitHub keeps at most one wa
 
 ## The latest rule
 
-A publish of version `X.Y` also points `latest` to `X.Y`, and makes `latest` the default version, only if `X.Y` is the newest of the version folders already on `gh-pages` together with `X.Y` itself, compared with `sort -V`: `0.10` is newer than `0.9`. Otherwise `latest` stays where it is. The first publish always takes `latest`.
+A publish of version `X.Y` moves `latest` only when `X.Y` is the newest version. It compares `X.Y` with the version folders already on `gh-pages`, with `sort -V`: `0.10` is newer than `0.9`.
+
+- If `X.Y` is the newest, the publish points `latest` to `X.Y`, and makes `latest` the default version.
+- Otherwise, `latest` stays where it is.
+
+The first publish always takes `latest`.
 
 The script prints which case applied:
 
@@ -189,7 +194,7 @@ Checks `HEAD` as the tip of `BRANCH`, `docs/X.Y` with an optional `refs/heads/` 
 
 Publishes the current checkout as version `X.Y` of `REF`, a release tag or a `docs/X.Y` branch, with an optional `refs/` prefix, to `origin`'s `gh-pages`. Run from the repository root, with `mike` installed and a git committer configured.
 
-1. Maps `REF` to its version with `docs-version.sh`. For a `docs/` branch, runs `docs-guard.sh` and takes the title from the tag it prints; for a tag, the title is the tag. The leading `v` is dropped.
+1. Maps `REF` to its version with `docs-version.sh`. For a `docs/` branch, it runs `docs-guard.sh` and takes the title from the tag the guard prints. For a tag, the title is the tag. Either way, the leading `v` is dropped.
 2. Fetches `gh-pages` from `origin` into the local `gh-pages` branch, if it exists there.
 3. Applies [the latest rule](#the-latest-rule): `mike deploy -F mkdocs.mike.yml --title <title> --update-aliases X.Y latest` and `mike set-default -F mkdocs.mike.yml latest`, or only `mike deploy -F mkdocs.mike.yml --title <title> X.Y`.
 4. Writes `404.html` and `.nojekyll` to the root of `gh-pages`, in a separate commit, `Root files: 404 redirect to latest, .nojekyll`, only if they changed.
@@ -211,4 +216,4 @@ Runs the [link check](#link-check) on the repository at `ROOT`, by default the o
 | Docs tools image | `ucode-prometheus-exporter-docs:9.5.17`, tag taken from `MKDOCS_IMAGE` | `docs/Makefile` |
 | `actions/checkout` | `v4.4.0`, by its commit | `.github/workflows/docs.yml` |
 
-The `publish` job runs in the docs tools image, as `build-mike` and `test` do in the `build` job; the image pins each Python package it adds to the mkdocs-material image.
+The `publish` job runs in the docs tools image, as `build-mike` and `test` do in the `build` job. The image pins each Python package it adds to the mkdocs-material image.
