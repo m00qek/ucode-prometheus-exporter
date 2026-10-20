@@ -1,6 +1,6 @@
 # Collector Interface
 
-A collector is a ucode module, `src/prometheus/collectors/<module>.uc`, installed to `/usr/share/ucode/prometheus/collectors/`. It imports [the collector API](#the-collector-api) alone, and exports `meta` and `collect`:
+A collector is a ucode module. Its source is `src/prometheus/collectors/<module>.uc`, and it is installed to `/usr/share/ucode/prometheus/collectors/`. It imports only [the collector API](#the-collector-api), and exports `meta` and `collect`:
 
 ```js
 'use strict';
@@ -32,28 +32,40 @@ export function collect(deps, out) {
 };
 ```
 
-That is `loadavg`, as the base package installs it.
+This is the `loadavg` collector, as the base package installs it.
 
 ---
 
 ## Loading
 
-The loader (`src/prometheus/exporter/loader.uc`) takes every file of the collectors' directory named `[a-z0-9_]+.uc`, imports it, and validates its exports. A module must be in strict mode, its first statement `'use strict'` (after comments only), import `prometheus.exporter` and no other module, and its top level must [only declare](#the-top-level) and return within 5 seconds: it is first loaded in a process of its own. A module that is not in strict mode, imports another module, does more than declare at its top level, does not import in time, or whose `meta` or `collect` is not valid, is left out, and the rest load: the handler logs it at `err`, `check` and the ubus object's `collectors` list it. The collectors are sorted by name.
+The loader (`src/prometheus/exporter/loader.uc`) imports every file of the collectors' directory whose name matches `[a-z0-9_]+.uc`, and validates its exports. A module must:
 
-What the exporter enforces of a collector, and what breaking each rule costs, is in [Collector contract](collector-contract.md).
+- be in strict mode: its first statement is `'use strict'`, with only comments before it;
+- import `prometheus.exporter`, and no other module;
+- [only declare](#the-top-level) at its top level, and finish loading within 5 seconds (the loader first loads it in a process of its own);
+- export a valid `meta` and `collect`.
 
-uhttpd loads them once, when it starts; a scrape runs what was loaded. Installing or removing a collector package reloads the service, which restarts uhttpd.
+The loader leaves out a module that breaks one of these rules, and loads the rest. The handler logs the module at `err`, and `check` and the ubus object's `collectors` list it. The loader sorts the collectors by name.
 
-Each collector's capabilities are made for it alone, copies included: a collector that overwrites one of their functions changes nothing for the collectors after it. uci cursors read the committed configuration only, never changes staged and not yet committed.
+[Collector contract](collector-contract.md) lists what the exporter enforces on a collector, and what breaking each rule costs.
+
+uhttpd loads the collectors once, when it starts. A scrape runs the collectors loaded then. Installing or removing a collector package reloads the service, which restarts uhttpd.
+
+Each collector gets its own capabilities, copies included. A collector that overwrites one of their functions changes nothing for the collectors after it. uci cursors read only the committed configuration, never changes that are staged and not yet committed.
 
 ## The top level
 
-A module's top level runs twice each time the service starts: in a child process, where the probe stops it at 5 seconds, and again in uhttpd's own process, which every scrape is forked from and nothing guards. So it only declares, and leaves what it does to `collect()`:
+A module's top level runs twice each time the service starts:
+
+1. in a child process, where the probe stops it at 5 seconds;
+2. in uhttpd's own process, which every scrape is forked from, and where nothing guards it.
+
+So the top level only declares, and leaves the work to `collect()`. It may hold:
 
 - `'use strict'`, and its import of `prometheus.exporter`;
 - constants and variables (`const`, `let`) and functions, and their exports, `meta` and `collect` among them;
-- values of literals, regular expressions, templates, objects and arrays, functions (not called), operators, and what it declared before;
-- calls of ucode's functions that compute from their arguments alone: `arrtoip`, `assert`, `b64dec`, `b64enc`, `chr`, `exists`, `filter`, `hex`, `hexdec`, `hexenc`, `index`, `int`, `iptoarr`, `join`, `json`, `keys`, `lc`, `length`, `ltrim`, `map`, `match`, `max`, `min`, `ord`, `pop`, `push`, `regexp`, `replace`, `reverse`, `rindex`, `rtrim`, `shift`, `slice`, `sort`, `splice`, `split`, `sprintf`, `substr`, `trim`, `type`, `uc`, `uchr`, `uniq`, `unshift`, `values`, `wildcard`; and of the collector API's that do: `Result`'s, `proc.fields`, `proc.auxv`, `u16`, `u32`.
+- values built from literals, regular expressions, templates, objects and arrays, functions (not called), operators, and names it declared earlier;
+- calls to the ucode functions that compute only from their arguments: `arrtoip`, `assert`, `b64dec`, `b64enc`, `chr`, `exists`, `filter`, `hex`, `hexdec`, `hexenc`, `index`, `int`, `iptoarr`, `join`, `json`, `keys`, `lc`, `length`, `ltrim`, `map`, `match`, `max`, `min`, `ord`, `pop`, `push`, `regexp`, `replace`, `reverse`, `rindex`, `rtrim`, `shift`, `slice`, `sort`, `splice`, `split`, `sprintf`, `substr`, `trim`, `type`, `uc`, `uchr`, `uniq`, `unshift`, `values`, `wildcard`; and to the collector API functions that do the same: `Result`'s, `proc.fields`, `proc.auxv`, `u16`, `u32`.
 
 ```js
 const FIELDS = [ 'rx_bytes', 'tx_bytes' ];
@@ -67,48 +79,48 @@ for (let f in FIELDS) TABLE[f] = true;       // not ok: a statement; declare TAB
 
 | Where | Holds it to | Broken |
 | :--- | :--- | :--- |
-| Every load: the probe's child, uhttpd, rpcd's helpers, the command line | While the top level runs, `sleep`, `system`, `exit`, `print`, `printf`, `warn`, `trace`, `require`, `include`, `loadfile`, `loadstring`, `render` and `signal` refuse to run: they block, end or write to the process, load code (and through `require`, read files, run programs and open sockets), or change its signals. The collector API's `exposition` functions load the format with `loadstring`, and are refused too. A loop that never ends is stopped at 5 s in the child. Once it has run, the global scope is put back as it was, and a top level that changed it, `global.sort = ...` or a name of its own in `global`, is refused. | Left out, logged at `err`: `skipping collector: COLLECTOR_IMPURE (<module>: its top level called sleep(), which blocks the process: ...)`, or `... its top level changed the global scope, sort: ...`; a loop, `collector '<module>' hung at load`. |
-| Always: the top level and `collect()` | What the collector API exports, `Result`, `errors`, `services`, `proc` and `exposition`, and a Result's prototype, are constant: every collector loaded with it shares them, and writing over one, `Result.ok = ...`, fails with `object value is immutable`. | At the top level, left out: `skipping collector: COLLECTOR_IMPURE (<module>: its top level wrote over what the collector API exports, which no collector may change: ...)`; in `collect()`, its run fails `COLLECTOR_CRASHED`. |
-| `prometheus-exporter collector check`, the repository's tests, and a collector package's tests with the devkit | The module's text: no statement but declarations, no call but of the functions above, outside the bodies of its functions. | `FAIL its top level calls getenv() (line 4): ...`, `FAIL its top level runs 'for' (line 6): ...`. |
+| Every load: the probe's child, uhttpd, rpcd's helpers, the command line | While the top level runs, `sleep`, `system`, `exit`, `print`, `printf`, `warn`, `trace`, `require`, `include`, `loadfile`, `loadstring`, `render` and `signal` refuse to run. They block, end or write to the process, load code (and through `require`, read files, run programs and open sockets), or change its signals. The collector API's `exposition` functions load the format with `loadstring`, so they are refused too. In the child, the probe stops a loop that never ends at 5 s. Once the top level has run, the loader puts the global scope back as it was. It refuses a top level that changed it, with `global.sort = ...` or a name of its own in `global`. | Left out, logged at `err`: `skipping collector: COLLECTOR_IMPURE (<module>: its top level called sleep(), which blocks the process: ...)`, or `... its top level changed the global scope, sort: ...`; a loop, `collector '<module>' hung at load`. |
+| Always: the top level and `collect()` | The collector API's exports (`Result`, `errors`, `services`, `proc` and `exposition`) and a Result's prototype are constant. Every collector loaded with the API shares them, so writing over one, `Result.ok = ...`, fails with `object value is immutable`. | At the top level, the module is left out: `skipping collector: COLLECTOR_IMPURE (<module>: its top level wrote over what the collector API exports, which no collector may change: ...)`. In `collect()`, the run fails with `COLLECTOR_CRASHED`. |
+| `prometheus-exporter collector check`, the repository's tests, and a collector package's tests with the devkit | The module's text, outside the bodies of its functions: no statement but declarations, and no call but to the functions above. | `FAIL its top level calls getenv() (line 4): ...`, `FAIL its top level runs 'for' (line 6): ...`. |
 
-`push`, `pop`, `shift`, `unshift`, `splice` and `sort` change the array they are given; at the top level what they reach is the module's own, the API's values being constant, so they are among the functions it may call. `proto` is not: a Result's prototype is one every collector shares.
+`push`, `pop`, `shift`, `unshift`, `splice` and `sort` change the array they are given. At the top level they can only reach the module's own arrays, because the API's values are constant, so the top level may call them. It may not call `proto`: every collector shares a Result's prototype.
 
-The loader does not read the text for it: reading a module a character at a time would cost a router's uhttpd seconds when it starts, and the guard of each load refuses what the module does, as it does it. A function the top level calls through `map()` or `sort()` is not read, and the guard holds it as it runs. See [Error codes](error-codes.md#collectors-and-their-sources).
+The loader does not read the module's text. Reading a module a character at a time would cost a router's uhttpd seconds when it starts. Instead, the guard around each load refuses each forbidden call as the module makes it. The text check does not read a function that the top level calls through `map()` or `sort()`, but the guard holds that function to the rules as it runs. See [Error codes](error-codes.md#collectors-and-their-sources).
 
 ## `meta`
 
 | Field | Required | Type | Rules |
 | :--- | :--- | :--- | :--- |
-| `name` | yes | string | `[a-z0-9][a-z0-9_-]*`, and the module's name with `_` for `-`: `ltq-dsl` in `ltq_dsl.uc`. What `collect[]` takes, and the suffix of its package. |
+| `name` | yes | string | `[a-z0-9][a-z0-9_-]*`. The module's file name is the name with `_` for `-`: `ltq-dsl` in `ltq_dsl.uc`. `collect[]` takes this name, and it is the suffix of the collector's package. |
 | `title` | yes | string | 1 to 40 characters, no control characters: a label for lists and forms. |
 | `help` | yes | string | A sentence: what it collects, and from where. |
-| `needs` | yes | array | Capabilities from [`needs`](#needs), once each. All it gets in `deps`. |
-| `configs` | with `uci` | array | The uci configs it reads, `[a-z0-9_-]+`, not `prometheus-exporter`: its own settings come as `options`. Not allowed without `uci`. |
+| `needs` | yes | array | Capabilities from [`needs`](#needs), each once. `deps` gets only these. |
+| `configs` | with `uci` | array | The uci configs it reads, `[a-z0-9_-]+`. Not `prometheus-exporter`: the collector gets its own settings as `options`. Not allowed without `uci`. |
 | `commands` | with `exec` | array | The programs it runs. Not allowed without `exec`. |
-| `optional_commands` | no | array | Those of `commands` it runs only where they are installed: no package it depends on has them, and the jail does without them. |
-| `timeout` | no | integer | With `exec`: the seconds its programs get in all per scrape, 1 to 30, unless its section sets `timeout`. Without it, the main section's `exec_timeout`. |
-| `max_samples` | no | integer | The samples it may write per scrape, 1 to 100,000, unless its section sets `max_samples`. Without it, the main section's `max_samples` (20,000). |
-| `cost` | no | string | `light` (the default) or `heavy`: until the ledger has timed it, a heavy collector runs after the others not yet timed. |
+| `optional_commands` | no | array | The `commands` it runs only where they are installed. No package it depends on provides them, and the jail works without them. |
+| `timeout` | no | integer | With `exec`: the seconds its programs get in total per scrape, 1 to 30. Its section's `timeout` overrides it. Without either, the main section's `exec_timeout` applies. |
+| `max_samples` | no | integer | The samples it may write per scrape, 1 to 100,000. Its section's `max_samples` overrides it. Without either, the main section's `max_samples` (20,000) applies. |
+| `cost` | no | string | `light` (the default) or `heavy`. Until [the ledger](jail.md#the-ledger) has timed it, a heavy collector runs after the other collectors not yet timed. |
 | `options` | no | object | Its own options, `{ <name>: { default, title, help, datatype } }`. See [Options](#options). |
 | `paths` | no | array | What it reads outside procfs and sysfs, with `fs`, `socket` or `exec` in `needs`. See [The jail](jail.md#paths). |
-| `ubus` | with `ubus` | object | The ubus objects and methods it calls, `{ <object>: [ <method> ] }`, each object once; `<name>.*` for every object whose name starts with `<name>.` (hostapd's `hostapd.*`), and in place of a list a function of its options that gives one, where an option decides (`[]` for none). A call it does not list is `UBUS_NOT_ALLOWED`; the service's ubus ACL allows what the enabled collectors list. Not allowed without `ubus`. |
+| `ubus` | with `ubus` | object | The ubus objects and methods it calls, `{ <object>: [ <method> ] }`, each object once. `<name>.*` stands for every object whose name starts with `<name>.` (hostapd's `hostapd.*`). Where an option decides the methods, a function of the options can replace the list and return one (`[]` for none). A call it does not list fails with `UBUS_NOT_ALLOWED`. The service's ubus ACL allows what the enabled collectors list. Not allowed without `ubus`. |
 | `capabilities` | no | array | The capabilities its reads or programs need: `CAP_NET_ADMIN` (nftables, ctnetlink), `CAP_NET_RAW`. |
-| `groups` | no | array | The groups whose sockets it connects to, as unbound's `unbound`, whose control socket is `srw-rw----`. |
-| `proc_files` | with `fs` | array | The files of `/proc` that only root reads, which it reads, as `/proc/net/nf_conntrack`. |
+| `groups` | no | array | The groups whose sockets it connects to, such as `unbound` for unbound's control socket, which is `srw-rw----`. |
+| `proc_files` | with `fs` | array | The files of `/proc` that only root can read and that it reads, such as `/proc/net/nf_conntrack`. |
 
-What `ubus`, `capabilities`, `groups` and `proc_files` grant, and when, is in [The jail](jail.md#the-services-user).
+[The jail](jail.md#the-services-user) says what `ubus`, `capabilities`, `groups` and `proc_files` grant, and when.
 
 ### Options
 
 | Key | Required | Rules |
 | :--- | :--- | :--- |
-| (the name) | | `[a-z][a-z0-9_]*`; not `enabled`, `timeout`, `budget` nor `max_samples`, which are the core's. |
-| `default` | yes | A boolean, an integer or a string: it sets the option's type. |
-| `title` | yes | 1 to 40 characters, no control characters: the label a form shows the option by, short and in sentence case, as `Excluded devices`. LuCI shows it as the collector gives it, untranslated. |
+| (the name) | | `[a-z][a-z0-9_]*`. Not `enabled`, `timeout`, `budget` or `max_samples`: those belong to the core. |
+| `default` | yes | A boolean, an integer or a string. It sets the option's type. |
+| `title` | yes | 1 to 40 characters, no control characters. The label a form shows for the option: short and in sentence case, such as `Excluded devices`. LuCI shows it as the collector gives it, untranslated. |
 | `help` | yes | A sentence: what the option does. |
-| `datatype` | no | One of the datatypes the core checks: `uinteger`, `range(min,max)`, `directory`, `file`, `regex`, `ipaddr` (an IPv4 or IPv6 address, without a prefix), or `owned_directory`, a directory under `/var`, `/tmp` or `/etc/prometheus-exporter`, for an option that names an owned path. It must take the default. See [UCI configuration](uci-config.md#values). |
+| `datatype` | no | One of the datatypes the core checks: `uinteger`, `range(min,max)`, `directory`, `file`, `regex`, `ipaddr` (an IPv4 or IPv6 address, without a prefix), or `owned_directory` (a directory under `/var`, `/tmp` or `/etc/prometheus-exporter`, for an option that names an owned path). The default must pass it. See [UCI configuration](uci-config.md#values). |
 
-`collect` gets the options typed, the defaults for those unset. A value that does not fit fails the collector with `CONFIG_INVALID` in each scrape.
+`collect` gets the options typed, with the default for each option left unset. A value that does not fit its option fails the collector with `CONFIG_INVALID` in every scrape.
 
 ## `collect(deps, out, options)`
 
@@ -118,13 +130,13 @@ What `ubus`, `capabilities`, `groups` and `proc_files` grant, and when, is in [T
 | `out` | The recorder the collector writes its families to. |
 | `options` | Its own options, typed. |
 
-It returns a Result. Anything else fails it with `COLLECTOR_NO_RESULT`; an exception, with `COLLECTOR_CRASHED`. What it recorded is kept when it fails, and dropped when it has nothing to observe, or when the exporter stopped it (see [Collector contract](collector-contract.md)).
+`collect` returns a Result. If it returns anything else, it fails with `COLLECTOR_NO_RESULT`. If it throws, it fails with `COLLECTOR_CRASHED`. The exporter keeps what the collector recorded when it fails. It drops it when the collector has nothing to observe, or when the exporter stopped it (see [Collector contract](collector-contract.md)).
 
-It runs in a process of its own, forked from the scrape's: it shares nothing with the collectors before or after it but the ubus connection and the uci cursor of that process, and it must not end the process (`exit()`).
+Each collector runs in a process of its own, forked from the scrape's process. It shares only that process's ubus connection and uci cursor with the collectors before and after it. It must not end the process (`exit()`).
 
 ### Results
 
-`Result`, of the collector API:
+The collector API's `Result`:
 
 | Call | Means | `node_scrape_collector_success` | `node_scrape_collector_observing` | Logged |
 | :--- | :--- | :--- | :--- | :--- |
@@ -132,96 +144,109 @@ It runs in a process of its own, forked from the scrape's: it shares nothing wit
 | `Result.err(code, details, data)` | It failed: `code` from the API's `errors`, `details` a string for the log. | 0 | 1 | At `warning`: `collector '<name>': CODE (details)` |
 | `Result.none(reason)` | Nothing to observe: its hardware, kernel feature or service is not there. Its samples are dropped. | 1 | 0 | No |
 
-`Result.is(r)` tells a Result, `Result.is_none(r)` one of nothing to observe, `Result.describe(r)` gives `CODE (details)`.
+`Result.is(r)` tells whether `r` is a Result, and `Result.is_none(r)` whether it is one of nothing to observe. `Result.describe(r)` gives `CODE (details)`.
 
 ### `services`
 
-The collector API's, for a collector to tell nothing to observe from a failure, over `deps.ubus`:
+The collector API's `services` helps a collector tell nothing to observe from a failure. Its functions work over `deps.ubus`:
 
 | Function | Returns |
 | :--- | :--- |
-| `unless_disabled(ubus, name, failure)` | `Result.none('<name> is disabled')` or `Result.none('<name> is not installed')` when rpcd's `rc` says the init script `name` is not enabled or not there; `failure` otherwise, or when rc cannot say. |
+| `unless_disabled(ubus, name, failure)` | `Result.none('<name> is disabled')` or `Result.none('<name> is not installed')` when rpcd's `rc` says the init script `name` is not enabled or not there. `failure` otherwise, or when rc cannot say. |
 | `idle(ubus, name)` | That reason, or null. |
 | `state(ubus, name)` | A Result of `enabled`, `disabled` or `not installed`. |
-| `object_missing(res)` | Whether a ubus call failed for its object not being there (`Not found`). |
+| `object_missing(res)` | Whether a ubus call failed because its object is not there (`Not found`). |
 
 ## The collector API
 
-`prometheus.exporter`, the one module a collector imports, exports five objects, each of exactly these names, and two functions. What it exports is what a major version protects; see [Collector contract](collector-contract.md#what-a-collector-may-import).
+`prometheus.exporter` is the only module a collector imports. It exports five objects, each with exactly the names below, and two functions. These exports are what a major version protects; see [Collector contract](collector-contract.md#what-a-collector-may-import).
 
 | Export | Name | Is |
 | :--- | :--- | :--- |
 | `Result` | `ok`, `err`, `none`, `is`, `is_none`, `describe` | See [Results](#results). |
-| `errors` | `SOURCE_UNREADABLE`, `SOURCE_INVALID`, `CONFIG_INVALID` | What a collector fails with, of its own. |
-| | `UBUS_CONNECT_FAILED`, `UBUS_CALL_FAILED`, `UBUS_NOT_ALLOWED`, `NL80211_FAILED`, `RTNL_FAILED`, `SOCKET_FAILED`, `COMMAND_NOT_ALLOWED`, `COMMAND_FAILED`, `COMMAND_TIMEOUT`, `PERMISSION_DENIED`, `SCRAPE_DEADLINE`, `EXPOSITION_INVALID` | What its capabilities and `out.parse` fail with. See [Error codes](error-codes.md). |
+| `errors` | `SOURCE_UNREADABLE`, `SOURCE_INVALID`, `CONFIG_INVALID` | The codes a collector fails with on its own. |
+| | `UBUS_CONNECT_FAILED`, `UBUS_CALL_FAILED`, `UBUS_NOT_ALLOWED`, `NL80211_FAILED`, `RTNL_FAILED`, `SOCKET_FAILED`, `COMMAND_NOT_ALLOWED`, `COMMAND_FAILED`, `COMMAND_TIMEOUT`, `PERMISSION_DENIED`, `SCRAPE_DEADLINE`, `EXPOSITION_INVALID` | The codes its capabilities and `out.parse` fail with. See [Error codes](error-codes.md). |
 | `services` | `state`, `idle`, `unless_disabled`, `object_missing`, `ENABLED`, `DISABLED`, `NOT_INSTALLED`, `NOT_FOUND` | See [`services`](#services). |
 | `proc` | `first_line(fs, path)` | The first line of a file, without its newline; null when it cannot be read. |
 | | `lines(fs, path)` | Every line, without newlines; null when it cannot be read. |
 | | `each_line(fs, path, cb)` | `cb(line)` for each line, read one at a time; false when it cannot be read. |
 | | `fields(line)` | The whitespace-separated fields of a line; `[]` for none or for null. |
-| | `rows(fs, path)` | The fields of every line, `[]` for a blank one, as `fields()` gives them; null when it cannot be read. Cheaper than `fields()` of each line for a file of single spaces. |
-| | `auxv(text)`, `AT_PAGESZ`, `AT_CLKTCK` | An auxiliary vector as `/proc/self/auxv` gives it, `{ type: value }`, or null; two of its types. |
+| | `rows(fs, path)` | The fields of every line, as `fields()` gives them, with `[]` for a blank line; null when it cannot be read. For a file of single spaces, it is cheaper than `fields()` on each line. |
+| | `auxv(text)`, `AT_PAGESZ`, `AT_CLKTCK` | An auxiliary vector as `/proc/self/auxv` gives it, as `{ type: value }`, or null. `AT_PAGESZ` and `AT_CLKTCK` are two of its types. |
 | `exposition` | `parse(text)` | Exposition text read strictly, as a Result of its families (`EXPOSITION_INVALID`). |
 | | `format_value(v)` | A value as the format spells it, or null for one that is not a number. |
-| | `sanitize(name)` | A metric name made valid: every character the format does not allow an underscore. |
-| `u32` | `u32(v)` | A ubus integer a daemon sent as unsigned 32 bits (`blobmsg_add_u32`), unsigned: ucode's ubus gives it signed, so 4294967295 arrives as -1. Anything but a negative 32-bit integer is given back as it is. |
+| | `sanitize(name)` | A metric name made valid: each character the format does not allow becomes an underscore. |
+| `u32` | `u32(v)` | Makes a ubus integer unsigned again when a daemon sent it as unsigned 32 bits (`blobmsg_add_u32`). ucode's ubus gives it signed, so 4294967295 arrives as -1. Anything but a negative 32-bit integer comes back unchanged. |
 | `u16` | `u16(v)` | The same, for 16 bits (`blobmsg_add_u16`): a port of 51820 arrives as -13716. |
 
-`fs` is the collector's `deps.fs`. `exposition`'s functions load the exposition format the first time one is called.
+`fs` is the collector's `deps.fs`.
 
-Each object the API exports lists exactly the names a collector may use, rather than re-exporting a core module whole: that list is what a major version protects. Every collector compiles its own copy of each module it imports, so the API imports only small modules, and loads the exposition format the first time one of its functions is called.
+Each exported object lists exactly the names a collector may use, rather than re-exporting a whole core module. That list is what a major version protects. Every collector compiles its own copy of each module it imports. So the API imports only small modules, and loads the exposition format only the first time one of the `exposition` functions is called.
 
 ## `needs`
 
-Only `prometheus.exporter.deps`, with its modules of each capability (`prometheus.exporter.deps.ubus`, `.exec`, ...), touches the system. A collector gets the capabilities it names, and a scrape's collectors share one ubus connection and one uci cursor.
+Only `prometheus.exporter.deps` touches the system, through its module for each capability (`prometheus.exporter.deps.ubus`, `.exec`, ...). A collector gets the capabilities it names. A scrape's collectors share one ubus connection and one uci cursor.
 
 | Need | `deps.<need>` |
 | :--- | :--- |
 | `fs` | `readfile`, `open`, `lsdir`, `glob`, `stat`, `realpath` of the fs module. Nothing that writes. |
-| `ubus` | `call(object, method, args)` and `list()`, as Results. A call `meta.ubus` does not list is `UBUS_NOT_ALLOWED`, without calling. A failed call is `UBUS_CALL_FAILED` with `data.status`, libubus's text, as `Not found`; one the service's ubus ACL refuses is `PERMISSION_DENIED`, and so is an object not found while ubusd has not loaded the ACL. `list()` names the objects the ACL lets the service call. |
+| `ubus` | `call(object, method, args)` and `list()`, as Results. A call that `meta.ubus` does not list is `UBUS_NOT_ALLOWED`, and is not made. A failed call is `UBUS_CALL_FAILED`, with libubus's text in `data.status`, such as `Not found`. A call the service's ubus ACL refuses is `PERMISSION_DENIED`. So is an object not found while ubusd has not loaded the ACL. `list()` names the objects the ACL lets the service call. |
 | `uci` | `deps.uci.<config>` for each of `meta.configs`, read-only, the committed configuration only: `loaded()`, `get(section, option)`, `get_all(section)`, `sections(type)`, `foreach(type, cb)`. |
 | `rtnl` | `request(cmd, flags, attrs)` as a Result (`RTNL_FAILED`), and `const`. |
 | `nl80211` | The same, for nl80211 (`NL80211_FAILED`). Needs ucode-mod-nl80211. |
-| `socket` | `unix_request(path, message, timeout_ms)`: the whole reply of a Unix stream socket's server, as a Result (`SOCKET_FAILED`). `tcp_request(address, port, message, timeout_ms)`: the same of a TCP port of the device itself, at an IPv4 or IPv6 address of its own, which it binds to before it connects: another address fails `SOCKET_FAILED` without connecting. Every wait, to connect, send or read, is bounded by `timeout_ms`, and the reply is what the server sent until it closed. Needs ucode-mod-socket. |
-| `exec` | `run(argv)`: a program of `meta.commands`, without a shell's interpretation of its arguments, its standard output as a Result. `run_all(argvs)`: several, one after the other under one watchdog, a Result for each, as `run` gives it. See [Programs](#programs). |
+| `socket` | `unix_request(path, message, timeout_ms)`: the whole reply of a Unix stream socket's server, as a Result (`SOCKET_FAILED`). `tcp_request(address, port, message, timeout_ms)`: the same, for a TCP port of the device itself. The address must be one of the device's own IPv4 or IPv6 addresses, and the socket binds to it before it connects. Any other address fails with `SOCKET_FAILED`, without connecting. `timeout_ms` bounds every wait: to connect, to send and to read. The reply is what the server sent until it closed. Needs ucode-mod-socket. |
+| `exec` | `run(argv)` runs a program of `meta.commands`, with no shell interpreting its arguments, and gives its standard output as a Result. `run_all(argvs)` runs several, one after the other under one watchdog, and gives a Result for each, as `run` does. See [Programs](#programs). |
 | `time` | `now()`: the system time, in seconds. |
-| `log` | `log(msg)`: a line at `warning`, `collector '<name>': <msg>`, for what a collector that succeeds still has to say. At most 10 lines a run, each cut at 512 bytes; past them, one line once the run is over says how many more were left out. |
-| `exporter` | The exporter itself, read-only: `process(file)`, the serving uhttpd's `/proc/<pid>/stat`, `status` or `limits`; `fds()`, how many descriptors it has open; `system(file)`, `/proc/stat` or `/proc/self/auxv`. The `exporter` collector's. What the instance's ledger counts, and each collector's samples, the scrape writes itself while that collector is selected (see [Metrics](metrics.md#scrape)). |
+| `log` | `log(msg)` logs a line at `warning`, `collector '<name>': <msg>`, for what a collector that succeeds still has to say. At most 10 lines a run, each cut at 512 bytes. Past them, one line after the run says how many more were left out. |
+| `exporter` | The exporter itself, read-only, for the `exporter` collector. `process(file)` reads the serving uhttpd's `/proc/<pid>/stat`, `status` or `limits`. `fds()` counts the descriptors it has open. `system(file)` reads `/proc/stat` or `/proc/self/auxv`. The instance's ledger counts, and each collector's samples, are written by the scrape itself while the `exporter` collector is selected (see [Metrics](metrics.md#scrape)). |
 
-A need the system lacks (`nl80211`, `socket`) fails the collector with `NEED_MISSING`, without running it. So does `PERMISSION_DENIED`, when the process lacks a capability of `meta.capabilities`, or may not read a config of `meta.configs` or a file of `meta.proc_files` that is there: read as anyone else, the file would be missing, and the collector would find nothing to observe. A Unix socket it may not connect to (`EACCES`) is `PERMISSION_DENIED` too.
+The collector fails with `NEED_MISSING`, without running, when the system lacks one of its needs (`nl80211`, `socket`). It fails with `PERMISSION_DENIED`, also without running, when the process:
+
+- lacks a capability of `meta.capabilities`;
+- may not read a config of `meta.configs`;
+- may not read a file of `meta.proc_files` that is there. Read as anyone else, the file would look missing, and the collector would report nothing to observe.
+
+A Unix socket it may not connect to (`EACCES`) is `PERMISSION_DENIED` too.
 
 ### Programs
 
-- A program not in `meta.commands` is `COMMAND_NOT_ALLOWED`, without running.
-- Its standard error is discarded. An exit status other than 0 is `COMMAND_FAILED`, with `data.status`; one that cannot start, `COMMAND_FAILED` with `data.status` null.
-- A collector's programs get, in all per scrape, the seconds of its section's `timeout`, else `meta.timeout`, else the main section's `exec_timeout` (5), at most 30. The shell counts whole seconds: they take at most one second more.
-- One still running then is killed, with every process it started, and is `COMMAND_TIMEOUT` with `data.timed_out`. So is any `run` after the seconds are spent, without running.
-- `run_all` runs its programs in one shell, a program after another, for a fork and an exec each where `run` costs a shell and a watchdog besides: a few milliseconds a program on a router. They share the seconds as `run`'s do. One still running when they are spent is killed as with `run`, those before it keep their Results, and those after it are `COMMAND_TIMEOUT` without running; a batch that cannot start is `COMMAND_FAILED` for each.
+- A program not in `meta.commands` is `COMMAND_NOT_ALLOWED`, and does not run.
+- Its standard error is discarded. An exit status other than 0 is `COMMAND_FAILED`, with `data.status`. A program that cannot start is `COMMAND_FAILED` with `data.status` null.
+- A collector's programs share a number of seconds per scrape: its section's `timeout`, else `meta.timeout`, else the main section's `exec_timeout` (5), at most 30. The shell counts whole seconds, so the programs take at most one second more.
+- When the seconds are spent, the watchdog kills the program still running, with every process it started. That program is `COMMAND_TIMEOUT`, with `data.timed_out`. Any later `run` is `COMMAND_TIMEOUT` too, and does not run.
+- `run_all` runs its programs one after another in one shell. Each costs a fork and an exec, where each `run` also costs a shell and a watchdog: a few milliseconds a program on a router. The programs share the seconds as `run`'s do. When the seconds are spent, the watchdog kills the program still running, as with `run`. The programs before it keep their Results, and those after it are `COMMAND_TIMEOUT` without running. A batch that cannot start is `COMMAND_FAILED` for each program.
 
 ## `out`
 
-`prometheus.exporter.exposition`'s recorder:
+`out` is the recorder of `prometheus.exporter.exposition`:
 
 | Call | Does |
 | :--- | :--- |
 | `out.gauge(name, help)`, `out.counter(name, help)`, `out.untyped(name, help)` | Declares a family, and returns `(labels, value)`, which records a sample and returns itself, so calls chain. |
-| `out.batch(type, rows)` | Records families of one sample each: for each row `[ name, help, value, labels ]`, in order, what `out[type](name, help)(labels, value)` records, with less work for each. `labels` is optional, as a writer's: null, an object, or what `out.labels()` made. `type` is `'gauge'`, `'counter'` or `'untyped'`. |
-| `out.labels(labels)` | Makes a label set several samples share, once, to pass in place of the object. |
+| `out.batch(type, rows)` | Records families of one sample each. For each row `[ name, help, value, labels ]`, in order, it records what `out[type](name, help)(labels, value)` would, with less work. `labels` is optional, as for a writer: null, an object, or what `out.labels()` made. `type` is `'gauge'`, `'counter'` or `'untyped'`. |
+| `out.labels(labels)` | Makes a label set once, for several samples to share. Pass it in place of the object. |
 | `out.parse(text)` | Adds exposition text, which must be valid as a whole: a Result, `EXPOSITION_INVALID` otherwise. |
 
-- `labels` is an object, or null for none, or what `out.labels()` made. A label whose value is null is left out.
-- A value that is not a number is skipped: null, an empty string, a word. A string of digits, or of hex as in sysfs flags, is read as one. `true` and `false` are 1 and 0.
-- Names are made valid: every character the format does not allow is an underscore.
-- A family declared twice with two types keeps the first, and logs a warning.
-- At most `max_samples` samples in all: the next stops the collector (it throws, again at each sample after), and it fails with `SAMPLE_LIMIT`.
-- Nothing Prometheus would refuse the whole scrape for: a label value or HELP text that is not valid UTF-8 or holds a NUL byte, a family name that holds one, a label name Prometheus reserves (`__name__`, or any that starts with `__`, as written or once sanitized), two label names that are one once sanitized (`if-name` and `if_name`), or labels that are a string of the collector's own. The sample stops the collector as the one past `max_samples` does, and it fails with `EXPOSITION_INVALID`, naming the family and the label.
-- A family is the first collector's that writes it: one another collector writes, or one of the exporter's own (`node_scrape_collector_*`, `ucode_prometheus_exporter_*`), fails the collector with `FAMILY_CONFLICT`.
+- `labels` is an object, null for none, or what `out.labels()` made. A label whose value is null is left out.
+- A value that is not a number (null, an empty string, a word) is skipped. A string of digits, or of hex as in sysfs flags, is read as a number. `true` and `false` are 1 and 0.
+- Names are made valid: each character the format does not allow becomes an underscore.
+- A family declared twice with two types keeps the first type, and a warning is logged.
+- A collector writes at most `max_samples` samples in all. The next one stops the collector: `out` throws, and throws again at each later sample. The collector fails with `SAMPLE_LIMIT`.
+- `out` refuses anything that would make Prometheus refuse the whole scrape:
+    - a label value or HELP text that is not valid UTF-8, or holds a NUL byte;
+    - a family name that holds a NUL byte;
+    - a label name Prometheus reserves: `__name__`, or any that starts with `__`, as written or once sanitized;
+    - two label names that become one once sanitized (`if-name` and `if_name`);
+    - labels given as a string of the collector's own.
+
+    Such a sample stops the collector, as the one past `max_samples` does. The collector fails with `EXPOSITION_INVALID`, naming the family and the label.
+- A family belongs to the first collector that writes it. A collector that writes another collector's family, or one of the exporter's own (`node_scrape_collector_*`, `ucode_prometheus_exporter_*`), fails with `FAMILY_CONFLICT`.
 
 ## Tests and packaging
 
-Every collector has a unit test, `test/unit/prometheus/collectors/<module>_test.uc`, and a package: in the base package's `BASE_COLLECTORS`, or a `Collector` line of the package Makefile that depends on what its `needs` and `commands` call for. `test/integration/collectors_test.uc` holds every collector to both. See [How to package a collector](../how-to/developer/package-collector.md).
+Every collector has a unit test, `test/unit/prometheus/collectors/<module>_test.uc`, and a package. The package is either the base package, through `BASE_COLLECTORS`, or a `Collector` line of the package Makefile, which depends on what the collector's `needs` and `commands` call for. `test/integration/collectors_test.uc` checks both for every collector. See [How to package a collector](../how-to/developer/package-collector.md).
 
-A unit test runs the collector with the devkit's `with_collector` (`prometheus.exporter.devkit.collector`), which fails the test when the collector touches a path, a socket or a program its `meta` does not declare: see [Collector contract](collector-contract.md#in-the-tests) and [The devkit](devkit.md). A collector of another package is tested the same way, with `ucode-prometheus-exporter-devkit`: see [How to write a collector in your own package](../how-to/collector-package.md).
+A unit test runs the collector with the devkit's `with_collector` (`prometheus.exporter.devkit.collector`). It fails the test when the collector touches a path, a socket or a program that its `meta` does not declare: see [Collector contract](collector-contract.md#in-the-tests) and [The devkit](devkit.md). A collector of another package is tested the same way, with `ucode-prometheus-exporter-devkit`: see [How to write a collector in your own package](../how-to/collector-package.md).
 
 ## See also
 
