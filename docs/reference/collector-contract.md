@@ -145,7 +145,20 @@ The last column says what a broken rule does to the collector's [circuit breaker
 | It is not running when its scrape process dies (killed at uhttpd's timeout, or by the kernel out of memory). | — | — | The next scrape reads the dead one's progress file: `COLLECTOR_KILLED`, logged `collector '<name>' was running when a scrape process died`. The child left running is killed. | Trips |
 | It reads only what the jail gives it, and runs at the service's priority. | nice 10 | — | What is not mounted is not there: `SOURCE_UNREADABLE`, `COMMAND_FAILED`. See [The jail](jail.md). | A failure |
 
-Every collector runs in a process of its own, forked from the scrape's process, one collector after the other. Whatever that process does, the scrape goes on with the next collector, in a new child if the last one was stopped or ended. See [About the architecture](../explanation/architecture.md#a-process-of-its-own).
+The collectors run one after the other in a child process forked from the scrape's process, never in the scrape's own. Whatever the child does, the scrape goes on with the next collector, in a new child if the last one was stopped or ended. See [About the architecture](../explanation/architecture.md#a-process-of-its-own).
+
+```mermaid
+flowchart TD
+    S["The service starts"] --> P["Probe: the module loads in a child process<br/>its text, imports and top level checked, 5 s at most"]
+    P -- "refused" --> X["Left out, logged at err"]
+    P -- "passed" --> U["uhttpd loads the module<br/>its top level guarded again"]
+    U --> R["A request to /metrics:<br/>a scrape process forked from uhttpd"]
+    R --> C["A child forked from the scrape<br/>runs the collectors one after the other"]
+    C --> K["collect(deps, out, options)<br/>stopped at its budget or the deadline"]
+    K -- "returns" --> Res["Its Result: ok, err or none"]
+    K -- "stopped or ended" --> N["A new child, for the next collector"]
+    N --> C
+```
 
 ## What breaking a rule costs
 

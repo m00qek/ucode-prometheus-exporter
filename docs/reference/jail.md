@@ -23,6 +23,18 @@ The jail holds only what the exporter needs and what its installed and enabled c
 
 Every mount is read-only, except the state. The ubus socket is not among them: see [What a collector gets](#what-a-collector-gets).
 
+```mermaid
+flowchart LR
+    procd -- "ujail: user prometheus-exporter,<br/>no_new_privs, its capabilities file" --> U
+    subgraph J["jail prometheus-exporter"]
+        U["uhttpd and handler.uc"]
+    end
+    U -- "read-only" --> RO["procfs, sysfs, /dev/log<br/>the exporter's code and libraries<br/>/etc/config/prometheus-exporter<br/>what the enabled collectors declare"]
+    U -- "read-write" --> ST["/var/run/prometheus-exporter/state"]
+    U -- "only while an enabled collector needs ubus" --> UB["the ubus socket:<br/>ubusd holds it to the ubus ACL"]
+    U -- "the host's network" --> NET["deps.socket.tcp_request:<br/>the device's own addresses only"]
+```
+
 procd starts the instance at nice 10, with a data limit (`RLIMIT_DATA`) on each of its processes. The limit is `memory_limit` MB, or else a quarter of the RAM, at most 64 MB: see [Collector contract](collector-contract.md).
 
 `check`, the ubus object's `status` and `prometheus-exporter scrape` run their collectors in a jail of their own, named `prometheus-exporter-trial`:

@@ -40,6 +40,18 @@ $ ubus -v list prometheus-exporter
 
 A call with malformed arguments, or one that fails, gets the reply `{ error, message }`. See [Errors](#errors).
 
+Who calls which methods, and under which ACL:
+
+```mermaid
+flowchart LR
+    L["LuCI app<br/>(its ACL, luci-app-prometheus-exporter)"] -- "collectors, interfaces, password,<br/>status, validate; set_password to write" --> O
+    C["Collectors in the service's jail<br/>(the service's ubus ACL)"] -- "wireless, wireguard_peers,<br/>time_daemons" --> O
+    Root["root, with ubus call"] -- "every method" --> O
+    O["prometheus-exporter<br/>(rpcd's ucode plugin)"]
+    O -- "status" --> S["rpc-status.uc<br/>a scrape in a process of its own"]
+    F["The filesystem collector"] -- "mounts" --> FS["prometheus-exporter.filesystem<br/>(its package's plugin)"]
+```
+
 ## `collectors`
 
 Every installed collector, sorted by name, and the messages of the modules the loader left out (`skipped`).
@@ -124,7 +136,7 @@ A client that does not know a code shows `message`.
 
 ## `status`
 
-Runs one scrape of the enabled collectors, and replies when it is done. It runs them as the service's scrapes do: in the service's own jail, with ujail, where it can; each collector in a process of its own, stopped at its budget, within `scrape_timeout`. It runs a collector the service quarantined all the same.
+Runs one scrape of the enabled collectors, and replies when it is done. It runs them as the service's scrapes do: in the service's own jail, with ujail, where it can; the collectors in a child process, each stopped at its budget, within `scrape_timeout`. It runs a collector the service quarantined all the same.
 
 rpcd runs the scrape in a process of its own, `/usr/libexec/prometheus-exporter/rpc-status.uc`, and answers other calls meanwhile. Among them are the collectors' calls to objects rpcd serves: `wireguard`, this object's own, and `prometheus-exporter.filesystem`. If that process is still running after 60 s, rpcd kills it, with all it started.
 

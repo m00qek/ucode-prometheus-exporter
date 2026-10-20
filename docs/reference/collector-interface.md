@@ -132,7 +132,7 @@ The loader does not read the module's text. Reading a module a character at a ti
 
 `collect` returns a Result. If it returns anything else, it fails with `COLLECTOR_NO_RESULT`. If it throws, it fails with `COLLECTOR_CRASHED`. The exporter keeps what the collector recorded when it fails. It drops it when the collector has nothing to observe, or when the exporter stopped it (see [Collector contract](collector-contract.md)).
 
-Each collector runs in a process of its own, forked from the scrape's process. It shares only that process's ubus connection and uci cursor with the collectors before and after it. It must not end the process (`exit()`).
+The collectors run one after the other in a child process forked from the scrape's process. A collector shares nothing with the collectors before and after it but that process's ubus connection and uci cursor. It must not end the process (`exit()`).
 
 ### Results
 

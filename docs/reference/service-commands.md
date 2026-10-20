@@ -108,7 +108,7 @@ One block per installed collector, enabled or not:
 | `commands` | Each program it runs, `<name>=<path>`, or `(not found)`. |
 | `mounts` | What the jail mounts for it, when it is enabled. |
 
-`check` runs its scrape as the service's scrapes run: in the service's own jail, with ujail, each collector in a process of its own, stopped at its budget, within `scrape_timeout`. It uses the committed configuration, and runs a collector the service quarantined all the same.
+`check` runs its scrape as the service's scrapes run: in the service's own jail, with ujail; the collectors in a child process, each stopped at its budget, within `scrape_timeout`. It uses the committed configuration, and runs a collector the service quarantined all the same.
 
 Where ujail cannot run (not root, or a kernel or container that refuses it a namespace), `check` runs the scrape outside the jail, as root, with the same guards, and says `outside the jail`. A collector that works there and fails under procd lacks something in the jail: see [The jail](jail.md).
 
