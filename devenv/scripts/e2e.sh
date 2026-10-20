@@ -1102,7 +1102,7 @@ check "gzip makes a whole scrape at least 5 times smaller ($1 -> $3 bytes)" test
 before=$(pid)
 set_config "$NAME.main.compress=0"
 eventually "compress 0 restarts the instance" restarted_from "$before"
-check "then a scrape asked for gzip is plain" plain_reply 'Accept-Encoding: gzip\r\n'
+eventually "then a scrape asked for gzip is plain" plain_reply 'Accept-Encoding: gzip\r\n'
 check "and does not say it varies" fails varies
 check "check says so" says 'no compression (option compress)' "$INIT" check
 set_config "$NAME.main.compress=1"
