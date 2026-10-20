@@ -332,7 +332,7 @@ describe('exposition: properties', () => {
 	// not, values numbers or not, and a sample limit.
 	prop('records what a writer for each row would, and stops where it would',
 		gen.tuple(gen.elements('counter', 'gauge', 'untyped'), gen.int(0, 6), gen.array(gen.tuple(
-			gen.elements('a', 'b', 'node_x_total', 'if-name', '1x', '', 'a:b', 'a\0b', 'b\0\n'),
+			gen.elements('a', 'b', 'node_x_total', 'if-name', '1x', '', 'a:b', 'a\0b', 'b\0\n', 'a\nb', 'b\n', 7),
 			gen.elements(null, '', 'Help.', 'caf\xc3\xa9', 'caf\xe9', 'a\\b\nc', 'x', 'a\0b', 'x\0\xe9'),
 			gen.oneof(gen.int(-3, 3), gen.elements('7', ' 0x1f\n', 'word', '', null, 0.5, 1 / 3.0, true, NaN)),
 			gen.elements(null, 'made', { device: 'eth0' }, { a: 'x"y', b: '1' }, { 'bad-name': 'v' }, 'not made', 7)),

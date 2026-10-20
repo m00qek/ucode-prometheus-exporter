@@ -95,6 +95,7 @@ export const INVALID = 'prometheus_exporter: text Prometheus refuses';
 
 const TYPES_RECORDED = [ 'counter', 'gauge', 'untyped' ];
 const HIGH_BYTE = regexp('[\x80-\xff]');
+const METRIC_NAME_LINES = /^[a-zA-Z_:][a-zA-Z0-9_:]*(\n[a-zA-Z_:][a-zA-Z0-9_:]*)*$/;
 
 function dropped(labels, value) {
 	return dropped;
@@ -228,20 +229,32 @@ export function recorder(max) {
 			die(`batch: not a type of family a collector writes: ${mtype}`);
 
 		let helps = [];
+		let names = [];
+		let strings = true;
 
-		for (let r in rows)
+		for (let r in rows) {
 			if (type(r[1]) == 'string')
 				push(helps, r[1]);
+			if (type(r[0]) == 'string')
+				push(names, r[0]);
+			else
+				strings = false;
+		}
 
 		let joined = join('', helps);
 		let read = match(joined, HIGH_BYTE) != null || index(joined, '\0') >= 0;
 		let counter = (mtype == 'counter');
+		let listed = (strings && index(join('', names), '\0') < 0) ? uniq(names) : [];
+		let all = join('\n', listed);
+		let valid = length(listed) > 0 && match(all, METRIC_NAME_LINES) != null && length(split(all, '\n')) == length(listed);
 
 		for (let r in rows) {
 			let name = r[0], help = r[1], value = r[2], labels = r[3];
 
-			named(name);
-			name = METRIC_NAMES[name] ?? ((type(name) == 'string' && match(name, METRIC_NAME)) ? name : sanitize(name));
+			if (!valid) {
+				named(name);
+				name = METRIC_NAMES[name] ?? ((type(name) == 'string' && match(name, METRIC_NAME)) ? name : sanitize(name));
+			}
 
 			let target = set.by_name[name];
 

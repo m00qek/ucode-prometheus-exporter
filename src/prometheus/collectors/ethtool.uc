@@ -26,6 +26,13 @@ const NAME = /^[0-9A-Za-z_]*$/;
 const RX = /(^|_)rx(_|$)/g;
 const TX = /(^|_)tx(_|$)/g;
 
+const STATISTIC = /^[ \t\r]*([^ \t\r].*):[ \t]+([^ \t]*[^ \t\r])[ \t\r]*$/gs;
+const NOT_NAMES = /_*[^0-9A-Za-z_\n]+_*/g;
+const NAMES_OK = /^[0-9A-Za-z_\n]*$/;
+const LEADING = /^_+/gs;
+const RXS = /(^|_)rx(_|$)/gs;
+const TXS = /(^|_)tx(_|$)/gs;
+
 export function sanitize(stat) {
 	return match(stat, NAME) ? stat : replace(stat, NOT_NAME, '_');
 };
@@ -55,13 +62,17 @@ const NAMES = {};
 const NAMES_MAX = 4096;
 let named = 0;
 
+function named_as(key, fq) {
+	return [ fq, ENTRIES[key] ?? [ fq, `Network interface ${key}` ] ];
+}
+
 function names(stat) {
 	let n = NAMES[stat];
 
 	if (!n) {
-		let key = sanitize(stat), fq = fqname_of(key);
+		let key = sanitize(stat);
 
-		n = [ fq, ENTRIES[key] ?? [ fq, `Network interface ${key}` ] ];
+		n = named_as(key, fqname_of(key));
 		if (named++ < NAMES_MAX)
 			NAMES[stat] = n;
 	}
@@ -69,71 +80,79 @@ function names(stat) {
 	return n;
 }
 
-function names_of(stats) {
-	let out = [];
+function name_all(stats, k) {
+	let fresh = [];
 
 	for (let s in stats)
-		push(out, NAMES[s[0]] ?? names(s[0]));
+		if (!NAMES[s[k]])
+			push(fresh, s[k]);
 
-	return out;
+	if (length(fresh) < 2 || named + length(fresh) > NAMES_MAX)
+		return;
+
+	let joined = join('\n', uniq(fresh));
+	let keys = match(joined, NAMES_OK) ? joined : replace(joined, NOT_NAMES, '_');
+	let fqs = lc(keys);
+
+	if (index(fqs, '_') >= 0)
+		fqs = replace(fqs, LEADING, '');
+	if (index(fqs, 'rx') >= 0)
+		fqs = replace(fqs, RXS, '$1received$2');
+	if (index(fqs, 'tx') >= 0)
+		fqs = replace(fqs, TXS, '$1transmitted$2');
+
+	let stat = split(joined, '\n'), key = split(keys, '\n'), fq = split(fqs, '\n');
+
+	for (let i, st in stat) {
+		NAMES[st] = named_as(key[i], 'node_ethtool_' + fq[i]);
+		named++;
+	}
 }
 
 export function family(stat) {
 	return names(stat)[1];
 };
 
-function kept(named) {
+function kept(stats, k, cb) {
+	let fams = [];
 	let by_fq = {};
 	let written = {};
 
-	for (let i, n in named) {
+	name_all(stats, k);
+
+	for (let i, s in stats) {
+		let n = NAMES[s[k]] ?? names(s[k]);
+		let fam = n[1];
+
+		push(fams, fam);
 		by_fq[n[0]] = (n[0] in by_fq) ? -1 : i;
-		written[n[1][0]] = !(n[1][0] in written);
+		written[fam[0]] = !(fam[0] in written);
 	}
 
-	let out = [];
 	for (let fq in sort(keys(by_fq))) {
 		let i = by_fq[fq];
 
-		if (i >= 0 && written[named[i][1][0]] && named[i][1][0] != INFO)
-			push(out, i);
+		if (i >= 0 && written[fams[i][0]] && fams[i][0] != INFO)
+			cb(stats[i], fams[i]);
 	}
-
-	return out;
 }
 
 export function exported(stats) {
-	let named = names_of(stats);
 	let out = [];
 
-	for (let i in kept(named))
-		push(out, stats[i]);
-
+	kept(stats, 0, (s) => push(out, s));
 	return out;
 };
 
-function statistic(line) {
-	let p = max(rindex(line, ' '), rindex(line, '\t'));
-
-	if (p < 1)
-		return null;
-
-	let q = p;
-	while (q > 0 && index(' \t', substr(line, q - 1, 1)) >= 0)
-		q--;
-
-	return (q >= 2 && substr(line, q - 1, 1) == ':') ? [ substr(line, 0, q - 1), substr(line, p + 1) ] : null;
+function matched(text) {
+	return match(text ?? '', STATISTIC) ?? [];
 }
 
 export function statistics(text) {
 	let stats = [];
 
-	for (let line in split(text ?? '', '\n')) {
-		let s = statistic(trim(line));
-
-		if (s)
-			push(stats, s);
-	}
+	for (let m in matched(text))
+		push(stats, [ m[1], m[2] ]);
 
 	return stats;
 };
@@ -272,11 +291,7 @@ export function collect(deps, out) {
 		let res = runs[next++];
 
 		if (res.ok) {
-			let stats = statistics(res.data);
-			let named = names_of(stats);
-
-			for (let i in kept(named))
-				push(rows, [ named[i][1][0], named[i][1][1], stats[i][1], labels ]);
+			kept(matched(res.data), 1, (m, fam) => push(rows, [ fam[0], fam[1], m[2], labels ]));
 		} else if (cannot_run(res))
 			return written(out, rows, res);
 

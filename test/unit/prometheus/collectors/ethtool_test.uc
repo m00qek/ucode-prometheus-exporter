@@ -555,6 +555,30 @@ describe('collectors.ethtool', () => {
 			assert.match(m ? [ [ m[1], m[2] ] ] : [], ethtool.statistics(line), sprintf('%J', line));
 		});
 
+	prop('reads a listing as it reads each of its lines, trimmed, alone',
+		gen.array(gen.string({ charset: 'ab: \t\r5', min_len: 0, max_len: 12 }), { min_len: 0, max_len: 6 }), (lines) => {
+			let one = [];
+
+			for (let line in lines) {
+				let m = match(trim(line), LINE);
+
+				if (m)
+					push(one, [ m[1], m[2] ]);
+			}
+
+			assert.match(one, ethtool.statistics(join('\n', lines)), sprintf('%J', lines));
+		});
+
+	// A device's new statistics are named together, the text of all their
+	// names taken apart at once: on a router's CPU a regex over all of them
+	// is cheaper than the VM's work for each; a name must be what it is alone.
+	prop('names a listing\'s statistics as it names each alone',
+		gen.array(gen.string({ charset: 'abrxtRXT09_:-. ()/[]#\n', min_len: 0, max_len: 16 }), { min_len: 2, max_len: 8 }), (names) => {
+			ethtool.exported(map(names, (n, i) => [ n, '' + i ]));
+			assert.match(map(names, (n) => [ ethtool.fqname(n), `Network interface ${ethtool.sanitize(n)}` ]), map(names, ethtool.family),
+				sprintf('%J', names));
+		});
+
 	it('names a statistic as it did the first time, from what it keeps', () => {
 		let first = map([ 'rx_bytes', 'mmc_tx_64_octets_gb', 'q0_rx_pkt_n' ], ethtool.family);
 
