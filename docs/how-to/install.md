@@ -11,6 +11,8 @@ Add the exporter's feed, install the base package, then install the collectors y
 
 ## 1. Add the feed
 
+This step needs a shell on the device: LuCI's **System → Software** page cannot add a signing key.
+
 The exporter's packages are in the [packages.ucode.dev](https://github.com/m00qek/packages.ucode.dev) feed. So is `ucode-docopt`, which the command line's package depends on and OpenWrt's own feeds lack. The base package's dependencies (`uhttpd`, `ucode` modules and `rpcd-mod-ucode`) come from the release's own feeds. Add the feed and its signing key:
 
 ```sh
@@ -36,12 +38,22 @@ apk then checks every package of the feed against that key, as it checks OpenWrt
 
 From the feed:
 
-```sh
-apk update
-apk add ucode-prometheus-exporter ucode-prometheus-exporter-full luci-app-prometheus-exporter ucode-prometheus-exporter-cli
-```
+=== "Browser (LuCI)"
 
-Or from `.apk` files. `make package` builds them into `bin/` (see [Make targets](../reference/make-targets.md#packages-and-the-device)). Copy them to the device's `/tmp`, and set `version` to the files' version, as their names end:
+    1. Open **System → Software** and press **Update lists…**.
+    2. Type `prometheus-exporter` in **Filter**.
+    3. On the **Available** tab, press **Install…** on the row of `ucode-prometheus-exporter`, then **Install** in the dialog.
+    4. Do the same for each other package you chose: `ucode-prometheus-exporter-full`, `luci-app-prometheus-exporter`, `ucode-prometheus-exporter-cli`.
+    5. Reload the browser page, so LuCI shows the app's pages.
+
+=== "Terminal (SSH)"
+
+    ```sh
+    apk update
+    apk add ucode-prometheus-exporter ucode-prometheus-exporter-full luci-app-prometheus-exporter ucode-prometheus-exporter-cli
+    ```
+
+Or from `.apk` files, over SSH. `make package` builds them into `bin/` (see [Make targets](../reference/make-targets.md#packages-and-the-device)). Copy them to the device's `/tmp`, and set `version` to the files' version, as their names end:
 
 ```sh
 version=0.3.0-r1
@@ -57,12 +69,18 @@ A group's file brings nothing without its collectors' files, so install them tog
 
 ## 4. Check that it serves
 
-```sh
-service prometheus-exporter status
-wget -qO- http://127.0.0.1:9100/metrics | head
-```
+=== "Browser (LuCI)"
 
-`status` says where the exporter listens and how many collectors it serves. To see what each collector found, run `service prometheus-exporter check`.
+    Open **Status → Prometheus exporter**. Under **Service**, **State** says **Running**, and **Metrics** gives the address it serves, `http://127.0.0.1:9100/metrics` (reachable from the router only). Under **Collectors**, **Test run** says what each collector found.
+
+=== "Terminal (SSH)"
+
+    ```sh
+    service prometheus-exporter status
+    wget -qO- http://127.0.0.1:9100/metrics | head
+    ```
+
+    `status` says where the exporter listens and how many collectors it serves. To see what each collector found, run `service prometheus-exporter check`.
 
 ---
 

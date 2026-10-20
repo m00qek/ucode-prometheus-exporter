@@ -11,36 +11,60 @@ It takes about twenty minutes.
 
 If your router's address is not `192.168.1.1`, use yours wherever it appears.
 
+Where a step can be done in LuCI too, it shows two tabs: **Browser (LuCI)** and **Terminal (SSH)**. Follow either. The LuCI steps need LuCI on the router, at `http://192.168.1.1/`.
+
 ---
 
 ## 1. Install the exporter
 
-On the router, add the exporter's feed and the key that signs its packages, then install the package. apk fetches the package's dependencies from that feed and from OpenWrt's own feeds:
+On the router, over SSH, add the exporter's feed and the key that signs its packages:
 
 ```sh
 feed=https://m00qek.github.io/packages.ucode.dev/25.12
 wget -qO /etc/apk/keys/packages.ucode.dev.pem "$feed/feed.pub.pem"
 echo "$feed" > /etc/apk/repositories.d/ucode-dev.list
-apk update
-apk add ucode-prometheus-exporter
 ```
 
-apk lists what it installs, and ends with `OK`. The service starts on its own. Let's ask it how it is doing:
+Now install the exporter, and its LuCI app. apk fetches their dependencies from that feed and from OpenWrt's own feeds:
 
-```sh
-service prometheus-exporter status
-```
+=== "Browser (LuCI)"
 
-```
-running
-listening on http://127.0.0.1:9100/metrics, gzip when asked, serving 16 collectors
-```
+    1. Open **System → Software** and press **Update lists…**.
+    2. Type `prometheus-exporter` in **Filter**.
+    3. On the **Available** tab, press **Install…** on the row of `ucode-prometheus-exporter`, then **Install** in the dialog.
+    4. Do the same for `luci-app-prometheus-exporter`, then reload the browser page.
+
+=== "Terminal (SSH)"
+
+    ```sh
+    apk update
+    apk add ucode-prometheus-exporter luci-app-prometheus-exporter
+    ```
+
+    apk lists what it installs, and ends with `OK`.
+
+The service starts on its own. Let's ask it how it is doing:
+
+=== "Browser (LuCI)"
+
+    Open **Status → Prometheus exporter**. Under **Service**, **State** says **Running**, and **Metrics** says `http://127.0.0.1:9100/metrics` (reachable from the router only).
+
+=== "Terminal (SSH)"
+
+    ```sh
+    service prometheus-exporter status
+    ```
+
+    ```
+    running
+    listening on http://127.0.0.1:9100/metrics, gzip when asked, serving 16 collectors
+    ```
 
 Notice where it listens: `127.0.0.1`, the router's loopback. For now only the router itself can reach it.
 
 ## 2. Look at the metrics
 
-Still on the router, ask for a scrape, as Prometheus will:
+Still on the router, over SSH, ask for a scrape, as Prometheus will:
 
 ```sh
 wget -qO- http://127.0.0.1:9100/metrics | grep '^node_load'
@@ -71,17 +95,25 @@ Every scrape ends with metrics about the scrape itself: how long each collector 
 
 Our computer is on the LAN, so we make the exporter listen there:
 
-```sh
-uci set prometheus-exporter.main.listen_interface=lan
-uci commit prometheus-exporter
-service prometheus-exporter reload
-service prometheus-exporter status
-```
+=== "Browser (LuCI)"
 
-```
-running
-listening on http://192.168.1.1:9100/metrics, gzip when asked, serving 16 collectors
-```
+    1. Open **Services → Prometheus exporter**, tab **General**.
+    2. Pick `lan` in **Listen on**, and press **Save & Apply**.
+    3. Open **Status → Prometheus exporter**. **Metrics** now says `http://192.168.1.1:9100/metrics`.
+
+=== "Terminal (SSH)"
+
+    ```sh
+    uci set prometheus-exporter.main.listen_interface=lan
+    uci commit prometheus-exporter
+    service prometheus-exporter reload
+    service prometheus-exporter status
+    ```
+
+    ```
+    running
+    listening on http://192.168.1.1:9100/metrics, gzip when asked, serving 16 collectors
+    ```
 
 The address is now the router's LAN address. From the computer, check that the exporter answers:
 
@@ -146,7 +178,7 @@ ucode_prometheus_exporter_build_info{instance="192.168.1.1:9100", job="openwrt",
 
 ## 6. Ask the exporter how it is doing
 
-Back on the router:
+Back on the router, over SSH:
 
 ```sh
 service prometheus-exporter check
@@ -162,28 +194,44 @@ ok   scrape, in the service's jail: 16 of 16 collectors succeeded
 
 Then comes one block per collector, with what the collector reads and what the service's jail gives it. Last comes everything the jail mounts. Each `ok` is a check that passed. A problem would show as a `warn` or `FAIL` line that says what is wrong.
 
+In LuCI, **Status → Prometheus exporter** shows the same scrape as a table: one row per collector, each **OK** in **Test run**.
+
 Now let's watch a collector go. Switch off `softnet`, the network softirq statistics:
 
-```sh
-uci set prometheus-exporter.softnet=collector
-uci set prometheus-exporter.softnet.enabled=0
-uci commit prometheus-exporter
-service prometheus-exporter reload
-service prometheus-exporter status
-```
+=== "Browser (LuCI)"
 
-```
-running
-listening on http://192.168.1.1:9100/metrics, gzip when asked, serving 15 collectors
-```
+    1. Open **Services → Prometheus exporter**, tab **Collectors**.
+    2. Untick **Network softirq statistics** in the **Enabled** column, and press **Save & Apply**.
+    3. The tab now says `15 of 16 collectors enabled`.
+
+=== "Terminal (SSH)"
+
+    ```sh
+    uci set prometheus-exporter.softnet=collector
+    uci set prometheus-exporter.softnet.enabled=0
+    uci commit prometheus-exporter
+    service prometheus-exporter reload
+    service prometheus-exporter status
+    ```
+
+    ```
+    running
+    listening on http://192.168.1.1:9100/metrics, gzip when asked, serving 15 collectors
+    ```
 
 It serves one collector fewer. In Prometheus, `node_softnet_processed_total` stops getting new samples. Switch it back on:
 
-```sh
-uci delete prometheus-exporter.softnet
-uci commit prometheus-exporter
-service prometheus-exporter reload
-```
+=== "Browser (LuCI)"
+
+    Tick **Network softirq statistics** again, and press **Save & Apply**. The tab says `16 of 16 collectors enabled`.
+
+=== "Terminal (SSH)"
+
+    ```sh
+    uci delete prometheus-exporter.softnet
+    uci commit prometheus-exporter
+    service prometheus-exporter reload
+    ```
 
 ## 7. Clean up
 

@@ -22,21 +22,29 @@ Make every scrape log in with a user and password, over TLS. The exporter accept
 
 Use a long random password: a scraper does not need to remember it. The configuration holds the password's crypt hash, never the password. The hash lives in its own config, `/etc/config/prometheus-exporter-auth`, apart from the rest of the configuration, which LuCI's settings page may read.
 
-Have the ubus object hash the password and save the hash there, so the password appears on no command line of the device:
+Have the exporter hash the password and save the hash there, so the password appears on no command line of the device:
 
-```sh
-ubus call prometheus-exporter set_password '{"password":"…"}'
-```
+=== "Browser (LuCI)"
 
-```
-{
-	"saved": true
-}
-```
+    1. Open **Services → Prometheus exporter**, tab **HTTPS & login**.
+    2. Fill in **TLS certificate** and **TLS key** with the files of the prerequisites, such as `/etc/prometheus-exporter/tls.crt` and `/etc/prometheus-exporter/tls.key`. **Change password…** needs them.
+    3. Press **Change password…**, type the password in **New password** and again in **Confirmation**, and press **Change password**.
 
-In LuCI, **Change password…** on the **HTTPS & login** tab does the same, separately from Save & Apply: see [How to use the LuCI app](luci.md#change-basic-auths-password).
+    The hash is saved at once, separately from **Save & Apply**. See [How to use the LuCI app](luci.md#change-basic-auths-password).
 
-Or save a hash yourself. `prometheus-exporter hash-password` (in the command line's package, `ucode-prometheus-exporter-cli`) reads the password without echoing it, and prints the hash:
+=== "Terminal (SSH)"
+
+    ```sh
+    ubus call prometheus-exporter set_password '{"password":"…"}'
+    ```
+
+    ```
+    {
+    	"saved": true
+    }
+    ```
+
+Or save a hash yourself, over SSH. `prometheus-exporter hash-password` (in the command line's package, `ucode-prometheus-exporter-cli`) reads the password without echoing it, and prints the hash:
 
 ```sh
 uci set prometheus-exporter-auth.main.auth_password="$(prometheus-exporter hash-password)"
@@ -59,15 +67,23 @@ A hash made elsewhere must also write `rounds=` as musl writes it back: without 
 
 ## 2. Set the user, and HTTPS
 
-```sh
-uci set prometheus-exporter.main.auth_user='prometheus'
-uci set prometheus-exporter.main.cert='/etc/prometheus-exporter/tls.crt'
-uci set prometheus-exporter.main.key='/etc/prometheus-exporter/tls.key'
-uci commit prometheus-exporter
-service prometheus-exporter reload
-```
+=== "Browser (LuCI)"
 
-Basic auth is on while `auth_user` is set. If the reload refuses the configuration, `logread -e prometheus-exporter` says why. The reasons are:
+    1. On the same **HTTPS & login** tab, check that **TLS certificate** and **TLS key** are filled in.
+    2. Type the user in **Basic auth user**, such as `prometheus`.
+    3. Press **Save & Apply**.
+
+=== "Terminal (SSH)"
+
+    ```sh
+    uci set prometheus-exporter.main.auth_user='prometheus'
+    uci set prometheus-exporter.main.cert='/etc/prometheus-exporter/tls.crt'
+    uci set prometheus-exporter.main.key='/etc/prometheus-exporter/tls.key'
+    uci commit prometheus-exporter
+    service prometheus-exporter reload
+    ```
+
+Basic auth is on while `auth_user` is set. If the service refuses the configuration, LuCI's **Save error** dialog or `logread -e prometheus-exporter` says why. The reasons are:
 
 - a user without a saved hash
 - a hash the service does not accept
@@ -77,14 +93,20 @@ Basic auth is on while `auth_user` is set. If the reload refuses the configurati
 
 ## 3. Check it
 
-```sh
-service prometheus-exporter status
-```
+=== "Browser (LuCI)"
 
-```
-running
-listening on https://192.168.1.1:9100/metrics, basic auth, gzip when asked, serving 16 collectors
-```
+    Open **Status → Prometheus exporter**. Under **Service**, **Metrics** gives an `https://` address, and **Basic auth** says **A scrape logs in, over HTTPS**.
+
+=== "Terminal (SSH)"
+
+    ```sh
+    service prometheus-exporter status
+    ```
+
+    ```
+    running
+    listening on https://192.168.1.1:9100/metrics, basic auth, gzip when asked, serving 16 collectors
+    ```
 
 From the machine that scrapes:
 
@@ -130,14 +152,23 @@ A tool that renews certificates on its own, such as acme, runs that reload from 
 
 ## Turn it off
 
-```sh
-uci delete prometheus-exporter.main.auth_user
-uci commit prometheus-exporter
-ubus call prometheus-exporter set_password '{"password":""}'
-service prometheus-exporter reload
-```
+=== "Browser (LuCI)"
 
-The empty password removes the saved hash. Without a user, the hash would go unused anyway. In LuCI: empty **Basic auth user**, click **Save & Apply**, then **Remove password**.
+    1. On the **HTTPS & login** tab, empty **Basic auth user**, and press **Save & Apply**.
+    2. Press **Remove password**, then **Remove password** in the dialog.
+
+=== "Terminal (SSH)"
+
+    ```sh
+    uci delete prometheus-exporter.main.auth_user
+    uci commit prometheus-exporter
+    ubus call prometheus-exporter set_password '{"password":""}'
+    service prometheus-exporter reload
+    ```
+
+    The empty password removes the saved hash.
+
+Without a user, a saved hash would go unused anyway.
 
 If `cert` and `key` are still set, the exporter serves HTTPS without a login. To serve HTTP, delete them too.
 

@@ -6,19 +6,27 @@ By default, the exporter listens on `loopback`, so only programs on the device r
 
 ## 1. Choose the interface
 
-Use the name of a logical interface, as `/etc/config/network` and LuCI name it (`lan`), not the name of a device (`br-lan`). `ubus call prometheus-exporter interfaces` lists them.
+Use the name of a logical interface, as `/etc/config/network` and LuCI name it (`lan`), not the name of a device (`br-lan`). LuCI's **Listen on** lists them, and so does `ubus call prometheus-exporter interfaces`.
 
-`*` listens on every address of the device, including the WAN's. Prefer one interface.
+`*`, which LuCI shows as *Every address*, listens on every address of the device, including the WAN's. Prefer one interface.
 
 ## 2. Set it
 
-```sh
-uci set prometheus-exporter.main.listen_interface=lan
-uci commit prometheus-exporter
-service prometheus-exporter reload
-```
+=== "Browser (LuCI)"
 
-To change the port too, set `listen_port`.
+    1. Open **Services → Prometheus exporter**, tab **General**.
+    2. Pick the interface in **Listen on**, such as `lan`. To change the port too, set **Port**.
+    3. Press **Save & Apply**.
+
+=== "Terminal (SSH)"
+
+    ```sh
+    uci set prometheus-exporter.main.listen_interface=lan
+    uci commit prometheus-exporter
+    service prometheus-exporter reload
+    ```
+
+    To change the port too, set `listen_port`.
 
 The service listens on every IPv4 and IPv6 address of the interface. While the interface has no address, the service does not start. It logs `deferring start until listen interface lan becomes ready`, and starts once the interface comes up. It restarts whenever the interface goes down and up again.
 
@@ -26,14 +34,20 @@ The service listens on every IPv4 and IPv6 address of the interface. While the i
 
 On the device:
 
-```sh
-service prometheus-exporter status
-```
+=== "Browser (LuCI)"
 
-```
-running
-listening on http://192.168.1.1:9100/metrics, http://[fd00:ab:cd::1]:9100/metrics, gzip when asked, serving 16 collectors
-```
+    Open **Status → Prometheus exporter**. Under **Service**, **Metrics** lists each address the exporter serves, such as `http://192.168.1.1:9100/metrics`.
+
+=== "Terminal (SSH)"
+
+    ```sh
+    service prometheus-exporter status
+    ```
+
+    ```
+    running
+    listening on http://192.168.1.1:9100/metrics, http://[fd00:ab:cd::1]:9100/metrics, gzip when asked, serving 16 collectors
+    ```
 
 From the machine that will scrape it:
 
@@ -58,7 +72,7 @@ curl -s http://192.168.1.1:9100/metrics | head
 
     Never open the port from `wan`: the metrics name your devices, addresses and clients.
 
-- If `status` does not say `running`, the interface has no address yet, and the service is waiting for one. Check `ifstatus lan`.
+- If `status` does not say `running` (in LuCI, **State** is not **Running**), the interface has no address yet, and the service is waiting for one. Check `ifstatus lan`.
 
 ## Keep it to the scrapers
 

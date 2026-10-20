@@ -35,6 +35,7 @@ theme:
     - search.suggest
     - search.highlight
     - content.code.copy
+    - content.tabs.link
 
 markdown_extensions:
   - admonition

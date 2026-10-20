@@ -2,9 +2,16 @@
 
 ## Remove a collector
 
-```sh
-apk del ucode-prometheus-exporter-wifi
-```
+=== "Browser (LuCI)"
+
+    1. Open **System → Software**, and type the package's name in **Filter**, such as `ucode-prometheus-exporter-wifi`.
+    2. On the **Installed** tab, press **Remove…** on its row, then **Remove** in the dialog.
+
+=== "Terminal (SSH)"
+
+    ```sh
+    apk del ucode-prometheus-exporter-wifi
+    ```
 
 The service reloads without it. You cannot remove a collector of the base package this way: [disable it](choose-collectors.md#disable-a-collector) instead. A collector that a group installed stays while the group is installed. Remove the group, or keep the group and disable the collector.
 

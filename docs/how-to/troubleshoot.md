@@ -4,10 +4,18 @@ Start from what is wrong: the service, one collector, or the scrape as Prometheu
 
 ## The service does not run
 
-```sh
-service prometheus-exporter status
-logread -e prometheus-exporter
-```
+=== "Browser (LuCI)"
+
+    Open **Status → Prometheus exporter**. A banner above the tables says whether the exporter is enabled but not running, or switched off in its settings. Its **System log** button opens **Status → System Log**: look for the lines with `prometheus-exporter`.
+
+=== "Terminal (SSH)"
+
+    ```sh
+    service prometheus-exporter status
+    logread -e prometheus-exporter
+    ```
+
+If the exporter is switched off, turn it on: in LuCI, tick **Enable** on the **General** tab of **Services → Prometheus exporter** and press **Save & Apply**, or use the SSH commands in the table's first row.
 
 | `status` or the log says | Do |
 | :--- | :--- |
@@ -21,25 +29,31 @@ If you reload with an invalid configuration, the service keeps the running expor
 
 ## A collector fails
 
-`check` runs a scrape. For each collector, it says whether the collector succeeded, failed, or had nothing to observe, and why:
+Run a scrape, and see for each collector whether it succeeded, failed, or had nothing to observe, and why:
 
-```sh
-service prometheus-exporter check
-```
+=== "Browser (LuCI)"
 
-```
-warn scrape: dnsmasq: UBUS_CALL_FAILED (dnsmasq metrics: Not found)
-ok   scrape: wifi has nothing to observe: no wireless radios
-```
+    Open **Status → Prometheus exporter**. Failed collectors come first. **Test run** says **Failed** with why and its error code, or *Nothing to observe* with why.
+
+=== "Terminal (SSH)"
+
+    ```sh
+    service prometheus-exporter check
+    ```
+
+    ```
+    warn scrape: dnsmasq: UBUS_CALL_FAILED (dnsmasq metrics: Not found)
+    ok   scrape: wifi has nothing to observe: no wireless radios
+    ```
 
 - **Nothing to observe** is not a failure. It means the device lacks the hardware, kernel feature or running service the collector reads. The collector succeeds without samples, and its `node_scrape_collector_observing` is 0. If you do not want the collector, [disable it](choose-collectors.md#disable-a-collector). [Collectors](../reference/collectors.md#nothing-to-observe) lists when each collector has nothing to observe.
-- **A failure** is a `warn` line with a code. [Error codes](../reference/error-codes.md) says what each code means. Under procd, the service also logs each failing scrape at `warning`:
+- **A failure** has a code: a `warn` line of `check`, or **Failed** in LuCI. [Error codes](../reference/error-codes.md) says what each code means. Under procd, the service also logs each failing scrape at `warning`:
 
     ```sh
     logread -e prometheus-exporter | grep "collector '"
     ```
 
-LuCI's **Status → Prometheus exporter** page shows the same, and so does the ubus object's `status`:
+The ubus object's `status` shows the same:
 
 ```sh
 ubus call prometheus-exporter status
@@ -61,7 +75,7 @@ warn service: nat_traffic is quarantined: COLLECTOR_OVERRUN (took 7.84 s, over i
 ```
 
 1. Fix what tripped it. `check` runs the collector now, and its `warn scrape:` line says how it fails.
-2. If the collector is slow but you want it, raise its budget: `uci set prometheus-exporter.<module>=collector`, `uci set prometheus-exporter.<module>.budget=15`, commit, `reload_config`. If a program is slow, raise its `timeout`: see [How to give programs more time](exec-timeout.md).
+2. If the collector is slow but you want it, raise its budget. In LuCI, press **Edit** on its row of the **Collectors** tab, set **Budget**, press **Save**, then **Save & Apply**. Over SSH: `uci set prometheus-exporter.<module>=collector`, `uci set prometheus-exporter.<module>.budget=15`, commit, `reload_config`. If a program is slow, raise its `timeout`: see [How to give programs more time](exec-timeout.md).
 3. To try it at once rather than wait for its trial, run `service prometheus-exporter restart`. A restart forgets every quarantine.
 
 LuCI's **Status → Prometheus exporter** page shows the same in its **Service's scrapes** column, and names the quarantined collectors in a notice above the tables. The `exporter` collector counts quarantines since the service started, in `ucode_prometheus_exporter_quarantines_total{collector}`.

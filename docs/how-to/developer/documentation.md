@@ -131,6 +131,26 @@ Reference pages describe the code as it is. When you change one of these, update
 | `monitoring/`: a rule, a threshold, a panel | [How to monitor a router with the bundled dashboards and alerts](../dashboards-and-alerts.md), and its screenshots: `make monitoring-lab` |
 | A renamed metric | [Renamed metrics](../../metrics.md) |
 
+## Steps in LuCI and over SSH
+
+An operator step that LuCI can do gets two content tabs, LuCI first, with exactly these labels:
+
+````markdown
+=== "Browser (LuCI)"
+
+    On **Services → Prometheus exporter**, tab **General**, untick **Compress**, and press **Save & Apply**.
+
+=== "Terminal (SSH)"
+
+    ```sh
+    uci set prometheus-exporter.main.compress=0
+    uci commit prometheus-exporter
+    service prometheus-exporter reload
+    ```
+````
+
+Picking a tab picks it on every page (`content.tabs.link`). Name menus, tabs, fields and buttons by the app's English source strings, in `luci/`. A step LuCI cannot do, such as adding the feed's signing key, stays SSH only.
+
 ## Examples
 
 - Use generic names (router, ap) and documentation addresses: `192.0.2.0/24`, `198.51.100.0/24` and `203.0.113.0/24` for IPv4, `2001:db8::/32` for IPv6. Never paste a real device's name, MAC address, SSID, key or public address.

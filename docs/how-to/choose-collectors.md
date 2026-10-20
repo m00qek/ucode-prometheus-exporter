@@ -10,10 +10,18 @@ Three things decide what a scrape holds:
 
 Install a collector's package, or a group of them:
 
-```sh
-apk add ucode-prometheus-exporter-wireguard
-apk add ucode-prometheus-exporter-network
-```
+=== "Browser (LuCI)"
+
+    1. Open **System → Software** and press **Update lists…**.
+    2. Type the package's name in **Filter**, such as `ucode-prometheus-exporter-wireguard` or the group `ucode-prometheus-exporter-network`.
+    3. On the **Available** tab, press **Install…** on its row, then **Install** in the dialog.
+
+=== "Terminal (SSH)"
+
+    ```sh
+    apk add ucode-prometheus-exporter-wireguard
+    apk add ucode-prometheus-exporter-network
+    ```
 
 The service reloads with the new collector. [Collectors](../reference/collectors.md) lists each collector, its package, its groups and what it depends on.
 
@@ -23,13 +31,9 @@ Some collectors are in no group, so only their own package installs them:
 - `interrupts`, which node_exporter turns off by default because it writes many series, one per interrupt and CPU
 - `pressure`, which needs a kernel with `CONFIG_PSI`, which OpenWrt's kernels leave off
 
-Installing the package turns the collector on:
+Installing the package turns the collector on, as above: `ucode-prometheus-exporter-interrupts`, for example.
 
-```sh
-apk add ucode-prometheus-exporter-interrupts
-```
-
-`pressure` has nothing to observe without `/proc/pressure`. Install it only on a kernel built with `CONFIG_PSI`, and not booted with `psi=0`:
+`pressure` has nothing to observe without `/proc/pressure`. Install it only on a kernel built with `CONFIG_PSI`, and not booted with `psi=0`. Check for the directory first, over SSH:
 
 ```sh
 ls /proc/pressure
@@ -38,24 +42,42 @@ apk add ucode-prometheus-exporter-pressure
 
 ## Disable a collector
 
-To stop serving an installed collector, including a base collector, set `enabled` to 0 in its section. The section is named after the collector's module: the collector's name with `_` for `-`, such as `ltq_dsl` for `ltq-dsl`.
+You can stop serving any installed collector, including a base collector.
 
-```sh
-uci set prometheus-exporter.softnet=collector
-uci set prometheus-exporter.softnet.enabled=0
-uci commit prometheus-exporter
-service prometheus-exporter reload
-```
+=== "Browser (LuCI)"
 
-The exporter does not run a disabled collector, and the jail mounts nothing for it. A scrape that names it in `collect[]` gets a 400. To serve it again, set `enabled` back to 1, or delete its section if nothing else is set there:
+    1. Open **Services → Prometheus exporter**, tab **Collectors**. It lists the collectors by title: softnet is **Network softirq statistics**.
+    2. Untick the collector in the **Enabled** column.
+    3. Press **Save & Apply**.
 
-```sh
-uci delete prometheus-exporter.softnet
-uci commit prometheus-exporter
-service prometheus-exporter reload
-```
+    See [How to use the LuCI app](luci.md).
 
-In LuCI, the switch in the collector's row on the Collectors tab does the same: see [How to use the LuCI app](luci.md).
+=== "Terminal (SSH)"
+
+    Set `enabled` to 0 in the collector's section. The section is named after the collector's module: the collector's name with `_` for `-`, such as `ltq_dsl` for `ltq-dsl`.
+
+    ```sh
+    uci set prometheus-exporter.softnet=collector
+    uci set prometheus-exporter.softnet.enabled=0
+    uci commit prometheus-exporter
+    service prometheus-exporter reload
+    ```
+
+The exporter does not run a disabled collector, and the jail mounts nothing for it. A scrape that names it in `collect[]` gets a 400. To serve it again:
+
+=== "Browser (LuCI)"
+
+    Tick the collector again in the **Enabled** column, and press **Save & Apply**.
+
+=== "Terminal (SSH)"
+
+    Set `enabled` back to 1, or delete the collector's section if nothing else is set there:
+
+    ```sh
+    uci delete prometheus-exporter.softnet
+    uci commit prometheus-exporter
+    service prometheus-exporter reload
+    ```
 
 ## Remove a collector
 
@@ -78,9 +100,15 @@ scrape_configs:
 
 ## Check
 
-```sh
-service prometheus-exporter status
-service prometheus-exporter check
-```
+=== "Browser (LuCI)"
 
-`status` counts the collectors served. `check` lists each collector, enabled or not.
+    The **Collectors** tab of **Services → Prometheus exporter** says how many collectors are enabled, as `15 of 16 collectors enabled`. **Status → Prometheus exporter** lists each collector, with **Not run: switched off** for a disabled one.
+
+=== "Terminal (SSH)"
+
+    ```sh
+    service prometheus-exporter status
+    service prometheus-exporter check
+    ```
+
+    `status` counts the collectors served. `check` lists each collector, enabled or not.
