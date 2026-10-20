@@ -15,6 +15,21 @@ Nothing else of `/etc/config` is there, and nothing is writable but the exporter
 
 The jail is computed, not written by hand. Each collector's `meta` says what it needs. The init script asks `jail.uc` what that adds up to, and procd mounts the result. A collector the device does not install, or that its configuration disables, adds nothing. This is what keeps the jail tight: it is exactly as wide as the collectors in use, and it stays right as packages come and go, without anyone keeping a list.
 
+```mermaid
+flowchart TD
+    M[the enabled collectors' meta] --> I[init script and jail.uc, as root]
+    subgraph jail[procd's jail, as the user prometheus-exporter]
+        U[uhttpd and the handler] --> C[collectors]
+    end
+    I -- "mounts, ubus ACL, capabilities, groups, read access" --> jail
+    C -- "only the calls the ACL allows" --> B[ubusd]
+    B --> D[netifd, hostapd, dnsmasq and other daemons]
+    B --> O[the prometheus-exporter object, in rpcd as root]
+    O -- "reads with uci" --> K[(configs that hold keys)]
+```
+
+The service's ubus object reads what the jail may not, and hands back only the fields a collector reads (see [Not root](#not-root)).
+
 Some declarations are refused outright:
 
 - a path that is not absolute, or not plain;

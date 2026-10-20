@@ -72,6 +72,30 @@ The pipe between them carries only short messages:
 
 They are short enough that the scrape reads them whole: ucode's uloop reads the pipe without blocking, and loses a message that is half there.
 
+```mermaid
+sequenceDiagram
+    participant P as Prometheus
+    participant S as The scrape, the request's process
+    participant C as The child, forked with the plan
+    participant F as The runs file
+    P->>S: GET /metrics, with its timeout
+    S->>C: fork
+    loop each collector, fastest first
+        C->>F: the last run, and the line that this one starts, with its limit
+        C-->>S: pipe, when a limit is near or runs are worth taking
+        S->>F: read, at the timer's turns
+    end
+    alt a collector runs past its budget
+        S->>C: kill, with every process under it
+        S->>C: fork another child, which goes on after it
+    else the deadline comes
+        S->>C: kill, with every process under it
+        Note over S: leaves out every collector left, SCRAPE_DEADLINE
+    end
+    C-->>S: pipe, the child's end
+    S->>P: the reply, with the runs it has
+```
+
 A run belongs to the collector it names, never to the one the scrape holds its timer on. Stopping a child takes a few milliseconds, since the processes under it must be found and killed. A collector that ends in those milliseconds, past its limit, has its run and the next collector's start written before the child dies. That collector keeps its run, and the next one, which the child had started, runs again in the child forked after it.
 
 The child keeps a progress file beside the ledger, named by the scrape's process: a line before each collector, with the child it runs in. If the scrape process itself dies, killed from outside, the next scrape finds the file, names the collector that was running, quarantines it, and kills the child it may have left looping.

@@ -53,6 +53,18 @@ The QEMU guests ran ucode's loop turn at 7.5 µs with the Lua exporter and 11.3 
 
 ### What it comes to
 
+A collector that hangs, in each exporter:
+
+```mermaid
+flowchart LR
+    H[a collector hangs] --> L1[Lua: the request waits on it]
+    L1 --> L2[Prometheus gives up at 10 s]
+    L2 --> L3[up 0, every series of the router gone]
+    H --> T1[this one: stopped at its budget, 5 s]
+    T1 --> T2[the rest served within the deadline]
+    T1 --> T3[breaker trips: quarantined for 1, 2, 4 ... 32 scrapes]
+```
+
 **The Lua exporter copes with none of the four, and this one copes with each, at a cost.** The Lua exporter's collectors run one after the other in the request's process, with no time limit of their own. Whatever one waits on, the whole scrape waits on, and Prometheus gives up at 10 s with nothing. The Lua exporter's libubus calls do time out after 30 s, as does uhttpd's wait for output (its `-T`, 30 s), but both are three times Prometheus's timeout. Without a scraper's timeout, the reply ends after 30 s, cut off where the collector stalled, and the collectors after it are missing. A label that is not UTF-8 is written as it is, and Prometheus refuses the whole scrape for it, every time.
 
 **This exporter answers every scrape in time, and serves what it can.** Once the broken collector's breaker has tripped, each scenario costs it that collector alone:

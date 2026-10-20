@@ -50,6 +50,16 @@ Nothing to observe never counts: it is a success. A collector the deadline left 
 
 A tripped breaker quarantines its collector: it is not run for 1 scrape, then 2, 4, 8, 16, and at most 32. The scrape after that is its trial. A trial that succeeds closes the breaker; one that fails in any way doubles the cool-down. While it is quarantined, the collector answers `node_scrape_collector_success` 0 and `ucode_prometheus_exporter_collector_quarantined` 1. The log has one line when the breaker trips and one when it closes, and nothing between.
 
+```mermaid
+stateDiagram-v2
+    [*] --> Closed
+    Closed --> Closed: succeeds, or fails fewer than three times in a row
+    Closed --> Quarantined: trips
+    Quarantined --> Trial: cool-down spent, 1, 2, 4 ... 32 scrapes
+    Trial --> Closed: succeeds
+    Trial --> Quarantined: fails in any way, cool-down doubled
+```
+
 The cap is a trade-off. A broken collector costs at most one trial every 32 scrapes, and a trial is bounded by its budget and the scrape's deadline. A fixed one waits at most 32 scrapes to be served again: 8 minutes at Prometheus's usual 15 seconds, 32 at vmagent's minute. A shorter cap would serve fixed collectors sooner and cost more trials; a longer one the reverse.
 
 A collector that runs programs gets a budget of at least its `timeout` and a second more, since the watchdog counts whole seconds. So a budget never quarantines what a timeout allows.
