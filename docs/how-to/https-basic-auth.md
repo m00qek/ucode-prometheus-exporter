@@ -1,11 +1,11 @@
 # How to Serve HTTPS with Basic Auth
 
-Have every scrape log in with a user and password, over TLS. The exporter takes basic auth over HTTPS only: set the certificate and key with it, or the configuration is refused.
+Make every scrape log in with a user and password, over TLS. The exporter accepts basic auth only over HTTPS. Set the certificate and key along with it, or the service refuses the configuration.
 
 ## Prerequisites
 
-- A TLS library for uhttpd: `ls /lib/libustream-ssl.so` finds it. Without it, install one, as `apk add libustream-mbedtls`.
-- A certificate and its key, for the name Prometheus reaches the device by, each a file of at most 64 KiB under `/etc/ssl`, `/etc/acme` or `/etc/prometheus-exporter`, or uhttpd's own `/etc/uhttpd.*`: the service copies no other (see [About the security model](../explanation/security.md#not-root)). To make a self-signed one for `router.lan`:
+- A TLS library for uhttpd: `ls /lib/libustream-ssl.so` finds it. If it is missing, install one, such as `apk add libustream-mbedtls`.
+- A certificate and its key, for the name Prometheus uses to reach the device. Each must be a file of at most 64 KiB under `/etc/ssl`, `/etc/acme` or `/etc/prometheus-exporter`, or uhttpd's own `/etc/uhttpd.*`. The service copies no other files (see [About the security model](../explanation/security.md#not-root)). To make a self-signed certificate for `router.lan`:
 
     ```sh
     mkdir -p /etc/prometheus-exporter
@@ -14,13 +14,15 @@ Have every scrape log in with a user and password, over TLS. The exporter takes 
         -subj /CN=router.lan -addext subjectAltName=DNS:router.lan
     ```
 
-    uhttpd's own, `/etc/uhttpd.crt` and `/etc/uhttpd.key`, also serve, but they name `OpenWrt` unless uhttpd's config says otherwise, and the certificate is DER: convert it to PEM for Prometheus (`openssl x509 -inform der -in uhttpd.crt -out openwrt.crt`).
+    uhttpd's own `/etc/uhttpd.crt` and `/etc/uhttpd.key` also work. But they name `OpenWrt` unless uhttpd's config says otherwise, and the certificate is DER. Convert it to PEM for Prometheus (`openssl x509 -inform der -in uhttpd.crt -out openwrt.crt`).
 
 ---
 
 ## 1. Save the password's hash
 
-Use a long random password, as a scraper's can be. The configuration holds its crypt hash, never the password, in a config of its own, `/etc/config/prometheus-exporter-auth`, apart from the rest, which LuCI's settings page may read. Have the ubus object hash the password and save the hash there, so the password is on no command line of the device:
+Use a long random password: a scraper does not need to remember it. The configuration holds the password's crypt hash, never the password. The hash lives in its own config, `/etc/config/prometheus-exporter-auth`, apart from the rest of the configuration, which LuCI's settings page may read.
+
+Have the ubus object hash the password and save the hash there, so the password appears on no command line of the device:
 
 ```sh
 ubus call prometheus-exporter set_password '{"password":"…"}'
@@ -32,18 +34,28 @@ ubus call prometheus-exporter set_password '{"password":"…"}'
 }
 ```
 
-In LuCI, **Change password…** on the **HTTPS & login** tab does the same, apart from Save & Apply: see [How to use the LuCI app](luci.md#change-basic-auths-password).
+In LuCI, **Change password…** on the **HTTPS & login** tab does the same, separately from Save & Apply: see [How to use the LuCI app](luci.md#change-basic-auths-password).
 
-Or save a hash yourself, from `prometheus-exporter hash-password` (the command line's package, `ucode-prometheus-exporter-cli`), which reads the password without echoing it:
+Or save a hash yourself. `prometheus-exporter hash-password` (in the command line's package, `ucode-prometheus-exporter-cli`) reads the password without echoing it, and prints the hash:
 
 ```sh
 uci set prometheus-exporter-auth.main.auth_password="$(prometheus-exporter hash-password)"
 uci commit prometheus-exporter-auth
 ```
 
-A hash made elsewhere must be `$1$` (as `uhttpd -m <password>` prints), or `$5$` or `$6$` of at most 2000 rounds, as `mkpasswd -m sha-512 -R 1000` makes. `openssl passwd -6` makes hashes of 5000 rounds, which are refused. Why: [Performance on small routers](../explanation/performance.md#basic-auth). Set one by hand in single quotes: the shell would read its `$` otherwise.
+A hash made elsewhere must be one of these:
 
-A DES-crypt hash is not taken: its 13 characters could be a plain password, which uhttpd compares as text when it does not start with `$`. Nor is bcrypt, which ucode cannot compute in the time of a scrape. A hash made elsewhere must write `rounds=` as musl writes it back, without a leading zero and in range, or no password matches it.
+- `$1$`, as `uhttpd -m <password>` prints
+- `$5$` or `$6$` of at most 2000 rounds, as `mkpasswd -m sha-512 -R 1000` makes
+
+`openssl passwd -6` makes hashes of 5000 rounds, which the service refuses. [Performance on small routers](../explanation/performance.md#basic-auth) says why. When you set a hash by hand, put it in single quotes, or the shell reads its `$`.
+
+The service does not accept:
+
+- A DES-crypt hash. Its 13 characters could be a plain password, which uhttpd compares as text when it does not start with `$`.
+- bcrypt, which ucode cannot compute in the time of a scrape.
+
+A hash made elsewhere must also write `rounds=` as musl writes it back: without a leading zero, and in range. Otherwise no password matches it.
 
 ## 2. Set the user, and HTTPS
 
@@ -55,7 +67,13 @@ uci commit prometheus-exporter
 service prometheus-exporter reload
 ```
 
-Basic auth is on while `auth_user` is set. If the reload refuses the configuration, `logread -e prometheus-exporter` says why: a user without a saved hash, a hash it does not take, no `cert` and `key`, or one of them elsewhere than those directories (`TLS_PATH`), or not a regular file of at most 64 KiB, or a link out of them (`TLS_FILE`).
+Basic auth is on while `auth_user` is set. If the reload refuses the configuration, `logread -e prometheus-exporter` says why. The reasons are:
+
+- a user without a saved hash
+- a hash the service does not accept
+- no `cert` and `key`
+- `cert` or `key` outside those directories (`TLS_PATH`)
+- `cert` or `key` not a regular file of at most 64 KiB, or a link out of those directories (`TLS_FILE`)
 
 ## 3. Check it
 
@@ -75,11 +93,11 @@ curl -sk -o /dev/null -w '%{http_code}\n' https://router.lan:9100/metrics
 curl -sk -u prometheus:'…' https://router.lan:9100/metrics | head
 ```
 
-The first is `401`; the second is the scrape.
+The first command prints `401`. The second prints the scrape.
 
 ## 4. Scrape it
 
-In Prometheus, and in vmagent, which takes the same `scrape_configs`:
+In Prometheus, or in vmagent, which takes the same `scrape_configs`:
 
 ```yaml
 scrape_configs:
@@ -102,13 +120,13 @@ Copy the router's certificate (`/etc/prometheus-exporter/tls.crt`), not its key,
 
 ## Renew the certificate
 
-The service's jail holds the certificate and key it started with. After writing new ones at the same paths, reload the service, which restarts it with them:
+The service's jail holds the certificate and key it started with. After you write new ones at the same paths, reload the service. It restarts with the new files:
 
 ```sh
 service prometheus-exporter reload
 ```
 
-A tool that renews certificates on its own, as acme does, runs that from its hook. OpenWrt's acme keeps them in `/etc/ssl/acme`, and acme.sh's own in `/etc/acme`, where `cert` and `key` may point, its links too. Until then the old certificate is served.
+A tool that renews certificates on its own, such as acme, runs that reload from its hook. Until the reload, the service serves the old certificate. OpenWrt's acme keeps certificates in `/etc/ssl/acme`, and acme.sh's own in `/etc/acme`. `cert` and `key` may point there, and so may their links.
 
 ## Turn it off
 
@@ -119,12 +137,12 @@ ubus call prometheus-exporter set_password '{"password":""}'
 service prometheus-exporter reload
 ```
 
-The empty password removes the saved hash; without a user it would be unused all the same. In LuCI: empty **Basic auth user**, **Save & Apply**, then **Remove password**.
+The empty password removes the saved hash. Without a user, the hash would go unused anyway. In LuCI: empty **Basic auth user**, click **Save & Apply**, then **Remove password**.
 
-With `cert` and `key` left, it serves HTTPS without a login; delete them too for HTTP.
+If `cert` and `key` are still set, the exporter serves HTTPS without a login. To serve HTTP, delete them too.
 
 ## See also
 
 - [HTTP endpoint](../reference/http.md#basic-auth): the replies.
 - [About the security model](../explanation/security.md): why HTTPS only, and why the handler checks the password itself.
-- In LuCI: the **HTTPS & login** tab's **Change password…** hashes the password for you, and saves the hash at once. See [How to use the LuCI app](luci.md#change-basic-auths-password).
+- In LuCI, **Change password…** on the **HTTPS & login** tab hashes the password for you, and saves the hash at once. See [How to use the LuCI app](luci.md#change-basic-auths-password).
