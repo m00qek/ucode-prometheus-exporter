@@ -35,6 +35,7 @@ When uhttpd starts, the handler loads ubus, rtnl and nl80211 where an enabled co
     3. calls `stat()` on `/proc/self/fd/<fd>`, the file it opened, and reads nothing unless that is the file it looked at.
 
     A FIFO or a link put in its place in between is so closed unread.
+
 - **Sockets.** A request sends with `MSG_NOSIGNAL`, so a server gone before the send is an EPIPE, not a SIGPIPE that would end uhttpd. The errnos it tests, EAGAIN (11, `SO_RCVTIMEO` passed) and EACCES (13), are the same on every architecture OpenWrt builds for.
 
 ## Running a program
@@ -71,6 +72,7 @@ The purity tokenizer reads a whole module a character at a time, some 50 ms for 
     A connection's host is its end on this side of the router, which the routes say: an address of the router's own, or one on-link to an interface without a default route. The LAN host a port forward reaches comes first, then the source, then the destination. So a connection from the internet that the firewall accepts without NAT is the router's WAN address's when it is to the router (a ping, an open port), and the LAN host's when it is ICMPv6 to the host's global address. One with neither end there, as between two WAN neighbours, is `host="other"`.
 
     The collector reads the routes once a scrape, every table's, because rtnl dumps them all whatever table a request names: the kernel filters a dump by table only for a socket with strict checking, which ucode's rtnl does not ask for. It sorts the prefixes into a set for each length: an IPv4 one by its integer shifted to the length, an IPv6 one by the leading characters of its full form. So an address is a lookup for each length, not a comparison with each route, and the collector looks at each address once. The kernel writes an IPv6 address in full, which the sets take as it is. The labels compress it (RFC 5952), so they join with other collectors'.
+
 - **netclass** takes `flags` from sysfs, not netlink, whose flags are `dev_get_flags()`'s, with IFF_RUNNING and IFF_LOWER_UP added. sysfs refuses (EINVAL) the carrier of a device that is not up, and the speed and duplex of one that is not up or whose driver cannot tell. Each reads as absent, not as an error.
 - **openwrt_interfaces** writes netifd's uptime, not a start timestamp. A timestamp would move a second either way from scrape to scrape, and jump with every clock step. An address of a prefix assignment counts as the interface's, though netifd lists it under `ipv6-prefix-assignment`.
 - **qdisc** runs `tc -s -j qdisc show`, because ucode's rtnl on 25.12 does not decode a qdisc's statistics (TCA_STATS2, TCA_XSTATS).
@@ -89,6 +91,7 @@ The purity tokenizer reads a whole module a character at a time, some 50 ms for 
     netifd's `up` is not used here. It says whether netifd set the radio up, which is also true of a radio with no network enabled, and of one whose interfaces hostapd has not brought up. A network whose logical interface `ifdown` took down is taken as set up, as the config has it, though netifd leaves it out until it is up again. The radio's later networks of that mode are then named one past what netifd names them, so the last name is not there and is left out.
 
     wifi labels an interface with the SSID nl80211 says it serves (an access point's, or a client's network), and with the config's SSID or mesh ID where nl80211 says none, so the labels stay right. hostapd_stations takes the SSID from hostapd and the encryption from the config, which may then be the next network's.
+
 - **vmstat** on a kernel without CONFIG_VM_EVENT_COUNTERS, as on small targets, finds no event fields. Its default pattern matches nothing, and it succeeds empty.
 
 ## The LuCI app's themes
