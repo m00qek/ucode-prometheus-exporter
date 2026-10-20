@@ -31,7 +31,7 @@ Technical descriptions of the exporter, to consult while you work. Six pages are
 | Page | Content |
 | :--- | :--- |
 | [Collector interface](collector-interface.md) | `meta`, `collect(deps, out, options)`, the capabilities and Results. |
-| [Collector contract](collector-contract.md) | What a collector may do, what the exporter enforces of it, what breaking a rule costs, and `collector check`. |
+| [Collector contract](collector-contract.md) | What a collector may do, what the exporter enforces, what breaking a rule costs, and `collector check`. |
 | [The devkit](devkit.md) | What a collector's tests run on, in the exporter's tree or a package of its own: `with_collector`, the mocks and fixtures. |
 | [Make targets](make-targets.md) | The targets of the root `Makefile` and `docs/Makefile`, and their variables. |
 | [Documentation publishing](docs-publishing.md) | How the versioned site is published. |
