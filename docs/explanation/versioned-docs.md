@@ -6,9 +6,9 @@ The documentation describes a package that people install and then keep running 
 
 ## One version per minor, and only one maintained
 
-The site has a folder per minor release, `/0.1/`, `/0.2/`, and `/latest/` for the newest. Patch releases do not get their own folder; they overwrite their minor. A patch release changes behaviour in small ways at most, and a reader choosing between `0.2.0`, `0.2.1` and `0.2.2` in a version selector gains nothing but a longer list. The title of each version still shows the exact release it was built from.
+The site has a folder per minor release, `/0.1/`, `/0.2/`, and `/latest/` for the newest. Patch releases do not get their own folder; they overwrite their minor. A patch release changes behaviour in small ways at most. A reader choosing between `0.2.0`, `0.2.1` and `0.2.2` in a version selector would gain nothing but a longer list. The title of each version still shows the exact release it was built from.
 
-The exporter is a small project, and it maintains exactly one version: the newest. That shapes the docs too. Old versions stay online, because someone is running them, but they are frozen at their last publish. Only the newest version's docs get fixes. Backporting doc fixes to every old minor would be a promise the project cannot keep, and a half-kept promise is worse than a clear rule: a reader of `/0.1/` knows it is a record of 0.1, not a living page.
+The exporter is a small project, and it maintains exactly one version: the newest. That shapes the docs too. Old versions stay online, because someone is running them, but they are frozen at their last publish. Only the newest version's docs get fixes. Backporting doc fixes to every old minor would be a promise the project cannot keep. A half-kept promise is worse than a clear rule: a reader of `/0.1/` knows it is a record of 0.1, not a living page.
 
 The other half of the rule is that the docs of unreleased work are never published. `main` often describes behaviour no release has yet. Publishing it, even under a `dev` label, would put the most visible, most search-indexed pages ahead of the code people can actually install. So `main` and pull requests only build the site, strictly, to catch broken links early; they never publish it. The docs go online with the release they describe.
 
@@ -30,7 +30,7 @@ Tags are not guarded. A tag is the release; its docs are by definition the docs 
 
 ## Why fixes go to `main` first, and why never rebase
 
-A doc fix that only lands on the docs branch is lost at the next minor, which is cut from `main`. Landing it on `main` first and cherry-picking it onto the docs branch keeps `main` the one place every fix lives, and makes the docs branch a strict subset: its release, plus a few commits that are already on `main`.
+A doc fix that only lands on the docs branch is lost at the next minor, which is cut from `main`. So a fix lands on `main` first, and is cherry-picked onto the docs branch. That keeps `main` the one place every fix lives, and makes the docs branch a strict subset: its release, plus a few commits that are already on `main`.
 
 Merging or rebasing `main` into the docs branch looks like a shortcut, but it brings along everything else on `main`, including the docs of unreleased features. The guard catches the code that comes with them, but not the docs, which it allows by design. Cherry-picking is deliberate: each commit that reaches a published version was chosen for it.
 
@@ -68,6 +68,6 @@ The versioned settings live in their own file, `mkdocs.mike.yml`, which inherits
 
 **The 404 redirect assumes a project site.** It treats the first path segment as the site, which matches `https://<user>.github.io/<site>/`. On a custom domain or a user site, where the docs live at the root, the redirect would need changing.
 
-**CI and local builds use different installs.** Local builds run the pinned mkdocs-material image, plus mike in a derived image. The publish job installs the same pinned mkdocs-material and mike with `pip` on the runner, which spares CI building the image, but their own dependencies are not pinned. A dependency release can therefore make CI's build differ from a local one. Both builds are strict, so the likely failure is a loud one, not a quiet difference in the published site.
+**CI and local builds use different installs.** Local builds run the pinned mkdocs-material image, plus mike in a derived image. The publish job installs the same pinned mkdocs-material and mike with `pip` on the runner, which spares CI building the image. But their own dependencies are not pinned, so a dependency release can make CI's build differ from a local one. Both builds are strict, so the likely failure is a loud one, not a quiet difference in the published site.
 
 **The freeze is a rule, not a lock.** Nothing technical stops a push to an old docs branch; the guard only keeps it docs-only. The project relies on the one-maintained-version rule for the rest.

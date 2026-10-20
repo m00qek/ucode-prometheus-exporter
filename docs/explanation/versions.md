@@ -16,7 +16,7 @@ A new case of nothing to observe is a minor change, though it changes what a scr
 
 ## The collector API
 
-A collector imports one module, `prometheus.exporter`, and the loader refuses one that imports any other (see [Collector contract](../reference/collector-contract.md#what-a-collector-may-import)). That makes the API the whole of what a collector builds on in the exporter's code, beside `meta`, `collect` and the capabilities in `deps`: what it exports is what a major version protects. The modules behind it, `prometheus.exporter.result`, `.proc` and the rest, are the core's, split, renamed and changed in any release, as the core needs, because no collector can have imported them.
+A collector imports one module, `prometheus.exporter`, and the loader refuses one that imports any other (see [Collector contract](../reference/collector-contract.md#what-a-collector-may-import)). That makes the API, beside `meta`, `collect` and the capabilities in `deps`, the whole of what a collector builds on in the exporter's code. What it exports is what a major version protects. The modules behind it, `prometheus.exporter.result`, `.proc` and the rest, are the core's. Any release may split, rename or change them as the core needs, because no collector can have imported them.
 
 Without that rule, every module a collector happened to import would be a promise, and the core could not move a function without a major version, or would break a collector of someone else's package without knowing. The API lists, name by name, what is promised; the rest is free.
 
@@ -39,7 +39,7 @@ Before 1.0.0, a minor version may break any of these, and says so. The project i
 
 `PKG_VERSION` in the package Makefile is the release, `0.1.0`. `PKG_RELEASE`, the `-rN` of `0.1.0-r1`, counts changes to the packaging alone, a dependency or an install step, and starts again at 1 with each version. `ucode_prometheus_exporter_build_info{version="0.1.0-r1"}` reports both.
 
-Every collector package, group and the LuCI app depends on the base package of the very same `<version>-r<release>`. A collector runs on the exporter's internals, and the LuCI app calls its ubus methods as that release has them; allowing a mix would mean testing every combination, and supporting the ones nobody tested. So an upgrade moves every package at once.
+Every collector package, group and the LuCI app depends on the base package of the very same `<version>-r<release>`. A collector runs on the exporter's internals, and the LuCI app calls its ubus methods as that release has them. Allowing a mix would mean testing every combination, and supporting the ones nobody tested. So an upgrade moves every package at once.
 
 ## The documentation's versions
 

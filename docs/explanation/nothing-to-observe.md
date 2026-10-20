@@ -6,7 +6,11 @@ A collector can succeed, fail, or have nothing to observe. The third case exists
 
 ## The problem
 
-Install the `-full` group on an access point without DSL, or on a router whose dnsmasq someone disabled, and a scrape runs the DSL and dnsmasq collectors all the same. Before, those collectors failed: `node_scrape_collector_success 0`, every scrape, and a line in the log, every scrape. An alert on failing collectors then fires on every device that does not have everything, and gets silenced; the log fills with what the device is, rather than what went wrong; and a real failure, dnsmasq crashing on a router that runs it, looks exactly like the device that has no dnsmasq.
+Install the `-full` group on an access point without DSL, or on a router whose dnsmasq someone disabled, and a scrape runs the DSL and dnsmasq collectors all the same. Before, those collectors failed: `node_scrape_collector_success 0`, every scrape, and a line in the log, every scrape. Then:
+
+- an alert on failing collectors fires on every device that does not have everything, and gets silenced;
+- the log fills with what the device is, rather than what went wrong;
+- a real failure, dnsmasq crashing on a router that runs it, looks exactly like the device that has no dnsmasq.
 
 ## The line
 
@@ -29,9 +33,9 @@ Folding it into `node_scrape_collector_success` was the alternative. It would ke
 
 Whether a service is enabled is what rpcd's `rc` object says: `rc list` with the service's name answers whether its init script is enabled, or that there is none. rpcd reads `/etc/init.d` and `/etc/rc.d` itself, outside the exporter's jail, so the jail needs nothing more than the ubus socket it already has.
 
-A collector asks `rc` only once its own source fails. A running dnsmasq answers its own ubus call, and the scrape asks nothing more; only a call that fails costs a second one, to learn whether the failure is a failure. The exception is mwan3, whose ubus object is rpcd's own plugin, which answers whether mwan3 runs or not: there, `rc` is asked first. When `rc` cannot say, the failure stands: a failure that might not be one is still reported.
+A collector asks `rc` only once its own source fails. A running dnsmasq answers its own ubus call, and the scrape asks nothing more; only a call that fails costs a second one, to learn whether the failure is a failure. The exception is mwan3. Its ubus object is rpcd's own plugin, which answers whether mwan3 runs or not, so for mwan3 `rc` is asked first. When `rc` cannot say, the failure stands: a failure that might not be one is still reported.
 
-timesync asks procd instead: whether the instance of busybox ntpd or chronyd runs. sysntpd's init script is enabled on every image and starts ntpd only when the system's NTP client is turned on, so its enabled script says nothing; its instance does.
+timesync asks procd instead, whether the instance of busybox ntpd or chronyd runs. sysntpd's init script is enabled on every image, and starts ntpd only when the system's NTP client is turned on. So its enabled script says nothing; its instance does.
 
 ## Where to see why
 

@@ -24,9 +24,9 @@ A service keeps its own prefix, `dnsmasq_`, `wireguard_`, `unbound_`, `adguard_`
 
 ## A window's totals are gauges
 
-A counter only goes up, but for a restart, and that is what `rate()` and `increase()` rely on: a value lower than the one before is a reset, and they count what follows from zero. Some services give totals that are not counters: AdGuard Home's statistics are the queries of its last 24 hours, by default, and as the window moves an hour falls out of them, so a total falls too. Written as a counter, each fall would read as a reset, and `increase()` would count the window's whole total again, a silently wrong number that looks right.
+A counter only goes up, except across a restart, and `rate()` and `increase()` rely on that: they take a value lower than the one before as a reset, and count what follows from zero. Some services give totals that are not counters. AdGuard Home's statistics are the queries of its last 24 hours, by default. As the window moves, an hour falls out of them, so a total falls too. Written as a counter, each fall would read as a reset, and `increase()` would count the window's whole total again, a silently wrong number that looks right.
 
-So such a total is a gauge, named for what it is, `adguard_stats_dns_queries`, without `_total`, beside the length of its window, `adguard_stats_window_seconds`. A counter could be made of it only by keeping the last scrape's totals and adding the differences, and the exporter keeps nothing from one scrape to the next that a restart would lose. See [How to monitor AdGuard Home](../how-to/adguard-home.md#query-the-statistics-window) for the queries that use them as they are.
+So such a total is a gauge, named for what it is, `adguard_stats_dns_queries`, without `_total`, beside the length of its window, `adguard_stats_window_seconds`. A counter could be made of it only by keeping the last scrape's totals and adding the differences. The exporter keeps nothing from one scrape to the next that a restart would lose. See [How to monitor AdGuard Home](../how-to/adguard-home.md#query-the-statistics-window) for the queries that use them as they are.
 
 ## Modern names only
 
