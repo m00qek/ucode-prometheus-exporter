@@ -4,7 +4,7 @@ Upgrade every exporter package together. Each collector package, each group, the
 
 ## Before you upgrade
 
-Read what the new version changes. Before 1.0.0, a minor version may rename metrics or options: see [About versions](../explanation/versions.md). A renamed metric breaks every query and dashboard that uses the old name.
+Read what the new version changes. Before 0.3.0, a minor version could rename metrics or options. From 0.3.0 on, only a major version does: see [About versions](../explanation/versions.md#what-10-keeps). A renamed metric breaks every query and dashboard that uses the old name.
 
 ---
 

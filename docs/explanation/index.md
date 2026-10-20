@@ -13,5 +13,5 @@ Discussion of why the exporter is the way it is: to read away from the router, w
 | [About metric names](metric-names.md) | Operators, collector authors | node_exporter's names, the conventions, modern names only, and the build info. |
 | [Performance on small routers](performance.md) | Operators, maintainers | The cost of ucode's VM, the measurements, gzip, basic auth, and nat_traffic on weak MIPS. |
 | [About the implementation](internals.md) | Maintainers | The quirks of ucode, its modules and the kernel the code works round, and why some code is shaped as it is: for maintainers. |
-| [About versions](versions.md) | Operators, collector authors | What major, minor and patch promise, and how packages follow. |
+| [About versions](versions.md) | Operators, collector authors | What major, minor and patch promise, what 1.0 keeps from 0.3.0, and how packages follow. |
 | [About versioned documentation](versioned-docs.md) | Maintainers | Why the docs are published per minor, and how they are fixed. |
