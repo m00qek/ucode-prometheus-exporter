@@ -44,6 +44,7 @@ The loader's import scanner runs at every uhttpd start, on every module, so it r
 
 ## What the collectors read
 
+- **agh** asks for the status, then the statistics: only the status says the version, whether protection is on and whether DNS runs, and only the statistics their totals; asked at once, on the R3S, the two took AdGuard Home longer than one after the other. It parses of the statistics their totals alone, what follows the last top list: AdGuard Home writes the fields compact, in its struct's order, the totals and `dns_queries` after the top lists, and a top list's entry is a name and a number, so `,"dns_queries":[` is the field's and nothing else's. A reply that does not start with `time_units`, or whose part from `dns_queries` on lacks a total, is parsed whole.
 - **conntrack** reads the columns of `/proc/net/stat/nf_conntrack` by the names of its header line, not by position: the kernel has renamed columns (`searched` is `clashres` now), and a column it does not write leaves its statistic out.
 - **cpu** and **exporter** take `/proc` times in USER_HZ, 100 on every architecture OpenWrt builds for; exporter reads the auxiliary vector first, where it says.
 - **dhcp_leases** gives a dnsmasq lease the interface whose subnet holds its address, the most specific first, as dnsmasq picks its range; an odhcpd lease the interface whose device it serves, the first in netifd's dump when several share it. odhcpd lists every interface it serves, so those without leases have a 0; dnsmasq does not.

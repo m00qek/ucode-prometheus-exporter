@@ -40,6 +40,16 @@ function run(replies, cb, cfg) {
 	with_collector(agh, { socket: { data: { [PORT]: server(replies) } }, ...(cfg ?? {}) }, cb);
 }
 
+// JSON as AdGuard Home writes it, without a blank, its fields in the object's order.
+function compact(v) {
+	if (type(v) == 'array')
+		return '[' + join(',', map(v, compact)) + ']';
+	if (type(v) == 'object')
+		return '{' + join(',', map(keys(v), (k) => sprintf('%J', k) + ':' + compact(v[k]))) + '}';
+
+	return sprintf('%J', v);
+}
+
 function samples(lines) {
 	return filter(lines, (l) => substr(l, 0, 1) != '#');
 }
@@ -222,6 +232,44 @@ describe('collectors.agh', () => {
 		let j = jail_of(agh, {});
 
 		assert.match([ [], { rc: [ 'list' ] } ], [ j.paths, j.ubus ]);
+	});
+
+	// AdGuard Home writes its statistics' fields in its struct's order, the
+	// totals last: agh parses what follows the last top list, and the whole
+	// reply when it is not so.
+	prop('writes the same of a reply in AdGuard Home\'s order, compact, as of the same parsed whole',
+		gen.tuple(gen.int(0, 100000), gen.int(0, 1000), gen.int(0, 24), gen.elements('hours', 'days'), gen.bool(),
+			gen.elements('dns_queries', 'num_dns_queries', 'x', ',"dns_queries":[', 'avg_processing_time')), (t) => {
+			let stats = {
+				time_units: t[3],
+				top_queried_domains: [ { [t[5]]: 3 }, { 'a.example': 2 } ], top_clients: [ { [t[5]]: 1 } ], top_blocked_domains: [],
+				top_upstreams_responses: [ { '1.1.1.1:53': t[1] } ], top_upstreams_avg_time: [ { [t[5]]: 0.5 } ],
+				dns_queries: map(slice([ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24 ], 0, t[2]), (x) => x * 3),
+				blocked_filtering: [], replaced_safebrowsing: [], replaced_parental: [],
+				num_dns_queries: t[0], num_blocked_filtering: t[1], num_replaced_safebrowsing: 0, num_replaced_safesearch: 1,
+				num_replaced_parental: 2, avg_processing_time: t[1] / 1000.0,
+			};
+
+			if (t[4])
+				delete stats.num_replaced_parental;
+
+			let written = (text) => {
+				let got = null;
+
+				run({ '/control/status': STATUS, '/control/stats': OK + text }, (r) => { got = r.lines; });
+				return got;
+			};
+
+			assert.match(written(sprintf('%J', stats)), written(compact(stats)), sprintf('%J', t));
+		});
+
+	it('parses whole a compact reply with a total before the last top list', () => {
+		let rest = json_of(STATS);
+
+		delete rest.num_dns_queries;
+		run({ '/control/status': STATUS, '/control/stats': OK + compact({ time_units: 'hours', num_dns_queries: 7, ...rest }) }, (r) => {
+			assert.match([ 'adguard_stats_dns_queries 7' ], filter(r.lines, (l) => index(l, 'adguard_stats_dns_queries ') == 0));
+		});
 	});
 
 	prop('writes any totals AdGuard Home gives, as it gives them',

@@ -32,6 +32,10 @@ const CHUNKED = /\r\ntransfer-encoding:[ \t]*chunked/i;
 
 const UNITS = { hours: 3600, days: 86400 };
 
+const TIME_UNITS = /^\{"time_units":("[a-z]*"),/;
+
+const TOTALS = ',"dns_queries":[';
+
 const STATUS = [
 	[ 'running', 'adguard_running', 'Whether AdGuard Home\'s DNS server runs: 1 or 0.' ],
 	[ 'protection_enabled', 'adguard_protection_enabled', 'Whether AdGuard Home\'s protection, its filtering, is on: 1 or 0.' ],
@@ -60,7 +64,31 @@ function number(v) {
 	return (type(v) in [ 'int', 'double' ]) ? v : null;
 }
 
-function body(reply, where) {
+function parsed(text) {
+	try {
+		return json(text);
+	} catch (e) {
+		return null;
+	}
+}
+
+function totals(text) {
+	let head = match(substr(text, 0, 32), TIME_UNITS);
+	let at = head ? index(text, TOTALS) : -1;
+	let tail = (at > 0) ? parsed('{' + substr(text, at + 1)) : null;
+
+	if (type(tail) != 'object' || type(tail.dns_queries) != 'array')
+		return parsed(text);
+
+	for (let s in STATS)
+		if (!(s[0] in tail))
+			return parsed(text);
+
+	tail.time_units = json(head[1]);
+	return tail;
+}
+
+function body(reply, where, parse) {
 	let end = index(reply, '\r\n\r\n');
 	let m = (end >= 0) ? match(substr(reply, 0, end), HEAD) : null;
 
@@ -77,13 +105,7 @@ function body(reply, where) {
 	if (match(substr(reply, 0, end + 2), CHUNKED))
 		return Result.err(errors.SOURCE_INVALID, `${where}: a chunked reply to HTTP/1.0`);
 
-	let data;
-
-	try {
-		data = json(substr(reply, end + 4));
-	} catch (e) {
-		data = null;
-	}
+	let data = parse(substr(reply, end + 4));
 
 	if (type(data) != 'object')
 		return Result.err(errors.SOURCE_INVALID, `${where}: not a JSON object`);
@@ -104,20 +126,20 @@ export function collect(deps, out, options) {
 	let up = out.gauge('adguard_up', 'Whether AdGuard Home\'s HTTP API answered: 1 or 0.');
 	let host = (index(options.address, ':') >= 0) ? `[${options.address}]:${options.port}` : `${options.address}:${options.port}`;
 
-	function get(path) {
+	function get(path, parse) {
 		let res = deps.socket.tcp_request(options.address, options.port, request(path, host), TIMEOUT_MS);
 
-		return res.ok ? body(res.data, `http://${host}${path}`) : res;
+		return res.ok ? body(res.data, `http://${host}${path}`, parse) : res;
 	}
 
-	let status = get('/control/status');
+	let status = get('/control/status', parsed);
 
 	if (!status.ok && status.error == errors.SOCKET_FAILED) {
 		up(null, 0);
 		return services.unless_disabled(deps.ubus, 'adguardhome', status);
 	}
 
-	let stats = status.ok ? get('/control/stats') : status;
+	let stats = status.ok ? get('/control/stats', totals) : status;
 
 	if (!stats.ok) {
 		up(null, 0);
