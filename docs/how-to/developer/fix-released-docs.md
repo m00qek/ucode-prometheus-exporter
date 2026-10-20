@@ -1,6 +1,6 @@
 # How to Fix the Docs of the Released Version
 
-A docs fix reaches the published site through the docs branch of the newest minor, `docs/X.Y`: pushing the branch republishes `/X.Y/`. Only the newest minor gets fixes; older versions stay as they are. The examples fix `0.2`.
+A docs fix reaches the published site through the newest minor's docs branch, `docs/X.Y`. Pushing the branch republishes `/X.Y/`. Only the newest minor gets fixes, and older versions stay as they are. The examples fix `0.2`.
 
 ## Prerequisites
 
@@ -47,9 +47,9 @@ The `docs` workflow republishes `/0.2/`. Check that its `publish` job succeeded.
 
 ## If the guard refuses
 
-The message tells you which case you are in; every message is listed in [Docs-only guard](../../reference/docs-publishing.md#docs-only-guard).
+The message tells you which case you are in. [Docs-only guard](../../reference/docs-publishing.md#docs-only-guard) lists every message.
 
-- **`docs/0.2 changes files outside docs/: <files>; code fixes need a release`**: a commit on the branch changes code. If you have not pushed yet, drop it with `git reset --hard origin/docs/0.2` and cherry-pick again as in step 1. If it is already pushed, revert it and push the revert:
+- **`docs/0.2 changes files outside docs/: <files>; code fixes need a release`**: a commit on the branch changes code. If you have not pushed yet, drop the commit with `git reset --hard origin/docs/0.2`, and cherry-pick again as in step 1. If you already pushed it, revert it and push the revert:
 
     ```bash
     git revert <sha>
@@ -58,6 +58,6 @@ The message tells you which case you are in; every message is listed in [Docs-on
 
     The code fix ships with the next release.
 
-- **`v0.2.1 is not an ancestor of docs/0.2`**: a patch release was tagged and the branch has not moved to it. Move it as in [How to publish the docs of a patch release](publish-patch-docs.md#2-move-the-docs-branch-to-the-tag), then push again.
+- **`v0.2.1 is not an ancestor of docs/0.2`**: someone tagged a patch release, and the branch has not moved to it. Move it as in [How to publish the docs of a patch release](publish-patch-docs.md#2-move-the-docs-branch-to-the-tag), then push again.
 
-- **`docs/0.2 has no v0.2.* release tag`**: the tags are missing locally. Run `git fetch origin --tags`. In CI, the minor has not been released yet, and the branch should not exist.
+- **`docs/0.2 has no v0.2.* release tag`**: locally, the tags are missing: run `git fetch origin --tags`. In CI, it means the minor has not been released yet, and the branch should not exist.
