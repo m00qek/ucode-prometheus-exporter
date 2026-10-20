@@ -1,6 +1,6 @@
 # Monitor a Router with Prometheus
 
-In this tutorial we will install the exporter on an OpenWrt router, look at its metrics on the router itself, open it to the LAN, and have a Prometheus on our computer scrape it and graph the router's load and traffic. Along the way we will meet the service's `status` and `check`, which tell us what the exporter does.
+In this tutorial we will install the exporter on an OpenWrt router and look at its metrics on the router itself. Then we will open it to the LAN, and have a Prometheus on our computer scrape it and graph the router's load and traffic. Along the way we will meet the service's `status` and `check` commands, which tell us what the exporter is doing.
 
 It takes about twenty minutes.
 
@@ -15,7 +15,7 @@ If your router's address is not `192.168.1.1`, use yours wherever it appears.
 
 ## 1. Install the exporter
 
-On the router, add the feed the exporter is published in, with the key its packages are signed with, then install the package. apk fetches what it depends on from that feed and OpenWrt's own:
+On the router, add the exporter's feed and the key that signs its packages, then install the package. apk fetches the package's dependencies from that feed and from OpenWrt's own feeds:
 
 ```sh
 feed=https://m00qek.github.io/packages.ucode.dev/25.12
@@ -25,7 +25,7 @@ apk update
 apk add ucode-prometheus-exporter
 ```
 
-apk lists what it installs, and ends with `OK`. The service starts on its own. Let's ask it how it is:
+apk lists what it installs, and ends with `OK`. The service starts on its own. Let's ask it how it is doing:
 
 ```sh
 service prometheus-exporter status
@@ -65,11 +65,11 @@ node_scrape_collector_observing{collector="vmstat"} 1
 ucode_prometheus_exporter_build_info{version="0.2.0-r1"} 1
 ```
 
-Every scrape ends with what it says of itself: how long each collector took, whether it succeeded, and the exporter's version.
+Every scrape ends with metrics about the scrape itself: how long each collector took, whether it succeeded, and the exporter's version.
 
 ## 3. Open it to the LAN
 
-Our computer is on the LAN, so we have the exporter listen there:
+Our computer is on the LAN, so we make the exporter listen there:
 
 ```sh
 uci set prometheus-exporter.main.listen_interface=lan
@@ -83,7 +83,7 @@ running
 listening on http://192.168.1.1:9100/metrics, gzip when asked, serving 16 collectors
 ```
 
-The address is now the router's LAN address. From the computer, check that it answers:
+The address is now the router's LAN address. From the computer, check that the exporter answers:
 
 ```bash
 curl -s http://192.168.1.1:9100/metrics | grep '^node_load1'
@@ -114,7 +114,7 @@ docker run --rm -d --name prometheus -p 9090:9090 \
     -v "$PWD/prometheus.yml:/etc/prometheus/prometheus.yml:ro" prom/prometheus
 ```
 
-Open `http://localhost:9090/targets`. After a few seconds the `openwrt` job's target, `http://192.168.1.1:9100/metrics`, is **UP**. If it says **DOWN** with `connection refused`, the exporter is still on loopback: go back to step 3.
+Open `http://localhost:9090/targets`. After a few seconds, the `openwrt` job's target, `http://192.168.1.1:9100/metrics`, shows **UP**. If it shows **DOWN** with `connection refused`, the exporter is still on loopback: go back to step 3.
 
 ## 5. Graph the router
 
@@ -124,7 +124,7 @@ Open `http://localhost:9090/query`, type this expression, and press **Execute**:
 node_load1
 ```
 
-One series, the router's one-minute load. Switch to the **Graph** tab to see it over time.
+You see one series: the router's one-minute load. Switch to the **Graph** tab to see it over time.
 
 Now the traffic the router receives, in bytes per second, for each network device:
 
@@ -132,7 +132,7 @@ Now the traffic the router receives, in bytes per second, for each network devic
 rate(node_network_receive_bytes_total[1m])
 ```
 
-There is a series per device, labeled `device`. Give it a few minutes: `rate` needs several scrapes.
+You see one series per device, labeled `device`. Give it a few minutes: `rate` needs several scrapes.
 
 Last, ask which version runs there:
 
@@ -152,17 +152,17 @@ Back on the router:
 service prometheus-exporter check
 ```
 
-The first lines are its findings, something like:
+The first lines are its findings, something like this:
 
 ```
 ok   main: HTTP on interface lan, port 9100, keepalive 70s, exec_timeout 5s, scrape_timeout 10s, collector_budget 5s, max_samples 20000, memory_limit 64 MB (a quarter of the RAM, at most 64), gzip when asked
-ok   collectors: 15 installed collectors, their options valid
+ok   collectors: 16 installed collectors, their options valid
 ok   scrape, in the service's jail: 16 of 16 collectors succeeded
 ```
 
-Then one block per collector, with what it reads and what the service's jail gives it, and last, everything the jail mounts. Each `ok` is a check that passed; a problem would be a `warn` or `FAIL` line saying what is wrong.
+Then comes one block per collector, with what the collector reads and what the service's jail gives it. Last comes everything the jail mounts. Each `ok` is a check that passed. A problem would show as a `warn` or `FAIL` line that says what is wrong.
 
-Let's watch a collector go. Switch off `softnet`, the network softirq statistics:
+Now let's watch a collector go. Switch off `softnet`, the network softirq statistics:
 
 ```sh
 uci set prometheus-exporter.softnet=collector
@@ -174,10 +174,10 @@ service prometheus-exporter status
 
 ```
 running
-listening on http://192.168.1.1:9100/metrics, gzip when asked, serving 14 collectors
+listening on http://192.168.1.1:9100/metrics, gzip when asked, serving 15 collectors
 ```
 
-One collector fewer. In Prometheus, `node_softnet_processed_total` stops getting new samples. Switch it back on:
+It serves one collector fewer. In Prometheus, `node_softnet_processed_total` stops getting new samples. Switch it back on:
 
 ```sh
 uci delete prometheus-exporter.softnet
@@ -193,13 +193,13 @@ Stop Prometheus on the computer:
 docker stop prometheus
 ```
 
-The exporter keeps running on the router, on the LAN.
+The exporter keeps running on the router, listening on the LAN.
 
 ---
 
 ## What we did
 
-We installed the exporter, read a scrape on the router, opened it to the LAN, had Prometheus scrape it, and graphed the router's load and traffic. We asked the service for its `status` and its `check`, and saw it serve one collector fewer and then again.
+We installed the exporter, read a scrape on the router, opened the exporter to the LAN, had Prometheus scrape it, and graphed the router's load and traffic. We asked the service for its `status` and its `check`, and saw it stop serving one collector and then serve it again.
 
 ## Next
 
