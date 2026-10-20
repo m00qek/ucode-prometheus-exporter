@@ -280,6 +280,31 @@ On the AX835 itself, with the exporter it had installed (main of 2026-10-19, bef
 
 Budgets hold them in turns of the VM's loop, under 3,000, so that neither comes back: a program run is some 5,000 turns, the collection of every module 6,300.
 
+## wifi, ethtool and agh {#wifi-ethtool-agh}
+
+vmagent's averages over four hours, with main of 2026-10-19 installed: wifi took 23 ms of the AX835's scrape, where it took 15 before it asked the service's object; ethtool 97 ms of the R3S's, where it took about 60 before it wrote link modes; agh 19 ms. Each was timed apart on its device, against its own sources:
+
+- **wifi**, the AP's 2 radios and 3 interfaces. The object's `wireless` took 2.85 ms through ubus, where netifd's status had taken 0.84: it read the wireless and network configs and sysfs at every call, and wifi and hostapd_stations each call it. Each interface was a GET_INTERFACE of nl80211 (0.17 ms), a survey (1.0 to 1.6 ms, the channels of its phy) and a link of rtnetlink (0.5 to 0.77 ms in a new process: rtnl converts all the link holds, its statistics and per-family settings with it); the surveys of a phy's two interfaces are the same survey. wifi now asks nl80211 for every interface in one dump (0.3 ms), reads whether each is up in its flags in sysfs (0.08 ms), asks a phy's survey once, and writes an interface's samples to a `labels()` set; rpcd keeps the reply of `wireless` while the two configs' files and the phys are as they were. A dump of every link of rtnetlink would have cost more than the three lookups: 4.0 ms for the AP's 12 links.
+- **ethtool**, the R3S's two NICs, an stmmac of 216 statistics and an r8169 of 14. A program run under the watchdog took 5.7 ms there, where ethtool alone takes 3.5 and its shell and the watchdog's subshells the rest: six of them 34 ms, which one batch of the six takes in 17 (`run_all()`, see [About the implementation](internals.md#running-a-program)). What is left is the VM's work, a few dozen turns for each statistic and its family of one sample: its line taken apart, its name made, its family's name checked, and the line written. On the Cortex-A53, where a turn costs as much as a regex reading some 30 bytes, one regex over the listing takes half what taking each line apart did, the names of a device's new statistics are made together, and a batch of the families checks their names with one match: two stmmac ports take 95 ms where they took 105. A Wi-Fi interface is not asked its link settings, of which cfg80211 has none; a port that is down still is.
+- **agh**. `/control/stats` takes AdGuard Home 10 to 30 ms on the R3S, its top lists computed from a day of statistics, and `/control/status` 2.5 ms; parsing the 6.5 kB of statistics took 3.2 to 6 ms, where their totals alone, what follows the last top list, take 0.2. Only the status says the version, protection and whether DNS runs, and only the statistics their totals; asked at once, over two connections, the two took AdGuard Home longer than one after the other (a mean of 24 to 27 ms, against 18), and a collector keeps nothing from one scrape to the next to ask the status less often. So agh asks one, then the other, and parses the totals alone.
+
+Before (main of 2026-10-19) and after, the benchmark's large world in the devenv and on the AX835 (`make bench`, `make bench-device`), and the devices' own sources:
+
+| | devenv | YunCore AX835 | On the device |
+| :--- | :--- | :--- | :--- |
+| wifi, 3 radios of 3 networks and 200 stations | 10.4 → 10.3 ms | 127 → 126 ms | AX835's: 23.7 → 18.8 ms, with the object it has installed |
+| its requests of nl80211 and rtnetlink (`asked`) | 27 and 9 → 13 and 0 | | AX835's: 9 and 3 → 6 and 0 |
+| the object's `wireless`, and rpcd's collection (`rpcd:wireless`) | 0.2 → 0.1 ms | 2.0 → 0.8 ms | |
+| ethtool, 7 wired ports and 9 radios' interfaces | 106 → 55 ms | 615 → 452 ms | R3S's six programs: 34 → 17 ms |
+| its watchdog's runs, and programs (`asked`) | 48 and 48 → 1 and 39 | | R3S's: 6 and 6 → 1 and 6 |
+| ethtool in a typical full scrape (`scrape:full`) | 71 → 38 ms | 432 → 314 ms | |
+| a typical full scrape (`scrape:full`) | 124 → 90 ms | 956 → 840 ms | |
+| agh, a day's statistics of the router's size | 0.9 → 0.8 ms | 8.2 → 6.7 ms | R3S's parse: 3.2–6 → 0.2 ms |
+
+The worlds' netlink costs nothing to ask, so wifi takes as long there; on the AX835 itself the held reply of `wireless` saves another 1.2 ms of each of a scrape's two calls, so wifi is some 17 ms of its scrape, where it was 23. On the R3S, ethtool is some 70 ms, where it was 97: the programs' 17 ms saved, and a tenth of the VM's work. agh is some 14 to 16 ms there, where it was 19.
+
+Budgets hold them in counts, which are the same on any machine: wifi to 13 requests of nl80211 and none of rtnetlink on the large world, ethtool to one run of the watchdog for 39 programs, agh to 2 connections, and `rpcd:wireless` to no cursor of the configs for a call after another; wifi and agh in turns of the VM's loop; and agh to 128 kB where a run's peak is its own (24 to 52 kB parsing the totals, 216 to 260 the whole statistics).
+
 ## memory_limit's floor {#memory-floor}
 
 `memory_limit` limits each of uhttpd's processes (RLIMIT_DATA): the one that loads the handler and the collectors, each request's, and the child its collectors run in. Under too little, uhttpd does not load the handler, and procd starts it again and again; a scrape, or a collector, runs out. The least it takes is 8 MB (MEMORY_LIMIT_MIN), which the config refuses less than. `make bench`'s `floor:` cases find the least limit, in whole MB, under which uhttpd loads the handler with a set's collectors and the typical world's scrape of them has every collector succeed:
@@ -307,7 +332,7 @@ What a collector adds to what uhttpd holds (compiled with the collector API, in 
 | diskstats | 24 kB | 1.8 ms | 46.2 ms | 17.9 ms |
 | dnsmasq | 16 kB | 0.7 ms | 17.3 ms | 6.6 ms |
 | entropy | 12 kB | 0.4 ms | 6.9 ms | 3.5 ms |
-| ethtool | 52 kB | 93.5 ms | 1387 ms | 594 ms |
+| ethtool | 52 kB | 54.5 ms | 1387 ms | 452 ms |
 | exporter | 36 kB | 0.8 ms | 14.0 ms | 6.4 ms |
 | filefd | 8 kB | 0.3 ms | 6.9 ms | 3.1 ms |
 | filesystem | 28 kB | 0.8 ms | 20.1 ms | 7.5 ms |
@@ -339,7 +364,7 @@ What a collector adds to what uhttpd holds (compiled with the collector API, in 
 | nat_traffic, 1,000 connections | 12 kB | 8.1 ms | 308 ms | 110 ms |
 | nat_traffic, 20,000 connections | 12 kB | 142 ms | 5609 ms | 1953 ms |
 
-The collector API they share holds 110 kB more, once. On a slow router, the time of a collector that reads a table is that of the table: nat_traffic's, dhcp_leases' leases, ethtool's ports (it runs `ethtool` three times a port), textfile's files. Some packages bring programs that take flash too: ethtool's `ethtool` (72 KiB on mipsel), qdisc's `tc-tiny` and `kmod-sched-core` (279 and 172 KiB). See [How to run the exporter on a small device](../how-to/small-device.md).
+The collector API they share holds 110 kB more, once. On a slow router, the time of a collector that reads a table is that of the table: nat_traffic's, dhcp_leases' leases, ethtool's ports (`ethtool -S`, `-i` and the link settings of each, all in one batch: QEMU's time is from before the batch, see [wifi, ethtool and agh](#wifi-ethtool-agh)), textfile's files. Some packages bring programs that take flash too: ethtool's `ethtool` (72 KiB on mipsel), qdisc's `tc-tiny` and `kmod-sched-core` (279 and 172 KiB). See [How to run the exporter on a small device](../how-to/small-device.md).
 
 ## Loading {#loading}
 
