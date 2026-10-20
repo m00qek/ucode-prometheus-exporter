@@ -1,6 +1,6 @@
 # How to Monitor Unbound
 
-The unbound collector reads Unbound's statistics from its control socket, a Unix socket. OpenWrt's unbound package makes none: you turn it on, at the path the collector looks for.
+The unbound collector reads Unbound's statistics from its control socket, a Unix socket. OpenWrt's unbound package does not create one, so you turn it on, at the path the collector looks for.
 
 ## Prerequisites
 
@@ -19,13 +19,13 @@ remote-control:
 	control-interface: /var/lib/unbound/unbound.ctl
 ```
 
-and restart Unbound:
+Then restart Unbound:
 
 ```sh
 service unbound restart
 ```
 
-`/var/lib/unbound` is the directory the package makes for Unbound alone; Unbound makes the socket there when it starts.
+The package creates `/var/lib/unbound` for Unbound alone. Unbound creates the socket there when it starts.
 
 ## 2. Check it
 
@@ -34,7 +34,7 @@ ls -l /var/lib/unbound/unbound.ctl
 prometheus-exporter scrape unbound | grep unbound_queries_total
 ```
 
-The service mounts the socket's directory in its jail. At boot Unbound starts after the exporter: the directory is mounted a few seconds after Unbound makes it, and the first scrapes until then fail. `check` warns of it meanwhile:
+The service mounts the socket's directory in its jail. At boot, Unbound starts after the exporter. The service mounts the directory a few seconds after Unbound creates it, and the scrapes before that fail. Until then, `check` warns:
 
 ```
 warn jail: unbound: /var/lib/unbound is not there; the service mounts it once it is
@@ -44,7 +44,14 @@ warn jail: unbound: /var/lib/unbound is not there; the service mounts it once it
 
 ## Extended statistics
 
-Unbound counts more with `extended-statistics: yes`: the queries by type, class, opcode, header flag and transport, the answers by rcode and DNSSEC result, the caches' entries and memory, the modules' memory, and a histogram of the recursion times. OpenWrt's package writes it from the UCI option `extended_stats`:
+With `extended-statistics: yes`, Unbound counts more:
+
+- the queries by type, class, opcode, header flag and transport
+- the answers by rcode and DNSSEC result
+- the caches' entries and memory, and the modules' memory
+- a histogram of the recursion times
+
+OpenWrt's package sets it from the UCI option `extended_stats`:
 
 ```sh
 uci set unbound.ub_main.extended_stats=1
@@ -52,11 +59,11 @@ uci commit unbound
 service unbound restart
 ```
 
-The collector writes them as [letsencrypt/unbound_exporter](https://github.com/letsencrypt/unbound_exporter) names them, `unbound_query_types_total{type}`, `unbound_answer_rcodes_total{rcode}`, `unbound_response_time_seconds` and the rest, once the reply has them; see [Metrics](../reference/metrics.md#unbound). Unbound leaves out a type, class or opcode no query has had yet, so their series come as the queries do. Keeping the counts costs Unbound some time per query, which is why the package leaves them off.
+Once the reply has them, the collector writes them with [letsencrypt/unbound_exporter](https://github.com/letsencrypt/unbound_exporter)'s names: `unbound_query_types_total{type}`, `unbound_answer_rcodes_total{rcode}`, `unbound_response_time_seconds` and the rest. See [Metrics](../reference/metrics.md#unbound). Keeping these counts costs Unbound some time per query, which is why the package leaves them off.
 
-The collector leaves out what unbound_exporter does not export: the memory of the stream and HTTP buffers (`mem.streamwait`, `mem.http.*`) and the caches' lock collisions (`*.max_collisions`). It also leaves out every DNSCrypt statistic of an Unbound built with DNSCrypt, `mem.cache.dnscrypt_*` among them, which unbound_exporter would write as two more caches.
+Unbound leaves out a query type, class, opcode or rcode that no query has had yet (`stat_inhibit_zero`). Those series appear as the queries arrive.
 
-Unbound leaves out a query type, class, opcode or rcode no query had (`stat_inhibit_zero`): those series appear as the queries do.
+The collector leaves out what unbound_exporter does not export: the memory of the stream and HTTP buffers (`mem.streamwait`, `mem.http.*`) and the caches' lock collisions (`*.max_collisions`). For an Unbound built with DNSCrypt, it also leaves out every DNSCrypt statistic, including `mem.cache.dnscrypt_*`, which unbound_exporter would write as two more caches.
 
 ## Use another socket
 
@@ -69,9 +76,9 @@ uci commit prometheus-exporter
 service prometheus-exporter reload
 ```
 
-The jail mounts the socket's directory, never the socket. That directory must be Unbound's own: one every service shares, such as `/run` or `/var/run`, is refused, and the collector cannot reach the socket there.
+The jail mounts the socket's directory, never the socket itself. That directory must be Unbound's own. The service refuses a directory that every service shares, such as `/run` or `/var/run`, and the collector then cannot reach the socket.
 
-The jail then also holds what else is in that directory: in `/var/lib/unbound`, Unbound's generated config and `root.key`, and the TLS keys of `unbound-control` if its setup made them, all read-only.
+The jail also holds everything else in that directory, read-only. In `/var/lib/unbound`, that is Unbound's generated config and `root.key`, and the TLS keys of `unbound-control` if its setup created them.
 
 ## If it fails
 
