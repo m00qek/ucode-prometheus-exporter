@@ -714,8 +714,9 @@ msgstr ""
 
 #: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/status.js:193
 msgid ""
-"The test run is not the service's: it runs outside the service's jail and "
-"without its deadline, so its results can differ from what Prometheus gets."
+"The test run is not the service's: it is a scrape of its own, in a jail like "
+"the service's and with the same deadline, so its results can differ from "
+"what Prometheus gets."
 msgstr ""
 
 #: applications/luci-app-prometheus-exporter/htdocs/luci-static/resources/view/prometheus-exporter/settings.js:110

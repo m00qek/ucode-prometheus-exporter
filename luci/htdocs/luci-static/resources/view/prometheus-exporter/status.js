@@ -190,7 +190,7 @@ return view.extend({
 			E('h2', { 'name': 'content' }, [ _('Prometheus exporter') ]),
 			E('div', { 'class': 'cbi-map-descr' }, [
 				_('This page runs each enabled collector once, when it opens and on Refresh: a test run on the router.'), ' ',
-				_('The test run is not the service\'s: it runs outside the service\'s jail and without its deadline, so its results can differ from what Prometheus gets.'), ' ',
+				_('The test run is not the service\'s: it is a scrape of its own, in a jail like the service\'s and with the same deadline, so its results can differ from what Prometheus gets.'), ' ',
 				...fill(_('The settings are under %s.'), link('admin/services/prometheus-exporter', _('Services → Prometheus exporter')))
 			]),
 			E('div', { 'class': 'cbi-page-actions', 'style': 'text-align:left' }, [
