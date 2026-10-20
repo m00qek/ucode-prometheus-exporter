@@ -7,6 +7,7 @@ The code carries no explanatory comments (see [How to write documentation](../ho
 ## ucode
 
 - **Numbers.** ucode converts a string with no digit before its point, such as `'.5'`, to NaN. So the deadline puts a `0` in front before it converts the scraper's timeout header.
+- **Object keys.** An object's key ends at its first NUL byte, so `o['b\0x']` finds `o.b`. So the recorder looks a family up by its name, and then compares the name it found with the one it was given.
 - **Closures.** A closure made in a loop body sees the loop variable's last value. So the guard of a collector's top level makes each trap in a function of its own.
 - **Modules.** `require()` cannot load an ES module, but a program that imports one can, so modules are loaded with `loadstring("import * as m from '…'; return m;")`. Each such program compiles its own copy of every module it imports, so collectors do not share `prometheus.exporter.result`. A Result is therefore known by a mark on its prototype, never by identity, so that `Result.is()` holds whichever copy made it.
 - **uloop.** It keeps the callbacks of every task it ran, and what they hold, for as long as the process lives. So a forked child's task drops what it holds once it is done.

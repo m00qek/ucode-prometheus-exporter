@@ -134,6 +134,29 @@ describe('exposition.recorder, refusing what Prometheus refuses a scrape for', (
 			refused((out) => out.batch('counter', [ [ 'ok', null, 1 ], [ 'g\0', null, 1 ] ])));
 	});
 
+	// A family declared again is looked up by its name, without the match.
+	// An object's key ends at a NUL byte, so 'g\0x' finds the family 'g'.
+	it('stops at a NUL byte in a family\'s name, though the name before it was declared', () => {
+		for (let t in [ 'gauge', 'counter' ])
+			assert.match([ exposition.INVALID, { family: 'g\\0x', label: null, why: 'its name holds a NUL byte' } ],
+				refused(function(out) {
+					out.gauge('g')(null, 1);
+					out[t]('g\0x')(null, 2);
+				}), t);
+	});
+
+	it('takes a family declared again as the same family, its name checked once', () => {
+		let out = exposition.recorder();
+
+		out.gauge('a-b', 'First.')(null, 1);
+		out.gauge('a_b')(null, 2);
+		out.gauge('a-b', 'Second.')(null, 3);
+		out.counter('a_b')(null, 4);
+
+		assert.match([ [ { name: 'a_b', type: 'gauge', help: 'First.', lines: [ 'a_b 1', 'a_b 2', 'a_b 3' ], values: [] } ], [ 'a_b' ] ],
+			[ out.families(), out.conflicts() ]);
+	});
+
 	// Prometheus adds the family's own __name__, and refuses a scrape with
 	// a label set that names one twice.
 	it('stops at a label name Prometheus reserves, as it is or once sanitized', () => {

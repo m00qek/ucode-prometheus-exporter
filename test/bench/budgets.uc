@@ -176,7 +176,12 @@ const HANDLER_SHARE = { 'typical/handler:base': 1.3, 'typical/handler:full': 0.6
 // With each value and name checked for a NUL byte and a reserved name too,
 // eight runs in the devenv gave 2.64 to 2.99 and 3.32 to 3.78: a tenth over
 // the most, and still under what label_text() for each sample costs.
-const RECORD_FACTOR = { 'typical/record:labels': 3.3, 'typical/record:double': 4.2 };
+// A family declared again for each sample (again), found by its name with a
+// lookup: measured 2.4 in the devenv and 2.2 on a Cortex-A53, where its name
+// matched against the format's at each declaration made it 3.0. A family of
+// one sample (family), its name and HELP text checked once and its text
+// written with one push: 5.8 to 6.5, where it was 6.2 to 6.6.
+const RECORD_FACTOR = { 'typical/record:labels': 3.3, 'typical/record:double': 4.2, 'typical/record:again': 2.7, 'typical/record:family': 7.5 };
 
 // What a scrape may cost for each collector besides it (noop:), in seconds:
 // its settings, its start and its run in the file the child process writes

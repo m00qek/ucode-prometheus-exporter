@@ -150,13 +150,23 @@ export function recorder(max) {
 	}
 
 	function family(name, mtype, help) {
-		named(name);
-		name = METRIC_NAMES[name] ?? ((type(name) == 'string' && match(name, METRIC_NAME)) ? name : sanitize(name));
+		let s = (type(name) == 'string');
+		let target = s ? set.by_name[name] : null;
 
-		let target = set.by_name[name];
+		if (!target || target.name != name) {
+			target = null;
+			if (!s || index(name, '\0') >= 0 || !match(name, METRIC_NAME)) {
+				named(name);
+				name = METRIC_NAMES[name] ?? sanitize(name);
+				target = set.by_name[name];
+			}
+		}
 
 		if (!target) {
-			target = set.by_name[name] = { name, type: mtype, help: help_of(name, help), lines: [], values: [] };
+			if (type(help) == 'string' && (index(help, '\0') >= 0 || match(help, HIGH_BYTE)))
+				help_of(name, help);
+
+			target = set.by_name[name] = { name, type: mtype, help, lines: [], values: [] };
 			push(set.list, target);
 		} else if (target.type != mtype) {
 			push(conflicts, name);
@@ -332,18 +342,13 @@ export function recorder(max) {
 	};
 };
 
-/**
- * The text of families as a recorder keeps them, or as parse() gives them.
- *
- * @param {(RecordedFamily|Family)[]} families the families.
- * @param {?{ omit_zero_counters: ?boolean }} opts the options; null for none.
- * @returns {string} the text, each line ended by a newline; '' for none.
- */
-export function render(families, opts) {
-	let parts = [];
-	let omit = opts?.omit_zero_counters;
-
+function render_into(parts, names, families, omit) {
 	for (let fam in families) {
+		let name = fam.name;
+
+		if (names)
+			push(names, name);
+
 		let lines = fam.lines ?? map(fam.samples, sample_line);
 
 		if (omit && fam.type == 'counter') {
@@ -357,18 +362,35 @@ export function render(families, opts) {
 			lines = kept;
 		}
 
-		if (!length(lines))
+		let n = length(lines);
+
+		if (!n)
 			continue;
 
 		let help = fam.help;
+		let body = (n == 1) ? lines[0] : join('\n', lines);
 
-		if (help && (type(help) != 'string' || index(help, '\\') >= 0 || index(help, '\n') >= 0))
-			push(parts, header(fam), join('\n', lines));
+		if (!help)
+			push(parts, '# TYPE ', name, ' ', fam.type, '\n', body, '\n');
+		else if (type(help) != 'string' || index(help, '\\') >= 0 || index(help, '\n') >= 0)
+			push(parts, header(fam), '\n', body, '\n');
 		else
-			push(parts, (help ? '# HELP ' + fam.name + ' ' + help + '\n# TYPE ' : '# TYPE ') + fam.name + ' ' + fam.type, join('\n', lines));
+			push(parts, '# HELP ', name, ' ', help, '\n# TYPE ', name, ' ', fam.type, '\n', body, '\n');
 	}
+}
 
-	return length(parts) ? join('\n', parts) + '\n' : '';
+/**
+ * The text of families as a recorder keeps them, or as parse() gives them.
+ *
+ * @param {(RecordedFamily|Family)[]} families the families.
+ * @param {?{ omit_zero_counters: ?boolean }} opts the options; null for none.
+ * @returns {string} the text, each line ended by a newline; '' for none.
+ */
+export function render(families, opts) {
+	let parts = [];
+
+	render_into(parts, null, families, opts?.omit_zero_counters);
+	return join('', parts);
 };
 
 /**
@@ -380,9 +402,8 @@ export function render(families, opts) {
  */
 export function pack(families, omit) {
 	let names = [];
+	let parts = [];
 
-	for (let f in families)
-		push(names, f.name);
-
-	return { families: names, text: render(families, { omit_zero_counters: omit }) };
+	render_into(parts, names, families, omit);
+	return { families: names, text: join('', parts) };
 };

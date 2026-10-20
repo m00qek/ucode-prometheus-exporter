@@ -120,7 +120,7 @@ for (let c in [ 'md5', `sha512@${auth.HASH_ROUNDS}`, `sha256@${auth.ROUNDS_MAX}`
 push(cases, [ 'typical', 'ledger:full' ]);
 for (let n in budgets.NOOP)
 	push(cases, [ 'typical', `noop:${n}` ]);
-for (let shape in [ 'labels', 'double', 'family', 'made' ])
+for (let shape in [ 'labels', 'double', 'family', 'made', 'again' ])
 	push(cases, [ 'typical', `record:${shape}` ]);
 push(cases, [ 'large', `deadline:full@${max(...json(fs.readfile(`${args.worlds}/large/world.json`)).sizes.conntrack_scaling)}` ]);
 

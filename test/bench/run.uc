@@ -48,7 +48,8 @@
 //                             process: what a scrape costs for each collector besides it
 //   record:<shape>            samples of one shape recorded and their text written: labels
 //                             (two, of an object each), double (the same, a double value),
-//                             made (one labels() set), 20,000 of each; family (a family each),
+//                             made (one labels() set), again (the same, its family declared
+//                             again for each sample), 20,000 of each; family (a family each),
 //                             2,000
 //
 // A set is one named in WORLD/../sets.json: base, full (base and the -full group).
@@ -598,6 +599,13 @@ if (kind == 'calibrate') {
 
 		for (let p in pairs)
 			g(l, p[2]);
+	} else if (arg == 'again') {
+		// A family declared in a loop, a sample each time, as a collector
+		// declares a device's statistic for each device.
+		let l = rec.labels({ device: 'eth0' });
+
+		for (let p in pairs)
+			rec.counter('node_network_receive_bytes_total', 'Network device statistic receive_bytes.')(l, p[2]);
 	} else {
 		die(`unknown record:${arg}`);
 	}

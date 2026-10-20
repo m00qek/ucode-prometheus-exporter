@@ -395,6 +395,24 @@ Budgets hold them in counts, which are the same on any machine:
 
 Budgets also hold wifi and agh in turns of the VM's loop, and agh to 128 kB where a run's peak is its own (24 to 52 kB parsing the totals, 216 to 260 parsing the whole statistics).
 
+## Outside the collectors, leaner {#leaner}
+
+On the YunCore AX835, a scrape of the access point's 21 collectors took about 191 ms, and the collectors' own durations 127 ms of it. The rest was the exporter's own work: recording each family, setting up each collector, the pages the child copies, the ledger, and checking each run's text. This pass took each of those on in turn. Before is main of 2026-10-20 (`make bench`, and `make bench-device` on the AX835).
+
+**A family.** A family's name was matched against the format's at each declaration, also when the collector declared it again, as one does in a loop over its devices. Now:
+
+- A family declared again is found by its name with a lookup, and its name is not checked again. An object's key ends at a NUL byte, so the lookup also compares the name it found (see [About the implementation](internals.md#ucode)).
+- A new family's name is checked with one match and an `index()` for a NUL byte, without a call.
+- Its HELP text is read further only when it holds a NUL byte or a byte past ASCII.
+- Its text is written with one push, and a family of one line without a join.
+
+| | devenv | YunCore AX835 |
+| :--- | :--- | :--- |
+| a family of a sample (`record:family`) | 14.6 → 13.1 µs | 175 → 163 µs |
+| a family declared again for each sample (`record:again`) | 6.6 → 5.1 µs | 85.7 → 62.7 µs |
+
+A budget holds a family declared again to 2.7 times a sample of a `labels()` set, on any machine: it is 2.2 to 2.4 now, and was 3.0.
+
 ## memory_limit's floor {#memory-floor}
 
 `memory_limit` limits each of uhttpd's processes (RLIMIT_DATA): the one that loads the handler and the collectors, each request's, and the child its collectors run in. With too little, uhttpd does not load the handler, and procd starts it again and again; or a scrape, or a collector, runs out. The least it takes is 8 MB (MEMORY_LIMIT_MIN), and the config refuses less. `make bench`'s `floor:` cases find the least limit, in whole MB, under which uhttpd loads the handler with a set's collectors and the typical world's scrape of them has every collector succeed:
