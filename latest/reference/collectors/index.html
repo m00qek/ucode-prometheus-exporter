@@ -1,0 +1,5571 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Metrics of OpenWrt for Prometheus, written in ucode and served by uhttpd.">
+      
+      
+      
+        <link rel="canonical" href="https://m00qek.github.io/ucode-prometheus-exporter/latest/reference/collectors/">
+      
+      
+        <link rel="prev" href="../">
+      
+      
+        <link rel="next" href="../metrics/">
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.5.3, mkdocs-material-9.5.17">
+    
+    
+      
+        <title>Collectors - ucode-prometheus-exporter</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.bcfcd587.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="deep-orange" data-md-color-accent="deep-orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#collectors" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+          <aside class="md-banner md-banner--warning">
+            <div class="md-banner__inner md-grid md-typeset">
+              
+  You are reading the documentation of an older release.
+  <a href="../../.."><strong>Go to the latest.</strong></a>
+
+            </div>
+            <script>var el=document.querySelector("[data-md-component=outdated]"),outdated=__md_get("__outdated",sessionStorage);!0===outdated&&el&&(el.hidden=!1)</script>
+          </aside>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="ucode-prometheus-exporter" class="md-header__button md-logo" aria-label="ucode-prometheus-exporter" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            ucode-prometheus-exporter
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Collectors
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="deep-orange" data-md-color-accent="deep-orange"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="deep-orange" data-md-color-accent="deep-orange"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12c0-2.42-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var media,input,key,value,palette=__md_get("__palette");if(palette&&palette.color){"(prefers-color-scheme)"===palette.color.media&&(media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']"),palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent"));for([key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/m00qek/ucode-prometheus-exporter" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    m00qek/ucode-prometheus-exporter
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+    
+  
+  Welcome
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../tutorials/" class="md-tabs__link">
+          
+  
+  Tutorials
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../how-to/" class="md-tabs__link">
+          
+  
+  How-to Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../explanation/" class="md-tabs__link">
+          
+  
+  Explanation
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="ucode-prometheus-exporter" class="md-nav__button md-logo" aria-label="ucode-prometheus-exporter" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    ucode-prometheus-exporter
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/m00qek/ucode-prometheus-exporter" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    m00qek/ucode-prometheus-exporter
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Welcome
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Tutorials
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Tutorials
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/monitor-a-router/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Monitor a Router with Prometheus
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/first-collector/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Write Your First Collector
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    How-to Guides
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            How-to Guides
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Operators
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_2">
+            <span class="md-nav__icon md-icon"></span>
+            Operators
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/install/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Installing the Exporter
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/upgrade/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Upgrading the Exporter
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/uninstall/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Removing the Exporter
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/migrate-from-feed/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Moving from the Feed's Exporters
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/choose-collectors/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Choosing Collectors
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/small-device/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Running on a Small Device
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/listen-on-lan/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Listening on the LAN
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/https-basic-auth/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Serving HTTPS with Basic Auth
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/gzip/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Compressing Scrapes
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/exec-timeout/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Giving Programs More Time
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/collector-options/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Setting a Collector's Options
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/textfile/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Publishing Metrics from Scripts
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/push-metrics/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Pushing Metrics from the Router
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/dashboards-and-alerts/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Monitoring with the Bundled Dashboards and Alerts
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/unbound/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Monitoring Unbound
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/adguard-home/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Monitoring AdGuard Home
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/chrony/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Monitoring chrony
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/sqm-cake/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Monitoring SQM and CAKE
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/luci/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Using the LuCI App
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/troubleshoot/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Troubleshooting
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Collector Authors
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            Collector Authors
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/collector-package/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Writing a Collector in Your Own Package
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_4" id="__nav_3_4_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Maintainers
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_4">
+            <span class="md-nav__icon md-icon"></span>
+            Maintainers
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/testing/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Running the Tests
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/lab/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Using the Lab
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/benchmarks/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Running the Benchmark
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/fixtures/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Capturing Fixtures from a Device
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/package-collector/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Packaging a Collector
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/translations/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Updating the Translation Template
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/documentation/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Writing Documentation
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_4_8" id="__nav_3_4_8_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Publishing the Documentation
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_4_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_4_8">
+            <span class="md-nav__icon md-icon"></span>
+            Publishing the Documentation
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/setup-docs-publishing/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Setting Up Publishing
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/publish-minor-docs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Publishing a New Minor Release
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/publish-patch-docs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Publishing a Patch Release
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/fix-released-docs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Fixing the Released Docs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/republish-docs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Republishing a Version
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/publish-to-feed/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Publishing a Release to the Package Feed
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Reference
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            Reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Collectors
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    Collectors
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#packages" class="md-nav__link">
+    <span class="md-ellipsis">
+      Packages
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#nothing-to-observe" class="md-nav__link">
+    <span class="md-ellipsis">
+      Nothing to observe
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#agh" class="md-nav__link">
+    <span class="md-ellipsis">
+      agh
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#bmx7" class="md-nav__link">
+    <span class="md-ellipsis">
+      bmx7
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#chrony" class="md-nav__link">
+    <span class="md-ellipsis">
+      chrony
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conntrack" class="md-nav__link">
+    <span class="md-ellipsis">
+      conntrack
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cpu" class="md-nav__link">
+    <span class="md-ellipsis">
+      cpu
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dawn" class="md-nav__link">
+    <span class="md-ellipsis">
+      dawn
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dhcp_leases" class="md-nav__link">
+    <span class="md-ellipsis">
+      dhcp_leases
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#diskstats" class="md-nav__link">
+    <span class="md-ellipsis">
+      diskstats
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dnsmasq" class="md-nav__link">
+    <span class="md-ellipsis">
+      dnsmasq
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#entropy" class="md-nav__link">
+    <span class="md-ellipsis">
+      entropy
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ethtool" class="md-nav__link">
+    <span class="md-ellipsis">
+      ethtool
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#exporter" class="md-nav__link">
+    <span class="md-ellipsis">
+      exporter
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#filefd" class="md-nav__link">
+    <span class="md-ellipsis">
+      filefd
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#filesystem" class="md-nav__link">
+    <span class="md-ellipsis">
+      filesystem
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hostapd_stations" class="md-nav__link">
+    <span class="md-ellipsis">
+      hostapd_stations
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hostapd_ubus_stations" class="md-nav__link">
+    <span class="md-ellipsis">
+      hostapd_ubus_stations
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hwmon" class="md-nav__link">
+    <span class="md-ellipsis">
+      hwmon
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#interrupts" class="md-nav__link">
+    <span class="md-ellipsis">
+      interrupts
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#loadavg" class="md-nav__link">
+    <span class="md-ellipsis">
+      loadavg
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ltq-dsl" class="md-nav__link">
+    <span class="md-ellipsis">
+      ltq-dsl
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#meminfo" class="md-nav__link">
+    <span class="md-ellipsis">
+      meminfo
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mmc" class="md-nav__link">
+    <span class="md-ellipsis">
+      mmc
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#modemmanager" class="md-nav__link">
+    <span class="md-ellipsis">
+      modemmanager
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mwan3" class="md-nav__link">
+    <span class="md-ellipsis">
+      mwan3
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#nat_traffic" class="md-nav__link">
+    <span class="md-ellipsis">
+      nat_traffic
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#netclass" class="md-nav__link">
+    <span class="md-ellipsis">
+      netclass
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#netdev" class="md-nav__link">
+    <span class="md-ellipsis">
+      netdev
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#netstat" class="md-nav__link">
+    <span class="md-ellipsis">
+      netstat
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#nft-counters" class="md-nav__link">
+    <span class="md-ellipsis">
+      nft-counters
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#openwrt" class="md-nav__link">
+    <span class="md-ellipsis">
+      openwrt
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#openwrt_interfaces" class="md-nav__link">
+    <span class="md-ellipsis">
+      openwrt_interfaces
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pressure" class="md-nav__link">
+    <span class="md-ellipsis">
+      pressure
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#qdisc" class="md-nav__link">
+    <span class="md-ellipsis">
+      qdisc
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#realtek-poe" class="md-nav__link">
+    <span class="md-ellipsis">
+      realtek-poe
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#selinux" class="md-nav__link">
+    <span class="md-ellipsis">
+      selinux
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#snmp6" class="md-nav__link">
+    <span class="md-ellipsis">
+      snmp6
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sockstat" class="md-nav__link">
+    <span class="md-ellipsis">
+      sockstat
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#softnet" class="md-nav__link">
+    <span class="md-ellipsis">
+      softnet
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#textfile" class="md-nav__link">
+    <span class="md-ellipsis">
+      textfile
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#thermal" class="md-nav__link">
+    <span class="md-ellipsis">
+      thermal
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#time" class="md-nav__link">
+    <span class="md-ellipsis">
+      time
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#timesync" class="md-nav__link">
+    <span class="md-ellipsis">
+      timesync
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ubnt-manager" class="md-nav__link">
+    <span class="md-ellipsis">
+      ubnt-manager
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#uci_dhcp_host" class="md-nav__link">
+    <span class="md-ellipsis">
+      uci_dhcp_host
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#uname" class="md-nav__link">
+    <span class="md-ellipsis">
+      uname
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#unbound" class="md-nav__link">
+    <span class="md-ellipsis">
+      unbound
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#vmstat" class="md-nav__link">
+    <span class="md-ellipsis">
+      vmstat
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#wifi" class="md-nav__link">
+    <span class="md-ellipsis">
+      wifi
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#wireguard" class="md-nav__link">
+    <span class="md-ellipsis">
+      wireguard
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../metrics/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Metrics
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../metrics/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Renamed Metrics
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../migration/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Migrate from prometheus-node-exporter-lua/-ucode
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../uci-config/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    UCI Configuration
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../service-commands/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Service Commands
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../command/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    The prometheus-exporter Command
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../http/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    HTTP Endpoint
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ubus/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ubus Object
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../luci/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    LuCI App
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../jail/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    The Jail
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../collector-interface/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Collector Interface
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../collector-contract/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Collector Contract
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../devkit/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    The Devkit
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../log-messages/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Log Messages
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../error-codes/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Error Codes
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../files/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Files and Packages
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../make-targets/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Make Targets
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../docs-publishing/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Documentation Publishing
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Explanation
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            Explanation
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/about/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    About the Exporter
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/architecture/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Architecture
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/security/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Security Model
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/nothing-to-observe/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Nothing to Observe
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/deadlines-and-breakers/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Deadlines and Circuit Breakers
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/when-a-collector-breaks/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    When a Collector Breaks
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/metric-names/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Metric Names
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/performance/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Performance on Small Routers
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/internals/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    About the Implementation
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/versions/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    About Versions
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/versioned-docs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    About Versioned Documentation
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#packages" class="md-nav__link">
+    <span class="md-ellipsis">
+      Packages
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#nothing-to-observe" class="md-nav__link">
+    <span class="md-ellipsis">
+      Nothing to observe
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#agh" class="md-nav__link">
+    <span class="md-ellipsis">
+      agh
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#bmx7" class="md-nav__link">
+    <span class="md-ellipsis">
+      bmx7
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#chrony" class="md-nav__link">
+    <span class="md-ellipsis">
+      chrony
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conntrack" class="md-nav__link">
+    <span class="md-ellipsis">
+      conntrack
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cpu" class="md-nav__link">
+    <span class="md-ellipsis">
+      cpu
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dawn" class="md-nav__link">
+    <span class="md-ellipsis">
+      dawn
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dhcp_leases" class="md-nav__link">
+    <span class="md-ellipsis">
+      dhcp_leases
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#diskstats" class="md-nav__link">
+    <span class="md-ellipsis">
+      diskstats
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dnsmasq" class="md-nav__link">
+    <span class="md-ellipsis">
+      dnsmasq
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#entropy" class="md-nav__link">
+    <span class="md-ellipsis">
+      entropy
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ethtool" class="md-nav__link">
+    <span class="md-ellipsis">
+      ethtool
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#exporter" class="md-nav__link">
+    <span class="md-ellipsis">
+      exporter
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#filefd" class="md-nav__link">
+    <span class="md-ellipsis">
+      filefd
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#filesystem" class="md-nav__link">
+    <span class="md-ellipsis">
+      filesystem
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hostapd_stations" class="md-nav__link">
+    <span class="md-ellipsis">
+      hostapd_stations
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hostapd_ubus_stations" class="md-nav__link">
+    <span class="md-ellipsis">
+      hostapd_ubus_stations
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hwmon" class="md-nav__link">
+    <span class="md-ellipsis">
+      hwmon
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#interrupts" class="md-nav__link">
+    <span class="md-ellipsis">
+      interrupts
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#loadavg" class="md-nav__link">
+    <span class="md-ellipsis">
+      loadavg
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ltq-dsl" class="md-nav__link">
+    <span class="md-ellipsis">
+      ltq-dsl
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#meminfo" class="md-nav__link">
+    <span class="md-ellipsis">
+      meminfo
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mmc" class="md-nav__link">
+    <span class="md-ellipsis">
+      mmc
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#modemmanager" class="md-nav__link">
+    <span class="md-ellipsis">
+      modemmanager
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#mwan3" class="md-nav__link">
+    <span class="md-ellipsis">
+      mwan3
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#nat_traffic" class="md-nav__link">
+    <span class="md-ellipsis">
+      nat_traffic
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#netclass" class="md-nav__link">
+    <span class="md-ellipsis">
+      netclass
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#netdev" class="md-nav__link">
+    <span class="md-ellipsis">
+      netdev
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#netstat" class="md-nav__link">
+    <span class="md-ellipsis">
+      netstat
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#nft-counters" class="md-nav__link">
+    <span class="md-ellipsis">
+      nft-counters
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#openwrt" class="md-nav__link">
+    <span class="md-ellipsis">
+      openwrt
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#openwrt_interfaces" class="md-nav__link">
+    <span class="md-ellipsis">
+      openwrt_interfaces
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pressure" class="md-nav__link">
+    <span class="md-ellipsis">
+      pressure
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#qdisc" class="md-nav__link">
+    <span class="md-ellipsis">
+      qdisc
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#realtek-poe" class="md-nav__link">
+    <span class="md-ellipsis">
+      realtek-poe
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#selinux" class="md-nav__link">
+    <span class="md-ellipsis">
+      selinux
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#snmp6" class="md-nav__link">
+    <span class="md-ellipsis">
+      snmp6
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sockstat" class="md-nav__link">
+    <span class="md-ellipsis">
+      sockstat
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#softnet" class="md-nav__link">
+    <span class="md-ellipsis">
+      softnet
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#textfile" class="md-nav__link">
+    <span class="md-ellipsis">
+      textfile
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#thermal" class="md-nav__link">
+    <span class="md-ellipsis">
+      thermal
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#time" class="md-nav__link">
+    <span class="md-ellipsis">
+      time
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#timesync" class="md-nav__link">
+    <span class="md-ellipsis">
+      timesync
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ubnt-manager" class="md-nav__link">
+    <span class="md-ellipsis">
+      ubnt-manager
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#uci_dhcp_host" class="md-nav__link">
+    <span class="md-ellipsis">
+      uci_dhcp_host
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#uname" class="md-nav__link">
+    <span class="md-ellipsis">
+      uname
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#unbound" class="md-nav__link">
+    <span class="md-ellipsis">
+      unbound
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#vmstat" class="md-nav__link">
+    <span class="md-ellipsis">
+      vmstat
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#wifi" class="md-nav__link">
+    <span class="md-ellipsis">
+      wifi
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#wireguard" class="md-nav__link">
+    <span class="md-ellipsis">
+      wireguard
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+<!-- Generated by `make docs-gen` (devenv/scripts/docs-gen.uc) from the code, with docs/gen/notes.uc. Do not edit: `make lint` fails when it is out of date. -->
+
+<h1 id="collectors">Collectors<a class="headerlink" href="#collectors" title="Permanent link">&para;</a></h1>
+<p>Every collector of <code>ucode-prometheus-exporter 0.3.0</code>. A collector's name is what a scrape's <code>collect[]=</code> takes and the suffix of its package; its section in <code>/etc/config/prometheus-exporter</code> is named after its module, the name with <code>_</code> for <code>-</code>. Its options are in that section; <a href="../uci-config/#collector-sections">UCI configuration</a> has the section's rules.</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Collector</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Package</th>
+<th style="text-align: left;">Groups</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><a href="#agh"><code>agh</code></a></td>
+<td style="text-align: left;">AdGuard Home</td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-agh</code></td>
+<td style="text-align: left;">—</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#bmx7"><code>bmx7</code></a></td>
+<td style="text-align: left;">bmx7 mesh</td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-bmx7</code></td>
+<td style="text-align: left;">—</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#chrony"><code>chrony</code></a></td>
+<td style="text-align: left;">chrony NTP daemon</td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-chrony</code></td>
+<td style="text-align: left;">—</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#conntrack"><code>conntrack</code></a></td>
+<td style="text-align: left;">Connection tracking</td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter</code> (base)</td>
+<td style="text-align: left;">—</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#cpu"><code>cpu</code></a></td>
+<td style="text-align: left;">CPU</td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter</code> (base)</td>
+<td style="text-align: left;">—</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#dawn"><code>dawn</code></a></td>
+<td style="text-align: left;">DAWN band steering</td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-dawn</code></td>
+<td style="text-align: left;">—</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#dhcp_leases"><code>dhcp_leases</code></a></td>
+<td style="text-align: left;">DHCP leases</td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-dhcp_leases</code></td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-full</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#diskstats"><code>diskstats</code></a></td>
+<td style="text-align: left;">Disk I/O</td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-diskstats</code></td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-hardware</code>, <code>ucode-prometheus-exporter-full</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#dnsmasq"><code>dnsmasq</code></a></td>
+<td style="text-align: left;">dnsmasq DNS and DHCP</td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-dnsmasq</code></td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-full</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#entropy"><code>entropy</code></a></td>
+<td style="text-align: left;">Kernel entropy</td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter</code> (base)</td>
+<td style="text-align: left;">—</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#ethtool"><code>ethtool</code></a></td>
+<td style="text-align: left;">Network drivers and links</td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-ethtool</code></td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-network</code>, <code>ucode-prometheus-exporter-full</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#exporter"><code>exporter</code></a></td>
+<td style="text-align: left;">The exporter itself</td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter</code> (base)</td>
+<td style="text-align: left;">—</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#filefd"><code>filefd</code></a></td>
+<td style="text-align: left;">File descriptors</td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter</code> (base)</td>
+<td style="text-align: left;">—</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#filesystem"><code>filesystem</code></a></td>
+<td style="text-align: left;">Filesystems</td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-filesystem</code></td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-hardware</code>, <code>ucode-prometheus-exporter-full</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#hostapd_stations"><code>hostapd_stations</code></a></td>
+<td style="text-align: left;">hostapd stations</td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-hostapd_stations</code></td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-wireless</code>, <code>ucode-prometheus-exporter-full</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#hostapd_ubus_stations"><code>hostapd_ubus_stations</code></a></td>
+<td style="text-align: left;">hostapd station capabilities</td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-hostapd_ubus_stations</code></td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-wireless</code>, <code>ucode-prometheus-exporter-full</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#hwmon"><code>hwmon</code></a></td>
+<td style="text-align: left;">Hardware sensors</td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-hwmon</code></td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-hardware</code>, <code>ucode-prometheus-exporter-full</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#interrupts"><code>interrupts</code></a></td>
+<td style="text-align: left;">Interrupts</td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-interrupts</code></td>
+<td style="text-align: left;">—</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#loadavg"><code>loadavg</code></a></td>
+<td style="text-align: left;">Load average</td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter</code> (base)</td>
+<td style="text-align: left;">—</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#ltq-dsl"><code>ltq-dsl</code></a></td>
+<td style="text-align: left;">Lantiq DSL line</td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-ltq-dsl</code></td>
+<td style="text-align: left;">—</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#meminfo"><code>meminfo</code></a></td>
+<td style="text-align: left;">Memory</td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter</code> (base)</td>
+<td style="text-align: left;">—</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#mmc"><code>mmc</code></a></td>
+<td style="text-align: left;">eMMC health</td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-mmc</code></td>
+<td style="text-align: left;">—</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#modemmanager"><code>modemmanager</code></a></td>
+<td style="text-align: left;">Cellular modems</td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-modemmanager</code></td>
+<td style="text-align: left;">—</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#mwan3"><code>mwan3</code></a></td>
+<td style="text-align: left;">mwan3 multi-WAN</td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-mwan3</code></td>
+<td style="text-align: left;">—</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#nat_traffic"><code>nat_traffic</code></a></td>
+<td style="text-align: left;">Traffic per host</td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-nat_traffic</code></td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-network</code>, <code>ucode-prometheus-exporter-full</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#netclass"><code>netclass</code></a></td>
+<td style="text-align: left;">Network device properties</td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter</code> (base)</td>
+<td style="text-align: left;">—</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#netdev"><code>netdev</code></a></td>
+<td style="text-align: left;">Network device statistics</td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter</code> (base)</td>
+<td style="text-align: left;">—</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#netstat"><code>netstat</code></a></td>
+<td style="text-align: left;">Protocol statistics</td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-netstat</code></td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-network</code>, <code>ucode-prometheus-exporter-full</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#nft-counters"><code>nft-counters</code></a></td>
+<td style="text-align: left;">nftables counters</td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-nft-counters</code></td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-network</code>, <code>ucode-prometheus-exporter-full</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#openwrt"><code>openwrt</code></a></td>
+<td style="text-align: left;">OpenWrt release and board</td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-openwrt</code></td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-full</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#openwrt_interfaces"><code>openwrt_interfaces</code></a></td>
+<td style="text-align: left;">OpenWrt interfaces</td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter</code> (base)</td>
+<td style="text-align: left;">—</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#pressure"><code>pressure</code></a></td>
+<td style="text-align: left;">Pressure stall information</td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-pressure</code></td>
+<td style="text-align: left;">—</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#qdisc"><code>qdisc</code></a></td>
+<td style="text-align: left;">Traffic control queues</td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-qdisc</code></td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-network</code>, <code>ucode-prometheus-exporter-full</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#realtek-poe"><code>realtek-poe</code></a></td>
+<td style="text-align: left;">Realtek PoE</td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-realtek-poe</code></td>
+<td style="text-align: left;">—</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#selinux"><code>selinux</code></a></td>
+<td style="text-align: left;">SELinux</td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter</code> (base)</td>
+<td style="text-align: left;">—</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#snmp6"><code>snmp6</code></a></td>
+<td style="text-align: left;">IPv6 statistics per device</td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-snmp6</code></td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-network</code>, <code>ucode-prometheus-exporter-full</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#sockstat"><code>sockstat</code></a></td>
+<td style="text-align: left;">Sockets</td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-sockstat</code></td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-network</code>, <code>ucode-prometheus-exporter-full</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#softnet"><code>softnet</code></a></td>
+<td style="text-align: left;">Network softirq statistics</td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter</code> (base)</td>
+<td style="text-align: left;">—</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#textfile"><code>textfile</code></a></td>
+<td style="text-align: left;">Text files</td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-textfile</code></td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-full</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#thermal"><code>thermal</code></a></td>
+<td style="text-align: left;">Thermal zones and cooling devices</td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-thermal</code></td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-hardware</code>, <code>ucode-prometheus-exporter-full</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#time"><code>time</code></a></td>
+<td style="text-align: left;">System time</td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter</code> (base)</td>
+<td style="text-align: left;">—</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#timesync"><code>timesync</code></a></td>
+<td style="text-align: left;">Time synchronization</td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter</code> (base)</td>
+<td style="text-align: left;">—</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#ubnt-manager"><code>ubnt-manager</code></a></td>
+<td style="text-align: left;">Ubiquiti airOS radios</td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-ubnt-manager</code></td>
+<td style="text-align: left;">—</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#uci_dhcp_host"><code>uci_dhcp_host</code></a></td>
+<td style="text-align: left;">Static DHCP hosts</td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-uci_dhcp_host</code></td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-full</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#uname"><code>uname</code></a></td>
+<td style="text-align: left;">Kernel and host names</td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter</code> (base)</td>
+<td style="text-align: left;">—</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#unbound"><code>unbound</code></a></td>
+<td style="text-align: left;">Unbound DNS resolver</td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-unbound</code></td>
+<td style="text-align: left;">—</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#vmstat"><code>vmstat</code></a></td>
+<td style="text-align: left;">Virtual memory statistics</td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter</code> (base)</td>
+<td style="text-align: left;">—</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#wifi"><code>wifi</code></a></td>
+<td style="text-align: left;">Wi-Fi</td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-wifi</code></td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-wireless</code>, <code>ucode-prometheus-exporter-full</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#wireguard"><code>wireguard</code></a></td>
+<td style="text-align: left;">WireGuard</td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-wireguard</code></td>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-full</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="packages">Packages<a class="headerlink" href="#packages" title="Permanent link">&para;</a></h2>
+<p>The base package, <code>ucode-prometheus-exporter</code>, installs <code>conntrack</code>, <code>cpu</code>, <code>entropy</code>, <code>exporter</code>, <code>filefd</code>, <code>loadavg</code>, <code>meminfo</code>, <code>netclass</code>, <code>netdev</code>, <code>openwrt_interfaces</code>, <code>selinux</code>, <code>softnet</code>, <code>time</code>, <code>timesync</code>, <code>uname</code>, <code>vmstat</code>. Every other collector is a package of its own, <code>ucode-prometheus-exporter-&lt;name&gt;</code>, which depends on the base package of the same release. A group package installs no files, only its collectors.</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Group package</th>
+<th style="text-align: left;">For</th>
+<th style="text-align: left;">Collectors</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-network</code></td>
+<td style="text-align: left;">network statistics</td>
+<td style="text-align: left;"><code>ethtool</code>, <code>nat_traffic</code>, <code>netstat</code>, <code>nft-counters</code>, <code>qdisc</code>, <code>snmp6</code>, <code>sockstat</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-wireless</code></td>
+<td style="text-align: left;">Wi-Fi</td>
+<td style="text-align: left;"><code>hostapd_stations</code>, <code>hostapd_ubus_stations</code>, <code>wifi</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-hardware</code></td>
+<td style="text-align: left;">hardware and filesystems</td>
+<td style="text-align: left;"><code>diskstats</code>, <code>filesystem</code>, <code>hwmon</code>, <code>thermal</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-full</code></td>
+<td style="text-align: left;">a router or access point</td>
+<td style="text-align: left;"><code>ethtool</code>, <code>nat_traffic</code>, <code>netstat</code>, <code>nft-counters</code>, <code>qdisc</code>, <code>snmp6</code>, <code>sockstat</code>, <code>hostapd_stations</code>, <code>hostapd_ubus_stations</code>, <code>wifi</code>, <code>diskstats</code>, <code>filesystem</code>, <code>hwmon</code>, <code>thermal</code>, <code>dhcp_leases</code>, <code>dnsmasq</code>, <code>openwrt</code>, <code>textfile</code>, <code>uci_dhcp_host</code>, <code>wireguard</code></td>
+</tr>
+</tbody>
+</table>
+<p>In no group: <code>agh</code>, <code>bmx7</code>, <code>chrony</code>, <code>dawn</code>, <code>interrupts</code>, <code>ltq-dsl</code>, <code>mmc</code>, <code>modemmanager</code>, <code>mwan3</code>, <code>pressure</code>, <code>realtek-poe</code>, <code>ubnt-manager</code>, <code>unbound</code>.</p>
+<h2 id="nothing-to-observe">Nothing to observe<a class="headerlink" href="#nothing-to-observe" title="Permanent link">&para;</a></h2>
+<p>These collectors can have nothing to observe: they succeed without samples, and their <code>node_scrape_collector_observing</code> is 0. Every other collector fails when it cannot read what it reads. The reasons are what <code>check</code>, the ubus object's <code>status</code> and LuCI's status page show.</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Collector</th>
+<th style="text-align: left;">Nothing to observe when</th>
+<th style="text-align: left;">Reasons it gives</th>
+<th style="text-align: left;">Still a failure</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><a href="#agh"><code>agh</code></a></td>
+<td style="text-align: left;">AdGuard Home disabled, or not installed, and nothing answers at the collector's <code>address</code> and <code>port</code>.</td>
+<td style="text-align: left;"><code>adguardhome is disabled</code>, <code>adguardhome is not installed</code></td>
+<td style="text-align: left;">AdGuard Home enabled, and nothing answering there; a reply that is not its API's; or one that asks for a login, which the collector does not send.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#bmx7"><code>bmx7</code></a></td>
+<td style="text-align: left;">bmx7 disabled, or not installed.</td>
+<td style="text-align: left;"><code>bmx7 is disabled</code>, <code>bmx7 is not installed</code></td>
+<td style="text-align: left;">bmx7 enabled, and its status files unreadable.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#chrony"><code>chrony</code></a></td>
+<td style="text-align: left;">chronyd disabled, or not installed.</td>
+<td style="text-align: left;"><code>chronyd is disabled</code>, <code>chronyd is not installed</code></td>
+<td style="text-align: left;">chronyd enabled, and <code>chronyc</code> failing (chronyd stopped).</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#conntrack"><code>conntrack</code></a></td>
+<td style="text-align: left;">nf_conntrack not loaded: none of its files in <code>/proc/sys/net/netfilter</code>.</td>
+<td style="text-align: left;"><code>no connection tracking (nf_conntrack is not loaded)</code></td>
+<td style="text-align: left;">Its files there, but unreadable.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#dawn"><code>dawn</code></a></td>
+<td style="text-align: left;">DAWN disabled, or not installed.</td>
+<td style="text-align: left;"><code>dawn is disabled</code>, <code>dawn is not installed</code></td>
+<td style="text-align: left;">DAWN enabled, and its <code>dawn</code> object missing or failing.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#dhcp_leases"><code>dhcp_leases</code></a></td>
+<td style="text-align: left;">dnsmasq disabled, not installed, or without an instance in <code>/etc/config/dhcp</code>; and odhcpd disabled or not installed. When one of them is enabled, the collector observes that one.</td>
+<td style="text-align: left;"><code>dnsmasq is disabled</code>, <code>dnsmasq is not installed</code>, <code>odhcpd is disabled</code>, <code>odhcpd is not installed</code></td>
+<td style="text-align: left;">An enabled server that is not there: no dnsmasq lease file, odhcpd not on ubus.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#diskstats"><code>diskstats</code></a></td>
+<td style="text-align: left;"><code>device_exclude</code> leaves out every block device in <code>/proc/diskstats</code> (by default: flash, loop devices, zram and partitions), as on a router without a disk. Or there is no block device at all.</td>
+<td style="text-align: left;"><code>device_exclude leaves out every block device</code>, <code>no block devices</code></td>
+<td style="text-align: left;"><code>/proc/diskstats</code> missing or unreadable, or a malformed line for a device it exports.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#dnsmasq"><code>dnsmasq</code></a></td>
+<td style="text-align: left;">dnsmasq disabled, or not installed.</td>
+<td style="text-align: left;"><code>dnsmasq is disabled</code>, <code>dnsmasq is not installed</code></td>
+<td style="text-align: left;">dnsmasq enabled, and its <code>dnsmasq</code> object missing or failing.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#hostapd_stations"><code>hostapd_stations</code></a></td>
+<td style="text-align: left;">As wifi, or no <code>hostapd.&lt;ifname&gt;</code> object for any interface.</td>
+<td style="text-align: left;"><code>no wireless radios</code>, <code>no hostapd access points</code></td>
+<td style="text-align: left;">A hostapd object that does not answer.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#hostapd_ubus_stations"><code>hostapd_ubus_stations</code></a></td>
+<td style="text-align: left;">No <code>hostapd.*</code> object.</td>
+<td style="text-align: left;"><code>no hostapd access points</code></td>
+<td style="text-align: left;">A hostapd object that does not answer.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#ltq-dsl"><code>ltq-dsl</code></a></td>
+<td style="text-align: left;">No <code>dsl</code> object.</td>
+<td style="text-align: left;"><code>no DSL modem (no dsl on ubus)</code></td>
+<td style="text-align: left;">A <code>dsl</code> object that does not answer.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#mmc"><code>mmc</code></a></td>
+<td style="text-align: left;">No eMMC that reports its health: no MMC host; only SD or SDIO cards, which have no <code>life_time</code> or <code>pre_eol_info</code>; or an eMMC older than 5.0, whose fields are 0 (not defined).</td>
+<td style="text-align: left;"><code>no eMMC reports its health</code></td>
+<td style="text-align: left;">A <code>life_time</code> or <code>pre_eol_info</code> there, but not as the kernel writes it.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#modemmanager"><code>modemmanager</code></a></td>
+<td style="text-align: left;">ModemManager disabled or not installed, or it lists no modem.</td>
+<td style="text-align: left;"><code>ModemManager lists no modems</code>, <code>modemmanager is disabled</code>, <code>modemmanager is not installed</code></td>
+<td style="text-align: left;">ModemManager enabled, and <code>mmcli</code> failing or running out of time.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#mwan3"><code>mwan3</code></a></td>
+<td style="text-align: left;">mwan3 disabled, or not installed.</td>
+<td style="text-align: left;"><code>mwan3 is disabled</code>, <code>mwan3 is not installed</code></td>
+<td style="text-align: left;">Its <code>mwan3</code> object failing. mwan3 enabled but stopped is a reading, not a failure: <code>mwan3_interface_running 0</code>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#nat_traffic"><code>nat_traffic</code></a></td>
+<td style="text-align: left;">nf_conntrack not loaded: no <code>/proc/net/nf_conntrack</code>.</td>
+<td style="text-align: left;"><code>no connection tracking (nf_conntrack is not loaded)</code></td>
+<td style="text-align: left;">The file there, but unreadable.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#pressure"><code>pressure</code></a></td>
+<td style="text-align: left;">No <code>/proc/pressure</code>: a kernel without <code>CONFIG_PSI</code>, or booted with <code>psi=0</code>.</td>
+<td style="text-align: left;"><code>no PSI (no /proc/pressure: a kernel without CONFIG_PSI, or booted with psi=0)</code></td>
+<td style="text-align: left;"><code>/proc/pressure</code> there, but its <code>cpu</code>, <code>io</code> or <code>memory</code> unreadable or not as the kernel writes it.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#realtek-poe"><code>realtek-poe</code></a></td>
+<td style="text-align: left;">No <code>poe</code> object.</td>
+<td style="text-align: left;"><code>no PoE switch (no poe on ubus)</code></td>
+<td style="text-align: left;">A <code>poe</code> object that does not answer.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#snmp6"><code>snmp6</code></a></td>
+<td style="text-align: left;">No <code>/proc/net/dev_snmp6</code> (IPv6 disabled).</td>
+<td style="text-align: left;"><code>no IPv6 (no /proc/net/dev_snmp6)</code></td>
+<td style="text-align: left;">The directory there, but unreadable.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#timesync"><code>timesync</code></a></td>
+<td style="text-align: left;">Neither busybox ntpd nor chronyd runs, by procd's instances (the service's ubus object's <code>time_daemons</code>). sysntpd runs ntpd only while <code>/etc/config/system</code> turns NTP on. When one of them runs, the collector observes that one.</td>
+<td style="text-align: left;"><code>neither ntpd nor chronyd runs</code></td>
+<td style="text-align: left;">chronyd enabled and not running, or <code>chronyc</code> failing; busybox ntpd's event file unreadable.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#ubnt-manager"><code>ubnt-manager</code></a></td>
+<td style="text-align: left;">ubnt-manager not installed, or <code>ubnt-manager -l</code> lists no radio.</td>
+<td style="text-align: left;"><code>ubnt-manager is not installed</code>, <code>ubnt-manager lists no radios</code></td>
+<td style="text-align: left;">A radio that fails or does not answer.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#unbound"><code>unbound</code></a></td>
+<td style="text-align: left;">unbound disabled, or not installed.</td>
+<td style="text-align: left;"><code>unbound is disabled</code>, <code>unbound is not installed</code></td>
+<td style="text-align: left;">unbound enabled, and its control socket not answering.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#wifi"><code>wifi</code></a></td>
+<td style="text-align: left;">The wireless config has no radio: the service's ubus object's <code>wireless</code> gives none.</td>
+<td style="text-align: left;"><code>no wireless radios</code></td>
+<td style="text-align: left;">Another failed call, or an interface that is there but that nl80211 cannot answer for. An interface that is not there, because its network is not set up, is left out.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#wireguard"><code>wireguard</code></a></td>
+<td style="text-align: left;">rpcd has no <code>wireguard</code> object: rpcd-mod-wireguard not installed.</td>
+<td style="text-align: left;"><code>rpcd has no wireguard object: rpcd-mod-wireguard is not installed</code></td>
+<td style="text-align: left;">Any other failure of <code>wireguard status</code>.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="agh"><code>agh</code><a class="headerlink" href="#agh" title="Permanent link">&para;</a></h2>
+<p>AdGuard Home's protection and the totals of its statistics window, from its HTTP API on the device, read without a login.</p>
+<ul>
+<li><strong>Title:</strong> AdGuard Home</li>
+<li><strong>Package:</strong> <code>ucode-prometheus-exporter-agh</code></li>
+<li><strong>Depends on:</strong> <code>ucode-mod-socket</code></li>
+<li><strong>Section:</strong> <code>config collector 'agh'</code></li>
+<li><strong>Needs:</strong> <code>socket</code>, <code>ubus</code></li>
+<li><strong>Calls over ubus:</strong> <code>rc list</code></li>
+<li><strong>Nothing to observe:</strong> AdGuard Home disabled, or not installed, and nothing answers at the collector's <code>address</code> and <code>port</code>. See <a href="#nothing-to-observe">Nothing to observe</a>.</li>
+<li><strong>Metrics:</strong> <a href="../metrics/#agh">agh</a></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Datatype</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>address</code></td>
+<td style="text-align: left;">Address</td>
+<td style="text-align: left;">string</td>
+<td style="text-align: left;"><code>127.0.0.1</code></td>
+<td style="text-align: left;"><code>ipaddr</code></td>
+<td style="text-align: left;">An address of this device that AdGuard Home's web interface listens on (http.address in its adguardhome.yaml): 127.0.0.1 where it listens on every address, 0.0.0.0.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>port</code></td>
+<td style="text-align: left;">Port</td>
+<td style="text-align: left;">integer</td>
+<td style="text-align: left;"><code>8080</code></td>
+<td style="text-align: left;"><code>range(1,65535)</code></td>
+<td style="text-align: left;">The port of AdGuard Home's web interface (http.address in its adguardhome.yaml).</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>enabled</code></td>
+<td style="text-align: left;">Enabled</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Serve this collector; 0 leaves it out, and naming it in a query is a 400.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="bmx7"><code>bmx7</code><a class="headerlink" href="#bmx7" title="Permanent link">&para;</a></h2>
+<p>The bmx7 mesh node, its links and tunnels, from its JSON status files.</p>
+<ul>
+<li><strong>Title:</strong> bmx7 mesh</li>
+<li><strong>Package:</strong> <code>ucode-prometheus-exporter-bmx7</code></li>
+<li><strong>Section:</strong> <code>config collector 'bmx7'</code></li>
+<li><strong>Needs:</strong> <code>fs</code>, <code>ubus</code></li>
+<li><strong>Calls over ubus:</strong> <code>rc list</code></li>
+<li><strong>Jail paths:</strong> <code>/var/run/bmx7/json</code></li>
+<li><strong>Nothing to observe:</strong> bmx7 disabled, or not installed. See <a href="#nothing-to-observe">Nothing to observe</a>.</li>
+<li><strong>Metrics:</strong> <a href="../metrics/#bmx7">bmx7</a></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Datatype</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>enabled</code></td>
+<td style="text-align: left;">Enabled</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Serve this collector; 0 leaves it out, and naming it in a query is a 400.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="chrony"><code>chrony</code><a class="headerlink" href="#chrony" title="Permanent link">&para;</a></h2>
+<p>chronyd's tracking and sources, and its server statistics where it serves time, from chronyc.</p>
+<ul>
+<li><strong>Title:</strong> chrony NTP daemon</li>
+<li><strong>Package:</strong> <code>ucode-prometheus-exporter-chrony</code></li>
+<li><strong>Section:</strong> <code>config collector 'chrony'</code></li>
+<li><strong>Needs:</strong> <code>ubus</code>, <code>uci</code>, <code>fs</code>, <code>exec</code></li>
+<li><strong>Reads the configs:</strong> <code>/etc/config/chrony</code></li>
+<li><strong>Runs:</strong> <code>chronyc</code> (only where it is installed), with <code>/bin/sh</code></li>
+<li><strong>Calls over ubus:</strong> <code>rc list</code></li>
+<li><strong>Seconds for its programs:</strong> The main section's <code>exec_timeout</code>, unless its section sets <code>timeout</code></li>
+<li><strong>Nothing to observe:</strong> chronyd disabled, or not installed. See <a href="#nothing-to-observe">Nothing to observe</a>.</li>
+<li><strong>Metrics:</strong> <a href="../metrics/#chrony">chrony</a></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Datatype</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>enabled</code></td>
+<td style="text-align: left;">Enabled</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Serve this collector; 0 leaves it out, and naming it in a query is a 400.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>timeout</code></td>
+<td style="text-align: left;">Program timeout</td>
+<td style="text-align: left;">integer</td>
+<td style="text-align: left;"><code>exec_timeout</code>'s (5)</td>
+<td style="text-align: left;"><code>range(1,30)</code></td>
+<td style="text-align: left;">Seconds the programs of this collector get in all in each scrape; one still running then is killed.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="conntrack"><code>conntrack</code><a class="headerlink" href="#conntrack" title="Permanent link">&para;</a></h2>
+<p>The size and statistics of the connection tracking table, from /proc/sys/net/netfilter and /proc/net/stat/nf_conntrack.</p>
+<ul>
+<li><strong>Title:</strong> Connection tracking</li>
+<li><strong>Package:</strong> <code>ucode-prometheus-exporter</code> (base)</li>
+<li><strong>Section:</strong> <code>config collector 'conntrack'</code></li>
+<li><strong>Needs:</strong> <code>fs</code></li>
+<li><strong>Nothing to observe:</strong> nf_conntrack not loaded: none of its files in <code>/proc/sys/net/netfilter</code>. See <a href="#nothing-to-observe">Nothing to observe</a>.</li>
+<li><strong>Metrics:</strong> <a href="../metrics/#conntrack">conntrack</a></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Datatype</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>enabled</code></td>
+<td style="text-align: left;">Enabled</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Serve this collector; 0 leaves it out, and naming it in a query is a 400.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="cpu"><code>cpu</code><a class="headerlink" href="#cpu" title="Permanent link">&para;</a></h2>
+<p>CPU times, interrupts, context switches and processes from /proc/stat.</p>
+<ul>
+<li><strong>Title:</strong> CPU</li>
+<li><strong>Package:</strong> <code>ucode-prometheus-exporter</code> (base)</li>
+<li><strong>Section:</strong> <code>config collector 'cpu'</code></li>
+<li><strong>Needs:</strong> <code>fs</code></li>
+<li><strong>Metrics:</strong> <a href="../metrics/#cpu">cpu</a></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Datatype</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>enabled</code></td>
+<td style="text-align: left;">Enabled</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Serve this collector; 0 leaves it out, and naming it in a query is a 400.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="dawn"><code>dawn</code><a class="headerlink" href="#dawn" title="Permanent link">&para;</a></h2>
+<p>Access points and client signal from the DAWN Wi-Fi controller.</p>
+<ul>
+<li><strong>Title:</strong> DAWN band steering</li>
+<li><strong>Package:</strong> <code>ucode-prometheus-exporter-dawn</code></li>
+<li><strong>Section:</strong> <code>config collector 'dawn'</code></li>
+<li><strong>Needs:</strong> <code>ubus</code></li>
+<li><strong>Calls over ubus:</strong> <code>dawn get_network</code>, <code>rc list</code></li>
+<li><strong>Nothing to observe:</strong> DAWN disabled, or not installed. See <a href="#nothing-to-observe">Nothing to observe</a>.</li>
+<li><strong>Metrics:</strong> <a href="../metrics/#dawn">dawn</a></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Datatype</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>enabled</code></td>
+<td style="text-align: left;">Enabled</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Serve this collector; 0 leaves it out, and naming it in a query is a 400.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="dhcp_leases"><code>dhcp_leases</code><a class="headerlink" href="#dhcp_leases" title="Permanent link">&para;</a></h2>
+<p>Active DHCP leases of dnsmasq and odhcpd, by interface and family.</p>
+<ul>
+<li><strong>Title:</strong> DHCP leases</li>
+<li><strong>Package:</strong> <code>ucode-prometheus-exporter-dhcp_leases</code></li>
+<li><strong>In the groups:</strong> <code>ucode-prometheus-exporter-full</code></li>
+<li><strong>Section:</strong> <code>config collector 'dhcp_leases'</code></li>
+<li><strong>Needs:</strong> <code>fs</code>, <code>ubus</code>, <code>uci</code>, <code>time</code></li>
+<li><strong>Reads the configs:</strong> <code>/etc/config/dhcp</code></li>
+<li><strong>Calls over ubus:</strong> <code>dhcp ipv4leases|ipv6leases</code>, <code>network.interface dump</code>, <code>rc list</code></li>
+<li><strong>Jail paths:</strong> The lease file of each <code>dnsmasq</code> section of <code>/etc/config/dhcp</code>: its <code>leasefile</code>, or <code>/tmp/dhcp.leases</code>.</li>
+<li><strong>Nothing to observe:</strong> dnsmasq disabled, not installed, or without an instance in <code>/etc/config/dhcp</code>; and odhcpd disabled or not installed. When one of them is enabled, the collector observes that one. See <a href="#nothing-to-observe">Nothing to observe</a>.</li>
+<li><strong>Metrics:</strong> <a href="../metrics/#dhcp_leases">dhcp_leases</a></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Datatype</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>leases</code></td>
+<td style="text-align: left;">Lease series</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>0</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">A series per lease, with its address, MAC, hostname and expiry.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>enabled</code></td>
+<td style="text-align: left;">Enabled</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Serve this collector; 0 leaves it out, and naming it in a query is a 400.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="diskstats"><code>diskstats</code><a class="headerlink" href="#diskstats" title="Permanent link">&para;</a></h2>
+<p>Reads, writes, discards and flushes of each disk, and the time spent on them, from /proc/diskstats, as node_exporter has them.</p>
+<ul>
+<li><strong>Title:</strong> Disk I/O</li>
+<li><strong>Package:</strong> <code>ucode-prometheus-exporter-diskstats</code></li>
+<li><strong>In the groups:</strong> <code>ucode-prometheus-exporter-hardware</code>, <code>ucode-prometheus-exporter-full</code></li>
+<li><strong>Section:</strong> <code>config collector 'diskstats'</code></li>
+<li><strong>Needs:</strong> <code>fs</code></li>
+<li><strong>Nothing to observe:</strong> <code>device_exclude</code> leaves out every block device in <code>/proc/diskstats</code> (by default: flash, loop devices, zram and partitions), as on a router without a disk. Or there is no block device at all. See <a href="#nothing-to-observe">Nothing to observe</a>.</li>
+<li><strong>Metrics:</strong> <a href="../metrics/#diskstats">diskstats</a></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Datatype</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>device_exclude</code></td>
+<td style="text-align: left;">Excluded devices</td>
+<td style="text-align: left;">string</td>
+<td style="text-align: left;"><code>^(z?ram|loop|fd|(h|s|v|xv)d[a-z]|nvme[0-9]+n[0-9]+p|mtdblock|ubiblock[0-9]+_|mmcblk[0-9]+(p|boot))[0-9]+$</code></td>
+<td style="text-align: left;"><code>regex</code></td>
+<td style="text-align: left;">A regular expression of the block devices to leave out: by default RAM disks, zram, loop devices, flash (mtdblock, ubiblock) and the partitions of disks, whose I/O their disk counts. ^$ leaves out none.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>enabled</code></td>
+<td style="text-align: left;">Enabled</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Serve this collector; 0 leaves it out, and naming it in a query is a 400.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="dnsmasq"><code>dnsmasq</code><a class="headerlink" href="#dnsmasq" title="Permanent link">&para;</a></h2>
+<p>DNS and DHCP counters of dnsmasq, from ubus dnsmasq metrics.</p>
+<ul>
+<li><strong>Title:</strong> dnsmasq DNS and DHCP</li>
+<li><strong>Package:</strong> <code>ucode-prometheus-exporter-dnsmasq</code></li>
+<li><strong>In the groups:</strong> <code>ucode-prometheus-exporter-full</code></li>
+<li><strong>Section:</strong> <code>config collector 'dnsmasq'</code></li>
+<li><strong>Needs:</strong> <code>ubus</code></li>
+<li><strong>Calls over ubus:</strong> <code>dnsmasq metrics</code>, <code>rc list</code></li>
+<li><strong>Nothing to observe:</strong> dnsmasq disabled, or not installed. See <a href="#nothing-to-observe">Nothing to observe</a>.</li>
+<li><strong>Metrics:</strong> <a href="../metrics/#dnsmasq">dnsmasq</a></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Datatype</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>enabled</code></td>
+<td style="text-align: left;">Enabled</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Serve this collector; 0 leaves it out, and naming it in a query is a 400.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="entropy"><code>entropy</code><a class="headerlink" href="#entropy" title="Permanent link">&para;</a></h2>
+<p>The entropy available to the kernel random number generator, from /proc/sys/kernel/random.</p>
+<ul>
+<li><strong>Title:</strong> Kernel entropy</li>
+<li><strong>Package:</strong> <code>ucode-prometheus-exporter</code> (base)</li>
+<li><strong>Section:</strong> <code>config collector 'entropy'</code></li>
+<li><strong>Needs:</strong> <code>fs</code></li>
+<li><strong>Metrics:</strong> <a href="../metrics/#entropy">entropy</a></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Datatype</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>enabled</code></td>
+<td style="text-align: left;">Enabled</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Serve this collector; 0 leaves it out, and naming it in a query is a 400.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="ethtool"><code>ethtool</code><a class="headerlink" href="#ethtool" title="Permanent link">&para;</a></h2>
+<p>Network driver statistics, driver information and link modes, from ethtool -S, -i and ethtool &lt;device&gt;.</p>
+<ul>
+<li><strong>Title:</strong> Network drivers and links</li>
+<li><strong>Package:</strong> <code>ucode-prometheus-exporter-ethtool</code></li>
+<li><strong>In the groups:</strong> <code>ucode-prometheus-exporter-network</code>, <code>ucode-prometheus-exporter-full</code></li>
+<li><strong>Depends on:</strong> <code>ethtool</code></li>
+<li><strong>Section:</strong> <code>config collector 'ethtool'</code></li>
+<li><strong>Needs:</strong> <code>rtnl</code>, <code>fs</code>, <code>exec</code></li>
+<li><strong>Runs:</strong> <code>ethtool</code>, with <code>/bin/sh</code></li>
+<li><strong>Seconds for its programs:</strong> The main section's <code>exec_timeout</code>, unless its section sets <code>timeout</code></li>
+<li><strong>Cost:</strong> heavy (<code>meta.cost</code>): until the ledger has timed it, it runs after the others</li>
+<li><strong>Metrics:</strong> <a href="../metrics/#ethtool">ethtool</a></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Datatype</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>enabled</code></td>
+<td style="text-align: left;">Enabled</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Serve this collector; 0 leaves it out, and naming it in a query is a 400.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>timeout</code></td>
+<td style="text-align: left;">Program timeout</td>
+<td style="text-align: left;">integer</td>
+<td style="text-align: left;"><code>exec_timeout</code>'s (5)</td>
+<td style="text-align: left;"><code>range(1,30)</code></td>
+<td style="text-align: left;">Seconds the programs of this collector get in all in each scrape; one still running then is killed.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="exporter"><code>exporter</code><a class="headerlink" href="#exporter" title="Permanent link">&para;</a></h2>
+<p>The CPU, memory and descriptors of the uhttpd instance that serves the scrapes; and, which the scrape writes itself whatever this collector does, its scrapes and what went wrong in them: failures, programs killed, quarantines, collectors left out at the deadline, and each collector's samples.</p>
+<ul>
+<li><strong>Title:</strong> The exporter itself</li>
+<li><strong>Package:</strong> <code>ucode-prometheus-exporter</code> (base)</li>
+<li><strong>Section:</strong> <code>config collector 'exporter'</code></li>
+<li><strong>Needs:</strong> <code>exporter</code></li>
+<li><strong>Metrics:</strong> <a href="../metrics/#exporter">exporter</a></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Datatype</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>enabled</code></td>
+<td style="text-align: left;">Enabled</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Serve this collector; 0 leaves it out, and naming it in a query is a 400.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="filefd"><code>filefd</code><a class="headerlink" href="#filefd" title="Permanent link">&para;</a></h2>
+<p>File descriptors allocated and the most there may be, from /proc/sys/fs/file-nr.</p>
+<ul>
+<li><strong>Title:</strong> File descriptors</li>
+<li><strong>Package:</strong> <code>ucode-prometheus-exporter</code> (base)</li>
+<li><strong>Section:</strong> <code>config collector 'filefd'</code></li>
+<li><strong>Needs:</strong> <code>fs</code></li>
+<li><strong>Metrics:</strong> <a href="../metrics/#filefd">filefd</a></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Datatype</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>enabled</code></td>
+<td style="text-align: left;">Enabled</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Serve this collector; 0 leaves it out, and naming it in a query is a 400.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="filesystem"><code>filesystem</code><a class="headerlink" href="#filesystem" title="Permanent link">&para;</a></h2>
+<p>Filesystem sizes, inodes and read-only flags of the host's mounts, from the package's rpcd object (statvfs).</p>
+<ul>
+<li><strong>Title:</strong> Filesystems</li>
+<li><strong>Package:</strong> <code>ucode-prometheus-exporter-filesystem</code></li>
+<li><strong>In the groups:</strong> <code>ucode-prometheus-exporter-hardware</code>, <code>ucode-prometheus-exporter-full</code></li>
+<li><strong>Depends on:</strong> <code>luci-base</code></li>
+<li><strong>Section:</strong> <code>config collector 'filesystem'</code></li>
+<li><strong>Needs:</strong> <code>ubus</code></li>
+<li><strong>Calls over ubus:</strong> <code>prometheus-exporter.filesystem mounts</code></li>
+<li><strong>Metrics:</strong> <a href="../metrics/#filesystem">filesystem</a></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Datatype</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>enabled</code></td>
+<td style="text-align: left;">Enabled</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Serve this collector; 0 leaves it out, and naming it in a query is a 400.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="hostapd_stations"><code>hostapd_stations</code><a class="headerlink" href="#hostapd_stations" title="Permanent link">&para;</a></h2>
+<p>Stations of each hostapd access point, from hostapd's ubus objects.</p>
+<ul>
+<li><strong>Title:</strong> hostapd stations</li>
+<li><strong>Package:</strong> <code>ucode-prometheus-exporter-hostapd_stations</code></li>
+<li><strong>In the groups:</strong> <code>ucode-prometheus-exporter-wireless</code>, <code>ucode-prometheus-exporter-full</code></li>
+<li><strong>Section:</strong> <code>config collector 'hostapd_stations'</code></li>
+<li><strong>Needs:</strong> <code>ubus</code></li>
+<li><strong>Calls over ubus:</strong> <code>hostapd.* get_clients|get_status</code>, <code>prometheus-exporter wireless</code></li>
+<li><strong>Nothing to observe:</strong> As wifi, or no <code>hostapd.&lt;ifname&gt;</code> object for any interface. See <a href="#nothing-to-observe">Nothing to observe</a>.</li>
+<li><strong>Metrics:</strong> <a href="../metrics/#hostapd_stations">hostapd_stations</a></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Datatype</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>enabled</code></td>
+<td style="text-align: left;">Enabled</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Serve this collector; 0 leaves it out, and naming it in a query is a 400.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="hostapd_ubus_stations"><code>hostapd_ubus_stations</code><a class="headerlink" href="#hostapd_ubus_stations" title="Permanent link">&para;</a></h2>
+<p>Radio measurement capabilities of hostapd's stations, from hostapd's ubus objects.</p>
+<ul>
+<li><strong>Title:</strong> hostapd station capabilities</li>
+<li><strong>Package:</strong> <code>ucode-prometheus-exporter-hostapd_ubus_stations</code></li>
+<li><strong>In the groups:</strong> <code>ucode-prometheus-exporter-wireless</code>, <code>ucode-prometheus-exporter-full</code></li>
+<li><strong>Section:</strong> <code>config collector 'hostapd_ubus_stations'</code></li>
+<li><strong>Needs:</strong> <code>ubus</code></li>
+<li><strong>Calls over ubus:</strong> <code>hostapd.* get_clients</code></li>
+<li><strong>Nothing to observe:</strong> No <code>hostapd.*</code> object. See <a href="#nothing-to-observe">Nothing to observe</a>.</li>
+<li><strong>Metrics:</strong> <a href="../metrics/#hostapd_ubus_stations">hostapd_ubus_stations</a></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Datatype</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>enabled</code></td>
+<td style="text-align: left;">Enabled</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Serve this collector; 0 leaves it out, and naming it in a query is a 400.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="hwmon"><code>hwmon</code><a class="headerlink" href="#hwmon" title="Permanent link">&para;</a></h2>
+<p>Hardware monitor chips: sensor labels, temperatures and their limits, PWM, fans, voltages, currents and power, from /sys/class/hwmon.</p>
+<ul>
+<li><strong>Title:</strong> Hardware sensors</li>
+<li><strong>Package:</strong> <code>ucode-prometheus-exporter-hwmon</code></li>
+<li><strong>In the groups:</strong> <code>ucode-prometheus-exporter-hardware</code>, <code>ucode-prometheus-exporter-full</code></li>
+<li><strong>Section:</strong> <code>config collector 'hwmon'</code></li>
+<li><strong>Needs:</strong> <code>fs</code></li>
+<li><strong>Metrics:</strong> <a href="../metrics/#hwmon">hwmon</a></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Datatype</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>enabled</code></td>
+<td style="text-align: left;">Enabled</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Serve this collector; 0 leaves it out, and naming it in a query is a 400.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="interrupts"><code>interrupts</code><a class="headerlink" href="#interrupts" title="Permanent link">&para;</a></h2>
+<p>Interrupts per CPU, from /proc/interrupts, as node_exporter's interrupts collector counts them.</p>
+<ul>
+<li><strong>Title:</strong> Interrupts</li>
+<li><strong>Package:</strong> <code>ucode-prometheus-exporter-interrupts</code></li>
+<li><strong>Section:</strong> <code>config collector 'interrupts'</code></li>
+<li><strong>Needs:</strong> <code>fs</code></li>
+<li><strong>Metrics:</strong> <a href="../metrics/#interrupts">interrupts</a></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Datatype</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>enabled</code></td>
+<td style="text-align: left;">Enabled</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Serve this collector; 0 leaves it out, and naming it in a query is a 400.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="loadavg"><code>loadavg</code><a class="headerlink" href="#loadavg" title="Permanent link">&para;</a></h2>
+<p>Load averages from /proc/loadavg.</p>
+<ul>
+<li><strong>Title:</strong> Load average</li>
+<li><strong>Package:</strong> <code>ucode-prometheus-exporter</code> (base)</li>
+<li><strong>Section:</strong> <code>config collector 'loadavg'</code></li>
+<li><strong>Needs:</strong> <code>fs</code></li>
+<li><strong>Metrics:</strong> <a href="../metrics/#loadavg">loadavg</a></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Datatype</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>enabled</code></td>
+<td style="text-align: left;">Enabled</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Serve this collector; 0 leaves it out, and naming it in a query is a 400.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="ltq-dsl"><code>ltq-dsl</code><a class="headerlink" href="#ltq-dsl" title="Permanent link">&para;</a></h2>
+<p>Lantiq DSL line state, rates and errors, from ubus dsl metrics.</p>
+<ul>
+<li><strong>Title:</strong> Lantiq DSL line</li>
+<li><strong>Package:</strong> <code>ucode-prometheus-exporter-ltq-dsl</code></li>
+<li><strong>Section:</strong> <code>config collector 'ltq_dsl'</code></li>
+<li><strong>Needs:</strong> <code>ubus</code></li>
+<li><strong>Calls over ubus:</strong> <code>dsl metrics</code></li>
+<li><strong>Nothing to observe:</strong> No <code>dsl</code> object. See <a href="#nothing-to-observe">Nothing to observe</a>.</li>
+<li><strong>Metrics:</strong> <a href="../metrics/#ltq-dsl">ltq-dsl</a></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Datatype</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>enabled</code></td>
+<td style="text-align: left;">Enabled</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Serve this collector; 0 leaves it out, and naming it in a query is a 400.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="meminfo"><code>meminfo</code><a class="headerlink" href="#meminfo" title="Permanent link">&para;</a></h2>
+<p>Memory statistics from /proc/meminfo.</p>
+<ul>
+<li><strong>Title:</strong> Memory</li>
+<li><strong>Package:</strong> <code>ucode-prometheus-exporter</code> (base)</li>
+<li><strong>Section:</strong> <code>config collector 'meminfo'</code></li>
+<li><strong>Needs:</strong> <code>fs</code></li>
+<li><strong>Metrics:</strong> <a href="../metrics/#meminfo">meminfo</a></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Datatype</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>enabled</code></td>
+<td style="text-align: left;">Enabled</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Serve this collector; 0 leaves it out, and naming it in a query is a 400.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="mmc"><code>mmc</code><a class="headerlink" href="#mmc" title="Permanent link">&para;</a></h2>
+<p>The health an eMMC of version 5.0 or later reports of itself, its life time used and its reserved blocks, from /sys/class/mmc_host.</p>
+<ul>
+<li><strong>Title:</strong> eMMC health</li>
+<li><strong>Package:</strong> <code>ucode-prometheus-exporter-mmc</code></li>
+<li><strong>Section:</strong> <code>config collector 'mmc'</code></li>
+<li><strong>Needs:</strong> <code>fs</code></li>
+<li><strong>Nothing to observe:</strong> No eMMC that reports its health: no MMC host; only SD or SDIO cards, which have no <code>life_time</code> or <code>pre_eol_info</code>; or an eMMC older than 5.0, whose fields are 0 (not defined). See <a href="#nothing-to-observe">Nothing to observe</a>.</li>
+<li><strong>Metrics:</strong> <a href="../metrics/#mmc">mmc</a></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Datatype</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>enabled</code></td>
+<td style="text-align: left;">Enabled</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Serve this collector; 0 leaves it out, and naming it in a query is a 400.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="modemmanager"><code>modemmanager</code><a class="headerlink" href="#modemmanager" title="Permanent link">&para;</a></h2>
+<p>Signal quality and strength of cellular modems, from mmcli.</p>
+<ul>
+<li><strong>Title:</strong> Cellular modems</li>
+<li><strong>Package:</strong> <code>ucode-prometheus-exporter-modemmanager</code></li>
+<li><strong>Section:</strong> <code>config collector 'modemmanager'</code></li>
+<li><strong>Needs:</strong> <code>exec</code>, <code>ubus</code></li>
+<li><strong>Runs:</strong> <code>mmcli</code> (only where it is installed), with <code>/bin/sh</code></li>
+<li><strong>Calls over ubus:</strong> <code>rc list</code></li>
+<li><strong>Jail paths:</strong> <code>/var/run/dbus</code></li>
+<li><strong>Seconds for its programs:</strong> The main section's <code>exec_timeout</code>, unless its section sets <code>timeout</code></li>
+<li><strong>Nothing to observe:</strong> ModemManager disabled or not installed, or it lists no modem. See <a href="#nothing-to-observe">Nothing to observe</a>.</li>
+<li><strong>Metrics:</strong> <a href="../metrics/#modemmanager">modemmanager</a></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Datatype</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>enabled</code></td>
+<td style="text-align: left;">Enabled</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Serve this collector; 0 leaves it out, and naming it in a query is a 400.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>timeout</code></td>
+<td style="text-align: left;">Program timeout</td>
+<td style="text-align: left;">integer</td>
+<td style="text-align: left;"><code>exec_timeout</code>'s (5)</td>
+<td style="text-align: left;"><code>range(1,30)</code></td>
+<td style="text-align: left;">Seconds the programs of this collector get in all in each scrape; one still running then is killed.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="mwan3"><code>mwan3</code><a class="headerlink" href="#mwan3" title="Permanent link">&para;</a></h2>
+<p>mwan3 interface tracking, from ubus mwan3 status.</p>
+<ul>
+<li><strong>Title:</strong> mwan3 multi-WAN</li>
+<li><strong>Package:</strong> <code>ucode-prometheus-exporter-mwan3</code></li>
+<li><strong>Section:</strong> <code>config collector 'mwan3'</code></li>
+<li><strong>Needs:</strong> <code>ubus</code></li>
+<li><strong>Calls over ubus:</strong> <code>mwan3 status</code>, <code>rc list</code></li>
+<li><strong>Nothing to observe:</strong> mwan3 disabled, or not installed. See <a href="#nothing-to-observe">Nothing to observe</a>.</li>
+<li><strong>Metrics:</strong> <a href="../metrics/#mwan3">mwan3</a></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Datatype</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>enabled</code></td>
+<td style="text-align: left;">Enabled</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Serve this collector; 0 leaves it out, and naming it in a query is a 400.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="nat_traffic"><code>nat_traffic</code><a class="headerlink" href="#nat_traffic" title="Permanent link">&para;</a></h2>
+<p>Bytes per host on this side of the router, from /proc/net/nf_conntrack and the routes.</p>
+<ul>
+<li><strong>Title:</strong> Traffic per host</li>
+<li><strong>Package:</strong> <code>ucode-prometheus-exporter-nat_traffic</code></li>
+<li><strong>In the groups:</strong> <code>ucode-prometheus-exporter-network</code>, <code>ucode-prometheus-exporter-full</code></li>
+<li><strong>Section:</strong> <code>config collector 'nat_traffic'</code></li>
+<li><strong>Needs:</strong> <code>fs</code>, <code>rtnl</code>, <code>log</code></li>
+<li><strong>Reads, of root's alone:</strong> <code>/proc/net/nf_conntrack</code> (the service's group, while it is enabled)</li>
+<li><strong>Samples it may write:</strong> 65536, its own (<code>meta.max_samples</code>), unless its section sets <code>max_samples</code></li>
+<li><strong>Cost:</strong> heavy (<code>meta.cost</code>): until the ledger has timed it, it runs after the others</li>
+<li><strong>Nothing to observe:</strong> nf_conntrack not loaded: no <code>/proc/net/nf_conntrack</code>. See <a href="#nothing-to-observe">Nothing to observe</a>.</li>
+<li><strong>Metrics:</strong> <a href="../metrics/#nat_traffic">nat_traffic</a></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Datatype</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>peers</code></td>
+<td style="text-align: left;">Series per peer</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>0</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Label each host's bytes by the address at the other end too: a series per host and peer, as many as the connections and new with each, which a Prometheus server keeps for hours.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>enabled</code></td>
+<td style="text-align: left;">Enabled</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Serve this collector; 0 leaves it out, and naming it in a query is a 400.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="netclass"><code>netclass</code><a class="headerlink" href="#netclass" title="Permanent link">&para;</a></h2>
+<p>Network device properties, from rtnetlink and /sys/class/net.</p>
+<ul>
+<li><strong>Title:</strong> Network device properties</li>
+<li><strong>Package:</strong> <code>ucode-prometheus-exporter</code> (base)</li>
+<li><strong>Section:</strong> <code>config collector 'netclass'</code></li>
+<li><strong>Needs:</strong> <code>fs</code>, <code>rtnl</code></li>
+<li><strong>Metrics:</strong> <a href="../metrics/#netclass">netclass</a></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Datatype</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>enabled</code></td>
+<td style="text-align: left;">Enabled</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Serve this collector; 0 leaves it out, and naming it in a query is a 400.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="netdev"><code>netdev</code><a class="headerlink" href="#netdev" title="Permanent link">&para;</a></h2>
+<p>Network device statistics, as /proc/net/dev shows them, from rtnetlink.</p>
+<ul>
+<li><strong>Title:</strong> Network device statistics</li>
+<li><strong>Package:</strong> <code>ucode-prometheus-exporter</code> (base)</li>
+<li><strong>Section:</strong> <code>config collector 'netdev'</code></li>
+<li><strong>Needs:</strong> <code>rtnl</code></li>
+<li><strong>Metrics:</strong> <a href="../metrics/#netdev">netdev</a></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Datatype</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>enabled</code></td>
+<td style="text-align: left;">Enabled</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Serve this collector; 0 leaves it out, and naming it in a query is a 400.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="netstat"><code>netstat</code><a class="headerlink" href="#netstat" title="Permanent link">&para;</a></h2>
+<p>Protocol statistics from /proc/net/netstat, /proc/net/snmp and /proc/net/snmp6.</p>
+<ul>
+<li><strong>Title:</strong> Protocol statistics</li>
+<li><strong>Package:</strong> <code>ucode-prometheus-exporter-netstat</code></li>
+<li><strong>In the groups:</strong> <code>ucode-prometheus-exporter-network</code>, <code>ucode-prometheus-exporter-full</code></li>
+<li><strong>Section:</strong> <code>config collector 'netstat'</code></li>
+<li><strong>Needs:</strong> <code>fs</code></li>
+<li><strong>Metrics:</strong> <a href="../metrics/#netstat">netstat</a></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Datatype</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>fields</code></td>
+<td style="text-align: left;">Exported fields</td>
+<td style="text-align: left;">string</td>
+<td style="text-align: left;"><code>^(.*_(InErrors|InErrs)|Ip_Forwarding|Ip(6|Ext)_(InOctets|OutOctets)|Icmp6?_(InMsgs|OutMsgs)|TcpExt_(Listen.*|Syncookies.*|TCPSynRetrans|TCPTimeouts|TCPOFOQueue|TCPRcvQDrop)|Tcp_(ActiveOpens|InSegs|OutSegs|OutRsts|PassiveOpens|RetransSegs|CurrEstab)|Udp6?_(InDatagrams|OutDatagrams|NoPorts|RcvbufErrors|SndbufErrors))$</code></td>
+<td style="text-align: left;"><code>regex</code></td>
+<td style="text-align: left;">A regular expression of the &lt;section&gt;_&lt;name&gt; fields to export (node_exporter's by default; .* for every one).</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>enabled</code></td>
+<td style="text-align: left;">Enabled</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Serve this collector; 0 leaves it out, and naming it in a query is a 400.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="nft-counters"><code>nft-counters</code><a class="headerlink" href="#nft-counters" title="Permanent link">&para;</a></h2>
+<p>Packets and bytes of the named nftables counters.</p>
+<ul>
+<li><strong>Title:</strong> nftables counters</li>
+<li><strong>Package:</strong> <code>ucode-prometheus-exporter-nft-counters</code></li>
+<li><strong>In the groups:</strong> <code>ucode-prometheus-exporter-network</code>, <code>ucode-prometheus-exporter-full</code></li>
+<li><strong>Depends on:</strong> <code>nftables-json</code></li>
+<li><strong>Section:</strong> <code>config collector 'nft_counters'</code></li>
+<li><strong>Needs:</strong> <code>exec</code></li>
+<li><strong>Runs:</strong> <code>nft</code>, with <code>/bin/sh</code></li>
+<li><strong>Capabilities:</strong> <code>CAP_NET_ADMIN</code></li>
+<li><strong>Seconds for its programs:</strong> The main section's <code>exec_timeout</code>, unless its section sets <code>timeout</code></li>
+<li><strong>Metrics:</strong> <a href="../metrics/#nft-counters">nft-counters</a></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Datatype</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>enabled</code></td>
+<td style="text-align: left;">Enabled</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Serve this collector; 0 leaves it out, and naming it in a query is a 400.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>timeout</code></td>
+<td style="text-align: left;">Program timeout</td>
+<td style="text-align: left;">integer</td>
+<td style="text-align: left;"><code>exec_timeout</code>'s (5)</td>
+<td style="text-align: left;"><code>range(1,30)</code></td>
+<td style="text-align: left;">Seconds the programs of this collector get in all in each scrape; one still running then is killed.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="openwrt"><code>openwrt</code><a class="headerlink" href="#openwrt" title="Permanent link">&para;</a></h2>
+<p>The OpenWrt release and board, from ubus system board.</p>
+<ul>
+<li><strong>Title:</strong> OpenWrt release and board</li>
+<li><strong>Package:</strong> <code>ucode-prometheus-exporter-openwrt</code></li>
+<li><strong>In the groups:</strong> <code>ucode-prometheus-exporter-full</code></li>
+<li><strong>Section:</strong> <code>config collector 'openwrt'</code></li>
+<li><strong>Needs:</strong> <code>ubus</code></li>
+<li><strong>Calls over ubus:</strong> <code>system board</code></li>
+<li><strong>Metrics:</strong> <a href="../metrics/#openwrt">openwrt</a></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Datatype</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>enabled</code></td>
+<td style="text-align: left;">Enabled</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Serve this collector; 0 leaves it out, and naming it in a query is a 400.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="openwrt_interfaces"><code>openwrt_interfaces</code><a class="headerlink" href="#openwrt_interfaces" title="Permanent link">&para;</a></h2>
+<p>OpenWrt logical interfaces (wan, lan, ...): state, uptime, devices and address counts, from netifd over ubus.</p>
+<ul>
+<li><strong>Title:</strong> OpenWrt interfaces</li>
+<li><strong>Package:</strong> <code>ucode-prometheus-exporter</code> (base)</li>
+<li><strong>Section:</strong> <code>config collector 'openwrt_interfaces'</code></li>
+<li><strong>Needs:</strong> <code>ubus</code></li>
+<li><strong>Calls over ubus:</strong> <code>network.interface dump</code></li>
+<li><strong>Metrics:</strong> <a href="../metrics/#openwrt_interfaces">openwrt_interfaces</a></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Datatype</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>enabled</code></td>
+<td style="text-align: left;">Enabled</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Serve this collector; 0 leaves it out, and naming it in a query is a 400.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="pressure"><code>pressure</code><a class="headerlink" href="#pressure" title="Permanent link">&para;</a></h2>
+<p>Time tasks waited for or were stalled on CPU, I/O, memory and IRQs, from /proc/pressure.</p>
+<ul>
+<li><strong>Title:</strong> Pressure stall information</li>
+<li><strong>Package:</strong> <code>ucode-prometheus-exporter-pressure</code></li>
+<li><strong>Section:</strong> <code>config collector 'pressure'</code></li>
+<li><strong>Needs:</strong> <code>fs</code></li>
+<li><strong>Nothing to observe:</strong> No <code>/proc/pressure</code>: a kernel without <code>CONFIG_PSI</code>, or booted with <code>psi=0</code>. See <a href="#nothing-to-observe">Nothing to observe</a>.</li>
+<li><strong>Metrics:</strong> <a href="../metrics/#pressure">pressure</a></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Datatype</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>enabled</code></td>
+<td style="text-align: left;">Enabled</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Serve this collector; 0 leaves it out, and naming it in a query is a 400.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="qdisc"><code>qdisc</code><a class="headerlink" href="#qdisc" title="Permanent link">&para;</a></h2>
+<p>Statistics of each network device's root queueing discipline, and CAKE's per tin, from tc.</p>
+<ul>
+<li><strong>Title:</strong> Traffic control queues</li>
+<li><strong>Package:</strong> <code>ucode-prometheus-exporter-qdisc</code></li>
+<li><strong>In the groups:</strong> <code>ucode-prometheus-exporter-network</code>, <code>ucode-prometheus-exporter-full</code></li>
+<li><strong>Depends on:</strong> <code>tc</code></li>
+<li><strong>Section:</strong> <code>config collector 'qdisc'</code></li>
+<li><strong>Needs:</strong> <code>exec</code></li>
+<li><strong>Runs:</strong> <code>tc</code>, with <code>/bin/sh</code></li>
+<li><strong>Seconds for its programs:</strong> The main section's <code>exec_timeout</code>, unless its section sets <code>timeout</code></li>
+<li><strong>Metrics:</strong> <a href="../metrics/#qdisc">qdisc</a></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Datatype</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>enabled</code></td>
+<td style="text-align: left;">Enabled</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Serve this collector; 0 leaves it out, and naming it in a query is a 400.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>timeout</code></td>
+<td style="text-align: left;">Program timeout</td>
+<td style="text-align: left;">integer</td>
+<td style="text-align: left;"><code>exec_timeout</code>'s (5)</td>
+<td style="text-align: left;"><code>range(1,30)</code></td>
+<td style="text-align: left;">Seconds the programs of this collector get in all in each scrape; one still running then is killed.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="realtek-poe"><code>realtek-poe</code><a class="headerlink" href="#realtek-poe" title="Permanent link">&para;</a></h2>
+<p>PoE budget, consumption and port states of realtek-poe switches, from ubus poe info.</p>
+<ul>
+<li><strong>Title:</strong> Realtek PoE</li>
+<li><strong>Package:</strong> <code>ucode-prometheus-exporter-realtek-poe</code></li>
+<li><strong>Section:</strong> <code>config collector 'realtek_poe'</code></li>
+<li><strong>Needs:</strong> <code>ubus</code></li>
+<li><strong>Calls over ubus:</strong> <code>poe info</code></li>
+<li><strong>Nothing to observe:</strong> No <code>poe</code> object. See <a href="#nothing-to-observe">Nothing to observe</a>.</li>
+<li><strong>Metrics:</strong> <a href="../metrics/#realtek-poe">realtek-poe</a></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Datatype</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>enabled</code></td>
+<td style="text-align: left;">Enabled</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Serve this collector; 0 leaves it out, and naming it in a query is a 400.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="selinux"><code>selinux</code><a class="headerlink" href="#selinux" title="Permanent link">&para;</a></h2>
+<p>Whether SELinux is enabled and enforcing, from /sys/fs/selinux/enforce and /proc/filesystems.</p>
+<ul>
+<li><strong>Title:</strong> SELinux</li>
+<li><strong>Package:</strong> <code>ucode-prometheus-exporter</code> (base)</li>
+<li><strong>Section:</strong> <code>config collector 'selinux'</code></li>
+<li><strong>Needs:</strong> <code>fs</code></li>
+<li><strong>Metrics:</strong> <a href="../metrics/#selinux">selinux</a></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Datatype</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>enabled</code></td>
+<td style="text-align: left;">Enabled</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Serve this collector; 0 leaves it out, and naming it in a query is a 400.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="snmp6"><code>snmp6</code><a class="headerlink" href="#snmp6" title="Permanent link">&para;</a></h2>
+<p>Per-device IPv6 statistics from /proc/net/dev_snmp6.</p>
+<ul>
+<li><strong>Title:</strong> IPv6 statistics per device</li>
+<li><strong>Package:</strong> <code>ucode-prometheus-exporter-snmp6</code></li>
+<li><strong>In the groups:</strong> <code>ucode-prometheus-exporter-network</code>, <code>ucode-prometheus-exporter-full</code></li>
+<li><strong>Section:</strong> <code>config collector 'snmp6'</code></li>
+<li><strong>Needs:</strong> <code>fs</code></li>
+<li><strong>Nothing to observe:</strong> No <code>/proc/net/dev_snmp6</code> (IPv6 disabled). See <a href="#nothing-to-observe">Nothing to observe</a>.</li>
+<li><strong>Metrics:</strong> <a href="../metrics/#snmp6">snmp6</a></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Datatype</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>fields</code></td>
+<td style="text-align: left;">Exported fields</td>
+<td style="text-align: left;">string</td>
+<td style="text-align: left;"><code>^(Ip6_(InOctets|OutOctets|OutForwDatagrams|InDiscards|OutDiscards|InNoRoutes|OutNoRoutes|InHdrErrors|InAddrErrors|InTooBigErrors)|Icmp6_(InMsgs|OutMsgs|InErrors))$</code></td>
+<td style="text-align: left;"><code>regex</code></td>
+<td style="text-align: left;">A regular expression of the &lt;protocol&gt;_&lt;name&gt; fields to export (13 of the 70 or so of a device by default; .* for every one).</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>enabled</code></td>
+<td style="text-align: left;">Enabled</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Serve this collector; 0 leaves it out, and naming it in a query is a 400.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="sockstat"><code>sockstat</code><a class="headerlink" href="#sockstat" title="Permanent link">&para;</a></h2>
+<p>Sockets in use per protocol (TCP, UDP, raw, fragments) and the memory they hold, from /proc/net/sockstat and /proc/net/sockstat6, as node_exporter has them.</p>
+<ul>
+<li><strong>Title:</strong> Sockets</li>
+<li><strong>Package:</strong> <code>ucode-prometheus-exporter-sockstat</code></li>
+<li><strong>In the groups:</strong> <code>ucode-prometheus-exporter-network</code>, <code>ucode-prometheus-exporter-full</code></li>
+<li><strong>Section:</strong> <code>config collector 'sockstat'</code></li>
+<li><strong>Needs:</strong> <code>fs</code></li>
+<li><strong>Metrics:</strong> <a href="../metrics/#sockstat">sockstat</a></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Datatype</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>enabled</code></td>
+<td style="text-align: left;">Enabled</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Serve this collector; 0 leaves it out, and naming it in a query is a 400.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="softnet"><code>softnet</code><a class="headerlink" href="#softnet" title="Permanent link">&para;</a></h2>
+<p>Per-CPU network softirq statistics, from /proc/net/softnet_stat.</p>
+<ul>
+<li><strong>Title:</strong> Network softirq statistics</li>
+<li><strong>Package:</strong> <code>ucode-prometheus-exporter</code> (base)</li>
+<li><strong>Section:</strong> <code>config collector 'softnet'</code></li>
+<li><strong>Needs:</strong> <code>fs</code></li>
+<li><strong>Metrics:</strong> <a href="../metrics/#softnet">softnet</a></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Datatype</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>enabled</code></td>
+<td style="text-align: left;">Enabled</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Serve this collector; 0 leaves it out, and naming it in a query is a 400.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="textfile"><code>textfile</code><a class="headerlink" href="#textfile" title="Permanent link">&para;</a></h2>
+<p>Metrics from *.prom files in a directory, as node_exporter's textfile collector.</p>
+<ul>
+<li><strong>Title:</strong> Text files</li>
+<li><strong>Package:</strong> <code>ucode-prometheus-exporter-textfile</code></li>
+<li><strong>In the groups:</strong> <code>ucode-prometheus-exporter-full</code></li>
+<li><strong>Section:</strong> <code>config collector 'textfile'</code></li>
+<li><strong>Needs:</strong> <code>fs</code>, <code>log</code></li>
+<li><strong>Jail paths:</strong> <code>/var/prometheus</code> (<code>{directory}</code>), which the service makes when it is not there</li>
+<li><strong>Metrics:</strong> <a href="../metrics/#textfile">textfile</a></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Datatype</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>directory</code></td>
+<td style="text-align: left;">Metrics directory</td>
+<td style="text-align: left;">string</td>
+<td style="text-align: left;"><code>/var/prometheus</code></td>
+<td style="text-align: left;"><code>owned_directory</code></td>
+<td style="text-align: left;">The directory of the *.prom files, under /var, /tmp or /etc/prometheus-exporter.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>enabled</code></td>
+<td style="text-align: left;">Enabled</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Serve this collector; 0 leaves it out, and naming it in a query is a 400.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="thermal"><code>thermal</code><a class="headerlink" href="#thermal" title="Permanent link">&para;</a></h2>
+<p>Thermal zone temperatures and cooling device states, from /sys/class/thermal.</p>
+<ul>
+<li><strong>Title:</strong> Thermal zones and cooling devices</li>
+<li><strong>Package:</strong> <code>ucode-prometheus-exporter-thermal</code></li>
+<li><strong>In the groups:</strong> <code>ucode-prometheus-exporter-hardware</code>, <code>ucode-prometheus-exporter-full</code></li>
+<li><strong>Section:</strong> <code>config collector 'thermal'</code></li>
+<li><strong>Needs:</strong> <code>fs</code></li>
+<li><strong>Metrics:</strong> <a href="../metrics/#thermal">thermal</a></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Datatype</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>enabled</code></td>
+<td style="text-align: left;">Enabled</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Serve this collector; 0 leaves it out, and naming it in a query is a 400.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="time"><code>time</code><a class="headerlink" href="#time" title="Permanent link">&para;</a></h2>
+<p>The system clock, in seconds since the epoch.</p>
+<ul>
+<li><strong>Title:</strong> System time</li>
+<li><strong>Package:</strong> <code>ucode-prometheus-exporter</code> (base)</li>
+<li><strong>Section:</strong> <code>config collector 'time'</code></li>
+<li><strong>Needs:</strong> <code>time</code></li>
+<li><strong>Metrics:</strong> <a href="../metrics/#time">time</a></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Datatype</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>enabled</code></td>
+<td style="text-align: left;">Enabled</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Serve this collector; 0 leaves it out, and naming it in a query is a 400.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="timesync"><code>timesync</code><a class="headerlink" href="#timesync" title="Permanent link">&para;</a></h2>
+<p>Whether busybox ntpd or chronyd keeps the clock synchronized: stratum, offset and last update.</p>
+<ul>
+<li><strong>Title:</strong> Time synchronization</li>
+<li><strong>Package:</strong> <code>ucode-prometheus-exporter</code> (base)</li>
+<li><strong>Section:</strong> <code>config collector 'timesync'</code></li>
+<li><strong>Needs:</strong> <code>ubus</code>, <code>fs</code>, <code>exec</code></li>
+<li><strong>Runs:</strong> <code>chronyc</code> (only where it is installed), with <code>/bin/sh</code></li>
+<li><strong>Calls over ubus:</strong> <code>prometheus-exporter time_daemons</code>, <code>rc list</code></li>
+<li><strong>Jail paths:</strong> <code>/var/run/prometheus-exporter/timesync</code>, which the service makes when it is not there</li>
+<li><strong>Seconds for its programs:</strong> The main section's <code>exec_timeout</code>, unless its section sets <code>timeout</code></li>
+<li><strong>Nothing to observe:</strong> Neither busybox ntpd nor chronyd runs, by procd's instances (the service's ubus object's <code>time_daemons</code>). sysntpd runs ntpd only while <code>/etc/config/system</code> turns NTP on. When one of them runs, the collector observes that one. See <a href="#nothing-to-observe">Nothing to observe</a>.</li>
+<li><strong>Metrics:</strong> <a href="../metrics/#timesync">timesync</a></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Datatype</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>enabled</code></td>
+<td style="text-align: left;">Enabled</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Serve this collector; 0 leaves it out, and naming it in a query is a 400.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>timeout</code></td>
+<td style="text-align: left;">Program timeout</td>
+<td style="text-align: left;">integer</td>
+<td style="text-align: left;"><code>exec_timeout</code>'s (5)</td>
+<td style="text-align: left;"><code>range(1,30)</code></td>
+<td style="text-align: left;">Seconds the programs of this collector get in all in each scrape; one still running then is killed.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="ubnt-manager"><code>ubnt-manager</code><a class="headerlink" href="#ubnt-manager" title="Permanent link">&para;</a></h2>
+<p>Ubiquiti airOS radios, from their status as ubnt-manager reads it over ssh.</p>
+<ul>
+<li><strong>Title:</strong> Ubiquiti airOS radios</li>
+<li><strong>Package:</strong> <code>ucode-prometheus-exporter-ubnt-manager</code></li>
+<li><strong>Section:</strong> <code>config collector 'ubnt_manager'</code></li>
+<li><strong>Needs:</strong> <code>exec</code></li>
+<li><strong>Runs:</strong> <code>ubnt-manager</code> (only where it is installed), with <code>/bin/sh</code></li>
+<li><strong>Jail paths:</strong> <code>/etc/config/ubnt-manager</code>; <code>/lib/functions.sh</code>; <code>/lib/config/uci.sh</code>; <code>/sbin/uci</code>; <code>/usr/share/libubox/jshn.sh</code>; <code>/usr/bin/jshn</code>; <code>/usr/bin/ssh</code>; <code>/bin/sed</code></li>
+<li><strong>Seconds for its programs:</strong> The main section's <code>exec_timeout</code>, unless its section sets <code>timeout</code></li>
+<li><strong>Nothing to observe:</strong> ubnt-manager not installed, or <code>ubnt-manager -l</code> lists no radio. See <a href="#nothing-to-observe">Nothing to observe</a>.</li>
+<li><strong>Metrics:</strong> <a href="../metrics/#ubnt-manager">ubnt-manager</a></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Datatype</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>enabled</code></td>
+<td style="text-align: left;">Enabled</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Serve this collector; 0 leaves it out, and naming it in a query is a 400.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>timeout</code></td>
+<td style="text-align: left;">Program timeout</td>
+<td style="text-align: left;">integer</td>
+<td style="text-align: left;"><code>exec_timeout</code>'s (5)</td>
+<td style="text-align: left;"><code>range(1,30)</code></td>
+<td style="text-align: left;">Seconds the programs of this collector get in all in each scrape; one still running then is killed.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="uci_dhcp_host"><code>uci_dhcp_host</code><a class="headerlink" href="#uci_dhcp_host" title="Permanent link">&para;</a></h2>
+<p>Static DHCP leases from /etc/config/dhcp.</p>
+<ul>
+<li><strong>Title:</strong> Static DHCP hosts</li>
+<li><strong>Package:</strong> <code>ucode-prometheus-exporter-uci_dhcp_host</code></li>
+<li><strong>In the groups:</strong> <code>ucode-prometheus-exporter-full</code></li>
+<li><strong>Section:</strong> <code>config collector 'uci_dhcp_host'</code></li>
+<li><strong>Needs:</strong> <code>uci</code></li>
+<li><strong>Reads the configs:</strong> <code>/etc/config/dhcp</code></li>
+<li><strong>Metrics:</strong> <a href="../metrics/#uci_dhcp_host">uci_dhcp_host</a></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Datatype</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>enabled</code></td>
+<td style="text-align: left;">Enabled</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Serve this collector; 0 leaves it out, and naming it in a query is a 400.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="uname"><code>uname</code><a class="headerlink" href="#uname" title="Permanent link">&para;</a></h2>
+<p>The kernel and host names uname reports, from /proc/sys/kernel.</p>
+<ul>
+<li><strong>Title:</strong> Kernel and host names</li>
+<li><strong>Package:</strong> <code>ucode-prometheus-exporter</code> (base)</li>
+<li><strong>Section:</strong> <code>config collector 'uname'</code></li>
+<li><strong>Needs:</strong> <code>fs</code></li>
+<li><strong>Metrics:</strong> <a href="../metrics/#uname">uname</a></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Datatype</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>enabled</code></td>
+<td style="text-align: left;">Enabled</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Serve this collector; 0 leaves it out, and naming it in a query is a 400.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="unbound"><code>unbound</code><a class="headerlink" href="#unbound" title="Permanent link">&para;</a></h2>
+<p>Unbound DNS resolver statistics, from its remote control socket.</p>
+<ul>
+<li><strong>Title:</strong> Unbound DNS resolver</li>
+<li><strong>Package:</strong> <code>ucode-prometheus-exporter-unbound</code></li>
+<li><strong>Depends on:</strong> <code>ucode-mod-socket</code></li>
+<li><strong>Section:</strong> <code>config collector 'unbound'</code></li>
+<li><strong>Needs:</strong> <code>socket</code>, <code>ubus</code></li>
+<li><strong>Calls over ubus:</strong> <code>rc list</code></li>
+<li><strong>Its user joins:</strong> <code>unbound</code> (the service's user, while it is enabled)</li>
+<li><strong>Jail paths:</strong> The directory of the <code>socket</code> option: <code>/var/lib/unbound</code> by default.</li>
+<li><strong>Nothing to observe:</strong> unbound disabled, or not installed. See <a href="#nothing-to-observe">Nothing to observe</a>.</li>
+<li><strong>Metrics:</strong> <a href="../metrics/#unbound">unbound</a></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Datatype</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>socket</code></td>
+<td style="text-align: left;">Control socket</td>
+<td style="text-align: left;">string</td>
+<td style="text-align: left;"><code>/var/lib/unbound/unbound.ctl</code></td>
+<td style="text-align: left;"><code>file</code></td>
+<td style="text-align: left;">Unbound's control socket (control-interface), in a directory the jail can mount: not one every service shares, such as /run.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>enabled</code></td>
+<td style="text-align: left;">Enabled</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Serve this collector; 0 leaves it out, and naming it in a query is a 400.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="vmstat"><code>vmstat</code><a class="headerlink" href="#vmstat" title="Permanent link">&para;</a></h2>
+<p>Virtual memory statistics, from /proc/vmstat.</p>
+<ul>
+<li><strong>Title:</strong> Virtual memory statistics</li>
+<li><strong>Package:</strong> <code>ucode-prometheus-exporter</code> (base)</li>
+<li><strong>Section:</strong> <code>config collector 'vmstat'</code></li>
+<li><strong>Needs:</strong> <code>fs</code></li>
+<li><strong>Metrics:</strong> <a href="../metrics/#vmstat">vmstat</a></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Datatype</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>fields</code></td>
+<td style="text-align: left;">Exported fields</td>
+<td style="text-align: left;">string</td>
+<td style="text-align: left;"><code>^(oom_kill|pgpg|pswp|pg.*fault).*</code></td>
+<td style="text-align: left;"><code>regex</code></td>
+<td style="text-align: left;">A regular expression of the /proc/vmstat fields to export.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>enabled</code></td>
+<td style="text-align: left;">Enabled</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Serve this collector; 0 leaves it out, and naming it in a query is a 400.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="wifi"><code>wifi</code><a class="headerlink" href="#wifi" title="Permanent link">&para;</a></h2>
+<p>Wi-Fi radios, networks and stations, from the wireless config without its keys (the service's ubus object), nl80211 and /sys/class/net.</p>
+<ul>
+<li><strong>Title:</strong> Wi-Fi</li>
+<li><strong>Package:</strong> <code>ucode-prometheus-exporter-wifi</code></li>
+<li><strong>In the groups:</strong> <code>ucode-prometheus-exporter-wireless</code>, <code>ucode-prometheus-exporter-full</code></li>
+<li><strong>Depends on:</strong> <code>ucode-mod-nl80211</code></li>
+<li><strong>Section:</strong> <code>config collector 'wifi'</code></li>
+<li><strong>Needs:</strong> <code>ubus</code>, <code>nl80211</code>, <code>fs</code></li>
+<li><strong>Calls over ubus:</strong> <code>prometheus-exporter wireless</code></li>
+<li><strong>Nothing to observe:</strong> The wireless config has no radio: the service's ubus object's <code>wireless</code> gives none. See <a href="#nothing-to-observe">Nothing to observe</a>.</li>
+<li><strong>Metrics:</strong> <a href="../metrics/#wifi">wifi</a></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Datatype</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>stations</code></td>
+<td style="text-align: left;">Station metrics</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Per-station metrics: signal, rates and traffic of each client. The count of stations of each interface is written either way.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>enabled</code></td>
+<td style="text-align: left;">Enabled</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Serve this collector; 0 leaves it out, and naming it in a query is a 400.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="wireguard"><code>wireguard</code><a class="headerlink" href="#wireguard" title="Permanent link">&para;</a></h2>
+<p>WireGuard interfaces and peers, from ubus wireguard status.</p>
+<ul>
+<li><strong>Title:</strong> WireGuard</li>
+<li><strong>Package:</strong> <code>ucode-prometheus-exporter-wireguard</code></li>
+<li><strong>In the groups:</strong> <code>ucode-prometheus-exporter-full</code></li>
+<li><strong>Section:</strong> <code>config collector 'wireguard'</code></li>
+<li><strong>Needs:</strong> <code>ubus</code></li>
+<li><strong>Calls over ubus:</strong> <code>prometheus-exporter</code> (the methods its options call for), <code>wireguard status</code></li>
+<li><strong>Nothing to observe:</strong> rpcd has no <code>wireguard</code> object: rpcd-mod-wireguard not installed. See <a href="#nothing-to-observe">Nothing to observe</a>.</li>
+<li><strong>Metrics:</strong> <a href="../metrics/#wireguard">wireguard</a></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Option</th>
+<th style="text-align: left;">Title</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Default</th>
+<th style="text-align: left;">Datatype</th>
+<th style="text-align: left;">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>peer_names</code></td>
+<td style="text-align: left;">Peer names</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>0</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Label each peer with its description in the network config (friendly_name), from the service's ubus object: each peer's public key and description alone, never a private or preshared key.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>enabled</code></td>
+<td style="text-align: left;">Enabled</td>
+<td style="text-align: left;">boolean</td>
+<td style="text-align: left;"><code>1</code></td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">Serve this collector; 0 leaves it out, and naming it in a query is a 400.</td>
+</tr>
+</tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var tab,labels=set.querySelector(".tabbed-labels");for(tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12Z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.tabs.link"], "search": "../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.1e8ae164.min.js"></script>
+      
+    
+  </body>
+</html>

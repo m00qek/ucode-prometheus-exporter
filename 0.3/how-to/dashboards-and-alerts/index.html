@@ -1,0 +1,2983 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Metrics of OpenWrt for Prometheus, written in ucode and served by uhttpd.">
+      
+      
+      
+        <link rel="canonical" href="https://m00qek.github.io/ucode-prometheus-exporter/latest/how-to/dashboards-and-alerts/">
+      
+      
+        <link rel="prev" href="../push-metrics/">
+      
+      
+        <link rel="next" href="../unbound/">
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.5.3, mkdocs-material-9.5.17">
+    
+    
+      
+        <title>Monitoring with the Bundled Dashboards and Alerts - ucode-prometheus-exporter</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.bcfcd587.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="deep-orange" data-md-color-accent="deep-orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#how-to-monitor-a-router-with-the-bundled-dashboards-and-alerts" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+          <aside class="md-banner md-banner--warning">
+            <div class="md-banner__inner md-grid md-typeset">
+              
+  You are reading the documentation of an older release.
+  <a href="../../.."><strong>Go to the latest.</strong></a>
+
+            </div>
+            <script>var el=document.querySelector("[data-md-component=outdated]"),outdated=__md_get("__outdated",sessionStorage);!0===outdated&&el&&(el.hidden=!1)</script>
+          </aside>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="ucode-prometheus-exporter" class="md-header__button md-logo" aria-label="ucode-prometheus-exporter" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            ucode-prometheus-exporter
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Monitoring with the Bundled Dashboards and Alerts
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="deep-orange" data-md-color-accent="deep-orange"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="deep-orange" data-md-color-accent="deep-orange"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12c0-2.42-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var media,input,key,value,palette=__md_get("__palette");if(palette&&palette.color){"(prefers-color-scheme)"===palette.color.media&&(media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']"),palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent"));for([key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/m00qek/ucode-prometheus-exporter" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    m00qek/ucode-prometheus-exporter
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+    
+  
+  Welcome
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../tutorials/" class="md-tabs__link">
+          
+  
+  Tutorials
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  How-to Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../reference/" class="md-tabs__link">
+          
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../explanation/" class="md-tabs__link">
+          
+  
+  Explanation
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="ucode-prometheus-exporter" class="md-nav__button md-logo" aria-label="ucode-prometheus-exporter" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    ucode-prometheus-exporter
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/m00qek/ucode-prometheus-exporter" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    m00qek/ucode-prometheus-exporter
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Welcome
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Tutorials
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Tutorials
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/monitor-a-router/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Monitor a Router with Prometheus
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/first-collector/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Write Your First Collector
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    How-to Guides
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            How-to Guides
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Operators
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3_2">
+            <span class="md-nav__icon md-icon"></span>
+            Operators
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../install/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Installing the Exporter
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../upgrade/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Upgrading the Exporter
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../uninstall/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Removing the Exporter
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../migrate-from-feed/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Moving from the Feed's Exporters
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../choose-collectors/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Choosing Collectors
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../small-device/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Running on a Small Device
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../listen-on-lan/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Listening on the LAN
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../https-basic-auth/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Serving HTTPS with Basic Auth
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gzip/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Compressing Scrapes
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../exec-timeout/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Giving Programs More Time
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../collector-options/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Setting a Collector's Options
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../textfile/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Publishing Metrics from Scripts
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../push-metrics/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Pushing Metrics from the Router
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Monitoring with the Bundled Dashboards and Alerts
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    Monitoring with the Bundled Dashboards and Alerts
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      Prerequisites
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-load-the-rules-into-prometheus" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Load the rules into Prometheus
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-or-load-them-into-victoriametrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Or load them into VictoriaMetrics
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-import-the-dashboards-into-grafana" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Import the dashboards into Grafana
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-apply-the-dashboards-to-perses" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. Apply the dashboards to Perses
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-change-a-threshold" class="md-nav__link">
+    <span class="md-ellipsis">
+      5. Change a threshold
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-each-alert-means" class="md-nav__link">
+    <span class="md-ellipsis">
+      What each alert means
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="What each alert means">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-exporters-health" class="md-nav__link">
+    <span class="md-ellipsis">
+      The exporter's health
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-router" class="md-nav__link">
+    <span class="md-ellipsis">
+      The router
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#which-targets-the-alerts-take" class="md-nav__link">
+    <span class="md-ellipsis">
+      Which targets the alerts take
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-dashboards" class="md-nav__link">
+    <span class="md-ellipsis">
+      The dashboards
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The dashboards">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#openwrt-router" class="md-nav__link">
+    <span class="md-ellipsis">
+      OpenWrt router
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#openwrt-exporter-health" class="md-nav__link">
+    <span class="md-ellipsis">
+      OpenWrt exporter health
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      See also
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../unbound/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Monitoring Unbound
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adguard-home/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Monitoring AdGuard Home
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../chrony/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Monitoring chrony
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sqm-cake/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Monitoring SQM and CAKE
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../luci/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Using the LuCI App
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../troubleshoot/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Troubleshooting
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Collector Authors
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            Collector Authors
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../collector-package/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Writing a Collector in Your Own Package
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_4" id="__nav_3_4_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Maintainers
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_4">
+            <span class="md-nav__icon md-icon"></span>
+            Maintainers
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer/testing/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Running the Tests
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer/lab/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Using the Lab
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer/benchmarks/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Running the Benchmark
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer/fixtures/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Capturing Fixtures from a Device
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer/package-collector/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Packaging a Collector
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer/translations/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Updating the Translation Template
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer/documentation/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Writing Documentation
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_4_8" id="__nav_3_4_8_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Publishing the Documentation
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_4_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_4_8">
+            <span class="md-nav__icon md-icon"></span>
+            Publishing the Documentation
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer/setup-docs-publishing/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Setting Up Publishing
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer/publish-minor-docs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Publishing a New Minor Release
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer/publish-patch-docs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Publishing a Patch Release
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer/fix-released-docs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Fixing the Released Docs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer/republish-docs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Republishing a Version
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer/publish-to-feed/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Publishing a Release to the Package Feed
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Reference
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            Reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/collectors/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Collectors
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/metrics/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Metrics
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../metrics/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Renamed Metrics
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/migration/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Migrate from prometheus-node-exporter-lua/-ucode
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/uci-config/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    UCI Configuration
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/service-commands/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Service Commands
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/command/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    The prometheus-exporter Command
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/http/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    HTTP Endpoint
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ubus/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ubus Object
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/luci/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    LuCI App
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/jail/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    The Jail
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/collector-interface/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Collector Interface
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/collector-contract/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Collector Contract
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/devkit/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    The Devkit
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/log-messages/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Log Messages
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/error-codes/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Error Codes
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/files/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Files and Packages
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/make-targets/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Make Targets
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/docs-publishing/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Documentation Publishing
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Explanation
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            Explanation
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/about/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    About the Exporter
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/architecture/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Architecture
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/security/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Security Model
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/nothing-to-observe/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Nothing to Observe
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/deadlines-and-breakers/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Deadlines and Circuit Breakers
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/when-a-collector-breaks/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    When a Collector Breaks
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/metric-names/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Metric Names
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/performance/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Performance on Small Routers
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/internals/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    About the Implementation
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/versions/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    About Versions
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/versioned-docs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    About Versioned Documentation
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      Prerequisites
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-load-the-rules-into-prometheus" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Load the rules into Prometheus
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-or-load-them-into-victoriametrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Or load them into VictoriaMetrics
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-import-the-dashboards-into-grafana" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Import the dashboards into Grafana
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-apply-the-dashboards-to-perses" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. Apply the dashboards to Perses
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-change-a-threshold" class="md-nav__link">
+    <span class="md-ellipsis">
+      5. Change a threshold
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-each-alert-means" class="md-nav__link">
+    <span class="md-ellipsis">
+      What each alert means
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="What each alert means">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-exporters-health" class="md-nav__link">
+    <span class="md-ellipsis">
+      The exporter's health
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-router" class="md-nav__link">
+    <span class="md-ellipsis">
+      The router
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#which-targets-the-alerts-take" class="md-nav__link">
+    <span class="md-ellipsis">
+      Which targets the alerts take
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-dashboards" class="md-nav__link">
+    <span class="md-ellipsis">
+      The dashboards
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The dashboards">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#openwrt-router" class="md-nav__link">
+    <span class="md-ellipsis">
+      OpenWrt router
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#openwrt-exporter-health" class="md-nav__link">
+    <span class="md-ellipsis">
+      OpenWrt exporter health
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      See also
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+<h1 id="how-to-monitor-a-router-with-the-bundled-dashboards-and-alerts">How to Monitor a Router with the Bundled Dashboards and Alerts<a class="headerlink" href="#how-to-monitor-a-router-with-the-bundled-dashboards-and-alerts" title="Permanent link">&para;</a></h1>
+<p>The exporter comes with alerting rules and dashboards. They are in <code>monitoring/</code>, in the <a href="https://github.com/m00qek/ucode-prometheus-exporter">repository</a> and in each release's tarball:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">File</th>
+<th style="text-align: left;">What it is</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>monitoring/prometheus/exporter.rules.yml</code></td>
+<td style="text-align: left;">Alerts on the exporter's own health: the target down, a collector failing or quarantined, scrapes too slow for their timeout.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>monitoring/prometheus/router.rules.yml</code></td>
+<td style="text-align: left;">Alerts on a router's basics: the connection table, memory, filesystems, temperatures, the WAN, Wi-Fi radios, the clock, the DHCP pool.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>monitoring/prometheus/tests/</code></td>
+<td style="text-align: left;">The rules' tests, for <code>promtool test rules</code> and <code>vmalert-tool unittest</code>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>monitoring/grafana/</code></td>
+<td style="text-align: left;">The dashboards <strong>OpenWrt router</strong> and <strong>OpenWrt exporter health</strong>, for Grafana.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>monitoring/perses/</code></td>
+<td style="text-align: left;">The same two dashboards, for Perses.</td>
+</tr>
+</tbody>
+</table>
+<p>This guide loads them into Prometheus or VictoriaMetrics, Grafana and Perses. It then says what each alert means and what to do about it.</p>
+<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
+<ul>
+<li>A Prometheus, or a VictoriaMetrics with vmagent, that scrapes the router: see <a href="../../tutorials/monitor-a-router/">Monitor a router with Prometheus</a>. The rules and dashboards work for every router the server scrapes, whatever you named the jobs. They find this exporter's targets by the metrics it writes, and leave other targets alone. See <a href="#which-targets-the-alerts-take">Which targets the alerts take</a>.</li>
+<li>The collectors whose panels and alerts you want. If a collector is not installed, its panels show no data and its alerts never fire. Nothing else breaks. See <a href="../choose-collectors/">Choosing collectors</a>.</li>
+<li>A copy of <code>monitoring/</code>.</li>
+</ul>
+<hr />
+<h2 id="1-load-the-rules-into-prometheus">1. Load the rules into Prometheus<a class="headerlink" href="#1-load-the-rules-into-prometheus" title="Permanent link">&para;</a></h2>
+<p>Copy the rule files where Prometheus reads its config, and name them in <code>prometheus.yml</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">rule_files</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/etc/prometheus/rules/openwrt/*.rules.yml</span>
+
+<span class="nt">alerting</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">alertmanagers</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">static_configs</span><span class="p">:</span>
+<span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">targets</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="w"> </span><span class="s">&#39;alertmanager:9093&#39;</span><span class="w"> </span><span class="p p-Indicator">]</span>
+</code></pre></div>
+<p>No rule names a job or an instance, so the rules load unchanged, whatever you named your scrape jobs. Check the files and reload:</p>
+<div class="highlight"><pre><span></span><code>promtool<span class="w"> </span>check<span class="w"> </span>rules<span class="w"> </span>/etc/prometheus/rules/openwrt/*.rules.yml
+curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:9090/-/reload<span class="w">    </span><span class="c1"># with --web.enable-lifecycle; or send Prometheus SIGHUP</span>
+</code></pre></div>
+<p>Run Prometheus with <code>--enable-feature=extra-scrape-metrics</code>. With it, Prometheus writes <code>scrape_timeout_seconds</code>. <code>OpenWrtExporterScrapeSlow</code> and the <strong>Scrape duration and timeout</strong> panel compare each scrape's duration with it. Without the flag, the alert assumes Prometheus's default timeout of 10 seconds, and the panel shows only the duration.</p>
+<p>Each alert carries <code>severity: critical</code> or <code>severity: warning</code>, for Alertmanager's routes.</p>
+<h2 id="2-or-load-them-into-victoriametrics">2. Or load them into VictoriaMetrics<a class="headerlink" href="#2-or-load-them-into-victoriametrics" title="Permanent link">&para;</a></h2>
+<p>vmalert reads the same files, unchanged:</p>
+<div class="highlight"><pre><span></span><code>vmalert<span class="w"> </span>-rule<span class="o">=</span><span class="s1">&#39;/etc/vmalert/openwrt/*.rules.yml&#39;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-datasource.url<span class="o">=</span>http://victoriametrics:8428<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-remoteWrite.url<span class="o">=</span>http://victoriametrics:8428<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>-notifier.url<span class="o">=</span>http://alertmanager:9093
+</code></pre></div>
+<p>What differs from Prometheus:</p>
+<ul>
+<li>vmagent writes <code>scrape_timeout_seconds</code> for every target, without a flag.</li>
+<li><code>OpenWrtExporterDown</code> looks for the exporter's <code>ucode_prometheus_exporter_build_info</code> over the last 7 days. MetricsQL's <code>max_over_time</code>, like PromQL's, ignores the staleness markers that a failed scrape writes.</li>
+<li>The description of <code>OpenWrtExporterCollectorFailing</code> runs a query (<code>query</code>, <code>sortByLabel</code>). Both servers' templates can do this.</li>
+<li><code>make monitoring-check</code> also loads the rules with <code>vmalert -dryRun</code> and runs their tests with <code>vmalert-tool unittest</code>, so the rules keep working in VictoriaMetrics.</li>
+<li>In Grafana and in Perses, the dashboards take VictoriaMetrics as a Prometheus data source. MetricsQL runs their PromQL.</li>
+</ul>
+<h2 id="3-import-the-dashboards-into-grafana">3. Import the dashboards into Grafana<a class="headerlink" href="#3-import-the-dashboards-into-grafana" title="Permanent link">&para;</a></h2>
+<p>Each dashboard picks its data source, job and instance from variables at its top, so either way below imports it unchanged. The job and instance lists hold the targets that wrote the exporter's <code>ucode_prometheus_exporter_build_info</code> in the dashboard's time range. A node_exporter's targets are not among them.</p>
+<ul>
+<li><strong>By hand:</strong> <strong>Dashboards → New → Import</strong>, upload <code>monitoring/grafana/openwrt-router.json</code>, then <code>exporter-health.json</code>.</li>
+<li>
+<p><strong>Provisioned:</strong> copy the two files into a directory Grafana reads, and add a provider in <code>/etc/grafana/provisioning/dashboards/openwrt.yaml</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+<span class="nt">providers</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">openwrt</span>
+<span class="w">    </span><span class="nt">folder</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">OpenWrt</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">file</span>
+<span class="w">    </span><span class="nt">options</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/var/lib/grafana/dashboards/openwrt</span>
+</code></pre></div>
+</li>
+</ul>
+<p>A link at the top of each dashboard opens the other one, for the same router.</p>
+<h2 id="4-apply-the-dashboards-to-perses">4. Apply the dashboards to Perses<a class="headerlink" href="#4-apply-the-dashboards-to-perses" title="Permanent link">&para;</a></h2>
+<p>The dashboards take their data source from a variable. It lists the project's Prometheus data sources and the global ones, so you need one of either. Then log percli in to your Perses and apply the dashboards:</p>
+<div class="highlight"><pre><span></span><code>percli<span class="w"> </span>login<span class="w"> </span>https://perses.example.net
+percli<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>monitoring/perses/openwrt-router.yaml<span class="w"> </span>--project<span class="w"> </span>&lt;project&gt;
+percli<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>monitoring/perses/exporter-health.yaml<span class="w"> </span>--project<span class="w"> </span>&lt;project&gt;
+</code></pre></div>
+<p>To check a dashboard against your server's plugins first, run <code>percli lint -f &lt;file&gt; --online</code>.</p>
+<h2 id="5-change-a-threshold">5. Change a threshold<a class="headerlink" href="#5-change-a-threshold" title="Permanent link">&para;</a></h2>
+<p>Each threshold is in its rule's expression. A comment above the rule says what it means. Edit the threshold there and in the rule's test in <code>monitoring/prometheus/tests/</code>, then run the tests:</p>
+<div class="highlight"><pre><span></span><code>promtool<span class="w"> </span><span class="nb">test</span><span class="w"> </span>rules<span class="w"> </span>monitoring/prometheus/tests/*.test.yml
+</code></pre></div>
+<p>In a checkout of the repository, <code>make monitoring-check</code> runs the tests along with every other check: see <a href="../../reference/make-targets/#monitoring">Make targets</a>. It refuses a rule that matches a job or an instance, such as <code>up{job="openwrt"}</code>. To allow one, put a comment above or in the rule that says <code>monitoring-check: allow-target-matcher</code> and why.</p>
+<hr />
+<h2 id="what-each-alert-means">What each alert means<a class="headerlink" href="#what-each-alert-means" title="Permanent link">&para;</a></h2>
+<h3 id="the-exporters-health">The exporter's health<a class="headerlink" href="#the-exporters-health" title="Permanent link">&para;</a></h3>
+<p><a href="../../reference/error-codes/">Error codes</a> lists the failures behind these alerts. <a href="../troubleshoot/">Troubleshooting</a> says how to find them on the router.</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Alert</th>
+<th style="text-align: left;">Severity</th>
+<th style="text-align: left;">Fires when</th>
+<th style="text-align: left;">Do</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>OpenWrtExporterDown</code></td>
+<td style="text-align: left;">critical</td>
+<td style="text-align: left;"><code>up</code> has been 0 for 5 minutes, of a target that wrote the exporter's <code>ucode_prometheus_exporter_build_info</code> in the last 7 days, whatever its job is called: the router or the exporter is down, the scrape timed out, or basic auth refused the scraper. A target that never answered, or that has been down for more than 7 days, does not fire it: see <a href="#which-targets-the-alerts-take">Which targets the alerts take</a>.</td>
+<td style="text-align: left;"><code>service prometheus-exporter status</code> on the router; Prometheus's <strong>Targets</strong> page says why the scrape failed. See <a href="../troubleshoot/#prometheus-cannot-scrape-it">Prometheus cannot scrape it</a>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>OpenWrtExporterCollectorFailing</code></td>
+<td style="text-align: left;">warning</td>
+<td style="text-align: left;">A collector's <code>node_scrape_collector_success</code> has been 0 for 15 minutes: it failed, was quarantined or was left out at the deadline in every scrape. The description lists its failures since the service started, by <a href="../../reference/error-codes/">error code</a>. A collector with nothing to observe succeeds, and never fires it.</td>
+<td style="text-align: left;"><code>service prometheus-exporter check</code> runs it now and says why it fails. See <a href="../troubleshoot/#a-collector-fails">A collector fails</a>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>OpenWrtExporterCollectorQuarantined</code></td>
+<td style="text-align: left;">warning</td>
+<td style="text-align: left;">A collector's circuit breaker tripped in the last 15 minutes: it hung, was killed, ran over its budget, had a program killed at its timeout, or failed three scrapes in a row. It is left out for 1 to 32 scrapes, then tried again.</td>
+<td style="text-align: left;"><code>check</code> says what tripped it, and when it is tried again. See <a href="../troubleshoot/#a-collector-is-quarantined">A collector is quarantined</a> and <a href="../../explanation/deadlines-and-breakers/#circuit-breakers">About deadlines and circuit breakers</a>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>OpenWrtExporterDeadlineSkips</code></td>
+<td style="text-align: left;">warning</td>
+<td style="text-align: left;">The scrape deadline left a collector out, or killed its program, in more than 2 scrapes of 30 minutes (<code>SCRAPE_DEADLINE</code>). The first scrape after a restart can be late once.</td>
+<td style="text-align: left;">The scrapes need more time than the job's <code>scrape_timeout</code>: scrape the slow collector in a job of its own with a longer timeout, or raise the job's. See <a href="../troubleshoot/#collectors-are-left-out-at-the-deadline">Collectors are left out at the deadline</a>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>OpenWrtExporterProgramTimeouts</code></td>
+<td style="text-align: left;">warning</td>
+<td style="text-align: left;">A collector's program was killed at its timeout in the last 30 minutes (<code>COMMAND_TIMEOUT</code>).</td>
+<td style="text-align: left;">Give it more time, <a href="../exec-timeout/">How to give programs more time</a>, or find why the program hangs: a radio or a daemon that does not answer.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>OpenWrtExporterAuthFailures</code></td>
+<td style="text-align: left;">warning</td>
+<td style="text-align: left;">Basic auth refused more than 5 requests in 15 minutes. A scraper with the wrong password is <code>OpenWrtExporterDown</code> instead.</td>
+<td style="text-align: left;">A script or a scraper with an old password, or someone guessing it: keep the port to the scrapers, <a href="../listen-on-lan/#keep-it-to-the-scrapers">How to listen on the LAN</a>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>OpenWrtExporterScrapeSlow</code></td>
+<td style="text-align: left;">warning</td>
+<td style="text-align: left;">Scrapes took more than 80% of the scraper's timeout for 15 minutes. The exporter answers in time by leaving the slowest collectors out, so they are next.</td>
+<td style="text-align: left;">The <strong>Time in each collector</strong> panel of <strong>OpenWrt exporter health</strong> shows which collector takes the time. As for deadline skips.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="the-router">The router<a class="headerlink" href="#the-router" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Alert</th>
+<th style="text-align: left;">Severity</th>
+<th style="text-align: left;">Fires when</th>
+<th style="text-align: left;">Do</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>OpenWrtConntrackTableNearlyFull</code></td>
+<td style="text-align: left;">warning</td>
+<td style="text-align: left;">The connection table has been more than 80% full for 10 minutes. A full table drops new connections.</td>
+<td style="text-align: left;">Raise <code>net.netfilter.nf_conntrack_max</code>, or find the host that opens them: nat_traffic's <strong>Traffic per host</strong> panel.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>OpenWrtMemoryLow</code></td>
+<td style="text-align: left;">warning</td>
+<td style="text-align: left;">Less than 10% of the memory has been available for 10 minutes.</td>
+<td style="text-align: left;"><code>/tmp</code> and the log are memory too. Find what grew: <code>top</code>, <code>du -sh /tmp/*</code>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>OpenWrtFilesystemNearlyFull</code></td>
+<td style="text-align: left;">warning</td>
+<td style="text-align: left;">A writable filesystem has had less than 10% of its space available for 15 minutes. Read-only ones, as the squashfs root, are left out.</td>
+<td style="text-align: left;">On the overlay, remove packages or files; on <code>/tmp</code>, what fills it.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>OpenWrtFilesystemOutOfInodes</code></td>
+<td style="text-align: left;">warning</td>
+<td style="text-align: left;">A writable filesystem has had less than 10% of its inodes free for 15 minutes; one that counts none, as jffs2, is left out.</td>
+<td style="text-align: left;">Many small files: a cache or a spool that grows.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>OpenWrtTemperatureAboveMax</code></td>
+<td style="text-align: left;">warning</td>
+<td style="text-align: left;">A hwmon sensor has read at or above its chip's own maximum for 5 minutes. Some chips throttle there, as mt76's Wi-Fi radios.</td>
+<td style="text-align: left;">Check the airflow, and where the device stands.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>OpenWrtTemperatureCritical</code></td>
+<td style="text-align: left;">critical</td>
+<td style="text-align: left;">A hwmon sensor has read at or above its chip's critical temperature for a minute: the hardware may shut down.</td>
+<td style="text-align: left;">As above, now.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>OpenWrtThermalZoneThrottling</code></td>
+<td style="text-align: left;">warning</td>
+<td style="text-align: left;">A thermal zone has been at or above its passive trip point for 5 minutes: the kernel slows the CPU to cool it.</td>
+<td style="text-align: left;">As above.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>OpenWrtThermalZoneNearCritical</code></td>
+<td style="text-align: left;">critical</td>
+<td style="text-align: left;">A thermal zone has been within 10 °C of its critical trip point (<code>node_thermal_zone_critical_celsius</code>) for a minute: the kernel shuts the router down at it.</td>
+<td style="text-align: left;">As above, at once: a fan stopped, a vent blocked, a router in the sun.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>OpenWrtWanDown</code></td>
+<td style="text-align: left;">critical</td>
+<td style="text-align: left;">The logical interface <code>wan</code> has been down for 5 minutes. Name yours in the expression: <code>wan\|wan6</code>, <code>wwan</code>.</td>
+<td style="text-align: left;"><code>ifstatus wan</code> on the router; <code>node_openwrt_interface_errors</code> counts the errors netifd holds for it.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>OpenWrtWifiRadioDown</code></td>
+<td style="text-align: left;">warning</td>
+<td style="text-align: left;">A Wi-Fi radio the wireless config enables has had no network up for 10 minutes (<code>node_wifi_radio_up</code>); one disabled on purpose (<code>node_wifi_radio_disabled</code>) is left out.</td>
+<td style="text-align: left;"><code>wifi status</code> on the router: its driver or hostapd failed, or none of its networks is enabled.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>OpenWrtClockNotSynchronized</code></td>
+<td style="text-align: left;">warning</td>
+<td style="text-align: left;">The NTP daemon has not had the clock synchronized for 30 minutes.</td>
+<td style="text-align: left;">No NTP server answers, or none is set: <strong>System → System → Time Synchronization</strong> in LuCI.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>OpenWrtDhcpPoolNearlyExhausted</code></td>
+<td style="text-align: left;">warning</td>
+<td style="text-align: left;">An interface has had 90% or more of its DHCPv4 pool leased for 15 minutes: dnsmasq's and odhcpd's leases over <code>node_openwrt_dhcp_pool_size</code>, which dhcp_leases works out from the interface's <code>start</code> and <code>limit</code> in <code>/etc/config/dhcp</code> and its subnet.</td>
+<td style="text-align: left;">Raise the interface's <code>limit</code> in <code>/etc/config/dhcp</code>, or shorten its <code>leasetime</code>.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="which-targets-the-alerts-take">Which targets the alerts take<a class="headerlink" href="#which-targets-the-alerts-take" title="Permanent link">&para;</a></h3>
+<p>No rule names a job or an instance. Instead, each rule takes the targets that write <code>ucode_prometheus_exporter_build_info</code>. Only this exporter writes it, and every scrape has it, whatever <code>collect[]</code> selects. So:</p>
+<ul>
+<li>The rules load unchanged, whatever you named the scrape jobs.</li>
+<li>A Linux server's node_exporter in the same Prometheus fires none of them, even though it also writes <code>node_memory_MemAvailable_bytes</code> or <code>node_scrape_collector_success</code>.</li>
+</ul>
+<p><code>OpenWrtExporterDown</code> cannot look at the current <code>ucode_prometheus_exporter_build_info</code>. A target that does not answer writes nothing, and its series went stale with the failed scrape. So the alert looks over the last 7 days instead, with <code>max_over_time(ucode_prometheus_exporter_build_info[7d])</code>. It fires for a target that is down and wrote the metric in that time:</p>
+<ul>
+<li><strong>7 days</strong> means a router that is down over a weekend, or while you are away for a week, still alerts when someone looks. After 7 days, the alert no longer knows the target as this exporter's and resolves, even though the router is still down. Each evaluation reads 7 days of one series per target: 10,080 samples at one scrape a minute. If Prometheus keeps less than 7 days, the alert looks back as far as Prometheus keeps.</li>
+<li><strong>A target that never answered</strong> never wrote the metric. This happens when you add a target with a wrong address, port or password. The alert cannot tell it from another exporter's target, so it does not fire. When you add a router, check the <strong>Targets</strong> page of Prometheus, or of vmagent.</li>
+<li><strong>A target removed from the scrape config</strong> has no <code>up</code> at all, so it fires nothing, as in any Prometheus.</li>
+</ul>
+<p>To alert on a job's targets whatever they run, keep a rule of your own: <code>up{job="&lt;your job&gt;"} == 0</code>.</p>
+<hr />
+<h2 id="the-dashboards">The dashboards<a class="headerlink" href="#the-dashboards" title="Permanent link">&para;</a></h2>
+<h3 id="openwrt-router">OpenWrt router<a class="headerlink" href="#openwrt-router" title="Permanent link">&para;</a></h3>
+<p>This dashboard shows a router or an access point. At the top are its uptime, clock, load and release. Below them are panels for:</p>
+<ul>
+<li>CPU and load, and memory</li>
+<li>the network devices' traffic, errors and drops, and the logical interfaces</li>
+<li>the Wi-Fi clients, their signal, and the channels' use</li>
+<li>the connection table and the traffic per host</li>
+<li>the temperatures</li>
+<li>the filesystems' space and inodes</li>
+<li>the DHCP leases</li>
+<li>the WireGuard peers' handshakes and traffic</li>
+<li>the clock's offset</li>
+</ul>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Grafana</label><label for="__tabbed_1_2">Perses</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<p><img alt="The OpenWrt router dashboard in Grafana, on the lab's data" src="../img/grafana-openwrt-router.png" /></p>
+</div>
+<div class="tabbed-block">
+<p><img alt="The OpenWrt router dashboard in Perses, on the lab's data" src="../img/perses-openwrt-router.png" /></p>
+</div>
+</div>
+</div>
+<p>The lab (<code>make lab</code>) has no Wi-Fi radio, no WireGuard interface and no firewall. Those panels show no data there, as on a router without those collectors.</p>
+<h3 id="openwrt-exporter-health">OpenWrt exporter health<a class="headerlink" href="#openwrt-exporter-health" title="Permanent link">&para;</a></h3>
+<p>This dashboard shows the exporter itself:</p>
+<ul>
+<li>whether its scrapes succeed, and its version</li>
+<li>how many collectors fail or are quarantined</li>
+<li>each scrape's duration against the scraper's timeout, and the time spent in each collector</li>
+<li>each collector's success, samples, and failures by error code</li>
+<li>the circuit breakers and the deadline</li>
+<li>the memory, CPU and file descriptors of the uhttpd instance that serves the scrapes</li>
+</ul>
+<p>The counters come from the <code>exporter</code> collector, in the base package. They restart at 0 when the service restarts.</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Grafana</label><label for="__tabbed_2_2">Perses</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<p><img alt="The OpenWrt exporter health dashboard in Grafana, on the lab's data" src="../img/grafana-exporter-health.png" /></p>
+</div>
+<div class="tabbed-block">
+<p><img alt="The OpenWrt exporter health dashboard in Perses, on the lab's data" src="../img/perses-exporter-health.png" /></p>
+</div>
+</div>
+</div>
+<h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../../reference/metrics/">Metrics</a> lists every family the dashboards and alerts use. <code>make monitoring-check</code> fails on a family that is not there.</li>
+<li><a href="../../explanation/deadlines-and-breakers/">About deadlines and circuit breakers</a></li>
+<li><a href="../push-metrics/">Pushing metrics from the router</a>, where nothing can scrape it.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var tab,labels=set.querySelector(".tabbed-labels");for(tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12Z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.tabs.link"], "search": "../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.1e8ae164.min.js"></script>
+      
+    
+  </body>
+</html>

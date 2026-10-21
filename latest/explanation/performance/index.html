@@ -1,0 +1,4197 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Metrics of OpenWrt for Prometheus, written in ucode and served by uhttpd.">
+      
+      
+      
+        <link rel="canonical" href="https://m00qek.github.io/ucode-prometheus-exporter/latest/explanation/performance/">
+      
+      
+        <link rel="prev" href="../metric-names/">
+      
+      
+        <link rel="next" href="../internals/">
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.5.3, mkdocs-material-9.5.17">
+    
+    
+      
+        <title>Performance on Small Routers - ucode-prometheus-exporter</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.bcfcd587.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="deep-orange" data-md-color-accent="deep-orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#performance-on-small-routers" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+          <aside class="md-banner md-banner--warning">
+            <div class="md-banner__inner md-grid md-typeset">
+              
+  You are reading the documentation of an older release.
+  <a href="../../.."><strong>Go to the latest.</strong></a>
+
+            </div>
+            <script>var el=document.querySelector("[data-md-component=outdated]"),outdated=__md_get("__outdated",sessionStorage);!0===outdated&&el&&(el.hidden=!1)</script>
+          </aside>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="ucode-prometheus-exporter" class="md-header__button md-logo" aria-label="ucode-prometheus-exporter" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            ucode-prometheus-exporter
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Performance on Small Routers
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="deep-orange" data-md-color-accent="deep-orange"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="deep-orange" data-md-color-accent="deep-orange"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12c0-2.42-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var media,input,key,value,palette=__md_get("__palette");if(palette&&palette.color){"(prefers-color-scheme)"===palette.color.media&&(media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']"),palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent"));for([key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/m00qek/ucode-prometheus-exporter" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    m00qek/ucode-prometheus-exporter
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+    
+  
+  Welcome
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../tutorials/" class="md-tabs__link">
+          
+  
+  Tutorials
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../how-to/" class="md-tabs__link">
+          
+  
+  How-to Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../reference/" class="md-tabs__link">
+          
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  Explanation
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="ucode-prometheus-exporter" class="md-nav__button md-logo" aria-label="ucode-prometheus-exporter" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    ucode-prometheus-exporter
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/m00qek/ucode-prometheus-exporter" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    m00qek/ucode-prometheus-exporter
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Welcome
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Tutorials
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Tutorials
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/monitor-a-router/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Monitor a Router with Prometheus
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/first-collector/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Write Your First Collector
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    How-to Guides
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            How-to Guides
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Operators
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_2">
+            <span class="md-nav__icon md-icon"></span>
+            Operators
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/install/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Installing the Exporter
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/upgrade/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Upgrading the Exporter
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/uninstall/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Removing the Exporter
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/migrate-from-feed/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Moving from the Feed's Exporters
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/choose-collectors/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Choosing Collectors
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/small-device/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Running on a Small Device
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/listen-on-lan/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Listening on the LAN
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/https-basic-auth/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Serving HTTPS with Basic Auth
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/gzip/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Compressing Scrapes
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/exec-timeout/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Giving Programs More Time
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/collector-options/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Setting a Collector's Options
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/textfile/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Publishing Metrics from Scripts
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/push-metrics/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Pushing Metrics from the Router
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/dashboards-and-alerts/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Monitoring with the Bundled Dashboards and Alerts
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/unbound/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Monitoring Unbound
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/adguard-home/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Monitoring AdGuard Home
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/chrony/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Monitoring chrony
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/sqm-cake/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Monitoring SQM and CAKE
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/luci/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Using the LuCI App
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/troubleshoot/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Troubleshooting
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Collector Authors
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            Collector Authors
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/collector-package/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Writing a Collector in Your Own Package
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_4" id="__nav_3_4_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Maintainers
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_4">
+            <span class="md-nav__icon md-icon"></span>
+            Maintainers
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/testing/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Running the Tests
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/lab/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Using the Lab
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/benchmarks/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Running the Benchmark
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/fixtures/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Capturing Fixtures from a Device
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/package-collector/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Packaging a Collector
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/translations/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Updating the Translation Template
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/documentation/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Writing Documentation
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_4_8" id="__nav_3_4_8_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Publishing the Documentation
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_4_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_4_8">
+            <span class="md-nav__icon md-icon"></span>
+            Publishing the Documentation
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/setup-docs-publishing/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Setting Up Publishing
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/publish-minor-docs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Publishing a New Minor Release
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/publish-patch-docs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Publishing a Patch Release
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/fix-released-docs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Fixing the Released Docs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/republish-docs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Republishing a Version
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/publish-to-feed/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Publishing a Release to the Package Feed
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Reference
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            Reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/collectors/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Collectors
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/metrics/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Metrics
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../metrics/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Renamed Metrics
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/migration/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Migrate from prometheus-node-exporter-lua/-ucode
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/uci-config/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    UCI Configuration
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/service-commands/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Service Commands
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/command/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    The prometheus-exporter Command
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/http/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    HTTP Endpoint
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ubus/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ubus Object
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/luci/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    LuCI App
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/jail/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    The Jail
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/collector-interface/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Collector Interface
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/collector-contract/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Collector Contract
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/devkit/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    The Devkit
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/log-messages/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Log Messages
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/error-codes/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Error Codes
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/files/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Files and Packages
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/make-targets/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Make Targets
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/docs-publishing/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Documentation Publishing
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Explanation
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            Explanation
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../about/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    About the Exporter
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Architecture
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../security/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Security Model
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nothing-to-observe/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Nothing to Observe
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deadlines-and-breakers/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Deadlines and Circuit Breakers
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../when-a-collector-breaks/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    When a Collector Breaks
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../metric-names/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Metric Names
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Performance on Small Routers
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    Performance on Small Routers
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-cost-of-the-vm" class="md-nav__link">
+    <span class="md-ellipsis">
+      The cost of the VM
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-a-scrape-costs" class="md-nav__link">
+    <span class="md-ellipsis">
+      What a scrape costs
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#calibration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Calibration
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-it-still-bites-nat_traffic" class="md-nav__link">
+    <span class="md-ellipsis">
+      Where it still bites: nat_traffic
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a-process-per-collector" class="md-nav__link">
+    <span class="md-ellipsis">
+      A process per collector
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#samples-and-collectors" class="md-nav__link">
+    <span class="md-ellipsis">
+      What a sample and a collector cost
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#besides-the-collectors" class="md-nav__link">
+    <span class="md-ellipsis">
+      Besides the collectors
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#in-030" class="md-nav__link">
+    <span class="md-ellipsis">
+      In 0.3.0
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#collectors-in-030" class="md-nav__link">
+    <span class="md-ellipsis">
+      The collectors, in 0.3.0
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#at-rest" class="md-nav__link">
+    <span class="md-ellipsis">
+      What uhttpd holds at rest
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="What uhttpd holds at rest">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-is-left" class="md-nav__link">
+    <span class="md-ellipsis">
+      What is left
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#flash" class="md-nav__link">
+    <span class="md-ellipsis">
+      Flash
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Flash">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#natives-at-start" class="md-nav__link">
+    <span class="md-ellipsis">
+      Native modules when uhttpd starts
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-ubus-objects-sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      The ubus object's sources
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#wifi-ethtool-agh" class="md-nav__link">
+    <span class="md-ellipsis">
+      wifi, ethtool and agh
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#leaner" class="md-nav__link">
+    <span class="md-ellipsis">
+      Outside the collectors, leaner
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#memory-floor" class="md-nav__link">
+    <span class="md-ellipsis">
+      memory_limit's floor
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#each-collector" class="md-nav__link">
+    <span class="md-ellipsis">
+      What each collector costs
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#loading" class="md-nav__link">
+    <span class="md-ellipsis">
+      Loading
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-ledger" class="md-nav__link">
+    <span class="md-ellipsis">
+      The ledger
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gzip" class="md-nav__link">
+    <span class="md-ellipsis">
+      Gzip
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#basic-auth" class="md-nav__link">
+    <span class="md-ellipsis">
+      Basic auth
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      See also
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../internals/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    About the Implementation
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../versions/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    About Versions
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../versioned-docs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    About Versioned Documentation
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-cost-of-the-vm" class="md-nav__link">
+    <span class="md-ellipsis">
+      The cost of the VM
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-a-scrape-costs" class="md-nav__link">
+    <span class="md-ellipsis">
+      What a scrape costs
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#calibration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Calibration
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-it-still-bites-nat_traffic" class="md-nav__link">
+    <span class="md-ellipsis">
+      Where it still bites: nat_traffic
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a-process-per-collector" class="md-nav__link">
+    <span class="md-ellipsis">
+      A process per collector
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#samples-and-collectors" class="md-nav__link">
+    <span class="md-ellipsis">
+      What a sample and a collector cost
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#besides-the-collectors" class="md-nav__link">
+    <span class="md-ellipsis">
+      Besides the collectors
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#in-030" class="md-nav__link">
+    <span class="md-ellipsis">
+      In 0.3.0
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#collectors-in-030" class="md-nav__link">
+    <span class="md-ellipsis">
+      The collectors, in 0.3.0
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#at-rest" class="md-nav__link">
+    <span class="md-ellipsis">
+      What uhttpd holds at rest
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="What uhttpd holds at rest">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-is-left" class="md-nav__link">
+    <span class="md-ellipsis">
+      What is left
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#flash" class="md-nav__link">
+    <span class="md-ellipsis">
+      Flash
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Flash">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#natives-at-start" class="md-nav__link">
+    <span class="md-ellipsis">
+      Native modules when uhttpd starts
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-ubus-objects-sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      The ubus object's sources
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#wifi-ethtool-agh" class="md-nav__link">
+    <span class="md-ellipsis">
+      wifi, ethtool and agh
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#leaner" class="md-nav__link">
+    <span class="md-ellipsis">
+      Outside the collectors, leaner
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#memory-floor" class="md-nav__link">
+    <span class="md-ellipsis">
+      memory_limit's floor
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#each-collector" class="md-nav__link">
+    <span class="md-ellipsis">
+      What each collector costs
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#loading" class="md-nav__link">
+    <span class="md-ellipsis">
+      Loading
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-ledger" class="md-nav__link">
+    <span class="md-ellipsis">
+      The ledger
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gzip" class="md-nav__link">
+    <span class="md-ellipsis">
+      Gzip
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#basic-auth" class="md-nav__link">
+    <span class="md-ellipsis">
+      Basic auth
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      See also
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+<h1 id="performance-on-small-routers">Performance on Small Routers<a class="headerlink" href="#performance-on-small-routers" title="Permanent link">&para;</a></h1>
+<p>A scrape is a ucode program, and it runs on the router's CPU. Many routers have a slow one: a MIPS core of a few hundred MIPS, interpreting bytecode. This page covers what a scrape costs there, how that was measured, and where the cost still bites.</p>
+<hr />
+<h2 id="the-cost-of-the-vm">The cost of the VM<a class="headerlink" href="#the-cost-of-the-vm" title="Permanent link">&para;</a></h2>
+<p>On a router, every operation of ucode's VM costs about a microsecond: a turn of a loop, a call of a builtin, a property read. A regex match costs several, and a regex literal is compiled again each time it is evaluated. A scrape writes thousands of samples and reads tables of thousands of lines, so what counts is the work done per sample and per line.</p>
+<p>That is why the code looks the way it does:</p>
+<ul>
+<li>Regexes are module constants.</li>
+<li>Code that runs per line uses <code>index()</code>, <code>split()</code> on a string or <code>substr()</code> where they do the job, not a regex. On a 24Kc a match costs 20 to 60 µs, three to eight times a builtin's call.</li>
+<li>A sample's line is written once, when it is recorded. Labels that several samples share are written once and passed around.</li>
+<li>nat_traffic takes a conntrack line apart with fixed-string splits, with no regex and no function call per line.</li>
+</ul>
+<p><code>make bench</code> shows what a collector costs. It also enforces the budgets of <code>test/bench/budgets.uc</code>: a scaling budget, a memory budget, and generous times.</p>
+<h2 id="what-a-scrape-costs">What a scrape costs<a class="headerlink" href="#what-a-scrape-costs" title="Permanent link">&para;</a></h2>
+<p>The table shows the same scrape on each machine: the benchmark's typical world (a stand-in for a home router with Wi-Fi: 12 links, 300 conntrack entries, 20 stations, 50 leases), with the base package and the <code>-full</code> group. Beside it are the speed of ucode's VM on that machine (a loop turn, from <code>calibrate:vm</code>) and the cost of running a program. The devenv is the development container, here on a laptop.</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Machine</th>
+<th style="text-align: left;">Typical full scrape</th>
+<th style="text-align: left;">A loop turn</th>
+<th style="text-align: left;">A program run</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">devenv (Ryzen 7 7840U)</td>
+<td style="text-align: left;">0.10 s</td>
+<td style="text-align: left;">0.23 µs</td>
+<td style="text-align: left;">0.9 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">NanoPi R3S (4×A55, OpenWrt 25.12.5)</td>
+<td style="text-align: left;">0.55 s</td>
+<td style="text-align: left;">2.0 µs</td>
+<td style="text-align: left;">3.2 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">YunCore AX835 (MT7981, 2×A53 at 1.3 GHz)</td>
+<td style="text-align: left;">0.72 s</td>
+<td style="text-align: left;">3.0 µs</td>
+<td style="text-align: left;">3.4 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">QEMU malta, 24Kc at 500 MIPS (<code>QEMU_SHIFT=1</code>)</td>
+<td style="text-align: left;">2.6 s</td>
+<td style="text-align: left;">9.9 µs</td>
+<td style="text-align: left;">5.4 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">QEMU malta, 24Kc at 250 MIPS (<code>QEMU_SHIFT=2</code>)</td>
+<td style="text-align: left;">5.3 s</td>
+<td style="text-align: left;">19.7 µs</td>
+<td style="text-align: left;"></td>
+</tr>
+</tbody>
+</table>
+<p>Each scrape runs in a process of its own, because uhttpd answers each request in a process forked from the one that loaded the exporter. So a scrape starts with nothing left over from the scrape before. The benchmark does the same. Each run is a process of its own, timed after loading, and its memory is how far its peak rose above what it held before the run.</p>
+<h2 id="calibration">Calibration<a class="headerlink" href="#calibration" title="Permanent link">&para;</a></h2>
+<p>A container limited to a share of one CPU can stand in for a slower machine, when the share makes its loop turn match. On the laptop above:</p>
+<ul>
+<li>0.35 of one CPU matched the R3S: 2.0 µs a turn, and 0.54 s for the scrape.</li>
+<li>0.22 matched the AP, the YunCore AX835 access point (3.1 µs).</li>
+<li>0.07 matched the 500-MIPS 24Kc's loop turn (10.7 µs), but not its scrape (3.4 s). Under a quota, a container's programs cost what the host's do, 30 ms a run there, while a router's cost what its own kernel makes them.</li>
+</ul>
+<p>The right share depends on how loaded and how fast the host is, so it is picked in the same session as the run.</p>
+<p>QEMU is the closer model of a MIPS router. It counts instructions (<code>-icount shift=N,sleep=on</code>, with the guest's clock on the same count), so its times are a deterministic function of the code and of N: shift 2 is exactly twice shift 1.</p>
+<p>A MIPS router's own speed is its clock times its instructions per cycle:</p>
+<ul>
+<li>An MT7621's 1004Kc at 880 MHz runs an interpreter at roughly 0.5 to 0.7 instructions a cycle: 450 to 600 MIPS, which is <code>QEMU_SHIFT=1</code>.</li>
+<li>A 24Kc at 600 to 750 MHz (QCA953x, QCA956x) runs at 300 to 450 MIPS, between shift 1 and shift 2.</li>
+</ul>
+<p>The A53 anchors the scale. A loop turn takes it 3.0 µs, and takes the 1000-MIPS guest 4.9 µs. So the A53 runs this code as a 1650-MIPS 24Kc would: three to four times as fast as an MT7621.</p>
+<p>The MT7621's packages are little-endian (<code>mipsel_24kc</code>). The most common small routers, ath79's, are big-endian (<code>mips_24kc</code>), and <code>QEMU_ENDIAN=be</code> runs malta's big-endian image instead. On 25.12.5 at shift 1, every case of the benchmark wrote the same samples and logs in both byte orders, and took within 2% of the same time, the big-endian guest slower by about 1%. That holds for the fastest runs of <code>deadline:full@20000</code> too, whose median depends on where the deadline stops a run. The byte order changes nothing ucode's VM does with text. The exporter reads one thing in the CPU's byte order: the auxiliary vector, which gives sockstat its page size and the exporter collector its clock tick. Before the bench, the guest checks those against its own kernel, in both byte orders.</p>
+<h2 id="where-it-still-bites-nat_traffic">Where it still bites: nat_traffic<a class="headerlink" href="#where-it-still-bites-nat_traffic" title="Permanent link">&para;</a></h2>
+<p>nat_traffic reads the whole conntrack table, a line per connection, at every scrape. Its time grows linearly with the table, and its scaling budget holds it to that: 0.21 s for 20,000 entries in the devenv. A home router's table holds a few hundred entries. A busy one, or one under a flood of connections, holds tens of thousands.</p>
+<p>The 500-MIPS 24Kc is about forty times slower than the devenv. 20,000 entries take it 8.2 s, most of Prometheus's default <code>scrape_timeout</code> of ten, and a busier table takes more. When a scrape answers late, Prometheus drops all of it, not only nat_traffic's part.</p>
+<p>So a scrape has a deadline: the scraper's timeout less half a second. The scrape runs the collectors fastest first, so nat_traffic, the slowest, comes last. When the time left does not fit what nat_traffic took before, the scrape leaves it out and answers with the rest. And a collector that takes longer than its budget, 5 seconds by default, is quarantined for a few scrapes.</p>
+<p>The benchmark's large world has a conntrack table of 20,000 connections. On QEMU's 500-MIPS 24Kc (<code>make bench-qemu</code>), its full scrape takes 17.8 s without a deadline, 8.9 s of it nat_traffic's. With Prometheus's default timeout of 10 s (<code>deadline:full@20000</code>), the scrape answers in 9.0 to 9.6 s once the first scrape has filled the ledger (the file where the exporter keeps how long each collector took). nat_traffic and dhcp_leases are left out, and the rest is served. That is within the timeout, by little, because a collector still running at the deadline is stopped there. The first scrape after a restart can still be late, since the ledger does not yet know how long nat_traffic takes. See <a href="../deadlines-and-breakers/">About deadlines and circuit breakers</a>.</p>
+<p>Each scrape also reads the routes, of every table, to know which end of a connection is on this side of the router. It then looks up each address it has not seen yet among the routes' prefixes. It used to compare the address with each prefix in turn, a function call each, and a router's 60 or so routes made that some 50 ms of the R3S's scrape. It now keeps a set of the prefixes of each length, and looks the address up in each set: a few lookups.</p>
+<p>The benchmark's world has routes shaped like such a router's, and one connection in eight comes from the internet. On it:</p>
+<ul>
+<li>1,000 connections take 10.6 ms in the devenv, where they took 32.1, and 130 ms on the AX835, where they took 217.</li>
+<li>20,000 take 175 ms in the devenv, where they took 375.</li>
+</ul>
+<p>The world's routes are shaped after the R3S's 72. On the R3S itself, nat_traffic took 60.8 ms with the old lookup, where it had taken 6.9 before it read the routes at all. In the devenv, the new lookup of an address costs a ninth of the old one for those routes (3.8 µs against 33). That would leave some 6 ms of the 54 the routes added on the R3S.</p>
+<p>nat_traffic is in the <code>-network</code> and <code>-full</code> groups. On a slow router with a busy table, leave it out, <a href="../../how-to/choose-collectors/#disable-a-collector">disable it</a>, or scrape it in a job of its own with a longer timeout and a <code>budget</code> to match. Watch <code>node_scrape_collector_duration_seconds{collector="nat_traffic"}</code>.</p>
+<h2 id="a-process-per-collector">A process per collector<a class="headerlink" href="#a-process-per-collector" title="Permanent link">&para;</a></h2>
+<p>Each scrape runs its collectors in a child process, so that a collector that never returns, or ends its process, costs only itself (see <a href="../architecture/#a-process-of-its-own">About the architecture</a>). That has a price. The benchmark measures it by comparing a forked scrape (<code>scrape:</code>) with the same scrape in one process (<code>inline:</code>):</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Scrape</th>
+<th style="text-align: left;">devenv</th>
+<th style="text-align: left;">QEMU's 500-MIPS 24Kc</th>
+<th style="text-align: left;">YunCore AX835</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">typical, base collectors (17)</td>
+<td style="text-align: left;">14.5 ms, 1.9 ms more</td>
+<td style="text-align: left;">359 ms, 44 ms more (+14%)</td>
+<td style="text-align: left;">131 ms, 9 ms more (+7%)</td>
+</tr>
+<tr>
+<td style="text-align: left;">typical, every collector (37)</td>
+<td style="text-align: left;">114 ms, about as long</td>
+<td style="text-align: left;">2.51 s, 129 ms more (+5%)</td>
+<td style="text-align: left;">940 ms, 11 ms more (+1%)</td>
+</tr>
+<tr>
+<td style="text-align: left;">large, base collectors</td>
+<td style="text-align: left;">34.7 ms, 1.8 ms more</td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"></td>
+</tr>
+</tbody>
+</table>
+<p>On the 24Kc, that is some 2.5 to 3.5 ms a collector, where it was 3 to 5 before 0.3.0. The price is:</p>
+<ul>
+<li>a fork;</li>
+<li>a line and a run in the file the child writes and the scrape reads;</li>
+<li>the pages the child copies from the scrape's as it writes to them (copy-on-write).</li>
+</ul>
+<p>The progress file costs a scrape 3.7 ms there, a tenth of a percent.</p>
+<p>So on a slow router a scrape costs a tenth to a fifth more than it would if its collectors could not stop it. That is the trade. In exchange, a collector that loops, waits on a FIFO or runs out of memory costs its own budget and nothing more. Without the child, it would hold every later scrape, or end the request with nothing answered.</p>
+<h2 id="samples-and-collectors">What a sample and a collector cost<a class="headerlink" href="#samples-and-collectors" title="Permanent link">&para;</a></h2>
+<p>The benchmark measures apart what a scrape does for each sample and for each collector:</p>
+<ul>
+<li><code>record:</code> cases record 20,000 samples of one shape and write their text.</li>
+<li><code>noop:</code> cases scrape 1 and 41 collectors that write nothing, each in the child process. The difference is what a scrape costs per collector beyond the collector's own work: the table calls it "a collector besides it".</li>
+</ul>
+<p>Budgets hold both. A sample with labels is held to a multiple of a sample of a <code>labels()</code> set, on any machine, and a collector to 0.5 ms in the devenv.</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;"></th>
+<th style="text-align: left;">devenv, before</th>
+<th style="text-align: left;">devenv, now</th>
+<th style="text-align: left;">QEMU's 24Kc, before</th>
+<th style="text-align: left;">QEMU's 24Kc, now</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">a sample, two labels of an object (<code>record:labels</code>)</td>
+<td style="text-align: left;">7.6 µs</td>
+<td style="text-align: left;">5.2 µs</td>
+<td style="text-align: left;">318 µs</td>
+<td style="text-align: left;">235 µs</td>
+</tr>
+<tr>
+<td style="text-align: left;">the same, a double value (<code>record:double</code>)</td>
+<td style="text-align: left;">9.7 µs</td>
+<td style="text-align: left;">7.1 µs</td>
+<td style="text-align: left;">399 µs</td>
+<td style="text-align: left;">296 µs</td>
+</tr>
+<tr>
+<td style="text-align: left;">a sample of a <code>labels()</code> set (<code>record:made</code>)</td>
+<td style="text-align: left;">2.1 µs</td>
+<td style="text-align: left;">2.2 µs</td>
+<td style="text-align: left;">92 µs</td>
+<td style="text-align: left;">96 µs</td>
+</tr>
+<tr>
+<td style="text-align: left;">a family of a sample (<code>record:family</code>)</td>
+<td style="text-align: left;">14.4 µs</td>
+<td style="text-align: left;">14.3 µs</td>
+<td style="text-align: left;">521 µs</td>
+<td style="text-align: left;">504 µs</td>
+</tr>
+<tr>
+<td style="text-align: left;">a collector besides it (<code>noop:</code>)</td>
+<td style="text-align: left;">0.140 ms</td>
+<td style="text-align: left;">0.133 ms</td>
+<td style="text-align: left;">4.98 ms</td>
+<td style="text-align: left;">4.34 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">nat_traffic, 20,000 connections</td>
+<td style="text-align: left;">247 ms</td>
+<td style="text-align: left;">209 ms</td>
+<td style="text-align: left;">9.71 s</td>
+<td style="text-align: left;">8.16 s</td>
+</tr>
+<tr>
+<td style="text-align: left;">netstat</td>
+<td style="text-align: left;">6.8 ms</td>
+<td style="text-align: left;">2.4 ms</td>
+<td style="text-align: left;">135 ms</td>
+<td style="text-align: left;">84 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">cpu (46 samples)</td>
+<td style="text-align: left;">1.0 ms</td>
+<td style="text-align: left;">0.9 ms</td>
+<td style="text-align: left;">28.2 ms</td>
+<td style="text-align: left;">23.2 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">meminfo (37 families)</td>
+<td style="text-align: left;">1.2 ms</td>
+<td style="text-align: left;">1.2 ms</td>
+<td style="text-align: left;">27.1 ms</td>
+<td style="text-align: left;">24.9 ms</td>
+</tr>
+</tbody>
+</table>
+<p>A collector's own times are its <code>collector:</code> cases. Those also read the collector's settings, which a scrape does not.</p>
+<p>What changed:</p>
+<ul>
+<li><strong>A sample's labels.</strong> The labels must be an object, and the recorder checks each label as it writes it: its name valid, no two names the same once sanitized, its value valid UTF-8 and escaped where needed. The recorder now keeps each name's text, <code>",name="</code>, from the first time it writes it. A sample whose names it has all kept, and whose values are strings, costs a lookup and a concatenation per label, plus one match over all the values together to find what must be escaped or read as UTF-8. Any other sample is written as before, by a call that checks every label. A double that reads back as ucode's 14 digits is written that way before the checks for NaN and the infinities. nat_traffic and cpu make one object for each sample's labels, and the recorder keeps nothing of those objects.</li>
+<li><strong>A closure's place in its program.</strong> To make a closure, ucode takes one step for each function its program compiled before the closure's own. A closure of a module compiled after the exporter's other modules cost a scrape 1.4 µs in the devenv; one compiled first costs 0.3. The recorder makes fifteen closures for each collector and one for each family, so its module is the first of the handler's program (<code>app.uc</code>), and a test keeps it there. A recorder takes 5 µs to make in the devenv, where it took 14.</li>
+<li><strong>A collector's settings.</strong> Most collectors have no section in the config. A scrape now gives such a collector its defaults straight away, without the specs a section's values are checked against: 5 µs where it took 13, in the devenv.</li>
+<li><strong>netstat's fields.</strong> A scrape checks each of the kernel's 400 or so fields against the <code>fields</code> option. musl takes as long to match one field against node_exporter's default pattern as forty lookups. So the default is now checked with lookups, which tests hold to the pattern. Any other pattern is matched as before.</li>
+</ul>
+<p>What is left is mostly the VM's own work:</p>
+<ul>
+<li>A sample with labels is a loop over its object (a lookup, a type check and two concatenations per label) and one match. nat_traffic's 20,000 connections take 0.2 s in the devenv. Prebuilt label strings, which no longer reach the recorder, took 0.18.</li>
+<li>A family is its name and HELP text checked, its writer made, and its header written. meminfo writes one family per sample, half a millisecond each on the 24Kc.</li>
+<li>A double is written by C's <code>%g</code> and read back by <code>strtod()</code>, which the 24Kc does in software: 70 µs.</li>
+<li>What a scrape costs per collector, beyond the collector's own work, is mostly the VM's work too: 250 to 300 turns of its loop on any machine (see <a href="#in-030">In 0.3.0</a>).</li>
+</ul>
+<h2 id="besides-the-collectors">Besides the collectors<a class="headerlink" href="#besides-the-collectors" title="Permanent link">&para;</a></h2>
+<p>A scrape does more than run its collectors. uhttpd forks the request's process. The scrape then reads the config and the ledger, hands each collector to the child and reads its run back, decides which collector owns each family and renders it, and writes the ledger and the progress file. In 0.2.0 that cost far more than it had to. On the NanoPi R3S, a scrape of 37 collectors took 0.79 to 0.89 s through uhttpd, while its collectors' durations added up to 0.47 s, which was 0.1.0's whole scrape.</p>
+<p>The time went to work, not to waiting. A scrape was traced step by step through uhttpd under procd, in a container and on QEMU's 24Kc, and no step waits on a timer. The scrape hands a collector to its child and reads its run back over a pipe, and uloop wakes it for that. Its timer looks every 100 ms, and fires only while a collector runs that long: to stop the collector at its limit, or to see that its child died. The time went to the scrape's own work, much of it done for each collector or each family when it needed doing once. On QEMU, a scrape of the guest's own system by the 36 collectors of the <code>-full</code> group spent 0.87 s outside its collectors:</p>
+<ul>
+<li>248 ms on the collectors' settings. Each collector read the config's main section two or three times over, and each value of a <code>range()</code> option built its datatype anew, including the English text that describes what it accepts. A scrape now reads the main section once for all its collectors, and builds a range once.</li>
+<li>81 ms deciding which collector owns each family, which now checks each family in one pass. 42 ms rendering the scrape's own families, where the four samples of each collector now share one label. And each collector's run was read back with a function call per family, on both sides of the pipe.</li>
+<li>The rest is the containment above, the ledger, the progress file, and rendering each collector's samples, which every scrape must do.</li>
+</ul>
+<p>The same collectors on the same system, scraped through uhttpd as Prometheus waits for it:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Scrape</th>
+<th style="text-align: left;">0.1.0</th>
+<th style="text-align: left;">0.2.0</th>
+<th style="text-align: left;">Now</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">QEMU's 24Kc, the <code>-full</code> group (35, 36 collectors)</td>
+<td style="text-align: left;">0.87 s, 0.35 s besides them</td>
+<td style="text-align: left;">1.44 s, 0.87 s besides them</td>
+<td style="text-align: left;">1.16 s, 0.59 s besides them</td>
+</tr>
+<tr>
+<td style="text-align: left;">devenv's procd container, every collector (44)</td>
+<td style="text-align: left;">67 ms, 15 ms besides them</td>
+<td style="text-align: left;">98 ms, 44 ms besides them</td>
+<td style="text-align: left;">82 ms, 28 ms besides them</td>
+</tr>
+</tbody>
+</table>
+<p>The benchmark measures that path too, so that it cannot grow unseen. Its <code>handler:</code> cases start uhttpd with the service's handler, with the collectors reading the benchmark's world, and time a scrape as wget gets it:</p>
+<ul>
+<li>With the base collectors, which are light, a typical scrape spends about as long again outside them in the devenv: 0.8 to 1.05 of what they take, where 0.2.0 spent 1.6. A budget holds it under 1.3.</li>
+<li>With every collector, it spends 0.41 to 0.48 of what they take in the devenv, and 0.33 on QEMU, where 0.2.0 spent 0.53 and 0.48. A budget holds it under 0.6.</li>
+</ul>
+<p>A unit test holds a scrape to reading the main section as often for many collectors as for one.</p>
+<p>Over HTTPS, a scraper that opens a new connection also pays a TLS handshake, whatever it asks for: 128 ms in the devenv's container with uclient-fetch. A path that does not exist pays it as much as a scrape does, through the exporter's uhttpd or LuCI's. Prometheus keeps its connection open between scrapes (<code>http_keepalive</code>), so it pays the handshake once.</p>
+<h2 id="in-030">In 0.3.0<a class="headerlink" href="#in-030" title="Permanent link">&para;</a></h2>
+<p>For 0.3.0, a scrape was traced step by step through uhttpd again, with the base collectors and with an access point's. What it spent outside its collectors was mostly work done per collector, plus the pages a process writes after a fork, which the kernel must copy first. Each collector cost three messages and two wakeups of the scrape: the child asked for the collector; the scrape worked out its settings and limit and answered; and the scrape read its run back once it was done. Now the child goes through the plan itself, forked with it, and the scrape only holds the clock:</p>
+<ul>
+<li><strong>The child goes through the plan.</strong> It leaves out what the deadline, a breaker or the reply's sample limit keeps out, as the scrape did. For each collector it makes one write to a file: the previous collector's run, then a line saying this one starts, with its limit. The scrape reads that file through a descriptor of its own, at its timer's turns, while the child goes on. The pipe now tells the scrape only of a collector whose limit is near, of a few runs worth taking while the child goes on, and of the child's end. A child that is stopped or dies leaves its runs behind, and a new one goes on after them.</li>
+<li><strong>A run's families are their names, checked all at once.</strong> Deciding who owns each family was a loop over every family of every run, with a lookup and two prefix checks each. It is now one <code>uniq()</code> of all the names and one <code>index()</code> of each run's. The scrape looks at one family at a time only when two runs write the same family, or a run writes one of the core's.</li>
+<li><strong>The scrape's own four samples of each collector</strong> are written as text, without a recorder. That costs a fifth of what a collector that writes nothing cost.</li>
+<li><strong>Once a scrape, not once a collector.</strong> The config's collector sections are walked once to find which are switched off. The ledger is parsed once, and recorded with one copy of each entry. Its order is a sort of text, rather than a call of ours for each pair. The exporter collector's counters record only the runs that count. And a regex that ucode compiled at each call is now a constant.</li>
+</ul>
+<p>Outside its collectors, a scrape (<code>scrape:</code>) and a scrape through uhttpd (<code>handler:</code>) on the same machines, before (main of 2026-10-08, with the collectors of 0.3.0) and now:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;"></th>
+<th style="text-align: left;">devenv</th>
+<th style="text-align: left;">QEMU's 500-MIPS 24Kc</th>
+<th style="text-align: left;">YunCore AX835</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">through uhttpd, base collectors (<code>handler:base</code>)</td>
+<td style="text-align: left;">9.7 → 7.7 ms</td>
+<td style="text-align: left;">161 → 118 ms</td>
+<td style="text-align: left;"></td>
+</tr>
+<tr>
+<td style="text-align: left;">through uhttpd, every collector (<code>handler:full</code>)</td>
+<td style="text-align: left;">28.9 → 18.5 ms</td>
+<td style="text-align: left;">518 → 378 ms</td>
+<td style="text-align: left;"></td>
+</tr>
+<tr>
+<td style="text-align: left;">a scrape of the base collectors (<code>scrape:base</code>)</td>
+<td style="text-align: left;">7.4 → 3.9 ms</td>
+<td style="text-align: left;">130 → 96 ms</td>
+<td style="text-align: left;">49 → 32 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">a scrape of every collector (<code>scrape:full</code>)</td>
+<td style="text-align: left;">22.1 → 12.4 ms</td>
+<td style="text-align: left;">457 → 312 ms</td>
+<td style="text-align: left;">171 → 104 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">a collector besides it (<code>noop:</code>)</td>
+<td style="text-align: left;">0.152 → 0.081 ms</td>
+<td style="text-align: left;">4.38 → 3.52 ms</td>
+<td style="text-align: left;">1.50 → 0.89 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">the ledger (<code>ledger:full</code>)</td>
+<td style="text-align: left;">1.0 → 0.8 ms</td>
+<td style="text-align: left;">26.4 → 21.0 ms</td>
+<td style="text-align: left;">9.9 → 8.2 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">a family of a sample (<code>record:family</code>)</td>
+<td style="text-align: left;">16.4 → 14.4 µs</td>
+<td style="text-align: left;">506 → 488 µs</td>
+<td style="text-align: left;">181 → 172 µs</td>
+</tr>
+</tbody>
+</table>
+<p>A sample costs what it did: 5.6 µs for two labels of an object in the devenv. A family costs as much as six samples of a <code>labels()</code> set: its name and HELP text checked, an object, a closure and two arrays, and its header. A collector that writes nothing costs 250 to 300 turns of the VM's loop on any machine (0.081 ms at 0.29 µs a turn in the devenv, 0.89 ms at 3.5 µs on the A53). That pays for its settings and its limit, its recorder, its start and its run packed in the child and read back by the scrape, and its four samples. The rest of what a scrape spends outside its collectors is:</p>
+<ul>
+<li>rendering their families, which every exporter must do;</li>
+<li>the pages the request's process and the child copy as they write to them. The less a process holds, the fewer pages it copies.</li>
+</ul>
+<p>uhttpd holds less too. The benchmark's <code>rest:</code> cases measure what the process holds of its own (RssAnon) once it has compiled the handler's program and loaded a set's collectors, as the service's handler does, beyond what it held before:</p>
+<ul>
+<li>musl compiles a regex's count, such as <code>[./0-9A-Za-z]{86}</code>, into a copy of what it counts for each repetition. The three hash formats of basic auth held 350 kB of that. They are now checked by their lengths.</li>
+<li>The loader, its jail's rules and its import scanner served no scrape. Each module is now checked in the probe's child (the process that checks each collector before uhttpd loads it), and the loader is compiled there alone.</li>
+<li>Of the native modules a collector may need, rtnl, nl80211 and socket are loaded only when a loaded collector needs them.</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">What uhttpd holds at rest</th>
+<th style="text-align: left;">before</th>
+<th style="text-align: left;">now</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">devenv, base collectors (<code>rest:base</code>)</td>
+<td style="text-align: left;">2.06 MB</td>
+<td style="text-align: left;">1.48 MB</td>
+</tr>
+<tr>
+<td style="text-align: left;">devenv, every collector (<code>rest:full</code>)</td>
+<td style="text-align: left;">2.62 MB</td>
+<td style="text-align: left;">2.08 MB</td>
+</tr>
+<tr>
+<td style="text-align: left;">YunCore AX835, base collectors</td>
+<td style="text-align: left;">2.01 MB</td>
+<td style="text-align: left;">1.48 MB</td>
+</tr>
+<tr>
+<td style="text-align: left;">QEMU's 24Kc (32-bit), base collectors</td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;">1.08 MB</td>
+</tr>
+<tr>
+<td style="text-align: left;">the service's uhttpd with an access point's 19 collectors, devenv (RssAnon)</td>
+<td style="text-align: left;">2.46 MB</td>
+<td style="text-align: left;">1.88 MB</td>
+</tr>
+</tbody>
+</table>
+<p>What is left is code. ucode keeps about a kilobyte for each function a program compiled and each object it made. So the handler's program, some 350 functions, holds about 0.95 MB, the native modules 0.35 MB, and the collectors 20 kB each, plus the 100 kB of the collector API they share. What uhttpd holds since then, and what is left of it, is in <a href="#at-rest">What uhttpd holds at rest</a>.</p>
+<h2 id="collectors-in-030">The collectors, in 0.3.0<a class="headerlink" href="#collectors-in-030" title="Permanent link">&para;</a></h2>
+<p>On the YunCore AX835, an access point with 20 collectors and 838 samples, a scrape took 0.193 s, 137 ms of it in its collectors. The Lua exporter's took 0.083 s. netclass, netstat, netdev, wifi and the exporter collector were 100 ms of the 137. What each cost was rarely its source. A turn of the VM's loop and a builtin's call cost a microsecond or so there, and these collectors did a few of each for every field or file the kernel has, whether they wrote it or not:</p>
+<ul>
+<li><strong>netstat</strong> checked each of the kernel's 400 or so fields against node_exporter's default pattern, a turn and several calls each, to write 42 of them. It also split each of <code>/proc/net/snmp6</code>'s 90 lines with a regex. It now looks for the default's fields in each section's names: an index() for each field the default names whole, and one match of the names for the rest, which skips MPTcpExt's 70 at once. It splits a line of snmp6 on its tab, and leaves unread a line the default does not take. Property tests hold both to the pattern, and to proc.fields() with the protocols' regex.</li>
+<li><strong>netclass</strong> read 14 sysfs files a link, and on a router reading one sysfs file costs as much as all the rest the collector does for the link. It now reads 9 to 11, and the fixtures' sysfs holds each to what reading it gives:<ul>
+<li>flags once, not twice;</li>
+<li>the alias from the link dump, which has it;</li>
+<li>carrier_changes as the sum of the up and down counts, which is what sysfs writes for it;</li>
+<li>iflink as the ifindex where the dump has no other link;</li>
+<li>duplex only where speed could be read.</li>
+</ul>
+</li>
+<li><strong>The exporter collector</strong> read the auxiliary vector one byte at a time, a loop turn per byte, to find the clock tick. It found <code>/proc/stat</code>'s btime with a regex that read the file's 2 kB of interrupt counts. It now reads a word with one expression, and finds the line with an index(). vmstat checked each of 170 fields with two regexes; its default now takes a call or two. netdev made an array for each statistic of each link.</li>
+<li><strong>A family of one sample</strong> cost a writer made and called, a call of sanitize() and a match of its HELP, and meminfo, netstat and vmstat write dozens. <code>out.batch()</code> records them without a writer each, with one match over every HELP, and takes a name that is valid as it is after one match. A property test holds a batch to what a writer for each row records.</li>
+</ul>
+<p>Each collector on the benchmark's large world (50 links, 3 radios of 3 networks and 200 stations), before (main of 2026-10-09) and now. The Cortex-A53's times include the 3.5 ms its case costs a collector that writes one sample:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Collector</th>
+<th style="text-align: left;">devenv</th>
+<th style="text-align: left;">QEMU's 500-MIPS 24Kc</th>
+<th style="text-align: left;">YunCore AX835</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">netstat</td>
+<td style="text-align: left;">2.4 → 1.3 ms</td>
+<td style="text-align: left;">82 → 43 ms</td>
+<td style="text-align: left;">29.3 → 15.2 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">netclass</td>
+<td style="text-align: left;">12.0 → 10.0 ms</td>
+<td style="text-align: left;">274 → 237 ms</td>
+<td style="text-align: left;">108.9 → 90.4 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">netdev</td>
+<td style="text-align: left;">3.9 → 3.2 ms</td>
+<td style="text-align: left;">152 → 128 ms</td>
+<td style="text-align: left;">50.9 → 42.5 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">wifi</td>
+<td style="text-align: left;">10.2 → 9.4 ms</td>
+<td style="text-align: left;">362 → 354 ms</td>
+<td style="text-align: left;">126 → 124 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">the exporter collector</td>
+<td style="text-align: left;">1.05 → 0.77 ms</td>
+<td style="text-align: left;">19.6 → 14.2 ms</td>
+<td style="text-align: left;">9.3 → 6.6 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">meminfo</td>
+<td style="text-align: left;">0.97 → 0.79 ms</td>
+<td style="text-align: left;">25.0 → 22.5 ms</td>
+<td style="text-align: left;">9.8 → 8.7 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">vmstat</td>
+<td style="text-align: left;">0.93 → 0.58 ms</td>
+<td style="text-align: left;">15.0 → 13.8 ms</td>
+<td style="text-align: left;">7.7 → 5.4 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">a family of a sample (<code>record:family</code>)</td>
+<td style="text-align: left;">14.1 → 12.4 µs</td>
+<td style="text-align: left;">488 → 460 µs</td>
+<td style="text-align: left;">172 → 158 µs</td>
+</tr>
+<tr>
+<td style="text-align: left;">a scrape of the base collectors, typical (<code>scrape:base</code>)</td>
+<td style="text-align: left;">14.4 → 12.8 ms</td>
+<td style="text-align: left;">355 → 337 ms</td>
+<td style="text-align: left;">131 → 124 ms</td>
+</tr>
+</tbody>
+</table>
+<p>On the access point's own scrape, with its 12 links and a few stations, these collectors now take less:</p>
+<ul>
+<li>netstat about 12 ms, where it took 26.6, against the Lua exporter's 10.6;</li>
+<li>netclass and netdev together about 40 ms, where they took 48, against Lua's 29.4;</li>
+<li>the exporter collector about 7 ms, where it took 10.8.</li>
+</ul>
+<p>That is some 30 ms of the 193, a scrape of about 0.165 s. What is left is mostly what a sample and a family cost every collector, the VM's own work, and wifi's ubus call and nl80211's replies, which no change here touched.</p>
+<h2 id="at-rest">What uhttpd holds at rest<a class="headerlink" href="#at-rest" title="Permanent link">&para;</a></h2>
+<p>uhttpd holds what the handler's program compiled and loaded for as long as it runs, and every request's process and every collectors' child is forked from it. So what a scrape needs only now and then is loaded where it is needed, in the process that needs it, and kept there:</p>
+<ul>
+<li><strong>ubus, rtnl and nl80211</strong> are the native modules collectors read with. uhttpd used to hold them all: some 150 kB with an access point's collectors. Then they were loaded in the scrape's child, the first time a collector's deps asked for one (<code>deps.native</code>). uhttpd now loads, when it starts, those its enabled collectors need, and no other (see <a href="#natives-at-start">Native modules when uhttpd starts</a>).</li>
+<li><strong>Basic auth's module, crypt and ucode-mod-digest</strong> are compiled when the handler finds uhttpd's auth file, and kept from then on; without basic auth, never. The config's datatypes take what a user and a hash may be from a module of their own, <code>hashes.uc</code>. A meta's fingerprint is its JSON, not its MD5. Together: 50 kB. If basic auth's module does not load, for whatever reason, every request is denied, as without its file.</li>
+<li><strong>The exposition parser</strong> is compiled the first time a collector parses: unbound and textfile, in the child. 60 kB.</li>
+<li><strong>zlib</strong> was loaded in the request's process the first time it gzipped a reply. It is now loaded when uhttpd starts, and a reply is sent plain if zlib does not load. And what the service grants its user when it starts (the ubus ACL, the groups, the capabilities, the TLS copies) moved from <code>privileges.uc</code>, which a scrape checks against, to <code>grant.uc</code>, which only <code>jail.uc</code> loads. 45 kB together.</li>
+</ul>
+<p>In exchange, a scrape pays for each the first time it needs it (<code>make bench</code>'s <code>lazy:</code> cases, each a process of its own):</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Loaded where it is needed</th>
+<th style="text-align: left;">devenv</th>
+<th style="text-align: left;">QEMU's 500-MIPS 24Kc</th>
+<th style="text-align: left;">YunCore AX835</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">the exposition parser, compiled (<code>lazy:parse</code>)</td>
+<td style="text-align: left;">1.2 ms</td>
+<td style="text-align: left;">30.5 ms</td>
+<td style="text-align: left;">10.4 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">zlib (<code>lazy:zlib</code>)</td>
+<td style="text-align: left;">0.2 ms</td>
+<td style="text-align: left;">1.4 ms</td>
+<td style="text-align: left;">1.1 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">ubus (<code>lazy:ubus</code>)</td>
+<td style="text-align: left;">0.2 ms</td>
+<td style="text-align: left;">1.4 ms</td>
+<td style="text-align: left;">1.1 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">rtnl (<code>lazy:rtnl</code>)</td>
+<td style="text-align: left;">0.2 ms</td>
+<td style="text-align: left;">2.4 ms</td>
+<td style="text-align: left;">1.3 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">nl80211 (<code>lazy:nl80211</code>)</td>
+<td style="text-align: left;">0.2 ms</td>
+<td style="text-align: left;">1.8 ms</td>
+<td style="text-align: left;">1.1 ms</td>
+</tr>
+</tbody>
+</table>
+<p>An access point's scrape needs all of them but the parser: 4.6 ms more of its 0.17 s on the AX835, for 0.25 MB less held for as long as uhttpd runs. A scrape with unbound pays for the parser too; textfile's already did.</p>
+<p>Every scrape paid that, for modules that every scrape of the same collectors needs. So the native modules now take a middle way: uhttpd loads them when it starts, and a scrape loads none of them (see <a href="#natives-at-start">Native modules when uhttpd starts</a>). Basic auth's modules, the exposition parser and socket are still loaded where they are needed.</p>
+<p>What uhttpd holds, before (main of 2026-10-09) and now:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;"></th>
+<th style="text-align: left;">before</th>
+<th style="text-align: left;">now</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">devenv, the handler with the base collectors (<code>rest:base</code>)</td>
+<td style="text-align: left;">1.58 MB</td>
+<td style="text-align: left;">1.38 MB</td>
+</tr>
+<tr>
+<td style="text-align: left;">devenv, with every collector (<code>rest:full</code>)</td>
+<td style="text-align: left;">2.23 MB</td>
+<td style="text-align: left;">2.02 MB</td>
+</tr>
+<tr>
+<td style="text-align: left;">YunCore AX835, base collectors (<code>rest:base</code>)</td>
+<td style="text-align: left;">1.58 MB</td>
+<td style="text-align: left;">1.39 MB</td>
+</tr>
+<tr>
+<td style="text-align: left;">YunCore AX835, every collector (<code>rest:full</code>)</td>
+<td style="text-align: left;">2.22 MB</td>
+<td style="text-align: left;">2.03 MB</td>
+</tr>
+<tr>
+<td style="text-align: left;">QEMU's 24Kc (32-bit), base collectors (<code>rest:base</code>)</td>
+<td style="text-align: left;">1.08 MB</td>
+<td style="text-align: left;">1.02 MB</td>
+</tr>
+<tr>
+<td style="text-align: left;">QEMU's 24Kc, every collector (<code>rest:full</code>)</td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;">1.46 MB</td>
+</tr>
+<tr>
+<td style="text-align: left;">the service's uhttpd in the devenv's procd container (RssAnon): base collectors</td>
+<td style="text-align: left;">1.90 MB</td>
+<td style="text-align: left;">1.63 MB</td>
+</tr>
+<tr>
+<td style="text-align: left;">the same, an access point's 19 collectors</td>
+<td style="text-align: left;">2.07 MB</td>
+<td style="text-align: left;">1.74 MB</td>
+</tr>
+<tr>
+<td style="text-align: left;">the same, the base package and the <code>-full</code> group (36)</td>
+<td style="text-align: left;">2.54 MB</td>
+<td style="text-align: left;">2.26 MB</td>
+</tr>
+<tr>
+<td style="text-align: left;">the service's uhttpd in QEMU's 24Kc, the base package and the <code>-full</code> group (36)</td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;">1.70 MB</td>
+</tr>
+</tbody>
+</table>
+<p>The <code>rest:</code> cases run in the benchmark's own process, which has loaded some native modules itself, so they show less of what a native module saves than the service does. On the access point, the service's uhttpd held 2.21 MB with 0.2.1-r4, against the Lua exporter's 0.52 MB. Less the container's 16%, that is about 1.86 MB now.</p>
+<h3 id="what-is-left">What is left<a class="headerlink" href="#what-is-left" title="Permanent link">&para;</a></h3>
+<p>What uhttpd holds now is mostly what ucode keeps of a program it compiled from source, and what compiling it left behind:</p>
+<ul>
+<li><strong>A function</strong> costs ucode some 0.8 kB however small, a kilobyte with a few locals, more with many. That is its bytecode, plus the debug information of its locals and its lines, from which a runtime error's message is written. The handler's program has some 380 functions; the collectors 5 to 20 each.</li>
+<li><strong>An object</strong> a module makes when it loads, such as an option's spec or a table of names, costs another 0.6 kB or so, and its strings twice: once in the program, once in the object.</li>
+<li><strong>The source text</strong> costs a sixth of its bytes. The packages install it without comments, which halves the bytes: the service's uhttpd, base collectors, holds 1.62 MB (RssAnon) in the package-check image, where it held 1.65 MB with them.</li>
+<li><strong>Compiling</strong> leaves about a quarter more, freed but not given back: musl's malloc keeps freed memory for the process to reuse.</li>
+</ul>
+<p>Loading the same program as precompiled bytecode stripped of its debug information (<code>ucode -c -s</code>) shows how much of it is that information. The handler's program holds 1076 kB compiled from source in the devenv, and 612 kB loaded that way, and loads in a sixth of the time. With the handler installed as stripped bytecode (116 kB), the service's uhttpd holds 1.20 MB with the base collectors in the package-check image, where it holds 1.62 MB from source. The packages do not ship bytecode, because of what it costs:</p>
+<ul>
+<li><strong>Flash.</strong> 25.12's ucode compiles a program together with every module it imports statically, and has no <code>-c module</code> to compile a module alone. So each program carries its own copy of the library: the base package's eleven programs, as bytecode, are 1.47 MB, where the whole package is 270 kB. And a module's stripped bytecode is no smaller than its stripped source (<code>breaker.uc</code> 1.4 kB against 1.3, <code>exposition/format.uc</code> 6.7 against 6.4), and a third bigger compressed, as JFFS2 stores it.</li>
+<li><strong>Source all the same.</strong> Collectors are imported at run time, by <code>loadstring()</code>. They, the collector API and the loader, with all they import, are then compiled from source: 75 of the package's modules, most of them duplicated in the handler's bytecode.</li>
+<li><strong>Errors.</strong> A runtime error in a bytecode program has no line and no file. A collector's <code>COLLECTOR_CRASHED</code> and the log give both.</li>
+<li><strong>Checks.</strong> The loader's import scan and <code>collector check</code>'s purity tokenizer read a module's text.</li>
+</ul>
+<h2 id="flash">Flash<a class="headerlink" href="#flash" title="Permanent link">&para;</a></h2>
+<p>The packages install their ucode and JavaScript without comments: the build strips them, and the sources keep no comments but the exported symbols' JSDoc. The sizes below are installed, as apk counts them, and as a JFFS2 image with LZMA, as an overlay stores it (<code>mkfs.jffs2</code>, 64 KiB blocks), with comments (0.2.1) and without:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Package</th>
+<th style="text-align: left;">Installed</th>
+<th style="text-align: left;">JFFS2</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>ucode-prometheus-exporter</code></td>
+<td style="text-align: left;">554 → 264 KiB</td>
+<td style="text-align: left;">250 → 119 KiB</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>luci-app-prometheus-exporter</code></td>
+<td style="text-align: left;">73 → 54 KiB</td>
+<td style="text-align: left;">34 → 24 KiB</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-cli</code></td>
+<td style="text-align: left;">17 → 10 KiB</td>
+<td style="text-align: left;">9 → 6 KiB</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>ucode-prometheus-exporter-devkit</code></td>
+<td style="text-align: left;">40 → 23 KiB</td>
+<td style="text-align: left;"></td>
+</tr>
+<tr>
+<td style="text-align: left;">a collector's package</td>
+<td style="text-align: left;">2–16 → 1–12 KiB</td>
+<td style="text-align: left;"></td>
+</tr>
+<tr>
+<td style="text-align: left;">base, LuCI app, <code>-wifi</code>, <code>-hostapd_stations</code>, <code>-thermal</code></td>
+<td style="text-align: left;">648 → 332 KiB</td>
+<td style="text-align: left;">294 → 148 KiB</td>
+</tr>
+</tbody>
+</table>
+<p>On QEMU's malta, the overlay's upper layer was a 1.6 MB mtdram device (26 blocks of 64 KiB), as on the YunCore AX835. apk installed that set in 452 KiB of the overlay, its database included, and now installs it in 296 KiB. Upgrading it in place took 8 and 20 KiB more. An empty overlay has room for 1,440 KiB; after the set, 988 KiB with comments and 1,092 KiB without.</p>
+<p>Shipping bytecode instead of source would cut nothing more: see <a href="#what-is-left">What is left</a>.</p>
+<h3 id="natives-at-start">Native modules when uhttpd starts<a class="headerlink" href="#natives-at-start" title="Permanent link">&para;</a></h3>
+<p>The <code>lazy:</code> costs above were paid by each scrape, in its child, for modules that do not change between scrapes: some 0.8 ms in the devenv, 4.6 ms on the AX835 and 7 ms on QEMU's 24Kc for an access point's collectors. uhttpd now loads them once, when it starts: ubus, rtnl and nl80211 where an enabled collector needs one, and zlib, whatever the collectors, while <code>compress</code> is on. Each is loaded in the probe's child first, as the collectors are. So a module whose C code crashes as it loads costs only that child, and is left to the scrapes, where a crash costs only the collector that needs it.</p>
+<p>What that costs uhttpd and its scrapes in the devenv (<code>make bench</code>, main of 2026-10-10 against now, run back to back). The benchmark's worlds stand in for the native modules, so its scrapes show what moved, not what they no longer load:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;"></th>
+<th style="text-align: left;">before</th>
+<th style="text-align: left;">now</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">the handler at rest, base collectors (<code>rest:base</code>)</td>
+<td style="text-align: left;">1.35 MB</td>
+<td style="text-align: left;">1.44 MB</td>
+</tr>
+<tr>
+<td style="text-align: left;">the handler at rest, every collector (<code>rest:full</code>)</td>
+<td style="text-align: left;">1.96 MB</td>
+<td style="text-align: left;">2.04 MB</td>
+</tr>
+<tr>
+<td style="text-align: left;">loading it, base collectors (<code>rest:base</code>'s time)</td>
+<td style="text-align: left;">41 ms</td>
+<td style="text-align: left;">49 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">the service's uhttpd, base collectors (<code>handler:base</code>'s RSS)</td>
+<td style="text-align: left;">2.83 MB</td>
+<td style="text-align: left;">2.94 MB</td>
+</tr>
+<tr>
+<td style="text-align: left;">a scrape through uhttpd, base collectors (<code>handler:base</code>)</td>
+<td style="text-align: left;">21.0 ms</td>
+<td style="text-align: left;">21.1 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">a scrape of the base collectors (<code>scrape:base</code>)</td>
+<td style="text-align: left;">12.6 ms</td>
+<td style="text-align: left;">12.7 ms</td>
+</tr>
+</tbody>
+</table>
+<p>uhttpd holds some 0.1 MB more, and takes one more fork when it starts. A scrape takes as long, not counting the modules it no longer loads. Of what a scrape spends outside its collectors, a fraction of a millisecond moved from the exporter collector's run to the scrape's own work, because the scrape now writes the exporter's counters itself (see <a href="../deadlines-and-breakers/#quarantine-applies-to-every-scrape">About deadlines and circuit breakers</a>).</p>
+<h2 id="the-ubus-objects-sources">The ubus object's sources<a class="headerlink" href="#the-ubus-objects-sources" title="Permanent link">&para;</a></h2>
+<p>wifi, hostapd_stations, timesync and wireguard's <code>peer_names</code> ask the service's ubus object for what the service's user may not read itself (see <a href="../security/#what-the-services-user-reaches-over-ubus">About the security model</a>). When they first did, each call cost a scrape on the access point some 15 to 20 ms, where the call it replaced cost a few. There were two reasons:</p>
+<ul>
+<li><strong>rpcd's collection.</strong> After every call of a ucode plugin's method, rpcd collects the plugin's garbage: a pass over everything the plugin holds. And rpcd answers one call at a time. The object's plugin held every module of the object, which its methods for LuCI need: 0.7 MB, collected in 1.5 ms in the devenv. That is some 6,300 turns of the VM's loop, so 15 to 20 ms on the AX835, paid by the next call rpcd answered, whoever made it: timesync's <code>rc list</code> after its <code>time_daemons</code>, hostapd_stations' call after wifi's. The plugin now holds only the collectors' methods, <code>rpc/sources.uc</code>: some 0.1 MB with ucode's own, collected in 0.03 ms. It compiles the rest when one of LuCI's methods is called, some 25 ms in the devenv, and lets go of it 120 s after the last.</li>
+<li><strong>A program for each call.</strong> <code>wireless</code> asked netifd through ubus's command line, in a process of its own, so that a busy netifd would not hold rpcd. That cost a fork, a shell and <code>ubus</code> at every scrape of wifi and of hostapd_stations: 1.3 ms of a program run in the devenv and 3.4 ms on the AX835, each. Now <code>wireless</code> reads the wireless config, and the collector asks the kernel which interfaces exist and are up, as it already asked it for the rest. netifd is not asked, so a netifd busy setting a radio up no longer fails the scrape (<code>network.wireless status: no answer</code>).</li>
+</ul>
+<p>The benchmark's <code>rpcd:</code> cases hold what the plugin holds, and time each of the three methods with rpcd's collection after it, on the typical world's configs, sysfs and procd (<code>make bench</code>, and <code>make bench-device</code> on the YunCore AX835):</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;"></th>
+<th style="text-align: left;">devenv, before</th>
+<th style="text-align: left;">devenv, now</th>
+<th style="text-align: left;">AX835, before</th>
+<th style="text-align: left;">AX835, now</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">what rpcd's plugin holds (<code>rpcd:rest</code>)</td>
+<td style="text-align: left;">0.71 MB</td>
+<td style="text-align: left;">0.10 MB</td>
+<td style="text-align: left;">0.72 MB</td>
+<td style="text-align: left;">0.10 MB</td>
+</tr>
+<tr>
+<td style="text-align: left;">its collection, after each call</td>
+<td style="text-align: left;">1.5 ms</td>
+<td style="text-align: left;">0.03 ms</td>
+<td style="text-align: left;">14.4 ms</td>
+<td style="text-align: left;">0.28 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">programs run by a call of <code>wireless</code></td>
+<td style="text-align: left;">1, 1.3 ms</td>
+<td style="text-align: left;">none</td>
+<td style="text-align: left;">1, 3.4 ms</td>
+<td style="text-align: left;">none</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>wireless</code>, and the collection (<code>rpcd:wireless</code>)</td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;">0.22 ms</td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;">2.0 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>time_daemons</code>, and the collection (<code>rpcd:time_daemons</code>)</td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;">0.05 ms</td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;">0.6 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>wireguard_peers</code>, and the collection (<code>rpcd:wireguard_peers</code>)</td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;">0.04 ms</td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;">0.3 ms</td>
+</tr>
+</tbody>
+</table>
+<p>On the AX835 itself, with the exporter it had installed before (main of 2026-10-19):</p>
+<ul>
+<li>a call of <code>wireless</code> through ubus's command line took some 17 ms more than one of rpcd's <code>rc list</code>;</li>
+<li>an <code>rc list</code> made right after <code>time_daemons</code> took up to 10 ms more than the next.</li>
+</ul>
+<p>Its scrapes, as vmagent timed them: wifi took 36.7 ms, where it had taken 14.8 before the object asked for it; timesync 18.5 where 3.4; and the whole scrape 0.216 s where 0.170. On the R3S, which has no radio, wifi took 19.5 ms where 1.8, and hostapd_stations 19.1 where 2.4. The calls now cost what collecting 0.1 MB and reading two configs cost, a few milliseconds of the A53's: what the calls they replaced cost.</p>
+<p>Budgets hold both in turns of the VM's loop, under 3,000, so that neither cost comes back: a program run is some 5,000 turns, and the collection of every module 6,300.</p>
+<h2 id="wifi-ethtool-agh">wifi, ethtool and agh<a class="headerlink" href="#wifi-ethtool-agh" title="Permanent link">&para;</a></h2>
+<p>vmagent's averages over four hours, with main of 2026-10-19 installed:</p>
+<ul>
+<li>wifi took 23 ms of the AX835's scrape, where it took 15 before it asked the service's object;</li>
+<li>ethtool took 97 ms of the R3S's, where it took about 60 before it wrote link modes;</li>
+<li>agh took 19 ms.</li>
+</ul>
+<p>Each was timed apart on its device, against its own sources.</p>
+<p><strong>wifi</strong>, on the AP's 2 radios and 3 interfaces. The object's <code>wireless</code> took 2.85 ms through ubus, where netifd's status had taken 0.84. It read the wireless and network configs and sysfs at every call, and wifi and hostapd_stations each call it. Each interface cost a GET_INTERFACE of nl80211 (0.17 ms), a survey (1.0 to 1.6 ms, the channels of its phy), and a link of rtnetlink (0.5 to 0.77 ms in a new process, since rtnl converts all the link holds, its statistics and per-family settings with it). The surveys of a phy's two interfaces are the same survey.</p>
+<p>wifi now asks nl80211 for every interface in one dump (0.3 ms), reads whether each is up from its flags in sysfs (0.08 ms), asks for a phy's survey once, and writes an interface's samples to a <code>labels()</code> set. rpcd keeps the reply of <code>wireless</code> while the two configs' files and the phys are as they were. A dump of every link from rtnetlink would have cost more than the three lookups: 4.0 ms for the AP's 12 links.</p>
+<p><strong>ethtool</strong>, on the R3S's two NICs: an stmmac of 216 statistics and an r8169 of 14. A program run under the watchdog took 5.7 ms there. ethtool alone takes 3.5; its shell and the watchdog's subshells take the rest. Six of them took 34 ms, and one batch of the six takes 17 (<code>run_all()</code>, see <a href="../internals/#running-a-program">About the implementation</a>).</p>
+<p>What is left is the VM's work: a few dozen turns for each statistic and its family of one sample, to take its line apart, make its name, check its family's name, and write the line. On the Cortex-A53, a turn costs as much as a regex reading some 30 bytes. So one regex over the listing takes half the time that taking each line apart did. The names of a device's new statistics are made together, and a batch of the families checks their names with one match. Two stmmac ports take 95 ms, where they took 105. A Wi-Fi interface is not asked its link settings, since cfg80211 has none; a port that is down still is.</p>
+<p><strong>agh</strong>. <code>/control/stats</code> takes AdGuard Home 10 to 30 ms on the R3S, because it computes its top lists from a day of statistics; <code>/control/status</code> takes 2.5 ms. Parsing the 6.5 kB of statistics took 3.2 to 6 ms; parsing only their totals, which follow the last top list, takes 0.2. Only the status gives the version, protection and whether DNS runs, and only the statistics give their totals. Asked both at once, over two connections, AdGuard Home took longer than asked one after the other (a mean of 24 to 27 ms, against 18). And a collector keeps nothing from one scrape to the next, so it cannot ask for the status less often. So agh asks for one, then the other, and parses only the totals.</p>
+<p>Before (main of 2026-10-19) and after, on the benchmark's large world in the devenv and on the AX835 (<code>make bench</code>, <code>make bench-device</code>), and against the devices' own sources:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;"></th>
+<th style="text-align: left;">devenv</th>
+<th style="text-align: left;">YunCore AX835</th>
+<th style="text-align: left;">On the device</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">wifi, 3 radios of 3 networks and 200 stations</td>
+<td style="text-align: left;">10.4 → 10.3 ms</td>
+<td style="text-align: left;">127 → 126 ms</td>
+<td style="text-align: left;">AX835's: 23.7 → 18.8 ms, with the object it has installed</td>
+</tr>
+<tr>
+<td style="text-align: left;">its requests of nl80211 and rtnetlink (<code>asked</code>)</td>
+<td style="text-align: left;">27 and 9 → 13 and 0</td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;">AX835's: 9 and 3 → 6 and 0</td>
+</tr>
+<tr>
+<td style="text-align: left;">the object's <code>wireless</code>, and rpcd's collection (<code>rpcd:wireless</code>)</td>
+<td style="text-align: left;">0.2 → 0.1 ms</td>
+<td style="text-align: left;">2.0 → 0.8 ms</td>
+<td style="text-align: left;"></td>
+</tr>
+<tr>
+<td style="text-align: left;">ethtool, 7 wired ports and 9 radios' interfaces</td>
+<td style="text-align: left;">106 → 55 ms</td>
+<td style="text-align: left;">615 → 452 ms</td>
+<td style="text-align: left;">R3S's six programs: 34 → 17 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">its watchdog's runs, and programs (<code>asked</code>)</td>
+<td style="text-align: left;">48 and 48 → 1 and 39</td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;">R3S's: 6 and 6 → 1 and 6</td>
+</tr>
+<tr>
+<td style="text-align: left;">ethtool in a typical full scrape (<code>scrape:full</code>)</td>
+<td style="text-align: left;">71 → 38 ms</td>
+<td style="text-align: left;">432 → 314 ms</td>
+<td style="text-align: left;"></td>
+</tr>
+<tr>
+<td style="text-align: left;">a typical full scrape (<code>scrape:full</code>)</td>
+<td style="text-align: left;">124 → 90 ms</td>
+<td style="text-align: left;">956 → 840 ms</td>
+<td style="text-align: left;"></td>
+</tr>
+<tr>
+<td style="text-align: left;">agh, a day's statistics of the router's size</td>
+<td style="text-align: left;">0.9 → 0.8 ms</td>
+<td style="text-align: left;">8.2 → 6.7 ms</td>
+<td style="text-align: left;">R3S's parse: 3.2–6 → 0.2 ms</td>
+</tr>
+</tbody>
+</table>
+<p>Asking the worlds' netlink costs nothing, so wifi takes as long there as before. On the AX835 itself, the held reply of <code>wireless</code> saves another 1.2 ms on each of a scrape's two calls, so wifi is some 17 ms of its scrape, where it was 23. On the R3S, ethtool is some 70 ms, where it was 97: the programs' 17 ms saved, and a tenth of the VM's work. agh is some 14 to 16 ms there, where it was 19.</p>
+<p>Budgets hold them in counts, which are the same on any machine:</p>
+<ul>
+<li>wifi to 13 requests of nl80211 and none of rtnetlink on the large world;</li>
+<li>ethtool to one run of the watchdog for 39 programs;</li>
+<li>agh to 2 connections;</li>
+<li><code>rpcd:wireless</code> to no cursor of the configs on a call that follows another.</li>
+</ul>
+<p>Budgets also hold wifi and agh in turns of the VM's loop, and agh to 128 kB where a run's peak is its own (24 to 52 kB parsing the totals, 216 to 260 parsing the whole statistics).</p>
+<h2 id="leaner">Outside the collectors, leaner<a class="headerlink" href="#leaner" title="Permanent link">&para;</a></h2>
+<p>On the YunCore AX835, a scrape of the access point's 21 collectors took about 191 ms, and the collectors' own durations 127 ms of it. The rest was the exporter's own work: recording each family, setting up each collector, the pages the child copies, the ledger, and checking each run's text. This pass took each of those on in turn. Before is main of 2026-10-20 (<code>make bench</code>, and <code>make bench-device</code> on the AX835).</p>
+<p><strong>A family.</strong> A family's name was matched against the format's at each declaration, also when the collector declared it again, as one does in a loop over its devices. Now:</p>
+<ul>
+<li>A family declared again is found by its name with a lookup, and its name is not checked again. An object's key ends at a NUL byte, so the lookup also compares the name it found (see <a href="../internals/#ucode">About the implementation</a>).</li>
+<li>A new family's name is checked with one match and an <code>index()</code> for a NUL byte, without a call.</li>
+<li>Its HELP text is read further only when it holds a NUL byte or a byte past ASCII.</li>
+<li>Its text is written with one push, and a family of one line without a join.</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;"></th>
+<th style="text-align: left;">devenv</th>
+<th style="text-align: left;">YunCore AX835</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">a family of a sample (<code>record:family</code>)</td>
+<td style="text-align: left;">14.6 → 13.1 µs</td>
+<td style="text-align: left;">175 → 163 µs</td>
+</tr>
+<tr>
+<td style="text-align: left;">a family declared again for each sample (<code>record:again</code>)</td>
+<td style="text-align: left;">6.6 → 5.1 µs</td>
+<td style="text-align: left;">85.7 → 62.7 µs</td>
+</tr>
+</tbody>
+</table>
+<p>A budget holds a family declared again to 2.7 times a sample of a <code>labels()</code> set, on any machine: it is 2.2 to 2.4 now, and was 3.0.</p>
+<p><strong>A collector.</strong> A collector that writes nothing cost 0.89 ms of the AX835's scrape, some 300 turns of the VM's loop. Of that, timed apart there: its recorder 64 µs, its settings 71, its start and its run packed in the child 111, read back by the scrape 267, its four samples of the scrape's own 97, and its place in the ledger's order 42. Now:</p>
+<ul>
+<li>The scrape reads a collector's start only when no run follows it yet. Once the run follows, the collector is done.</li>
+<li>A run's family names cross as lines after its head, not as JSON strings, and are read with one <code>split()</code>.</li>
+<li>The scrape's own four samples of each collector are written with one push each, and the collectors' names are checked for what a label must escape all at once.</li>
+<li>A query that names no collector selects them in one loop.</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;"></th>
+<th style="text-align: left;">devenv</th>
+<th style="text-align: left;">YunCore AX835</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">a collector besides it (<code>noop:</code>)</td>
+<td style="text-align: left;">0.082 → 0.074 ms</td>
+<td style="text-align: left;">0.887 → 0.860 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">outside the collectors, a typical full scrape (<code>scrape:full</code>)</td>
+<td style="text-align: left;">11.9 → 10.9 ms</td>
+<td style="text-align: left;">107 → 100 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">outside the collectors, a large full scrape</td>
+<td style="text-align: left;">18.1 → 17.1 ms</td>
+<td style="text-align: left;">143 → 133 ms</td>
+</tr>
+</tbody>
+</table>
+<p>A recorder reused from one collector to the next would save 36 µs a collector on the AX835: 0.8 ms of its scrape. But a writer of one collector would then count against the next one's samples, if it were ever called while the next one ran. So each collector still gets a recorder of its own. Its <code>deps</code> already holds only what <code>meta.needs</code> names.</p>
+<p><strong>The child's pages.</strong> The scrape's child is forked from uhttpd, and the kernel copies each page the child writes to. A collection of the garbage would mark every object, and write to its page. But uhttpd's ucode collects no garbage on its own, so the child never does (see <a href="../internals/#ucode">About the implementation</a>). Turned on in the child, it only costs: a typical full scrape on the AX835, with the child's minor page faults, which the benchmark's <code>scrape:</code> notes now give:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">The child's collection</th>
+<th style="text-align: left;">devenv</th>
+<th style="text-align: left;">YunCore AX835</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">none, as uhttpd runs it</td>
+<td style="text-align: left;">94 ms, 3,310 faults</td>
+<td style="text-align: left;">846 ms, 3,700 faults</td>
+</tr>
+<tr>
+<td style="text-align: left;">every 65,535 allocations, the most <code>gc()</code> takes</td>
+<td style="text-align: left;">90 ms, 3,300 faults</td>
+<td style="text-align: left;">852 ms, 3,700 faults</td>
+</tr>
+<tr>
+<td style="text-align: left;">every 10,000</td>
+<td style="text-align: left;">97 ms, 3,350 faults</td>
+<td style="text-align: left;">868 ms, 3,690 faults</td>
+</tr>
+<tr>
+<td style="text-align: left;">every 1,000, <code>gc('start')</code>'s default</td>
+<td style="text-align: left;">121 ms, 3,380 faults, netclass crashed</td>
+<td style="text-align: left;">1,097 ms, 3,730 faults, netclass crashed</td>
+</tr>
+</tbody>
+</table>
+<p>One collection of the whole heap in a fresh child takes 1.7 ms and 104 faults in the devenv, 12.8 ms and 385 faults on the AX835. So nothing changed: the child still collects nothing, and its data limit still bounds a collector that leaves cycles behind. Its faults are mostly the pages it allocates and the scrape's pages it writes to as it counts their references.</p>
+<p><strong>The ledger.</strong> The ledger changes at every scrape: it counts the scrapes, and each run moves its collector's average. So a scrape still reads it once when it starts, and records itself once under the lock, where it parses the file again only if another scrape wrote it in between. uhttpd cannot keep it parsed for its requests: each is a process of its own, and what one learns goes with it. On the AX835, for 36 collectors, parsing the ledger took 0.7 ms, ordering the collectors 1.7, recording the scrape 3.9, and the exporter collector's counters 3.6. Now:</p>
+<ul>
+<li>A run that succeeded within its budget is recorded as a success at once. Its breaker is looked at only if it had tripped.</li>
+<li>The exporter collector's counters are the ledger's, with only the runs that count something recorded on top, not the whole scrape recorded a second time.</li>
+</ul>
+<p><code>ledger:full</code> now does what a scrape does with the ledger, these counters and each collector's breaker and estimate included. A property test holds <code>record()</code> to what it recorded before, breaker events and all.</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;"></th>
+<th style="text-align: left;">devenv</th>
+<th style="text-align: left;">YunCore AX835</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">the ledger in a scrape of 36 collectors (<code>ledger:full</code>)</td>
+<td style="text-align: left;">1.0 → 0.9 ms</td>
+<td style="text-align: left;">12.1 → 10.2 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">recording the scrape alone</td>
+<td style="text-align: left;">0.30 → 0.20 ms</td>
+<td style="text-align: left;">3.9 → 2.6 ms</td>
+</tr>
+</tbody>
+</table>
+<p>A budget holds <code>ledger:full</code> under 4,000 turns of the VM's loop on any machine: it is 3,400 to 3,700 now, and was 4,050 to 4,400.</p>
+<p><strong>A run's checks.</strong> The recorder checks a sample's label values with one match and one <code>index()</code> over all of them, joined. That is 12 µs of a sample's 77 on the AX835 (0.9 of 5.5 in the devenv), and a check of a run's text at its end would save it. But a sample Prometheus would refuse stops its collector at once, and the collector can see that: <code>out</code> throws there (see <a href="../../reference/collector-interface/#out">Collector interface</a>). Checked at the end, the collector would run on. So each sample is still checked as it is written. A batch's rows checked in one pass, their values joined as its names and HELP texts are, saved nothing: rows with labels took 112 µs each on the AX835 either way, and rows without took 65 µs where they take 57.</p>
+<h2 id="memory-floor">memory_limit's floor<a class="headerlink" href="#memory-floor" title="Permanent link">&para;</a></h2>
+<p><code>memory_limit</code> limits each of uhttpd's processes (RLIMIT_DATA): the one that loads the handler and the collectors, each request's, and the child its collectors run in. With too little, uhttpd does not load the handler, and procd starts it again and again; or a scrape, or a collector, runs out. The least it takes is 8 MB (MEMORY_LIMIT_MIN), and the config refuses less. <code>make bench</code>'s <code>floor:</code> cases find the least limit, in whole MB, under which uhttpd loads the handler with a set's collectors and the typical world's scrape of them has every collector succeed:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Machine</th>
+<th style="text-align: left;">base collectors (16)</th>
+<th style="text-align: left;">every collector (36)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">devenv (x86_64)</td>
+<td style="text-align: left;">4 MB</td>
+<td style="text-align: left;">7 MB</td>
+</tr>
+<tr>
+<td style="text-align: left;">QEMU's 24Kc (32-bit MIPS)</td>
+<td style="text-align: left;">3 MB</td>
+<td style="text-align: left;">5 MB</td>
+</tr>
+<tr>
+<td style="text-align: left;">YunCore AX835 (Cortex-A53), by the benchmark's scrape process</td>
+<td style="text-align: left;">3 MB</td>
+<td style="text-align: left;">7 MB</td>
+</tr>
+</tbody>
+</table>
+<p>The access point's installed exporter is not the source tree's, so uhttpd there cannot run this one. The case limits the benchmark's scrape process instead, which lacks uhttpd's own data. It found the same as uhttpd does in the devenv for every collector, and 1 MB less for the base ones. So 8 MB holds on each, 32-bit and 64-bit, with room for a collector or two of another package.</p>
+<p>A busy router's scrape takes more. The benchmark's large world, 20,000 connections and every collector, needs 29 MB in the devenv and 27 MB on the A53. <code>memory_limit</code> 0 means a quarter of the RAM, at most 64 MB, which gives it that on a router of 128 MB or more.</p>
+<p>The default limits were sized on the benchmark's large world:</p>
+<ul>
+<li><code>max_samples</code>, 20,000. The most one collector writes there is 3,650 (snmp6 on 50 devices), at some 0.5 kB held per sample, so a runaway collector is bounded at some 10 MB.</li>
+<li><code>max_scrape_samples</code>, 200,000. The world writes 33,600, at some 0.2 kB per sample in the scrape process, so the limit comes to 40 MB, under memory_limit's cap of 64 MB. The scrape's peak there is 30 MB on 64 bits and 22 MB on a 32-bit MIPS.</li>
+<li><code>exec_timeout</code>, 5 s. The programs collectors run answer in milliseconds, or in about a second for an ssh login to a radio, and a hung one still leaves the rest of Prometheus's 10 s.</li>
+</ul>
+<h2 id="each-collector">What each collector costs<a class="headerlink" href="#each-collector" title="Permanent link">&para;</a></h2>
+<p>For each collector: what it adds to what uhttpd holds (compiled with the collector API, in the devenv, to 4 kB), and its run on the benchmark's large world (50 links, 3 radios of 3 networks and 200 stations, 2,000 DHCP leases), in each case's process:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Collector</th>
+<th style="text-align: left;">held at rest</th>
+<th style="text-align: left;">devenv</th>
+<th style="text-align: left;">QEMU's 500-MIPS 24Kc</th>
+<th style="text-align: left;">YunCore AX835</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">chrony</td>
+<td style="text-align: left;">48 kB</td>
+<td style="text-align: left;">7.2 ms</td>
+<td style="text-align: left;">-</td>
+<td style="text-align: left;">33.0 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">conntrack</td>
+<td style="text-align: left;">20 kB</td>
+<td style="text-align: left;">0.6 ms</td>
+<td style="text-align: left;">14.3 ms</td>
+<td style="text-align: left;">6.3 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">cpu</td>
+<td style="text-align: left;">12 kB</td>
+<td style="text-align: left;">0.8 ms</td>
+<td style="text-align: left;">22.5 ms</td>
+<td style="text-align: left;">8.9 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">dhcp_leases</td>
+<td style="text-align: left;">48 kB</td>
+<td style="text-align: left;">55.1 ms</td>
+<td style="text-align: left;">2141 ms</td>
+<td style="text-align: left;">680 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">diskstats</td>
+<td style="text-align: left;">24 kB</td>
+<td style="text-align: left;">1.8 ms</td>
+<td style="text-align: left;">46.2 ms</td>
+<td style="text-align: left;">17.9 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">dnsmasq</td>
+<td style="text-align: left;">16 kB</td>
+<td style="text-align: left;">0.7 ms</td>
+<td style="text-align: left;">17.3 ms</td>
+<td style="text-align: left;">6.6 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">entropy</td>
+<td style="text-align: left;">12 kB</td>
+<td style="text-align: left;">0.4 ms</td>
+<td style="text-align: left;">6.9 ms</td>
+<td style="text-align: left;">3.5 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">ethtool</td>
+<td style="text-align: left;">52 kB</td>
+<td style="text-align: left;">54.5 ms</td>
+<td style="text-align: left;">1387 ms</td>
+<td style="text-align: left;">452 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">exporter</td>
+<td style="text-align: left;">36 kB</td>
+<td style="text-align: left;">0.8 ms</td>
+<td style="text-align: left;">14.0 ms</td>
+<td style="text-align: left;">6.4 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">filefd</td>
+<td style="text-align: left;">8 kB</td>
+<td style="text-align: left;">0.3 ms</td>
+<td style="text-align: left;">6.9 ms</td>
+<td style="text-align: left;">3.1 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">filesystem</td>
+<td style="text-align: left;">28 kB</td>
+<td style="text-align: left;">0.8 ms</td>
+<td style="text-align: left;">20.1 ms</td>
+<td style="text-align: left;">7.5 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">hostapd_stations</td>
+<td style="text-align: left;">16 kB</td>
+<td style="text-align: left;">13.2 ms</td>
+<td style="text-align: left;">523 ms</td>
+<td style="text-align: left;">167 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">hostapd_ubus_stations</td>
+<td style="text-align: left;">16 kB</td>
+<td style="text-align: left;">6.4 ms</td>
+<td style="text-align: left;">259 ms</td>
+<td style="text-align: left;">83.2 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">hwmon</td>
+<td style="text-align: left;">44 kB</td>
+<td style="text-align: left;">5.4 ms</td>
+<td style="text-align: left;">124 ms</td>
+<td style="text-align: left;">52.1 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">loadavg</td>
+<td style="text-align: left;">12 kB</td>
+<td style="text-align: left;">0.4 ms</td>
+<td style="text-align: left;">7.5 ms</td>
+<td style="text-align: left;">3.4 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">meminfo</td>
+<td style="text-align: left;">8 kB</td>
+<td style="text-align: left;">0.8 ms</td>
+<td style="text-align: left;">22.2 ms</td>
+<td style="text-align: left;">8.4 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">netclass</td>
+<td style="text-align: left;">28 kB</td>
+<td style="text-align: left;">9.9 ms</td>
+<td style="text-align: left;">235 ms</td>
+<td style="text-align: left;">91.2 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">netdev</td>
+<td style="text-align: left;">20 kB</td>
+<td style="text-align: left;">3.3 ms</td>
+<td style="text-align: left;">128 ms</td>
+<td style="text-align: left;">44.2 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">netstat</td>
+<td style="text-align: left;">44 kB</td>
+<td style="text-align: left;">1.4 ms</td>
+<td style="text-align: left;">43.1 ms</td>
+<td style="text-align: left;">16.2 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">nft-counters</td>
+<td style="text-align: left;">8 kB</td>
+<td style="text-align: left;">5.0 ms</td>
+<td style="text-align: left;">124 ms</td>
+<td style="text-align: left;">44.4 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">openwrt</td>
+<td style="text-align: left;">8 kB</td>
+<td style="text-align: left;">0.5 ms</td>
+<td style="text-align: left;">9.6 ms</td>
+<td style="text-align: left;">4.0 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">openwrt_interfaces</td>
+<td style="text-align: left;">20 kB</td>
+<td style="text-align: left;">1.5 ms</td>
+<td style="text-align: left;">54.6 ms</td>
+<td style="text-align: left;">18.9 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">qdisc</td>
+<td style="text-align: left;">16 kB</td>
+<td style="text-align: left;">3.5 ms</td>
+<td style="text-align: left;">56.3 ms</td>
+<td style="text-align: left;">22.0 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">selinux</td>
+<td style="text-align: left;">12 kB</td>
+<td style="text-align: left;">0.4 ms</td>
+<td style="text-align: left;">7.0 ms</td>
+<td style="text-align: left;">3.2 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">snmp6</td>
+<td style="text-align: left;">8 kB</td>
+<td style="text-align: left;">16.7 ms</td>
+<td style="text-align: left;">576 ms</td>
+<td style="text-align: left;">212 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">sockstat</td>
+<td style="text-align: left;">20 kB</td>
+<td style="text-align: left;">0.8 ms</td>
+<td style="text-align: left;">19.4 ms</td>
+<td style="text-align: left;">8.2 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">softnet</td>
+<td style="text-align: left;">12 kB</td>
+<td style="text-align: left;">0.6 ms</td>
+<td style="text-align: left;">16.5 ms</td>
+<td style="text-align: left;">7.0 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">textfile</td>
+<td style="text-align: left;">16 kB</td>
+<td style="text-align: left;">24.4 ms</td>
+<td style="text-align: left;">795 ms</td>
+<td style="text-align: left;">275 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">thermal</td>
+<td style="text-align: left;">16 kB</td>
+<td style="text-align: left;">0.9 ms</td>
+<td style="text-align: left;">15.1 ms</td>
+<td style="text-align: left;">7.4 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">time</td>
+<td style="text-align: left;">4 kB</td>
+<td style="text-align: left;">0.3 ms</td>
+<td style="text-align: left;">6.3 ms</td>
+<td style="text-align: left;">2.9 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">timesync</td>
+<td style="text-align: left;">20 kB</td>
+<td style="text-align: left;">0.5 ms</td>
+<td style="text-align: left;">10.1 ms</td>
+<td style="text-align: left;">4.2 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">uci_dhcp_host</td>
+<td style="text-align: left;">16 kB</td>
+<td style="text-align: left;">3.4 ms</td>
+<td style="text-align: left;">123 ms</td>
+<td style="text-align: left;">43.3 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">uname</td>
+<td style="text-align: left;">8 kB</td>
+<td style="text-align: left;">0.5 ms</td>
+<td style="text-align: left;">7.8 ms</td>
+<td style="text-align: left;">3.6 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">vmstat</td>
+<td style="text-align: left;">16 kB</td>
+<td style="text-align: left;">0.5 ms</td>
+<td style="text-align: left;">13.5 ms</td>
+<td style="text-align: left;">5.4 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">wifi</td>
+<td style="text-align: left;">40 kB</td>
+<td style="text-align: left;">10.4 ms</td>
+<td style="text-align: left;">353 ms</td>
+<td style="text-align: left;">124 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">wireguard</td>
+<td style="text-align: left;">16 kB</td>
+<td style="text-align: left;">2.3 ms</td>
+<td style="text-align: left;">62.8 ms</td>
+<td style="text-align: left;">21.8 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">nat_traffic, 1,000 connections</td>
+<td style="text-align: left;">12 kB</td>
+<td style="text-align: left;">8.1 ms</td>
+<td style="text-align: left;">308 ms</td>
+<td style="text-align: left;">110 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">nat_traffic, 20,000 connections</td>
+<td style="text-align: left;">12 kB</td>
+<td style="text-align: left;">142 ms</td>
+<td style="text-align: left;">5609 ms</td>
+<td style="text-align: left;">1953 ms</td>
+</tr>
+</tbody>
+</table>
+<p>The collector API they share holds 110 kB more, once. On a slow router, a collector that reads a table takes as long as its table: nat_traffic's connections, dhcp_leases' leases, ethtool's ports, textfile's files. ethtool runs <code>ethtool -S</code>, <code>-i</code> and the link settings of each port, all in one batch; QEMU's time is from before the batch (see <a href="#wifi-ethtool-agh">wifi, ethtool and agh</a>). Some packages bring programs that take flash too: ethtool's <code>ethtool</code> (72 KiB on mipsel), qdisc's <code>tc-tiny</code> and <code>kmod-sched-core</code> (279 and 172 KiB). See <a href="../../how-to/small-device/">How to run the exporter on a small device</a>.</p>
+<h2 id="loading">Loading<a class="headerlink" href="#loading" title="Permanent link">&para;</a></h2>
+<p>uhttpd loads the collectors when it starts, in the process every request is forked from, and holds them as long as it runs. A collector imports the collector API, which imports four modules of the core. ucode compiles a module once per program, and keeps its source file open while the program lives. 0.2.0 compiled a program for each collector, so each had its own copy of those five modules, and six open descriptors with its own file. 37 collectors kept 268 descriptors open in the R3S's uhttpd. A process may open 1024, which some 160 collectors would reach. The collectors are now compiled as one program, once each has loaded in a child process of its own (the probe, which still compiles each alone):</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Loading every collector</th>
+<th style="text-align: left;">0.2.0</th>
+<th style="text-align: left;">Now</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">devenv, the benchmark's 36 (<code>load:full</code>)</td>
+<td style="text-align: left;">34 ms; 216 descriptors, 6.1 MB</td>
+<td style="text-align: left;">12.5 ms; 41 descriptors, 3.9 MB</td>
+</tr>
+<tr>
+<td style="text-align: left;">QEMU's 24Kc, the same</td>
+<td style="text-align: left;">0.93 s; 216 descriptors, 4.8 MB</td>
+<td style="text-align: left;">0.37 s; 41 descriptors, 3.1 MB</td>
+</tr>
+<tr>
+<td style="text-align: left;">QEMU's 24Kc, probed first (<code>probe:full</code>), as uhttpd does</td>
+<td style="text-align: left;">1.78 s</td>
+<td style="text-align: left;">1.21 s</td>
+</tr>
+<tr>
+<td style="text-align: left;">the service's uhttpd, devenv's procd container, 45 collectors</td>
+<td style="text-align: left;">315 descriptors, 7.3 MB</td>
+<td style="text-align: left;">95 descriptors, 4.5 MB</td>
+</tr>
+<tr>
+<td style="text-align: left;">the service's uhttpd, QEMU, 36 collectors</td>
+<td style="text-align: left;">263 descriptors, 5.2 MB</td>
+<td style="text-align: left;">86 descriptors, 3.5 MB</td>
+</tr>
+</tbody>
+</table>
+<p>A request's process and the collectors' child are forked from that uhttpd, so they start smaller too. If the collectors do not load as one program, which the probe makes unlikely, each is loaded alone, as before. What uhttpd holds once they are loaded is in <a href="#in-030">In 0.3.0</a>.</p>
+<h2 id="the-ledger">The ledger<a class="headerlink" href="#the-ledger" title="Permanent link">&para;</a></h2>
+<p>Ordering the collectors and keeping their breakers costs a scrape a read of a small file when it starts, and a locked read and write when it ends. That is 0.8 ms in the devenv and 21 ms on the 500-MIPS 24Kc, about 1% of a typical full scrape on both (<code>make bench</code>'s <code>ledger:full</code>, 37 collectors, a ledger of 1.6 kB).</p>
+<h2 id="gzip">Gzip<a class="headerlink" href="#gzip" title="Permanent link">&para;</a></h2>
+<p>A whole scrape of the lab (every collector, about 1250 series, on x86_64) is 143,500 bytes plain and 21,640 gzipped, 6.6 times smaller. Deflating it takes about 1 ms at zlib's fastest level, which the exporter uses, and 3 ms at its default level, for 19,160 bytes. Over loopback the scrape takes as long either way (118 ms plain, 123 ms gzipped). The gain is on the wire: 85% fewer bytes per scrape, which matters on a slow or metered link and costs the router little.</p>
+<h2 id="basic-auth">Basic auth<a class="headerlink" href="#basic-auth" title="Permanent link">&para;</a></h2>
+<p>The handler computes the password's hash in ucode at each scrape, so a check costs what the hash's rounds cost (<code>make bench</code>'s <code>auth:</code> cases, the median of a check in a process of its own):</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Machine</th>
+<th style="text-align: left;"><code>$1$</code></th>
+<th style="text-align: left;"><code>$6$</code>, 1000 rounds (<code>hash_password</code>'s)</th>
+<th style="text-align: left;"><code>$5$</code>, 2000</th>
+<th style="text-align: left;"><code>$6$</code>, 2000</th>
+<th style="text-align: left;">By the cache</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">devenv (Ryzen 7 7840U)</td>
+<td style="text-align: left;">2.5 ms</td>
+<td style="text-align: left;">4.1 ms</td>
+<td style="text-align: left;">6.5 ms</td>
+<td style="text-align: left;">7.8 ms</td>
+<td style="text-align: left;">0.09 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">NanoPi R3S (4×A55)</td>
+<td style="text-align: left;">14 ms</td>
+<td style="text-align: left;">19 ms</td>
+<td style="text-align: left;">33 ms</td>
+<td style="text-align: left;">37 ms</td>
+<td style="text-align: left;">0.5 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">QEMU malta, 24Kc at 500 MIPS</td>
+<td style="text-align: left;">63 ms</td>
+<td style="text-align: left;">135 ms</td>
+<td style="text-align: left;">206 ms</td>
+<td style="text-align: left;">259 ms</td>
+<td style="text-align: left;">2.4 ms</td>
+</tr>
+</tbody>
+</table>
+<p>A round of SHA-512-crypt takes the 500-MIPS 24Kc 125 µs. The 9,999,999 rounds a hash may name would take it twenty minutes; the default 5000, 0.63 s. So a hash may have at most 2000 rounds, a quarter of a second there, and a hash with more is refused. Even 1000 rounds are 135 ms of each scrape on such a router. That is why the handler keeps a cache of the last header it let in. A request let in by the cache costs about 2% of the full check, on every machine. See <a href="../security/#the-cache-and-what-it-trades">About the security model</a>.</p>
+<h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../../how-to/developer/benchmarks/">How to run the benchmark</a></li>
+<li><a href="../../how-to/exec-timeout/">How to give programs more time</a></li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var tab,labels=set.querySelector(".tabbed-labels");for(tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12Z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.tabs.link"], "search": "../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.1e8ae164.min.js"></script>
+      
+    
+  </body>
+</html>

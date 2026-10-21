@@ -1,0 +1,2836 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Metrics of OpenWrt for Prometheus, written in ucode and served by uhttpd.">
+      
+      
+      
+        <link rel="canonical" href="https://m00qek.github.io/ucode-prometheus-exporter/latest/explanation/security/">
+      
+      
+        <link rel="prev" href="../architecture/">
+      
+      
+        <link rel="next" href="../nothing-to-observe/">
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.5.3, mkdocs-material-9.5.17">
+    
+    
+      
+        <title>Security Model - ucode-prometheus-exporter</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.bcfcd587.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="deep-orange" data-md-color-accent="deep-orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#about-the-security-model" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+          <aside class="md-banner md-banner--warning">
+            <div class="md-banner__inner md-grid md-typeset">
+              
+  You are reading the documentation of an older release.
+  <a href="../../.."><strong>Go to the latest.</strong></a>
+
+            </div>
+            <script>var el=document.querySelector("[data-md-component=outdated]"),outdated=__md_get("__outdated",sessionStorage);!0===outdated&&el&&(el.hidden=!1)</script>
+          </aside>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="ucode-prometheus-exporter" class="md-header__button md-logo" aria-label="ucode-prometheus-exporter" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            ucode-prometheus-exporter
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Security Model
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="deep-orange" data-md-color-accent="deep-orange"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="deep-orange" data-md-color-accent="deep-orange"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12c0-2.42-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var media,input,key,value,palette=__md_get("__palette");if(palette&&palette.color){"(prefers-color-scheme)"===palette.color.media&&(media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']"),palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent"));for([key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/m00qek/ucode-prometheus-exporter" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    m00qek/ucode-prometheus-exporter
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+    
+  
+  Welcome
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../tutorials/" class="md-tabs__link">
+          
+  
+  Tutorials
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../how-to/" class="md-tabs__link">
+          
+  
+  How-to Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../reference/" class="md-tabs__link">
+          
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  Explanation
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="ucode-prometheus-exporter" class="md-nav__button md-logo" aria-label="ucode-prometheus-exporter" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    ucode-prometheus-exporter
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/m00qek/ucode-prometheus-exporter" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    m00qek/ucode-prometheus-exporter
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Welcome
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Tutorials
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Tutorials
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/monitor-a-router/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Monitor a Router with Prometheus
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/first-collector/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Write Your First Collector
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    How-to Guides
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            How-to Guides
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Operators
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_2">
+            <span class="md-nav__icon md-icon"></span>
+            Operators
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/install/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Installing the Exporter
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/upgrade/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Upgrading the Exporter
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/uninstall/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Removing the Exporter
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/migrate-from-feed/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Moving from the Feed's Exporters
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/choose-collectors/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Choosing Collectors
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/small-device/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Running on a Small Device
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/listen-on-lan/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Listening on the LAN
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/https-basic-auth/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Serving HTTPS with Basic Auth
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/gzip/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Compressing Scrapes
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/exec-timeout/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Giving Programs More Time
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/collector-options/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Setting a Collector's Options
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/textfile/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Publishing Metrics from Scripts
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/push-metrics/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Pushing Metrics from the Router
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/dashboards-and-alerts/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Monitoring with the Bundled Dashboards and Alerts
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/unbound/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Monitoring Unbound
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/adguard-home/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Monitoring AdGuard Home
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/chrony/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Monitoring chrony
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/sqm-cake/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Monitoring SQM and CAKE
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/luci/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Using the LuCI App
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/troubleshoot/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Troubleshooting
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Collector Authors
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            Collector Authors
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/collector-package/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Writing a Collector in Your Own Package
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_4" id="__nav_3_4_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Maintainers
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_4">
+            <span class="md-nav__icon md-icon"></span>
+            Maintainers
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/testing/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Running the Tests
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/lab/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Using the Lab
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/benchmarks/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Running the Benchmark
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/fixtures/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Capturing Fixtures from a Device
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/package-collector/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Packaging a Collector
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/translations/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Updating the Translation Template
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/documentation/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Writing Documentation
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_4_8" id="__nav_3_4_8_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Publishing the Documentation
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_4_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_4_8">
+            <span class="md-nav__icon md-icon"></span>
+            Publishing the Documentation
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/setup-docs-publishing/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Setting Up Publishing
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/publish-minor-docs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Publishing a New Minor Release
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/publish-patch-docs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Publishing a Patch Release
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/fix-released-docs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Fixing the Released Docs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/republish-docs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Republishing a Version
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/publish-to-feed/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Publishing a Release to the Package Feed
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Reference
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            Reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/collectors/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Collectors
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/metrics/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Metrics
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../metrics/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Renamed Metrics
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/migration/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Migrate from prometheus-node-exporter-lua/-ucode
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/uci-config/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    UCI Configuration
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/service-commands/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Service Commands
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/command/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    The prometheus-exporter Command
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/http/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    HTTP Endpoint
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ubus/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ubus Object
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/luci/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    LuCI App
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/jail/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    The Jail
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/collector-interface/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Collector Interface
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/collector-contract/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Collector Contract
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/devkit/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    The Devkit
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/log-messages/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Log Messages
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/error-codes/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Error Codes
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/files/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Files and Packages
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/make-targets/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Make Targets
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/docs-publishing/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Documentation Publishing
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Explanation
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            Explanation
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../about/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    About the Exporter
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Architecture
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Security Model
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    Security Model
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#a-jail-built-from-declarations" class="md-nav__link">
+    <span class="md-ellipsis">
+      A jail built from declarations
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#not-root" class="md-nav__link">
+    <span class="md-ellipsis">
+      Not root
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Not root">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-the-services-user-reaches-over-ubus" class="md-nav__link">
+    <span class="md-ellipsis">
+      What the service's user reaches over ubus
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#buggy-not-hostile" class="md-nav__link">
+    <span class="md-ellipsis">
+      Buggy, not hostile
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-collectors-get" class="md-nav__link">
+    <span class="md-ellipsis">
+      What collectors get
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#basic-auth-over-tls-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      Basic auth, over TLS only
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Basic auth, over TLS only">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#why-the-handler-checks-the-password-itself" class="md-nav__link">
+    <span class="md-ellipsis">
+      Why the handler checks the password itself
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-cache-and-what-it-trades" class="md-nav__link">
+    <span class="md-ellipsis">
+      The cache, and what it trades
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-the-rounds-are-capped" class="md-nav__link">
+    <span class="md-ellipsis">
+      Why the rounds are capped
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#defaults-that-face-inward" class="md-nav__link">
+    <span class="md-ellipsis">
+      Defaults that face inward
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#trade-offs" class="md-nav__link">
+    <span class="md-ellipsis">
+      Trade-offs
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nothing-to-observe/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Nothing to Observe
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deadlines-and-breakers/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Deadlines and Circuit Breakers
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../when-a-collector-breaks/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    When a Collector Breaks
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../metric-names/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Metric Names
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../performance/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Performance on Small Routers
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../internals/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    About the Implementation
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../versions/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    About Versions
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../versioned-docs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    About Versioned Documentation
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#a-jail-built-from-declarations" class="md-nav__link">
+    <span class="md-ellipsis">
+      A jail built from declarations
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#not-root" class="md-nav__link">
+    <span class="md-ellipsis">
+      Not root
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Not root">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-the-services-user-reaches-over-ubus" class="md-nav__link">
+    <span class="md-ellipsis">
+      What the service's user reaches over ubus
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#buggy-not-hostile" class="md-nav__link">
+    <span class="md-ellipsis">
+      Buggy, not hostile
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-collectors-get" class="md-nav__link">
+    <span class="md-ellipsis">
+      What collectors get
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#basic-auth-over-tls-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      Basic auth, over TLS only
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Basic auth, over TLS only">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#why-the-handler-checks-the-password-itself" class="md-nav__link">
+    <span class="md-ellipsis">
+      Why the handler checks the password itself
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-cache-and-what-it-trades" class="md-nav__link">
+    <span class="md-ellipsis">
+      The cache, and what it trades
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-the-rounds-are-capped" class="md-nav__link">
+    <span class="md-ellipsis">
+      Why the rounds are capped
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#defaults-that-face-inward" class="md-nav__link">
+    <span class="md-ellipsis">
+      Defaults that face inward
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#trade-offs" class="md-nav__link">
+    <span class="md-ellipsis">
+      Trade-offs
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+<h1 id="about-the-security-model">About the Security Model<a class="headerlink" href="#about-the-security-model" title="Permanent link">&para;</a></h1>
+<p>The exporter runs on a router, as a user of its own, and answers requests from the network. It reads much of what the router knows: its interfaces and addresses, its clients and leases, its configuration. This page covers what keeps that access to reading, and the trade-offs made along the way.</p>
+<hr />
+<h2 id="a-jail-built-from-declarations">A jail built from declarations<a class="headerlink" href="#a-jail-built-from-declarations" title="Permanent link">&para;</a></h2>
+<p>uhttpd, and the exporter in it, runs in procd's jail. The jail holds:</p>
+<ul>
+<li>the exporter's own code and libraries, procfs, sysfs and the log;</li>
+<li>what the installed and enabled collectors declare: the configs they read, the programs they run, the files and directories they read, and the ubus socket while one of them needs ubus.</li>
+</ul>
+<p>Nothing else of <code>/etc/config</code> is there, and nothing is writable but the exporter's small state directory.</p>
+<p>The jail is computed, not written by hand. Each collector's <code>meta</code> says what it needs. The init script asks <code>jail.uc</code> what that adds up to, and procd mounts the result. A collector the device does not install, or that its configuration disables, adds nothing. This is what keeps the jail tight: it is exactly as wide as the collectors in use, and it stays right as packages come and go, without anyone keeping a list.</p>
+<pre class="mermaid"><code>flowchart TD
+    M[the enabled collectors' meta] --&gt; I[init script and jail.uc, as root]
+    subgraph jail[procd's jail, as the user prometheus-exporter]
+        U[uhttpd and the handler] --&gt; C[collectors]
+    end
+    I -- "mounts, ubus ACL, capabilities, groups, read access" --&gt; jail
+    C -- "only the calls the ACL allows" --&gt; B[ubusd]
+    B --&gt; D[netifd, hostapd, dnsmasq and other daemons]
+    B --&gt; O[the prometheus-exporter object, in rpcd as root]
+    O -- "reads with uci" --&gt; K[(configs that hold keys)]</code></pre>
+<p>The service's ubus object reads what the jail may not, and hands back only the fields a collector reads (see <a href="#not-root">Not root</a>).</p>
+<p>Some declarations are refused outright:</p>
+<ul>
+<li>a path that is not absolute, or not plain;</li>
+<li>directories that hold what every service has: <code>/etc/config</code>, <code>/run</code>, <code>/tmp</code>, <code>/usr/lib</code> and the like.</li>
+</ul>
+<p>A collector cannot ask for a socket in <code>/run</code>, because the jail would then hold every service's sockets. ujail cannot mount a socket by itself, so a collector names the socket's directory instead, and that directory must be its service's alone, as Unbound's <code>/var/lib/unbound</code> is.</p>
+<p>A directory the exporter owns, textfile's, is held tighter, because the service makes it as root and mounts it. It must be under <code>/var</code>, <code>/tmp</code> or <code>/etc/prometheus-exporter</code>, and not under <code>/var/run</code> or <code>/tmp/run</code>, where every service, the exporter included, keeps its sockets and secrets. A value elsewhere is refused before anything is made. This is an allowlist, not the list of shared directories above: whoever may write the exporter's configuration, such as a LuCI login allowed this app alone, cannot have the service make directories in, or mount, the rest of the filesystem.</p>
+<p>And <code>/tmp</code> is everyone's. On OpenWrt <code>/var</code> is a link to it, and any user may make a directory there. A user that starts before the service could make textfile's <code>/var/prometheus</code> its own, and feed the exporter metrics. Or it could make it a link to a directory it chose, which root would then make directories under and mount. So the service walks the path from <code>/</code> before it makes or mounts it:</p>
+<ul>
+<li>each directory must be root's, and writable by no one else unless it is sticky, as <code>/tmp</code> is;</li>
+<li>a link must be root's alone, as <code>/var</code> is;</li>
+<li>what is not there, the service makes, root's and 0755, and then checks what it made.</li>
+</ul>
+<p>A path that fails is neither made nor mounted, and the service logs why.</p>
+<p>That makes <code>/tmp</code> safe to allow, and it stays allowed: its directories are on tmpfs, so a script that writes there every minute does not wear the flash. <code>/var</code>, which the default is under, is <code>/tmp</code>. Another user can still make the directory first, and so keep textfile from reading it until root removes it: a nuisance the service logs, not a way in. For a directory no other user can touch, use one under <code>/etc/prometheus-exporter</code>.</p>
+<p>The ubus socket matters most of these. ubusd lets root call every object, so a jail running as root with the socket could ask rpcd, netifd or any service for anything they answer. Mounts limit what the exporter can see, not what it can do over ubus. So the jail has the socket only while a collector that needs ubus is enabled, and it does not run as root: ubusd holds it to an ACL of the calls the enabled collectors declare (see <a href="#not-root">Not root</a>).</p>
+<p>The jail has the host's network, not one of its own, because uhttpd must answer on the router's addresses. So a collector that reads a service over TCP, as agh reads AdGuard Home's HTTP API, needs no mount; the capability is what bounds it. <code>deps.socket.tcp_request</code> connects only to an address of the device itself. It binds to that address first, so an address that is not the router's fails before anything is sent. A collector's address is an option, set by whoever may write the exporter's configuration, a LuCI login allowed this app alone among them. Bounded this way, it can point the exporter at a port of the router, never at a host of the LAN or beyond. And the collector reads only what answers without a login: agh sends no credentials, since a password the jail's user could read would be a secret in the jail.</p>
+<p>The jail is a boundary for the exporter's own mistakes as much as for an attacker's. A collector that parses something wrong cannot write anywhere, and one whose program hangs is killed with everything it started.</p>
+<p>Read-only is not the same as harmless, so some files stay out of the jail even when a collector needs part of what they hold. <code>/etc/config/network</code> holds WireGuard's private keys, and the wireguard collector does not declare it. To name peers by their descriptions (<code>peer_names</code>), it asks the service's ubus object, which reads the config as root and hands over only each peer's public key and description. The keys stay out of the jail's files, and out of every reply the service's user may ask for (see <a href="#what-the-services-user-reaches-over-ubus">What the service's user reaches over ubus</a>). The ubus object's <code>interfaces</code>, by contrast, asks netifd, so that a LuCI user allowed only the exporter's object gets interface names without the file.</p>
+<h2 id="not-root">Not root<a class="headerlink" href="#not-root" title="Permanent link">&para;</a></h2>
+<p>uhttpd runs in its jail as the user and group <code>prometheus-exporter</code>, which the package makes, with no new privileges. Not being root is what gives the rest of the jail its meaning. Root reads every file whatever its mode, may call every ubus object, and has every capability: for root, the jail's mounts would be all that stood between a mistake and the router. As the service's user, the process reads what the files' modes let it, ubusd refuses it what the ACL does not allow, and it has no capability at all unless an enabled collector declares one.</p>
+<p>What a collector needs beyond that, it declares, as it declares its mounts:</p>
+<ul>
+<li>its ubus calls;</li>
+<li>its capabilities;</li>
+<li>the groups whose sockets it connects to;</li>
+<li>read access, for the service's group, to the root-only files of <code>/proc</code> and the configs it reads.</li>
+</ul>
+<p>The service grants these as root, at each start, and only while the collector is enabled. It takes back what no enabled collector declares any more, a disabled or a removed collector's, and gives each file back the group and mode it had. It takes back all of it when the service stops, is disabled or is removed. So the privileges are as wide as the collectors in use, and stay right as collectors come and go, as the mounts do. See <a href="../../reference/jail/#the-services-user">The jail</a> for each.</p>
+<p>This took some choices:</p>
+<ul>
+<li><strong>The ubus ACL is written for the enabled collectors, not installed for all of them.</strong> An ACL that each package installed would allow its calls as long as the package is there, enabled or not. So the service writes the ACL at each start, for the collectors enabled then, with the options they have, and has ubusd read it again. It keeps the ACL outside its run directory, which only root enters, and a link in ubusd's directory, which the package installs, points to it.</li>
+<li>
+<p><strong>No call that answers a secret, or reads what its caller names.</strong> ubusd's ACL names objects and methods, never their arguments, so a method is as wide as the widest reply it gives. Some methods a collector would reach for answer more than it reads:</p>
+<ul>
+<li>rpcd's <code>file read</code> reads any file as root, and checks no session for a caller that sends none;</li>
+<li>its <code>uci get</code> reads any config;</li>
+<li>netifd's <code>network.wireless status</code> holds every Wi-Fi network's key;</li>
+<li>procd's <code>service list</code> holds every service's command line and environment.</li>
+</ul>
+<p>The ACL allows none of them. Where a collector needs a little of what they answer, the service's own ubus object, which rpcd runs as root, asks for it and hands over the fields the collector reads, and nothing else. Its methods for the collectors take no arguments, so no caller can point them elsewhere.</p>
+</li>
+<li>
+<p><strong>The object's methods for the collectors never hold rpcd on another daemon.</strong> rpcd serves every object of its plugins in one process, one call at a time, LuCI's and the collectors' <code>rc list</code> and <code>wireguard status</code> among them. A call that waited on a daemon would hold them all. So <code>wireless</code> and <code>wireguard_peers</code> ask no daemon. They read the committed wireless and network configs with uci, and the phys in sysfs, in rpcd's own process, and keep only the fields above, by name. An option they do not name, such as a key, a password, a secret or one not there yet, never leaves rpcd. <code>wireless</code> keeps its last reply, which holds no more than it answered, to give again while the configs' files and the phys are as they were.</p>
+<p>netifd is not asked. It held the keys in its <code>network.wireless status</code>, and it can be busy for seconds while it sets a radio up. What only netifd knew, which interfaces are there and up, the collector asks the kernel itself, over nl80211 and in sysfs, which the jail already had for it (see <a href="../../reference/ubus/#for-the-collectors">ubus object</a> for how the config's networks are named as netifd names them).</p>
+<p><code>time_daemons</code> must ask procd. The jail has a PID namespace of its own, so its <code>/proc</code> lists the jail's processes, not ntpd's or chronyd's. And rpcd's <code>rc list</code>, which the jail may call, says whether a service runs by forking each init script's <code>running</code>. So <code>time_daemons</code> asks procd's <code>service list</code> without waiting for the answer, over a connection with a timeout of 3 s, and replies when procd answers; rpcd answers other calls meanwhile. None of these methods runs a program.</p>
+</li>
+<li>
+<p><strong>Capabilities that read, never ones that read past the jail.</strong> A collector may declare <code>CAP_NET_ADMIN</code> or <code>CAP_NET_RAW</code>. Reading <code>/proc/net/nf_conntrack</code>, which is root's alone, would be easiest with <code>CAP_DAC_READ_SEARCH</code>. But that capability opens any file of a filesystem the jail has a file of, by its handle, past every mount. And <code>CAP_DAC_OVERRIDE</code> would write the jail's procfs. So the service gives that one file to its group instead, as it does the configs.</p>
+</li>
+<li><strong>Configs opened to the group, secrets copied.</strong> OpenWrt's configs are mostly root's alone (0600), and a collector reads its configs where uci keeps them. So the service gives the configs the jail mounts to its group, read-only, and takes them back once no enabled collector reads them. <code>uci commit</code> gives a config back to root's group, and the reload it triggers gives it to the service's group again. Secrets are handled differently. Basic auth's file is written for the group at each start. The TLS certificate and key are read from copies the service makes at each start and removes when it stops. So <code>/etc/uhttpd.key</code> and the hash's config stay root's alone.</li>
+<li>
+<p><strong>Root copies a TLS file from where certificates are kept, and nowhere else.</strong> A copy is root reading a file the configuration names, and handing it to the service's group. Whoever may write the configuration, such as a LuCI login allowed this app alone, could otherwise have root copy <code>/etc/shadow</code> into the jail, or read <code>/dev/zero</code> until the router runs out of memory. So <code>cert</code> and <code>key</code> are taken only:</p>
+<ul>
+<li>under <code>/etc/ssl</code> (certificates, and OpenWrt's acme's), <code>/etc/acme</code> (acme.sh's) and <code>/etc/prometheus-exporter</code> (the exporter's own);</li>
+<li>as <code>/etc/uhttpd.*</code> (uhttpd's own, which LuCI serves with).</li>
+</ul>
+<p>Those hold certificates and keys and nothing of the system's, and only root writes them. The rest of <code>/etc</code>, which holds the system's secrets, is not allowed. The file must also be a regular file of at most 64 KiB, a chain of certificates' size, and its links, if any, must leave it in those places. A configuration that breaks this is refused with <code>TLS_PATH</code> or <code>TLS_FILE</code> wherever it is checked: LuCI, <code>validate</code>, <code>check</code>, start and reload alike. <code>jail.uc --make</code> checks again before it reads at most that much, and the init script serves HTTPS only from the copies it made.</p>
+</li>
+<li>
+<p><strong>A capability is the whole process's.</strong> The scrape's child processes are uhttpd's. So while <code>nft-counters</code> is enabled, <code>CAP_NET_ADMIN</code> is uhttpd's too, and uhttpd is the process that answers requests from the network. What it can change of the network is what that capability allows. A router that does not need nft's counters does not enable the collector.</p>
+</li>
+</ul>
+<p>What stays root's is what must:</p>
+<ul>
+<li>the init script and <code>jail.uc</code>, which grant;</li>
+<li>rpcd's ubus object, which writes the hash;</li>
+<li>the <code>watch</code> instance, which asks procd for a reload by an event. Otherwise the service's ACL would have to allow that call, for any event.</li>
+</ul>
+<h3 id="what-the-services-user-reaches-over-ubus">What the service's user reaches over ubus<a class="headerlink" href="#what-the-services-user-reaches-over-ubus" title="Permanent link">&para;</a></h3>
+<p>These are all the calls the ACL can allow. Each is allowed only while a collector that declares it is enabled (<code>check</code> lists the ACL in force). None takes an argument that chooses what is read, and none answers a key, a password or a hash.</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Call</th>
+<th style="text-align: left;">Declared by</th>
+<th style="text-align: left;">What it answers</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>system board</code></td>
+<td style="text-align: left;">Every ACL (the canary), <code>openwrt</code></td>
+<td style="text-align: left;">The board's model and OpenWrt's release.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>rc list</code></td>
+<td style="text-align: left;"><code>agh</code>, <code>bmx7</code>, <code>chrony</code>, <code>dawn</code>, <code>dhcp_leases</code>, <code>dnsmasq</code>, <code>modemmanager</code>, <code>mwan3</code>, <code>timesync</code>, <code>unbound</code></td>
+<td style="text-align: left;">Each init script's start and stop priorities, and whether it is enabled and running.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>network.interface dump</code></td>
+<td style="text-align: left;"><code>dhcp_leases</code>, <code>openwrt_interfaces</code></td>
+<td style="text-align: left;">netifd's status of each logical interface: its addresses, routes, DNS servers and uptime; not its config.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>prometheus-exporter wireless</code></td>
+<td style="text-align: left;"><code>wifi</code>, <code>hostapd_stations</code></td>
+<td style="text-align: left;">Each radio's name, <code>disabled</code>, channel, country and HT mode, and each of its networks' interface, SSID or mesh ID, and encryption; not the wireless config, which has the keys.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>prometheus-exporter time_daemons</code></td>
+<td style="text-align: left;"><code>timesync</code></td>
+<td style="text-align: left;">Whether busybox ntpd and chronyd run: two booleans, not procd's command lines.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>prometheus-exporter wireguard_peers</code></td>
+<td style="text-align: left;"><code>wireguard</code> with <code>peer_names</code></td>
+<td style="text-align: left;">Each WireGuard peer's public key and description, by interface; not the peer sections, which hold the preshared keys.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>prometheus-exporter.filesystem mounts</code></td>
+<td style="text-align: left;"><code>filesystem</code></td>
+<td style="text-align: left;">Each of the host's mounts with blocks: its device, mount point, type, read-only flag, sizes and inodes.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>wireguard status</code></td>
+<td style="text-align: left;"><code>wireguard</code></td>
+<td style="text-align: left;">rpcd-mod-wireguard's interfaces and peers: public keys, listen ports, endpoints, allowed IPs, traffic and last handshakes; no private or preshared key.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>hostapd.&lt;interface&gt; get_status</code>, <code>get_clients</code></td>
+<td style="text-align: left;"><code>hostapd_stations</code>; <code>hostapd_ubus_stations</code> (<code>get_clients</code>)</td>
+<td style="text-align: left;">Each access point's SSID, BSSID, channel and airtime, and its stations: MAC addresses, flags, rates, signal and traffic.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>dhcp ipv4leases</code>, <code>ipv6leases</code></td>
+<td style="text-align: left;"><code>dhcp_leases</code></td>
+<td style="text-align: left;">odhcpd's leases: addresses, MAC addresses, DUIDs and host names.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>dnsmasq metrics</code></td>
+<td style="text-align: left;"><code>dnsmasq</code></td>
+<td style="text-align: left;">dnsmasq's counters.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>dawn get_network</code></td>
+<td style="text-align: left;"><code>dawn</code></td>
+<td style="text-align: left;">DAWN's access points and clients.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>mwan3 status</code></td>
+<td style="text-align: left;"><code>mwan3</code></td>
+<td style="text-align: left;">mwan3's interfaces and their tracking.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>poe info</code></td>
+<td style="text-align: left;"><code>realtek-poe</code></td>
+<td style="text-align: left;">The PoE ports' state and power.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>dsl metrics</code></td>
+<td style="text-align: left;"><code>ltq-dsl</code></td>
+<td style="text-align: left;">The DSL line's state and counters.</td>
+</tr>
+</tbody>
+</table>
+<p>A collector of another package may declare calls of its own, which the ACL then allows while it is enabled. Installing it is trusting it with them, as with its code (see <a href="#buggy-not-hostile">Buggy, not hostile</a>). The leases, stations and clients are what a router knows of the people on its network, and they are what those collectors are for. Leave the collectors disabled where their series should not leave the router.</p>
+<h2 id="buggy-not-hostile">Buggy, not hostile<a class="headerlink" href="#buggy-not-hostile" title="Permanent link">&para;</a></h2>
+<p>Collectors come from packages: the exporter's own, and others that anyone may write. Most of what can go wrong with a collector is a bug:</p>
+<ul>
+<li>a loop whose condition never turns false;</li>
+<li>a read of a FIFO that nothing writes to;</li>
+<li>a table that grows past what anyone expected;</li>
+<li>a family named like another collector's;</li>
+<li>an allocation that never stops.</li>
+</ul>
+<p>The exporter is built so that such a collector costs only itself. It runs in a process of its own, is stopped at its budget, is limited in samples and memory, is kept to its own families, and is quarantined when it keeps failing. The <a href="../../reference/collector-contract/">collector contract</a> lists every rule and what breaking it costs.</p>
+<p>What the exporter does not do, and cannot, is contain a hostile collector. A collector is code that a root package installed. It runs in the exporter's own process, as the service's user, with every privilege the enabled collectors were granted, its own or not. Its module is loaded where the handler is. It can call whatever ucode and the modules it imports can, and it could undo any limit set from inside that process. Containing hostile code takes a boundary it cannot reach from where it runs, a user and a kernel sandbox around each collector, and that is a different design with a different cost. Here the boundary is installing the package: a collector package is code you choose to run, installed by root like any other package. What the service's user bounds is what all the collectors together may do.</p>
+<p>So the guards are written against mistakes. They hold a collector to what it declared and to what a scrape can afford. They make its failure visible: a reply that says so, a log line, a counter, a quarantine. And they keep the rest of the scrape on time. They do not try to outwit code that means to escape them.</p>
+<h2 id="what-collectors-get">What collectors get<a class="headerlink" href="#what-collectors-get" title="Permanent link">&para;</a></h2>
+<p>Inside the jail, a collector gets less than the jail holds. It receives capabilities, not modules:</p>
+<ul>
+<li>the fs functions that read, and none that write;</li>
+<li>uci handles on the configs it named, read-only and of the committed configuration only, so a change staged in uci but not committed is never read;</li>
+<li>programs from its own list only, run without a shell interpreting their arguments, and killed with their children when its seconds are spent.</li>
+</ul>
+<p>See <a href="../architecture/#only-one-module-touches-the-system">About the architecture</a>.</p>
+<p>And a collector imports one module only, the collector API, so it has no way to the system but those capabilities. A collector that imports <code>fs</code>, or calls <code>require('fs')</code>, is refused before it is loaded. This too is a rule against mistakes. An author used to ucode scripts imports <code>fs</code> without a second thought, and a collector ported from elsewhere reaches for the module it knew. The loader reads the module's text for its imports and those calls, which is what such a collector has. Code written to get round the rule, reaching <code>require</code> some other way, would get round it, and would be hostile.</p>
+<p>The tests hold our collectors to what they declare in the same spirit. They run each collector in the filesystem its jail gives it, so a read of a path it did not declare fails the test, rather than passing there and finding nothing in the service.</p>
+<h2 id="basic-auth-over-tls-only">Basic auth, over TLS only<a class="headerlink" href="#basic-auth-over-tls-only" title="Permanent link">&para;</a></h2>
+<p>Basic auth sends the password with every request, encoded but not encrypted. Over HTTP, anyone on the path reads it. So the exporter takes basic auth over HTTPS only. <code>auth_user</code> and <code>auth_password</code> without <code>cert</code> and <code>key</code> are an invalid configuration, refused wherever it is checked: start, reload, <code>check</code>, the ubus object's <code>validate</code> and LuCI alike. A configuration that asks for a login is never served without TLS, not even with a warning.</p>
+<p><code>auth_password</code> holds a crypt hash, never the password, so the configuration, its backups and LuCI's forms never hold the secret. The ubus object makes the hash, so the password is not on a command line, where <code>ps</code> would show it. Neither the password nor the hash is logged, and no reply of the ubus object holds the hash.</p>
+<p>The hash is also kept apart, in <code>/etc/config/prometheus-exporter-auth</code>, mode 0600, not in the exporter's config. LuCI's ACL for the app grants reading the exporter's config, which a login that may only look at the settings needs. Were the hash there, that login could read it through rpcd's <code>uci</code> object, and guess the password offline at a hash's pace. So the app's ACL grants nothing of the hash's config, to read or to write. LuCI asks the ubus object's <code>password</code> whether one is saved, and hands a new password to <code>set_password</code>, which hashes it as root, saves the hash and reloads the service.</p>
+<p>So the password is changed at once, apart from Save &amp; Apply, as LuCI's own router password is, and the page says so. A change LuCI staged in the login's session could not be seen there, since the session lists only the changes of configs it may read: its Unsaved Changes would leave the hash out, and its Revert would leave it staged. The jail does not mount that config either. The handler reads uhttpd's file instead, a copy the service writes when it starts, which the service's group reads.</p>
+<h3 id="why-the-handler-checks-the-password-itself">Why the handler checks the password itself<a class="headerlink" href="#why-the-handler-checks-the-password-itself" title="Permanent link">&para;</a></h3>
+<p>uhttpd has basic auth of its own: a config file of <code>prefix:user:hash</code> lines (<code>-c</code>), with a realm (<code>-r</code>). The init script writes that file, and uhttpd reads it. But OpenWrt 25.12's uhttpd applies it to files and CGI only, not to a handler's prefix, so a request to <code>/metrics</code> would reach the handler without a login. uhttpd fixed this in August 2026 (commit 3aa7e1c), after every 25.12 release so far.</p>
+<p>So the handler reads the same file when it starts, and checks every request against it before it scrapes, computing the hash in ucode as musl's crypt would. On a uhttpd that does check, the request is checked twice. On one that does not, it is checked once, which is what matters.</p>
+<p>The handler fails closed. A file that is there but wrong denies every request. So does a missing file while the configuration sets <code>auth_user</code>. If the file goes and procd starts uhttpd again as it was, with no file for the jail to mount, the handler reads the exporter's configuration, which the jail has, and denies every request rather than serve without the login it asks for.</p>
+<p>The hash is computed for any user, so a wrong user takes as long as a wrong password.</p>
+<h3 id="the-cache-and-what-it-trades">The cache, and what it trades<a class="headerlink" href="#the-cache-and-what-it-trades" title="Permanent link">&para;</a></h3>
+<p>Computing a hash costs real time on a router's CPU: 135 ms for <code>hash_password</code>'s 1000 rounds of SHA-512-crypt on a 500-MIPS MIPS core, at every scrape. And uhttpd's process per request keeps nothing in memory. So after it lets a request in, the handler writes the SHA-256 of that request's exact <code>Authorization</code> header to its state directory, bound to the user and the hash. A later request with the same header is let in on that digest, compared in constant time. Any other header pays the full check, and a wrong one stays out and leaves the entry as it was. A changed user or password lets nothing in by the old entry, and a restart forgets it.</p>
+<p>The digest reveals no more than what is already on the device. It sits beside the hash, as closed: the service's user's alone, in its state directory of mode 0700 on tmpfs, inside a directory only root enters, never on flash or in a backup. Finding a header that gives the digest is guessing the password, as with the hash, only cheaper per guess: one SHA-256 against a thousand rounds and more. That matters only to whoever can read the file: root on the router, or the service itself. Either can also read the password from the next scrape, since uhttpd ends the TLS. A long random password, as a scraper's should be, is out of reach either way.</p>
+<h3 id="why-the-rounds-are-capped">Why the rounds are capped<a class="headerlink" href="#why-the-rounds-are-capped" title="Permanent link">&para;</a></h3>
+<p>A <code>$5$</code> or <code>$6$</code> hash may name up to 9,999,999 rounds. A hash of that many would take a 500-MIPS router twenty minutes per scrape, so anyone who can set the configuration could make the exporter burn the router's CPU. So a hash may have at most 2000 rounds, a quarter of a second there. A hash that names none, which means 5000, is refused like any invalid value. See <a href="../performance/#basic-auth">Performance on small routers</a>.</p>
+<h2 id="defaults-that-face-inward">Defaults that face inward<a class="headerlink" href="#defaults-that-face-inward" title="Permanent link">&para;</a></h2>
+<p>The exporter listens on loopback until told otherwise, so a fresh install exposes nothing. <code>listen_interface</code> takes a logical interface, so the exporter follows that interface's addresses. <code>*</code>, every address, is a choice to make deliberately, since it includes the WAN's.</p>
+<p>Once the exporter listens on the LAN, the port is meant for the scrapers alone, and the firewall is what keeps it so (<a href="../../how-to/listen-on-lan/#keep-it-to-the-scrapers">How to listen on the LAN</a>). Every request is a scrape or a password check, and either costs the router CPU. A client that reaches the port without the right credentials still makes the handler check the ones it sends. uhttpd runs 3 requests at once and keeps at most 10 connections. So such a client delays the scrapes, and no more: requests past those wait their turn, and the connection limit bounds how many can wait. See <a href="../../reference/http/#connections">HTTP endpoint</a>.</p>
+<h2 id="trade-offs">Trade-offs<a class="headerlink" href="#trade-offs" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>The jail is not a sandbox against a hostile collector.</strong> It narrows what the installed collectors can reach, and its user narrows what they can do; it does not vet them. A collector package is code you choose to run: see <a href="#buggy-not-hostile">Buggy, not hostile</a>.</li>
+<li><strong>The same jail everywhere it can be had.</strong> <code>check</code>, the ubus object's <code>status</code> and <code>prometheus-exporter scrape</code> run the collectors in the service's own jail, with ujail: as its user, with the capabilities the service has, and under the ACL it wrote. So what they find is what Prometheus gets. While the service is stopped, they run without those capabilities and that ACL. Where ujail cannot run (not root, or a kernel or container that refuses it a namespace), they run outside the jail, as root, and say so; the guards are the same. <code>prometheus-exporter collector check</code> runs a module not installed yet, outside the jail. chronyd's server statistics are read only when these run outside the jail: reaching them means writing to chronyd's command directory, which the jail does not give.</li>
+<li><strong>rpcd runs the ubus object unjailed.</strong> It reads the committed configuration and writes nothing but the hash, through <code>set_password</code>. It and <code>hash_password</code> alone handle a secret, and they log neither the secret nor the hash. The LuCI app's ACL grants the reading methods, and grants <code>set_password</code> only to a login that may write.</li>
+<li><strong>A password changed in LuCI applies at once, without LuCI's rollback.</strong> <code>set_password</code> commits the hash and reloads the service when <strong>Change password</strong> is pressed, apart from Save &amp; Apply, which cannot undo it. A scraper that is not given the new password fails until it is. LuCI's own router password is changed the same way.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var tab,labels=set.querySelector(".tabbed-labels");for(tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12Z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.tabs.link"], "search": "../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.1e8ae164.min.js"></script>
+      
+    
+  </body>
+</html>

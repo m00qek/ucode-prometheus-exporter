@@ -1,0 +1,2686 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Metrics of OpenWrt for Prometheus, written in ucode and served by uhttpd.">
+      
+      
+      
+        <link rel="canonical" href="https://m00qek.github.io/ucode-prometheus-exporter/latest/how-to/upgrade/">
+      
+      
+        <link rel="prev" href="../install/">
+      
+      
+        <link rel="next" href="../uninstall/">
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.5.3, mkdocs-material-9.5.17">
+    
+    
+      
+        <title>Upgrading the Exporter - ucode-prometheus-exporter</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.bcfcd587.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="deep-orange" data-md-color-accent="deep-orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#how-to-upgrade-the-exporter" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+          <aside class="md-banner md-banner--warning">
+            <div class="md-banner__inner md-grid md-typeset">
+              
+  You are reading the documentation of an older release.
+  <a href="../../.."><strong>Go to the latest.</strong></a>
+
+            </div>
+            <script>var el=document.querySelector("[data-md-component=outdated]"),outdated=__md_get("__outdated",sessionStorage);!0===outdated&&el&&(el.hidden=!1)</script>
+          </aside>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="ucode-prometheus-exporter" class="md-header__button md-logo" aria-label="ucode-prometheus-exporter" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            ucode-prometheus-exporter
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Upgrading the Exporter
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="deep-orange" data-md-color-accent="deep-orange"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="deep-orange" data-md-color-accent="deep-orange"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12c0-2.42-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var media,input,key,value,palette=__md_get("__palette");if(palette&&palette.color){"(prefers-color-scheme)"===palette.color.media&&(media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']"),palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent"));for([key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/m00qek/ucode-prometheus-exporter" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    m00qek/ucode-prometheus-exporter
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+    
+  
+  Welcome
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../tutorials/" class="md-tabs__link">
+          
+  
+  Tutorials
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  How-to Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../reference/" class="md-tabs__link">
+          
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../explanation/" class="md-tabs__link">
+          
+  
+  Explanation
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="ucode-prometheus-exporter" class="md-nav__button md-logo" aria-label="ucode-prometheus-exporter" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    ucode-prometheus-exporter
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/m00qek/ucode-prometheus-exporter" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    m00qek/ucode-prometheus-exporter
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Welcome
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Tutorials
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Tutorials
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/monitor-a-router/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Monitor a Router with Prometheus
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/first-collector/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Write Your First Collector
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    How-to Guides
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            How-to Guides
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Operators
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3_2">
+            <span class="md-nav__icon md-icon"></span>
+            Operators
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../install/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Installing the Exporter
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Upgrading the Exporter
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    Upgrading the Exporter
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#before-you-upgrade" class="md-nav__link">
+    <span class="md-ellipsis">
+      Before you upgrade
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#from-the-feed" class="md-nav__link">
+    <span class="md-ellipsis">
+      From the feed
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#from-apk-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      From .apk files
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#from-021-to-030" class="md-nav__link">
+    <span class="md-ellipsis">
+      From 0.2.1 to 0.3.0
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#from-020-to-021" class="md-nav__link">
+    <span class="md-ellipsis">
+      From 0.2.0 to 0.2.1
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#from-01-to-02" class="md-nav__link">
+    <span class="md-ellipsis">
+      From 0.1 to 0.2
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#check-the-result" class="md-nav__link">
+    <span class="md-ellipsis">
+      Check the result
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../uninstall/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Removing the Exporter
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../migrate-from-feed/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Moving from the Feed's Exporters
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../choose-collectors/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Choosing Collectors
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../small-device/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Running on a Small Device
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../listen-on-lan/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Listening on the LAN
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../https-basic-auth/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Serving HTTPS with Basic Auth
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gzip/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Compressing Scrapes
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../exec-timeout/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Giving Programs More Time
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../collector-options/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Setting a Collector's Options
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../textfile/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Publishing Metrics from Scripts
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../push-metrics/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Pushing Metrics from the Router
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dashboards-and-alerts/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Monitoring with the Bundled Dashboards and Alerts
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../unbound/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Monitoring Unbound
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adguard-home/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Monitoring AdGuard Home
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../chrony/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Monitoring chrony
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sqm-cake/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Monitoring SQM and CAKE
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../luci/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Using the LuCI App
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../troubleshoot/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Troubleshooting
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Collector Authors
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            Collector Authors
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../collector-package/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Writing a Collector in Your Own Package
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_4" id="__nav_3_4_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Maintainers
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_4">
+            <span class="md-nav__icon md-icon"></span>
+            Maintainers
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer/testing/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Running the Tests
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer/lab/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Using the Lab
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer/benchmarks/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Running the Benchmark
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer/fixtures/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Capturing Fixtures from a Device
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer/package-collector/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Packaging a Collector
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer/translations/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Updating the Translation Template
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer/documentation/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Writing Documentation
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_4_8" id="__nav_3_4_8_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Publishing the Documentation
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_4_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_4_8">
+            <span class="md-nav__icon md-icon"></span>
+            Publishing the Documentation
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer/setup-docs-publishing/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Setting Up Publishing
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer/publish-minor-docs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Publishing a New Minor Release
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer/publish-patch-docs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Publishing a Patch Release
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer/fix-released-docs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Fixing the Released Docs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer/republish-docs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Republishing a Version
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../developer/publish-to-feed/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Publishing a Release to the Package Feed
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Reference
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            Reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/collectors/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Collectors
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/metrics/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Metrics
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../metrics/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Renamed Metrics
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/migration/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Migrate from prometheus-node-exporter-lua/-ucode
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/uci-config/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    UCI Configuration
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/service-commands/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Service Commands
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/command/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    The prometheus-exporter Command
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/http/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    HTTP Endpoint
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/ubus/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ubus Object
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/luci/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    LuCI App
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/jail/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    The Jail
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/collector-interface/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Collector Interface
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/collector-contract/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Collector Contract
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/devkit/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    The Devkit
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/log-messages/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Log Messages
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/error-codes/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Error Codes
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/files/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Files and Packages
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/make-targets/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Make Targets
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/docs-publishing/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Documentation Publishing
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Explanation
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            Explanation
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/about/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    About the Exporter
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/architecture/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Architecture
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/security/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Security Model
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/nothing-to-observe/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Nothing to Observe
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/deadlines-and-breakers/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Deadlines and Circuit Breakers
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/when-a-collector-breaks/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    When a Collector Breaks
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/metric-names/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Metric Names
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/performance/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Performance on Small Routers
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/internals/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    About the Implementation
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/versions/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    About Versions
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/versioned-docs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    About Versioned Documentation
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#before-you-upgrade" class="md-nav__link">
+    <span class="md-ellipsis">
+      Before you upgrade
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#from-the-feed" class="md-nav__link">
+    <span class="md-ellipsis">
+      From the feed
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#from-apk-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      From .apk files
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#from-021-to-030" class="md-nav__link">
+    <span class="md-ellipsis">
+      From 0.2.1 to 0.3.0
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#from-020-to-021" class="md-nav__link">
+    <span class="md-ellipsis">
+      From 0.2.0 to 0.2.1
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#from-01-to-02" class="md-nav__link">
+    <span class="md-ellipsis">
+      From 0.1 to 0.2
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#check-the-result" class="md-nav__link">
+    <span class="md-ellipsis">
+      Check the result
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+<h1 id="how-to-upgrade-the-exporter">How to Upgrade the Exporter<a class="headerlink" href="#how-to-upgrade-the-exporter" title="Permanent link">&para;</a></h1>
+<p>Upgrade every exporter package together. Each collector package, each group, the command line's package and the LuCI app depends on the base package of exactly the same version.</p>
+<h2 id="before-you-upgrade">Before you upgrade<a class="headerlink" href="#before-you-upgrade" title="Permanent link">&para;</a></h2>
+<p>Read what the new version changes. Before 0.3.0, a minor version could rename metrics or options. From 0.3.0 on, only a major version does: see <a href="../../explanation/versions/#what-10-keeps">About versions</a>. A renamed metric breaks every query and dashboard that uses the old name.</p>
+<hr />
+<h2 id="from-the-feed">From the feed<a class="headerlink" href="#from-the-feed" title="Permanent link">&para;</a></h2>
+<p>If you added the exporter's feed, as <a href="../install/#1-add-the-feed">How to install the exporter</a> does, run:</p>
+<div class="highlight"><pre><span></span><code>apk<span class="w"> </span>update
+apk<span class="w"> </span>upgrade
+</code></pre></div>
+<h2 id="from-apk-files">From <code>.apk</code> files<a class="headerlink" href="#from-apk-files" title="Permanent link">&para;</a></h2>
+<ol>
+<li>Copy the new version of every package you have installed to the device's <code>/tmp</code>.</li>
+<li>Set <code>version</code> to the new version, as the files' names end, and add them all in one command:</li>
+</ol>
+<div class="highlight"><pre><span></span><code><span class="nv">version</span><span class="o">=</span><span class="m">0</span>.2.0-r1
+apk<span class="w"> </span>add<span class="w"> </span>--allow-untrusted<span class="w"> </span>/tmp/ucode-prometheus-exporter-*<span class="nv">$version</span>.apk<span class="w"> </span>/tmp/luci-app-prometheus-exporter-<span class="nv">$version</span>.apk
+</code></pre></div>
+<p>Adding the base package alone fails, because the installed collectors still want the old version.</p>
+<p>If the new version adds a dependency, apk takes it from the feeds the device has. For example, <code>ucode-docopt</code>, which the command line's package depends on, comes from the exporter's feed.</p>
+<h2 id="from-021-to-030">From 0.2.1 to 0.3.0<a class="headerlink" href="#from-021-to-030" title="Permanent link">&para;</a></h2>
+<p>0.3.0 is the first release candidate for 1.0: 1.0 keeps its metrics, options, methods and collector API, as <a href="../../explanation/versions/#what-10-keeps">About versions</a> lists them. The changes below break something that worked in 0.2.1. The <a href="https://github.com/m00qek/ucode-prometheus-exporter/blob/main/CHANGELOG.md">CHANGELOG</a> marks each one <strong>BREAKING</strong>.</p>
+<ul>
+<li>
+<p><strong>snmp6 exports 13 fields of each device by default</strong>, where 0.2.1 wrote every one, some 70. By default it now keeps only these <code>node_snmp6_*_total</code> fields of each device: <code>Ip6_InOctets</code>, <code>Ip6_OutOctets</code>, <code>Ip6_OutForwDatagrams</code>, <code>Ip6_InDiscards</code>, <code>Ip6_OutDiscards</code>, <code>Ip6_InNoRoutes</code>, <code>Ip6_OutNoRoutes</code>, <code>Ip6_InHdrErrors</code>, <code>Ip6_InAddrErrors</code>, <code>Ip6_InTooBigErrors</code>, <code>Icmp6_InMsgs</code>, <code>Icmp6_OutMsgs</code> and <code>Icmp6_InErrors</code>. It also drops <code>node_snmp6_ifindex</code>, since netclass's <code>node_network_iface_id</code> has the same index. To export other fields, set the new option <code>fields</code>, a regular expression of <code>&lt;Protocol&gt;_&lt;Field&gt;</code>. <code>.*</code> exports every field, as 0.2.1 did:</p>
+<div class="highlight"><pre><span></span><code>uci<span class="w"> </span><span class="nb">set</span><span class="w"> </span>prometheus-exporter.snmp6<span class="o">=</span>collector
+uci<span class="w"> </span><span class="nb">set</span><span class="w"> </span>prometheus-exporter.snmp6.fields<span class="o">=</span><span class="s1">&#39;.*&#39;</span>
+uci<span class="w"> </span>commit<span class="w"> </span>prometheus-exporter
+</code></pre></div>
+</li>
+<li>
+<p><strong>nat_traffic writes one series per host on this side of the router, labeled <code>host</code>.</strong> 0.2.1 wrote one series per pair of addresses, labeled <code>src</code> and <code>dst</code>. So <code>node_nat_traffic_bytes{src,dst}</code> is now <code>node_nat_traffic_bytes{host}</code>.</p>
+<p><code>host</code> is the end of the connection that is on this side of the router, a LAN host or the router itself, as the routes say:</p>
+<ul>
+<li>For a LAN host's connection out, it is the source, as <code>src</code> was.</li>
+<li>For a port-forwarded connection, it is the LAN host the connection reaches. <code>src</code> was the remote address.</li>
+<li>For a connection from the internet to the router, it is the router's WAN address. For ICMPv6 to a LAN host, it is the LAN host. In both cases <code>src</code> was the sender.</li>
+</ul>
+<p>Connections with neither end on this side share one series, <code>host="other"</code>. So do the hosts beyond the 2048 with the most bytes.</p>
+<p>A query by <code>src</code> becomes a query by <code>host</code>, as <code>node_nat_traffic_bytes{host="192.168.1.10"}</code>. A query by <code>dst</code> needs the pairs. The new option <code>peers</code> brings them back, labeled <code>host</code> and <code>peer</code>. It writes as many series as 0.2.1 did, with new ones for every connection, and a Prometheus server keeps each for hours. Turn it on only for a short look:</p>
+<div class="highlight"><pre><span></span><code>uci<span class="w"> </span><span class="nb">set</span><span class="w"> </span>prometheus-exporter.nat_traffic<span class="o">=</span>collector
+uci<span class="w"> </span><span class="nb">set</span><span class="w"> </span>prometheus-exporter.nat_traffic.peers<span class="o">=</span><span class="m">1</span>
+uci<span class="w"> </span>commit<span class="w"> </span>prometheus-exporter
+</code></pre></div>
+</li>
+<li>
+<p><strong><code>cert</code> and <code>key</code> must be under <code>/etc/ssl</code>, <code>/etc/acme</code> or <code>/etc/prometheus-exporter</code>, or be uhttpd's own <code>/etc/uhttpd.*</code>.</strong> Each must be a regular file of at most 64 KiB. If it is a link, the link must stay inside those directories. Root copies these files for the service's group, and copies no others. The service refuses a configuration that names another path (<code>TLS_PATH</code>), such as <code>/etc/prometheus-exporter.crt</code>, which this guide's HTTPS how-to used. It does not start until you move the files, as <code>check</code> says:</p>
+<div class="highlight"><pre><span></span><code>mkdir<span class="w"> </span>-p<span class="w"> </span>/etc/prometheus-exporter
+mv<span class="w"> </span>/etc/prometheus-exporter.crt<span class="w"> </span>/etc/prometheus-exporter/tls.crt
+mv<span class="w"> </span>/etc/prometheus-exporter.key<span class="w"> </span>/etc/prometheus-exporter/tls.key
+uci<span class="w"> </span><span class="nb">set</span><span class="w"> </span>prometheus-exporter.main.cert<span class="o">=</span>/etc/prometheus-exporter/tls.crt
+uci<span class="w"> </span><span class="nb">set</span><span class="w"> </span>prometheus-exporter.main.key<span class="o">=</span>/etc/prometheus-exporter/tls.key
+uci<span class="w"> </span>commit<span class="w"> </span>prometheus-exporter
+</code></pre></div>
+<p>The configuration import from a feed exporter leaves out such a <code>cert</code> or <code>key</code>, and logs it: <code>option cert: expected a file under /etc/ssl, ...; left at the default</code>. See <a href="../https-basic-auth/">How to serve HTTPS with basic auth</a>.
+- <strong>The jail no longer runs as root.</strong> uhttpd runs in it as the user and group <code>prometheus-exporter</code>, which the upgrade creates. The upgrade restarts a running service. On start, the service grants that user what its enabled collectors declare. You need to do nothing:
+- The state directory belongs to the user, and starts empty, as at every restart.
+- The service writes basic auth's file again, readable by the user's group.
+- The service copies the TLS key and certificate for the user's group. The original files stay as they were, the key readable by root alone.
+- The service opens the configs its collectors read to the user's group, read-only.</p>
+<p>See <a href="../../reference/jail/#the-services-user">The jail</a>.
+- <strong>textfile's files must be readable by the service's user.</strong> If a script writes a <code>*.prom</code> file that only root can read (mode 0600, as <code>mktemp</code> makes it), textfile skips the file and logs it. Run <code>chmod 0644</code> on the file before renaming it into place. See <a href="../textfile/">How to publish metrics from scripts</a>.
+- <strong>The <code>prometheus-exporter</code> command is now its own package, <code>ucode-prometheus-exporter-cli</code>.</strong> The base package no longer installs <code>/usr/bin/prometheus-exporter</code>, and no longer depends on <code>ucode-docopt</code>. So <code>apk upgrade</code> leaves the device without the command. A script or cron job that runs it fails until you install the package. That includes <code>prometheus-exporter scrape</code>, which <a href="../push-metrics/">How to push metrics</a> uses, and <code>hash-password</code>:</p>
+<div class="highlight"><pre><span></span><code>apk<span class="w"> </span>add<span class="w"> </span>ucode-prometheus-exporter-cli
+</code></pre></div>
+<p>The service does not need the command:
+- <code>service prometheus-exporter check</code>, and the check that start and reload run, are the base package's <code>/usr/libexec/prometheus-exporter/check.uc</code>.
+- LuCI and the ubus object set basic auth's password (<code>set_password</code>).</p>
+<p>Without the command's package, apk also removes <code>ucode-docopt</code>, which nothing else of the exporter needs. See <a href="../../reference/command/">The <code>prometheus-exporter</code> command</a>.
+- <strong>A collector of another package that calls ubus must declare its calls</strong> in <code>meta.ubus</code>, as <code>ubus: { dnsmasq: [ 'metrics' ], rc: [ 'list' ] }</code> (<code>rc list</code> for the API's <code>services</code>). The loader refuses a collector that needs ubus without them, and a call the collector does not declare fails with <code>UBUS_NOT_ALLOWED</code>. A collector must also declare when it reads a root-only file of <code>/proc</code> (<code>proc_files</code>), needs a capability (<code>capabilities</code>), or connects to a socket of another service's group (<code>groups</code>). Every collector of the exporter's packages does this. To check a collector of another package, run <code>prometheus-exporter collector check</code> (from <code>ucode-prometheus-exporter-cli</code>). See <a href="../../reference/collector-interface/#meta">Collector interface</a>.
+- <strong>The collector API is <code>prometheus.exporter</code>, and collectors are in <code>/usr/share/ucode/prometheus/collectors/</code>.</strong> The exporter's modules moved from <code>/usr/share/ucode/prometheus_exporter/</code> to <code>/usr/share/ucode/prometheus/</code>:
+- The collector API, <code>prometheus_exporter.api</code>, is now <code>prometheus.exporter</code>, with the same names.
+- The exporter's own modules and the devkit's are <code>prometheus.exporter.&lt;module&gt;</code>.
+- The collectors are <code>prometheus.collectors.&lt;module&gt;</code>.</p>
+<p>The upgrade removes every file the exporter's packages installed under the old directory. The exporter reads its collectors from the new directory alone. A collector of another package stays where its package installed it, in <code>/usr/share/ucode/prometheus_exporter/collectors/</code>. The exporter does not load or list it until you rebuild its package for 0.3.0 and install it again.</p>
+<p>In the collector's source, rename the module, its tests, its utest config and its Makefile, and move the module to <code>src/prometheus/collectors/</code>:</p>
+<div class="highlight"><pre><span></span><code>grep<span class="w"> </span>-rlZ<span class="w"> </span>--exclude-dir<span class="o">=</span>.git<span class="w"> </span>prometheus_exporter<span class="w"> </span>.<span class="w"> </span><span class="p">|</span><span class="w"> </span>xargs<span class="w"> </span>-0<span class="w"> </span>sed<span class="w"> </span>-i<span class="w"> </span>-e<span class="w"> </span><span class="s1">&#39;s/prometheus_exporter\.api/prometheus.exporter/g&#39;</span><span class="w"> </span>-e<span class="w"> </span><span class="s1">&#39;s#prometheus_exporter\([./]\)collectors#prometheus\1collectors#g&#39;</span><span class="w"> </span>-e<span class="w"> </span><span class="s1">&#39;s#prometheus_exporter\([./]\)#prometheus\1exporter\1#g&#39;</span><span class="w"> </span>--
+mkdir<span class="w"> </span>-p<span class="w"> </span>src/prometheus<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>git<span class="w"> </span>mv<span class="w"> </span>src/prometheus_exporter/collectors<span class="w"> </span>src/prometheus/
+</code></pre></div>
+<p>The metric names, <code>ucode_prometheus_exporter_*</code>, do not change. See <a href="../collector-package/">How to write a collector in your own package</a>.
+- <strong>A collector's top level may only declare.</strong> The top level runs again in uhttpd's own process each time the service starts, and nothing can stop it there. So, both there and in the child process that first loads the collector, the exporter refuses a top level that calls any of these, before the call runs:
+- <code>sleep</code>, <code>exit</code>, <code>print</code>, <code>printf</code>, <code>warn</code>, <code>trace</code>, <code>require</code>, <code>include</code>, <code>loadfile</code>, <code>loadstring</code>, <code>render</code> or <code>signal</code>
+- the collector API's <code>exposition</code> functions</p>
+<p>The exporter then leaves the collector out and logs <code>COLLECTOR_IMPURE</code> at <code>err</code>. Every collector of the exporter's packages only declares. For a collector of another package, move the work its top level does into <code>collect()</code>. Check it with <code>prometheus-exporter collector check</code> (from <code>ucode-prometheus-exporter-cli</code>), which now also looks for statements and calls past the declarations. See <a href="../../reference/collector-interface/#the-top-level">Collector interface</a>.</p>
+</li>
+</ul>
+<p>These changes differ from 0.2.1 without breaking a query or a configuration:</p>
+<ul>
+<li><strong>ethtool runs ethtool three times per device</strong>: <code>-S</code>, <code>-i</code> and with no option. It ran it once before. The two new runs feed node_exporter's <code>node_ethtool_info</code> and link families. The three runs share the seconds of the collector's <code>timeout</code>, which defaults to the main section's <code>exec_timeout</code>, 5. On a slow router with many ports, if ethtool fails with <code>COMMAND_TIMEOUT</code>, give it more time. See <a href="../exec-timeout/">How to give programs more time</a>.</li>
+<li><strong>The filesystem package installs an rpcd plugin</strong>, the ubus object <code>prometheus-exporter.filesystem</code>. The plugin answers each mount's type, read-only flag, sizes and inodes. The package reloads rpcd when you install or remove it. Only the collector calls the plugin. The service's user may no longer call rpcd's <code>file read</code> or luci's <code>getMountPoints</code>. Where rpcd has not loaded the plugin, the collector fails and says so, until you run <code>/etc/init.d/rpcd reload</code>.</li>
+<li>
+<p><strong>wifi, hostapd_stations, timesync and wireguard's <code>peer_names</code> ask the service's own ubus object, <code>prometheus-exporter</code>.</strong> They ask it for:</p>
+<ul>
+<li>the radios, without their keys (<code>wireless</code>)</li>
+<li>whether ntpd and chronyd run (<code>time_daemons</code>)</li>
+<li>the peers' descriptions (<code>wireguard_peers</code>)</li>
+</ul>
+<p>The service's user may no longer call netifd's <code>network.wireless status</code>, procd's <code>service list</code> or rpcd's <code>uci get</code>. Those answer every Wi-Fi key, every service's command line and any config. A collector of another package may still call one of them, by declaring it, while that collector is enabled. See <a href="../../explanation/security/#what-the-services-user-reaches-over-ubus">About the security model</a>.
+- <strong><code>OpenWrtWifiRadioDown</code> fires for a radio that is enabled and not up.</strong> It uses wifi's new <code>node_wifi_radio_up</code> and <code>node_wifi_radio_disabled</code>. Before, it fired for any radio without a network, including one disabled on purpose. If you copied the old rule, copy the new one from <code>monitoring/prometheus/router.rules.yml</code>.
+- <strong>Two new collectors, each in its own package, which no group installs</strong>: <code>pressure</code> (pressure stall information) and <code>interrupts</code>. <code>pressure</code> needs a kernel with <code>CONFIG_PSI</code>, which OpenWrt's kernels leave off. To use one, install its package: <code>apk add ucode-prometheus-exporter-pressure</code>. See <a href="../choose-collectors/#install-collectors">How to choose collectors</a>.
+- <strong>LuCI changes basic auth's password with its own button, Change password…</strong>, on the HTTPS &amp; login tab. 0.2.1 had a field that Save handed on. The password still applies at once, separately from Save &amp; Apply, and the dialog asks for it twice. Once you empty the user, <strong>Remove password</strong> removes the saved password. The app's ACL is unchanged. See <a href="../luci/#change-basic-auths-password">How to use the LuCI app</a>.
+- <strong>A collector that is refused something it needs fails with <code>PERMISSION_DENIED</code></strong>, and says what grants it. Before, it would have reported nothing to observe. A reload grants again what the service granted at start and has since been taken away.
+- <strong>The exporter refuses, where it is written, text that would make Prometheus refuse a whole scrape</strong>:
+- a label named <code>__name__</code>, or any other label name that starts with <code>__</code>
+- a NUL byte in a label value, a HELP text or a family's name</p>
+<p>textfile leaves out a <code>*.prom</code> file that has one and logs <code>EXPOSITION_INVALID</code>. A collector that writes one fails with that code. 0.2.1 served such text, and Prometheus then refused every collector's samples.
+- <strong>dhcp_leases and thermal each write one more family</strong>:
+- <code>node_openwrt_dhcp_pool_size{interface}</code>, the size of each interface's DHCPv4 pool
+- <code>node_thermal_zone_critical_celsius{zone,type}</code>, each zone's critical trip point, which the bundled alerts use</p>
+<p>See <a href="../../reference/metrics/">Metrics</a>.
+- <strong><code>check</code> shows the jail's user, its capabilities and its ubus ACL.</strong> The <code>jail</code> of the ubus object's <code>describe</code> lists each collector's calls, capabilities, groups and proc files.</p>
+</li>
+</ul>
+<h2 id="from-020-to-021">From 0.2.0 to 0.2.1<a class="headerlink" href="#from-020-to-021" title="Permanent link">&para;</a></h2>
+<p>The changes below break something that worked in 0.2.0. The <a href="https://github.com/m00qek/ucode-prometheus-exporter/blob/main/CHANGELOG.md">CHANGELOG</a> marks each one <strong>BREAKING</strong>.</p>
+<ul>
+<li>
+<p><strong>Basic auth's hash has its own config.</strong> The exporter reads <code>auth_password</code> from <code>/etc/config/prometheus-exporter-auth</code>, which the package installs with mode 0600. It no longer reads it from the main section of <code>/etc/config/prometheus-exporter</code>, which LuCI's ACL lets a login read.</p>
+<ul>
+<li>The upgrade moves a hash it finds in the main section, and logs <code>auth_password moved from /etc/config/prometheus-exporter to /etc/config/prometheus-exporter-auth</code>.</li>
+<li>A script that sets the hash sets <code>prometheus-exporter-auth.main.auth_password</code>, or calls the ubus object's <code>set_password</code>.</li>
+<li><code>check</code> warns about a hash left in the main section. The exporter ignores it.</li>
+<li>A hash without a user now means no basic auth, rather than an invalid configuration. <code>validate</code> no longer answers <code>AUTH_NEEDS_USER</code>.</li>
+<li>LuCI's ACL grants <code>password</code> and <code>set_password</code>, and no longer <code>hash_password</code>.</li>
+</ul>
+<p>See <a href="../https-basic-auth/">How to serve HTTPS with basic auth</a>.
+- <strong>textfile's <code>directory</code> must be under <code>/var</code>, <code>/tmp</code> or <code>/etc/prometheus-exporter</code>.</strong> The service creates and mounts no other directory. If yours is elsewhere, such as under <code>/srv</code>, move it before upgrading, or the service refuses the configuration (<code>OWNED_DIRECTORY</code>).
+- <strong><code>memory_limit</code> takes 0, or 8 MB and more.</strong> Values 1 to 7 passed <code>check</code>, and uhttpd then crash-looped. The service now refuses them (<code>ZERO_OR_MIN</code>).
+- <strong>hostapd_stations labels each station's series by <code>vif</code> and <code>station</code> alone.</strong> <code>ssid</code>, <code>bssid</code>, <code>encryption</code>, <code>frequency</code> and <code>channel</code> are now only on the new <code>hostapd_station_info</code>, one series per station. A query that selected by them now joins it: <code>hostapd_station_signal_dbm * on (vif, station) group_left (ssid) hostapd_station_info</code>.
+- <strong>netstat exports only node_exporter's default fields</strong>, some 40 series where it wrote about 400. To export others, set its new option <code>fields</code>, a regular expression of <code>&lt;Section&gt;_&lt;Field&gt;</code>. <code>.*</code> exports every field, as 0.2.0 did:</p>
+<div class="highlight"><pre><span></span><code>uci<span class="w"> </span><span class="nb">set</span><span class="w"> </span>prometheus-exporter.netstat<span class="o">=</span>collector
+uci<span class="w"> </span><span class="nb">set</span><span class="w"> </span>prometheus-exporter.netstat.fields<span class="o">=</span><span class="s1">&#39;.*&#39;</span>
+uci<span class="w"> </span>commit<span class="w"> </span>prometheus-exporter
+</code></pre></div>
+</li>
+<li>
+<p><strong>nat_traffic writes IPv6 addresses compressed</strong>: <code>2001:db8:0:1::e157</code>, where it wrote <code>2001:0db8:0000:0001:0000:0000:0000:e157</code>. Every other collector already labels them this way. A query or recording rule that matched the long form must match the short one now. The series start anew at the upgrade.</p>
+</li>
+<li><strong>A collector passes its labels as an object, null, or what <code>out.labels()</code> made.</strong> A string of labels spliced by hand was written as it was. Now it fails the collector with <code>EXPOSITION_INVALID</code>. So does a label value that is not UTF-8, and two label names that become the same once sanitized. Every collector of the exporter's packages already complies. To check a collector of another package, run <code>prometheus-exporter collector check</code>.</li>
+<li><strong>The loader refuses a collector that calls <code>system()</code> or <code>include()</code></strong>, as it already refused <code>require</code>. Run programs through <code>deps.exec</code>. See <a href="../../reference/collector-contract/#what-a-collector-may-import">Collector contract</a>.</li>
+</ul>
+<p>These changes differ from 0.2.0 without breaking a configuration:</p>
+<ul>
+<li><strong>The jail has the ubus socket only while an enabled collector needs ubus.</strong> Take a collector of another package whose programs call ubus but whose <code>meta.needs</code> lacks <code>ubus</code>. When every collector that needs ubus is disabled, it finds no ubus. Declare <code>ubus</code> in its <code>meta.needs</code>.</li>
+<li><strong>uhttpd runs at most 3 requests at once, over at most 10 connections.</strong> Before, it used its defaults of 3 and 100. A client beyond those limits waits. One or two Prometheus servers need no more. See <a href="../../reference/http/#connections">HTTP endpoint</a>.</li>
+</ul>
+<h2 id="from-01-to-02">From 0.1 to 0.2<a class="headerlink" href="#from-01-to-02" title="Permanent link">&para;</a></h2>
+<p>0.2.0 changes what 0.1 did in these ways:</p>
+<ul>
+<li><strong>The command line takes subcommands.</strong> <code>prometheus-exporter [COLLECTOR...]</code> is now <code>prometheus-exporter scrape [COLLECTOR...]</code>, and <code>prometheus-exporter -l</code> is now <code>prometheus-exporter collector list</code>. A script or cron job that runs the command needs the new form: see <a href="../../reference/command/">The prometheus-exporter command</a>.</li>
+<li><strong>wifi_stations is gone.</strong> It wrote the same families as wifi's option <code>stations</code>, so each station was exported twice. Before the upgrade, remove it with <code>apk del ucode-prometheus-exporter-wifi_stations</code>. Then install <code>ucode-prometheus-exporter-wifi</code> if it is not there: its <code>stations</code> option is on by default.</li>
+<li><strong>A collector's package no longer installs what it watches.</strong> The packages of the mwan3, chrony, modemmanager, ubnt-manager and wireguard collectors depended on mwan3, chrony, modemmanager, ubnt-manager and rpcd-mod-wireguard. So installing the mwan3 collector installed and started mwan3, which changes the routing, and the chrony collector installed a second NTP daemon. Now they depend on none of these. Where the watched program is absent, the collector has nothing to observe. The upgrade removes nothing, because apk keeps what was installed. If you installed one only for its collector, remove it (<code>apk del mwan3</code>, for example).</li>
+<li><strong>A collector imports the collector API alone.</strong> A collector module imports <code>prometheus_exporter.api</code>, which exports <code>Result</code>, <code>errors</code>, <code>services</code>, <code>proc</code> and <code>exposition</code>, and no other module. The exporter leaves out a collector that imports <code>prometheus_exporter.result</code>, <code>fs</code> or any other module, and logs it at <code>err</code>. Every collector of the exporter's packages already complies. If a collector of another package was written for 0.1, change it to take the same names from the API: <code>import { Result, errors, proc } from 'prometheus_exporter.api';</code>, and <code>proc.first_line(...)</code> for <code>first_line(...)</code>. Check it with <code>prometheus-exporter collector check</code>. See <a href="../../reference/collector-contract/#what-a-collector-may-import">Collector contract</a>.</li>
+<li><strong>A collector's options need a title.</strong> Each option of <code>meta.options</code> declares <code>title</code>, the short, sentence-case label that LuCI's Edit dialog shows: <code>device_exclude: { default: '...', title: 'Excluded devices', help: '...' }</code>. The exporter leaves out a collector with an option that has no title, and logs it at <code>err</code>. Every collector of the exporter's packages has titles. See <a href="../../reference/collector-interface/#options">Collector interface</a>.</li>
+<li><strong>The ubus object's <code>validate</code> answers codes.</strong> Each refused value used to be an English sentence. Now it is an object, <code>{ code, ...arguments, message }</code>, whose <code>message</code> is the sentence, as <code>{ "code": "RANGE", "min": 1, "max": 65535, "value": 0, "message": "expected an integer from 1 to 65535, got 0" }</code>. A script that reads the reply reads <code>message</code>, or the code: see <a href="../../reference/ubus/#validate">ubus object</a>. <code>check</code>, the log and the command line say what they said before.</li>
+<li><strong>A collector that breaks the collector contract fails alone.</strong> The exporter stops it at its budget, at its <code>max_samples</code>, or when it writes another collector's family. See <a href="../../reference/collector-contract/">Collector contract</a>.</li>
+</ul>
+<h2 id="check-the-result">Check the result<a class="headerlink" href="#check-the-result" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code>wget<span class="w"> </span>-qO-<span class="w"> </span>http://127.0.0.1:9100/metrics<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>build_info
+service<span class="w"> </span>prometheus-exporter<span class="w"> </span>check
+</code></pre></div>
+<p><code>ucode_prometheus_exporter_build_info{version="..."}</code> shows the new version. The upgrade restarts a running service and leaves <code>/etc/config/prometheus-exporter</code> as you had it. If you changed that file, apk may put the new version's file beside it, as <code>/etc/config/prometheus-exporter.apk-new</code>. Compare the two, take what you want, then remove the <code>.apk-new</code> file.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var tab,labels=set.querySelector(".tabbed-labels");for(tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12Z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.tabs.link"], "search": "../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.1e8ae164.min.js"></script>
+      
+    
+  </body>
+</html>
