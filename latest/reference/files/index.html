@@ -2599,10 +2599,6 @@
 <td style="text-align: left;">rpcd's plugin: the <a href="../ubus/">ubus object</a>.</td>
 </tr>
 <tr>
-<td style="text-align: left;"><code>/usr/share/acl.d/prometheus-exporter.json</code></td>
-<td style="text-align: left;">A link to <code>/var/run/prometheus-exporter.acl.json</code>, the service's ubus ACL, which ubusd reads. See <a href="../jail/#the-ubus-acl">The jail</a>.</td>
-</tr>
-<tr>
 <td style="text-align: left;"><code>/usr/share/ucode/prometheus/exporter.uc</code></td>
 <td style="text-align: left;">The collector API, <code>prometheus.exporter</code>: the only module a collector imports. See <a href="../collector-interface/#the-collector-api">Collector interface</a>.</td>
 </tr>
@@ -2658,8 +2654,8 @@
 <td style="text-align: left;">The capabilities of the jail, while the service runs.</td>
 </tr>
 <tr>
-<td style="text-align: left;"><code>/var/run/prometheus-exporter.acl.json</code></td>
-<td style="text-align: left;">The service's ubus ACL, while the service runs.</td>
+<td style="text-align: left;"><code>/usr/share/acl.d/prometheus-exporter.json</code></td>
+<td style="text-align: left;">The service's ubus ACL, while the service is enabled. A reboot keeps it, for ubusd to read as it starts. See <a href="../jail/#the-ubus-acl">The jail</a>.</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>/var/run/prometheus-exporter/state/</code></td>

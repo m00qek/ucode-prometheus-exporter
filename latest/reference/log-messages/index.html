@@ -2634,6 +2634,41 @@
 <td style="text-align: left;"><code>warning</code></td>
 <td style="text-align: left;">A path or a program the jail cannot give a collector: <code>command &lt;name&gt; is not on /usr/sbin:/usr/bin:/sbin:/bin</code>, <code>&lt;path&gt; is too broad to mount for one collector</code>, <code>its paths are not known: ...</code>, <code>a paths function failed: ...</code>.</td>
 </tr>
+<tr>
+<td style="text-align: left;"><code>ubus ACL of prometheus-exporter: &lt;object&gt; &lt;methods&gt;, ...</code></td>
+<td style="text-align: left;"><code>info</code></td>
+<td style="text-align: left;">It wrote the service's ubus ACL, which changed, and had ubusd read it again.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>ubusd (pid &lt;pid&gt;) crashed as it read its ACLs again, and procd starts it again</code></td>
+<td style="text-align: left;"><code>err</code></td>
+<td style="text-align: left;">Having ubusd read the ACL crashed it: see <a href="../jail/#when-ubusd-crashes">When ubusd crashes</a>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>restarted &lt;service&gt;, which does not register on ubus again by itself</code></td>
+<td style="text-align: left;"><code>info</code></td>
+<td style="text-align: left;">After that crash: rpcd, dnsmasq or odhcpd, whose objects ubusd lost.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>cannot restart &lt;service&gt;, which does not register on ubus again by itself</code></td>
+<td style="text-align: left;"><code>err</code></td>
+<td style="text-align: left;">After that crash, its init script is not there, or failed.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>not on ubus again: &lt;objects&gt;: restart the services that register them, or reboot</code></td>
+<td style="text-align: left;"><code>err</code></td>
+<td style="text-align: left;">After that crash, objects that were on ubus are still missing 10 s after the restarts.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>ubusd did not start again within 10 s: reboot</code></td>
+<td style="text-align: left;"><code>err</code></td>
+<td style="text-align: left;">After that crash, procd did not start ubusd again.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>ubusd is not running</code>, <code>cannot signal ubusd (pid &lt;pid&gt;)</code></td>
+<td style="text-align: left;"><code>err</code></td>
+<td style="text-align: left;">It could not have ubusd read the ACL.</td>
+</tr>
 </tbody>
 </table>
 <h2 id="the-watch-instance">The <code>watch</code> instance<a class="headerlink" href="#the-watch-instance" title="Permanent link">&para;</a></h2>

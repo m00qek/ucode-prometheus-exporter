@@ -1831,6 +1831,21 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="The ubus ACL">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#when-ubusd-crashes" class="md-nav__link">
+    <span class="md-ellipsis">
+      When ubusd crashes
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -2475,6 +2490,21 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="The ubus ACL">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#when-ubusd-crashes" class="md-nav__link">
+    <span class="md-ellipsis">
+      When ubusd crashes
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -2637,7 +2667,7 @@
 </tr>
 </tbody>
 </table>
-<p>Every mount is read-only, except the state. The ubus socket is not among them: see <a href="#what-a-collector-gets">What a collector gets</a>.</p>
+<p>Every mount is read-only, except the state and the ubus socket's directory: see <a href="#what-a-collector-gets">What a collector gets</a>.</p>
 <pre class="mermaid"><code>flowchart LR
     procd -- "ujail: user prometheus-exporter,&lt;br/&gt;no_new_privs, its capabilities file" --&gt; U
     subgraph J["jail prometheus-exporter"]
@@ -2645,7 +2675,7 @@
     end
     U -- "read-only" --&gt; RO["procfs, sysfs, /dev/log&lt;br/&gt;the exporter's code and libraries&lt;br/&gt;/etc/config/prometheus-exporter&lt;br/&gt;what the enabled collectors declare"]
     U -- "read-write" --&gt; ST["/var/run/prometheus-exporter/state"]
-    U -- "only while an enabled collector needs ubus" --&gt; UB["the ubus socket:&lt;br/&gt;ubusd holds it to the ubus ACL"]
+    U -- "only while an enabled collector needs ubus" --&gt; UB["the ubus socket, by its directory:&lt;br/&gt;ubusd holds it to the ubus ACL"]
     U -- "the host's network" --&gt; NET["deps.socket.tcp_request:&lt;br/&gt;the device's own addresses only"]</code></pre>
 <p>procd starts the instance at nice 10, with a data limit (<code>RLIMIT_DATA</code>) on each of its processes. The limit is <code>memory_limit</code> MB, or else a quarter of the RAM, at most 64 MB: see <a href="../collector-contract/">Collector contract</a>.</p>
 <p><code>check</code>, the ubus object's <code>status</code> and <code>prometheus-exporter scrape</code> run their collectors in a jail of their own, named <code>prometheus-exporter-trial</code>:</p>
@@ -2673,7 +2703,7 @@
 </tr>
 <tr>
 <td style="text-align: left;"><code>ubus</code> in <code>needs</code></td>
-<td style="text-align: left;">The ubus socket, <code>/var/run/ubus/ubus.sock</code>, through the jail's <code>ubus</code> option: <code>jail.uc</code> names it, and the init script sets the option. While no enabled collector needs ubus, the jail has no ubus.</td>
+<td style="text-align: left;">The ubus socket, <code>/var/run/ubus/ubus.sock</code>: <code>jail.uc</code> names it, and the init script mounts its directory, <code>/var/run/ubus</code>, read-write, as procd's jail option <code>ubus</code> mounts the socket. ubusd makes the socket anew when it starts again, after a crash (see <a href="#when-ubusd-crashes">When ubusd crashes</a>): the directory has the new one, where a jail that had the old socket could not reach ubus. While no enabled collector needs ubus, the jail has no ubus.</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>exec</code> in <code>needs</code></td>
@@ -2794,10 +2824,18 @@
 <li>the <code>watch</code> instance (see <a href="#missing-paths">Missing paths</a>), which sends procd the event that reloads the service. Sending an event needs procd's <code>service event</code>, which would let whoever calls it send any event.</li>
 </ul>
 <h3 id="the-ubus-acl">The ubus ACL<a class="headerlink" href="#the-ubus-acl" title="Permanent link">&para;</a></h3>
-<p>ubusd reads its ACLs from <code>/usr/share/acl.d</code>. The package installs <code>prometheus-exporter.json</code> there: a link to <code>/var/run/prometheus-exporter.acl.json</code>.</p>
-<p>When the service starts, <code>jail.uc --make</code> writes that file for the user <code>prometheus-exporter</code>. It lists the calls the enabled collectors declare (their <code>meta.ubus</code>, for their options). If the file changed, <code>jail.uc --make</code> has ubusd read it again (SIGHUP).</p>
-<p>The file is root's, mode 0644, and lies outside the service's run directory, which only root can enter: ubusd runs as its own user. When the service is stopped or disabled, it removes the file, and the link points nowhere.</p>
+<p>ubusd reads its ACLs from <code>/usr/share/acl.d</code> when it starts, and again on SIGHUP. When the service starts, <code>jail.uc --make</code> writes <code>prometheus-exporter.json</code> there for the user <code>prometheus-exporter</code>. It lists the calls the enabled collectors declare (their <code>meta.ubus</code>, for their options). If the file changed, <code>jail.uc --make</code> has ubusd read it again (SIGHUP).</p>
+<p>The file is root's, mode 0644, and lies outside the service's run directory, which only root can enter: ubusd runs as its own user. When the service is stopped or disabled, it removes the file. A reboot does not: ubusd reads the file as it starts, and the service's first start finds it as it would write it, so it does not signal ubusd.</p>
 <p>The file is written for the enabled collectors, not installed with the packages for all of them. So a call is allowed only while a collector that declares it is enabled, with the options that call for it: wireguard's <code>peer_names</code> for the ubus object's <code>wireguard_peers</code>.</p>
+<h4 id="when-ubusd-crashes">When ubusd crashes<a class="headerlink" href="#when-ubusd-crashes" title="Permanent link">&para;</a></h4>
+<p>ubusd sometimes crashes as it reads its ACLs again, 25.12.0's and 25.12.5's alike: in containers, about once in a few hundred to a few thousand SIGHUPs, whoever sends them. procd starts it again, and procd and netifd register their objects again. rpcd, dnsmasq and odhcpd do not: rpcd's objects, LuCI's among them, stay off ubus until rpcd restarts. That is why the service has ubusd read its ACL only when the ACL changes, and never at boot.</p>
+<p>When it does, <code>jail.uc</code> checks that ubusd survived. If it did not, <code>jail.uc</code>:</p>
+<ol>
+<li>waits up to 10 s for procd to start ubusd again;</li>
+<li>restarts each of rpcd, dnsmasq and odhcpd whose objects ubusd lost. Restarting rpcd ends LuCI's sessions, and restarting dnsmasq empties its cache;</li>
+<li>waits up to 10 s more for every object that was on ubus before.</li>
+</ol>
+<p>It logs the crash at <code>err</code>, and each restart, and any object still missing: see <a href="../log-messages/#the-init-script">Log messages</a>. The exporter itself needs no restart: its jail has the ubus socket's directory, which has the socket the new ubusd makes.</p>
 <p>ubusd's ACL names objects and methods, never arguments. So no collector declares a call that reads whatever its caller names, or that answers a secret, as these do: rpcd's <code>file read</code> and <code>uci get</code>, netifd's <code>network.wireless status</code> and procd's <code>service list</code>. Instead, the service's own ubus object reads or asks for what they would answer, as root, and returns only the fields the collectors read (see <a href="../ubus/#for-the-collectors">ubus object</a>). <a href="../../explanation/security/#what-the-services-user-reaches-over-ubus">About the security model</a> lists every call the ACL can allow.</p>
 <p>ubusd refuses a call the ACL does not allow:</p>
 <ul>
@@ -3046,9 +3084,9 @@
 <td style="text-align: left;">No: procd hands it to ujail</td>
 </tr>
 <tr>
-<td style="text-align: left;"><code>/var/run/prometheus-exporter.acl.json</code></td>
-<td style="text-align: left;">0644</td>
-<td style="text-align: left;"><code>jail.uc --make</code>, at each start. Removed when the service stops.</td>
+<td style="text-align: left;"><code>/usr/share/acl.d/prometheus-exporter.json</code></td>
+<td style="text-align: left;">0644, root's</td>
+<td style="text-align: left;"><code>jail.uc --make</code>, when the calls of the enabled collectors change. Removed when the service stops or is disabled. A reboot keeps it, for ubusd to read as it starts.</td>
 <td style="text-align: left;">No: ubusd reads it</td>
 </tr>
 <tr>
