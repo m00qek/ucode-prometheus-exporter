@@ -4,9 +4,11 @@ What each release changes, for those who run the exporter and those who write co
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-10-22
+
 ### Fixed
 
-- **The service no longer has ubusd read its ACLs at every boot, and brings back what ubusd loses when reading them crashes it.** ubusd sometimes crashes as it reads its ACLs again on SIGHUP, 25.12.0's and 25.12.5's alike, and rpcd, dnsmasq and odhcpd do not register on the ubusd procd starts again: LuCI, among others, stops working until rpcd restarts. The service sent that SIGHUP at every start, at boot too, as its ACL was in `/var/run`. It now writes the ACL in `/usr/share/acl.d`, where a reboot keeps it and ubusd reads it as it starts: the service signals ubusd only when the ACL changes. When the signal crashes ubusd, the service waits for procd to start it again, restarts rpcd, dnsmasq and odhcpd if they lost their objects, and logs it at `err`. The jails have the ubus socket's directory, not the socket, so they reach the ubusd started again. See [When ubusd crashes](docs/reference/jail.md#when-ubusd-crashes).
+- **The service no longer has ubusd read its ACLs at every boot, and brings back what ubusd loses when reading them crashes it.** ubusd sometimes crashes as it reads its ACLs again on SIGHUP, 25.12.0's and 25.12.5's alike, and rpcd, dnsmasq and odhcpd do not register on the ubusd procd starts again: LuCI, among others, stops working until rpcd restarts. The service sent that SIGHUP at every start, at boot too, as its ACL was in `/var/run`. It now writes the ACL in `/usr/share/acl.d`, where a reboot keeps it and ubusd reads it as it starts: the service signals ubusd only when the ACL changes. When the signal crashes ubusd, the service waits for procd to start it again, restarts rpcd, dnsmasq and odhcpd if they lost their objects, and logs it at `err`. The jails have the ubus socket's directory, not the socket, so they reach the ubusd started again. See [When ubusd crashes](https://m00qek.github.io/ucode-prometheus-exporter/0.3/reference/jail/#when-ubusd-crashes).
 
 ## [0.3.1] - 2026-10-22
 
@@ -202,7 +204,8 @@ The first release: a rewrite of the packages feed's `prometheus-node-exporter-uc
 - A ubus object, `prometheus-exporter`, which the LuCI app, `luci-app-prometheus-exporter`, uses for its settings and status pages.
 - The documentation site, in the Diátaxis structure, published per minor version.
 
-[Unreleased]: https://github.com/m00qek/ucode-prometheus-exporter/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/m00qek/ucode-prometheus-exporter/compare/v0.3.2...HEAD
+[0.3.2]: https://github.com/m00qek/ucode-prometheus-exporter/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/m00qek/ucode-prometheus-exporter/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/m00qek/ucode-prometheus-exporter/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/m00qek/ucode-prometheus-exporter/compare/v0.2.0...v0.2.1
