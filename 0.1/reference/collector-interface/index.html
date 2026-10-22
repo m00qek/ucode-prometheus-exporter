@@ -1,0 +1,2645 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Metrics of OpenWrt for Prometheus, written in ucode and served by uhttpd.">
+      
+      
+      
+        <link rel="canonical" href="https://m00qek.github.io/ucode-prometheus-exporter/latest/reference/collector-interface/">
+      
+      
+        <link rel="prev" href="../jail/">
+      
+      
+        <link rel="next" href="../log-messages/">
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.5.3, mkdocs-material-9.5.17">
+    
+    
+      
+        <title>Collector Interface - ucode-prometheus-exporter</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.bcfcd587.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="deep-orange" data-md-color-accent="deep-orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#collector-interface" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+          <aside class="md-banner md-banner--warning">
+            <div class="md-banner__inner md-grid md-typeset">
+              
+  You are reading the documentation of an older release.
+  <a href="../../.."><strong>Go to the latest.</strong></a>
+
+            </div>
+            <script>var el=document.querySelector("[data-md-component=outdated]"),outdated=__md_get("__outdated",sessionStorage);!0===outdated&&el&&(el.hidden=!1)</script>
+          </aside>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="ucode-prometheus-exporter" class="md-header__button md-logo" aria-label="ucode-prometheus-exporter" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            ucode-prometheus-exporter
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Collector Interface
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="deep-orange" data-md-color-accent="deep-orange"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="deep-orange" data-md-color-accent="deep-orange"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12c0-2.42-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var media,input,key,value,palette=__md_get("__palette");if(palette&&palette.color){"(prefers-color-scheme)"===palette.color.media&&(media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']"),palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent"));for([key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/m00qek/ucode-prometheus-exporter" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    m00qek/ucode-prometheus-exporter
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+    
+  
+  Welcome
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../tutorials/" class="md-tabs__link">
+          
+  
+  Tutorials
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../how-to/" class="md-tabs__link">
+          
+  
+  How-to Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../explanation/" class="md-tabs__link">
+          
+  
+  Explanation
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="ucode-prometheus-exporter" class="md-nav__button md-logo" aria-label="ucode-prometheus-exporter" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    ucode-prometheus-exporter
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/m00qek/ucode-prometheus-exporter" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    m00qek/ucode-prometheus-exporter
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Welcome
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Tutorials
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Tutorials
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/monitor-a-router/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Monitor a Router with Prometheus
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tutorials/first-collector/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Write Your First Collector
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    How-to Guides
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            How-to Guides
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Operators
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_2">
+            <span class="md-nav__icon md-icon"></span>
+            Operators
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/install/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Installing the Exporter
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/upgrade/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Upgrading the Exporter
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/uninstall/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Removing the Exporter
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/migrate-from-feed/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Moving from the Feed's Exporters
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/choose-collectors/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Choosing Collectors
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/listen-on-lan/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Listening on the LAN
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/https-basic-auth/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Serving HTTPS with Basic Auth
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/gzip/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Compressing Scrapes
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/exec-timeout/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Giving Programs More Time
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/collector-options/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Setting a Collector's Options
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/textfile/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Publishing Metrics from Scripts
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/unbound/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Monitoring Unbound
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/chrony/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Monitoring chrony
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/sqm-cake/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Monitoring SQM and CAKE
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/luci/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Using the LuCI App
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/troubleshoot/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Troubleshooting
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Developer
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            Developer
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/testing/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Running the Tests
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/lab/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Using the Lab
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/benchmarks/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Running the Benchmark
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/fixtures/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Capturing Fixtures from a Device
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/package-collector/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Packaging a Collector
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/translations/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Updating the Translation Template
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/documentation/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Writing Documentation
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_3_8" id="__nav_3_3_8_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Publishing the Documentation
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_3_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3_8">
+            <span class="md-nav__icon md-icon"></span>
+            Publishing the Documentation
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/setup-docs-publishing/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Setting Up Publishing
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/publish-minor-docs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Publishing a New Minor Release
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/publish-patch-docs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Publishing a Patch Release
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/fix-released-docs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Fixing the Released Docs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/developer/republish-docs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Republishing a Version
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Reference
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            Reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../collectors/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Collectors
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../metrics/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Metrics
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../metrics/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Renamed Metrics
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../uci-config/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    UCI Configuration
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../service-commands/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Service Commands
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../command/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    The prometheus-exporter Command
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../http/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    HTTP Endpoint
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ubus/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ubus Object
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../luci/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    LuCI App
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../jail/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    The Jail
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Collector Interface
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    Collector Interface
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#loading" class="md-nav__link">
+    <span class="md-ellipsis">
+      Loading
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#meta" class="md-nav__link">
+    <span class="md-ellipsis">
+      meta
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="meta">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options" class="md-nav__link">
+    <span class="md-ellipsis">
+      Options
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#collectdeps-out-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      collect(deps, out, options)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="collect(deps, out, options)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#results" class="md-nav__link">
+    <span class="md-ellipsis">
+      Results
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#prometheus_exporterservices" class="md-nav__link">
+    <span class="md-ellipsis">
+      prometheus_exporter.services
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#needs" class="md-nav__link">
+    <span class="md-ellipsis">
+      needs
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="needs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#programs" class="md-nav__link">
+    <span class="md-ellipsis">
+      Programs
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#out" class="md-nav__link">
+    <span class="md-ellipsis">
+      out
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tests-and-packaging" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tests and packaging
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      See also
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../log-messages/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Log Messages
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../error-codes/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Error Codes
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../files/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Files and Packages
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../make-targets/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Make Targets
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../docs-publishing/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Documentation Publishing
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Explanation
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            Explanation
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/about/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    About the Exporter
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/architecture/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Architecture
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/security/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Security Model
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/nothing-to-observe/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Nothing to Observe
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/metric-names/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Metric Names
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/performance/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Performance on Small Routers
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/versions/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    About Versions
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/versioned-docs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    About Versioned Documentation
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#loading" class="md-nav__link">
+    <span class="md-ellipsis">
+      Loading
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#meta" class="md-nav__link">
+    <span class="md-ellipsis">
+      meta
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="meta">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#options" class="md-nav__link">
+    <span class="md-ellipsis">
+      Options
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#collectdeps-out-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      collect(deps, out, options)
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="collect(deps, out, options)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#results" class="md-nav__link">
+    <span class="md-ellipsis">
+      Results
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#prometheus_exporterservices" class="md-nav__link">
+    <span class="md-ellipsis">
+      prometheus_exporter.services
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#needs" class="md-nav__link">
+    <span class="md-ellipsis">
+      needs
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="needs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#programs" class="md-nav__link">
+    <span class="md-ellipsis">
+      Programs
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#out" class="md-nav__link">
+    <span class="md-ellipsis">
+      out
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tests-and-packaging" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tests and packaging
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      See also
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+<h1 id="collector-interface">Collector Interface<a class="headerlink" href="#collector-interface" title="Permanent link">&para;</a></h1>
+<p>A collector is a ucode module, <code>src/prometheus_exporter/collectors/&lt;module&gt;.uc</code>, installed to <code>/usr/share/ucode/prometheus_exporter/collectors/</code>. It exports <code>meta</code> and <code>collect</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="s1">'use strict'</span><span class="p">;</span>
+
+<span class="k">import</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="kr">as</span><span class="w"> </span><span class="nx">Result</span><span class="w"> </span><span class="kr">from</span><span class="w"> </span><span class="s1">'prometheus_exporter.result'</span><span class="p">;</span>
+<span class="k">import</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="kr">as</span><span class="w"> </span><span class="nx">errors</span><span class="w"> </span><span class="kr">from</span><span class="w"> </span><span class="s1">'prometheus_exporter.errors'</span><span class="p">;</span>
+<span class="k">import</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">first_line</span><span class="p">,</span><span class="w"> </span><span class="nx">fields</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="kr">from</span><span class="w"> </span><span class="s1">'prometheus_exporter.proc'</span><span class="p">;</span>
+
+<span class="k">export</span><span class="w"> </span><span class="kd">const</span><span class="w"> </span><span class="nx">meta</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">name</span><span class="o">:</span><span class="w"> </span><span class="s1">'loadavg'</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">title</span><span class="o">:</span><span class="w"> </span><span class="s1">'Load average'</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">help</span><span class="o">:</span><span class="w"> </span><span class="s1">'Load averages from /proc/loadavg.'</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">needs</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="s1">'fs'</span><span class="w"> </span><span class="p">],</span>
+<span class="p">};</span>
+
+<span class="k">export</span><span class="w"> </span><span class="kd">function</span><span class="w"> </span><span class="nx">collect</span><span class="p">(</span><span class="nx">deps</span><span class="p">,</span><span class="w"> </span><span class="nx">out</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="nx">line</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">first_line</span><span class="p">(</span><span class="nx">deps</span><span class="p">.</span><span class="nx">fs</span><span class="p">,</span><span class="w"> </span><span class="s1">'/proc/loadavg'</span><span class="p">);</span>
+
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">line</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">null</span><span class="p">)</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">Result</span><span class="p">.</span><span class="nx">err</span><span class="p">(</span><span class="nx">errors</span><span class="p">.</span><span class="nx">SOURCE_UNREADABLE</span><span class="p">,</span><span class="w"> </span><span class="s1">'/proc/loadavg'</span><span class="p">);</span>
+
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="nx">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">fields</span><span class="p">(</span><span class="nx">line</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">length</span><span class="p">(</span><span class="nx">x</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mf">3</span><span class="p">)</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">Result</span><span class="p">.</span><span class="nx">err</span><span class="p">(</span><span class="nx">errors</span><span class="p">.</span><span class="nx">SOURCE_INVALID</span><span class="p">,</span><span class="w"> </span><span class="sb">`/proc/loadavg: </span><span class="si">${</span><span class="nx">sprintf</span><span class="p">(</span><span class="s1">'%J'</span><span class="p">,</span><span class="w"> </span><span class="nx">line</span><span class="p">)</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+
+<span class="w">    </span><span class="nx">out</span><span class="p">.</span><span class="nx">gauge</span><span class="p">(</span><span class="s1">'node_load1'</span><span class="p">,</span><span class="w"> </span><span class="s1">'1m load average.'</span><span class="p">)(</span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nx">x</span><span class="p">[</span><span class="mf">0</span><span class="p">]);</span>
+<span class="w">    </span><span class="nx">out</span><span class="p">.</span><span class="nx">gauge</span><span class="p">(</span><span class="s1">'node_load5'</span><span class="p">,</span><span class="w"> </span><span class="s1">'5m load average.'</span><span class="p">)(</span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nx">x</span><span class="p">[</span><span class="mf">1</span><span class="p">]);</span>
+<span class="w">    </span><span class="nx">out</span><span class="p">.</span><span class="nx">gauge</span><span class="p">(</span><span class="s1">'node_load15'</span><span class="p">,</span><span class="w"> </span><span class="s1">'15m load average.'</span><span class="p">)(</span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nx">x</span><span class="p">[</span><span class="mf">2</span><span class="p">]);</span>
+
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">Result</span><span class="p">.</span><span class="nx">ok</span><span class="p">();</span>
+<span class="p">};</span>
+</code></pre></div>
+<p>That is <code>loadavg</code>, as the base package installs it.</p>
+<hr />
+<h2 id="loading">Loading<a class="headerlink" href="#loading" title="Permanent link">&para;</a></h2>
+<p>The loader (<code>src/prometheus_exporter/loader.uc</code>) takes every file of the collectors' directory named <code>[a-z0-9_]+.uc</code>, imports it, and validates its exports. A module that does not import, or whose <code>meta</code> or <code>collect</code> is not valid, is left out, and the rest load: the handler logs it at <code>err</code>, <code>check</code> and the ubus object's <code>collectors</code> list it. The collectors are sorted by name.</p>
+<p>uhttpd loads them once, when it starts; a scrape runs what was loaded. Installing or removing a collector package reloads the service, which restarts uhttpd.</p>
+<h2 id="meta"><code>meta</code><a class="headerlink" href="#meta" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Field</th>
+<th style="text-align: left;">Required</th>
+<th style="text-align: left;">Type</th>
+<th style="text-align: left;">Rules</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>name</code></td>
+<td style="text-align: left;">yes</td>
+<td style="text-align: left;">string</td>
+<td style="text-align: left;"><code>[a-z0-9][a-z0-9_-]*</code>, and the module's name with <code>_</code> for <code>-</code>: <code>ltq-dsl</code> in <code>ltq_dsl.uc</code>. What <code>collect[]</code> takes, and the suffix of its package.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>title</code></td>
+<td style="text-align: left;">yes</td>
+<td style="text-align: left;">string</td>
+<td style="text-align: left;">1 to 40 characters, no control characters: a label for lists and forms.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>help</code></td>
+<td style="text-align: left;">yes</td>
+<td style="text-align: left;">string</td>
+<td style="text-align: left;">A sentence: what it collects, and from where.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>needs</code></td>
+<td style="text-align: left;">yes</td>
+<td style="text-align: left;">array</td>
+<td style="text-align: left;">Capabilities from <a href="#needs"><code>needs</code></a>, once each. All it gets in <code>deps</code>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>configs</code></td>
+<td style="text-align: left;">with <code>uci</code></td>
+<td style="text-align: left;">array</td>
+<td style="text-align: left;">The uci configs it reads, <code>[a-z0-9_-]+</code>, not <code>prometheus-exporter</code>: its own settings come as <code>options</code>. Not allowed without <code>uci</code>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>commands</code></td>
+<td style="text-align: left;">with <code>exec</code></td>
+<td style="text-align: left;">array</td>
+<td style="text-align: left;">The programs it runs. Not allowed without <code>exec</code>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>optional_commands</code></td>
+<td style="text-align: left;">no</td>
+<td style="text-align: left;">array</td>
+<td style="text-align: left;">Those of <code>commands</code> it runs only where they are installed: no package it depends on has them, and the jail does without them.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>timeout</code></td>
+<td style="text-align: left;">no</td>
+<td style="text-align: left;">integer</td>
+<td style="text-align: left;">With <code>exec</code>: the seconds its programs get in all per scrape, 1 to 30, unless its section sets <code>timeout</code>. Without it, the main section's <code>exec_timeout</code>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>options</code></td>
+<td style="text-align: left;">no</td>
+<td style="text-align: left;">object</td>
+<td style="text-align: left;">Its own options, <code>{ &lt;name&gt;: { default, help, datatype } }</code>. See <a href="#options">Options</a>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>paths</code></td>
+<td style="text-align: left;">no</td>
+<td style="text-align: left;">array</td>
+<td style="text-align: left;">What it reads outside procfs and sysfs, with <code>fs</code>, <code>socket</code> or <code>exec</code> in <code>needs</code>. See <a href="../jail/#paths">The jail</a>.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="options">Options<a class="headerlink" href="#options" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Key</th>
+<th style="text-align: left;">Required</th>
+<th style="text-align: left;">Rules</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">(the name)</td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;"><code>[a-z][a-z0-9_]*</code>; not <code>enabled</code> nor <code>timeout</code>, which are the core's.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>default</code></td>
+<td style="text-align: left;">yes</td>
+<td style="text-align: left;">A boolean, an integer or a string: it sets the option's type.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>help</code></td>
+<td style="text-align: left;">yes</td>
+<td style="text-align: left;">A sentence: what the option does.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>datatype</code></td>
+<td style="text-align: left;">no</td>
+<td style="text-align: left;">One of the datatypes the core checks: <code>uinteger</code>, <code>range(min,max)</code>, <code>directory</code>, <code>file</code>, <code>regex</code>. It must take the default. See <a href="../uci-config/#values">UCI configuration</a>.</td>
+</tr>
+</tbody>
+</table>
+<p><code>collect</code> gets the options typed, the defaults for those unset. A value that does not fit fails the collector with <code>CONFIG_INVALID</code> in each scrape.</p>
+<h2 id="collectdeps-out-options"><code>collect(deps, out, options)</code><a class="headerlink" href="#collectdeps-out-options" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Argument</th>
+<th style="text-align: left;">Content</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>deps</code></td>
+<td style="text-align: left;">One capability per entry of <code>meta.needs</code>, by name.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>out</code></td>
+<td style="text-align: left;">The recorder the collector writes its families to.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>options</code></td>
+<td style="text-align: left;">Its own options, typed.</td>
+</tr>
+</tbody>
+</table>
+<p>It returns a Result. Anything else fails it with <code>COLLECTOR_NO_RESULT</code>; an exception, with <code>COLLECTOR_CRASHED</code>. What it recorded is kept when it fails, and dropped when it has nothing to observe.</p>
+<h3 id="results">Results<a class="headerlink" href="#results" title="Permanent link">&para;</a></h3>
+<p><code>prometheus_exporter.result</code>:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Call</th>
+<th style="text-align: left;">Means</th>
+<th style="text-align: left;"><code>node_scrape_collector_success</code></th>
+<th style="text-align: left;"><code>node_scrape_collector_observing</code></th>
+<th style="text-align: left;">Logged</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>Result.ok()</code></td>
+<td style="text-align: left;">It observed what it reads.</td>
+<td style="text-align: left;">1</td>
+<td style="text-align: left;">1</td>
+<td style="text-align: left;">No</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>Result.err(code, details, data)</code></td>
+<td style="text-align: left;">It failed: <code>code</code> from <code>prometheus_exporter.errors</code>, <code>details</code> a string for the log.</td>
+<td style="text-align: left;">0</td>
+<td style="text-align: left;">1</td>
+<td style="text-align: left;">At <code>warning</code>: <code>collector '&lt;name&gt;': CODE (details)</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>Result.none(reason)</code></td>
+<td style="text-align: left;">Nothing to observe: its hardware, kernel feature or service is not there. Its samples are dropped.</td>
+<td style="text-align: left;">1</td>
+<td style="text-align: left;">0</td>
+<td style="text-align: left;">No</td>
+</tr>
+</tbody>
+</table>
+<p><code>Result.is(r)</code> tells a Result, <code>Result.is_none(r)</code> one of nothing to observe, <code>Result.describe(r)</code> gives <code>CODE (details)</code>.</p>
+<h3 id="prometheus_exporterservices"><code>prometheus_exporter.services</code><a class="headerlink" href="#prometheus_exporterservices" title="Permanent link">&para;</a></h3>
+<p>For a collector to tell nothing to observe from a failure, over <code>deps.ubus</code>:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Function</th>
+<th style="text-align: left;">Returns</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>unless_disabled(ubus, name, failure)</code></td>
+<td style="text-align: left;"><code>Result.none('&lt;name&gt; is disabled')</code> or <code>Result.none('&lt;name&gt; is not installed')</code> when rpcd's <code>rc</code> says the init script <code>name</code> is not enabled or not there; <code>failure</code> otherwise, or when rc cannot say.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>idle(ubus, name)</code></td>
+<td style="text-align: left;">That reason, or null.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>state(ubus, name)</code></td>
+<td style="text-align: left;">A Result of <code>enabled</code>, <code>disabled</code> or <code>not installed</code>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>object_missing(res)</code></td>
+<td style="text-align: left;">Whether a ubus call failed for its object not being there (<code>Not found</code>).</td>
+</tr>
+</tbody>
+</table>
+<h2 id="needs"><code>needs</code><a class="headerlink" href="#needs" title="Permanent link">&para;</a></h2>
+<p>Only <code>prometheus_exporter.deps</code> touches the system. A collector gets the capabilities it names, and a scrape's collectors share one ubus connection and one uci cursor.</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Need</th>
+<th style="text-align: left;"><code>deps.&lt;need&gt;</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>fs</code></td>
+<td style="text-align: left;"><code>readfile</code>, <code>open</code>, <code>lsdir</code>, <code>glob</code>, <code>stat</code>, <code>realpath</code> of the fs module. Nothing that writes.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>ubus</code></td>
+<td style="text-align: left;"><code>call(object, method, args)</code> and <code>list()</code>, as Results. A failed call is <code>UBUS_CALL_FAILED</code> with <code>data.status</code>, libubus's text, as <code>Not found</code>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>uci</code></td>
+<td style="text-align: left;"><code>deps.uci.&lt;config&gt;</code> for each of <code>meta.configs</code>, read-only, the committed configuration only: <code>loaded()</code>, <code>get(section, option)</code>, <code>get_all(section)</code>, <code>sections(type)</code>, <code>foreach(type, cb)</code>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>rtnl</code></td>
+<td style="text-align: left;"><code>request(cmd, flags, attrs)</code> as a Result (<code>RTNL_FAILED</code>), and <code>const</code>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>nl80211</code></td>
+<td style="text-align: left;">The same, for nl80211 (<code>NL80211_FAILED</code>). Needs ucode-mod-nl80211.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>socket</code></td>
+<td style="text-align: left;"><code>unix_request(path, message, timeout_ms)</code>: the whole reply of a Unix stream socket's server, as a Result (<code>SOCKET_FAILED</code>). Needs ucode-mod-socket.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>exec</code></td>
+<td style="text-align: left;"><code>run(argv)</code>: a program of <code>meta.commands</code>, without a shell's interpretation of its arguments, its standard output as a Result. See <a href="#programs">Programs</a>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>time</code></td>
+<td style="text-align: left;"><code>now()</code>: the system time, in seconds.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>log</code></td>
+<td style="text-align: left;"><code>log(msg)</code>: a line at <code>warning</code>, <code>collector '&lt;name&gt;': &lt;msg&gt;</code>, for what a collector that succeeds still has to say.</td>
+</tr>
+</tbody>
+</table>
+<p>A need the system lacks (<code>nl80211</code>, <code>socket</code>) fails the collector with <code>NEED_MISSING</code>.</p>
+<h3 id="programs">Programs<a class="headerlink" href="#programs" title="Permanent link">&para;</a></h3>
+<ul>
+<li>A program not in <code>meta.commands</code> is <code>COMMAND_NOT_ALLOWED</code>, without running.</li>
+<li>Its standard error is discarded. An exit status other than 0 is <code>COMMAND_FAILED</code>, with <code>data.status</code>; one that cannot start, <code>COMMAND_FAILED</code> with <code>data.status</code> null.</li>
+<li>A collector's programs get, in all per scrape, the seconds of its section's <code>timeout</code>, else <code>meta.timeout</code>, else the main section's <code>exec_timeout</code> (5), at most 30. The shell counts whole seconds: they take at most one second more.</li>
+<li>One still running then is killed, with every process it started, and is <code>COMMAND_TIMEOUT</code> with <code>data.timed_out</code>. So is any <code>run</code> after the seconds are spent, without running.</li>
+</ul>
+<h2 id="out"><code>out</code><a class="headerlink" href="#out" title="Permanent link">&para;</a></h2>
+<p><code>prometheus_exporter.exposition</code>'s recorder:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Call</th>
+<th style="text-align: left;">Does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>out.gauge(name, help)</code>, <code>out.counter(name, help)</code>, <code>out.untyped(name, help)</code></td>
+<td style="text-align: left;">Declares a family, and returns <code>(labels, value)</code>, which records a sample and returns itself, so calls chain.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>out.labels(labels)</code></td>
+<td style="text-align: left;">Makes a label set several samples share, once, to pass in place of the object.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>out.parse(text)</code></td>
+<td style="text-align: left;">Adds exposition text, which must be valid as a whole: a Result, <code>EXPOSITION_INVALID</code> otherwise.</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><code>labels</code> is an object, or null for none. A label whose value is null is left out.</li>
+<li>A value that is not a number is skipped: null, an empty string, a word. A string of digits, or of hex as in sysfs flags, is read as one. <code>true</code> and <code>false</code> are 1 and 0.</li>
+<li>Names are made valid: every character the format does not allow is an underscore.</li>
+<li>A family declared twice with two types keeps the first, and logs a warning.</li>
+</ul>
+<h2 id="tests-and-packaging">Tests and packaging<a class="headerlink" href="#tests-and-packaging" title="Permanent link">&para;</a></h2>
+<p>Every collector has a unit test, <code>test/unit/prometheus_exporter/collectors/&lt;module&gt;_test.uc</code>, and a package: in the base package's <code>BASE_COLLECTORS</code>, or a <code>Collector</code> line of the package Makefile that depends on what its <code>needs</code> and <code>commands</code> call for. <code>test/integration/collectors_test.uc</code> holds every collector to both. See <a href="../../how-to/developer/package-collector/">How to package a collector</a>.</p>
+<h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../../tutorials/first-collector/">Tutorial: write your first collector</a></li>
+<li><a href="../../explanation/nothing-to-observe/">About nothing to observe</a></li>
+<li><a href="../../explanation/architecture/">About the architecture</a></li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12Z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "content.code.copy"], "search": "../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.1e8ae164.min.js"></script>
+      
+    
+  </body>
+</html>
