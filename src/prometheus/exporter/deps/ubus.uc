@@ -8,7 +8,7 @@
 
 import * as Result from 'prometheus.exporter.result';
 import * as errors from 'prometheus.exporter.errors';
-import { allows, CANARY, ACL_LINK } from 'prometheus.exporter.privileges';
+import { allows, CANARY, ACL_FILE } from 'prometheus.exporter.privileges';
 
 /**
  * deps.ubus: ubus_channel's object.
@@ -116,7 +116,7 @@ export function ubus_channel(connect_fn, clock_fn) {
 				if (status == DENIED)
 					return Result.err(errors.PERMISSION_DENIED, `${object} ${method}: ${status}: the service's ubus ACL does not allow it`, { status });
 				if (status == NOT_FOUND && !(acl ??= (length(c.list(CANARY.object) ?? []) > 0)))
-					return Result.err(errors.PERMISSION_DENIED, `${object} ${method}: ${status}: ubusd has not loaded the service's ACL (${ACL_LINK})`, { status });
+					return Result.err(errors.PERMISSION_DENIED, `${object} ${method}: ${status}: ubusd has not loaded the service's ACL (${ACL_FILE})`, { status });
 				if (e)
 					return Result.err(errors.UBUS_CALL_FAILED, `${object} ${method}: ${e}`, { status });
 			}

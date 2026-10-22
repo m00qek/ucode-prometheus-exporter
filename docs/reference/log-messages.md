@@ -63,6 +63,13 @@ The handler logs through ucode-mod-log, at each message's own priority. It does 
 | `made <path>` | `info` | It made a directory a collector owns, such as `/var/prometheus`. |
 | `cannot make <path>: <error>` | `err` | It could not make one, or the state directory. |
 | `<collector>: <problem>` | `warning` | A path or a program the jail cannot give a collector: `command <name> is not on /usr/sbin:/usr/bin:/sbin:/bin`, `<path> is too broad to mount for one collector`, `its paths are not known: ...`, `a paths function failed: ...`. |
+| `ubus ACL of prometheus-exporter: <object> <methods>, ...` | `info` | It wrote the service's ubus ACL, which changed, and had ubusd read it again. |
+| `ubusd (pid <pid>) crashed as it read its ACLs again, and procd starts it again` | `err` | Having ubusd read the ACL crashed it: see [When ubusd crashes](jail.md#when-ubusd-crashes). |
+| `restarted <service>, which does not register on ubus again by itself` | `info` | After that crash: rpcd, dnsmasq or odhcpd, whose objects ubusd lost. |
+| `cannot restart <service>, which does not register on ubus again by itself` | `err` | After that crash, its init script is not there, or failed. |
+| `not on ubus again: <objects>: restart the services that register them, or reboot` | `err` | After that crash, objects that were on ubus are still missing 10 s after the restarts. |
+| `ubusd did not start again within 10 s: reboot` | `err` | After that crash, procd did not start ubusd again. |
+| `ubusd is not running`, `cannot signal ubusd (pid <pid>)` | `err` | It could not have ubusd read the ACL. |
 
 ## The `watch` instance
 

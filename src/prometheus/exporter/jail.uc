@@ -61,11 +61,18 @@ export const OWN_CONFIG = `${CONFIG_DIR}/${config.NAME}`;
 export const SHELL = '/bin/sh';
 
 /**
- * The ubus socket, which procd's jail option `ubus` mounts.
+ * The ubus socket: mounts() names it for a jail that needs ubus, which gets its directory, UBUS_DIR.
  *
  * @type {string}
  */
 export const UBUS_SOCKET = '/var/run/ubus/ubus.sock';
+
+/**
+ * The ubus socket's directory, which a jail that needs ubus mounts read-write in place of the socket: ubusd makes the socket anew when it starts again, and a jail that had the old one could not reach ubus.
+ *
+ * @type {string}
+ */
+export const UBUS_DIR = '/var/run/ubus';
 
 /**
  * The service's own read-only mounts, which every instance has.

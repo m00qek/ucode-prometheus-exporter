@@ -349,15 +349,17 @@ describe('jail.COMMON', () => {
 		let text = readfile('files/etc/init.d/prometheus-exporter');
 
 		assert.match([
-			'procd_add_jail prometheus-exporter log procfs sysfs $ubus',
+			'procd_add_jail prometheus-exporter log procfs sysfs',
 			'procd_add_jail_mount $(echo $mounts | grep -vx $UBUS_SOCKET)',
 			'procd_add_jail_mount $TLS_CERT $TLS_KEY /lib/libustream-*.so* /usr/lib/libustream-*.so*',
 			'procd_add_jail_mount $auth',
 			'procd_add_jail_mount_rw /var/run/prometheus-exporter/state',
 		], init_lines(text));
-		// The socket it takes for the jail's ubus option is the one a collector's mounts name.
+		// The socket is the one a collector's mounts name, and the jail has its
+		// directory, UBUS_DIR, read-write in its place.
 		assert.match(true, index(text, `\nUBUS_SOCKET=${jail.UBUS_SOCKET}\n`) >= 0);
-		assert.match(true, index(text, '\n\techo "$mounts" | grep -qx "$UBUS_SOCKET" && ubus=ubus\n') >= 0);
+		assert.match(true, index(text, '\n\techo "$mounts" | grep -qx "$UBUS_SOCKET" && procd_add_jail_mount_rw "${UBUS_SOCKET%/*}"\n') >= 0);
+		assert.match(jail.UBUS_DIR, substr(jail.UBUS_SOCKET, 0, rindex(jail.UBUS_SOCKET, '/')));
 	});
 
 	it('jail.uc prints the service\'s own mounts with the collectors\'', () => {

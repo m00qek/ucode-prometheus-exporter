@@ -267,7 +267,7 @@ function take_files(fs, gid, record, keep, extra, made, problems) {
 /**
  * Grants what `grants` says, and takes back what it says to: lines for the log.
  *
- * @param {{ fs: module:fs, lock: function(): function(): void, reload_ubus: function(): boolean }} sys
+ * @param {{ fs: module:fs, lock: function(): function(): void, reload_ubus: function(): { ok: boolean, made: string[], problems: string[] } }} sys
  * @param {Grants} grants what to grant; port, the port the service listens on.
  * @returns {{ made: string[], problems: string[] }} what it did, and what it could not.
  */
@@ -327,10 +327,14 @@ export function make(sys, grants) {
 			push(problems, `cannot write ${t[1]}: ${fs.error() ?? 'unknown error'}`);
 
 	let changed = write(fs, ACL_FILE, sprintf('%.J\n', acl(grants.ubus)), 0o644, null);
+	let reloaded = changed ? sys.reload_ubus() : null;
+
+	push(made, ...(reloaded?.made ?? []));
+	push(problems, ...(reloaded?.problems ?? []));
 
 	if (changed == null)
 		push(problems, `cannot write ${ACL_FILE}: ${fs.error() ?? 'unknown error'}`);
-	else if (changed && !sys.reload_ubus())
+	else if (changed && !reloaded.ok && !length(reloaded.problems))
 		push(problems, `cannot have ubusd read ${ACL_FILE}`);
 	else if (changed)
 		push(made, `ubus ACL of ${USER}: ${join(', ', map(keys(grants.ubus), (o) => `${o} ${join('|', grants.ubus[o])}`)) || 'none'}`);
@@ -341,7 +345,7 @@ export function make(sys, grants) {
 /**
  * Takes away all make() gave, giving each file its group and mode back, and the files of the running service: lines for the log.
  *
- * @param {{ fs: module:fs, lock: function(): function(): void, reload_ubus: function(): boolean }} sys
+ * @param {{ fs: module:fs, lock: function(): function(): void, reload_ubus: function(): { ok: boolean, made: string[], problems: string[] } }} sys
  * @returns {{ ok: boolean, made: string[], problems: string[] }} ok when it had no problem.
  */
 export function clean(sys) {
@@ -362,7 +366,11 @@ export function clean(sys) {
 	for (let p in [ CAPABILITIES_FILE, TLS_CERT, TLS_KEY, ACL_FILE, AUTH_FILE, GRANTED_FILE ])
 		fs.unlink(p);
 
-	if (had && !sys.reload_ubus())
+	let reloaded = had ? sys.reload_ubus() : null;
+
+	push(made, ...(reloaded?.made ?? []));
+	push(problems, ...(reloaded?.problems ?? []));
+	if (reloaded && !reloaded.ok && !length(reloaded.problems))
 		push(problems, `cannot have ubusd forget ${ACL_FILE}`);
 
 	return { ok: !length(problems), made, problems };

@@ -51,21 +51,22 @@ describe('jailed.command', () => {
 		});
 	});
 
-	it('mounts the ubus socket, by ujail\'s -u, only when a collector needs ubus', () => {
+	// The socket's directory, not the socket, which ubusd makes anew when it
+	// starts again: a jail that had the old socket could not reach ubus.
+	it('mounts the ubus socket\'s directory, read-write, only when a collector needs ubus', () => {
 		with_mods({}, (mods) => {
 			let without = jailed.command(sys_of(mods, ROOT, '', []), [ NFT, LOADAVG ], [ 'runs' ]);
 			let with_ubus = jailed.command(sys_of(mods, ROOT, '', []), [ LOADAVG, OPENWRT ], [ 'runs' ]);
 
-			assert.match([ -1, -1 ], [ index(without, ' -u '), index(without, 'ubus.sock') ]);
-			assert.match(true, index(with_ubus, ' -c -p -s -l -u -r ') > 0, with_ubus);
-			// The socket is the option's, never a -r of its own.
+			assert.match([ -1, -1, -1 ], [ index(without, ' -u '), index(without, '/var/run/ubus'), index(with_ubus, ' -u ') ]);
+			assert.match(true, index(with_ubus, " -c -p -s -l -w '/var/run/ubus' -r ") > 0, with_ubus);
 			assert.match(-1, index(with_ubus, 'ubus.sock'));
 		});
 	});
 
 	it('leaves the ubus socket out when the collector that needs ubus is disabled', () => {
 		with_mods({ uci: { data: { [config.NAME]: { openwrt: { '.type': 'collector', enabled: '0' } } } } }, (mods) => {
-			assert.match(-1, index(jailed.command(sys_of(mods, ROOT, '', []), [ LOADAVG, OPENWRT ], [ 'runs' ]), ' -u '));
+			assert.match(-1, index(jailed.command(sys_of(mods, ROOT, '', []), [ LOADAVG, OPENWRT ], [ 'runs' ]), '/var/run/ubus'));
 		});
 	});
 

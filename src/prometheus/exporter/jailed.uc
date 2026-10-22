@@ -105,7 +105,7 @@ export function command(sys, collectors, args) {
 
 	return sprintf('ulimit -d %d && exec nice -n %d %s -n %s -U %s -G %s%s -c -p -s -l%s %s -w %s -- %s %s %s 2>/dev/null',
 		data_kb(sys), NICE, UJAIL, shell_quote(`${config.NAME}-trial`), shell_quote(privileges.USER), shell_quote(privileges.GROUP), caps,
-		(jail.UBUS_SOCKET in mounts) ? ' -u' : '',
+		(jail.UBUS_SOCKET in mounts) ? ` -w ${shell_quote(jail.UBUS_DIR)}` : '',
 		join(' ', map(uniq(ro), (p) => '-r ' + shell_quote(p))), shell_quote(STATE_DIR),
 		UCODE, TRIAL, join(' ', map(args, shell_quote)));
 };

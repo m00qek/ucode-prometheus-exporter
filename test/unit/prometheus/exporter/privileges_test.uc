@@ -18,9 +18,9 @@ describe('privileges', () => {
 			(p) => substr(p, 0, length(state.RUN_DIR) + 1) == state.RUN_DIR + '/'));
 	});
 
-	it('keeps the ACL where ubusd, which is not root, can read it: outside the run directory, which only root enters', () => {
+	it('keeps the ACL where ubusd, which is not root, reads it as it starts: in its ACL directory, outside the run directory, which only root enters', () => {
 		assert.match(false, substr(privileges.ACL_FILE, 0, length(state.RUN_DIR) + 1) == state.RUN_DIR + '/');
-		assert.match('/usr/share/acl.d/prometheus-exporter.json', privileges.ACL_LINK);
+		assert.match('/usr/share/acl.d/prometheus-exporter.json', privileges.ACL_FILE);
 	});
 
 	it('lets a collector have no capability that reads past the jail or changes the system', () => {

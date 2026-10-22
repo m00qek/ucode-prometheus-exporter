@@ -65,9 +65,10 @@ jobs:
 
   # The packages under procd in a privileged container; GitHub's runners allow it.
   # On 25.12.0 a failure does not fail the run: there, about a third of the runs
-  # on GitHub's runners, and none elsewhere so far, lose rpcd partway through,
-  # which then answers nothing, for a cause not yet found. The e2e's first
-  # failure says what rpcd and ubusd were doing.
+  # on GitHub's runners lost rpcd partway through. The e2e's own SIGHUP to
+  # ubusd crashed it (docs/reference/jail.md#when-ubusd-crashes), and 25.12.0's
+  # rpcd did not register on the ubusd started again. The e2e's first failure
+  # says what rpcd and ubusd were doing.
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 30

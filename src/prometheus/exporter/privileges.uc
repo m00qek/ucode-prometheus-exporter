@@ -107,18 +107,11 @@ export const GRANTED_FILE = `${RUN_DIR}/granted.json`;
 export const CONFIG_DIR = '/etc/config';
 
 /**
- * The ubus ACL, outside the run directory, which ubusd's user may not enter.
+ * The ubus ACL, in ubusd's ACL directory: kept across a reboot, so ubusd reads it as it starts, and the service's first start finds it written.
  *
  * @type {string}
  */
-export const ACL_FILE = `/var/run/${USER}.acl.json`;
-
-/**
- * The link the package installs in ubusd's ACL directory, to ACL_FILE.
- *
- * @type {string}
- */
-export const ACL_LINK = `/usr/share/acl.d/${USER}.json`;
+export const ACL_FILE = `/usr/share/acl.d/${USER}.json`;
 
 /**
  * The call every ACL of the service allows: 'Not found' only when ubusd has not loaded it.

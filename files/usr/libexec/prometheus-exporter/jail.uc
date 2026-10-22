@@ -7,6 +7,8 @@ import * as jail from 'prometheus.exporter.jail';
 import * as state from 'prometheus.exporter.state';
 import * as privileges from 'prometheus.exporter.privileges';
 import * as grant from 'prometheus.exporter.grant';
+import * as ubusd from 'prometheus.exporter.ubusd';
+import { connect } from 'ubus';
 import { load } from 'prometheus.exporter.app';
 
 const mode = ARGV[0];
@@ -19,7 +21,7 @@ if (length(ARGV) > 1 || (mode != null && !(mode in [ '--missing', '--make', '--c
 const fs_all = { stat, readfile, open, chown, chmod, rename, unlink, lsdir, error };
 const priv = {
 	fs: fs_all,
-	reload_ubus: () => system([ 'killall', '-HUP', 'ubusd' ]) == 0,
+	reload_ubus: () => ubusd.reload(ubusd.host({ lsdir, readfile, stat }, connect)),
 	lock: function() {
 		let h = open(privileges.GROUP_LOCK, 'a');
 

@@ -72,7 +72,7 @@ start_service() {
 
 	. /lib/functions/network.sh
 
-	local interface port keepalive cert key listen bind4 bind6 mounts missing auth data ubus tls
+	local interface port keepalive cert key listen bind4 bind6 mounts missing auth data tls
 
 	config_get interface main listen_interface loopback
 	config_get port main listen_port 9100
@@ -129,9 +129,9 @@ start_service() {
 		[ -n "$bind6" ] && procd_append_param command $listen "[$bind6]:$port"
 	fi
 
-	echo "$mounts" | grep -qx "$UBUS_SOCKET" && ubus=ubus
-	procd_add_jail "$NAME" log procfs sysfs $ubus
+	procd_add_jail "$NAME" log procfs sysfs
 	procd_add_jail_mount $(echo "$mounts" | grep -vx "$UBUS_SOCKET")
+	echo "$mounts" | grep -qx "$UBUS_SOCKET" && procd_add_jail_mount_rw "${UBUS_SOCKET%/*}"
 	[ "$listen" = -s ] && procd_add_jail_mount "$TLS_CERT" "$TLS_KEY" /lib/libustream-*.so* /usr/lib/libustream-*.so*
 	[ -n "$auth" ] && procd_add_jail_mount "$auth"
 	procd_add_jail_mount_rw "$STATE"

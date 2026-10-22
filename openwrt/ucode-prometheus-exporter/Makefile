@@ -124,12 +124,10 @@ define Package/$(PKG_NAME)/install
 	$(INSTALL_DIR) $(1)/usr/libexec/$(SERVICE)
 	$(INSTALL_DATA) ./files/usr/libexec/$(SERVICE)/handler.uc $(1)/usr/libexec/$(SERVICE)/
 	$(INSTALL_BIN) $(foreach f,jail status import watch rpc-status probe trial auth check,./files/usr/libexec/$(SERVICE)/$(f).uc) $(1)/usr/libexec/$(SERVICE)/
-	# The ubus ACL of the service's user, which ubusd reads from acl.d: a link
-	# to the one jail.uc --make writes for the enabled collectors when the
-	# service starts (prometheus.exporter.privileges' ACL_FILE), which points
-	# nowhere while it is stopped.
+	# ubusd's ACL directory, where jail.uc --make writes the ubus ACL of the
+	# service's user for the enabled collectors (prometheus.exporter.privileges'
+	# ACL_FILE), and removes it when the service stops.
 	$(INSTALL_DIR) $(1)/usr/share/acl.d
-	$(LN) /var/run/$(SERVICE).acl.json $(1)/usr/share/acl.d/$(SERVICE).json
 	# The service's ubus object, which rpcd serves (prometheus.exporter.rpc).
 	$(INSTALL_DIR) $(1)/usr/share/rpcd/ucode
 	$(INSTALL_DATA) ./files/usr/share/rpcd/ucode/$(SERVICE).uc $(1)/usr/share/rpcd/ucode/

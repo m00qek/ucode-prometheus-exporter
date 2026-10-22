@@ -52,8 +52,9 @@ function filesystem(files, broken) {
 	return fs;
 }
 
-// sys for make(): fs, a lock that records, and a ubusd that records its reloads.
-function system(fs, reload_ok) {
+// sys for make(): fs, a lock that records, and a ubusd that records its reloads,
+// and answers as ubusd.reload() would, with `said` among its problems.
+function system(fs, reload_ok, said) {
 	let sys = null;
 
 	sys = {
@@ -61,7 +62,7 @@ function system(fs, reload_ok) {
 		locks: [],
 		reloads: 0,
 		lock: function() { push(sys.locks, 'take'); return () => push(sys.locks, 'release'); },
-		reload_ubus: function() { sys.reloads++; return reload_ok ?? true; },
+		reload_ubus: function() { sys.reloads++; return { ok: reload_ok ?? true, made: [], problems: said ?? [] }; },
 	};
 
 	return sys;
@@ -206,6 +207,15 @@ describe('grant.make', () => {
 
 	it('says when ubusd cannot be told', () => {
 		assert.match([ `cannot have ubusd read ${privileges.ACL_FILE}` ], grant.make(system(filesystem(files()), false), grants()).problems);
+	});
+
+	it('logs what ubusd.reload() says of a crash of ubusd, rather than that it could not be told', () => {
+		let said = [ 'ubusd (pid 7) crashed as it read its ACLs again, and procd starts it again' ];
+
+		assert.match([ said, said ], [
+			grant.make(system(filesystem(files()), true, said), grants()).problems,
+			grant.make(system(filesystem(files()), false, said), grants()).problems,
+		]);
 	});
 
 	it('copies the TLS files for the group to read, and removes the copies without them', () => {

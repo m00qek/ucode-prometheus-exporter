@@ -72,7 +72,7 @@ The service grants these as root, at each start, and only while the collector is
 
 This took some choices:
 
-- **The ubus ACL is written for the enabled collectors, not installed for all of them.** An ACL that each package installed would allow its calls as long as the package is there, enabled or not. So the service writes the ACL at each start, for the collectors enabled then, with the options they have, and has ubusd read it again. It keeps the ACL outside its run directory, which only root enters, and a link in ubusd's directory, which the package installs, points to it.
+- **The ubus ACL is written for the enabled collectors, not installed for all of them.** An ACL that each package installed would allow its calls as long as the package is there, enabled or not. So the service writes the ACL at each start, for the collectors enabled then, with the options they have, and has ubusd read it again. It writes the ACL in ubusd's ACL directory, outside its run directory, which only root enters, and removes it when it stops. A reboot keeps it, for ubusd to read as it starts: having ubusd read its ACLs again can crash it (see [When ubusd crashes](../reference/jail.md#when-ubusd-crashes)).
 - **No call that answers a secret, or reads what its caller names.** ubusd's ACL names objects and methods, never their arguments, so a method is as wide as the widest reply it gives. Some methods a collector would reach for answer more than it reads:
     - rpcd's `file read` reads any file as root, and checks no session for a caller that sends none;
     - its `uci get` reads any config;

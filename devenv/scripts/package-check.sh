@@ -67,7 +67,7 @@ EOF
 check "keeps its config as a conffile" test -f /etc/config/$NAME
 check "and basic auth's hash's apart, mode 0600" sh -c "test -f /etc/config/$NAME-auth && ls -l /etc/config/$NAME-auth | grep -q '^-rw------- '"
 check "makes the user and group uhttpd runs as in its jail" sh -c "grep -q '^$NAME:x:[0-9]*:[0-9]*:' /etc/passwd && grep -q '^$NAME:x:[0-9]*:' /etc/group"
-check "ships ubusd's link to the ubus ACL the service writes" test "$(readlink /usr/share/acl.d/$NAME.json)" = "/var/run/$NAME.acl.json"
+check "ships ubusd's ACL directory, and no ACL in it: the service writes its own" sh -c "test -d /usr/share/acl.d && test ! -e /usr/share/acl.d/$NAME.json"
 check "runs its uci-defaults script once" test ! -e /etc/uci-defaults/$NAME-import
 check "the init script parses" sh -n /etc/init.d/$NAME
 

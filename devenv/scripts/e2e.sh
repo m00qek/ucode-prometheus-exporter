@@ -111,13 +111,14 @@ command_line() { instance | jsonfilter -e '@[*].instances.instance1.command[*]' 
 # The exporter's own instance; `watch` runs beside it while a path is missing.
 pid() { instance | jsonfilter -e '@[*].instances.instance1.pid'; }
 mounts() { instance | jsonfilter -e '@[*].instances.instance1.mount' | ucode -e 'print(join("\n", sort(keys(json(require("fs").stdin.read("all"))))), "\n")'; }
-# The ubus socket, which procd's jail option mounts when a collector needs ubus:
-# jail.uc names it, and procd lists no mount of it.
+# The ubus socket, which jail.uc names when a collector needs ubus: the init
+# script mounts its directory, read-write, which still has the socket when
+# ubusd makes it anew.
 UBUS_SOCKET=/var/run/ubus/ubus.sock
 # What jail.uc prints, its globs expanded as the init script's shell expands
-# them, but the ubus socket, is every read-only mount of the instance: the
-# state is its read-write one.
-jail_paths() { for m in $($LIBEXEC/jail.uc 2>/dev/null | grep -vx "$UBUS_SOCKET"); do echo "$m"; done | sort -u; }
+# them, and the ubus socket as its directory, is every mount of the instance
+# but the state.
+jail_paths() { for m in $($LIBEXEC/jail.uc 2>/dev/null | sed "s|^$UBUS_SOCKET\$|${UBUS_SOCKET%/*}|"); do echo "$m"; done | sort -u; }
 mounts_match_jail() { [ "$(mounts | grep -vx "$STATE")" = "$(jail_paths)" ]; }
 # What the jailed uhttpd sees of /etc/config: procd's pid is ujail's, which
 # runs uhttpd as its child, in the jail's mount namespace.
@@ -220,8 +221,9 @@ check "no /etc/config/network in its mounts" not_mounted /etc/config/network
 # --- the service's user: uhttpd is not root in its jail
 # The package makes the user and group; ujail runs uhttpd as them, with the
 # capabilities of the enabled collectors (the base ones declare none) in every
-# set, and ubusd holds it to the ACL jail.uc --make wrote for them.
-ACL=/var/run/$NAME.acl.json
+# set, and ubusd holds it to the ACL jail.uc --make wrote for them, in its ACL
+# directory.
+ACL=/usr/share/acl.d/$NAME.json
 id_of() { awk -F: -v n="$1" '$1 == n { print $3 }' "$2"; }
 of_uhttpd() { grep "^$1:" /proc/$(uhttpd_of)/status | cut -f2- | tr '\t' ' ' | sed 's/ *$//'; }
 caps_are() { [ "$(of_uhttpd CapEff)" = "$1" ] && [ "$(of_uhttpd CapBnd)" = "$1" ] && [ "$(of_uhttpd CapAmb)" = "$1" ]; }
@@ -238,12 +240,47 @@ check "the package made the service's user and group" user_made
 check "uhttpd runs as them, not as root" runs_as_user
 check "with no capability at all, as no enabled collector declares one" caps_are 0000000000000000
 check "and no new privileges" test "$(of_uhttpd NoNewPrivs)" = 1
-check "ubusd's ACL directory links to the ACL jail.uc wrote" test "$(readlink /usr/share/acl.d/$NAME.json)" = "$ACL"
+check "jail.uc wrote the ACL in ubusd's ACL directory, a file of its own" sh -c "test -f '$ACL' && test ! -L '$ACL'"
 check "which is root's and readable, as ubusd wants it" test "$(owned "$ACL")" = "-rw-r--r-- root root"
 check "and is the user's" test "$(jsonfilter -i "$ACL" -e '@.user')" = "$NAME"
 check "it allows what the enabled base collectors call" base_acl
 check "and nothing they do not" fails acl_has dnsmasq metrics
 check "ubusd loaded it" says "ubusd\[[0-9]*\]: loading /usr/share/acl.d/$NAME.json" logread
+# A reboot stops nothing: procd kills the instance, and ubusd reads the ACL
+# as it starts. So the first start after it finds the ACL as it would write
+# it, and does not have ubusd read it again, which can crash ubusd.
+acl_loads() { logread | grep -c "ubusd\[[0-9]*\]: loading /usr/share/acl.d/$NAME.json"; }
+loads_before=$(acl_loads)
+ubus call service delete "{\"name\":\"$NAME\"}"
+eventually "procd drops the service without stopping it, as a reboot does" sh -c "! ubus call service list '{\"name\":\"$NAME\"}' | grep -q instance1"
+check "and the ACL stays" test -f "$ACL"
+"$INIT" start
+eventually "the service starts again" served loadavg
+check "without having ubusd read the ACL again" test "$(acl_loads)" = "$loads_before"
+
+# ubusd sometimes crashes as it reads its ACLs again, and rpcd, dnsmasq and
+# odhcpd do not register on the ubusd procd starts again. jail.uc then brings
+# them back: ubusd.reload() with the system jail.uc gives it, but a signal
+# that crashes ubusd every time.
+ubusd_reload() {
+	ucode -e "import * as ubusd from 'prometheus.exporter.ubusd'; import { connect } from 'ubus'; import { lsdir, readfile, stat } from 'fs';
+		let sys = ubusd.host({ lsdir, readfile, stat }, connect);
+		if (ARGV[0] == 'crash') sys.signal = (pid) => system([ 'kill', '-SEGV', '' + pid ]) == 0;
+		let r = ubusd.reload(sys);
+		print(r.ok ? 'ok' : 'failed', '\n', join('\n', [ ...r.made, ...r.problems ]), '\n');" "$@"
+}
+ubusd_was=$(pidof ubusd)
+ubusd_reload crash >/tmp/ubusd-crash 2>&1
+check "after ubusd crashes as it reads the ACL, the objects on ubus before are all there again" grep -qx ok /tmp/ubusd-crash
+check "on a ubusd procd started again" sh -c "[ -n \"\$(pidof ubusd)\" ] && [ \"\$(pidof ubusd)\" != '$ubusd_was' ]"
+check "with rpcd restarted" grep -qx 'restarted rpcd, which does not register on ubus again by itself' /tmp/ubusd-crash
+check "and dnsmasq" grep -qx 'restarted dnsmasq, which does not register on ubus again by itself' /tmp/ubusd-crash
+check "saying ubusd crashed" grep -q '^ubusd (pid [0-9]*) crashed as it read its ACLs again' /tmp/ubusd-crash
+check "rpcd answers again" ubus -t 10 call rc list
+check "and the service's object" ubus -t 10 call "$NAME" password
+eventually "the service's collectors reach the new ubusd, from the jail it had" served openwrt_interfaces
+check "and the service's object, through rpcd" served timesync
+[ -s /tmp/ubusd-crash ] && sed 's/^/info ubusd crash: /' /tmp/ubusd-crash
 check "the state directory is the user's" test "$(owned "$STATE")" = "drwx------ $NAME $NAME"
 check "the run directory above it is root's alone" test "$(owned /var/run/$NAME)" = "drwx------ root root"
 check "its config is its group's to read, and no one else's" test "$(owned /etc/config/$NAME)" = "-rw-r----- root $NAME"
@@ -478,7 +515,7 @@ check "and may call none of its methods for LuCI" says 'Permission denied' as_us
 # grants it again.
 code_of() { fetch "collect[]=$1" >/dev/null; logread | grep "collector '$1': " | tail -1; }
 failing_now() { fetch "collect[]=$1" | grep -qx "node_scrape_collector_success{collector=\"$1\"} 0"; }
-rm -f "$ACL" && killall -HUP ubusd
+rm -f "$ACL" && ubusd_reload >/dev/null
 eventually "without the ACL loaded, a collector that calls ubus fails" failing_now openwrt
 check "with PERMISSION_DENIED, naming the ACL" says "collector 'openwrt': PERMISSION_DENIED (system board: Not found: ubusd has not loaded the service's ACL (/usr/share/acl.d/$NAME.json))" code_of openwrt
 check "and dnsmasq, which would have nothing to observe if it took that for its service's absence" says "collector 'dnsmasq': PERMISSION_DENIED" code_of dnsmasq

@@ -38,7 +38,6 @@ It makes the user and group `prometheus-exporter`, which uhttpd runs as in the s
 | `/usr/libexec/prometheus-exporter/trial.uc` | What runs in the service's jail for `check`, `status` and the command line's `scrape`. |
 | `/usr/libexec/prometheus-exporter/probe.uc` | Loads collector modules in a process of its own, for rpcd: rpcd loads no module it has not seen load there first. |
 | `/usr/share/rpcd/ucode/prometheus-exporter.uc` | rpcd's plugin: the [ubus object](ubus.md). |
-| `/usr/share/acl.d/prometheus-exporter.json` | A link to `/var/run/prometheus-exporter.acl.json`, the service's ubus ACL, which ubusd reads. See [The jail](jail.md#the-ubus-acl). |
 | `/usr/share/ucode/prometheus/exporter.uc` | The collector API, `prometheus.exporter`: the only module a collector imports. See [Collector interface](collector-interface.md#the-collector-api). |
 | `/usr/share/ucode/prometheus/exporter/*.uc` | The exporter's modules, `prometheus.exporter.<module>`, except the command line's (`cli.uc`, `conform.uc`). `version.uc` holds the package's version. |
 | `/usr/share/ucode/prometheus/exporter/config/*.uc` | The modules split out of `config.uc`: the options' types and datatypes. |
@@ -55,7 +54,7 @@ It makes the user and group `prometheus-exporter`, which uhttpd runs as in the s
 | `/var/run/prometheus-exporter/uhttpd.conf` | Basic auth's file, mode 0640, root's and the service's group's, while basic auth is on. |
 | `/var/run/prometheus-exporter/tls.crt`, `tls.key` | Copies of `cert` and `key`, mode 0640, root's and the service's group's, while the service runs over HTTPS. |
 | `/var/run/prometheus-exporter/capabilities.json` | The capabilities of the jail, while the service runs. |
-| `/var/run/prometheus-exporter.acl.json` | The service's ubus ACL, while the service runs. |
+| `/usr/share/acl.d/prometheus-exporter.json` | The service's ubus ACL, while the service is enabled. A reboot keeps it, for ubusd to read as it starts. See [The jail](jail.md#the-ubus-acl). |
 | `/var/run/prometheus-exporter/state/` | The handler's state, each scrape's progress file, and the file that carries its collectors' runs back to it. See [The jail](jail.md#state). |
 | `/var/run/prometheus-exporter/timesync/ntpd` | busybox ntpd's last event. |
 

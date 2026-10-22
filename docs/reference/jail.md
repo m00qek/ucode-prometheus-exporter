@@ -21,7 +21,7 @@ The jail holds only what the exporter needs and what its installed and enabled c
 | Basic auth | Its file, `/var/run/prometheus-exporter/uhttpd.conf`. |
 | The state | `/var/run/prometheus-exporter/state`, read-write. |
 
-Every mount is read-only, except the state. The ubus socket is not among them: see [What a collector gets](#what-a-collector-gets).
+Every mount is read-only, except the state and the ubus socket's directory: see [What a collector gets](#what-a-collector-gets).
 
 ```mermaid
 flowchart LR
@@ -31,7 +31,7 @@ flowchart LR
     end
     U -- "read-only" --> RO["procfs, sysfs, /dev/log<br/>the exporter's code and libraries<br/>/etc/config/prometheus-exporter<br/>what the enabled collectors declare"]
     U -- "read-write" --> ST["/var/run/prometheus-exporter/state"]
-    U -- "only while an enabled collector needs ubus" --> UB["the ubus socket:<br/>ubusd holds it to the ubus ACL"]
+    U -- "only while an enabled collector needs ubus" --> UB["the ubus socket, by its directory:<br/>ubusd holds it to the ubus ACL"]
     U -- "the host's network" --> NET["deps.socket.tcp_request:<br/>the device's own addresses only"]
 ```
 
@@ -55,7 +55,7 @@ For each installed collector that is enabled:
 | Declared in `meta` | Mounted |
 | :--- | :--- |
 | `configs: [ 'dhcp' ]` | `/etc/config/dhcp`. |
-| `ubus` in `needs` | The ubus socket, `/var/run/ubus/ubus.sock`, through the jail's `ubus` option: `jail.uc` names it, and the init script sets the option. While no enabled collector needs ubus, the jail has no ubus. |
+| `ubus` in `needs` | The ubus socket, `/var/run/ubus/ubus.sock`: `jail.uc` names it, and the init script mounts its directory, `/var/run/ubus`, read-write, as procd's jail option `ubus` mounts the socket. ubusd makes the socket anew when it starts again, after a crash (see [When ubusd crashes](#when-ubusd-crashes)): the directory has the new one, where a jail that had the old socket could not reach ubus. While no enabled collector needs ubus, the jail has no ubus. |
 | `exec` in `needs` | `/bin/sh`, which runs its programs. |
 | `commands: [ 'nft' ]` | Each program, where `PATH` (`/usr/sbin:/usr/bin:/sbin:/bin`) finds it. ujail mounts its shared libraries with it. |
 | `optional_commands` | The same, where the program is installed. Where it is not: nothing, and no warning. |
@@ -130,13 +130,23 @@ These stay root's, unjailed:
 
 ### The ubus ACL {#the-ubus-acl}
 
-ubusd reads its ACLs from `/usr/share/acl.d`. The package installs `prometheus-exporter.json` there: a link to `/var/run/prometheus-exporter.acl.json`.
+ubusd reads its ACLs from `/usr/share/acl.d` when it starts, and again on SIGHUP. When the service starts, `jail.uc --make` writes `prometheus-exporter.json` there for the user `prometheus-exporter`. It lists the calls the enabled collectors declare (their `meta.ubus`, for their options). If the file changed, `jail.uc --make` has ubusd read it again (SIGHUP).
 
-When the service starts, `jail.uc --make` writes that file for the user `prometheus-exporter`. It lists the calls the enabled collectors declare (their `meta.ubus`, for their options). If the file changed, `jail.uc --make` has ubusd read it again (SIGHUP).
-
-The file is root's, mode 0644, and lies outside the service's run directory, which only root can enter: ubusd runs as its own user. When the service is stopped or disabled, it removes the file, and the link points nowhere.
+The file is root's, mode 0644, and lies outside the service's run directory, which only root can enter: ubusd runs as its own user. When the service is stopped or disabled, it removes the file. A reboot does not: ubusd reads the file as it starts, and the service's first start finds it as it would write it, so it does not signal ubusd.
 
 The file is written for the enabled collectors, not installed with the packages for all of them. So a call is allowed only while a collector that declares it is enabled, with the options that call for it: wireguard's `peer_names` for the ubus object's `wireguard_peers`.
+
+#### When ubusd crashes {#when-ubusd-crashes}
+
+ubusd sometimes crashes as it reads its ACLs again, 25.12.0's and 25.12.5's alike: in containers, about once in a few hundred to a few thousand SIGHUPs, whoever sends them. procd starts it again, and procd and netifd register their objects again. rpcd, dnsmasq and odhcpd do not: rpcd's objects, LuCI's among them, stay off ubus until rpcd restarts. That is why the service has ubusd read its ACL only when the ACL changes, and never at boot.
+
+When it does, `jail.uc` checks that ubusd survived. If it did not, `jail.uc`:
+
+1. waits up to 10 s for procd to start ubusd again;
+2. restarts each of rpcd, dnsmasq and odhcpd whose objects ubusd lost. Restarting rpcd ends LuCI's sessions, and restarting dnsmasq empties its cache;
+3. waits up to 10 s more for every object that was on ubus before.
+
+It logs the crash at `err`, and each restart, and any object still missing: see [Log messages](log-messages.md#the-init-script). The exporter itself needs no restart: its jail has the ubus socket's directory, which has the socket the new ubusd makes.
 
 ubusd's ACL names objects and methods, never arguments. So no collector declares a call that reads whatever its caller names, or that answers a secret, as these do: rpcd's `file read` and `uci get`, netifd's `network.wireless status` and procd's `service list`. Instead, the service's own ubus object reads or asks for what they would answer, as root, and returns only the fields the collectors read (see [ubus object](ubus.md#for-the-collectors)). [About the security model](../explanation/security.md#what-the-services-user-reaches-over-ubus) lists every call the ACL can allow.
 
@@ -264,7 +274,7 @@ The ledger, the largest state file, sets the 32 KiB limit. It takes some 30 byte
 | `/var/run/prometheus-exporter/tls.crt`, `tls.key` | 0640, root's and the service's group's | `jail.uc --make`, at each start: copies of `cert` and `key`. It copies each only if it is a regular file of at most 64 KiB under `/etc/ssl`, `/etc/acme` or `/etc/prometheus-exporter`, or `/etc/uhttpd.*`, wherever its links lead, and reads at most that much. If either one fails, it copies neither. Removed when the service stops. | Read-only, with both there: the init script serves HTTPS only from them |
 | `/var/run/prometheus-exporter/granted.json` | 0600, root's | `jail.uc --make`: each file it gave the service's group, with the group and mode it had. Removed with the last of them, and when the service stops. | No |
 | `/var/run/prometheus-exporter/capabilities.json` | 0644 | `jail.uc --make`, at each start. Removed when the service stops. | No: procd hands it to ujail |
-| `/var/run/prometheus-exporter.acl.json` | 0644 | `jail.uc --make`, at each start. Removed when the service stops. | No: ubusd reads it |
+| `/usr/share/acl.d/prometheus-exporter.json` | 0644, root's | `jail.uc --make`, when the calls of the enabled collectors change. Removed when the service stops or is disabled. A reboot keeps it, for ubusd to read as it starts. | No: ubusd reads it |
 | `/var/run/prometheus-exporter/state/` | 0700, the service's user's | `jail.uc --make` | Read-write |
 | `/var/run/prometheus-exporter/timesync/` | 0755 | `jail.uc --make` (timesync's owned path), or the hotplug script | Read-only |
 | `/var/run/prometheus-exporter/timesync/ntpd` | 0644 | `/etc/hotplug.d/ntp/90-prometheus-exporter`, on each event of busybox ntpd, outside the jail | With its directory |
