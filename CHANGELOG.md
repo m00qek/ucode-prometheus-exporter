@@ -4,6 +4,8 @@ What each release changes, for those who run the exporter and those who write co
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-10-22
+
 ### Fixed
 
 - **The packages.ucode.dev feed can build the packages.** The feed builds them from GitHub's tarball of a tag. The base package listed the exporter's modules before the SDK had unpacked that tarball, so the list was empty and the build failed: 0.3.0 could not reach the feed. The base package now finds its modules when it installs them. `make feed-check`, which CI runs, builds the packages from a tarball of the tree as the feed does, and fails unless they hold what `make package` builds.
@@ -196,7 +198,8 @@ The first release: a rewrite of the packages feed's `prometheus-node-exporter-uc
 - A ubus object, `prometheus-exporter`, which the LuCI app, `luci-app-prometheus-exporter`, uses for its settings and status pages.
 - The documentation site, in the Diátaxis structure, published per minor version.
 
-[Unreleased]: https://github.com/m00qek/ucode-prometheus-exporter/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/m00qek/ucode-prometheus-exporter/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/m00qek/ucode-prometheus-exporter/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/m00qek/ucode-prometheus-exporter/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/m00qek/ucode-prometheus-exporter/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/m00qek/ucode-prometheus-exporter/compare/v0.1.0...v0.2.0
