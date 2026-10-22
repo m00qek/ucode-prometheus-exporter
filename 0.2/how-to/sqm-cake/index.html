@@ -2218,10 +2218,10 @@
 <p>It brings <code>tc</code>. It is in the <code>-network</code> and <code>-full</code> groups too.</p>
 <h2 id="2-find-the-devices-sqm-shapes">2. Find the devices SQM shapes<a class="headerlink" href="#2-find-the-devices-sqm-shapes" title="Permanent link">&para;</a></h2>
 <p>SQM puts CAKE as the root qdisc of the interface it shapes, for upload, and of an <code>ifb4&lt;device&gt;</code> it makes for download:</p>
-<div class="highlight"><pre><span></span><code>prometheus-exporter<span class="w"> </span>qdisc<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span><span class="s1">'^node_qdisc_cake_capacity_estimate_bytes_per_second'</span>
+<div class="highlight"><pre><span></span><code>prometheus-exporter<span class="w"> </span>qdisc<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span><span class="s1">&#39;^node_qdisc_cake_capacity_estimate_bytes_per_second&#39;</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code>node_qdisc_cake_capacity_estimate_bytes_per_second{device="eth1"} 2500000
-node_qdisc_cake_capacity_estimate_bytes_per_second{device="ifb4eth1"} 11875000
+<div class="highlight"><pre><span></span><code>node_qdisc_cake_capacity_estimate_bytes_per_second{device=&quot;eth1&quot;} 2500000
+node_qdisc_cake_capacity_estimate_bytes_per_second{device=&quot;ifb4eth1&quot;} 11875000
 </code></pre></div>
 <p>Here <code>eth1</code> is the WAN's upload, shaped to 20 Mbit/s, and <code>ifb4eth1</code> its download, to 95 Mbit/s.</p>
 <h2 id="3-query-it">3. Query it<a class="headerlink" href="#3-query-it" title="Permanent link">&para;</a></h2>
@@ -2232,7 +2232,7 @@ node_qdisc_cake_capacity_estimate_bytes_per_second{device="ifb4eth1"} 11875000
 <div class="highlight"><pre><span></span><code><span class="nv">node_qdisc_cake_tin_peak_delay_seconds</span>
 </code></pre></div>
 <p>How much of the shaped rate the download uses, in bytes per second over bytes per second:</p>
-<div class="highlight"><pre><span></span><code><span class="kr">rate</span><span class="o">(</span><span class="nv">node_qdisc_bytes_total</span><span class="p">{</span><span class="nl">device</span><span class="o">=</span><span class="p">"</span><span class="s">ifb4eth1</span><span class="p">"}[</span><span class="s">5m</span><span class="p">]</span><span class="o">)</span>
+<div class="highlight"><pre><span></span><code><span class="kr">rate</span><span class="o">(</span><span class="nv">node_qdisc_bytes_total</span><span class="p">{</span><span class="nl">device</span><span class="o">=</span><span class="p">&quot;</span><span class="s">ifb4eth1</span><span class="p">&quot;}[</span><span class="s">5m</span><span class="p">]</span><span class="o">)</span>
 <span class="w">  </span><span class="o">/</span><span class="w"> </span><span class="k">on</span><span class="w"> </span><span class="o">(</span><span class="nv">device</span><span class="o">)</span><span class="w"> </span><span class="nv">node_qdisc_cake_capacity_estimate_bytes_per_second</span>
 </code></pre></div>
 <p>ECN marks, which CAKE uses before it drops:</p>

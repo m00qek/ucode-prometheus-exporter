@@ -2232,7 +2232,7 @@
 <tr>
 <td style="text-align: left;"><code>SOURCE_UNREADABLE</code></td>
 <td style="text-align: left;">A file the collector reads is not there or cannot be read. The detail names it.</td>
-<td style="text-align: left;">the collectors <code>bmx7</code>, <code>conntrack</code>, <code>cpu</code>, <code>dhcp_leases</code>, <code>diskstats</code>, <code>entropy</code>, <code>exporter</code>, <code>filefd</code>, <code>filesystem</code>, <code>loadavg</code>, <code>meminfo</code>, <code>nat_traffic</code>, <code>netstat</code>, <code>snmp6</code>, <code>sockstat</code>, <code>softnet</code>, <code>timesync</code>, <code>uci_dhcp_host</code>, <code>uname</code>, <code>vmstat</code></td>
+<td style="text-align: left;">the collectors <code>bmx7</code>, <code>conntrack</code>, <code>cpu</code>, <code>dhcp_leases</code>, <code>diskstats</code>, <code>entropy</code>, <code>exporter</code>, <code>filefd</code>, <code>loadavg</code>, <code>meminfo</code>, <code>nat_traffic</code>, <code>netstat</code>, <code>selinux</code>, <code>snmp6</code>, <code>sockstat</code>, <code>softnet</code>, <code>timesync</code>, <code>uci_dhcp_host</code>, <code>uname</code>, <code>vmstat</code></td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>SOURCE_INVALID</code></td>
@@ -2246,8 +2246,8 @@
 </tr>
 <tr>
 <td style="text-align: left;"><code>COLLECTOR_NO_RESULT</code></td>
-<td style="text-align: left;">The collector returned something other than a Result. The detail says what.</td>
-<td style="text-align: left;"><code>conform.uc</code>, <code>scrape.uc</code></td>
+<td style="text-align: left;">The collector returned something other than a Result, or a failure without an error code (a code the collector API does not export is null). The detail says what.</td>
+<td style="text-align: left;"><code>conform.uc</code>, <code>runner.uc</code>, <code>scrape.uc</code></td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>COLLECTOR_INVALID</code></td>
@@ -2269,12 +2269,12 @@
 <tr>
 <td style="text-align: left;"><code>CONFIG_INVALID</code></td>
 <td style="text-align: left;">An option has a value the exporter does not take, or options that go together are not set together. The detail is <code>&lt;option&gt;: expected &lt;what&gt;, got &lt;value&gt;</code> (never the value of <code>auth_password</code>), or what is missing.</td>
-<td style="text-align: left;"><code>auth.uc</code>, <code>config.uc</code>, <code>config/types.uc</code>, <code>conform.uc</code>; the collectors <code>diskstats</code>, <code>vmstat</code></td>
+<td style="text-align: left;"><code>auth.uc</code>, <code>config.uc</code>, <code>config/types.uc</code>, <code>conform.uc</code>; the collectors <code>diskstats</code>, <code>netstat</code>, <code>vmstat</code></td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>FILE_UNWRITABLE</code></td>
-<td style="text-align: left;">The init script could not write or remove uhttpd's basic auth file, <code>/var/run/prometheus-exporter/uhttpd.conf</code>.</td>
-<td style="text-align: left;"><code>auth.uc</code></td>
+<td style="text-align: left;">The init script could not write or remove uhttpd's basic auth file, <code>/var/run/prometheus-exporter/uhttpd.conf</code>; or the ubus object's <code>set_password</code> could not write the hash's config, <code>/etc/config/prometheus-exporter-auth</code>.</td>
+<td style="text-align: left;"><code>auth.uc</code>, <code>rpc.uc</code></td>
 </tr>
 </tbody>
 </table>
@@ -2383,9 +2383,14 @@
 <td style="text-align: left;"><code>conform.uc</code>, <code>ledger.uc</code>, <code>runner.uc</code></td>
 </tr>
 <tr>
+<td style="text-align: left;"><code>COLLECTOR_NOT_RUN</code></td>
+<td style="text-align: left;">The collector was not run: the processes the scrape forked to run the collectors in ended twice in a row before they ran one, logged once for all of them. Not the collector's doing: its breaker is as it was.</td>
+<td style="text-align: left;"><code>runner.uc</code></td>
+</tr>
+<tr>
 <td style="text-align: left;"><code>SAMPLE_LIMIT</code></td>
-<td style="text-align: left;">The collector wrote more samples than its <code>max_samples</code>, and was stopped there. The detail says how many and in which family. None of its samples are served.</td>
-<td style="text-align: left;"><code>conform.uc</code>, <code>scrape.uc</code></td>
+<td style="text-align: left;">The collector wrote more samples than its <code>max_samples</code>, and was stopped there; or more than were left of the reply's <code>max_scrape_samples</code>, or none were left when it would have started, which leaves its breaker as it was. The detail says how many and in which family. None of its samples are served.</td>
+<td style="text-align: left;"><code>conform.uc</code>, <code>ledger.uc</code>, <code>scrape.uc</code></td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>FAMILY_CONFLICT</code></td>
@@ -2406,8 +2411,8 @@
 <tbody>
 <tr>
 <td style="text-align: left;"><code>EXPOSITION_INVALID</code></td>
-<td style="text-align: left;">Text that is not valid Prometheus exposition format: a <code>*.prom</code> file of textfile, which the collector then leaves out. The detail names the line.</td>
-<td style="text-align: left;"><code>exposition/parse.uc</code></td>
+<td style="text-align: left;">Text that is not valid Prometheus exposition format: a <code>*.prom</code> file of textfile, which the collector then leaves out, and the detail names the line; or what a collector wrote that Prometheus would refuse the whole scrape for, a label value or HELP text that is not valid UTF-8, two label names that are one once sanitized (<code>if-name</code> and <code>if_name</code>), or labels that are neither an object nor what <code>out.labels()</code> made. The recorder stops the collector there, and the detail names the family and the label. None of its samples are served.</td>
+<td style="text-align: left;"><code>exposition/parse.uc</code>, <code>scrape.uc</code></td>
 </tr>
 </tbody>
 </table>

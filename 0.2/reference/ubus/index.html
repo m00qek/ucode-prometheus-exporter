@@ -1656,6 +1656,24 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#password" class="md-nav__link">
+    <span class="md-ellipsis">
+      password
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#set_password" class="md-nav__link">
+    <span class="md-ellipsis">
+      set_password
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#errors" class="md-nav__link">
     <span class="md-ellipsis">
       Errors
@@ -2225,6 +2243,24 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#password" class="md-nav__link">
+    <span class="md-ellipsis">
+      password
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#set_password" class="md-nav__link">
+    <span class="md-ellipsis">
+      set_password
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#errors" class="md-nav__link">
     <span class="md-ellipsis">
       Errors
@@ -2271,14 +2307,16 @@
 
 <h1 id="ubus-object">ubus Object<a class="headerlink" href="#ubus-object" title="Permanent link">&para;</a></h1>
 <p>The ubus object <code>prometheus-exporter</code> belongs to the base package. rpcd serves it, from the ucode plugin <code>/usr/share/rpcd/ucode/prometheus-exporter.uc</code>, over <code>src/prometheus_exporter/rpc.uc</code> and its modules <code>rpc/describe.uc</code> and <code>rpc/validate.uc</code>, whether or not the service runs. rpcd loads it when it starts or reloads; the package reloads rpcd when it is installed, upgraded or removed.</p>
-<p>The object reads with the exporter's own modules and writes nothing. Each call reads the committed configuration and the installed collectors afresh.</p>
+<p>The object reads with the exporter's own modules, and writes nothing but the hash of basic auth's password, through <code>set_password</code>. Each call reads the committed configuration and the installed collectors afresh.</p>
 <div class="highlight"><pre><span></span><code>$ ubus -v list prometheus-exporter
-'prometheus-exporter' @085bb3ca
-    "collectors":{}
-    "validate":{"main":"Table","collectors":"Table"}
-    "status":{}
-    "interfaces":{}
-    "hash_password":{"password":"String"}
+&#39;prometheus-exporter&#39; @085bb3ca
+    &quot;collectors&quot;:{}
+    &quot;validate&quot;:{&quot;main&quot;:&quot;Table&quot;,&quot;collectors&quot;:&quot;Table&quot;}
+    &quot;status&quot;:{}
+    &quot;interfaces&quot;:{}
+    &quot;hash_password&quot;:{&quot;password&quot;:&quot;String&quot;}
+    &quot;password&quot;:{}
+    &quot;set_password&quot;:{&quot;password&quot;:&quot;String&quot;}
 </code></pre></div>
 <hr />
 <h2 id="methods">Methods<a class="headerlink" href="#methods" title="Permanent link">&para;</a></h2>
@@ -2315,6 +2353,16 @@
 <td style="text-align: left;"><a href="#hash_password"><code>hash_password</code></a></td>
 <td style="text-align: left;"><code>{ password }</code></td>
 <td style="text-align: left;"><code>{ hash }</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#password"><code>password</code></a></td>
+<td style="text-align: left;">none</td>
+<td style="text-align: left;"><code>{ saved }</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="#set_password"><code>set_password</code></a></td>
+<td style="text-align: left;"><code>{ password }</code></td>
+<td style="text-align: left;"><code>{ saved }</code></td>
 </tr>
 </tbody>
 </table>
@@ -2450,28 +2498,28 @@
 </table>
 <h2 id="validate"><code>validate</code><a class="headerlink" href="#validate" title="Permanent link">&para;</a></h2>
 <p>Checks values as the exporter would read them, without saving anything. <code>main</code> holds options of the main section and <code>collectors</code> options of collector sections, by module: values as uci holds them, as strings.</p>
-<div class="highlight"><pre><span></span><code>$ ubus call prometheus-exporter validate '{"main":{"listen_port":"0","auth_user":"p"}}'
+<div class="highlight"><pre><span></span><code>$ ubus call prometheus-exporter validate &#39;{&quot;main&quot;:{&quot;listen_port&quot;:&quot;0&quot;,&quot;auth_user&quot;:&quot;p&quot;}}&#39;
 {
-    "ok": false,
-    "errors": {
-        "main": {
-            "listen_port": {
-                "code": "RANGE",
-                "min": 1,
-                "max": 65535,
-                "value": 0,
-                "message": "expected an integer from 1 to 65535, got 0"
+    &quot;ok&quot;: false,
+    &quot;errors&quot;: {
+        &quot;main&quot;: {
+            &quot;listen_port&quot;: {
+                &quot;code&quot;: &quot;RANGE&quot;,
+                &quot;min&quot;: 1,
+                &quot;max&quot;: 65535,
+                &quot;value&quot;: 0,
+                &quot;message&quot;: &quot;expected an integer from 1 to 65535, got 0&quot;
             },
-            "auth_password": {
-                "code": "AUTH_NEEDS_PASSWORD",
-                "message": "basic auth needs the hash of a password along with auth_user"
+            &quot;auth_password&quot;: {
+                &quot;code&quot;: &quot;AUTH_NEEDS_PASSWORD&quot;,
+                &quot;message&quot;: &quot;basic auth needs the hash of a password along with auth_user&quot;
             },
-            "auth_user": {
-                "code": "AUTH_NEEDS_TLS",
-                "message": "basic auth needs HTTPS: set cert and key, or the password crosses the network in the clear"
+            &quot;auth_user&quot;: {
+                &quot;code&quot;: &quot;AUTH_NEEDS_TLS&quot;,
+                &quot;message&quot;: &quot;basic auth needs HTTPS: set cert and key, or the password crosses the network in the clear&quot;
             }
         },
-        "collectors": {
+        &quot;collectors&quot;: {
 
         }
     }
@@ -2513,7 +2561,7 @@
 <ul>
 <li>Each value is checked alone. An empty value is unset, and takes the default.</li>
 <li>Options nobody declared, and collectors that are not installed, are ignored, as the exporter ignores them.</li>
-<li>The main section's options that go together, basic auth's user and hash and the <code>cert</code> and <code>key</code> they need, are checked as if the values given were the whole section.</li>
+<li>The main section's options that go together, basic auth's user and the hash and the <code>cert</code> and <code>key</code> it needs, are checked as if the values given were the whole section. <code>auth_password</code>, the hash, is taken among <code>main</code>'s though it is saved apart (see <a href="#set_password"><code>set_password</code></a>): without it, a user given is checked with the saved hash, which is never answered.</li>
 <li>A collector section takes <code>enabled</code>, <code>timeout</code> for a collector that runs programs, <code>budget</code>, and the collector's own options.</li>
 <li>No refusal holds the value of <code>auth_password</code>.</li>
 </ul>
@@ -2671,26 +2719,36 @@
 <p>The logical interfaces netifd has, in its order, as <code>network.interface dump</code> gives them: <code>name</code> and <code>proto</code> (null when it has none). It never reads <code>/etc/config/network</code>.</p>
 <div class="highlight"><pre><span></span><code>$ ubus call prometheus-exporter interfaces
 {
-    "interfaces": [
+    &quot;interfaces&quot;: [
         {
-            "name": "lan",
-            "proto": "static"
+            &quot;name&quot;: &quot;lan&quot;,
+            &quot;proto&quot;: &quot;static&quot;
         },
         {
-            "name": "loopback",
-            "proto": "static"
+            &quot;name&quot;: &quot;loopback&quot;,
+            &quot;proto&quot;: &quot;static&quot;
         }
     ]
 }
 </code></pre></div>
 <h2 id="hash_password"><code>hash_password</code><a class="headerlink" href="#hash_password" title="Permanent link">&para;</a></h2>
 <p>A SHA-512-crypt hash of <code>password</code>, of 1000 rounds and a fresh salt of 16 characters, for <code>auth_password</code>:</p>
-<div class="highlight"><pre><span></span><code>$ ubus call prometheus-exporter hash_password '{"password":"…"}'
+<div class="highlight"><pre><span></span><code>$ ubus call prometheus-exporter hash_password &#39;{&quot;password&quot;:&quot;…&quot;}&#39;
 {
-    "hash": "$6$rounds=1000$…"
+    &quot;hash&quot;: &quot;$6$rounds=1000$…&quot;
 }
 </code></pre></div>
 <p>The password is 1 to 256 bytes, without control characters. rpcd runs the method, unjailed, and logs neither the password nor the hash.</p>
+<h2 id="password"><code>password</code><a class="headerlink" href="#password" title="Permanent link">&para;</a></h2>
+<p>Whether a hash of basic auth's password is saved, in <code>/etc/config/prometheus-exporter-auth</code>: <code>{ "saved": true }</code>. Never the hash.</p>
+<h2 id="set_password"><code>set_password</code><a class="headerlink" href="#set_password" title="Permanent link">&para;</a></h2>
+<p>Hashes <code>password</code> as <code>hash_password</code> does, saves the hash in <code>/etc/config/prometheus-exporter-auth</code>, commits it, and sends procd the <code>config.change</code> event of that config, which reloads the service as <code>reload_config</code> would: <code>{ "saved": true }</code>. An empty <code>password</code> removes the saved hash: <code>{ "saved": false }</code>. The reply never holds the hash.</p>
+<div class="highlight"><pre><span></span><code>$ ubus call prometheus-exporter set_password &#39;{&quot;password&quot;:&quot;…&quot;}&#39;
+{
+    &quot;saved&quot;: true
+}
+</code></pre></div>
+<p>Basic auth is on while the main section's <code>auth_user</code> is set: a hash saved without one is unused. This is how LuCI saves a password: its ACL grants this method, and never reading the hash's config.</p>
 <h2 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -2709,7 +2767,12 @@
 <tr>
 <td style="text-align: left;"><code>ARGS_INVALID</code></td>
 <td style="text-align: left;"><code>password: expected a password</code>, <code>password: expected a password of at most 256 bytes</code>, <code>password: expected a password without control characters</code></td>
-<td style="text-align: left;"><code>hash_password</code> was given a password it does not take.</td>
+<td style="text-align: left;"><code>hash_password</code> or <code>set_password</code> was given a password it does not take.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>FILE_UNWRITABLE</code></td>
+<td style="text-align: left;"><code>FILE_UNWRITABLE (cannot write /etc/config/prometheus-exporter-auth: ...)</code></td>
+<td style="text-align: left;"><code>set_password</code> could not save the hash.</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>STATUS_FAILED</code></td>
@@ -2719,13 +2782,13 @@
 <tr>
 <td style="text-align: left;">A <a href="../error-codes/">code</a></td>
 <td style="text-align: left;"><code>CODE (detail)</code></td>
-<td style="text-align: left;"><code>interfaces</code> could not ask netifd; <code>hash_password</code> had no random bytes.</td>
+<td style="text-align: left;"><code>interfaces</code> could not ask netifd; <code>hash_password</code> or <code>set_password</code> had no random bytes.</td>
 </tr>
 </tbody>
 </table>
 <p>ubus itself refuses arguments of the wrong type, as a string for <code>main</code>, with <code>Invalid argument</code>.</p>
 <h2 id="access">Access<a class="headerlink" href="#access" title="Permanent link">&para;</a></h2>
-<p>Over HTTP, through uhttpd-mod-ubus, a session needs the methods in its ACL. The LuCI app's ACL, <code>luci-app-prometheus-exporter</code>, grants <code>collectors</code>, <code>interfaces</code>, <code>status</code> and <code>validate</code> to read, and <code>hash_password</code> to write. See <a href="../luci/#acl">LuCI app</a>.</p>
+<p>Over HTTP, through uhttpd-mod-ubus, a session needs the methods in its ACL. The LuCI app's ACL, <code>luci-app-prometheus-exporter</code>, grants <code>collectors</code>, <code>interfaces</code>, <code>password</code>, <code>status</code> and <code>validate</code> to read, and <code>set_password</code> to write. See <a href="../luci/#acl">LuCI app</a>.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../../how-to/troubleshoot/">How to troubleshoot</a></li>

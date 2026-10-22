@@ -2190,7 +2190,7 @@
 <h1 id="how-to-compress-scrapes">How to Compress Scrapes<a class="headerlink" href="#how-to-compress-scrapes" title="Permanent link">&para;</a></h1>
 <p>The exporter gzips a scrape when the scraper asks for it, <code>Accept-Encoding: gzip</code>, which Prometheus and vmagent send by default. It is on unless you turned it off.</p>
 <h2 id="check-that-scrapes-are-compressed">Check that scrapes are compressed<a class="headerlink" href="#check-that-scrapes-are-compressed" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-s<span class="w"> </span>-o<span class="w"> </span>/dev/null<span class="w"> </span>-D<span class="w"> </span>-<span class="w"> </span>-H<span class="w"> </span><span class="s1">'Accept-Encoding: gzip'</span><span class="w"> </span>http://router.lan:9100/metrics
+<div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-s<span class="w"> </span>-o<span class="w"> </span>/dev/null<span class="w"> </span>-D<span class="w"> </span>-<span class="w"> </span>-H<span class="w"> </span><span class="s1">&#39;Accept-Encoding: gzip&#39;</span><span class="w"> </span>http://router.lan:9100/metrics
 </code></pre></div>
 <p>A compressed reply has <code>Content-Encoding: gzip</code>. <code>service prometheus-exporter status</code> says <code>gzip when asked</code> while it is on.</p>
 <h2 id="turn-it-off">Turn it off<a class="headerlink" href="#turn-it-off" title="Permanent link">&para;</a></h2>

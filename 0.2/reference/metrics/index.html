@@ -3050,7 +3050,7 @@
 </tr>
 <tr>
 <td style="text-align: left;"><a href="#hostapd_stations"><code>hostapd_stations</code></a></td>
-<td style="text-align: left;">14</td>
+<td style="text-align: left;">15</td>
 <td style="text-align: left;">an access point</td>
 <td style="text-align: left;">—</td>
 </tr>
@@ -3116,7 +3116,7 @@
 </tr>
 <tr>
 <td style="text-align: left;"><a href="#netstat"><code>netstat</code></a></td>
-<td style="text-align: left;">402</td>
+<td style="text-align: left;">42</td>
 <td style="text-align: left;">an access point, a router</td>
 <td style="text-align: left;">—</td>
 </tr>
@@ -3153,7 +3153,7 @@
 <tr>
 <td style="text-align: left;"><a href="#selinux"><code>selinux</code></a></td>
 <td style="text-align: left;">2</td>
-<td style="text-align: left;">an access point, a router, a second router, made-up captures</td>
+<td style="text-align: left;">made-up captures</td>
 <td style="text-align: left;">—</td>
 </tr>
 <tr>
@@ -4523,100 +4523,107 @@
 </thead>
 <tbody>
 <tr>
+<td style="text-align: left;"><code>hostapd_station_info</code></td>
+<td style="text-align: left;">gauge</td>
+<td style="text-align: left;"><code>vif</code>, <code>station</code>, <code>ssid</code>, <code>bssid</code>, <code>encryption</code>, <code>frequency</code>, <code>channel</code></td>
+<td style="text-align: left;">A station of an access point, and the network it is on: its SSID, BSSID, encryption, frequency and channel.</td>
+<td style="text-align: left;">—</td>
+</tr>
+<tr>
 <td style="text-align: left;"><code>hostapd_station_receive_packets_total</code></td>
 <td style="text-align: left;">counter</td>
-<td style="text-align: left;"><code>vif</code>, <code>ssid</code>, <code>bssid</code>, <code>encryption</code>, <code>frequency</code>, <code>channel</code>, <code>station</code></td>
+<td style="text-align: left;"><code>vif</code>, <code>station</code></td>
 <td style="text-align: left;">Packets received from the station.</td>
 <td style="text-align: left;">—</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>hostapd_station_receive_bytes_total</code></td>
 <td style="text-align: left;">counter</td>
-<td style="text-align: left;"><code>vif</code>, <code>ssid</code>, <code>bssid</code>, <code>encryption</code>, <code>frequency</code>, <code>channel</code>, <code>station</code></td>
+<td style="text-align: left;"><code>vif</code>, <code>station</code></td>
 <td style="text-align: left;">Bytes received from the station.</td>
 <td style="text-align: left;">—</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>hostapd_station_transmit_packets_total</code></td>
 <td style="text-align: left;">counter</td>
-<td style="text-align: left;"><code>vif</code>, <code>ssid</code>, <code>bssid</code>, <code>encryption</code>, <code>frequency</code>, <code>channel</code>, <code>station</code></td>
+<td style="text-align: left;"><code>vif</code>, <code>station</code></td>
 <td style="text-align: left;">Packets transmitted to the station.</td>
 <td style="text-align: left;">—</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>hostapd_station_transmit_bytes_total</code></td>
 <td style="text-align: left;">counter</td>
-<td style="text-align: left;"><code>vif</code>, <code>ssid</code>, <code>bssid</code>, <code>encryption</code>, <code>frequency</code>, <code>channel</code>, <code>station</code></td>
+<td style="text-align: left;"><code>vif</code>, <code>station</code></td>
 <td style="text-align: left;">Bytes transmitted to the station.</td>
 <td style="text-align: left;">—</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>hostapd_station_signal_dbm</code></td>
 <td style="text-align: left;">gauge</td>
-<td style="text-align: left;"><code>vif</code>, <code>ssid</code>, <code>bssid</code>, <code>encryption</code>, <code>frequency</code>, <code>channel</code>, <code>station</code></td>
+<td style="text-align: left;"><code>vif</code>, <code>station</code></td>
 <td style="text-align: left;">Signal of the station, in dBm.</td>
 <td style="text-align: left;">—</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>hostapd_station_flag_auth</code></td>
 <td style="text-align: left;">gauge</td>
-<td style="text-align: left;"><code>vif</code>, <code>ssid</code>, <code>bssid</code>, <code>encryption</code>, <code>frequency</code>, <code>channel</code>, <code>station</code></td>
+<td style="text-align: left;"><code>vif</code>, <code>station</code></td>
 <td style="text-align: left;">Whether the station is authenticated.</td>
 <td style="text-align: left;">—</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>hostapd_station_flag_assoc</code></td>
 <td style="text-align: left;">gauge</td>
-<td style="text-align: left;"><code>vif</code>, <code>ssid</code>, <code>bssid</code>, <code>encryption</code>, <code>frequency</code>, <code>channel</code>, <code>station</code></td>
+<td style="text-align: left;"><code>vif</code>, <code>station</code></td>
 <td style="text-align: left;">Whether the station is associated.</td>
 <td style="text-align: left;">—</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>hostapd_station_flag_ht</code></td>
 <td style="text-align: left;">gauge</td>
-<td style="text-align: left;"><code>vif</code>, <code>ssid</code>, <code>bssid</code>, <code>encryption</code>, <code>frequency</code>, <code>channel</code>, <code>station</code></td>
+<td style="text-align: left;"><code>vif</code>, <code>station</code></td>
 <td style="text-align: left;">Whether the station uses HT (802.11n).</td>
 <td style="text-align: left;">—</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>hostapd_station_flag_vht</code></td>
 <td style="text-align: left;">gauge</td>
-<td style="text-align: left;"><code>vif</code>, <code>ssid</code>, <code>bssid</code>, <code>encryption</code>, <code>frequency</code>, <code>channel</code>, <code>station</code></td>
+<td style="text-align: left;"><code>vif</code>, <code>station</code></td>
 <td style="text-align: left;">Whether the station uses VHT (802.11ac).</td>
 <td style="text-align: left;">—</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>hostapd_station_flag_he</code></td>
 <td style="text-align: left;">gauge</td>
-<td style="text-align: left;"><code>vif</code>, <code>ssid</code>, <code>bssid</code>, <code>encryption</code>, <code>frequency</code>, <code>channel</code>, <code>station</code></td>
+<td style="text-align: left;"><code>vif</code>, <code>station</code></td>
 <td style="text-align: left;">Whether the station uses HE (802.11ax).</td>
 <td style="text-align: left;">—</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>hostapd_station_flag_mfp</code></td>
 <td style="text-align: left;">gauge</td>
-<td style="text-align: left;"><code>vif</code>, <code>ssid</code>, <code>bssid</code>, <code>encryption</code>, <code>frequency</code>, <code>channel</code>, <code>station</code></td>
+<td style="text-align: left;"><code>vif</code>, <code>station</code></td>
 <td style="text-align: left;">Whether the station uses management frame protection.</td>
 <td style="text-align: left;">—</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>hostapd_station_flag_wmm</code></td>
 <td style="text-align: left;">gauge</td>
-<td style="text-align: left;"><code>vif</code>, <code>ssid</code>, <code>bssid</code>, <code>encryption</code>, <code>frequency</code>, <code>channel</code>, <code>station</code></td>
+<td style="text-align: left;"><code>vif</code>, <code>station</code></td>
 <td style="text-align: left;">Whether the station uses WMM.</td>
 <td style="text-align: left;">—</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>hostapd_station_vht_capb_su_beamformee</code></td>
 <td style="text-align: left;">gauge</td>
-<td style="text-align: left;"><code>vif</code>, <code>ssid</code>, <code>bssid</code>, <code>encryption</code>, <code>frequency</code>, <code>channel</code>, <code>station</code></td>
+<td style="text-align: left;"><code>vif</code>, <code>station</code></td>
 <td style="text-align: left;">Whether the station is a VHT single-user beamformee.</td>
 <td style="text-align: left;">—</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>hostapd_station_vht_capb_mu_beamformee</code></td>
 <td style="text-align: left;">gauge</td>
-<td style="text-align: left;"><code>vif</code>, <code>ssid</code>, <code>bssid</code>, <code>encryption</code>, <code>frequency</code>, <code>channel</code>, <code>station</code></td>
+<td style="text-align: left;"><code>vif</code>, <code>station</code></td>
 <td style="text-align: left;">Whether the station is a VHT multi-user beamformee.</td>
 <td style="text-align: left;">—</td>
 </tr>
@@ -5419,8 +5426,8 @@
 <td style="text-align: left;"><code>node_netstat_&lt;Protocol&gt;_&lt;Field&gt;</code></td>
 <td style="text-align: left;">untyped</td>
 <td style="text-align: left;">—</td>
-<td style="text-align: left;">Statistic &lt;Protocol&gt;&lt;Field&gt;: each of <code>/proc/net/netstat</code>, <code>/proc/net/snmp</code> and <code>/proc/net/snmp6</code>.</td>
-<td style="text-align: left;">402 on the captures</td>
+<td style="text-align: left;">Statistic &lt;Protocol&gt;&lt;Field&gt;: each field of <code>/proc/net/netstat</code>, <code>/proc/net/snmp</code> and <code>/proc/net/snmp6</code> the <code>fields</code> option matches, by default node_exporter's.</td>
+<td style="text-align: left;">42 on the captures</td>
 </tr>
 </tbody>
 </table>
@@ -6838,7 +6845,7 @@
 <td style="text-align: left;"><code>node_wifi_network_quality_ratio</code></td>
 <td style="text-align: left;">gauge</td>
 <td style="text-align: left;"><code>radio</code>, <code>device</code></td>
-<td style="text-align: left;">Signal quality of the network's stations, from 0 (-110 dBm) to 1 (-40 dBm).</td>
+<td style="text-align: left;">Signal quality of the network's stations, from 0 (-110 dBm or weaker) to 1 (-40 dBm or stronger).</td>
 <td style="text-align: left;">—</td>
 </tr>
 <tr>

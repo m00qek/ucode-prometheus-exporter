@@ -1653,6 +1653,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#connections" class="md-nav__link">
+    <span class="md-ellipsis">
+      Connections
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#see-also" class="md-nav__link">
     <span class="md-ellipsis">
       See also
@@ -2243,6 +2252,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#connections" class="md-nav__link">
+    <span class="md-ellipsis">
+      Connections
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#see-also" class="md-nav__link">
     <span class="md-ellipsis">
       See also
@@ -2424,7 +2442,7 @@
 <td style="text-align: left;"></td>
 </tr>
 <tr>
-<td style="text-align: left;">Any, when the file is there but is not one line of a user and a hash for <code>/metrics</code></td>
+<td style="text-align: left;">Any, when the file is there but is not one line of a user and a hash for <code>/metrics</code>, or is not there while <code>auth_user</code> is set</td>
 <td style="text-align: left;"><code>500 Internal Server Error</code></td>
 <td style="text-align: left;"></td>
 <td style="text-align: left;"><code>Basic auth is not configured as it should be; see the log.</code></td>
@@ -2436,6 +2454,10 @@
 <p>The password is checked against the hash: <code>$1$</code> (MD5-crypt), <code>$5$</code> (SHA-256-crypt) or <code>$6$</code> (SHA-512-crypt), of at most 2000 rounds. After a request is let in, the handler keeps a digest of its <code>Authorization</code> header in its state, and lets in a later request with the same header on the digest alone. See <a href="../jail/#state">The jail</a>.</p>
 <h2 id="keep-alive">Keep-alive<a class="headerlink" href="#keep-alive" title="Permanent link">&para;</a></h2>
 <p>uhttpd keeps an idle connection open <code>http_keepalive</code> seconds (70), with <code>-k</code>: <code>Keep-Alive: timeout=70</code>. At <code>0</code> it answers <code>Connection: close</code> and closes each connection once it has answered.</p>
+<p>70 seconds outlasts Prometheus's default <code>scrape_interval</code> of 60: its connection stays open from one scrape to the next, and each scrape reuses it, without a new TCP connection or, over HTTPS, a new TLS handshake, which costs a router's CPU more than a scrape's request does. A scraper that scrapes less often than every 70 seconds connects again each time; set <code>http_keepalive</code> above its interval to spare it that.</p>
+<h2 id="connections">Connections<a class="headerlink" href="#connections" title="Permanent link">&para;</a></h2>
+<p>uhttpd runs at most 3 requests at once (<code>-n 3</code>), over at most 10 connections (<code>-N 10</code>), the init script says, rather than leave it to uhttpd's defaults, 3 and 100. The service is scraped by one or two Prometheus servers, each over a connection of its own that keep-alive keeps open; LuCI reaches the exporter through rpcd, not over this port. Each request is a full scrape, or with basic auth a check of the hash first: 3 at once are two scrapers' scrapes that overlap and one more, as a curl's. A request past them waits until one ends, and the connections bound how many can wait. uhttpd gives each request 60 seconds (<code>-t 60</code>), as <code>scrape_timeout</code> reckons.</p>
+<p>The port should be reachable by the scrapers alone: whoever reaches it can make the router scrape, and hash, again and again. See <a href="../../how-to/listen-on-lan/#keep-it-to-the-scrapers">How to listen on the LAN</a>.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../../how-to/https-basic-auth/">How to serve HTTPS with basic auth</a></li>

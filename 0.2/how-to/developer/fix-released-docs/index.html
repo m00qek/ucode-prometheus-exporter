@@ -2223,7 +2223,7 @@ git<span class="w"> </span>cherry-pick<span class="w"> </span>&lt;sha&gt;
 <p>Cherry-pick each commit you need. Never merge or rebase <code>main</code> into <code>docs/0.2</code>: it would publish the docs of unreleased work (<a href="../../../explanation/versioned-docs/#why-fixes-go-to-main-first-and-why-never-rebase">why</a>).</p>
 <p>If a commit also changes files outside the docs, take only its docs part:</p>
 <div class="highlight"><pre><span></span><code>git<span class="w"> </span>cherry-pick<span class="w"> </span>-n<span class="w"> </span>&lt;sha&gt;
-git<span class="w"> </span>restore<span class="w"> </span>--source<span class="o">=</span>HEAD<span class="w"> </span>--staged<span class="w"> </span>--worktree<span class="w"> </span>--<span class="w"> </span>.<span class="w"> </span><span class="s1">':!docs/'</span><span class="w"> </span><span class="s1">':!mkdocs.yml'</span><span class="w"> </span><span class="s1">':!mkdocs.mike.yml'</span>
+git<span class="w"> </span>restore<span class="w"> </span>--source<span class="o">=</span>HEAD<span class="w"> </span>--staged<span class="w"> </span>--worktree<span class="w"> </span>--<span class="w"> </span>.<span class="w"> </span><span class="s1">&#39;:!docs/&#39;</span><span class="w"> </span><span class="s1">&#39;:!mkdocs.yml&#39;</span><span class="w"> </span><span class="s1">&#39;:!mkdocs.mike.yml&#39;</span>
 git<span class="w"> </span>commit<span class="w"> </span>-C<span class="w"> </span>&lt;sha&gt;
 </code></pre></div>
 <h2 id="2-check-the-branch">2. Check the branch<a class="headerlink" href="#2-check-the-branch" title="Permanent link">&para;</a></h2>

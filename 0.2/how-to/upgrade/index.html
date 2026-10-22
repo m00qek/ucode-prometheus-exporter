@@ -688,9 +688,9 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#from-a-feed" class="md-nav__link">
+  <a href="#from-the-feed" class="md-nav__link">
     <span class="md-ellipsis">
-      From a feed
+      From the feed
     </span>
   </a>
   
@@ -700,6 +700,15 @@
   <a href="#from-apk-files" class="md-nav__link">
     <span class="md-ellipsis">
       From .apk files
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#from-020-to-021" class="md-nav__link">
+    <span class="md-ellipsis">
+      From 0.2.0 to 0.2.1
     </span>
   </a>
   
@@ -2152,9 +2161,9 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#from-a-feed" class="md-nav__link">
+  <a href="#from-the-feed" class="md-nav__link">
     <span class="md-ellipsis">
-      From a feed
+      From the feed
     </span>
   </a>
   
@@ -2164,6 +2173,15 @@
   <a href="#from-apk-files" class="md-nav__link">
     <span class="md-ellipsis">
       From .apk files
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#from-020-to-021" class="md-nav__link">
+    <span class="md-ellipsis">
+      From 0.2.0 to 0.2.1
     </span>
   </a>
   
@@ -2210,15 +2228,42 @@
 <h2 id="before-you-upgrade">Before you upgrade<a class="headerlink" href="#before-you-upgrade" title="Permanent link">&para;</a></h2>
 <p>Read what the new version changes. Before 1.0.0 a minor version may rename metrics or options: see <a href="../../explanation/versions/">About versions</a>. A renamed metric breaks the queries and dashboards that use the old name.</p>
 <hr />
-<h2 id="from-a-feed">From a feed<a class="headerlink" href="#from-a-feed" title="Permanent link">&para;</a></h2>
+<h2 id="from-the-feed">From the feed<a class="headerlink" href="#from-the-feed" title="Permanent link">&para;</a></h2>
+<p>With the exporter's feed added, as <a href="../install/#1-add-the-feed">How to install the exporter</a> adds it:</p>
 <div class="highlight"><pre><span></span><code>apk<span class="w"> </span>update
 apk<span class="w"> </span>upgrade
 </code></pre></div>
 <h2 id="from-apk-files">From <code>.apk</code> files<a class="headerlink" href="#from-apk-files" title="Permanent link">&para;</a></h2>
-<p>Copy every package you have installed, in the new version, to the device's <code>/tmp</code>, and add them in one command:</p>
-<div class="highlight"><pre><span></span><code>apk<span class="w"> </span>add<span class="w"> </span>--allow-untrusted<span class="w"> </span>/tmp/ucode-prometheus-exporter-*0.2.0-r1.apk<span class="w"> </span>/tmp/luci-app-prometheus-exporter-0.2.0-r1.apk
+<p>Copy every package you have installed, in the new version, to the device's <code>/tmp</code>, and add them in one command, <code>version</code> set to the new version as the files' names end:</p>
+<div class="highlight"><pre><span></span><code><span class="nv">version</span><span class="o">=</span><span class="m">0</span>.2.0-r1
+apk<span class="w"> </span>add<span class="w"> </span>--allow-untrusted<span class="w"> </span>/tmp/ucode-prometheus-exporter-*<span class="nv">$version</span>.apk<span class="w"> </span>/tmp/luci-app-prometheus-exporter-<span class="nv">$version</span>.apk
 </code></pre></div>
-<p>Adding the base package alone fails: the installed collectors still want the old version.</p>
+<p>Adding the base package alone fails: the installed collectors still want the old version. A dependency the new version adds comes from the feeds the device has: <code>ucode-docopt</code>, which 0.2 added, from the exporter's feed.</p>
+<h2 id="from-020-to-021">From 0.2.0 to 0.2.1<a class="headerlink" href="#from-020-to-021" title="Permanent link">&para;</a></h2>
+<p>0.2.1 changes what 0.2.0 did in these ways, each marked <strong>BREAKING</strong> in the <a href="https://github.com/m00qek/ucode-prometheus-exporter/blob/main/CHANGELOG.md">CHANGELOG</a>:</p>
+<ul>
+<li><strong>Basic auth's hash has a config of its own.</strong> <code>auth_password</code> is read from <code>/etc/config/prometheus-exporter-auth</code>, which the package installs, mode 0600, and no longer from the main section of <code>/etc/config/prometheus-exporter</code>, which LuCI's ACL lets a login read. The upgrade moves a hash it finds in the main section, and logs <code>auth_password moved from /etc/config/prometheus-exporter to /etc/config/prometheus-exporter-auth</code>. A script that sets the hash sets <code>prometheus-exporter-auth.main.auth_password</code>, or calls the ubus object's <code>set_password</code>; <code>check</code> warns of a hash left in the main section, which is ignored. A hash without a user is no basic auth now, rather than an invalid configuration, and <code>validate</code> no longer answers <code>AUTH_NEEDS_USER</code>. LuCI's ACL grants <code>password</code> and <code>set_password</code>, and no longer <code>hash_password</code>. See <a href="../https-basic-auth/">How to serve HTTPS with basic auth</a>.</li>
+<li><strong>textfile's <code>directory</code> must be under <code>/var</code>, <code>/tmp</code> or <code>/etc/prometheus-exporter</code>.</strong> The service makes and mounts no other: move one elsewhere, as under <code>/srv</code>, before upgrading, or the configuration is refused (<code>OWNED_DIRECTORY</code>).</li>
+<li><strong><code>memory_limit</code> takes 0, or 8 MB and more.</strong> 1 to 7 passed <code>check</code>, and uhttpd crash-looped; they are refused now (<code>ZERO_OR_MIN</code>).</li>
+<li><strong>hostapd_stations labels each station's series by <code>vif</code> and <code>station</code> alone.</strong> <code>ssid</code>, <code>bssid</code>, <code>encryption</code>, <code>frequency</code> and <code>channel</code> are on the new <code>hostapd_station_info</code> alone, one series per station. A query that selected by them joins it: <code>hostapd_station_signal_dbm * on (vif, station) group_left (ssid) hostapd_station_info</code>.</li>
+<li>
+<p><strong>netstat exports node_exporter's default fields only</strong>, some 40 series where it wrote about 400. Its new option <code>fields</code>, a regular expression of <code>&lt;Section&gt;_&lt;Field&gt;</code>, takes others; <code>.*</code> exports every one, as 0.2.0 did:</p>
+<div class="highlight"><pre><span></span><code>uci<span class="w"> </span><span class="nb">set</span><span class="w"> </span>prometheus-exporter.netstat<span class="o">=</span>collector
+uci<span class="w"> </span><span class="nb">set</span><span class="w"> </span>prometheus-exporter.netstat.fields<span class="o">=</span><span class="s1">&#39;.*&#39;</span>
+uci<span class="w"> </span>commit<span class="w"> </span>prometheus-exporter
+</code></pre></div>
+</li>
+<li>
+<p><strong>nat_traffic labels an IPv6 address compressed</strong>, <code>2001:db8:0:1::e157</code> where it had <code>2001:0db8:0000:0001:0000:0000:0000:e157</code>, as every other collector labels it. A query or recording rule that matched the long form matches the short one now; the series start anew at the upgrade.</p>
+</li>
+<li><strong>A collector passes its labels as an object, null, or what <code>out.labels()</code> made.</strong> A string of labels spliced by hand, which was written as it was, now fails the collector with <code>EXPOSITION_INVALID</code>, as a label value that is not UTF-8 and two label names that are one once sanitized do. Every collector of the exporter's packages does already; check one of another package with <code>prometheus-exporter collector check</code>.</li>
+<li><strong>The loader refuses a collector that calls <code>system()</code> or <code>include()</code></strong>, as it refuses <code>require</code>: run programs through <code>deps.exec</code>. See <a href="../../reference/collector-contract/#what-a-collector-may-import">Collector contract</a>.</li>
+</ul>
+<p>These change what 0.2.0 did without breaking a configuration:</p>
+<ul>
+<li><strong>The jail has the ubus socket only while an enabled collector needs ubus.</strong> A collector of another package whose programs call ubus, without <code>ubus</code> in its <code>meta.needs</code>, finds no ubus when every collector that needs it is disabled: declare it.</li>
+<li><strong>uhttpd runs 3 requests at once over 10 connections at most</strong>, where it took its defaults of 3 and 100: a client past them waits. One or two Prometheus servers need no more; see <a href="../../reference/http/#connections">HTTP endpoint</a>.</li>
+</ul>
 <h2 id="from-01-to-02">From 0.1 to 0.2<a class="headerlink" href="#from-01-to-02" title="Permanent link">&para;</a></h2>
 <p>0.2.0 changes what 0.1 did in these ways:</p>
 <ul>

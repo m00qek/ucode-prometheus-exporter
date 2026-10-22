@@ -2230,7 +2230,7 @@
 </code></pre></div>
 <p><code>make unit</code> and <code>make integration</code> run one suite. To narrow a run:</p>
 <div class="highlight"><pre><span></span><code>make<span class="w"> </span>unit<span class="w"> </span><span class="nv">MODULES</span><span class="o">=</span>test/unit/prometheus_exporter/collectors/wifi_test.uc
-make<span class="w"> </span><span class="nb">test</span><span class="w"> </span><span class="nv">FILTER</span><span class="o">=</span><span class="s1">'collectors.wifi'</span><span class="w"> </span><span class="nv">VERBOSE</span><span class="o">=</span><span class="m">1</span>
+make<span class="w"> </span><span class="nb">test</span><span class="w"> </span><span class="nv">FILTER</span><span class="o">=</span><span class="s1">&#39;collectors.wifi&#39;</span><span class="w"> </span><span class="nv">VERBOSE</span><span class="o">=</span><span class="m">1</span>
 make<span class="w"> </span>watch
 </code></pre></div>
 <p><code>watch</code> runs the tests again whenever a file under <code>src/</code>, <code>test/</code>, <code>files/</code>, <code>devenv/scripts/</code> or <code>docs/gen/</code> changes. To run them on the API floor, the first 25.12 release, as CI does too: <code>make test OPENWRT_VERSION=25.12.0</code>.</p>
@@ -2248,7 +2248,7 @@ make<span class="w"> </span>watch
 <p>Boots OpenWrt in a privileged container, without network, and checks the service in its jail as packages come and go and its configuration changes. It needs Docker to allow privileged containers.</p>
 <h2 id="the-luci-app">The LuCI app<a class="headerlink" href="#the-luci-app" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code>make<span class="w"> </span>browser
-make<span class="w"> </span>browser<span class="w"> </span><span class="nv">FILTER</span><span class="o">=</span><span class="s1">'settings'</span>
+make<span class="w"> </span>browser<span class="w"> </span><span class="nv">FILTER</span><span class="o">=</span><span class="s1">&#39;settings&#39;</span>
 </code></pre></div>
 <p>Runs the Playwright tests of <code>test/browser/</code> against LuCI with the built packages. Screenshots, and on a failure the error context and LuCI's log, are in <code>bin/browser/</code>.</p>
 <h2 id="the-documentation-tooling">The documentation tooling<a class="headerlink" href="#the-documentation-tooling" title="Permanent link">&para;</a></h2>

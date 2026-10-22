@@ -2508,7 +2508,7 @@
 <td><code>node_netstat_&lt;Section&gt;_&lt;Field&gt;</code> (from <code>/proc/net/netstat</code> and <code>/proc/net/snmp</code>)</td>
 <td><code>node_netstat_&lt;Section&gt;_&lt;Field&gt;</code></td>
 <td>gauge → untyped</td>
-<td>node_exporter's type, and its help text <code>Statistic &lt;Section&gt;&lt;Field&gt;.</code></td>
+<td>node_exporter's type, and its help text <code>Statistic &lt;Section&gt;&lt;Field&gt;.</code> By default only the fields node_exporter's <code>--collector.netstat.fields</code> keeps, some 40 of about 400; the option <code>fields</code>, a regular expression, takes others (<code>.*</code> for every one).</td>
 </tr>
 <tr>
 <td><code>snmp6_&lt;Name&gt;{device="all"}</code> (from <code>/proc/net/snmp6</code>)</td>
@@ -2698,9 +2698,21 @@
 <td>gauge</td>
 <td>A gauge has no <code>_total</code>.</td>
 </tr>
+<tr>
+<td><code>hostapd_station_*{vif,ssid,bssid,encryption,frequency,channel,station}</code></td>
+<td><code>hostapd_station_*{vif,station}</code></td>
+<td>unchanged</td>
+<td>The network's labels are on the info metric below: a channel change (DFS, ACS) no longer starts a new series of every station's counters.</td>
+</tr>
+<tr>
+<td>— (labels of <code>hostapd_station_*</code>)</td>
+<td><code>hostapd_station_info{vif,station,ssid,bssid,encryption,frequency,channel}</code></td>
+<td>gauge</td>
+<td>The station's network, as an info metric, one per station.</td>
+</tr>
 </tbody>
 </table>
-<p>The hostapd_stations and hostapd_ubus_stations families already followed the conventions and are unchanged.</p>
+<p>The hostapd_ubus_stations families already followed the conventions and are unchanged.</p>
 <h2 id="hardware-and-system-collectors">Hardware and system collectors<a class="headerlink" href="#hardware-and-system-collectors" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -3447,7 +3459,7 @@
 </tbody>
 </table>
 <h2 id="unchanged-collectors">Unchanged collectors<a class="headerlink" href="#unchanged-collectors" title="Permanent link">&para;</a></h2>
-<p>conntrack (beyond the statistics above), entropy, filefd, filesystem, hostapd_stations, hostapd_ubus_stations, loadavg, realtek-poe, textfile, time and uname write the families they wrote before.</p>
+<p>conntrack (beyond the statistics above), entropy, filefd, filesystem, hostapd_ubus_stations, loadavg, realtek-poe, textfile, time and uname write the families they wrote before.</p>
 <h2 id="standalone-exporters">Standalone exporters<a class="headerlink" href="#standalone-exporters" title="Permanent link">&para;</a></h2>
 <table>
 <thead>

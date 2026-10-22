@@ -1668,6 +1668,21 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Paths">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#owned-paths" class="md-nav__link">
+    <span class="md-ellipsis">
+      Owned paths
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2201,6 +2216,21 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Paths">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#owned-paths" class="md-nav__link">
+    <span class="md-ellipsis">
+      Owned paths
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2295,10 +2325,10 @@
 <tbody>
 <tr>
 <td style="text-align: left;">The jail's options</td>
-<td style="text-align: left;">procfs, sysfs, the ubus socket, <code>/dev/log</code>.</td>
+<td style="text-align: left;">procfs, sysfs, <code>/dev/log</code>.</td>
 </tr>
 <tr>
-<td style="text-align: left;">The exporter</td>
+<td style="text-align: left;">The exporter (<code>jail.uc</code>, before the collectors' mounts)</td>
 <td style="text-align: left;"><code>/usr/lib/uhttpd_ucode.so</code>, <code>/lib/libubus.so*</code>, <code>/lib/libuci.so*</code>, <code>/usr/lib/libnl*.so*</code>, <code>/usr/lib/libz.so*</code>, <code>/usr/lib/ucode</code>, <code>/usr/share/ucode/prometheus_exporter</code>, <code>/usr/libexec/prometheus-exporter/handler.uc</code>; <code>/bin/sh</code>, whose <code>kill</code> a scrape uses to end a collector's process a dead scrape left running.</td>
 </tr>
 <tr>
@@ -2319,8 +2349,8 @@
 </tr>
 </tbody>
 </table>
-<p>Every mount is read-only but the state. procd starts the instance at nice 10, with a data limit (<code>RLIMIT_DATA</code>) on each of its processes of <code>memory_limit</code> MB, or a quarter of the RAM, at most 64 MB: see <a href="../collector-contract/">Collector contract</a>.</p>
-<p><code>check</code>, the ubus object's <code>status</code> and <code>prometheus-exporter scrape</code> run their collectors in a jail of the same mounts, with ujail, at the same priority and data limit: <code>/usr/libexec/prometheus-exporter/trial.uc</code>, with the libraries of <code>/usr/lib/ucode/*.so</code> given one by one (ujail mounts what each needs), named <code>prometheus-exporter-trial</code>. Where ujail cannot run they run outside it.</p>
+<p>Every mount is read-only but the state. The ubus socket is not among them: see <a href="#what-a-collector-gets">What a collector gets</a>. procd starts the instance at nice 10, with a data limit (<code>RLIMIT_DATA</code>) on each of its processes of <code>memory_limit</code> MB, or a quarter of the RAM, at most 64 MB: see <a href="../collector-contract/">Collector contract</a>.</p>
+<p><code>check</code>, the ubus object's <code>status</code> and <code>prometheus-exporter scrape</code> run their collectors in a jail of the same mounts, with ujail, at the same priority and data limit, with ubus (ujail's <code>-u</code>) only when the service's jail has it: <code>/usr/libexec/prometheus-exporter/trial.uc</code>, with the libraries of <code>/usr/lib/ucode/*.so</code> given one by one (ujail mounts what each needs), named <code>prometheus-exporter-trial</code>. Where ujail cannot run they run outside it.</p>
 <h2 id="what-a-collector-gets">What a collector gets<a class="headerlink" href="#what-a-collector-gets" title="Permanent link">&para;</a></h2>
 <p>For each installed collector that is enabled:</p>
 <table>
@@ -2334,6 +2364,10 @@
 <tr>
 <td style="text-align: left;"><code>configs: [ 'dhcp' ]</code></td>
 <td style="text-align: left;"><code>/etc/config/dhcp</code>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>ubus</code> in <code>needs</code></td>
+<td style="text-align: left;">The ubus socket, <code>/var/run/ubus/ubus.sock</code>, by the jail's <code>ubus</code> option: <code>jail.uc</code> names it, and the init script gives the jail the option for it. While no enabled collector needs ubus, the jail has no ubus.</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>exec</code> in <code>needs</code></td>
@@ -2374,7 +2408,7 @@
 </tr>
 <tr>
 <td style="text-align: left;"><code>{ path: '{directory}', owned: true }</code></td>
-<td style="text-align: left;">That path, which is the exporter's own: the service makes it, with its parents (mode 0755), when it is not there.</td>
+<td style="text-align: left;">That path, which is the exporter's own: the service makes it, with its parents (mode 0755), when it is not there. It must be under <code>/var</code>, <code>/tmp</code> or <code>/etc/prometheus-exporter</code>: see <a href="#owned-paths">below</a>.</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>(options, uci) =&gt; [ ... ]</code></td>
@@ -2385,6 +2419,27 @@
 <p>A path is refused, with a warning, when it is not absolute, holds a space, a control or a glob character, is not plain (<code>//</code>, <code>.</code>, <code>..</code>, or a trailing <code>/</code>), or is one of the directories every service shares:</p>
 <p><code>/</code>, <code>/bin</code>, <code>/dev</code>, <code>/etc</code>, <code>/etc/config</code>, <code>/lib</code>, <code>/proc</code>, <code>/run</code>, <code>/sbin</code>, <code>/sys</code>, <code>/tmp</code>, <code>/tmp/run</code>, <code>/usr</code>, <code>/usr/bin</code>, <code>/usr/lib</code>, <code>/usr/sbin</code>, <code>/usr/share</code>, <code>/var</code>, <code>/var/run</code>.</p>
 <p>ujail cannot mount a socket: a collector declares the socket's directory.</p>
+<h3 id="owned-paths">Owned paths<a class="headerlink" href="#owned-paths" title="Permanent link">&para;</a></h3>
+<p>The service makes an owned path as root, and mounts it, so it takes one only below these, and refuses any other with a warning, neither made nor mounted:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Under</th>
+<th style="text-align: left;">Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>/var</code>, <code>/tmp</code></td>
+<td style="text-align: left;">tmpfs on OpenWrt (<code>/var</code> is <code>/tmp</code>): what a script writes there often does not wear the flash.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>/etc/prometheus-exporter</code></td>
+<td style="text-align: left;">The exporter's own, on flash: for files that must outlive a reboot.</td>
+</tr>
+</tbody>
+</table>
+<p>An option that names one, as textfile's <code>directory</code>, has the datatype <code>owned_directory</code>, which takes the same: the configuration is refused with <code>OWNED_DIRECTORY</code> (see <a href="../uci-config/#problems">UCI configuration</a>) before the service makes anything.</p>
 <h2 id="missing-paths">Missing paths<a class="headerlink" href="#missing-paths" title="Permanent link">&para;</a></h2>
 <p>A path that is not there when the service starts is left out of the mounts, and <code>check</code> warns of it. While one is missing, the service runs a second instance, <code>watch</code>, with the missing paths:</p>
 <ol>

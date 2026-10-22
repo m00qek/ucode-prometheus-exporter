@@ -667,27 +667,36 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#1-choose-the-packages" class="md-nav__link">
+  <a href="#1-add-the-feed" class="md-nav__link">
     <span class="md-ellipsis">
-      1. Choose the packages
+      1. Add the feed
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#2-install-them" class="md-nav__link">
+  <a href="#2-choose-the-packages" class="md-nav__link">
     <span class="md-ellipsis">
-      2. Install them
+      2. Choose the packages
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#3-check-that-it-serves" class="md-nav__link">
+  <a href="#3-install-them" class="md-nav__link">
     <span class="md-ellipsis">
-      3. Check that it serves
+      3. Install them
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-check-that-it-serves" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. Check that it serves
     </span>
   </a>
   
@@ -2152,27 +2161,36 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#1-choose-the-packages" class="md-nav__link">
+  <a href="#1-add-the-feed" class="md-nav__link">
     <span class="md-ellipsis">
-      1. Choose the packages
+      1. Add the feed
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#2-install-them" class="md-nav__link">
+  <a href="#2-choose-the-packages" class="md-nav__link">
     <span class="md-ellipsis">
-      2. Install them
+      2. Choose the packages
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#3-check-that-it-serves" class="md-nav__link">
+  <a href="#3-install-them" class="md-nav__link">
     <span class="md-ellipsis">
-      3. Check that it serves
+      3. Install them
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-check-that-it-serves" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. Check that it serves
     </span>
   </a>
   
@@ -2206,16 +2224,22 @@
 
 
 <h1 id="how-to-install-the-exporter">How to Install the Exporter<a class="headerlink" href="#how-to-install-the-exporter" title="Permanent link">&para;</a></h1>
-<p>Install the base package, then the collectors you want, one by one or in groups. The service starts on its own, on loopback, port 9100.</p>
+<p>Add the feed the exporter is published in, install the base package, then the collectors you want, one by one or in groups. The service starts on its own, on loopback, port 9100.</p>
 <h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
 <ul>
-<li>A device on OpenWrt 25.12, with a shell on it (ssh).</li>
-<li>The packages: from a package feed your device uses, or as <code>.apk</code> files, which <code>make package</code> builds into <code>bin/</code> (see <a href="../../reference/make-targets/#packages-and-the-device">Make targets</a>).</li>
-<li>The device can reach its release's own feeds: the packages depend on <code>uhttpd</code>, <code>ucode</code> modules and <code>rpcd-mod-ucode</code>, which come from there.</li>
+<li>A device on OpenWrt 25.12, with a shell on it (ssh), that can reach the internet.</li>
 <li>Neither <code>prometheus-node-exporter-ucode</code> nor <code>prometheus-node-exporter-lua</code> is installed. If one is, see <a href="../migrate-from-feed/">How to move from the feed's exporters</a> instead.</li>
 </ul>
 <hr />
-<h2 id="1-choose-the-packages">1. Choose the packages<a class="headerlink" href="#1-choose-the-packages" title="Permanent link">&para;</a></h2>
+<h2 id="1-add-the-feed">1. Add the feed<a class="headerlink" href="#1-add-the-feed" title="Permanent link">&para;</a></h2>
+<p>The exporter's packages are in the <a href="https://github.com/m00qek/packages.ucode.dev">packages.ucode.dev</a> feed, and so is <code>ucode-docopt</code>, which the base package depends on and OpenWrt's own feeds do not have. Its other dependencies, <code>uhttpd</code>, <code>ucode</code> modules and <code>rpcd-mod-ucode</code>, come from the release's own feeds. Add the feed and its signing key:</p>
+<div class="highlight"><pre><span></span><code><span class="nv">feed</span><span class="o">=</span>https://m00qek.github.io/packages.ucode.dev/25.12
+wget<span class="w"> </span>-qO<span class="w"> </span>/etc/apk/keys/packages.ucode.dev.pem<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$feed</span><span class="s2">/feed.pub.pem&quot;</span>
+<span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$feed</span><span class="s2">&quot;</span><span class="w"> </span>&gt;<span class="w"> </span>/etc/apk/repositories.d/ucode-dev.list
+apk<span class="w"> </span>update
+</code></pre></div>
+<p>apk then checks every package of the feed against that key, as it checks OpenWrt's against the release's.</p>
+<h2 id="2-choose-the-packages">2. Choose the packages<a class="headerlink" href="#2-choose-the-packages" title="Permanent link">&para;</a></h2>
 <ul>
 <li><code>ucode-prometheus-exporter</code>, the base package: the service and the collectors every device can use.</li>
 <li>A collector's package, <code>ucode-prometheus-exporter-&lt;name&gt;</code>, for each other collector you want: <code>-wifi</code>, <code>-dnsmasq</code>, <code>-wireguard</code>.</li>
@@ -2223,19 +2247,20 @@
 <li><code>luci-app-prometheus-exporter</code>, for its pages in LuCI.</li>
 </ul>
 <p><a href="../../reference/collectors/">Collectors</a> lists every collector, its package and its groups.</p>
-<h2 id="2-install-them">2. Install them<a class="headerlink" href="#2-install-them" title="Permanent link">&para;</a></h2>
-<p>From a feed:</p>
+<h2 id="3-install-them">3. Install them<a class="headerlink" href="#3-install-them" title="Permanent link">&para;</a></h2>
+<p>From the feed:</p>
 <div class="highlight"><pre><span></span><code>apk<span class="w"> </span>update
 apk<span class="w"> </span>add<span class="w"> </span>ucode-prometheus-exporter<span class="w"> </span>ucode-prometheus-exporter-full<span class="w"> </span>luci-app-prometheus-exporter
 </code></pre></div>
-<p>From <code>.apk</code> files, copied to the device's <code>/tmp</code>:</p>
-<div class="highlight"><pre><span></span><code>apk<span class="w"> </span>update
-apk<span class="w"> </span>add<span class="w"> </span>--allow-untrusted<span class="w"> </span>/tmp/ucode-prometheus-exporter-0.1.0-r1.apk<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>/tmp/ucode-prometheus-exporter-wifi-0.1.0-r1.apk<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>/tmp/luci-app-prometheus-exporter-0.1.0-r1.apk
+<p>Or from <code>.apk</code> files, which <code>make package</code> builds into <code>bin/</code> (see <a href="../../reference/make-targets/#packages-and-the-device">Make targets</a>), copied to the device's <code>/tmp</code>. <code>ucode-docopt</code> still comes from the feed of step 1, unless its own file is among them. Set <code>version</code> to the files' version, as their names end:</p>
+<div class="highlight"><pre><span></span><code><span class="nv">version</span><span class="o">=</span><span class="m">0</span>.2.0-r1
+apk<span class="w"> </span>update
+apk<span class="w"> </span>add<span class="w"> </span>--allow-untrusted<span class="w"> </span>ucode-docopt<span class="w"> </span>/tmp/ucode-prometheus-exporter-<span class="nv">$version</span>.apk<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>/tmp/ucode-prometheus-exporter-wifi-<span class="nv">$version</span>.apk<span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>/tmp/luci-app-prometheus-exporter-<span class="nv">$version</span>.apk
 </code></pre></div>
 <p>A group's file brings nothing without its collectors' files: install them together. Every package must be of the same version as the base package.</p>
-<h2 id="3-check-that-it-serves">3. Check that it serves<a class="headerlink" href="#3-check-that-it-serves" title="Permanent link">&para;</a></h2>
+<h2 id="4-check-that-it-serves">4. Check that it serves<a class="headerlink" href="#4-check-that-it-serves" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code>service<span class="w"> </span>prometheus-exporter<span class="w"> </span>status
 wget<span class="w"> </span>-qO-<span class="w"> </span>http://127.0.0.1:9100/metrics<span class="w"> </span><span class="p">|</span><span class="w"> </span>head
 </code></pre></div>

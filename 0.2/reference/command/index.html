@@ -2236,7 +2236,7 @@ Commands:
                     the service runs it, in a process of its own, stopped at
                     its budget, within scrape_timeout.
   check             Check the configuration, describe the installed
-                    collectors and run a scrape of them, as the init script's
+                    collectors and run a scrape of them, as the init script&#39;s
                     check does.
   collector list    List the installed collectors: name, whether enabled, and
                     what each collects.
@@ -2249,7 +2249,7 @@ Commands:
 
 Options:
   -d &lt;dir&gt;, --dir=&lt;dir&gt;  Load the collectors from &lt;dir&gt;, a directory on
-                         ucode's module path, not the installed ones.
+                         ucode&#39;s module path, not the installed ones.
   --config               Check the configuration alone, as start and reload do.
   -h, --help             Show this help.
   --version              Show the version.
@@ -2286,7 +2286,7 @@ Options:
 # TYPE node_load1 gauge
 node_load1 0.72
 ...
-ucode_prometheus_exporter_build_info{version="0.2.0-r1"} 1
+ucode_prometheus_exporter_build_info{version=&quot;0.2.0-r1&quot;} 1
 </code></pre></div>
 <h2 id="check"><code>prometheus-exporter check</code><a class="headerlink" href="#check" title="Permanent link">&para;</a></h2>
 <p>Checks the configuration as the exporter and the init script read it, describes every installed collector (its section, options, needs and what the jail gives it), and runs a scrape of the enabled ones, outside the jail, each as the service runs it; then what the service's own scrapes found: each collector quarantined, and each the deadline left out lately. <code>service prometheus-exporter check</code> runs it. With <code>--config</code>, the configuration alone, as <code>start</code> and <code>reload</code> check it. See <a href="../service-commands/#check">Service commands</a>.</p>
@@ -2335,7 +2335,7 @@ cpu                      enabled  CPU time per mode, from /proc/stat.
 <h2 id="collector-check"><code>prometheus-exporter collector check</code><a class="headerlink" href="#collector-check" title="Permanent link">&para;</a></h2>
 <p>Checks a collector module before it is installed, on the device it is meant for: whether it keeps the <a href="../collector-contract/">collector contract</a>. It reads <code>&lt;path&gt;</code>, which must be <code>&lt;module&gt;.uc</code>, and its text for strict mode and its imports, loads it under the load timer (5 s), validates its <code>meta</code>, and runs it as the service would, in a process of its own, at most its budget and its <code>max_samples</code>. It says how long it took to load and to run, the samples it wrote and its families, and then whether its text is valid exposition, each series once, and whether a family is one an installed collector or the exporter writes.</p>
 <ul>
-<li>A line starts <code>ok</code>, <code>warn</code> or <code>FAIL</code>. A rule broken is <code>FAIL</code>: not in strict mode; importing a module other than <code>prometheus_exporter.api</code>, or calling <code>require</code>, <code>loadfile</code> or <code>loadstring</code>, with the text the loader logs (<code>FAIL imports fs (line 3): a collector reads files through deps.fs, with 'fs' in meta.needs</code>); not loading, or not in time; a <code>meta</code> that is not valid; stopped at its budget or at the deadline, killed, over its <code>max_samples</code>, crashing, or not returning a Result; text that is not valid; a family another writes.</li>
+<li>A line starts <code>ok</code>, <code>warn</code> or <code>FAIL</code>. A rule broken is <code>FAIL</code>: not in strict mode; importing a module other than <code>prometheus_exporter.api</code>, or calling <code>require</code>, <code>loadfile</code>, <code>loadstring</code>, <code>include</code> or <code>system</code>, with the text the loader logs (<code>FAIL imports fs (line 3): a collector reads files through deps.fs, with 'fs' in meta.needs</code>); not loading, or not in time; a <code>meta</code> that is not valid; stopped at its budget or at the deadline, killed, over its <code>max_samples</code>, crashing, or not returning a Result; text that is not valid; a family another writes.</li>
 <li>A failure that is the device's (<code>SOURCE_*</code>, <code>UBUS_*</code>, <code>COMMAND_FAILED</code>, <code>NEED_MISSING</code>) is <code>warn</code>, and so is nothing to observe: it may do its job on another device.</li>
 <li>A module of the same name already installed is left out of the families it is compared with: a new version of a collector can be checked beside the old.</li>
 </ul>
@@ -2358,7 +2358,7 @@ cpu                      enabled  CPU time per mode, from /proc/stat.
 </tbody>
 </table>
 <div class="highlight"><pre><span></span><code>$ prometheus-exporter collector check /tmp/apk_updates.uc
-ok   strict mode: 'use strict' first
+ok   strict mode: &#39;use strict&#39; first
 ok   imports: prometheus_exporter.api alone
 ok   load: 0.004 s, of at most 5 s
 ok   meta: apk_updates (APK updates), needs exec, budget 6 s, max_samples 20000

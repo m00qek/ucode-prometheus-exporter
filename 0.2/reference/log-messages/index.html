@@ -2246,9 +2246,14 @@
 <td style="text-align: left;">Basic auth's file is there, and wrong.</td>
 </tr>
 <tr>
+<td style="text-align: left;"><code>/var/run/prometheus-exporter/uhttpd.conf is not there, and the config sets basic auth (auth_user): every request is denied</code></td>
+<td style="text-align: left;"><code>err</code></td>
+<td style="text-align: left;">uhttpd started without basic auth's file, though <code>auth_user</code> is set: procd started it again after the file went. <code>service prometheus-exporter restart</code> writes it.</td>
+</tr>
+<tr>
 <td style="text-align: left;"><code>collector '&lt;name&gt;': &lt;CODE (detail)&gt;</code></td>
 <td style="text-align: left;"><code>warning</code></td>
-<td style="text-align: left;">A collector failed in a scrape, but for <code>SCRAPE_DEADLINE</code>, which the scrape's line says: as it returned it, or as the exporter stopped it (<code>COLLECTOR_CANCELLED</code>, <code>COLLECTOR_KILLED</code>, <code>SAMPLE_LIMIT</code>, <code>FAMILY_CONFLICT</code>). See <a href="../error-codes/">Error codes</a> and <a href="../collector-contract/">Collector contract</a>.</td>
+<td style="text-align: left;">A collector failed in a scrape, but for <code>SCRAPE_DEADLINE</code>, which the scrape's line says: as it returned it, or as the exporter stopped it (<code>COLLECTOR_CANCELLED</code>, <code>COLLECTOR_KILLED</code>, <code>SAMPLE_LIMIT</code>, <code>EXPOSITION_INVALID</code>, <code>FAMILY_CONFLICT</code>). See <a href="../error-codes/">Error codes</a> and <a href="../collector-contract/">Collector contract</a>.</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>collector '&lt;name&gt;' was running when a scrape process died</code></td>
@@ -2256,9 +2261,14 @@
 <td style="text-align: left;">A scrape found the progress file of a scrape process that died while this collector ran. It is quarantined, and the child process it ran in is killed.</td>
 </tr>
 <tr>
-<td style="text-align: left;"><code>cannot fork a process to run the collectors in; running them in the scrape's own</code></td>
+<td style="text-align: left;"><code>cannot fork a process to run the collectors in; running the collectors in the scrape's own process</code></td>
 <td style="text-align: left;"><code>warning</code></td>
 <td style="text-align: left;">The system could not fork (out of processes or memory): the scrape ran its collectors in its own process, which nothing can stop midway.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>cannot make the file the collectors' runs cross by, in &lt;directory&gt;; running the collectors in the scrape's own process</code></td>
+<td style="text-align: left;"><code>warning</code></td>
+<td style="text-align: left;">The state's directory (<code>/tmp</code> outside the service) could not take a temporary file, full or not writable: the scrape ran its collectors in its own process, which nothing can stop midway.</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>scrape deadline: &lt;n&gt; collector[s] not served in its &lt;seconds&gt; s: &lt;name&gt;, ...</code></td>
@@ -2281,9 +2291,24 @@
 <td style="text-align: left;">A collector that succeeded said something with its <code>log</code> capability: textfile's <code>skipped &lt;file&gt;: &lt;why&gt;</code>, as <code>skipped /var/prometheus/x.prom: is not a regular file (fifo): not read</code>.</td>
 </tr>
 <tr>
+<td style="text-align: left;"><code>collector '&lt;name&gt;': &lt;n&gt; more line[s] of its log left out</code></td>
+<td style="text-align: left;"><code>warning</code></td>
+<td style="text-align: left;">A collector's run logged more than 10 lines with its <code>log</code> capability: the first 10 were logged, each cut at 512 bytes, and this once the run was over.</td>
+</tr>
+<tr>
 <td style="text-align: left;"><code>collector '&lt;name&gt;': '&lt;family&gt;' declared with two types; later samples dropped</code></td>
 <td style="text-align: left;"><code>warning</code></td>
 <td style="text-align: left;">A collector declared a family twice.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>the processes forked to run the collectors in ended twice before running one; not run: &lt;name&gt;, ...</code></td>
+<td style="text-align: left;"><code>warning</code></td>
+<td style="text-align: left;">Two child processes in a row ended before they ran a collector: the collectors left fail with <code>COLLECTOR_NOT_RUN</code>, their breakers as they were.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>the scrape could not be recorded in the instance's state: its ledger is as the last scrape left it</code></td>
+<td style="text-align: left;"><code>warning</code></td>
+<td style="text-align: left;">The state's directory could not be written: the next scrape orders, times and quarantines the collectors by the ledger as it was.</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>main: &lt;CODE (detail)&gt;</code></td>
@@ -2372,7 +2397,7 @@
 </tbody>
 </table>
 <h2 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h2>
-<p>The uci-defaults script that takes over a feed exporter's settings logs at <code>info</code>, once, when the package is installed:</p>
+<p>The uci-defaults script that takes over a feed exporter's settings, and moves basic auth's hash out of 0.2.0's place, logs at <code>info</code>, once, when the package is installed or upgraded:</p>
 <table>
 <thead>
 <tr>
@@ -2392,6 +2417,18 @@
 <tr>
 <td style="text-align: left;"><code>/etc/config/prometheus-exporter is not as the package ships it: nothing imported from /etc/config/&lt;old&gt;</code></td>
 <td style="text-align: left;">The config had been changed already.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>auth_password moved from /etc/config/prometheus-exporter to /etc/config/prometheus-exporter-auth</code></td>
+<td style="text-align: left;">An upgrade from 0.2.0 found the hash of basic auth's password where 0.2.0 kept it, and moved it where the exporter reads it now.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>auth_password removed from /etc/config/prometheus-exporter: /etc/config/prometheus-exporter-auth has one already, which is kept</code></td>
+<td style="text-align: left;">The same, with a hash saved apart already.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>/etc/config/prometheus-exporter-auth is not there: auth_password left in /etc/config/prometheus-exporter, where it is not read; set it again</code></td>
+<td style="text-align: left;">The hash's config was removed: save the password again (<code>set_password</code>).</td>
 </tr>
 </tbody>
 </table>

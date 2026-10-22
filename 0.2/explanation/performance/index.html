@@ -2051,6 +2051,33 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#samples-and-collectors" class="md-nav__link">
+    <span class="md-ellipsis">
+      What a sample and a collector cost
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#besides-the-collectors" class="md-nav__link">
+    <span class="md-ellipsis">
+      Besides the collectors
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#loading" class="md-nav__link">
+    <span class="md-ellipsis">
+      Loading
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-ledger" class="md-nav__link">
     <span class="md-ellipsis">
       The ledger
@@ -2216,6 +2243,33 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#samples-and-collectors" class="md-nav__link">
+    <span class="md-ellipsis">
+      What a sample and a collector cost
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#besides-the-collectors" class="md-nav__link">
+    <span class="md-ellipsis">
+      Besides the collectors
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#loading" class="md-nav__link">
+    <span class="md-ellipsis">
+      Loading
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-ledger" class="md-nav__link">
     <span class="md-ellipsis">
       The ledger
@@ -2274,7 +2328,7 @@
 <hr />
 <h2 id="the-cost-of-the-vm">The cost of the VM<a class="headerlink" href="#the-cost-of-the-vm" title="Permanent link">&para;</a></h2>
 <p>Every operation of ucode's VM costs about a microsecond on a router: a loop's turn, a call of a builtin, a property read. A regex match costs several, and a regex literal is compiled each time it is evaluated. A scrape writes thousands of samples and reads tables of thousands of lines, so what matters is what is done per sample and per line.</p>
-<p>That is why the code looks the way it does. Regexes are module constants, and kept out of what runs per line where <code>index()</code>, <code>split()</code> on a string or <code>substr()</code> do. A sample's line is written once, when it is recorded, and labels several samples share are written once and passed around. nat_traffic takes a conntrack line apart with fixed-string splits, without a regex or a function call per line. <code>make bench</code> shows what a collector costs, and holds the budgets of <code>test/bench/budgets.uc</code>: a scaling budget, a memory budget, and generous times.</p>
+<p>That is why the code looks the way it does. Regexes are module constants, and kept out of what runs per line where <code>index()</code>, <code>split()</code> on a string or <code>substr()</code> do: on a 24Kc a match costs 20 to 60 µs, three to eight times a builtin's call. A sample's line is written once, when it is recorded, and labels several samples share are written once and passed around. nat_traffic takes a conntrack line apart with fixed-string splits, without a regex or a function call per line. <code>make bench</code> shows what a collector costs, and holds the budgets of <code>test/bench/budgets.uc</code>: a scaling budget, a memory budget, and generous times.</p>
 <h2 id="what-a-scrape-costs">What a scrape costs<a class="headerlink" href="#what-a-scrape-costs" title="Permanent link">&para;</a></h2>
 <p>The same scrape, the typical world (a home router with Wi-Fi: 12 links, 300 conntrack entries, 20 stations, 50 leases) with the base package and the <code>-full</code> group, on each machine, with the speed of ucode's VM on it (<code>calibrate:vm</code>'s loop turn) and of running a program:</p>
 <table>
@@ -2290,8 +2344,8 @@
 <tr>
 <td style="text-align: left;">devenv (Ryzen 7 7840U)</td>
 <td style="text-align: left;">0.10 s</td>
-<td style="text-align: left;">0.32 µs</td>
-<td style="text-align: left;">1.7 ms</td>
+<td style="text-align: left;">0.23 µs</td>
+<td style="text-align: left;">0.9 ms</td>
 </tr>
 <tr>
 <td style="text-align: left;">NanoPi R3S (4×A55, OpenWrt 25.12.5)</td>
@@ -2307,13 +2361,13 @@
 </tr>
 <tr>
 <td style="text-align: left;">QEMU malta, 24Kc at 500 MIPS (<code>QEMU_SHIFT=1</code>)</td>
-<td style="text-align: left;">2.0 s</td>
+<td style="text-align: left;">2.6 s</td>
 <td style="text-align: left;">9.9 µs</td>
-<td style="text-align: left;">5.3 ms</td>
+<td style="text-align: left;">5.4 ms</td>
 </tr>
 <tr>
 <td style="text-align: left;">QEMU malta, 24Kc at 250 MIPS (<code>QEMU_SHIFT=2</code>)</td>
-<td style="text-align: left;">4.0 s</td>
+<td style="text-align: left;">5.3 s</td>
 <td style="text-align: left;">19.7 µs</td>
 <td style="text-align: left;"></td>
 </tr>
@@ -2325,10 +2379,10 @@
 <p>QEMU is the closer model of a MIPS router. It counts instructions (<code>-icount shift=N,sleep=on</code>, with the guest's clock on the same count), so its times are a deterministic function of the code and of N: shift 2 is exactly twice shift 1. A MIPS router's own speed is its clock times its instructions per cycle: an MT7621's 1004Kc at 880 MHz runs an interpreter at roughly 0.5 to 0.7 instructions a cycle, 450 to 600 MIPS, which is <code>QEMU_SHIFT=1</code>; a 24Kc at 600 to 750 MHz (QCA953x, QCA956x) at 300 to 450 MIPS, between shift 1 and shift 2. The A53 anchors the scale: a loop turn takes it 3.0 µs and the 1000-MIPS guest 4.9 µs, so it runs this code as a 1650-MIPS 24Kc would, three to four times an MT7621.</p>
 <p>The MT7621's packages are little-endian (<code>mipsel_24kc</code>); the most common small routers, ath79's, are big-endian (<code>mips_24kc</code>). <code>QEMU_ENDIAN=be</code> runs malta's big-endian image instead. On 25.12.5, at shift 1, every case of the benchmark wrote the same samples and logs in both byte orders, and took within 2% of the same time, the big-endian guest the slower by about 1% (the fastest runs of <code>deadline:full@20000</code> too, whose median depends on where the deadline stops a run): the byte order changes nothing ucode's VM does with text. What the exporter reads in the CPU's byte order, the auxiliary vector that gives sockstat its page size and the exporter collector its clock tick, the guest checks against its own kernel before the bench, in both.</p>
 <h2 id="where-it-still-bites-nat_traffic">Where it still bites: nat_traffic<a class="headerlink" href="#where-it-still-bites-nat_traffic" title="Permanent link">&para;</a></h2>
-<p>nat_traffic reads the whole conntrack table, a line per connection, at every scrape. Its time grows with the table, linearly, as its scaling budget holds it to: 0.41 s for 20,000 entries in the devenv. A home router's table holds a few hundred entries; a busy one, or one under a flood of connections, tens of thousands.</p>
-<p>Scaled by the loop turn, the 500-MIPS 24Kc is about thirty times slower than the devenv: 20,000 entries would take it about twelve seconds, more than Prometheus's default <code>scrape_timeout</code> of ten. Prometheus drops a scrape that answers late whole, not only nat_traffic's part.</p>
+<p>nat_traffic reads the whole conntrack table, a line per connection, at every scrape. Its time grows with the table, linearly, as its scaling budget holds it to: 0.21 s for 20,000 entries in the devenv. A home router's table holds a few hundred entries; a busy one, or one under a flood of connections, tens of thousands.</p>
+<p>The 500-MIPS 24Kc is about forty times slower than the devenv: 20,000 entries take it 8.2 s, most of Prometheus's default <code>scrape_timeout</code> of ten, and a busier table more. Prometheus drops a scrape that answers late whole, not only nat_traffic's part.</p>
 <p>So a scrape has a deadline, the scraper's timeout less half a second, and runs the collectors fastest first: nat_traffic, slowest, comes last, and when the time left does not fit what it took before, it is left out, and the scrape answers with the rest. And a collector that takes longer than its budget, 5 seconds by default, is quarantined for a few scrapes.</p>
-<p>On QEMU's 500-MIPS 24Kc (<code>make bench-qemu</code>), the full scrape of the benchmark's large world, whose conntrack table holds 20,000 connections, takes 16.6 s without a deadline, nat_traffic 7.7 s of it. With Prometheus's default timeout of 10 s (<code>deadline:full@20000</code>), once the first scrape has filled the ledger, it answers in 8.6 to 9.7 s, nat_traffic left out and every other collector served: within the timeout, by little, as a collector still running at the deadline is stopped there. The first scrape after a restart, before the ledger knows how long nat_traffic takes, can still be late. See <a href="../deadlines-and-breakers/">About deadlines and circuit breakers</a>.</p>
+<p>On QEMU's 500-MIPS 24Kc (<code>make bench-qemu</code>), the full scrape of the benchmark's large world, whose conntrack table holds 20,000 connections, takes 17.8 s without a deadline, nat_traffic 8.9 s of it. With Prometheus's default timeout of 10 s (<code>deadline:full@20000</code>), once the first scrape has filled the ledger, it answers in 9.0 to 9.6 s, nat_traffic and dhcp_leases left out, with the exporter collector, which runs after every other, and the rest served: within the timeout, by little, as a collector still running at the deadline is stopped there. The first scrape after a restart, before the ledger knows how long nat_traffic takes, can still be late. See <a href="../deadlines-and-breakers/">About deadlines and circuit breakers</a>.</p>
 <p>It is in the <code>-network</code> and <code>-full</code> groups. On such a router, leave it out, <a href="../../how-to/choose-collectors/#disable-a-collector">disable it</a>, or scrape it in a job of its own with a longer timeout and a <code>budget</code> to match; and watch <code>node_scrape_collector_duration_seconds{collector="nat_traffic"}</code>.</p>
 <h2 id="a-process-per-collector">A process per collector<a class="headerlink" href="#a-process-per-collector" title="Permanent link">&para;</a></h2>
 <p>Each scrape runs its collectors in a child process, so that one that never returns, or ends its process, costs itself alone (see <a href="../architecture/#a-process-of-its-own">About the architecture</a>). That has a price, which the benchmark measures as a scrape forked (<code>scrape:</code>) against the same scrape in one process (<code>inline:</code>):</p>
@@ -2343,28 +2397,189 @@
 <tbody>
 <tr>
 <td style="text-align: left;">typical, base collectors (16)</td>
-<td style="text-align: left;">24.1 ms, 6.7 ms more</td>
-<td style="text-align: left;">431 ms, 66 ms more (+18%)</td>
+<td style="text-align: left;">15.8 ms, 3.7 ms more</td>
+<td style="text-align: left;">387 ms, 55 ms more (+16%)</td>
 </tr>
 <tr>
 <td style="text-align: left;">typical, every collector (36)</td>
-<td style="text-align: left;">156 ms, 20 ms more (+15%)</td>
-<td style="text-align: left;">2.79 s, 294 ms more (+12%)</td>
+<td style="text-align: left;">96.0 ms, 9.2 ms more (+11%)</td>
+<td style="text-align: left;">2.64 s, 266 ms more (+11%)</td>
 </tr>
 <tr>
 <td style="text-align: left;">large, base collectors</td>
-<td style="text-align: left;">50.6 ms, 7 ms more</td>
-<td style="text-align: left;">925 ms, 68 ms more (+8%)</td>
+<td style="text-align: left;">34.6 ms, 4.5 ms more</td>
+<td style="text-align: left;">897 ms, 56 ms more (+7%)</td>
 </tr>
 <tr>
 <td style="text-align: left;">large, every collector</td>
-<td style="text-align: left;">685 ms, 61 ms more (+10%)</td>
-<td style="text-align: left;">16.6 s, 0.98 s more (+6%)</td>
+<td style="text-align: left;">513 ms, 41 ms more (+9%)</td>
+<td style="text-align: left;">17.8 s, 0.86 s more (+5%)</td>
 </tr>
 </tbody>
 </table>
-<p>On the router, that is about a twentieth of a second for the fork and some 7 ms a collector: the round trip between the scrape and its child, and the pages the child copies from the scrape's as it writes them (copy-on-write). Loading every collector first in a child process costs uhttpd's start as much again as loading them: 0.88 s rather than 0.45 s on the 24Kc, once per start. The progress file costs a scrape 3.6 ms there, a tenth of a percent.</p>
+<p>On the 24Kc, that is some 4 to 8 ms a collector: the round trip between the scrape and its child, and the pages the child copies from the scrape's as it writes them (copy-on-write). The progress file costs a scrape 3.6 ms there, a tenth of a percent.</p>
 <p>So a scrape on a slow router costs a tenth to a fifth more than it would if its collectors could not stop it. That is the trade: a collector that loops, waits on a FIFO or runs out of memory then costs its own budget and nothing more, where it would hold every later scrape, or end the request with nothing answered.</p>
+<h2 id="samples-and-collectors">What a sample and a collector cost<a class="headerlink" href="#samples-and-collectors" title="Permanent link">&para;</a></h2>
+<p>What a scrape does for each sample and each collector, the benchmark measures apart: <code>record:</code> cases record 20,000 samples of one shape and write their text, <code>noop:</code> cases scrape 1 and 41 collectors that write nothing, each in the child process, and the difference is what a scrape costs a collector besides it. Budgets hold them: a sample of labels to a multiple of one of a <code>labels()</code> set, on any machine, and a collector to 0.5 ms in the devenv.</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;"></th>
+<th style="text-align: left;">devenv, before</th>
+<th style="text-align: left;">devenv, now</th>
+<th style="text-align: left;">QEMU's 24Kc, before</th>
+<th style="text-align: left;">QEMU's 24Kc, now</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">a sample, two labels of an object (<code>record:labels</code>)</td>
+<td style="text-align: left;">7.6 µs</td>
+<td style="text-align: left;">5.2 µs</td>
+<td style="text-align: left;">318 µs</td>
+<td style="text-align: left;">235 µs</td>
+</tr>
+<tr>
+<td style="text-align: left;">the same, a double value (<code>record:double</code>)</td>
+<td style="text-align: left;">9.7 µs</td>
+<td style="text-align: left;">7.1 µs</td>
+<td style="text-align: left;">399 µs</td>
+<td style="text-align: left;">296 µs</td>
+</tr>
+<tr>
+<td style="text-align: left;">a sample of a <code>labels()</code> set (<code>record:made</code>)</td>
+<td style="text-align: left;">2.1 µs</td>
+<td style="text-align: left;">2.2 µs</td>
+<td style="text-align: left;">92 µs</td>
+<td style="text-align: left;">96 µs</td>
+</tr>
+<tr>
+<td style="text-align: left;">a family of a sample (<code>record:family</code>)</td>
+<td style="text-align: left;">14.4 µs</td>
+<td style="text-align: left;">14.3 µs</td>
+<td style="text-align: left;">521 µs</td>
+<td style="text-align: left;">504 µs</td>
+</tr>
+<tr>
+<td style="text-align: left;">a collector besides it (<code>noop:</code>)</td>
+<td style="text-align: left;">0.140 ms</td>
+<td style="text-align: left;">0.133 ms</td>
+<td style="text-align: left;">4.98 ms</td>
+<td style="text-align: left;">4.34 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">nat_traffic, 20,000 connections</td>
+<td style="text-align: left;">247 ms</td>
+<td style="text-align: left;">209 ms</td>
+<td style="text-align: left;">9.71 s</td>
+<td style="text-align: left;">8.16 s</td>
+</tr>
+<tr>
+<td style="text-align: left;">netstat</td>
+<td style="text-align: left;">6.8 ms</td>
+<td style="text-align: left;">2.4 ms</td>
+<td style="text-align: left;">135 ms</td>
+<td style="text-align: left;">84 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">cpu (46 samples)</td>
+<td style="text-align: left;">1.0 ms</td>
+<td style="text-align: left;">0.9 ms</td>
+<td style="text-align: left;">28.2 ms</td>
+<td style="text-align: left;">23.2 ms</td>
+</tr>
+<tr>
+<td style="text-align: left;">meminfo (37 families)</td>
+<td style="text-align: left;">1.2 ms</td>
+<td style="text-align: left;">1.2 ms</td>
+<td style="text-align: left;">27.1 ms</td>
+<td style="text-align: left;">24.9 ms</td>
+</tr>
+</tbody>
+</table>
+<p>A collector's own times are its <code>collector:</code> cases, which read its settings too, as a scrape does not.</p>
+<p>What changed:</p>
+<ul>
+<li><strong>A sample's labels.</strong> Each must be an object, checked as it is written: its names valid, none two once sanitized, its values valid UTF-8, escaped where they need it. The recorder keeps each name's text, <code>",name="</code>, as it first writes it, and writes a sample whose names it has all kept and whose values are strings a lookup and a concatenation a label, with one match of the values together for what must be escaped or read as UTF-8; any other is written as before, by a call that checks every label. A double that reads back as ucode's 14 digits is written so before the checks for NaN and the infinities. nat_traffic and cpu make one object for every sample's labels, which the recorder keeps nothing of.</li>
+<li><strong>A closure's place in its program.</strong> ucode makes a closure in a step for each function its program compiled before the closure's own: a closure of a module compiled after the exporter's others cost a scrape 1.4 µs in the devenv where one compiled first costs 0.3. The recorder makes fifteen for each collector and one for each family, so its module is the handler's program's first (<code>app.uc</code>), and a test holds it there. A recorder takes 5 µs to make in the devenv, where it took 14.</li>
+<li><strong>A collector's settings.</strong> Most collectors have no section in the config, and a scrape gives such a collector its defaults straight away, without the specs a section's values are checked against: 5 µs where it took 13, in the devenv.</li>
+<li><strong>netstat's fields.</strong> A scrape checks each of the kernel's 400 or so fields against the <code>fields</code> option, and musl takes as long to match one against node_exporter's default pattern as forty lookups. The default is checked with lookups instead, which tests hold to the pattern; any other is matched.</li>
+</ul>
+<p>What is left is mostly the VM's own work. A sample of labels is a loop over its object, a lookup, a type check and two concatenations a label, and one match: nat_traffic's 20,000 connections take 0.2 s in the devenv, where prebuilt label strings, which no longer reach the recorder, took 0.18. A family is its name and its HELP text checked, its writer made, and its header written: meminfo writes a family a sample, half a millisecond each on the 24Kc. A double is written by C's <code>%g</code> and read back by <code>strtod()</code>, which the 24Kc does in software: 70 µs. And a collector's round trip to its child process is a uloop task's, 0.43 ms on the 24Kc before the run is packed and read back.</p>
+<h2 id="besides-the-collectors">Besides the collectors<a class="headerlink" href="#besides-the-collectors" title="Permanent link">&para;</a></h2>
+<p>A scrape is more than its collectors' runs. uhttpd forks the request's process; the scrape reads the config and the ledger, hands each collector to the child and reads its run back, owns and renders every family, and writes the ledger and the progress file. In 0.2.0 that cost far more than it had to: on the NanoPi R3S a scrape of 37 collectors took 0.79 to 0.89 s through uhttpd, while its collectors' durations added up to 0.47 s, which was 0.1.0's whole scrape.</p>
+<p>It was work, not waiting. Traced step by step through uhttpd under procd, in a container and on QEMU's 24Kc, no step of a scrape waits on a timer: the scrape hands a collector to its child and reads its run back over a pipe, which uloop wakes it for, and its timer, which looks every 100 ms, fires only while a collector runs that long, to stop it at its limit or to see its child died. What took the time was the scrape's own work, much of it done for each collector, or each family, that needed doing once. On QEMU, a scrape of the guest's own system by the 36 collectors of the <code>-full</code> group spent 0.87 s besides its collectors':</p>
+<ul>
+<li>248 ms on the collectors' settings: each read the main section of the config two or three times over, and each value of a <code>range()</code> option made its datatype anew, writing the English of what it takes. A scrape now reads the main section once for all its collectors, and a range is made once.</li>
+<li>81 ms deciding whose each family is, which now checks each family in one pass; 42 ms rendering the scrape's own families, whose label each collector's four samples now share; and the run of each collector read back with a function call for each of its families, on both sides of the pipe.</li>
+<li>The rest is the containment above, the ledger, the progress file, and rendering each collector's samples, which every scrape must.</li>
+</ul>
+<p>Through uhttpd, as Prometheus waits for it, a scrape of the same collectors on the same system:</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Scrape</th>
+<th style="text-align: left;">0.1.0</th>
+<th style="text-align: left;">0.2.0</th>
+<th style="text-align: left;">Now</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">QEMU's 24Kc, the <code>-full</code> group (35, 36 collectors)</td>
+<td style="text-align: left;">0.87 s, 0.35 s besides them</td>
+<td style="text-align: left;">1.44 s, 0.87 s besides them</td>
+<td style="text-align: left;">1.16 s, 0.59 s besides them</td>
+</tr>
+<tr>
+<td style="text-align: left;">devenv's procd container, every collector (44)</td>
+<td style="text-align: left;">67 ms, 15 ms besides them</td>
+<td style="text-align: left;">98 ms, 44 ms besides them</td>
+<td style="text-align: left;">82 ms, 28 ms besides them</td>
+</tr>
+</tbody>
+</table>
+<p>The benchmark measures that path too, so that it cannot grow unseen: its <code>handler:</code> cases start uhttpd with the service's handler, the collectors reading the benchmark's world, and time a scrape as wget gets it. By the base collectors, light ones, a typical scrape takes about as long again besides them in the devenv, 0.8 to 1.05 of what they take, where 0.2.0 took 1.6, and a budget holds it under 1.3; by every collector, it takes 0.41 to 0.48 of what they take in the devenv and 0.33 on QEMU, where 0.2.0 took 0.53 and 0.48, and a budget holds it under 0.6. A unit test holds a scrape to reading the main section as often for many collectors as for one.</p>
+<p>Over HTTPS, a scrape that opens a connection of its own pays a TLS handshake too, whatever it asks for: 128 ms in the devenv's container with uclient-fetch, for a path that is not there as much as for a scrape, through the exporter's uhttpd or LuCI's. Prometheus keeps its connection open between scrapes (<code>http_keepalive</code>), and pays it once.</p>
+<h2 id="loading">Loading<a class="headerlink" href="#loading" title="Permanent link">&para;</a></h2>
+<p>uhttpd loads the collectors when it starts, in the process every request is forked from, and holds them as long as it runs. A collector imports the collector API, which imports four modules of the core; ucode compiles a module once in a program, and keeps its source file open while the program lives. 0.2.0 compiled a program for each collector, so each had its own copy of those five modules, and six descriptors with its own: 37 collectors kept 268 open in the R3S's uhttpd, where a process may open 1024, which some 160 collectors would reach. The collectors are now compiled as one program, once each has loaded in a child process of its own (the probe, which still compiles each alone):</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Loading every collector</th>
+<th style="text-align: left;">0.2.0</th>
+<th style="text-align: left;">Now</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">devenv, the benchmark's 36 (<code>load:full</code>)</td>
+<td style="text-align: left;">34 ms; 216 descriptors, 6.1 MB</td>
+<td style="text-align: left;">12.5 ms; 41 descriptors, 3.9 MB</td>
+</tr>
+<tr>
+<td style="text-align: left;">QEMU's 24Kc, the same</td>
+<td style="text-align: left;">0.93 s; 216 descriptors, 4.8 MB</td>
+<td style="text-align: left;">0.37 s; 41 descriptors, 3.1 MB</td>
+</tr>
+<tr>
+<td style="text-align: left;">QEMU's 24Kc, probed first (<code>probe:full</code>), as uhttpd does</td>
+<td style="text-align: left;">1.78 s</td>
+<td style="text-align: left;">1.21 s</td>
+</tr>
+<tr>
+<td style="text-align: left;">the service's uhttpd, devenv's procd container, 45 collectors</td>
+<td style="text-align: left;">315 descriptors, 7.3 MB</td>
+<td style="text-align: left;">95 descriptors, 4.5 MB</td>
+</tr>
+<tr>
+<td style="text-align: left;">the service's uhttpd, QEMU, 36 collectors</td>
+<td style="text-align: left;">263 descriptors, 5.2 MB</td>
+<td style="text-align: left;">86 descriptors, 3.5 MB</td>
+</tr>
+</tbody>
+</table>
+<p>A request's process and the collectors' child are forked from that uhttpd, so they start smaller too. Should the collectors not load as one program, which the probe makes unlikely, each is loaded alone, as before.</p>
 <h2 id="the-ledger">The ledger<a class="headerlink" href="#the-ledger" title="Permanent link">&para;</a></h2>
 <p>Ordering the collectors and keeping their breakers costs a scrape a read of a small file when it starts, and a locked read and write when it ends (<code>make bench</code>'s <code>ledger:full</code>, 35 collectors, a ledger of 1.5 kB): 1.0 ms in the devenv and 21 ms on the 500-MIPS 24Kc, about 1% of a typical full scrape on both.</p>
 <h2 id="gzip">Gzip<a class="headerlink" href="#gzip" title="Permanent link">&para;</a></h2>

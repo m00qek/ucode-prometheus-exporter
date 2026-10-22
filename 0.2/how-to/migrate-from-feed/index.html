@@ -2228,14 +2228,14 @@
 <h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
 <ul>
 <li>One of the feed's exporters is installed, with its collector packages.</li>
-<li>The new packages are at hand: see <a href="../install/">How to install the exporter</a>.</li>
+<li>The device has the exporter's feed: see <a href="../install/#1-add-the-feed">How to install the exporter</a>.</li>
 </ul>
 <hr />
 <h2 id="1-remove-the-old-exporter">1. Remove the old exporter<a class="headerlink" href="#1-remove-the-old-exporter" title="Permanent link">&para;</a></h2>
 <p>apk installs neither feed exporter beside this one, nor this one beside either, and says why:</p>
 <div class="highlight"><pre><span></span><code>ERROR: unable to select packages:
   prometheus-node-exporter-ucode-2024.02.07-r2:
-    breaks: ucode-prometheus-exporter-0.1.0-r1[!prometheus-node-exporter-ucode&gt;=0]
+    breaks: ucode-prometheus-exporter-0.2.0-r1[!prometheus-node-exporter-ucode&gt;=0]
 </code></pre></div>
 <p>Remove the old exporter and its collector packages first:</p>
 <div class="highlight"><pre><span></span><code>apk<span class="w"> </span>del<span class="w"> </span>-r<span class="w"> </span>prometheus-node-exporter-ucode
@@ -2252,7 +2252,7 @@
 </ul>
 <p>It does so only while <code>/etc/config/prometheus-exporter</code> is as the package ships it. A port left at the old exporter's default (the ucode one's 9101) becomes 9100; a port you chose is kept. A value this exporter would refuse is left at its default. The old config file stays as it was.</p>
 <h2 id="3-check-what-it-took">3. Check what it took<a class="headerlink" href="#3-check-what-it-took" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code>logread<span class="w"> </span>-e<span class="w"> </span>prometheus-exporter<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-e<span class="w"> </span>imported<span class="w"> </span>-e<span class="w"> </span><span class="s1">'left at the default'</span><span class="w"> </span>-e<span class="w"> </span><span class="s1">'nothing imported'</span>
+<div class="highlight"><pre><span></span><code>logread<span class="w"> </span>-e<span class="w"> </span>prometheus-exporter<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-e<span class="w"> </span>imported<span class="w"> </span>-e<span class="w"> </span><span class="s1">&#39;left at the default&#39;</span><span class="w"> </span>-e<span class="w"> </span><span class="s1">&#39;nothing imported&#39;</span>
 uci<span class="w"> </span>show<span class="w"> </span>prometheus-exporter
 </code></pre></div>
 <p>The log names every option it took, and every value it left at the default and why. See <a href="../../reference/log-messages/#installation">Log messages</a>.</p>

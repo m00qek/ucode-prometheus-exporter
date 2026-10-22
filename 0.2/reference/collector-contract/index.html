@@ -2287,7 +2287,7 @@
 <hr />
 <h2 id="what-a-collector-may-import">What a collector may import<a class="headerlink" href="#what-a-collector-may-import" title="Permanent link">&para;</a></h2>
 <p>A collector module imports <code>prometheus_exporter.api</code>, the collector API, and nothing else:</p>
-<div class="highlight"><pre><span></span><code><span class="k">import</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">Result</span><span class="p">,</span><span class="w"> </span><span class="nx">errors</span><span class="p">,</span><span class="w"> </span><span class="nx">services</span><span class="p">,</span><span class="w"> </span><span class="nx">proc</span><span class="p">,</span><span class="w"> </span><span class="nx">exposition</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="kr">from</span><span class="w"> </span><span class="s1">'prometheus_exporter.api'</span><span class="p">;</span>
+<div class="highlight"><pre><span></span><code><span class="k">import</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">Result</span><span class="p">,</span><span class="w"> </span><span class="nx">errors</span><span class="p">,</span><span class="w"> </span><span class="nx">services</span><span class="p">,</span><span class="w"> </span><span class="nx">proc</span><span class="p">,</span><span class="w"> </span><span class="nx">exposition</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="kr">from</span><span class="w"> </span><span class="s1">&#39;prometheus_exporter.api&#39;</span><span class="p">;</span>
 </code></pre></div>
 <table>
 <thead>
@@ -2323,7 +2323,8 @@
 <p>Refused, before the module is loaded:</p>
 <ul>
 <li><strong>Any other module.</strong> <code>fs</code>, <code>ubus</code>, <code>uci</code>, <code>socket</code>, <code>rtnl</code>, <code>nl80211</code>, <code>uloop</code>: the capabilities of <code>meta.needs</code> do their work, under the exporter's guards. The core's modules, <code>prometheus_exporter.*</code>, including another collector's. Pure modules too, <code>math</code>, <code>struct</code> or <code>digest</code>: one would be a dependency the collector's package does not declare, and one more exception to judge; what collectors need of them belongs in the API, in a minor version.</li>
-<li><strong>Code loaded past the imports.</strong> A call of <code>require</code>, <code>loadfile</code> or <code>loadstring</code>: <code>require('fs')</code> reaches <code>fs</code> as surely as an import.</li>
+<li><strong>Code loaded past the imports.</strong> A call of <code>require</code>, <code>loadfile</code>, <code>loadstring</code> or <code>include</code>: <code>require('fs')</code> reaches <code>fs</code> as surely as an import.</li>
+<li><strong>A program started past <code>exec</code>.</strong> A call of <code>system</code>: what it starts outlives the child process the scrape kills under the collector, and runs on, where <code>deps.exec</code> kills a program still running at its timeout, with everything it started.</li>
 </ul>
 <p>The module's text is read for its imports without compiling it: comments, strings, templates and regular expressions are passed over. A collector is a single module; one that wants code of its own in another module has no way to, as every module of the collectors' directory is loaded as a collector.</p>
 <table>
@@ -2418,19 +2419,19 @@
 </tbody>
 </table>
 <p>Each such access is recorded, and once the collector has run the test fails, by <code>assert.fail()</code> (a failure, which a property test shrinks), not from inside the run, where the collector's error boundary would take it for a crash and a collector that falls back on a default would pass:</p>
-<div class="highlight"><pre><span></span><code>collector 'foo' read /etc/foo/state, which its meta does not declare.
-In the service's jail that path does not exist: the read returns null, as it did here.
-Declare it in meta.paths (or its directory: '/etc/foo'), or stop reading it.
+<div class="highlight"><pre><span></span><code>collector &#39;foo&#39; read /etc/foo/state, which its meta does not declare.
+In the service&#39;s jail that path does not exist: the read returns null, as it did here.
+Declare it in meta.paths (or its directory: &#39;/etc/foo&#39;), or stop reading it.
 Declared: /proc, /sys, /etc/config/foo
 </code></pre></div>
-<div class="highlight"><pre><span></span><code>collector 'foo' connected to the socket /var/run/foo/foo.sock, which its meta does not declare.
-In the service's jail that socket is not there: connect fails with 'No such file or directory', as it did here.
-Declare its directory in meta.paths ('/var/run/foo'): the jail cannot mount a socket itself. Or stop connecting to it.
+<div class="highlight"><pre><span></span><code>collector &#39;foo&#39; connected to the socket /var/run/foo/foo.sock, which its meta does not declare.
+In the service&#39;s jail that socket is not there: connect fails with &#39;No such file or directory&#39;, as it did here.
+Declare its directory in meta.paths (&#39;/var/run/foo&#39;): the jail cannot mount a socket itself. Or stop connecting to it.
 Declared: /proc, /sys
 </code></pre></div>
-<div class="highlight"><pre><span></span><code>collector 'foo' ran 'false', which its meta.commands does not list.
+<div class="highlight"><pre><span></span><code>collector &#39;foo&#39; ran &#39;false&#39;, which its meta.commands does not list.
 The exporter refuses it, in the jail or not: run() returns COMMAND_NOT_ALLOWED without running it, as it did here. A test that expects the collector to fail may pass by accident.
-List it in meta.commands, with 'exec' in meta.needs, or stop running it.
+List it in meta.commands, with &#39;exec&#39; in meta.needs, or stop running it.
 Declared commands: true
 </code></pre></div>
 <p>A <code>meta</code> the loader refuses, and text that is not valid exposition, fail the test the same way. <code>with_collector</code> asserts nothing of the collector's Result: the test does. A test's <code>outside_jail</code> names paths a collector looks for knowing the jail never has them, which the mocks then answer: chrony's command socket, for the server statistics it reads where it runs outside the jail.</p>
@@ -2493,7 +2494,7 @@ Declared commands: true
 <td style="text-align: left;">—</td>
 </tr>
 <tr>
-<td style="text-align: left;">It imports the collector API alone, and calls no <code>require</code>, <code>loadfile</code> nor <code>loadstring</code>.</td>
+<td style="text-align: left;">It imports the collector API alone, and calls no <code>require</code>, <code>loadfile</code>, <code>loadstring</code>, <code>include</code> nor <code>system</code>.</td>
 <td style="text-align: left;">—</td>
 <td style="text-align: left;">—</td>
 <td style="text-align: left;">Not loaded; logged at <code>err</code>, <code>COLLECTOR_INVALID</code>. See <a href="#what-a-collector-may-import">What a collector may import</a>.</td>
@@ -2521,7 +2522,7 @@ Declared commands: true
 <td style="text-align: left;">A failure</td>
 </tr>
 <tr>
-<td style="text-align: left;">It returns within its budget. Its child process is killed then: a loop, a system call that never returns, a FIFO opened with no writer, all stop there.</td>
+<td style="text-align: left;">It returns within its budget. Its child process is killed then, with every process under it: a loop, a system call that never returns, a FIFO opened with no writer, all stop there.</td>
 <td style="text-align: left;">5 s, or its <code>timeout</code> and a second more</td>
 <td style="text-align: left;"><code>collector_budget</code>, its section's <code>budget</code></td>
 <td style="text-align: left;"><code>COLLECTOR_CANCELLED</code>; none of its samples served.</td>
@@ -2556,6 +2557,20 @@ Declared commands: true
 <td style="text-align: left;">A failure</td>
 </tr>
 <tr>
+<td style="text-align: left;">The collectors of a reply write at most its samples in all. The recorder stops the one that would go past them, and none starts once they are written.</td>
+<td style="text-align: left;">200,000</td>
+<td style="text-align: left;"><code>max_scrape_samples</code></td>
+<td style="text-align: left;"><code>SAMPLE_LIMIT</code>, saying how many were left; none of its samples served.</td>
+<td style="text-align: left;">Unchanged</td>
+</tr>
+<tr>
+<td style="text-align: left;">What it writes is what Prometheus takes: label values and HELP text in UTF-8, label names that stay apart once sanitized, labels that are an object or what <code>out.labels()</code> made. The recorder stops it at the first that is not.</td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;">—</td>
+<td style="text-align: left;"><code>EXPOSITION_INVALID</code>, naming the family and the label; none of its samples served.</td>
+<td style="text-align: left;">A failure</td>
+</tr>
+<tr>
 <td style="text-align: left;">A family is one collector's: the first, in the reply's order, that writes it; the exporter's own collectors before those of other packages.</td>
 <td style="text-align: left;">—</td>
 <td style="text-align: left;">—</td>
@@ -2572,7 +2587,7 @@ Declared commands: true
 <tr>
 <td style="text-align: left;">It takes no more memory than each of the service's processes may: past it, its own process ends.</td>
 <td style="text-align: left;">A quarter of the RAM, at most 64 MB</td>
-<td style="text-align: left;"><code>memory_limit</code></td>
+<td style="text-align: left;"><code>memory_limit</code>, 0 or 8 MB and more</td>
 <td style="text-align: left;"><code>COLLECTOR_KILLED</code>; none of its samples served.</td>
 <td style="text-align: left;">Trips</td>
 </tr>
