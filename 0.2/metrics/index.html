@@ -1,0 +1,3554 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Metrics of OpenWrt for Prometheus, written in ucode and served by uhttpd.">
+      
+      
+      
+        <link rel="canonical" href="https://m00qek.github.io/ucode-prometheus-exporter/latest/metrics/">
+      
+      
+        <link rel="prev" href="../reference/metrics/">
+      
+      
+        <link rel="next" href="../reference/uci-config/">
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.5.3, mkdocs-material-9.5.17">
+    
+    
+      
+        <title>Renamed Metrics - ucode-prometheus-exporter</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.bcfcd587.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="deep-orange" data-md-color-accent="deep-orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#renamed-metrics" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+          <aside class="md-banner md-banner--warning">
+            <div class="md-banner__inner md-grid md-typeset">
+              
+  You are reading the documentation of an older release.
+  <a href="../.."><strong>Go to the latest.</strong></a>
+
+            </div>
+            <script>var el=document.querySelector("[data-md-component=outdated]"),outdated=__md_get("__outdated",sessionStorage);!0===outdated&&el&&(el.hidden=!1)</script>
+          </aside>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="ucode-prometheus-exporter" class="md-header__button md-logo" aria-label="ucode-prometheus-exporter" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            ucode-prometheus-exporter
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Renamed Metrics
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="deep-orange" data-md-color-accent="deep-orange"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="deep-orange" data-md-color-accent="deep-orange"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12c0-2.42-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var media,input,key,value,palette=__md_get("__palette");if(palette&&palette.color){"(prefers-color-scheme)"===palette.color.media&&(media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']"),palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent"));for([key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/m00qek/ucode-prometheus-exporter" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    m00qek/ucode-prometheus-exporter
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+    
+  
+  Welcome
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../tutorials/" class="md-tabs__link">
+          
+  
+  Tutorials
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../how-to/" class="md-tabs__link">
+          
+  
+  How-to Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../reference/" class="md-tabs__link">
+          
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../explanation/" class="md-tabs__link">
+          
+  
+  Explanation
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="ucode-prometheus-exporter" class="md-nav__button md-logo" aria-label="ucode-prometheus-exporter" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    ucode-prometheus-exporter
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/m00qek/ucode-prometheus-exporter" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    m00qek/ucode-prometheus-exporter
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Welcome
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Tutorials
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Tutorials
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/monitor-a-router/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Monitor a Router with Prometheus
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/first-collector/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Write Your First Collector
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    How-to Guides
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            How-to Guides
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Operators
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_2">
+            <span class="md-nav__icon md-icon"></span>
+            Operators
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/install/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Installing the Exporter
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/upgrade/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Upgrading the Exporter
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/uninstall/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Removing the Exporter
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/migrate-from-feed/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Moving from the Feed's Exporters
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/choose-collectors/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Choosing Collectors
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/listen-on-lan/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Listening on the LAN
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/https-basic-auth/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Serving HTTPS with Basic Auth
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/gzip/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Compressing Scrapes
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/exec-timeout/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Giving Programs More Time
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/collector-options/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Setting a Collector's Options
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/textfile/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Publishing Metrics from Scripts
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/push-metrics/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Pushing Metrics from the Router
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/unbound/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Monitoring Unbound
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/chrony/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Monitoring chrony
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/sqm-cake/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Monitoring SQM and CAKE
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/luci/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Using the LuCI App
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/troubleshoot/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Troubleshooting
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Developer
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            Developer
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/developer/testing/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Running the Tests
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/developer/lab/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Using the Lab
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/developer/benchmarks/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Running the Benchmark
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/developer/fixtures/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Capturing Fixtures from a Device
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/developer/package-collector/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Packaging a Collector
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/developer/translations/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Updating the Translation Template
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/developer/documentation/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Writing Documentation
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_3_8" id="__nav_3_3_8_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Publishing the Documentation
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_3_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3_8">
+            <span class="md-nav__icon md-icon"></span>
+            Publishing the Documentation
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/developer/setup-docs-publishing/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Setting Up Publishing
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/developer/publish-minor-docs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Publishing a New Minor Release
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/developer/publish-patch-docs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Publishing a Patch Release
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/developer/fix-released-docs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Fixing the Released Docs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/developer/republish-docs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Republishing a Version
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/developer/publish-to-feed/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Publishing a Release to the Package Feed
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Reference
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            Reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/collectors/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Collectors
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/metrics/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Metrics
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Renamed Metrics
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    Renamed Metrics
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#base-collectors" class="md-nav__link">
+    <span class="md-ellipsis">
+      Base collectors
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#network-collectors" class="md-nav__link">
+    <span class="md-ellipsis">
+      Network collectors
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#wireless-collectors" class="md-nav__link">
+    <span class="md-ellipsis">
+      Wireless collectors
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hardware-and-system-collectors" class="md-nav__link">
+    <span class="md-ellipsis">
+      Hardware and system collectors
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#service-collectors" class="md-nav__link">
+    <span class="md-ellipsis">
+      Service collectors
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Service collectors">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#dnsmasq" class="md-nav__link">
+    <span class="md-ellipsis">
+      dnsmasq
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ltq-dsl" class="md-nav__link">
+    <span class="md-ellipsis">
+      ltq-dsl
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wireguard" class="md-nav__link">
+    <span class="md-ellipsis">
+      wireguard
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mwan3" class="md-nav__link">
+    <span class="md-ellipsis">
+      mwan3
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bmx7" class="md-nav__link">
+    <span class="md-ellipsis">
+      bmx7
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#modemmanager" class="md-nav__link">
+    <span class="md-ellipsis">
+      modemmanager
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ubnt-manager" class="md-nav__link">
+    <span class="md-ellipsis">
+      ubnt-manager
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#unbound" class="md-nav__link">
+    <span class="md-ellipsis">
+      unbound
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#new-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      New metrics
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#unchanged-collectors" class="md-nav__link">
+    <span class="md-ellipsis">
+      Unchanged collectors
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#standalone-exporters" class="md-nav__link">
+    <span class="md-ellipsis">
+      Standalone exporters
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/uci-config/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    UCI Configuration
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/service-commands/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Service Commands
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/command/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    The prometheus-exporter Command
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/http/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    HTTP Endpoint
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/ubus/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ubus Object
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/luci/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    LuCI App
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/jail/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    The Jail
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/collector-interface/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Collector Interface
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/collector-contract/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Collector Contract
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/log-messages/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Log Messages
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/error-codes/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Error Codes
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/files/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Files and Packages
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/make-targets/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Make Targets
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/docs-publishing/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Documentation Publishing
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Explanation
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            Explanation
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../explanation/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../explanation/about/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    About the Exporter
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../explanation/architecture/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Architecture
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../explanation/security/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Security Model
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../explanation/nothing-to-observe/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Nothing to Observe
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../explanation/deadlines-and-breakers/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Deadlines and Circuit Breakers
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../explanation/metric-names/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Metric Names
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../explanation/performance/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Performance on Small Routers
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../explanation/versions/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    About Versions
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../explanation/versioned-docs/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    About Versioned Documentation
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#base-collectors" class="md-nav__link">
+    <span class="md-ellipsis">
+      Base collectors
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#network-collectors" class="md-nav__link">
+    <span class="md-ellipsis">
+      Network collectors
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#wireless-collectors" class="md-nav__link">
+    <span class="md-ellipsis">
+      Wireless collectors
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hardware-and-system-collectors" class="md-nav__link">
+    <span class="md-ellipsis">
+      Hardware and system collectors
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#service-collectors" class="md-nav__link">
+    <span class="md-ellipsis">
+      Service collectors
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Service collectors">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#dnsmasq" class="md-nav__link">
+    <span class="md-ellipsis">
+      dnsmasq
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ltq-dsl" class="md-nav__link">
+    <span class="md-ellipsis">
+      ltq-dsl
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wireguard" class="md-nav__link">
+    <span class="md-ellipsis">
+      wireguard
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mwan3" class="md-nav__link">
+    <span class="md-ellipsis">
+      mwan3
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bmx7" class="md-nav__link">
+    <span class="md-ellipsis">
+      bmx7
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#modemmanager" class="md-nav__link">
+    <span class="md-ellipsis">
+      modemmanager
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ubnt-manager" class="md-nav__link">
+    <span class="md-ellipsis">
+      ubnt-manager
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#unbound" class="md-nav__link">
+    <span class="md-ellipsis">
+      unbound
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#new-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      New metrics
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#unchanged-collectors" class="md-nav__link">
+    <span class="md-ellipsis">
+      Unchanged collectors
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#standalone-exporters" class="md-nav__link">
+    <span class="md-ellipsis">
+      Standalone exporters
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+<h1 id="renamed-metrics">Renamed Metrics<a class="headerlink" href="#renamed-metrics" title="Permanent link">&para;</a></h1>
+<p>This exporter replaces OpenWrt's <code>prometheus-node-exporter-ucode</code> and <code>prometheus-node-exporter-lua</code> (it conflicts with both, and takes over their settings), but not their metric names. Where the Prometheus <a href="https://github.com/prometheus/node_exporter">node_exporter</a> has an equivalent metric, this exporter uses node_exporter's name, type, labels and help text, so dashboards made for it (such as Grafana's "Node Exporter Full") work. Elsewhere, the names follow the <a href="https://prometheus.io/docs/practices/naming/">Prometheus naming conventions</a>:</p>
+<ul>
+<li>base units in the name (<code>_seconds</code>, <code>_bytes</code>, <code>_hertz</code>, <code>_bits_per_second</code>, <code>_celsius</code>, <code>_ratio</code>, and <code>_dbm</code> or <code>_db</code> for radio levels);</li>
+<li><code>_total</code> on counters only, and every counter ends in <code>_total</code>;</li>
+<li>a metric of labels only is <code>&lt;name&gt;_info</code> with the value 1;</li>
+<li>a boolean is a gauge of 0 or 1, an enumeration one series per state with the value 1 or 0;</li>
+<li>snake_case metric and label names, and no unit on a unitless value.</li>
+</ul>
+<p>Each service keeps its own prefix (<code>dnsmasq_</code>, <code>dsl_</code>, <code>wireguard_</code>, <code>mwan3_</code>, <code>hostapd_</code>, <code>dawn_</code>, <code>bmx7_</code>, <code>realtek_poe_</code>, <code>ubnt_</code>, <code>modemmanager_</code>, <code>unbound_</code>, <code>nft_counter_</code>), and OpenWrt's own metrics are <code>node_openwrt_*</code>. Where a widely used standalone exporter exists for a service and its names follow the conventions, this exporter uses them too: see <a href="#standalone-exporters">Standalone exporters</a>.</p>
+<p>There is no option to get the old names back. The table below lists, per collector, every family whose name, type, labels or unit changed, from the names of the exporters this one replaces to this one's; a family not listed has kept its name. In the Type column, <code>a → b</code> is a type that changed.</p>
+<p>Every family as the collectors write it now is in <a href="../reference/metrics/">Metrics</a>; why the names are what they are, in <a href="../explanation/metric-names/">About metric names</a>.</p>
+<h2 id="base-collectors">Base collectors<a class="headerlink" href="#base-collectors" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Before</th>
+<th>After</th>
+<th>Type</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>node_cpu_seconds_total{cpu="cpu0",mode}</code></td>
+<td><code>node_cpu_seconds_total{cpu="0",mode}</code></td>
+<td>counter</td>
+<td>node_exporter labels the CPU by its number.</td>
+</tr>
+<tr>
+<td><code>node_cpu_seconds_total{mode="guest"\|"guest_nice"}</code></td>
+<td><code>node_cpu_guest_seconds_total{mode="user"\|"nice"}</code></td>
+<td>counter</td>
+<td>node_exporter keeps guest time apart (the kernel counts it in user and nice as well).</td>
+</tr>
+<tr>
+<td><code>node_procs_running_total</code></td>
+<td><code>node_procs_running</code></td>
+<td>gauge</td>
+<td>A gauge has no <code>_total</code>; node_exporter's name.</td>
+</tr>
+<tr>
+<td><code>node_procs_blocked_total</code></td>
+<td><code>node_procs_blocked</code></td>
+<td>gauge</td>
+<td>A gauge has no <code>_total</code>; node_exporter's name.</td>
+</tr>
+<tr>
+<td><code>node_memory_&lt;Field&gt;_bytes</code> of a field without a unit (<code>HugePages_Total</code>, <code>HugePages_Free</code>, <code>HugePages_Rsvd</code>, <code>HugePages_Surp</code>)</td>
+<td><code>node_memory_&lt;Field&gt;</code></td>
+<td>gauge</td>
+<td>Page counts, not bytes: node_exporter names them without a unit. Fields in kB keep <code>_bytes</code>.</td>
+</tr>
+<tr>
+<td><code>node_selinux_enabled</code>, <code>node_selinux_current_mode</code></td>
+<td>unchanged</td>
+<td>gauge</td>
+<td>node_exporter's help texts.</td>
+</tr>
+<tr>
+<td>—</td>
+<td><code>node_network_receive_nohandler_total{device}</code></td>
+<td>counter</td>
+<td>New: node_exporter's netdev collector reads it from netlink too.</td>
+</tr>
+<tr>
+<td>—</td>
+<td><code>node_network_up{device}</code></td>
+<td>gauge</td>
+<td>New: node_exporter's, 1 when the operstate is <code>up</code>.</td>
+</tr>
+<tr>
+<td><code>node_network_info{device,address,broadcast,duplex,operstate,ifalias}</code></td>
+<td><code>node_network_info{device,address,broadcast,duplex,operstate,adminstate,ifalias}</code></td>
+<td>gauge</td>
+<td>node_exporter's labels: <code>adminstate</code> is <code>up</code> or <code>down</code> by the IFF_UP flag.</td>
+</tr>
+<tr>
+<td><code>node_network_speed_bytes</code> (left out at 0 Mb/s)</td>
+<td><code>node_network_speed_bytes</code> (0 Mb/s is 0)</td>
+<td>gauge</td>
+<td>As node_exporter, which leaves out only an unknown speed (-1).</td>
+</tr>
+</tbody>
+</table>
+<p>conntrack, entropy, filefd, loadavg, time and uname already had node_exporter's names.</p>
+<h2 id="network-collectors">Network collectors<a class="headerlink" href="#network-collectors" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Before</th>
+<th>After</th>
+<th>Type</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>node_netstat_&lt;Section&gt;_&lt;Field&gt;</code> (from <code>/proc/net/netstat</code> and <code>/proc/net/snmp</code>)</td>
+<td><code>node_netstat_&lt;Section&gt;_&lt;Field&gt;</code></td>
+<td>gauge → untyped</td>
+<td>node_exporter's type, and its help text <code>Statistic &lt;Section&gt;&lt;Field&gt;.</code> By default only the fields node_exporter's <code>--collector.netstat.fields</code> keeps, some 40 of about 400; the option <code>fields</code>, a regular expression, takes others (<code>.*</code> for every one).</td>
+</tr>
+<tr>
+<td><code>snmp6_&lt;Name&gt;{device="all"}</code> (from <code>/proc/net/snmp6</code>)</td>
+<td><code>node_netstat_&lt;Protocol&gt;_&lt;Field&gt;</code> (<code>node_netstat_Ip6_InReceives</code>, <code>node_netstat_Icmp6_*</code>, <code>node_netstat_Udp6_*</code>, <code>node_netstat_UdpLite6_*</code>)</td>
+<td>counter → untyped</td>
+<td>node_exporter's netstat collector reads <code>/proc/net/snmp6</code>; written by the netstat collector, not snmp6.</td>
+</tr>
+<tr>
+<td><code>snmp6_&lt;Name&gt;{device}</code> (from <code>/proc/net/dev_snmp6/&lt;device&gt;</code>)</td>
+<td><code>node_snmp6_&lt;Protocol&gt;_&lt;Field&gt;_total{device}</code></td>
+<td>counter</td>
+<td>node_exporter has no per-device IPv6 statistics: the <code>node_</code> namespace, the name split as netstat splits it, and <code>_total</code> on a counter.</td>
+</tr>
+<tr>
+<td><code>snmp6_ifIndex{device}</code></td>
+<td><code>node_snmp6_ifindex{device}</code></td>
+<td>counter → gauge</td>
+<td>An interface index is not a count.</td>
+</tr>
+<tr>
+<td><code>node_ethtool_&lt;stat&gt;</code></td>
+<td><code>node_ethtool_&lt;stat&gt;</code></td>
+<td>untyped</td>
+<td>node_exporter's naming: <code>rx</code> and <code>tx</code> are spelled out only between underscores (<code>rx0_x</code> stays <code>rx0_x</code>), a statistic is named <code>Network interface &lt;stat&gt;</code>, a device's statistics are written sorted by name, and every statistic of a name two of them make is left out (before, the first was kept). Only the links a device backs (<code>/sys/class/net/&lt;link&gt;/device</code>) are asked: not bridges, VLANs, WireGuard, ifb or veth, whose drivers have no statistics or repeat netdev's.</td>
+</tr>
+<tr>
+<td><code>node_ethtool_{received,transmitted}_*_total</code> (7 common statistics)</td>
+<td>unchanged</td>
+<td>untyped</td>
+<td>node_exporter's help texts (<code>Network interface bytes received</code>, ...).</td>
+</tr>
+<tr>
+<td><code>node_nat_traffic{src,dst}</code></td>
+<td><code>node_nat_traffic_bytes{src,dst}</code></td>
+<td>gauge</td>
+<td>Base unit in the name. A gauge: a sum over the connections there are now.</td>
+</tr>
+<tr>
+<td><code>nft_counter_packets</code></td>
+<td><code>nft_counter_packets_total</code></td>
+<td>counter</td>
+<td>A counter ends in <code>_total</code>.</td>
+</tr>
+<tr>
+<td><code>nft_counter_bytes</code></td>
+<td><code>nft_counter_bytes_total</code></td>
+<td>counter</td>
+<td>A counter ends in <code>_total</code>.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="wireless-collectors">Wireless collectors<a class="headerlink" href="#wireless-collectors" title="Permanent link">&para;</a></h2>
+<p>wifi writes node_exporter's wifi collector families, with its help texts and its labels: <code>device</code> (was <code>ifname</code>) and <code>mac_address</code> (was <code>mac</code>), and a <code>radio</code> label on every family. Its option <code>stations</code>, on by default, writes the station metrics, which the Lua exporter's separate wifi_stations collector wrote: this exporter has no wifi_stations collector since 0.2.0.</p>
+<table>
+<thead>
+<tr>
+<th>Before</th>
+<th>After</th>
+<th>Type</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>wifi_radio_info{radio,htmode,channel,country}</code></td>
+<td><code>node_wifi_radio_info{radio,htmode,channel,country}</code></td>
+<td>gauge</td>
+<td>node_exporter's <code>node_wifi_</code> namespace.</td>
+</tr>
+<tr>
+<td>—</td>
+<td><code>node_wifi_interface_frequency_hertz{radio,device}</code></td>
+<td>gauge</td>
+<td>New: node_exporter's.</td>
+</tr>
+<tr>
+<td><code>wifi_network_info{radio,ifname,ssid,bssid,mode}</code></td>
+<td><code>node_wifi_network_info{radio,device,ssid,bssid,mode}</code></td>
+<td>gauge</td>
+<td><code>node_wifi_</code> namespace, node_exporter's <code>device</code> label.</td>
+</tr>
+<tr>
+<td><code>wifi_network_quality</code> (percent)</td>
+<td><code>node_wifi_network_quality_ratio</code></td>
+<td>gauge</td>
+<td>A ratio, not a percentage.</td>
+</tr>
+<tr>
+<td><code>wifi_network_bitrate</code> (kbit/s)</td>
+<td><code>node_wifi_network_transmit_bits_per_second</code></td>
+<td>gauge</td>
+<td>Base unit.</td>
+</tr>
+<tr>
+<td><code>wifi_network_noise_dbm</code></td>
+<td><code>node_wifi_network_noise_dbm</code></td>
+<td>gauge</td>
+<td><code>node_wifi_</code> namespace.</td>
+</tr>
+<tr>
+<td><code>wifi_network_signal_dbm</code></td>
+<td><code>node_wifi_network_signal_dbm</code></td>
+<td>gauge</td>
+<td><code>node_wifi_</code> namespace.</td>
+</tr>
+<tr>
+<td>—</td>
+<td><code>node_wifi_channel_{active,busy,receive,transmit}_seconds_total{radio,device}</code></td>
+<td>counter</td>
+<td>New, from the survey of the interface's channel (NL80211_SURVEY_INFO_TIME, <code>_BUSY</code>, <code>_RX</code>, <code>_TX</code>, in ms), in seconds; node_exporter has no such metric. Per interface, as the noise: the interfaces of one radio repeat its counts. A time the driver does not count is left out.</td>
+</tr>
+<tr>
+<td><code>wifi_stations_total{radio,ifname}</code> (wifi), <code>wifi_stations{ifname}</code> (Lua's wifi_stations)</td>
+<td><code>node_wifi_stations{radio,device}</code></td>
+<td>counter → gauge (wifi)</td>
+<td>The stations associated now are not a counter; wifi's <code>stations</code> writes them.</td>
+</tr>
+<tr>
+<td>—</td>
+<td><code>node_wifi_station_connected_seconds_total</code></td>
+<td>counter</td>
+<td>New: node_exporter's.</td>
+</tr>
+<tr>
+<td><code>wifi_station_inactive_milliseconds</code></td>
+<td><code>node_wifi_station_inactive_seconds</code></td>
+<td>gauge</td>
+<td>node_exporter's name, in seconds.</td>
+</tr>
+<tr>
+<td><code>wifi_station_receive_kilobits_per_second</code></td>
+<td><code>node_wifi_station_receive_bits_per_second</code></td>
+<td>gauge</td>
+<td>node_exporter's name, in bits per second.</td>
+</tr>
+<tr>
+<td><code>wifi_station_transmit_kilobits_per_second</code></td>
+<td><code>node_wifi_station_transmit_bits_per_second</code></td>
+<td>gauge</td>
+<td>node_exporter's name, in bits per second.</td>
+</tr>
+<tr>
+<td><code>wifi_station_receive_bytes_total</code></td>
+<td><code>node_wifi_station_receive_bytes_total</code></td>
+<td>counter</td>
+<td>node_exporter's name.</td>
+</tr>
+<tr>
+<td><code>wifi_station_transmit_bytes_total</code></td>
+<td><code>node_wifi_station_transmit_bytes_total</code></td>
+<td>counter</td>
+<td>node_exporter's name.</td>
+</tr>
+<tr>
+<td><code>wifi_station_signal_dbm</code></td>
+<td><code>node_wifi_station_signal_dbm</code></td>
+<td>gauge</td>
+<td>node_exporter's name.</td>
+</tr>
+<tr>
+<td>—</td>
+<td><code>node_wifi_station_transmit_retries_total</code>, <code>node_wifi_station_transmit_failed_total</code>, <code>node_wifi_station_beacon_loss_total</code></td>
+<td>counter</td>
+<td>New: node_exporter's, where the driver reports them.</td>
+</tr>
+<tr>
+<td><code>wifi_station_transmit_packets_total</code></td>
+<td><code>node_wifi_station_transmitted_packets_total</code></td>
+<td>counter</td>
+<td>node_exporter's name.</td>
+</tr>
+<tr>
+<td><code>wifi_station_receive_packets_total</code></td>
+<td><code>node_wifi_station_received_packets_total</code></td>
+<td>counter</td>
+<td>node_exporter's name.</td>
+</tr>
+<tr>
+<td><code>wifi_station_expected_throughput_kilobits_per_second</code></td>
+<td><code>node_wifi_station_expected_throughput_bits_per_second</code></td>
+<td>gauge</td>
+<td>Base unit, <code>node_wifi_</code> namespace.</td>
+</tr>
+<tr>
+<td><code>dawn_ap_stations_total</code></td>
+<td><code>dawn_ap_stations</code></td>
+<td>gauge</td>
+<td>A gauge has no <code>_total</code>.</td>
+</tr>
+<tr>
+<td><code>hostapd_station_*{vif,ssid,bssid,encryption,frequency,channel,station}</code></td>
+<td><code>hostapd_station_*{vif,station}</code></td>
+<td>unchanged</td>
+<td>The network's labels are on the info metric below: a channel change (DFS, ACS) no longer starts a new series of every station's counters.</td>
+</tr>
+<tr>
+<td>— (labels of <code>hostapd_station_*</code>)</td>
+<td><code>hostapd_station_info{vif,station,ssid,bssid,encryption,frequency,channel}</code></td>
+<td>gauge</td>
+<td>The station's network, as an info metric, one per station.</td>
+</tr>
+</tbody>
+</table>
+<p>The hostapd_ubus_stations families already followed the conventions and are unchanged.</p>
+<h2 id="hardware-and-system-collectors">Hardware and system collectors<a class="headerlink" href="#hardware-and-system-collectors" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Before</th>
+<th>After</th>
+<th>Type</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>node_hwmon_*{chip}</code></td>
+<td><code>node_hwmon_*{chip}</code></td>
+<td>gauge</td>
+<td>node_exporter's chip names: each part lowercased with every character but <code>a-z</code>, <code>0-9</code>, <code>:</code> and <code>_</code> an underscore (<code>platform_nct6775.656</code> is <code>platform_nct6775_656</code>), and chips that would share a name told apart by their name file or <code>hwmonN</code>.</td>
+</tr>
+<tr>
+<td><code>node_hwmon_chip_names{chip,chip_name}</code></td>
+<td>unchanged</td>
+<td>gauge</td>
+<td><code>chip_name</code> cleaned as node_exporter does; written only for chips with a name file. node_exporter's help.</td>
+</tr>
+<tr>
+<td><code>node_hwmon_sensor_label</code>, <code>node_hwmon_temp_celsius</code>, <code>node_hwmon_pwm</code></td>
+<td>unchanged</td>
+<td>gauge</td>
+<td>node_exporter's help texts.</td>
+</tr>
+<tr>
+<td><code>node_thermal_zone_temp{zone,type,policy,mode,passive}</code></td>
+<td><code>node_thermal_zone_temp{zone,type}</code></td>
+<td>gauge</td>
+<td>node_exporter's labels and help; a mode change no longer starts a new series.</td>
+</tr>
+<tr>
+<td>— (labels of <code>node_thermal_zone_temp</code>)</td>
+<td><code>node_thermal_zone_info{zone,type,policy,mode}</code></td>
+<td>gauge</td>
+<td>The policy and mode, as an info metric.</td>
+</tr>
+<tr>
+<td>— (label <code>passive</code>, in millidegrees)</td>
+<td><code>node_thermal_zone_passive_celsius{zone,type}</code></td>
+<td>gauge</td>
+<td>The passive trip point as a value, in degrees.</td>
+</tr>
+<tr>
+<td><code>node_os_info</code></td>
+<td>unchanged</td>
+<td>gauge</td>
+<td>node_exporter's help text.</td>
+</tr>
+<tr>
+<td>—</td>
+<td><code>node_os_version{id,name}</code></td>
+<td>gauge</td>
+<td>New: node_exporter's, the major.minor of the release (none for a snapshot).</td>
+</tr>
+<tr>
+<td><code>dhcp_host_info{name,mac,ip}</code></td>
+<td><code>node_openwrt_dhcp_host_info{name,mac,ip}</code></td>
+<td>gauge</td>
+<td>In OpenWrt's own namespace.</td>
+</tr>
+</tbody>
+</table>
+<p>filesystem and textfile already had node_exporter's names; <code>node_openwrt_info</code> is unchanged.</p>
+<h2 id="service-collectors">Service collectors<a class="headerlink" href="#service-collectors" title="Permanent link">&para;</a></h2>
+<h3 id="dnsmasq">dnsmasq<a class="headerlink" href="#dnsmasq" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Before</th>
+<th>After</th>
+<th>Type</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>dnsmasq_&lt;key&gt;_total</code> of a counter (<code>dns_*</code>, <code>dhcp_*</code>, <code>bootp</code>, <code>pxe</code>, <code>noanswer</code>, <code>leases_*</code>)</td>
+<td>unchanged</td>
+<td>gauge → counter</td>
+<td>They count up from dnsmasq's start.</td>
+</tr>
+<tr>
+<td><code>dnsmasq_dnssec_max_crypto_use_total</code>, <code>dnsmasq_dnssec_max_sig_fail_total</code>, <code>dnsmasq_dnssec_max_work_total</code></td>
+<td><code>dnsmasq_dnssec_max_crypto_use</code>, <code>dnsmasq_dnssec_max_sig_fail</code>, <code>dnsmasq_dnssec_max_work</code></td>
+<td>gauge</td>
+<td>High-water marks, not counters: no <code>_total</code>.</td>
+</tr>
+<tr>
+<td><code>dnsmasq_tcp_connections_total</code></td>
+<td><code>dnsmasq_tcp_connections</code></td>
+<td>gauge</td>
+<td>The TCP connections open now.</td>
+</tr>
+<tr>
+<td><code>dnsmasq_&lt;key&gt;_total</code> of a key a later dnsmasq adds</td>
+<td><code>dnsmasq_&lt;key&gt;</code></td>
+<td>gauge → untyped</td>
+<td>Not known to be a counter.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="ltq-dsl">ltq-dsl<a class="headerlink" href="#ltq-dsl" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Before</th>
+<th>After</th>
+<th>Type</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>dsl_up{detail}</code></td>
+<td><code>dsl_up</code></td>
+<td>gauge</td>
+<td>A boolean without a label that changes with the state.</td>
+</tr>
+<tr>
+<td>— (label <code>detail</code> of <code>dsl_up</code>)</td>
+<td><code>dsl_state_info{state}</code></td>
+<td>gauge</td>
+<td>The driver's state of the line, as an info metric.</td>
+</tr>
+<tr>
+<td><code>dsl_aggregated_transmit_power_db{direction}</code></td>
+<td><code>dsl_aggregated_transmit_power_dbm{direction}</code></td>
+<td>gauge</td>
+<td>A power, in dBm.</td>
+</tr>
+<tr>
+<td><code>dsl_datarate{direction}</code></td>
+<td><code>dsl_data_rate_bits_per_second{direction}</code></td>
+<td>gauge</td>
+<td>Base unit in the name.</td>
+</tr>
+<tr>
+<td><code>dsl_max_datarate{direction}</code></td>
+<td><code>dsl_max_data_rate_bits_per_second{direction}</code></td>
+<td>gauge</td>
+<td>Base unit in the name.</td>
+</tr>
+</tbody>
+</table>
+<p>The other <code>dsl_*</code> families are unchanged.</p>
+<h3 id="wireguard">wireguard<a class="headerlink" href="#wireguard" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Before</th>
+<th>After</th>
+<th>Type</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>wireguard_sent_bytes_total{interface,public_key}</code></td>
+<td><code>wireguard_sent_bytes_total{interface,public_key,allowed_ips,friendly_name}</code></td>
+<td>counter</td>
+<td>prometheus_wireguard_exporter's labels and help.</td>
+</tr>
+<tr>
+<td><code>wireguard_received_bytes_total{interface,public_key}</code></td>
+<td><code>wireguard_received_bytes_total{interface,public_key,allowed_ips,friendly_name}</code></td>
+<td>counter</td>
+<td>prometheus_wireguard_exporter's labels and help.</td>
+</tr>
+<tr>
+<td><code>wireguard_latest_handshake_seconds{interface,public_key}</code></td>
+<td><code>wireguard_latest_handshake_seconds{interface,public_key,allowed_ips,friendly_name}</code></td>
+<td>gauge</td>
+<td>prometheus_wireguard_exporter's labels and help.</td>
+</tr>
+<tr>
+<td><code>wireguard_interface_info{name,public_key,listen_port,fwmark}</code></td>
+<td><code>wireguard_interface_info{interface,public_key,listen_port,fwmark}</code></td>
+<td>gauge</td>
+<td><code>interface</code>, as in the other families; an unset fwmark is left out, not <code>NaN</code>.</td>
+</tr>
+<tr>
+<td><code>wireguard_peer_info{interface,public_key,description,endpoint,persistent_keepalive_interval}</code></td>
+<td><code>wireguard_peer_info{interface,public_key,friendly_name,endpoint,persistent_keepalive_interval}</code></td>
+<td>gauge</td>
+<td><code>friendly_name</code>, as in the other families, and only with the collector's <code>peer_names</code> (the old one always had <code>description</code>); an unset keepalive is left out, not <code>NaN</code>.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="mwan3">mwan3<a class="headerlink" href="#mwan3" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Before</th>
+<th>After</th>
+<th>Type</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>mwan3_interface_age</code></td>
+<td><code>mwan3_interface_age_seconds</code></td>
+<td>counter → gauge</td>
+<td>Seconds since the last check: goes back to 0.</td>
+</tr>
+<tr>
+<td><code>mwan3_interface_online</code></td>
+<td><code>mwan3_interface_online_seconds</code></td>
+<td>counter → gauge</td>
+<td>Goes back to 0 when the interface goes offline.</td>
+</tr>
+<tr>
+<td><code>mwan3_interface_offline</code></td>
+<td><code>mwan3_interface_offline_seconds</code></td>
+<td>counter → gauge</td>
+<td>Goes back to 0 when the interface comes online.</td>
+</tr>
+<tr>
+<td><code>mwan3_interface_uptime</code></td>
+<td><code>mwan3_interface_uptime_seconds</code></td>
+<td>counter → gauge</td>
+<td>An uptime, with its unit.</td>
+</tr>
+<tr>
+<td><code>mwan3_interface_lost</code></td>
+<td>unchanged</td>
+<td>counter → gauge</td>
+<td>Probes lost in the current check.</td>
+</tr>
+<tr>
+<td><code>mwan3_interface_turn</code></td>
+<td>unchanged</td>
+<td>counter → gauge</td>
+<td>Rounds in the current check.</td>
+</tr>
+</tbody>
+</table>
+<p><code>mwan3_interface_score</code>, <code>_status</code> (one series per state), <code>_enabled</code>, <code>_running</code> and <code>_up</code> are unchanged.</p>
+<h3 id="bmx7">bmx7<a class="headerlink" href="#bmx7" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Before</th>
+<th>After</th>
+<th>Type</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>bmx7_status{id,name,address,revision}</code></td>
+<td><code>bmx7_info{id,name,address,revision}</code></td>
+<td>gauge</td>
+<td>A metric of labels only is <code>_info</code>.</td>
+</tr>
+<tr>
+<td><code>bmx7_cpu_usage</code> (percent)</td>
+<td><code>bmx7_cpu_usage_ratio</code></td>
+<td>gauge</td>
+<td>A ratio.</td>
+</tr>
+<tr>
+<td><code>bmx7_mem_usage</code></td>
+<td><code>bmx7_memory_usage_bytes</code></td>
+<td>gauge</td>
+<td>Base unit in the name.</td>
+</tr>
+<tr>
+<td><code>bmx7_link_rxRate{source,target,name,dev}</code></td>
+<td><code>bmx7_link_receive_rate_bits_per_second{source,target,name,device}</code></td>
+<td>gauge</td>
+<td>snake_case, base unit, the usual <code>device</code> label.</td>
+</tr>
+<tr>
+<td><code>bmx7_link_txRate{source,target,name,dev}</code></td>
+<td><code>bmx7_link_transmit_rate_bits_per_second{source,target,name,device}</code></td>
+<td>gauge</td>
+<td>snake_case, base unit, the usual <code>device</code> label.</td>
+</tr>
+<tr>
+<td><code>bmx7_tunIn{name,network}</code></td>
+<td><code>bmx7_tun_in_info{name,network}</code></td>
+<td>gauge</td>
+<td>snake_case, <code>_info</code>.</td>
+</tr>
+<tr>
+<td><code>bmx7_plugin{name}</code></td>
+<td><code>bmx7_plugin_info{name}</code></td>
+<td>gauge</td>
+<td><code>_info</code>.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="modemmanager">modemmanager<a class="headerlink" href="#modemmanager" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Before</th>
+<th>After</th>
+<th>Type</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>modemmanager_signal_quality</code> (percent)</td>
+<td><code>modemmanager_signal_quality_ratio</code></td>
+<td>gauge</td>
+<td>A ratio.</td>
+</tr>
+<tr>
+<td><code>modemmanager_signal_&lt;tech&gt;_&lt;measure&gt;</code></td>
+<td><code>modemmanager_signal_&lt;tech&gt;_&lt;measure&gt;_&lt;unit&gt;</code>: <code>_dbm</code> for rssi, rsrp, rscp and io, <code>_db</code> for rsrq, snr, sinr and ecio, <code>_seconds</code> for the refresh rate; none for a measure not known</td>
+<td>gauge</td>
+<td>Unit in the name.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="ubnt-manager">ubnt-manager<a class="headerlink" href="#ubnt-manager" title="Permanent link">&para;</a></h3>
+<p>Every family is a gauge (<code>ubnt_uptime</code> and <code>ubnt_timestamp</code> were counters) labeled <code>device</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Before</th>
+<th>After</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>labels <code>hostname,devmodel,fwversion,essid</code> of <code>ubnt_uptime</code></td>
+<td><code>ubnt_info{device,hostname,devmodel,fwversion,essid}</code></td>
+<td>The radio's names, as an info metric.</td>
+</tr>
+<tr>
+<td><code>ubnt_uptime</code></td>
+<td><code>ubnt_uptime_seconds</code></td>
+<td>Unit; a gauge.</td>
+</tr>
+<tr>
+<td><code>ubnt_timestamp</code></td>
+<td><code>ubnt_time_seconds</code></td>
+<td>The radio's clock: a gauge, as <code>node_time_seconds</code>.</td>
+</tr>
+<tr>
+<td><code>ubnt_totalram</code>, <code>ubnt_freeram</code></td>
+<td><code>ubnt_memory_total_bytes</code>, <code>ubnt_memory_free_bytes</code></td>
+<td>Bytes (airOS 6 reports kB, airOS 8 bytes).</td>
+</tr>
+<tr>
+<td><code>ubnt_cpuload</code> (percent)</td>
+<td><code>ubnt_cpu_load_ratio</code></td>
+<td>A ratio.</td>
+</tr>
+<tr>
+<td><code>ubnt_cpubusy</code>, <code>ubnt_cputotal</code></td>
+<td><code>ubnt_cpu_busy</code>, <code>ubnt_cpu_all</code></td>
+<td>No <code>_total</code> on a gauge.</td>
+</tr>
+<tr>
+<td><code>ubnt_temperature</code></td>
+<td><code>ubnt_temperature_celsius</code></td>
+<td>Unit.</td>
+</tr>
+<tr>
+<td><code>ubnt_frequency</code>, <code>ubnt_center1_freq</code>, <code>ubnt_chanbw</code> (MHz)</td>
+<td><code>ubnt_frequency_hertz</code>, <code>ubnt_center1_frequency_hertz</code>, <code>ubnt_channel_width_hertz</code></td>
+<td>Base unit.</td>
+</tr>
+<tr>
+<td><code>ubnt_signal</code>, <code>ubnt_noisef</code>, <code>ubnt_txpower</code></td>
+<td><code>ubnt_signal_dbm</code>, <code>ubnt_noise_floor_dbm</code>, <code>ubnt_transmit_power_dbm</code></td>
+<td>Unit.</td>
+</tr>
+<tr>
+<td><code>ubnt_distance</code></td>
+<td><code>ubnt_distance_meters</code></td>
+<td>Unit.</td>
+</tr>
+<tr>
+<td><code>ubnt_txrate</code>, <code>ubnt_rxrate</code> (Mbit/s)</td>
+<td><code>ubnt_transmit_rate_bits_per_second</code>, <code>ubnt_receive_rate_bits_per_second</code></td>
+<td>Base unit.</td>
+</tr>
+<tr>
+<td><code>ubnt_throughput_tx</code>, <code>ubnt_throughput_rx</code> (kbit/s)</td>
+<td><code>ubnt_transmit_throughput_bits_per_second</code>, <code>ubnt_receive_throughput_bits_per_second</code></td>
+<td>Base unit.</td>
+</tr>
+<tr>
+<td><code>ubnt_polling_cb_capacity</code>, <code>_dl_capacity</code>, <code>_ul_capacity</code> (kbit/s)</td>
+<td><code>ubnt_airmax_combined_capacity_bits_per_second</code>, <code>ubnt_airmax_downlink_capacity_bits_per_second</code>, <code>ubnt_airmax_uplink_capacity_bits_per_second</code></td>
+<td>Base unit.</td>
+</tr>
+<tr>
+<td><code>ubnt_use</code>, <code>ubnt_tx_use</code>, <code>ubnt_rx_use</code></td>
+<td><code>ubnt_airtime_use</code>, <code>ubnt_transmit_airtime_use</code>, <code>ubnt_receive_airtime_use</code></td>
+<td>Named for what they are; left as airOS reports them, their scale unknown.</td>
+</tr>
+<tr>
+<td><code>ubnt_count</code></td>
+<td><code>ubnt_stations</code></td>
+<td>Named for what it counts.</td>
+</tr>
+<tr>
+<td><code>ubnt_aprepeater</code>, <code>ubnt_rstatus</code></td>
+<td><code>ubnt_ap_repeater</code>, <code>ubnt_radio_status</code></td>
+<td>snake_case.</td>
+</tr>
+</tbody>
+</table>
+<p><code>ubnt_loadavg</code>, <code>ubnt_channel</code>, <code>ubnt_band</code>, <code>ubnt_dfs</code>, <code>ubnt_rssi</code>, <code>ubnt_rx_chainmask</code>, <code>ubnt_tx_chainmask</code>, <code>ubnt_cac_state</code>, <code>ubnt_cac_timeout</code>, <code>ubnt_rx_idx</code>, <code>ubnt_rx_nss</code>, <code>ubnt_tx_idx</code>, <code>ubnt_tx_nss</code> and <code>ubnt_atpc_status</code> keep their names.</p>
+<h3 id="unbound">unbound<a class="headerlink" href="#unbound" title="Permanent link">&para;</a></h3>
+<p>The counters of each thread (<code>threadN.*</code> in unbound's statistics), labeled <code>thread</code>, where the Lua exporter had the <code>total.*</code> ones without labels, as letsencrypt/unbound_exporter has them; <code>sum without (thread)</code> gives the totals.</p>
+<table>
+<thead>
+<tr>
+<th>Before</th>
+<th>After</th>
+<th>Type</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>unbound_num_queries_total</code></td>
+<td><code>unbound_queries_total{thread}</code></td>
+<td>counter</td>
+<td>unbound_exporter's name.</td>
+</tr>
+<tr>
+<td><code>unbound_num_queries_ip_ratelimited_total</code></td>
+<td><code>unbound_queries_ip_ratelimited_total{thread}</code></td>
+<td>counter</td>
+<td>As unbound_exporter's other query counters.</td>
+</tr>
+<tr>
+<td><code>unbound_num_queries_cookie_valid_total</code>, <code>_cookie_client_total</code>, <code>_cookie_invalid_total</code></td>
+<td><code>unbound_queries_cookie_valid_total{thread}</code>, <code>unbound_queries_cookie_client_total{thread}</code>, <code>unbound_queries_cookie_invalid_total{thread}</code></td>
+<td>counter</td>
+<td>unbound_exporter's names.</td>
+</tr>
+<tr>
+<td><code>unbound_num_queries_discard_timeout_total</code>, <code>_wait_limit_total</code></td>
+<td><code>unbound_queries_discard_timeout_total{thread}</code>, <code>unbound_queries_wait_limit_total{thread}</code></td>
+<td>counter</td>
+<td>unbound_exporter's names, with the <code>_total</code> they lack there.</td>
+</tr>
+<tr>
+<td>—</td>
+<td><code>unbound_queries_replyaddr_limit_total{thread}</code></td>
+<td>counter</td>
+<td>New: unbound_exporter's, with <code>_total</code>.</td>
+</tr>
+<tr>
+<td><code>unbound_cachehits_total</code></td>
+<td><code>unbound_cache_hits_total{thread}</code></td>
+<td>counter</td>
+<td>unbound_exporter's name.</td>
+</tr>
+<tr>
+<td><code>unbound_cachemiss_total</code></td>
+<td><code>unbound_cache_misses_total{thread}</code></td>
+<td>counter</td>
+<td>unbound_exporter's name.</td>
+</tr>
+<tr>
+<td><code>unbound_prefetch_total</code></td>
+<td><code>unbound_prefetches_total{thread}</code></td>
+<td>counter</td>
+<td>unbound_exporter's name.</td>
+</tr>
+<tr>
+<td><code>unbound_num_queries_timed_out_total</code></td>
+<td><code>unbound_queries_timed_out_total{thread}</code></td>
+<td>counter</td>
+<td>As unbound_exporter's other query counters.</td>
+</tr>
+<tr>
+<td><code>unbound_query_queue_time_us_max</code> (µs)</td>
+<td><code>unbound_query_queue_time_seconds_max{thread}</code></td>
+<td>gauge</td>
+<td>Base unit.</td>
+</tr>
+<tr>
+<td><code>unbound_num_expired_total</code></td>
+<td><code>unbound_expired_total{thread}</code></td>
+<td>counter</td>
+<td>unbound_exporter's name.</td>
+</tr>
+<tr>
+<td><code>unbound_num_recursivereplies_total</code></td>
+<td><code>unbound_recursive_replies_total{thread}</code></td>
+<td>counter</td>
+<td>unbound_exporter's name.</td>
+</tr>
+<tr>
+<td><code>unbound_num_dns_error_reports_total</code></td>
+<td><code>unbound_dns_error_reports_total{thread}</code></td>
+<td>counter</td>
+<td>unbound_exporter's name, with the <code>_total</code> it lacks there.</td>
+</tr>
+<tr>
+<td><code>unbound_requestlist_avg</code>, <code>unbound_requestlist_max</code></td>
+<td><code>unbound_request_list_avg{thread}</code>, <code>unbound_request_list_max{thread}</code></td>
+<td>gauge</td>
+<td>As unbound_exporter's other request list families.</td>
+</tr>
+<tr>
+<td><code>unbound_requestlist_overwritten_total</code>, <code>_exceeded_total</code></td>
+<td><code>unbound_request_list_overwritten_total{thread}</code>, <code>unbound_request_list_exceeded_total{thread}</code></td>
+<td>counter</td>
+<td>unbound_exporter's names.</td>
+</tr>
+<tr>
+<td><code>unbound_requestlist_current_all</code>, <code>_current_user</code></td>
+<td><code>unbound_request_list_current_all{thread}</code>, <code>unbound_request_list_current_user{thread}</code></td>
+<td>gauge</td>
+<td>unbound_exporter's names.</td>
+</tr>
+<tr>
+<td>—</td>
+<td><code>unbound_request_list_current_replies{thread}</code></td>
+<td>gauge</td>
+<td>New: unbound_exporter's.</td>
+</tr>
+<tr>
+<td><code>unbound_recursion_time_avg</code>, <code>unbound_recursion_time_median</code></td>
+<td><code>unbound_recursion_time_seconds_avg</code>, <code>unbound_recursion_time_seconds_median</code></td>
+<td>gauge</td>
+<td>unbound_exporter's names, from <code>total.*</code>.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="new-metrics">New metrics<a class="headerlink" href="#new-metrics" title="Permanent link">&para;</a></h2>
+<p>Neither upstream exporter had these. Where node_exporter has the metric, the name, type, labels and help are its own.</p>
+<table>
+<thead>
+<tr>
+<th>Collector</th>
+<th>Families</th>
+<th>Type</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>— (the exporter's own)</td>
+<td><code>ucode_prometheus_exporter_build_info{version}</code></td>
+<td>gauge</td>
+<td>1, labeled with the package's version (<code>0.1.0-r1</code>, <code>dev</code> from a source tree), in every scrape whatever <code>collect[]</code> selects; as node_exporter's <code>node_exporter_build_info</code>.</td>
+</tr>
+<tr>
+<td>— (the exporter's own)</td>
+<td><code>node_scrape_collector_observing{collector}</code></td>
+<td>gauge</td>
+<td>Beside node_exporter's <code>node_scrape_collector_success</code>: 0 for a collector with nothing to observe (its hardware, kernel feature or service is not there; it succeeds without samples), 1 for every other; see <a href="../explanation/nothing-to-observe/">About nothing to observe</a>.</td>
+</tr>
+<tr>
+<td>conntrack (base)</td>
+<td><code>node_nf_conntrack_stat_{found,invalid,ignore,insert,insert_failed,drop,early_drop,search_restart}</code></td>
+<td>gauge</td>
+<td>node_exporter's, from <code>/proc/net/stat/nf_conntrack</code> summed over the CPUs.</td>
+</tr>
+<tr>
+<td>softnet (base)</td>
+<td><code>node_softnet_{processed,dropped,times_squeezed,cpu_collision,received_rps,flow_limit_count}_total{cpu}</code></td>
+<td>counter</td>
+<td>node_exporter's, from <code>/proc/net/softnet_stat</code>.</td>
+</tr>
+<tr>
+<td>softnet (base)</td>
+<td><code>node_softnet_backlog_len{cpu}</code></td>
+<td>gauge</td>
+<td>node_exporter's.</td>
+</tr>
+<tr>
+<td>vmstat (base)</td>
+<td><code>node_vmstat_&lt;field&gt;</code> (default fields: <code>oom_kill</code>, <code>pgpg*</code>, <code>pswp*</code>, <code>pg*fault*</code>; option <code>fields</code>)</td>
+<td>untyped</td>
+<td>node_exporter's, from <code>/proc/vmstat</code>.</td>
+</tr>
+<tr>
+<td>openwrt_interfaces (base)</td>
+<td><code>node_openwrt_interface_{up,pending,available,autostart}{interface}</code></td>
+<td>gauge</td>
+<td>netifd's <code>network.interface dump</code>, 0 or 1.</td>
+</tr>
+<tr>
+<td>openwrt_interfaces (base)</td>
+<td><code>node_openwrt_interface_uptime_seconds{interface}</code></td>
+<td>gauge</td>
+<td>netifd's uptime, while the interface is up.</td>
+</tr>
+<tr>
+<td>openwrt_interfaces (base)</td>
+<td><code>node_openwrt_interface_info{interface,proto,device,l3_device}</code></td>
+<td>gauge</td>
+<td>1; a label netifd does not report is left out.</td>
+</tr>
+<tr>
+<td>openwrt_interfaces (base)</td>
+<td><code>node_openwrt_interface_addresses{interface,family}</code>, <code>node_openwrt_interface_routes{interface,family}</code></td>
+<td>gauge</td>
+<td>Counts: an address as a label would change with every WAN lease.</td>
+</tr>
+<tr>
+<td>openwrt_interfaces (base)</td>
+<td><code>node_openwrt_interface_ipv6_prefixes{interface}</code>, <code>node_openwrt_interface_errors{interface}</code></td>
+<td>gauge</td>
+<td>Delegated prefixes; the errors netifd holds for the interface.</td>
+</tr>
+<tr>
+<td>dhcp_leases</td>
+<td><code>node_openwrt_dhcp_leases{server,interface,family}</code></td>
+<td>gauge</td>
+<td>Active leases of dnsmasq (its lease file) and odhcpd (<code>ubus call dhcp ipv4leases</code>/<code>ipv6leases</code>).</td>
+</tr>
+<tr>
+<td>dhcp_leases (option <code>leases</code>)</td>
+<td><code>node_openwrt_dhcp_lease_info{server,interface,family,address,mac,duid,iaid,hostname}</code>, <code>node_openwrt_dhcp_lease_expiry_timestamp_seconds{server,interface,family,address}</code></td>
+<td>gauge</td>
+<td>A series per lease; off by default, for churn and privacy.</td>
+</tr>
+<tr>
+<td>timesync (base)</td>
+<td><code>node_timesync_synchronized{daemon}</code></td>
+<td>gauge</td>
+<td>1 or 0, for each NTP daemon procd runs: <code>ntpd</code> (busybox, from its last event, kept by the base package's hotplug script: synchronized below stratum 16) and <code>chronyd</code> (<code>chronyc -c tracking</code>: synchronized unless its leap status is <code>Not synchronised</code>). node_exporter's <code>node_timex_sync_status</code> is the kernel's adjtimex(2) state, which ucode cannot read: not the same, so not its name.</td>
+</tr>
+<tr>
+<td>timesync (base)</td>
+<td><code>node_timesync_stratum{daemon}</code>, <code>node_timesync_offset_seconds{daemon}</code>, <code>node_timesync_last_update_timestamp_seconds{daemon}</code></td>
+<td>gauge</td>
+<td>While synchronized: the stratum, the offset at the last update (chronyd's last offset, ntpd's event's), and when that was (chronyd's reference time, ntpd's event) as a timestamp, as the conventions want a time since something. Not node_exporter's <code>node_timex_offset_seconds</code>, the offset the kernel still has to slew.</td>
+</tr>
+<tr>
+<td>chrony</td>
+<td><code>chrony_tracking_info{tracking_address,tracking_name,tracking_refid}</code>, <code>chrony_tracking_{last_offset_seconds,reference_timestamp_seconds,system_time_seconds,remote_reference,rms_offset_seconds,root_delay_seconds,root_dispersion_seconds,frequency_ppms,residual_frequency_ppms,skew_ppms,update_interval_seconds,stratum}</code></td>
+<td>gauge</td>
+<td>chrony_exporter's, from <code>chronyc -c tracking</code>.</td>
+</tr>
+<tr>
+<td>chrony</td>
+<td><code>chrony_sources_{last_sample_age_seconds,reachability_ratio,reachability_success,last_sample_offset_seconds,last_sample_error_margin_seconds,polling_interval_seconds,stratum}{source_address,source_name}</code>, <code>chrony_sources_state_info{source_address,source_name,source_state,source_mode}</code></td>
+<td>gauge</td>
+<td>chrony_exporter's, from <code>chronyc -c sources</code>.</td>
+</tr>
+<tr>
+<td>chrony</td>
+<td><code>chrony_serverstats_*_total</code> (NTP, NTS-KE and command packets received and dropped, client log records dropped, authenticated and interleaved packets, timestamps by where they were taken), <code>chrony_serverstats_ntp_timestamps_held</code>, <code>chrony_serverstats_ntp_timestamp_span_seconds</code></td>
+<td>counter, gauge</td>
+<td>chrony_exporter's, from <code>chronyc -c serverstats</code>, where chronyd serves time and its command socket can be reached: outside the exporter's jail (see <a href="../how-to/chrony/#server-statistics">How to monitor chrony</a>).</td>
+</tr>
+<tr>
+<td>qdisc</td>
+<td><code>node_qdisc_{bytes,packets,drops,requeues,overlimits}_total{device,kind}</code></td>
+<td>counter</td>
+<td>node_exporter's (collector/qdisc_linux.go), from <code>tc -s -j qdisc show</code>: the root qdisc of each device, as node_exporter reports them; noqueue is left out.</td>
+</tr>
+<tr>
+<td>qdisc</td>
+<td><code>node_qdisc_current_queue_length{device,kind}</code>, <code>node_qdisc_backlog{device,kind}</code></td>
+<td>gauge</td>
+<td>node_exporter's: packets and bytes queued.</td>
+</tr>
+<tr>
+<td>qdisc</td>
+<td><code>node_qdisc_cake_capacity_estimate_bytes_per_second{device}</code>, <code>node_qdisc_cake_memory_used_bytes{device}</code>, <code>node_qdisc_cake_memory_limit_bytes{device}</code></td>
+<td>gauge</td>
+<td>A root CAKE qdisc's shaper rate and memory. No CAKE exporter is widely used: tc's JSON keys (tc/q_cake.c), in base units.</td>
+</tr>
+<tr>
+<td>qdisc</td>
+<td><code>node_qdisc_cake_tin_{bytes,packets,drops,ecn_marks,ack_drops}_total{device,tin}</code></td>
+<td>counter</td>
+<td>Per tin, <code>tin</code> its index as tc numbers them (0 for besteffort; 0 to 3, Bulk to Voice, for diffserv4).</td>
+</tr>
+<tr>
+<td>qdisc</td>
+<td><code>node_qdisc_cake_tin_{threshold_rate_bytes_per_second,backlog_bytes,peak_delay_seconds,average_delay_seconds,base_delay_seconds,sparse_flows,bulk_flows,unresponsive_flows}{device,tin}</code></td>
+<td>gauge</td>
+<td>Per tin; tc's delays in µs, here in seconds (<code>base</code> is tc's <code>sp_delay</code>, the sparse flows' delay).</td>
+</tr>
+<tr>
+<td>diskstats</td>
+<td><code>node_disk_{reads,writes}_completed_total{device}</code>, <code>node_disk_{reads,writes}_merged_total{device}</code>, <code>node_disk_read_bytes_total{device}</code>, <code>node_disk_written_bytes_total{device}</code>, <code>node_disk_{read,write}_time_seconds_total{device}</code>, <code>node_disk_io_time_seconds_total{device}</code>, <code>node_disk_io_time_weighted_seconds_total{device}</code></td>
+<td>counter</td>
+<td>node_exporter's (collector/diskstats_linux.go), from <code>/proc/diskstats</code>: sectors of 512 bytes in bytes, milliseconds in seconds. Devices the <code>device_exclude</code> option matches are left out: by default node_exporter's (RAM disks, zram, loop devices, the partitions of SCSI, virtio and NVMe disks) and flash (mtdblock, ubiblock) and the partitions and boot areas of an eMMC or SD card.</td>
+</tr>
+<tr>
+<td>diskstats</td>
+<td><code>node_disk_io_now{device}</code></td>
+<td>gauge</td>
+<td>node_exporter's: the I/Os in progress.</td>
+</tr>
+<tr>
+<td>diskstats</td>
+<td><code>node_disk_discards_{completed,merged}_total{device}</code>, <code>node_disk_discarded_sectors_total{device}</code>, <code>node_disk_discard_time_seconds_total{device}</code>, <code>node_disk_flush_requests_total{device}</code>, <code>node_disk_flush_requests_time_seconds_total{device}</code></td>
+<td>counter</td>
+<td>node_exporter's, where the kernel's line has them (discards since 4.18, flushes since 5.5); discarded sectors stay sectors, as there.</td>
+</tr>
+<tr>
+<td>diskstats</td>
+<td><code>node_disk_info{device,major,minor,rotational}</code></td>
+<td>gauge</td>
+<td>node_exporter's, without the labels it takes from udev's database (<code>path</code>, <code>wwn</code>, <code>model</code>, <code>serial</code>, <code>revision</code>), which OpenWrt does not have and which node_exporter leaves empty without it.</td>
+</tr>
+<tr>
+<td>hwmon</td>
+<td><code>node_hwmon_fan_rpm{chip,sensor}</code>, <code>node_hwmon_fan_min_rpm{chip,sensor}</code>, <code>node_hwmon_fan_alarm{chip,sensor}</code></td>
+<td>gauge</td>
+<td>node_exporter's, from a chip's <code>fanN_input</code>, <code>_min</code> and <code>_alarm</code>.</td>
+</tr>
+<tr>
+<td>hwmon</td>
+<td><code>node_hwmon_in_volts{chip,sensor}</code>, <code>node_hwmon_in_min_volts{chip,sensor}</code>, <code>node_hwmon_in_max_volts{chip,sensor}</code>, <code>node_hwmon_in_alarm{chip,sensor}</code></td>
+<td>gauge</td>
+<td>node_exporter's, from <code>inN_input</code>, <code>_min</code>, <code>_max</code> (mV, here volts) and <code>_alarm</code>.</td>
+</tr>
+<tr>
+<td>hwmon</td>
+<td><code>node_hwmon_curr_amps{chip,sensor}</code>, <code>node_hwmon_power_watt{chip,sensor}</code></td>
+<td>gauge</td>
+<td>node_exporter's, from <code>currN_input</code> (mA, here amperes) and <code>powerN_input</code> (µW, here watts).</td>
+</tr>
+<tr>
+<td>sockstat</td>
+<td><code>node_sockstat_sockets_used</code>, <code>node_sockstat_&lt;protocol&gt;_{inuse,orphan,tw,alloc,mem,memory}</code> (<code>TCP</code>, <code>UDP</code>, <code>UDPLITE</code>, <code>RAW</code>, <code>FRAG</code>, and <code>TCP6</code>, <code>UDP6</code>, <code>UDPLITE6</code>, <code>RAW6</code>, <code>FRAG6</code> where the kernel has IPv6)</td>
+<td>gauge</td>
+<td>node_exporter's (collector/sockstat_linux.go), from <code>/proc/net/sockstat</code> and <code>/proc/net/sockstat6</code>, each key a protocol's line has.</td>
+</tr>
+<tr>
+<td>sockstat</td>
+<td><code>node_sockstat_&lt;protocol&gt;_mem_bytes</code></td>
+<td>gauge</td>
+<td>node_exporter's: <code>mem</code>, in pages, times the page size (the process's <code>AT_PAGESZ</code>, from <code>/proc/self/auxv</code>).</td>
+</tr>
+</tbody>
+</table>
+<h2 id="unchanged-collectors">Unchanged collectors<a class="headerlink" href="#unchanged-collectors" title="Permanent link">&para;</a></h2>
+<p>conntrack (beyond the statistics above), entropy, filefd, filesystem, hostapd_ubus_stations, loadavg, realtek-poe, textfile, time and uname write the families they wrote before.</p>
+<h2 id="standalone-exporters">Standalone exporters<a class="headerlink" href="#standalone-exporters" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Service</th>
+<th>Exporter</th>
+<th>Followed?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>unbound</td>
+<td><a href="https://github.com/letsencrypt/unbound_exporter">letsencrypt/unbound_exporter</a></td>
+<td>Yes: its names, help texts and per-thread <code>thread</code> label, with <code>_total</code> added to the counters it names without (<code>queries_discard_timeout</code>, <code>queries_wait_limit</code>, <code>queries_replyaddr_limit</code>, <code>dns_error_reports</code>).</td>
+</tr>
+<tr>
+<td>WireGuard</td>
+<td><a href="https://github.com/MindFlavor/prometheus_wireguard_exporter">prometheus_wireguard_exporter</a></td>
+<td>Yes: <code>wireguard_sent_bytes_total</code>, <code>wireguard_received_bytes_total</code> and <code>wireguard_latest_handshake_seconds</code>, its help texts and labels (<code>interface</code>, <code>public_key</code>, <code>allowed_ips</code>, <code>friendly_name</code>).</td>
+</tr>
+<tr>
+<td>chrony</td>
+<td><a href="https://github.com/SuperQ/chrony_exporter">SuperQ/chrony_exporter</a></td>
+<td>Yes: its <code>chrony_tracking_*</code>, <code>chrony_sources_*</code> and <code>chrony_serverstats_*</code> names, help texts and labels; a source's <code>source_name</code> is its address, as it has it without DNS lookups (its default). Its <code>_ppms</code> names are kept: ppm is the unit chrony speaks in, and the base unit, a ratio, would make 33.8 ppm 3.38e-05. <code>chrony_up</code> is not: the scrape's <code>node_scrape_collector_success</code> is. A source never sampled has no <code>chrony_sources_last_sample_age_seconds</code> (chrony_exporter writes 4294967295).</td>
+</tr>
+<tr>
+<td>dnsmasq</td>
+<td><a href="https://github.com/google/dnsmasq_exporter">google/dnsmasq_exporter</a></td>
+<td>No: its counters (<code>dnsmasq_hits</code>, <code>dnsmasq_misses</code>, ...) have no <code>_total</code> and are typed as gauges, and they are the cache figures of dnsmasq's CHAOS TXT records, not the <code>ubus call dnsmasq metrics</code> this collector reads.</td>
+</tr>
+</tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12Z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "content.code.copy"], "search": "../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.1e8ae164.min.js"></script>
+      
+    
+  </body>
+</html>
