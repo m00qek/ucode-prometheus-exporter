@@ -319,7 +319,7 @@ fi
 if [ -n "$out" ]; then
 	# Write beside the target, then rename, so a failure never leaves half a file.
 	tmp_out=$(mktemp "$out.XXXXXX") || die "cannot write next to $out"
-	cp "$work/feed.mk" "$tmp_out" && mv "$tmp_out" "$out" || { rm -f "$tmp_out"; die "cannot write $out"; }
+	cp "$work/feed.mk" "$tmp_out" && chmod 0644 "$tmp_out" && mv "$tmp_out" "$out" || { rm -f "$tmp_out"; die "cannot write $out"; }
 else
 	cat "$work/feed.mk"
 fi

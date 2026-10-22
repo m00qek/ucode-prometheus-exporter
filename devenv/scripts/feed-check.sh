@@ -31,6 +31,10 @@ tree=$(git stash create)
 git archive --format=tar.gz --prefix="$name-$version/" -o "$tarball" "${tree:-HEAD}"
 sh devenv/scripts/gen-feed-makefile.sh --tarball "$tarball" -o "$out/package/Makefile" "$version"
 
+# The SDK builds as its own user, which may not be this one: on a GitHub runner
+# it is not.
+chmod -R a+rX "$out/package" "$out/dl"
+
 # fakeroot closes every descriptor up to the open-file limit as it starts: see
 # the Makefile's package target.
 if ! docker run --rm --network none --ulimit nofile=1024:524288 \
