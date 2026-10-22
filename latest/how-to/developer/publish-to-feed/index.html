@@ -2407,19 +2407,20 @@
 
 
 <h1 id="how-to-publish-a-release-to-the-package-feed">How to Publish a Release to the Package Feed<a class="headerlink" href="#how-to-publish-a-release-to-the-package-feed" title="Permanent link">&para;</a></h1>
-<p>Routers install the exporter, its collector packages, its groups and luci-app-prometheus-exporter from the <a href="https://github.com/m00qek/packages.ucode.dev">packages.ucode.dev</a> feed. The feed builds them from the release tarball GitHub serves for a tag, with a Makefile generated from <code>openwrt/ucode-prometheus-exporter/Makefile</code>. The examples publish <code>0.2.0</code>.</p>
+<p>Routers install the exporter, its collector packages, its groups and luci-app-prometheus-exporter from the <a href="https://github.com/m00qek/packages.ucode.dev">packages.ucode.dev</a> feed. The feed builds them from the release tarball GitHub serves for a tag, with a Makefile generated from <code>openwrt/ucode-prometheus-exporter/Makefile</code>. The examples publish <code>0.3.1</code>.</p>
 <h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
 <ul>
-<li>The release is tagged and pushed: <code>v0.2.0</code>, with <code>PKG_VERSION:=0.2.0</code> in <code>openwrt/ucode-prometheus-exporter/Makefile</code>, and <code>CHANGELOG.md</code>'s <code>## [0.2.0]</code> section dated.</li>
+<li>The release is tagged and pushed: <code>v0.3.1</code>, with <code>PKG_VERSION:=0.3.1</code> in <code>openwrt/ucode-prometheus-exporter/Makefile</code>, and <code>CHANGELOG.md</code>'s <code>## [0.3.1]</code> section dated.</li>
+<li><code>make feed-check</code> passed on the tagged commit, as CI's <code>feed</code> job runs it. It builds the packages from a tarball of the commit, as the feed does. The feed could not build 0.3.0, whose base package listed its modules before the SDK had unpacked the tarball.</li>
 <li>A checkout of packages.ucode.dev next to this one.</li>
-<li>The feed has <code>ucode-docopt</code>, which the command line's package, <code>ucode-prometheus-exporter-cli</code>, depends on. The feed already publishes it for 25.12.</li>
+<li>The feed has <code>ucode-docopt</code>, which the command line's package, <code>ucode-prometheus-exporter-cli</code>, depends on, and <code>ucode-utest</code>, which the devkit depends on. The feed already publishes both for 25.12.</li>
 </ul>
 <p>The feed fetches the tarball of <code>v&lt;PKG_VERSION&gt;</code>. So a release that only raises <code>PKG_RELEASE</code> cannot reach the feed: publish a new version instead.</p>
 <hr />
 <h2 id="1-generate-the-feed-makefile">1. Generate the feed Makefile<a class="headerlink" href="#1-generate-the-feed-makefile" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code>make<span class="w"> </span>feed-makefile<span class="w"> </span><span class="nv">VERSION</span><span class="o">=</span><span class="m">0</span>.2.0<span class="w"> </span><span class="nv">OUT</span><span class="o">=</span>../packages.ucode.dev/ucode-prometheus-exporter/Makefile
+<div class="highlight"><pre><span></span><code>make<span class="w"> </span>feed-makefile<span class="w"> </span><span class="nv">VERSION</span><span class="o">=</span><span class="m">0</span>.3.1<span class="w"> </span><span class="nv">OUT</span><span class="o">=</span>../packages.ucode.dev/ucode-prometheus-exporter/Makefile
 </code></pre></div>
-<p>This downloads the <code>v0.2.0</code> tarball, hashes it, and writes the Makefile. If it refuses, it names one of these:</p>
+<p>This downloads the <code>v0.3.1</code> tarball, hashes it, and writes the Makefile. If it refuses, it names one of these:</p>
 <ul>
 <li>the line of <code>openwrt/ucode-prometheus-exporter/Makefile</code> it does not know how to transform</li>
 <li>the paths the Makefile copies that the tarball lacks: every collector that the <code>Collector</code> calls and <code>BASE_COLLECTORS</code> name, each directory of <code>MODULE_SUBDIRS</code>, the programs of <code>libexec/</code>, and the license files</li>
@@ -2427,14 +2428,19 @@
 <p><code>TARBALL=&lt;path&gt;</code> uses a tarball already on disk instead of downloading it. <code>HASH=&lt;sha256&gt;</code> transforms this tree's Makefile with that hash, offline, and checks nothing against a tag.</p>
 <h2 id="2-commit-it-to-the-feed">2. Commit it to the feed<a class="headerlink" href="#2-commit-it-to-the-feed" title="Permanent link">&para;</a></h2>
 <p>In packages.ucode.dev, commit <code>ucode-prometheus-exporter/Makefile</code> and push it to <code>main</code>. Do not edit the file there: the feed's workflow regenerates it from the tag, and fails if the two differ.</p>
-<p>The workflow then builds every package with the OpenWrt 25.12 SDK, signs them into <code>25.12/noarch/</code>, and adds them to every architecture's index.</p>
-<p>The first release to reach the feed needs that workflow, a copy of the feed's <code>wgpathd</code> workflow. It runs this repository's <code>devenv/scripts/gen-feed-makefile.sh</code> from the tag. It expects the 35 packages of 0.2.0: the base package, 29 collectors, 4 groups and the LuCI app.</p>
+<p>The feed's workflow, <code>.github/workflows/ucode-prometheus-exporter.yml</code>, then:</p>
+<ul>
+<li>regenerates the Makefile with this repository's <code>devenv/scripts/gen-feed-makefile.sh</code>, from the tag, and fails if it differs;</li>
+<li>builds every package with the OpenWrt 25.12 SDK, and fails unless there is one for each of the Makefile's <code>BuildPackage</code>, <code>Collector</code> and <code>Group</code> calls: 41 in 0.3.1, the base package, its command line, 33 collectors, 4 groups, the devkit and the LuCI app;</li>
+<li>on <code>main</code>, signs them into <code>25.12/noarch/</code>, and adds them to every architecture's index.</li>
+</ul>
+<p>A pull request runs the first two.</p>
 <h2 id="3-check-the-feed">3. Check the feed<a class="headerlink" href="#3-check-the-feed" title="Permanent link">&para;</a></h2>
 <p>On a router with the feed configured:</p>
 <div class="highlight"><pre><span></span><code>apk<span class="w"> </span>update
 apk<span class="w"> </span>info<span class="w"> </span>-a<span class="w"> </span>ucode-prometheus-exporter<span class="w"> </span><span class="p">|</span><span class="w"> </span>head<span class="w"> </span>-3
 </code></pre></div>
-<p>The version shown is <code>0.2.0-r&lt;PKG_RELEASE&gt;</code>. To upgrade a router to it, see <a href="../../upgrade/">Upgrading the exporter</a>.</p>
+<p>The version shown is <code>0.3.1-r&lt;PKG_RELEASE&gt;</code>. To upgrade a router to it, see <a href="../../upgrade/">Upgrading the exporter</a>.</p>
 
 
 

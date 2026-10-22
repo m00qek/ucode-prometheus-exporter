@@ -2478,7 +2478,7 @@ make<span class="w"> </span>docs
 </code></pre></div>
 <p><code>docs-test</code> runs the publishing scripts' tests. <code>docs</code> builds the site, strictly. See <a href="../documentation/">How to write documentation</a>.</p>
 <hr />
-<p>CI runs <code>lint</code>, <code>test</code>, <code>package-check</code> and <code>e2e</code> on 25.12.0 and 25.12.5, and <code>bench</code> and <code>browser</code> once. A failed <code>e2e</code> on 25.12.0 does not fail the run: on GitHub's runners, about a third of its runs lose rpcd partway through, for a cause not yet found. Its first failure prints what rpcd and ubusd were doing. The docs workflow builds the site. <a href="../../../reference/make-targets/">Make targets</a> lists every target.</p>
+<p>CI runs <code>lint</code>, <code>test</code>, <code>package-check</code> and <code>e2e</code> on 25.12.0 and 25.12.5, and <code>bench</code>, <code>browser</code> and <code>feed-check</code> once. A failed <code>e2e</code> on 25.12.0 does not fail the run: on GitHub's runners, about a third of its runs lose rpcd partway through, for a cause not yet found. Its first failure prints what rpcd and ubusd were doing. The docs workflow builds the site. <a href="../../../reference/make-targets/">Make targets</a> lists every target.</p>
 
 
 

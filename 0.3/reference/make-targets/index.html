@@ -2498,7 +2498,7 @@
 
 
 <h1 id="make-targets">Make Targets<a class="headerlink" href="#make-targets" title="Permanent link">&para;</a></h1>
-<p>Every target runs in Docker, except <code>feed-makefile</code>, a shell script that uses <code>curl</code>. Nothing is installed on the host. <code>monitoring-lab</code> waits for its servers with <code>curl</code> on the host. <code>fixtures</code> and <code>bench-device</code> reach a device over ssh.</p>
+<p>Every target runs in Docker, except <code>feed-makefile</code>, a shell script that uses <code>curl</code>, and the part of <code>feed-check</code> that makes the tarball, with <code>git archive</code>. Nothing is installed on the host. <code>monitoring-lab</code> waits for its servers with <code>curl</code> on the host. <code>fixtures</code> and <code>bench-device</code> reach a device over ssh.</p>
 <hr />
 <h2 id="root-makefile">Root <code>Makefile</code><a class="headerlink" href="#root-makefile" title="Permanent link">&para;</a></h2>
 <h3 id="tests-and-checks">Tests and checks<a class="headerlink" href="#tests-and-checks" title="Permanent link">&para;</a></h3>
@@ -2665,6 +2665,10 @@
 <tr>
 <td style="text-align: left;"><code>feed-makefile</code></td>
 <td style="text-align: left;">Writes the Makefile of the packages.ucode.dev feed for release <code>VERSION</code> to <code>OUT</code>, or to standard output. The Makefile is this tree's package Makefile as the <code>v&lt;VERSION&gt;</code> tag has it, set to build from GitHub's tarball of the tag, which the target downloads and hashes. See <a href="../../how-to/developer/publish-to-feed/">How to publish a release to the package feed</a>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>feed-check</code></td>
+<td style="text-align: left;">Builds the packages as the feed does, offline: from a <code>git archive</code> tarball of this tree, changes not yet committed included, with the Makefile <code>feed-makefile</code> makes of it, in the SDK. Fails when that build fails, or when a package's files, modes, hashes, dependencies or scripts differ from what <code>package</code> built. Runs <code>package</code> first, and leaves its build in <code>bin/feed</code>. See <code>devenv/scripts/feed-check.sh</code>.</td>
 </tr>
 </tbody>
 </table>
