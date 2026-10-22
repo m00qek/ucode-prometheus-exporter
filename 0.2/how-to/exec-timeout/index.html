@@ -2192,11 +2192,11 @@
 <h2 id="find-the-collector-that-runs-out-of-time">Find the collector that runs out of time<a class="headerlink" href="#find-the-collector-that-runs-out-of-time" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code>logread<span class="w"> </span>-e<span class="w"> </span>prometheus-exporter<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>COMMAND_TIMEOUT
 </code></pre></div>
-<div class="highlight"><pre><span></span><code>daemon.warn prometheus-exporter[1]: collector &#39;ubnt-manager&#39;: COMMAND_TIMEOUT (ubnt-manager: still running after 5 s, killed)
+<div class="highlight"><pre><span></span><code>daemon.warn prometheus-exporter[1]: collector 'ubnt-manager': COMMAND_TIMEOUT (ubnt-manager: still running after 5 s, killed)
 </code></pre></div>
 <p><code>service prometheus-exporter check</code> shows each collector's seconds and where they come from:</p>
-<div class="highlight"><pre><span></span><code>  ubnt-manager (Ubiquiti airOS radios): section &#39;ubnt_manager&#39;, enabled
-      timeout  5s # the main section&#39;s exec_timeout
+<div class="highlight"><pre><span></span><code>  ubnt-manager (Ubiquiti airOS radios): section 'ubnt_manager', enabled
+      timeout  5s # the main section's exec_timeout
 </code></pre></div>
 <h2 id="give-one-collector-more-time">Give one collector more time<a class="headerlink" href="#give-one-collector-more-time" title="Permanent link">&para;</a></h2>
 <p>Set <code>timeout</code> in its section, named after its module (<code>ubnt_manager</code> for <code>ubnt-manager</code>), from 1 to 30 seconds:</p>
@@ -2222,7 +2222,7 @@ service<span class="w"> </span>prometheus-exporter<span class="w"> </span>reload
 <span class="w">    </span><span class="nt">params</span><span class="p">:</span>
 <span class="w">      </span><span class="l l-Scalar l-Scalar-Plain">collect[]</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="w"> </span><span class="nv">ubnt-manager</span><span class="w"> </span><span class="p p-Indicator">]</span>
 <span class="w">    </span><span class="nt">static_configs</span><span class="p">:</span>
-<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">targets</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="w"> </span><span class="s">&#39;router.lan:9100&#39;</span><span class="w"> </span><span class="p p-Indicator">]</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">targets</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="w"> </span><span class="s">'router.lan:9100'</span><span class="w"> </span><span class="p p-Indicator">]</span>
 </code></pre></div>
 <p>and leave it out of the main job with <code>exclude[]: [ ubnt-manager ]</code>.</p>
 <hr />

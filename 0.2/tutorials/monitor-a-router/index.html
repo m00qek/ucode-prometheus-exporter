@@ -2293,28 +2293,32 @@
 <h2 id="what-you-need">What you need<a class="headerlink" href="#what-you-need" title="Permanent link">&para;</a></h2>
 <ul>
 <li>A router on OpenWrt 25.12, at <code>192.168.1.1</code> on its LAN, with internet access, and a shell on it: <code>ssh root@192.168.1.1</code>.</li>
-<li>A computer on the router's LAN, with Docker.</li>
+<li>
+<p>The exporter's base package, <code>ucode-prometheus-exporter-0.1.0-r1.apk</code>, copied to the router's <code>/tmp</code>:</p>
+<div class="highlight"><pre><span></span><code>scp<span class="w"> </span>-O<span class="w"> </span>ucode-prometheus-exporter-0.1.0-r1.apk<span class="w"> </span>root@192.168.1.1:/tmp/
+</code></pre></div>
+</li>
+<li>
+<p>A computer on the router's LAN, with Docker.</p>
+</li>
 </ul>
 <p>If your router's address is not <code>192.168.1.1</code>, use yours wherever it appears.</p>
 <hr />
 <h2 id="1-install-the-exporter">1. Install the exporter<a class="headerlink" href="#1-install-the-exporter" title="Permanent link">&para;</a></h2>
-<p>On the router, add the feed the exporter is published in, with the key its packages are signed with, then install the package. apk fetches what it depends on from that feed and OpenWrt's own:</p>
-<div class="highlight"><pre><span></span><code><span class="nv">feed</span><span class="o">=</span>https://m00qek.github.io/packages.ucode.dev/25.12
-wget<span class="w"> </span>-qO<span class="w"> </span>/etc/apk/keys/packages.ucode.dev.pem<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$feed</span><span class="s2">/feed.pub.pem&quot;</span>
-<span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$feed</span><span class="s2">&quot;</span><span class="w"> </span>&gt;<span class="w"> </span>/etc/apk/repositories.d/ucode-dev.list
-apk<span class="w"> </span>update
-apk<span class="w"> </span>add<span class="w"> </span>ucode-prometheus-exporter
+<p>On the router, install the package. apk fetches what it depends on from OpenWrt's feeds:</p>
+<div class="highlight"><pre><span></span><code>apk<span class="w"> </span>update
+apk<span class="w"> </span>add<span class="w"> </span>--allow-untrusted<span class="w"> </span>/tmp/ucode-prometheus-exporter-0.1.0-r1.apk
 </code></pre></div>
 <p>apk lists what it installs, and ends with <code>OK</code>. The service starts on its own. Let's ask it how it is:</p>
 <div class="highlight"><pre><span></span><code>service<span class="w"> </span>prometheus-exporter<span class="w"> </span>status
 </code></pre></div>
 <div class="highlight"><pre><span></span><code>running
-listening on http://127.0.0.1:9100/metrics, gzip when asked, serving 16 collectors
+listening on http://127.0.0.1:9100/metrics, gzip when asked, serving 15 collectors
 </code></pre></div>
 <p>Notice where it listens: <code>127.0.0.1</code>, the router's loopback. For now only the router itself can reach it.</p>
 <h2 id="2-look-at-the-metrics">2. Look at the metrics<a class="headerlink" href="#2-look-at-the-metrics" title="Permanent link">&para;</a></h2>
 <p>Still on the router, ask for a scrape, as Prometheus will:</p>
-<div class="highlight"><pre><span></span><code>wget<span class="w"> </span>-qO-<span class="w"> </span>http://127.0.0.1:9100/metrics<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span><span class="s1">&#39;^node_load&#39;</span>
+<div class="highlight"><pre><span></span><code>wget<span class="w"> </span>-qO-<span class="w"> </span>http://127.0.0.1:9100/metrics<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span><span class="s1">'^node_load'</span>
 </code></pre></div>
 <div class="highlight"><pre><span></span><code>node_load1 0.08
 node_load5 0.03
@@ -2323,10 +2327,10 @@ node_load15 0
 <p>These are the router's load averages. Now the last lines of the scrape:</p>
 <div class="highlight"><pre><span></span><code>wget<span class="w"> </span>-qO-<span class="w"> </span>http://127.0.0.1:9100/metrics<span class="w"> </span><span class="p">|</span><span class="w"> </span>tail<span class="w"> </span>-n<span class="w"> </span><span class="m">4</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code>node_scrape_collector_observing{collector=&quot;vmstat&quot;} 1
-# HELP ucode_prometheus_exporter_build_info A metric with a constant &#39;1&#39; value labeled by the version of ucode-prometheus-exporter.
+<div class="highlight"><pre><span></span><code>node_scrape_collector_observing{collector="vmstat"} 1
+# HELP ucode_prometheus_exporter_build_info A metric with a constant '1' value labeled by the version of ucode-prometheus-exporter.
 # TYPE ucode_prometheus_exporter_build_info gauge
-ucode_prometheus_exporter_build_info{version=&quot;0.2.0-r1&quot;} 1
+ucode_prometheus_exporter_build_info{version="0.1.0-r1"} 1
 </code></pre></div>
 <p>Every scrape ends with what it says of itself: how long each collector took, whether it succeeded, and the exporter's version.</p>
 <h2 id="3-open-it-to-the-lan">3. Open it to the LAN<a class="headerlink" href="#3-open-it-to-the-lan" title="Permanent link">&para;</a></h2>
@@ -2337,10 +2341,10 @@ service<span class="w"> </span>prometheus-exporter<span class="w"> </span>reload
 service<span class="w"> </span>prometheus-exporter<span class="w"> </span>status
 </code></pre></div>
 <div class="highlight"><pre><span></span><code>running
-listening on http://192.168.1.1:9100/metrics, gzip when asked, serving 16 collectors
+listening on http://192.168.1.1:9100/metrics, gzip when asked, serving 15 collectors
 </code></pre></div>
 <p>The address is now the router's LAN address. From the computer, check that it answers:</p>
-<div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-s<span class="w"> </span>http://192.168.1.1:9100/metrics<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span><span class="s1">&#39;^node_load1&#39;</span>
+<div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-s<span class="w"> </span>http://192.168.1.1:9100/metrics<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span><span class="s1">'^node_load1'</span>
 </code></pre></div>
 <div class="highlight"><pre><span></span><code>node_load1 0.08
 </code></pre></div>
@@ -2352,11 +2356,11 @@ listening on http://192.168.1.1:9100/metrics, gzip when asked, serving 16 collec
 <span class="nt">scrape_configs</span><span class="p">:</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">job_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">openwrt</span>
 <span class="w">    </span><span class="nt">static_configs</span><span class="p">:</span>
-<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">targets</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="w"> </span><span class="s">&#39;192.168.1.1:9100&#39;</span><span class="w"> </span><span class="p p-Indicator">]</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">targets</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="w"> </span><span class="s">'192.168.1.1:9100'</span><span class="w"> </span><span class="p p-Indicator">]</span>
 </code></pre></div>
 <p>Start Prometheus in Docker, with that file:</p>
 <div class="highlight"><pre><span></span><code>docker<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>-d<span class="w"> </span>--name<span class="w"> </span>prometheus<span class="w"> </span>-p<span class="w"> </span><span class="m">9090</span>:9090<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>-v<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$PWD</span><span class="s2">/prometheus.yml:/etc/prometheus/prometheus.yml:ro&quot;</span><span class="w"> </span>prom/prometheus
+<span class="w">    </span>-v<span class="w"> </span><span class="s2">"</span><span class="nv">$PWD</span><span class="s2">/prometheus.yml:/etc/prometheus/prometheus.yml:ro"</span><span class="w"> </span>prom/prometheus
 </code></pre></div>
 <p>Open <code>http://localhost:9090/targets</code>. After a few seconds the <code>openwrt</code> job's target, <code>http://192.168.1.1:9100/metrics</code>, is <strong>UP</strong>. If it says <strong>DOWN</strong> with <code>connection refused</code>, the exporter is still on loopback: go back to step 3.</p>
 <h2 id="5-graph-the-router">5. Graph the router<a class="headerlink" href="#5-graph-the-router" title="Permanent link">&para;</a></h2>
@@ -2371,7 +2375,7 @@ listening on http://192.168.1.1:9100/metrics, gzip when asked, serving 16 collec
 <p>Last, ask which version runs there:</p>
 <div class="highlight"><pre><span></span><code><span class="nv">ucode_prometheus_exporter_build_info</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code>ucode_prometheus_exporter_build_info{instance=&quot;192.168.1.1:9100&quot;, job=&quot;openwrt&quot;, version=&quot;0.2.0-r1&quot;}  1
+<div class="highlight"><pre><span></span><code>ucode_prometheus_exporter_build_info{instance="192.168.1.1:9100", job="openwrt", version="0.1.0-r1"}  1
 </code></pre></div>
 <h2 id="6-ask-the-exporter-how-it-is-doing">6. Ask the exporter how it is doing<a class="headerlink" href="#6-ask-the-exporter-how-it-is-doing" title="Permanent link">&para;</a></h2>
 <p>Back on the router:</p>
@@ -2380,7 +2384,7 @@ listening on http://192.168.1.1:9100/metrics, gzip when asked, serving 16 collec
 <p>The first lines are its findings, something like:</p>
 <div class="highlight"><pre><span></span><code>ok   main: HTTP on interface lan, port 9100, keepalive 70s, exec_timeout 5s, scrape_timeout 10s, collector_budget 5s, max_samples 20000, memory_limit 64 MB (a quarter of the RAM, at most 64), gzip when asked
 ok   collectors: 15 installed collectors, their options valid
-ok   scrape, in the service&#39;s jail: 16 of 16 collectors succeeded
+ok   scrape, in the service's jail: 15 of 15 collectors succeeded
 </code></pre></div>
 <p>Then one block per collector, with what it reads and what the service's jail gives it, and last, everything the jail mounts. Each <code>ok</code> is a check that passed; a problem would be a <code>warn</code> or <code>FAIL</code> line saying what is wrong.</p>
 <p>Let's watch a collector go. Switch off <code>softnet</code>, the network softirq statistics:</p>

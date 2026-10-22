@@ -2212,11 +2212,11 @@ uci<span class="w"> </span><span class="nb">set</span><span class="w"> </span>pr
 </code></pre></div>
 <p>Export more of <code>/proc/vmstat</code>, by a regular expression of its field names:</p>
 <div class="highlight"><pre><span></span><code>uci<span class="w"> </span><span class="nb">set</span><span class="w"> </span>prometheus-exporter.vmstat<span class="o">=</span>collector
-uci<span class="w"> </span><span class="nb">set</span><span class="w"> </span>prometheus-exporter.vmstat.fields<span class="o">=</span><span class="s1">&#39;^(oom_kill|pgpg|pswp|pg.*fault|nr_free_pages).*&#39;</span>
+uci<span class="w"> </span><span class="nb">set</span><span class="w"> </span>prometheus-exporter.vmstat.fields<span class="o">=</span><span class="s1">'^(oom_kill|pgpg|pswp|pg.*fault|nr_free_pages).*'</span>
 </code></pre></div>
 <p>Watch the partitions of an eMMC or SD card too, which diskstats leaves out by default, with flash, loop devices and zram still out:</p>
 <div class="highlight"><pre><span></span><code>uci<span class="w"> </span><span class="nb">set</span><span class="w"> </span>prometheus-exporter.diskstats<span class="o">=</span>collector
-uci<span class="w"> </span><span class="nb">set</span><span class="w"> </span>prometheus-exporter.diskstats.device_exclude<span class="o">=</span><span class="s1">&#39;^(z?ram|loop|mtdblock|ubiblock[0-9]+_)[0-9]+$&#39;</span>
+uci<span class="w"> </span><span class="nb">set</span><span class="w"> </span>prometheus-exporter.diskstats.device_exclude<span class="o">=</span><span class="s1">'^(z?ram|loop|mtdblock|ubiblock[0-9]+_)[0-9]+$'</span>
 </code></pre></div>
 <p><code>device_exclude</code> is a POSIX extended regular expression, as ucode compiles it; <code>^$</code> leaves out no device.</p>
 <p>Each is followed by <code>uci commit prometheus-exporter</code> and <code>service prometheus-exporter reload</code>.</p>

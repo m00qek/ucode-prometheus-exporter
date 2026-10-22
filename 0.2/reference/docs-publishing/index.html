@@ -2536,10 +2536,10 @@
 <p>Runs on release tags, <code>docs/*</code> branches and manual runs. <code>REF</code> is the manual run's <code>ref</code> input, or else the pushed ref.</p>
 <ol>
 <li>Checks out <code>REF</code> with its full history and tags.</li>
-<li>Takes <code>docs/Makefile</code> from the commit the workflow runs from, which is <code>REF</code> on a push; releases before 0.2.1 have no <code>publish</code> target. It runs on <code>REF</code>'s checkout, with <code>PROJECT_ROOT</code> set to it.</li>
-<li>Sets the git committer to <code>github-actions[bot]</code>, in the repository's config.</li>
-<li><code>build-mike</code>: strict build with <code>mkdocs.mike.yml</code>, in the docs tools image built from <code>REF</code>'s <code>devenv/services/docs</code>.</li>
-<li><code>publish</code>: <code>devenv/scripts/docs-publish.sh "$REF"</code> in the same image, with the network, and the checkout's credentials and committer from its <code>.git/config</code>.</li>
+<li>Installs Python 3.12 and <code>devenv/services/docs/requirements.txt</code> with <code>pip</code>.</li>
+<li>Sets the git committer to <code>github-actions[bot]</code>.</li>
+<li><code>mkdocs build --strict --config-file mkdocs.mike.yml</code>.</li>
+<li><code>devenv/scripts/docs-publish.sh "$REF"</code>.</li>
 </ol>
 <h3 id="permissions-and-concurrency">Permissions and concurrency<a class="headerlink" href="#permissions-and-concurrency" title="Permanent link">&para;</a></h3>
 <table>
@@ -2755,7 +2755,7 @@ CHANGELOG.md:5: https://example.org/ucode-prometheus-exporter/0.10/ (outside a r
 </tr>
 <tr>
 <td style="text-align: left;"><code>devenv/services/docs/requirements.txt</code></td>
-<td style="text-align: left;">Pinned mkdocs-material, mike, and mike's dependencies the mkdocs-material image lacks, for the tools image.</td>
+<td style="text-align: left;">Pinned mkdocs-material and mike, for the tools image and the <code>publish</code> job.</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>devenv/scripts/docs-version.sh</code></td>
@@ -2829,13 +2829,18 @@ CHANGELOG.md:5: https://example.org/ucode-prometheus-exporter/0.10/ (outside a r
 <td style="text-align: left;"><code>docs/Makefile</code></td>
 </tr>
 <tr>
-<td style="text-align: left;"><code>actions/checkout</code></td>
-<td style="text-align: left;"><code>v4.4.0</code>, by its commit</td>
+<td style="text-align: left;">Python (<code>publish</code> job)</td>
+<td style="text-align: left;"><code>3.12</code></td>
+<td style="text-align: left;"><code>.github/workflows/docs.yml</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>actions/checkout</code>, <code>actions/setup-python</code></td>
+<td style="text-align: left;"><code>v4</code>, <code>v5</code></td>
 <td style="text-align: left;"><code>.github/workflows/docs.yml</code></td>
 </tr>
 </tbody>
 </table>
-<p>The <code>publish</code> job runs in the docs tools image, as <code>build-mike</code> and <code>test</code> do in the <code>build</code> job; the image pins each Python package it adds to the mkdocs-material image.</p>
+<p>The <code>publish</code> job installs the requirements with <code>pip</code> on the runner and does not use the docs tools image. The dependencies of mkdocs-material and mike are not pinned there.</p>
 
 
 

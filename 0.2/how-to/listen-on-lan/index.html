@@ -798,15 +798,6 @@
   
 </li>
       
-        <li class="md-nav__item">
-  <a href="#keep-it-to-the-scrapers" class="md-nav__link">
-    <span class="md-ellipsis">
-      Keep it to the scrapers
-    </span>
-  </a>
-  
-</li>
-      
     </ul>
   
 </nav>
@@ -2178,15 +2169,6 @@
   
 </li>
       
-        <li class="md-nav__item">
-  <a href="#keep-it-to-the-scrapers" class="md-nav__link">
-    <span class="md-ellipsis">
-      Keep it to the scrapers
-    </span>
-  </a>
-  
-</li>
-      
     </ul>
   
 </nav>
@@ -2223,7 +2205,7 @@ service<span class="w"> </span>prometheus-exporter<span class="w"> </span>reload
 <div class="highlight"><pre><span></span><code>service<span class="w"> </span>prometheus-exporter<span class="w"> </span>status
 </code></pre></div>
 <div class="highlight"><pre><span></span><code>running
-listening on http://192.168.1.1:9100/metrics, http://[fd00:ab:cd::1]:9100/metrics, gzip when asked, serving 16 collectors
+listening on http://192.168.1.1:9100/metrics, http://[fd00:ab:cd::1]:9100/metrics, gzip when asked, serving 15 collectors
 </code></pre></div>
 <p>From the machine that will scrape it:</p>
 <div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-s<span class="w"> </span>http://192.168.1.1:9100/metrics<span class="w"> </span><span class="p">|</span><span class="w"> </span>head
@@ -2233,11 +2215,11 @@ listening on http://192.168.1.1:9100/metrics, http://[fd00:ab:cd::1]:9100/metric
 <li>
 <p>The firewall must accept input on the port from that zone. OpenWrt's default <code>lan</code> zone accepts input; another zone may need a rule:</p>
 <div class="highlight"><pre><span></span><code>uci<span class="w"> </span>add<span class="w"> </span>firewall<span class="w"> </span>rule
-uci<span class="w"> </span><span class="nb">set</span><span class="w"> </span>firewall.@rule<span class="o">[</span>-1<span class="o">]</span>.name<span class="o">=</span><span class="s1">&#39;Allow-Prometheus&#39;</span>
-uci<span class="w"> </span><span class="nb">set</span><span class="w"> </span>firewall.@rule<span class="o">[</span>-1<span class="o">]</span>.src<span class="o">=</span><span class="s1">&#39;lan&#39;</span>
-uci<span class="w"> </span><span class="nb">set</span><span class="w"> </span>firewall.@rule<span class="o">[</span>-1<span class="o">]</span>.dest_port<span class="o">=</span><span class="s1">&#39;9100&#39;</span>
-uci<span class="w"> </span><span class="nb">set</span><span class="w"> </span>firewall.@rule<span class="o">[</span>-1<span class="o">]</span>.proto<span class="o">=</span><span class="s1">&#39;tcp&#39;</span>
-uci<span class="w"> </span><span class="nb">set</span><span class="w"> </span>firewall.@rule<span class="o">[</span>-1<span class="o">]</span>.target<span class="o">=</span><span class="s1">&#39;ACCEPT&#39;</span>
+uci<span class="w"> </span><span class="nb">set</span><span class="w"> </span>firewall.@rule<span class="o">[</span>-1<span class="o">]</span>.name<span class="o">=</span><span class="s1">'Allow-Prometheus'</span>
+uci<span class="w"> </span><span class="nb">set</span><span class="w"> </span>firewall.@rule<span class="o">[</span>-1<span class="o">]</span>.src<span class="o">=</span><span class="s1">'lan'</span>
+uci<span class="w"> </span><span class="nb">set</span><span class="w"> </span>firewall.@rule<span class="o">[</span>-1<span class="o">]</span>.dest_port<span class="o">=</span><span class="s1">'9100'</span>
+uci<span class="w"> </span><span class="nb">set</span><span class="w"> </span>firewall.@rule<span class="o">[</span>-1<span class="o">]</span>.proto<span class="o">=</span><span class="s1">'tcp'</span>
+uci<span class="w"> </span><span class="nb">set</span><span class="w"> </span>firewall.@rule<span class="o">[</span>-1<span class="o">]</span>.target<span class="o">=</span><span class="s1">'ACCEPT'</span>
 uci<span class="w"> </span>commit<span class="w"> </span>firewall
 service<span class="w"> </span>firewall<span class="w"> </span>reload
 </code></pre></div>
@@ -2247,25 +2229,6 @@ service<span class="w"> </span>firewall<span class="w"> </span>reload
 <p><code>status</code> does not say <code>running</code>: the interface has no address yet, and the service waits for it. Check <code>ifstatus lan</code>.</p>
 </li>
 </ul>
-<h2 id="keep-it-to-the-scrapers">Keep it to the scrapers<a class="headerlink" href="#keep-it-to-the-scrapers" title="Permanent link">&para;</a></h2>
-<p>Every request to <code>/metrics</code> is a scrape, which costs the router its CPU for a while, and with basic auth a password's check, which costs more; uhttpd runs 3 at once and has the rest wait (see <a href="../../reference/http/#connections">HTTP endpoint</a>). So whoever reaches the port can delay the scrapes Prometheus makes. Let only the scrapers reach it: a rule that accepts the port from the Prometheus host alone, before the zone's own policy, and drops it for the rest of the zone:</p>
-<div class="highlight"><pre><span></span><code>uci<span class="w"> </span>add<span class="w"> </span>firewall<span class="w"> </span>rule
-uci<span class="w"> </span><span class="nb">set</span><span class="w"> </span>firewall.@rule<span class="o">[</span>-1<span class="o">]</span>.name<span class="o">=</span><span class="s1">&#39;Allow-Prometheus&#39;</span>
-uci<span class="w"> </span><span class="nb">set</span><span class="w"> </span>firewall.@rule<span class="o">[</span>-1<span class="o">]</span>.src<span class="o">=</span><span class="s1">&#39;lan&#39;</span>
-uci<span class="w"> </span><span class="nb">set</span><span class="w"> </span>firewall.@rule<span class="o">[</span>-1<span class="o">]</span>.src_ip<span class="o">=</span><span class="s1">&#39;192.168.1.10&#39;</span>
-uci<span class="w"> </span><span class="nb">set</span><span class="w"> </span>firewall.@rule<span class="o">[</span>-1<span class="o">]</span>.dest_port<span class="o">=</span><span class="s1">&#39;9100&#39;</span>
-uci<span class="w"> </span><span class="nb">set</span><span class="w"> </span>firewall.@rule<span class="o">[</span>-1<span class="o">]</span>.proto<span class="o">=</span><span class="s1">&#39;tcp&#39;</span>
-uci<span class="w"> </span><span class="nb">set</span><span class="w"> </span>firewall.@rule<span class="o">[</span>-1<span class="o">]</span>.target<span class="o">=</span><span class="s1">&#39;ACCEPT&#39;</span>
-uci<span class="w"> </span>add<span class="w"> </span>firewall<span class="w"> </span>rule
-uci<span class="w"> </span><span class="nb">set</span><span class="w"> </span>firewall.@rule<span class="o">[</span>-1<span class="o">]</span>.name<span class="o">=</span><span class="s1">&#39;Deny-Prometheus-others&#39;</span>
-uci<span class="w"> </span><span class="nb">set</span><span class="w"> </span>firewall.@rule<span class="o">[</span>-1<span class="o">]</span>.src<span class="o">=</span><span class="s1">&#39;lan&#39;</span>
-uci<span class="w"> </span><span class="nb">set</span><span class="w"> </span>firewall.@rule<span class="o">[</span>-1<span class="o">]</span>.dest_port<span class="o">=</span><span class="s1">&#39;9100&#39;</span>
-uci<span class="w"> </span><span class="nb">set</span><span class="w"> </span>firewall.@rule<span class="o">[</span>-1<span class="o">]</span>.proto<span class="o">=</span><span class="s1">&#39;tcp&#39;</span>
-uci<span class="w"> </span><span class="nb">set</span><span class="w"> </span>firewall.@rule<span class="o">[</span>-1<span class="o">]</span>.target<span class="o">=</span><span class="s1">&#39;REJECT&#39;</span>
-uci<span class="w"> </span>commit<span class="w"> </span>firewall
-service<span class="w"> </span>firewall<span class="w"> </span>reload
-</code></pre></div>
-<p>with the Prometheus host's address for <code>192.168.1.10</code>. fw4 matches rules in order, so the first lets it in and the second keeps the rest of the LAN out.</p>
 <hr />
 <p>To ask a password of every scrape, and send it over TLS, see <a href="../https-basic-auth/">How to serve HTTPS with basic auth</a>.</p>
 

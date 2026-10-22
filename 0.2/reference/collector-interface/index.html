@@ -2361,30 +2361,30 @@
 
 <h1 id="collector-interface">Collector Interface<a class="headerlink" href="#collector-interface" title="Permanent link">&para;</a></h1>
 <p>A collector is a ucode module, <code>src/prometheus_exporter/collectors/&lt;module&gt;.uc</code>, installed to <code>/usr/share/ucode/prometheus_exporter/collectors/</code>. It imports <a href="#the-collector-api">the collector API</a> alone, and exports <code>meta</code> and <code>collect</code>:</p>
-<div class="highlight"><pre><span></span><code><span class="s1">&#39;use strict&#39;</span><span class="p">;</span>
+<div class="highlight"><pre><span></span><code><span class="s1">'use strict'</span><span class="p">;</span>
 
-<span class="k">import</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">Result</span><span class="p">,</span><span class="w"> </span><span class="nx">errors</span><span class="p">,</span><span class="w"> </span><span class="nx">proc</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="kr">from</span><span class="w"> </span><span class="s1">&#39;prometheus_exporter.api&#39;</span><span class="p">;</span>
+<span class="k">import</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">Result</span><span class="p">,</span><span class="w"> </span><span class="nx">errors</span><span class="p">,</span><span class="w"> </span><span class="nx">proc</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="kr">from</span><span class="w"> </span><span class="s1">'prometheus_exporter.api'</span><span class="p">;</span>
 
 <span class="k">export</span><span class="w"> </span><span class="kd">const</span><span class="w"> </span><span class="nx">meta</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="nx">name</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;loadavg&#39;</span><span class="p">,</span>
-<span class="w">    </span><span class="nx">title</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Load average&#39;</span><span class="p">,</span>
-<span class="w">    </span><span class="nx">help</span><span class="o">:</span><span class="w"> </span><span class="s1">&#39;Load averages from /proc/loadavg.&#39;</span><span class="p">,</span>
-<span class="w">    </span><span class="nx">needs</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="s1">&#39;fs&#39;</span><span class="w"> </span><span class="p">],</span>
+<span class="w">    </span><span class="nx">name</span><span class="o">:</span><span class="w"> </span><span class="s1">'loadavg'</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">title</span><span class="o">:</span><span class="w"> </span><span class="s1">'Load average'</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">help</span><span class="o">:</span><span class="w"> </span><span class="s1">'Load averages from /proc/loadavg.'</span><span class="p">,</span>
+<span class="w">    </span><span class="nx">needs</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="s1">'fs'</span><span class="w"> </span><span class="p">],</span>
 <span class="p">};</span>
 
 <span class="k">export</span><span class="w"> </span><span class="kd">function</span><span class="w"> </span><span class="nx">collect</span><span class="p">(</span><span class="nx">deps</span><span class="p">,</span><span class="w"> </span><span class="nx">out</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="nx">line</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">proc</span><span class="p">.</span><span class="nx">first_line</span><span class="p">(</span><span class="nx">deps</span><span class="p">.</span><span class="nx">fs</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;/proc/loadavg&#39;</span><span class="p">);</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="nx">line</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">proc</span><span class="p">.</span><span class="nx">first_line</span><span class="p">(</span><span class="nx">deps</span><span class="p">.</span><span class="nx">fs</span><span class="p">,</span><span class="w"> </span><span class="s1">'/proc/loadavg'</span><span class="p">);</span>
 
 <span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">line</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">null</span><span class="p">)</span>
-<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">Result</span><span class="p">.</span><span class="nx">err</span><span class="p">(</span><span class="nx">errors</span><span class="p">.</span><span class="nx">SOURCE_UNREADABLE</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;/proc/loadavg&#39;</span><span class="p">);</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">Result</span><span class="p">.</span><span class="nx">err</span><span class="p">(</span><span class="nx">errors</span><span class="p">.</span><span class="nx">SOURCE_UNREADABLE</span><span class="p">,</span><span class="w"> </span><span class="s1">'/proc/loadavg'</span><span class="p">);</span>
 
 <span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="nx">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">proc</span><span class="p">.</span><span class="nx">fields</span><span class="p">(</span><span class="nx">line</span><span class="p">);</span>
 <span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">length</span><span class="p">(</span><span class="nx">x</span><span class="p">)</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mf">3</span><span class="p">)</span>
-<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">Result</span><span class="p">.</span><span class="nx">err</span><span class="p">(</span><span class="nx">errors</span><span class="p">.</span><span class="nx">SOURCE_INVALID</span><span class="p">,</span><span class="w"> </span><span class="sb">`/proc/loadavg: </span><span class="si">${</span><span class="nx">sprintf</span><span class="p">(</span><span class="s1">&#39;%J&#39;</span><span class="p">,</span><span class="w"> </span><span class="nx">line</span><span class="p">)</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="nx">Result</span><span class="p">.</span><span class="nx">err</span><span class="p">(</span><span class="nx">errors</span><span class="p">.</span><span class="nx">SOURCE_INVALID</span><span class="p">,</span><span class="w"> </span><span class="sb">`/proc/loadavg: </span><span class="si">${</span><span class="nx">sprintf</span><span class="p">(</span><span class="s1">'%J'</span><span class="p">,</span><span class="w"> </span><span class="nx">line</span><span class="p">)</span><span class="si">}</span><span class="sb">`</span><span class="p">);</span>
 
-<span class="w">    </span><span class="nx">out</span><span class="p">.</span><span class="nx">gauge</span><span class="p">(</span><span class="s1">&#39;node_load1&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;1m load average.&#39;</span><span class="p">)(</span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nx">x</span><span class="p">[</span><span class="mf">0</span><span class="p">]);</span>
-<span class="w">    </span><span class="nx">out</span><span class="p">.</span><span class="nx">gauge</span><span class="p">(</span><span class="s1">&#39;node_load5&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;5m load average.&#39;</span><span class="p">)(</span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nx">x</span><span class="p">[</span><span class="mf">1</span><span class="p">]);</span>
-<span class="w">    </span><span class="nx">out</span><span class="p">.</span><span class="nx">gauge</span><span class="p">(</span><span class="s1">&#39;node_load15&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;15m load average.&#39;</span><span class="p">)(</span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nx">x</span><span class="p">[</span><span class="mf">2</span><span class="p">]);</span>
+<span class="w">    </span><span class="nx">out</span><span class="p">.</span><span class="nx">gauge</span><span class="p">(</span><span class="s1">'node_load1'</span><span class="p">,</span><span class="w"> </span><span class="s1">'1m load average.'</span><span class="p">)(</span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nx">x</span><span class="p">[</span><span class="mf">0</span><span class="p">]);</span>
+<span class="w">    </span><span class="nx">out</span><span class="p">.</span><span class="nx">gauge</span><span class="p">(</span><span class="s1">'node_load5'</span><span class="p">,</span><span class="w"> </span><span class="s1">'5m load average.'</span><span class="p">)(</span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nx">x</span><span class="p">[</span><span class="mf">1</span><span class="p">]);</span>
+<span class="w">    </span><span class="nx">out</span><span class="p">.</span><span class="nx">gauge</span><span class="p">(</span><span class="s1">'node_load15'</span><span class="p">,</span><span class="w"> </span><span class="s1">'15m load average.'</span><span class="p">)(</span><span class="kc">null</span><span class="p">,</span><span class="w"> </span><span class="nx">x</span><span class="p">[</span><span class="mf">2</span><span class="p">]);</span>
 
 <span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="nx">Result</span><span class="p">.</span><span class="nx">ok</span><span class="p">();</span>
 <span class="p">};</span>
@@ -2513,7 +2513,7 @@
 <tr>
 <td style="text-align: left;"><code>datatype</code></td>
 <td style="text-align: left;">no</td>
-<td style="text-align: left;">One of the datatypes the core checks: <code>uinteger</code>, <code>range(min,max)</code>, <code>directory</code>, <code>file</code>, <code>regex</code>, or <code>owned_directory</code>, a directory under <code>/var</code>, <code>/tmp</code> or <code>/etc/prometheus-exporter</code>, for an option that names an owned path. It must take the default. See <a href="../uci-config/#values">UCI configuration</a>.</td>
+<td style="text-align: left;">One of the datatypes the core checks: <code>uinteger</code>, <code>range(min,max)</code>, <code>directory</code>, <code>file</code>, <code>regex</code>. It must take the default. See <a href="../uci-config/#values">UCI configuration</a>.</td>
 </tr>
 </tbody>
 </table>
@@ -2609,7 +2609,7 @@
 </tbody>
 </table>
 <h2 id="the-collector-api">The collector API<a class="headerlink" href="#the-collector-api" title="Permanent link">&para;</a></h2>
-<p><code>prometheus_exporter.api</code>, the one module a collector imports, exports five objects, each of exactly these names, and two functions. What it exports is what a major version protects; see <a href="../collector-contract/#what-a-collector-may-import">Collector contract</a>.</p>
+<p><code>prometheus_exporter.api</code>, the one module a collector imports, exports five objects, each of exactly these names. What it exports is what a major version protects; see <a href="../collector-contract/#what-a-collector-may-import">Collector contract</a>.</p>
 <table>
 <thead>
 <tr>
@@ -2679,16 +2679,6 @@
 <td style="text-align: left;"><code>sanitize(name)</code></td>
 <td style="text-align: left;">A metric name made valid: every character the format does not allow an underscore.</td>
 </tr>
-<tr>
-<td style="text-align: left;"><code>u32</code></td>
-<td style="text-align: left;"><code>u32(v)</code></td>
-<td style="text-align: left;">A ubus integer a daemon sent as unsigned 32 bits (<code>blobmsg_add_u32</code>), unsigned: ucode's ubus gives it signed, so 4294967295 arrives as -1. Anything but a negative 32-bit integer is given back as it is.</td>
-</tr>
-<tr>
-<td style="text-align: left;"><code>u16</code></td>
-<td style="text-align: left;"><code>u16(v)</code></td>
-<td style="text-align: left;">The same, for 16 bits (<code>blobmsg_add_u16</code>): a port of 51820 arrives as -13716.</td>
-</tr>
 </tbody>
 </table>
 <p><code>fs</code> is the collector's <code>deps.fs</code>. <code>exposition</code>'s functions load the exposition format the first time one is called.</p>
@@ -2736,7 +2726,7 @@
 </tr>
 <tr>
 <td style="text-align: left;"><code>log</code></td>
-<td style="text-align: left;"><code>log(msg)</code>: a line at <code>warning</code>, <code>collector '&lt;name&gt;': &lt;msg&gt;</code>, for what a collector that succeeds still has to say. At most 10 lines a run, each cut at 512 bytes; past them, one line once the run is over says how many more were left out.</td>
+<td style="text-align: left;"><code>log(msg)</code>: a line at <code>warning</code>, <code>collector '&lt;name&gt;': &lt;msg&gt;</code>, for what a collector that succeeds still has to say.</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>exporter</code></td>
@@ -2777,12 +2767,11 @@
 </tbody>
 </table>
 <ul>
-<li><code>labels</code> is an object, or null for none, or what <code>out.labels()</code> made. A label whose value is null is left out.</li>
+<li><code>labels</code> is an object, or null for none. A label whose value is null is left out.</li>
 <li>A value that is not a number is skipped: null, an empty string, a word. A string of digits, or of hex as in sysfs flags, is read as one. <code>true</code> and <code>false</code> are 1 and 0.</li>
 <li>Names are made valid: every character the format does not allow is an underscore.</li>
 <li>A family declared twice with two types keeps the first, and logs a warning.</li>
 <li>At most <code>max_samples</code> samples in all: the next stops the collector (it throws, again at each sample after), and it fails with <code>SAMPLE_LIMIT</code>.</li>
-<li>Nothing Prometheus would refuse the whole scrape for: a label value or HELP text that is not valid UTF-8, two label names that are one once sanitized (<code>if-name</code> and <code>if_name</code>), or labels that are a string of the collector's own. The sample stops the collector as the one past <code>max_samples</code> does, and it fails with <code>EXPOSITION_INVALID</code>, naming the family and the label.</li>
 <li>A family is the first collector's that writes it: one another collector writes, or one of the exporter's own (<code>node_scrape_collector_*</code>, <code>ucode_prometheus_exporter_*</code>), fails the collector with <code>FAMILY_CONFLICT</code>.</li>
 </ul>
 <h2 id="tests-and-packaging">Tests and packaging<a class="headerlink" href="#tests-and-packaging" title="Permanent link">&para;</a></h2>

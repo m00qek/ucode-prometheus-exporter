@@ -2307,7 +2307,7 @@ ok   scrape: wifi has nothing to observe: no wireless radios
 <li><strong>Nothing to observe</strong> is not a failure: the device has no such hardware, kernel feature, or running service. The collector succeeds without samples, and its <code>node_scrape_collector_observing</code> is 0. If you do not want it, <a href="../choose-collectors/#disable-a-collector">disable it</a>. Each collector's cases are in <a href="../../reference/collectors/#nothing-to-observe">Collectors</a>.</li>
 <li>
 <p><strong>A failure</strong> is a <code>warn</code> line with a code. <a href="../../reference/error-codes/">Error codes</a> says what each means. Under procd, each failing scrape also logs it at <code>warning</code>:</p>
-<div class="highlight"><pre><span></span><code>logread<span class="w"> </span>-e<span class="w"> </span>prometheus-exporter<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span><span class="s2">&quot;collector &#39;&quot;</span>
+<div class="highlight"><pre><span></span><code>logread<span class="w"> </span>-e<span class="w"> </span>prometheus-exporter<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span><span class="s2">"collector '"</span>
 </code></pre></div>
 </li>
 </ul>
@@ -2351,11 +2351,6 @@ ok   scrape: wifi has nothing to observe: no wireless radios
 <td style="text-align: left;">If its output is that large on this device, raise its <code>max_samples</code>.</td>
 </tr>
 <tr>
-<td style="text-align: left;"><code>EXPOSITION_INVALID</code></td>
-<td style="text-align: left;">It wrote what Prometheus would refuse the whole scrape for: a label value or HELP text that is not valid UTF-8 (a Latin-1 SSID or hostname), or two label names that are one once sanitized. The detail names the family and the label.</td>
-<td style="text-align: left;">A bug of the collector, which should make the value valid or leave it out.</td>
-</tr>
-<tr>
 <td style="text-align: left;"><code>FAMILY_CONFLICT</code></td>
 <td style="text-align: left;">It wrote a family another collector writes, or one the exporter keeps for itself: the detail names it.</td>
 <td style="text-align: left;">Disable one of the two, or fix the collector's names.</td>
@@ -2382,8 +2377,8 @@ ok   scrape: wifi has nothing to observe: no wireless radios
 <ol>
 <li>
 <p>See what the jail gives it:</p>
-<div class="highlight"><pre><span></span><code>service<span class="w"> </span>prometheus-exporter<span class="w"> </span>check<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span><span class="s1">&#39;^warn jail&#39;</span>
-ubus<span class="w"> </span>call<span class="w"> </span>service<span class="w"> </span>list<span class="w"> </span><span class="s1">&#39;{&quot;name&quot;:&quot;prometheus-exporter&quot;}&#39;</span>
+<div class="highlight"><pre><span></span><code>service<span class="w"> </span>prometheus-exporter<span class="w"> </span>check<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span><span class="s1">'^warn jail'</span>
+ubus<span class="w"> </span>call<span class="w"> </span>service<span class="w"> </span>list<span class="w"> </span><span class="s1">'{"name":"prometheus-exporter"}'</span>
 </code></pre></div>
 <p><code>check</code> warns of a path or program it cannot mount; procd's list shows what it mounted.</p>
 </li>
@@ -2424,7 +2419,7 @@ ubus<span class="w"> </span>call<span class="w"> </span>service<span class="w"> 
 </tr>
 <tr>
 <td style="text-align: left;"><code>500 Internal Server Error</code></td>
-<td style="text-align: left;">Basic auth's file is broken, or gone while <code>auth_user</code> is set: <code>service prometheus-exporter restart</code> writes it afresh.</td>
+<td style="text-align: left;">Basic auth's file is broken: <code>service prometheus-exporter restart</code> writes it afresh.</td>
 </tr>
 </tbody>
 </table>

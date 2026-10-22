@@ -2235,21 +2235,21 @@
 <div class="highlight"><pre><span></span><code><span class="ch">#!/bin/sh</span>
 <span class="c1"># /usr/bin/apk-metrics: how many packages can be upgraded.</span>
 <span class="nv">dir</span><span class="o">=</span>/var/prometheus
-<span class="nv">tmp</span><span class="o">=</span><span class="k">$(</span>mktemp<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$dir</span><span class="s2">/.apk.XXXXXX&quot;</span><span class="k">)</span>
+<span class="nv">tmp</span><span class="o">=</span><span class="k">$(</span>mktemp<span class="w"> </span><span class="s2">"</span><span class="nv">$dir</span><span class="s2">/.apk.XXXXXX"</span><span class="k">)</span>
 <span class="nv">n</span><span class="o">=</span><span class="k">$(</span>apk<span class="w"> </span>list<span class="w"> </span>--upgradable<span class="w"> </span><span class="m">2</span>&gt;/dev/null<span class="w"> </span><span class="p">|</span><span class="w"> </span>wc<span class="w"> </span>-l<span class="k">)</span>
-cat<span class="w"> </span>&gt;<span class="s2">&quot;</span><span class="nv">$tmp</span><span class="s2">&quot;</span><span class="w"> </span><span class="s">&lt;&lt;EOF</span>
+cat<span class="w"> </span>&gt;<span class="s2">"</span><span class="nv">$tmp</span><span class="s2">"</span><span class="w"> </span><span class="s">&lt;&lt;EOF</span>
 <span class="s"># HELP apk_upgradable_packages Packages with an upgrade available.</span>
 <span class="s"># TYPE apk_upgradable_packages gauge</span>
 <span class="s">apk_upgradable_packages $n</span>
 <span class="s">EOF</span>
-chmod<span class="w"> </span><span class="m">0644</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$tmp</span><span class="s2">&quot;</span>
-mv<span class="w"> </span>-f<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$tmp</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$dir</span><span class="s2">/apk.prom&quot;</span>
+chmod<span class="w"> </span><span class="m">0644</span><span class="w"> </span><span class="s2">"</span><span class="nv">$tmp</span><span class="s2">"</span>
+mv<span class="w"> </span>-f<span class="w"> </span><span class="s2">"</span><span class="nv">$tmp</span><span class="s2">"</span><span class="w"> </span><span class="s2">"</span><span class="nv">$dir</span><span class="s2">/apk.prom"</span>
 </code></pre></div>
 <p>The temporary file's name must not end in <code>.prom</code>: the collector would read it. Write a regular file: the collector skips anything else (a FIFO, a device), counting it in <code>node_textfile_scrape_error</code>, and never opens it, so a pipe nothing writes to cannot hold a scrape. A file whose metrics another collector writes too (<code>node_load1</code>, say) makes textfile fail whole, with <code>FAMILY_CONFLICT</code>: name your metrics your own.</p>
 <h2 id="2-run-it">2. Run it<a class="headerlink" href="#2-run-it" title="Permanent link">&para;</a></h2>
 <p>From cron, every hour:</p>
 <div class="highlight"><pre><span></span><code>chmod<span class="w"> </span>+x<span class="w"> </span>/usr/bin/apk-metrics
-<span class="nb">echo</span><span class="w"> </span><span class="s1">&#39;0 * * * * /usr/bin/apk-metrics&#39;</span><span class="w"> </span>&gt;&gt;/etc/crontabs/root
+<span class="nb">echo</span><span class="w"> </span><span class="s1">'0 * * * * /usr/bin/apk-metrics'</span><span class="w"> </span>&gt;&gt;/etc/crontabs/root
 service<span class="w"> </span>cron<span class="w"> </span>restart
 </code></pre></div>
 <h2 id="3-check-it">3. Check it<a class="headerlink" href="#3-check-it" title="Permanent link">&para;</a></h2>
@@ -2261,7 +2261,7 @@ service<span class="w"> </span>cron<span class="w"> </span>restart
 <p>A file that cannot be read, is not valid text format, gives a family another type than an earlier file did, repeats a series an earlier file has, or writes one of textfile's own families, is left out whole. <code>node_textfile_scrape_error</code> is then 1, and the log says which file and why:</p>
 <div class="highlight"><pre><span></span><code>logread<span class="w"> </span>-e<span class="w"> </span>prometheus-exporter<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>textfile
 </code></pre></div>
-<div class="highlight"><pre><span></span><code>daemon.warn prometheus-exporter[1]: collector &#39;textfile&#39;: skipped /var/prometheus/apk.prom: EXPOSITION_INVALID (line 3: ...)
+<div class="highlight"><pre><span></span><code>daemon.warn prometheus-exporter[1]: collector 'textfile': skipped /var/prometheus/apk.prom: EXPOSITION_INVALID (line 3: ...)
 </code></pre></div>
 <p>The collector itself still succeeds. Alert on <code>node_textfile_scrape_error == 1</code>, and on a <code>node_textfile_mtime_seconds</code> too old for how often the script runs.</p>
 <h2 id="use-another-directory">Use another directory<a class="headerlink" href="#use-another-directory" title="Permanent link">&para;</a></h2>
@@ -2270,7 +2270,7 @@ uci<span class="w"> </span><span class="nb">set</span><span class="w"> </span>pr
 uci<span class="w"> </span>commit<span class="w"> </span>prometheus-exporter
 service<span class="w"> </span>prometheus-exporter<span class="w"> </span>reload
 </code></pre></div>
-<p>The directory must be under <code>/var</code>, <code>/tmp</code> or <code>/etc/prometheus-exporter</code>, and not one every service shares, such as <code>/var/run</code>: the service makes it, as root, when it starts, if it is not there, and mounts it in its jail, so it refuses any other, saying <code>OWNED_DIRECTORY</code>. Keep it on tmpfs (<code>/var</code>, <code>/tmp</code>) unless the metrics must survive a reboot, then under <code>/etc/prometheus-exporter</code>: a script writing to flash wears it.</p>
+<p>The directory must be an absolute path, and not one every service shares, such as <code>/tmp</code> or <code>/var/run</code>: the jail would refuse to mount it. The service makes it when it starts, if it is not there. Keep it on tmpfs (<code>/var</code>, <code>/tmp</code>) unless the metrics must survive a reboot: a script writing to flash wears it.</p>
 
 
 

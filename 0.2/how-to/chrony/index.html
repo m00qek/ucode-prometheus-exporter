@@ -2224,10 +2224,10 @@
 <p>The service reloads with it.</p>
 <h2 id="2-check-it">2. Check it<a class="headerlink" href="#2-check-it" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code>service<span class="w"> </span>prometheus-exporter<span class="w"> </span>check<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-e<span class="w"> </span>chrony<span class="w"> </span>-e<span class="w"> </span>timesync
-wget<span class="w"> </span>-qO-<span class="w"> </span><span class="s1">&#39;http://127.0.0.1:9100/metrics?collect[]=chrony&amp;collect[]=timesync&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-e<span class="w"> </span><span class="s1">&#39;^chrony_tracking_stratum&#39;</span><span class="w"> </span>-e<span class="w"> </span><span class="s1">&#39;^node_timesync_synchronized&#39;</span>
+wget<span class="w"> </span>-qO-<span class="w"> </span><span class="s1">'http://127.0.0.1:9100/metrics?collect[]=chrony&amp;collect[]=timesync'</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-e<span class="w"> </span><span class="s1">'^chrony_tracking_stratum'</span><span class="w"> </span>-e<span class="w"> </span><span class="s1">'^node_timesync_synchronized'</span>
 </code></pre></div>
 <div class="highlight"><pre><span></span><code>chrony_tracking_stratum 3
-node_timesync_synchronized{daemon=&quot;chronyd&quot;} 1
+node_timesync_synchronized{daemon="chronyd"} 1
 </code></pre></div>
 <p>With busybox ntpd running too, timesync writes a series for each, <code>daemon="ntpd"</code> and <code>daemon="chronyd"</code>. Only one should keep the clock: turn the system's NTP client off, in LuCI's <strong>System → System → Time Synchronization</strong> or with <code>uci set system.ntp.enabled=0</code>.</p>
 <hr />

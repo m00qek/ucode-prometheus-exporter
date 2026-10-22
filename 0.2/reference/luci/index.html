@@ -2499,8 +2499,8 @@
 </tr>
 <tr>
 <td style="text-align: left;">Basic auth password</td>
-<td style="text-align: left;"><code>auth_password</code>, in <code>/etc/config/prometheus-exporter-auth</code></td>
-<td style="text-align: left;">Never filled in, and the page never reads the hash: the ubus object's <code>password</code> says whether one is saved, for the placeholder <code>Unchanged</code>. A password typed here is sent to <code>set_password</code> on Save, which saves its hash and reloads the service at once; the password itself is never stored. Empty, the saved hash stays; with the user emptied, it stays unused.</td>
+<td style="text-align: left;"><code>auth_password</code></td>
+<td style="text-align: left;">Never filled in. A password typed here is sent to <code>hash_password</code> on Save, and the hash it answers is saved; the password itself is never stored. Empty, the saved hash stays.</td>
 </tr>
 </tbody>
 </table>
@@ -2534,11 +2534,6 @@
 <tr>
 <td style="text-align: left;">Sample limit</td>
 <td style="text-align: left;"><code>max_samples</code></td>
-<td style="text-align: left;"></td>
-</tr>
-<tr>
-<td style="text-align: left;">Reply sample limit</td>
-<td style="text-align: left;"><code>max_scrape_samples</code></td>
 <td style="text-align: left;"></td>
 </tr>
 </tbody>
@@ -2674,17 +2669,17 @@
 <tbody>
 <tr>
 <td style="text-align: left;">read</td>
-<td style="text-align: left;"><code>collectors</code>, <code>interfaces</code>, <code>password</code>, <code>status</code>, <code>validate</code></td>
+<td style="text-align: left;"><code>collectors</code>, <code>interfaces</code>, <code>status</code>, <code>validate</code></td>
 <td style="text-align: left;"><code>prometheus-exporter</code></td>
 </tr>
 <tr>
 <td style="text-align: left;">write</td>
-<td style="text-align: left;"><code>set_password</code></td>
+<td style="text-align: left;"><code>hash_password</code></td>
 <td style="text-align: left;"><code>prometheus-exporter</code></td>
 </tr>
 </tbody>
 </table>
-<p>Nothing else: not <code>/etc/config/prometheus-exporter-auth</code>, which holds the hash.</p>
+<p>Nothing else.</p>
 <h2 id="files">Files<a class="headerlink" href="#files" title="Permanent link">&para;</a></h2>
 <table>
 <thead>

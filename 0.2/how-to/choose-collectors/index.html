@@ -2235,7 +2235,7 @@ service<span class="w"> </span>prometheus-exporter<span class="w"> </span>reload
 <span class="w">    </span><span class="nt">params</span><span class="p">:</span>
 <span class="w">      </span><span class="l l-Scalar l-Scalar-Plain">collect[]</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="w"> </span><span class="nv">wifi</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">hostapd_stations</span><span class="w"> </span><span class="p p-Indicator">]</span>
 <span class="w">    </span><span class="nt">static_configs</span><span class="p">:</span>
-<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">targets</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="w"> </span><span class="s">&#39;router.lan:9100&#39;</span><span class="w"> </span><span class="p p-Indicator">]</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">targets</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="w"> </span><span class="s">'router.lan:9100'</span><span class="w"> </span><span class="p p-Indicator">]</span>
 </code></pre></div>
 <p><code>exclude[]</code> leaves collectors out instead. A name that is not installed, or a disabled one in <code>collect[]</code>, makes the scrape fail with a 400. See <a href="../../reference/http/#query-string">HTTP endpoint</a>.</p>
 <h2 id="check">Check<a class="headerlink" href="#check" title="Permanent link">&para;</a></h2>

@@ -2469,12 +2469,6 @@
 <td style="text-align: left;">Only these test files or directories.</td>
 </tr>
 <tr>
-<td style="text-align: left;"><code>TEST_TIMEOUT</code></td>
-<td style="text-align: left;"><code>300</code></td>
-<td style="text-align: left;">tests</td>
-<td style="text-align: left;">Seconds the whole run may take; past them it is stopped, and the test file it was in is named.</td>
-</tr>
-<tr>
 <td style="text-align: left;"><code>CI</code></td>
 <td style="text-align: left;">—</td>
 <td style="text-align: left;">all</td>
@@ -2608,9 +2602,9 @@
 </tr>
 </tbody>
 </table>
-<div class="highlight"><pre><span></span><code>make<span class="w"> </span>unit<span class="w"> </span><span class="nv">FILTER</span><span class="o">=</span><span class="s1">&#39;collectors.wifi&#39;</span><span class="w"> </span><span class="nv">VERBOSE</span><span class="o">=</span><span class="m">1</span>
+<div class="highlight"><pre><span></span><code>make<span class="w"> </span>unit<span class="w"> </span><span class="nv">FILTER</span><span class="o">=</span><span class="s1">'collectors.wifi'</span><span class="w"> </span><span class="nv">VERBOSE</span><span class="o">=</span><span class="m">1</span>
 make<span class="w"> </span>unit<span class="w"> </span><span class="nv">MODULES</span><span class="o">=</span>test/unit/prometheus_exporter/collectors/wifi_test.uc
-make<span class="w"> </span>bench<span class="w"> </span><span class="nv">FILTER</span><span class="o">=</span><span class="s1">&#39;typical/scrape&#39;</span><span class="w"> </span><span class="nv">BENCH_CPUS</span><span class="o">=</span><span class="m">0</span>.35<span class="w"> </span><span class="nv">BENCH_CPUSET</span><span class="o">=</span><span class="m">0</span>
+make<span class="w"> </span>bench<span class="w"> </span><span class="nv">FILTER</span><span class="o">=</span><span class="s1">'typical/scrape'</span><span class="w"> </span><span class="nv">BENCH_CPUS</span><span class="o">=</span><span class="m">0</span>.35<span class="w"> </span><span class="nv">BENCH_CPUSET</span><span class="o">=</span><span class="m">0</span>
 </code></pre></div>
 <h2 id="docsmakefile"><code>docs/Makefile</code><a class="headerlink" href="#docsmakefile" title="Permanent link">&para;</a></h2>
 <table>
@@ -2634,10 +2628,6 @@ make<span class="w"> </span>bench<span class="w"> </span><span class="nv">FILTER
 <td style="text-align: left;">Runs <code>test/docs/</code>'s shell and Node tests: the docs version, guard, publish and link-check scripts, with a full mike publish to a throwaway local repository, and the <code>gh-pages</code> 404 redirect. No network.</td>
 </tr>
 <tr>
-<td style="text-align: left;"><code>publish</code></td>
-<td style="text-align: left;">Publishes release <code>REF</code> (<code>vX.Y.Z</code>, or a <code>docs/X.Y</code> branch) to <code>gh-pages</code> with <code>devenv/scripts/docs-publish.sh</code>, in the image <code>build-mike</code> builds in, with the network and the checkout's git credentials. See <a href="../docs-publishing/">Docs publishing</a>.</td>
-</tr>
-<tr>
 <td style="text-align: left;"><code>serve</code></td>
 <td style="text-align: left;">Serves the site with live reload on <code>http://localhost:8000</code>, or the port in <code>DOCS_PORT</code>. <code>dev</code> is the same.</td>
 </tr>
@@ -2651,7 +2641,7 @@ make<span class="w"> </span>bench<span class="w"> </span><span class="nv">FILTER
 </tr>
 </tbody>
 </table>
-<p><code>build</code> and <code>serve</code> run the pinned <code>squidfunk/mkdocs-material:9.5.17</code> image as the invoking user. <code>build-mike</code>, <code>test</code> and <code>publish</code> run <code>ucode-prometheus-exporter-docs:9.5.17</code>, the same image with the pinned mike of <code>devenv/services/docs/requirements.txt</code>, git and Node, built on first use from <code>devenv/services/docs/Dockerfile</code>.</p>
+<p><code>build</code> and <code>serve</code> run the pinned <code>squidfunk/mkdocs-material:9.5.17</code> image as the invoking user. <code>build-mike</code> and <code>test</code> run <code>ucode-prometheus-exporter-docs:9.5.17</code>, the same image with the pinned mike of <code>devenv/services/docs/requirements.txt</code>, git and Node, built on first use from <code>devenv/services/docs/Dockerfile</code>.</p>
 
 
 

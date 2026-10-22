@@ -2217,20 +2217,20 @@
 <h2 id="1-write-the-script">1. Write the script<a class="headerlink" href="#1-write-the-script" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><span class="ch">#!/bin/sh</span>
 <span class="c1"># /usr/bin/push-metrics: a scrape of the router, posted to $URL.</span>
-<span class="nv">URL</span><span class="o">=</span><span class="s1">&#39;http://vm.lan:8428/api/v1/import/prometheus?extra_label=instance=router&#39;</span>
+<span class="nv">URL</span><span class="o">=</span><span class="s1">'http://vm.lan:8428/api/v1/import/prometheus?extra_label=instance=router'</span>
 <span class="nv">out</span><span class="o">=</span><span class="k">$(</span>mktemp<span class="k">)</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nb">exit</span><span class="w"> </span><span class="m">1</span>
-<span class="nb">trap</span><span class="w"> </span><span class="s1">&#39;rm -f &quot;$out&quot;&#39;</span><span class="w"> </span>EXIT
-prometheus-exporter<span class="w"> </span>scrape<span class="w"> </span>&gt;<span class="s2">&quot;</span><span class="nv">$out</span><span class="s2">&quot;</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nb">exit</span><span class="w"> </span><span class="m">1</span>
-curl<span class="w"> </span>-fsS<span class="w"> </span>--max-time<span class="w"> </span><span class="m">10</span><span class="w"> </span>--data-binary<span class="w"> </span>@<span class="s2">&quot;</span><span class="nv">$out</span><span class="s2">&quot;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$URL</span><span class="s2">&quot;</span>
+<span class="nb">trap</span><span class="w"> </span><span class="s1">'rm -f "$out"'</span><span class="w"> </span>EXIT
+prometheus-exporter<span class="w"> </span>scrape<span class="w"> </span>&gt;<span class="s2">"</span><span class="nv">$out</span><span class="s2">"</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="nb">exit</span><span class="w"> </span><span class="m">1</span>
+curl<span class="w"> </span>-fsS<span class="w"> </span>--max-time<span class="w"> </span><span class="m">10</span><span class="w"> </span>--data-binary<span class="w"> </span>@<span class="s2">"</span><span class="nv">$out</span><span class="s2">"</span><span class="w"> </span><span class="s2">"</span><span class="nv">$URL</span><span class="s2">"</span>
 </code></pre></div>
 <p>It posts only a whole scrape: one the command refuses (a collector named that is not installed, say) exits 1 and posts nothing.</p>
 <p>For a Pushgateway, post to its grouping key instead:</p>
-<div class="highlight"><pre><span></span><code><span class="nv">URL</span><span class="o">=</span><span class="s1">&#39;http://pushgateway.lan:9091/metrics/job/openwrt/instance/router&#39;</span>
+<div class="highlight"><pre><span></span><code><span class="nv">URL</span><span class="o">=</span><span class="s1">'http://pushgateway.lan:9091/metrics/job/openwrt/instance/router'</span>
 </code></pre></div>
 <p>To push some collectors only, name them: <code>prometheus-exporter scrape cpu meminfo netdev</code>.</p>
 <h2 id="2-run-it-from-cron">2. Run it from cron<a class="headerlink" href="#2-run-it-from-cron" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code>chmod<span class="w"> </span>+x<span class="w"> </span>/usr/bin/push-metrics
-<span class="nb">echo</span><span class="w"> </span><span class="s1">&#39;* * * * * /usr/bin/push-metrics&#39;</span><span class="w"> </span>&gt;&gt;/etc/crontabs/root
+<span class="nb">echo</span><span class="w"> </span><span class="s1">'* * * * * /usr/bin/push-metrics'</span><span class="w"> </span>&gt;&gt;/etc/crontabs/root
 service<span class="w"> </span>cron<span class="w"> </span>restart
 </code></pre></div>
 <p>Once a minute: each run takes at most the main section's <code>scrape_timeout</code>, 10 seconds by default, whatever a collector does.</p>

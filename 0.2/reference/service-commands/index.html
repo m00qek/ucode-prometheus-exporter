@@ -2347,7 +2347,7 @@
 <h2 id="status"><code>status</code><a class="headerlink" href="#status" title="Permanent link">&para;</a></h2>
 <p>While the service runs:</p>
 <div class="highlight"><pre><span></span><code>running
-listening on http://127.0.0.1:9100/metrics, gzip when asked, serving 16 collectors
+listening on http://127.0.0.1:9100/metrics, gzip when asked, serving 15 collectors
 </code></pre></div>
 <table>
 <thead>
@@ -2379,17 +2379,17 @@ listening on http://127.0.0.1:9100/metrics, gzip when asked, serving 16 collecto
 <p><code>service prometheus-exporter check</code> runs <code>prometheus-exporter check</code> (see <a href="../command/#check">The command</a>). It prints a line per finding, then every installed collector, then the jail's mounts:</p>
 <div class="highlight"><pre><span></span><code>ok   main: HTTP on every address, port 9100, keepalive 70s, exec_timeout 5s, scrape_timeout 10s, collector_budget 5s, max_samples 20000, memory_limit 64 MB (a quarter of the RAM, at most 64), gzip when asked
 ok   collectors: 17 installed collectors, their options valid
-ok   scrape, in the service&#39;s jail: 17 of 17 collectors succeeded, 1 with nothing to observe
+ok   scrape, in the service's jail: 17 of 17 collectors succeeded, 1 with nothing to observe
 ok   scrape: wifi has nothing to observe: no wireless radios
 
 collectors: 17 installed, 17 enabled
-  conntrack (Connection tracking): section &#39;conntrack&#39;, enabled
-      budget   5s # the main section&#39;s collector_budget
+  conntrack (Connection tracking): section 'conntrack', enabled
+      budget   5s # the main section's collector_budget
       needs    fs
   ...
-  textfile (Text files): section &#39;textfile&#39;, enabled
-      option   directory=&quot;/var/prometheus&quot; # The directory of the *.prom files.
-      budget   5s # the main section&#39;s collector_budget
+  textfile (Text files): section 'textfile', enabled
+      option   directory="/var/prometheus" # The directory of the *.prom files.
+      budget   5s # the main section's collector_budget
       needs    fs log
       paths    /var/prometheus
       makes    /var/prometheus
@@ -2540,8 +2540,8 @@ jail mounts:
 <tbody>
 <tr>
 <td style="text-align: left;"><code>instance1</code></td>
-<td style="text-align: left;"><code>/usr/sbin/uhttpd -f -c &lt;auth file or /dev/null&gt; -h /dev/null -S -D -o /metrics -O /usr/libexec/prometheus-exporter/handler.uc [-r prometheus-exporter] -k &lt;keepalive&gt; -t 60 -n 3 -N 10 [-C &lt;cert&gt; -K &lt;key&gt;] -p\|-s &lt;address&gt;:&lt;port&gt; ...</code></td>
-<td style="text-align: left;">While the service is enabled. <code>-s</code> (HTTPS) with <code>cert</code> and <code>key</code> both set and both there, <code>-p</code> (HTTP) otherwise. One <code>-p</code> or <code>-s</code> per address of the listen interface, IPv4 and IPv6, or the port alone for <code>*</code>. <code>-r</code> only with basic auth. <code>-t</code>, <code>-n</code> and <code>-N</code>: see <a href="../http/#connections">HTTP endpoint</a>.</td>
+<td style="text-align: left;"><code>/usr/sbin/uhttpd -f -c &lt;auth file or /dev/null&gt; -h /dev/null -S -D -o /metrics -O /usr/libexec/prometheus-exporter/handler.uc [-r prometheus-exporter] -k &lt;keepalive&gt; [-C &lt;cert&gt; -K &lt;key&gt;] -p\|-s &lt;address&gt;:&lt;port&gt; ...</code></td>
+<td style="text-align: left;">While the service is enabled. <code>-s</code> (HTTPS) with <code>cert</code> and <code>key</code> both set and both there, <code>-p</code> (HTTP) otherwise. One <code>-p</code> or <code>-s</code> per address of the listen interface, IPv4 and IPv6, or the port alone for <code>*</code>. <code>-r</code> only with basic auth.</td>
 </tr>
 <tr>
 <td style="text-align: left;"><code>watch</code></td>
@@ -2561,7 +2561,7 @@ jail mounts:
 </thead>
 <tbody>
 <tr>
-<td style="text-align: left;">A change of <code>/etc/config/prometheus-exporter</code>, of <code>/etc/config/prometheus-exporter-auth</code> (the ubus object's <code>set_password</code> sends its event itself), or of a config an enabled collector reads (<code>meta.configs</code>), applied by <code>reload_config</code></td>
+<td style="text-align: left;">A change of <code>/etc/config/prometheus-exporter</code>, or of a config an enabled collector reads (<code>meta.configs</code>), applied by <code>reload_config</code></td>
 <td style="text-align: left;"><code>reload</code></td>
 </tr>
 <tr>
@@ -2573,7 +2573,7 @@ jail mounts:
 <td style="text-align: left;"><code>reload</code></td>
 </tr>
 <tr>
-<td style="text-align: left;">A change of a file procd watches for the instance: the configs it mounts, every collector module, basic auth's file, the TLS certificate and key</td>
+<td style="text-align: left;">A change of a file procd watches for the instance: the configs it mounts, every collector module, basic auth's file</td>
 <td style="text-align: left;">procd restarts the instance on <code>reload</code></td>
 </tr>
 </tbody>

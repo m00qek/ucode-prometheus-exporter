@@ -793,18 +793,18 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#1-save-the-passwords-hash" class="md-nav__link">
+  <a href="#1-hash-the-password" class="md-nav__link">
     <span class="md-ellipsis">
-      1. Save the password's hash
+      1. Hash the password
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#2-set-the-user-and-https" class="md-nav__link">
+  <a href="#2-set-it" class="md-nav__link">
     <span class="md-ellipsis">
-      2. Set the user, and HTTPS
+      2. Set it
     </span>
   </a>
   
@@ -823,15 +823,6 @@
   <a href="#4-scrape-it" class="md-nav__link">
     <span class="md-ellipsis">
       4. Scrape it
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#renew-the-certificate" class="md-nav__link">
-    <span class="md-ellipsis">
-      Renew the certificate
     </span>
   </a>
   
@@ -2179,18 +2170,18 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#1-save-the-passwords-hash" class="md-nav__link">
+  <a href="#1-hash-the-password" class="md-nav__link">
     <span class="md-ellipsis">
-      1. Save the password's hash
+      1. Hash the password
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#2-set-the-user-and-https" class="md-nav__link">
+  <a href="#2-set-it" class="md-nav__link">
     <span class="md-ellipsis">
-      2. Set the user, and HTTPS
+      2. Set it
     </span>
   </a>
   
@@ -2209,15 +2200,6 @@
   <a href="#4-scrape-it" class="md-nav__link">
     <span class="md-ellipsis">
       4. Scrape it
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#renew-the-certificate" class="md-nav__link">
-    <span class="md-ellipsis">
-      Renew the certificate
     </span>
   </a>
   
@@ -2274,36 +2256,34 @@
 </li>
 </ul>
 <hr />
-<h2 id="1-save-the-passwords-hash">1. Save the password's hash<a class="headerlink" href="#1-save-the-passwords-hash" title="Permanent link">&para;</a></h2>
-<p>Use a long random password, as a scraper's can be. The configuration holds its crypt hash, never the password, in a config of its own, <code>/etc/config/prometheus-exporter-auth</code>, apart from the rest, which LuCI's settings page may read. Have the ubus object hash the password and save the hash there, so the password is on no command line of the device:</p>
-<div class="highlight"><pre><span></span><code>ubus<span class="w"> </span>call<span class="w"> </span>prometheus-exporter<span class="w"> </span>set_password<span class="w"> </span><span class="s1">&#39;{&quot;password&quot;:&quot;…&quot;}&#39;</span>
+<h2 id="1-hash-the-password">1. Hash the password<a class="headerlink" href="#1-hash-the-password" title="Permanent link">&para;</a></h2>
+<p>Use a long random password, as a scraper's can be. Have the ubus object hash it, so the password is on no command line of the device:</p>
+<div class="highlight"><pre><span></span><code>ubus<span class="w"> </span>call<span class="w"> </span>prometheus-exporter<span class="w"> </span>hash_password<span class="w"> </span><span class="s1">'{"password":"…"}'</span>
 </code></pre></div>
 <div class="highlight"><pre><span></span><code>{
-    &quot;saved&quot;: true
+    "hash": "$6$rounds=1000$IgztncwtDxRNxtVD$emPK…"
 }
 </code></pre></div>
-<p>Or save a hash yourself, from <code>prometheus-exporter hash-password</code>, which reads the password without echoing it:</p>
-<div class="highlight"><pre><span></span><code>uci<span class="w"> </span><span class="nb">set</span><span class="w"> </span>prometheus-exporter-auth.main.auth_password<span class="o">=</span><span class="s2">&quot;</span><span class="k">$(</span>prometheus-exporter<span class="w"> </span>hash-password<span class="k">)</span><span class="s2">&quot;</span>
-uci<span class="w"> </span>commit<span class="w"> </span>prometheus-exporter-auth
-</code></pre></div>
-<p>A hash made elsewhere must be <code>$1$</code> (as <code>uhttpd -m &lt;password&gt;</code> prints), or <code>$5$</code> or <code>$6$</code> of at most 2000 rounds, as <code>mkpasswd -m sha-512 -R 1000</code> makes. <code>openssl passwd -6</code> makes hashes of 5000 rounds, which are refused. Why: <a href="../../explanation/performance/#basic-auth">Performance on small routers</a>. Set one by hand in single quotes: the shell would read its <code>$</code> otherwise.</p>
-<h2 id="2-set-the-user-and-https">2. Set the user, and HTTPS<a class="headerlink" href="#2-set-the-user-and-https" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code>uci<span class="w"> </span><span class="nb">set</span><span class="w"> </span>prometheus-exporter.main.auth_user<span class="o">=</span><span class="s1">&#39;prometheus&#39;</span>
-uci<span class="w"> </span><span class="nb">set</span><span class="w"> </span>prometheus-exporter.main.cert<span class="o">=</span><span class="s1">&#39;/etc/prometheus-exporter.crt&#39;</span>
-uci<span class="w"> </span><span class="nb">set</span><span class="w"> </span>prometheus-exporter.main.key<span class="o">=</span><span class="s1">&#39;/etc/prometheus-exporter.key&#39;</span>
+<p>To use a hash made elsewhere, it must be <code>$1$</code> (as <code>uhttpd -m &lt;password&gt;</code> prints), or <code>$5$</code> or <code>$6$</code> of at most 2000 rounds, as <code>mkpasswd -m sha-512 -R 1000</code> makes. <code>openssl passwd -6</code> makes hashes of 5000 rounds, which are refused. Why: <a href="../../explanation/performance/#basic-auth">Performance on small routers</a>.</p>
+<h2 id="2-set-it">2. Set it<a class="headerlink" href="#2-set-it" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code>uci<span class="w"> </span><span class="nb">set</span><span class="w"> </span>prometheus-exporter.main.auth_user<span class="o">=</span><span class="s1">'prometheus'</span>
+uci<span class="w"> </span><span class="nb">set</span><span class="w"> </span>prometheus-exporter.main.auth_password<span class="o">=</span><span class="s1">'$6$rounds=1000$IgztncwtDxRNxtVD$emPK…'</span>
+uci<span class="w"> </span><span class="nb">set</span><span class="w"> </span>prometheus-exporter.main.cert<span class="o">=</span><span class="s1">'/etc/prometheus-exporter.crt'</span>
+uci<span class="w"> </span><span class="nb">set</span><span class="w"> </span>prometheus-exporter.main.key<span class="o">=</span><span class="s1">'/etc/prometheus-exporter.key'</span>
 uci<span class="w"> </span>commit<span class="w"> </span>prometheus-exporter
 service<span class="w"> </span>prometheus-exporter<span class="w"> </span>reload
 </code></pre></div>
-<p>Basic auth is on while <code>auth_user</code> is set. If the reload refuses the configuration, <code>logread -e prometheus-exporter</code> says why: a user without a saved hash, a hash it does not take, or no <code>cert</code> and <code>key</code>.</p>
+<p>Keep the single quotes around the hash: the shell would read its <code>$</code> otherwise.</p>
+<p>If the reload refuses the configuration, <code>logread -e prometheus-exporter</code> says why: a user without a hash, a hash it does not take, or no <code>cert</code> and <code>key</code>.</p>
 <h2 id="3-check-it">3. Check it<a class="headerlink" href="#3-check-it" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code>service<span class="w"> </span>prometheus-exporter<span class="w"> </span>status
 </code></pre></div>
 <div class="highlight"><pre><span></span><code>running
-listening on https://192.168.1.1:9100/metrics, basic auth, gzip when asked, serving 16 collectors
+listening on https://192.168.1.1:9100/metrics, basic auth, gzip when asked, serving 15 collectors
 </code></pre></div>
 <p>From the machine that scrapes:</p>
-<div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-sk<span class="w"> </span>-o<span class="w"> </span>/dev/null<span class="w"> </span>-w<span class="w"> </span><span class="s1">&#39;%{http_code}\n&#39;</span><span class="w"> </span>https://router.lan:9100/metrics
-curl<span class="w"> </span>-sk<span class="w"> </span>-u<span class="w"> </span>prometheus:<span class="s1">&#39;…&#39;</span><span class="w"> </span>https://router.lan:9100/metrics<span class="w"> </span><span class="p">|</span><span class="w"> </span>head
+<div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-sk<span class="w"> </span>-o<span class="w"> </span>/dev/null<span class="w"> </span>-w<span class="w"> </span><span class="s1">'%{http_code}\n'</span><span class="w"> </span>https://router.lan:9100/metrics
+curl<span class="w"> </span>-sk<span class="w"> </span>-u<span class="w"> </span>prometheus:<span class="s1">'…'</span><span class="w"> </span>https://router.lan:9100/metrics<span class="w"> </span><span class="p">|</span><span class="w"> </span>head
 </code></pre></div>
 <p>The first is <code>401</code>; the second is the scrape.</p>
 <h2 id="4-scrape-it">4. Scrape it<a class="headerlink" href="#4-scrape-it" title="Permanent link">&para;</a></h2>
@@ -2315,26 +2295,20 @@ curl<span class="w"> </span>-sk<span class="w"> </span>-u<span class="w"> </span
 <span class="w">      </span><span class="nt">username</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">prometheus</span>
 <span class="w">      </span><span class="nt">password_file</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/etc/prometheus/openwrt.password</span>
 <span class="w">    </span><span class="nt">tls_config</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">ca_file</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/etc/prometheus/openwrt.crt</span><span class="w">   </span><span class="c1"># the router&#39;s certificate, self-signed</span>
+<span class="w">      </span><span class="nt">ca_file</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/etc/prometheus/openwrt.crt</span><span class="w">   </span><span class="c1"># the router's certificate, self-signed</span>
 <span class="w">      </span><span class="nt">server_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">router.lan</span><span class="w">                </span><span class="c1"># a name the certificate holds</span>
 <span class="w">      </span><span class="c1"># insecure_skip_verify: true           # or: no check of the certificate at all</span>
 <span class="w">    </span><span class="nt">static_configs</span><span class="p">:</span>
-<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">targets</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="w"> </span><span class="s">&#39;router.lan:9100&#39;</span><span class="w"> </span><span class="p p-Indicator">]</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">targets</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="w"> </span><span class="s">'router.lan:9100'</span><span class="w"> </span><span class="p p-Indicator">]</span>
 </code></pre></div>
 <p>Copy the router's certificate (<code>/etc/prometheus-exporter.crt</code>), not its key, to the Prometheus host as <code>ca_file</code>.</p>
 <hr />
-<h2 id="renew-the-certificate">Renew the certificate<a class="headerlink" href="#renew-the-certificate" title="Permanent link">&para;</a></h2>
-<p>The service's jail holds the certificate and key it started with. After writing new ones at the same paths, reload the service, which restarts it with them:</p>
-<div class="highlight"><pre><span></span><code>service<span class="w"> </span>prometheus-exporter<span class="w"> </span>reload
-</code></pre></div>
-<p>A tool that renews certificates on its own, as acme does, runs that from its hook. Until then the old certificate is served.</p>
 <h2 id="turn-it-off">Turn it off<a class="headerlink" href="#turn-it-off" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code>uci<span class="w"> </span>delete<span class="w"> </span>prometheus-exporter.main.auth_user
+uci<span class="w"> </span>delete<span class="w"> </span>prometheus-exporter.main.auth_password
 uci<span class="w"> </span>commit<span class="w"> </span>prometheus-exporter
-ubus<span class="w"> </span>call<span class="w"> </span>prometheus-exporter<span class="w"> </span>set_password<span class="w"> </span><span class="s1">&#39;{&quot;password&quot;:&quot;&quot;}&#39;</span>
 service<span class="w"> </span>prometheus-exporter<span class="w"> </span>reload
 </code></pre></div>
-<p>The empty password removes the saved hash; without a user it would be unused all the same.</p>
 <p>With <code>cert</code> and <code>key</code> left, it serves HTTPS without a login; delete them too for HTTP.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
