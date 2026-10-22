@@ -1,6 +1,6 @@
 # Make Targets
 
-Every target runs in Docker, except `feed-makefile`, a shell script that uses `curl`. Nothing is installed on the host. `monitoring-lab` waits for its servers with `curl` on the host. `fixtures` and `bench-device` reach a device over ssh.
+Every target runs in Docker, except `feed-makefile`, a shell script that uses `curl`, and the part of `feed-check` that makes the tarball, with `git archive`. Nothing is installed on the host. `monitoring-lab` waits for its servers with `curl` on the host. `fixtures` and `bench-device` reach a device over ssh.
 
 ---
 
@@ -58,6 +58,7 @@ Every target runs in Docker, except `feed-makefile`, a shell script that uses `c
 | Target | Description |
 | :--- | :--- |
 | `feed-makefile` | Writes the Makefile of the packages.ucode.dev feed for release `VERSION` to `OUT`, or to standard output. The Makefile is this tree's package Makefile as the `v<VERSION>` tag has it, set to build from GitHub's tarball of the tag, which the target downloads and hashes. See [How to publish a release to the package feed](../how-to/developer/publish-to-feed.md). |
+| `feed-check` | Builds the packages as the feed does, offline: from a `git archive` tarball of this tree, changes not yet committed included, with the Makefile `feed-makefile` makes of it, in the SDK. Fails when that build fails, or when a package's files, modes, hashes, dependencies or scripts differ from what `package` built. Runs `package` first, and leaves its build in `bin/feed`. See `devenv/scripts/feed-check.sh`. |
 
 ### Documentation
 

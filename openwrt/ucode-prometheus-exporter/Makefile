@@ -25,9 +25,10 @@ COLLECTORS_DIR:=$(UCODE_DIR)/collectors
 MODULE_SUBDIRS:=api config deps exposition loader rpc
 
 # The command line's modules: ucode-prometheus-exporter-cli's, not the base
-# package's, which installs every other module of src/prometheus/exporter.
+# package's, which installs every other module of src/prometheus/exporter. The
+# base package finds those when it installs: the feed's build unpacks the
+# sources after make has read this Makefile, so a $(wildcard) of them is empty.
 CLI_MODULES:=cli conform
-BASE_MODULES=$(filter-out $(CLI_MODULES),$(basename $(notdir $(wildcard ./src/prometheus/exporter/*.uc))))
 
 # Every comment of the ucode and JavaScript files a package installs goes, with
 # a newline kept for each of its own: a device gets no comments, and an error's
@@ -114,7 +115,7 @@ endef
 define Package/$(PKG_NAME)/install
 	$(INSTALL_DIR) $(1)$(MODULES_DIR) $(1)$(COLLECTORS_DIR)
 	$(INSTALL_DATA) ./src/prometheus/exporter.uc $(1)$(UCODE_DIR)/
-	$(INSTALL_DATA) $(foreach m,$(BASE_MODULES),./src/prometheus/exporter/$(m).uc) $(1)$(MODULES_DIR)/
+	find ./src/prometheus/exporter -maxdepth 1 -name '*.uc' $(foreach m,$(CLI_MODULES),! -name '$(m).uc') -exec $(INSTALL_DATA) -t $(1)$(MODULES_DIR) {} +
 	$(foreach d,$(MODULE_SUBDIRS),$(INSTALL_DIR) $(1)$(MODULES_DIR)/$(d) && $(INSTALL_DATA) ./src/prometheus/exporter/$(d)/*.uc $(1)$(MODULES_DIR)/$(d)/;)
 	# The version ucode_prometheus_exporter_build_info reports: the package's.
 	$(SED) "/^const VERSION = /s/'dev'/'$(PKG_VERSION)-r$(PKG_RELEASE)'/" $(1)$(MODULES_DIR)/version.uc

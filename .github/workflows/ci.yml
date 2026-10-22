@@ -36,6 +36,17 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - run: make monitoring-check
 
+  # The packages as packages.ucode.dev builds them, from a tarball of the tree,
+  # which must hold what make package builds.
+  feed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CI: 1
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - run: make feed-check
+
   # Each collector and whole scrapes on generated worlds, held to the budgets
   # of test/bench/budgets.uc: scaling, memory, and generous times.
   bench:
