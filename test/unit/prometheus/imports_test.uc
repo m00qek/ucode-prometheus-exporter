@@ -78,7 +78,7 @@ describe('what the programs load', () => {
 	// holds: what the collectors call at each scrape is all it keeps, and the
 	// rest of the ubus object it compiles when it is called (rpc.plugin).
 	it('keeps in rpcd\'s plugin the collectors\' sources alone', () => {
-		assert.match([ 'fs', 'prometheus.exporter.errors', 'prometheus.exporter.rpc.plugin', 'prometheus.exporter.rpc.sources',
+		assert.match([ 'fs', 'prometheus.exporter.errors', 'prometheus.exporter.line', 'prometheus.exporter.rpc.plugin', 'prometheus.exporter.rpc.sources',
 			'prometheus.exporter.state', 'ubus', 'uci', 'uloop' ], loaded_by('files/usr/share/rpcd/ucode/prometheus-exporter.uc'));
 	});
 

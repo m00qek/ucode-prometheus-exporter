@@ -78,6 +78,7 @@ Every target runs in Docker, except `feed-makefile`, a shell script that uses `c
 | Variable | Default | Applies to | Description |
 | :--- | :--- | :--- | :--- |
 | `OPENWRT_VERSION` | `25.12.5` | all | The OpenWrt release of the images and the SDK. CI also runs `25.12.0`, the API floor. |
+| `UCODE_ENGINE` | `index` | all but `package` | `index`: ucode as the release's package index has it, what a device gets. `rootfs`: as the release's rootfs image holds it, which can be older. ucode 2026.07.09 reads newlines in regular expressions apart from the ucode before it, so CI runs `test`, `lint`, `package-check` and `e2e` with `rootfs` on `25.12.0` and `index` on `25.12.5`. |
 | `OPENWRT_ARCH` | `x86_64` | all | The architecture of the images and the SDK. |
 | `FILTER` | — | tests, `browser`, `bench`, `bench-device`, `bench-qemu` | Tests: only those whose name matches. Benchmark: a regex of `world/case`. |
 | `VERBOSE` | — | tests, `package`, `template-package` | Tests: one line per test. `package`, `template-package`: the SDK's `V=s`. |

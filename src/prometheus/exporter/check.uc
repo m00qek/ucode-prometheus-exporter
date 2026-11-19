@@ -17,6 +17,7 @@ import * as deps from 'prometheus.exporter.deps';
 import * as state from 'prometheus.exporter.state';
 import * as jailed from 'prometheus.exporter.jailed';
 import * as app from 'prometheus.exporter.app';
+import { match_line } from 'prometheus.exporter.line';
 
 /**
  * What check takes of the system, as the module's top comment says.
@@ -302,7 +303,7 @@ export function listening(command) {
 		let addr = command[i + 1];
 
 		if (scheme)
-			push(urls, `${scheme}://${match(addr, /^[0-9]+$/) ? '*:' + addr : addr}/metrics`);
+			push(urls, `${scheme}://${match_line(addr, /^[0-9]+$/) ? '*:' + addr : addr}/metrics`);
 	}
 
 	return urls;

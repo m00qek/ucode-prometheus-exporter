@@ -8,11 +8,13 @@
 const DECLARATION = /out\.(gauge|counter|untyped)\(\s*'([a-zA-Z_:][a-zA-Z0-9_:]*)'(\s*,\s*'(([^'\\]|\\.)*)'\s*\))?/g;
 // out.batch('gauge', [ [ 'node_x', 'Help.', value ], ... ]): the call, its
 // type and its rows, up to the bracket that closes them; and each row's
-// literal name and help in them.
-const BATCH = /out\.batch\(\s*'(gauge|counter|untyped)'\s*,\s*\[(([^\]]|\][^)])*)\]\s*\)/g;
+// literal name and help in them. The rows' newlines are named: one ucode's
+// [^...] matches a newline, the other's not.
+const BATCH = /out\.batch\(\s*'(gauge|counter|untyped)'\s*,\s*\[(([^\]]|\n|\][^)]|\]\n)*)\]\s*\)/g;
 const BATCH_ROW = /\[\s*'([a-zA-Z_:][a-zA-Z0-9_:]*)'\s*,\s*'(([^'\\]|\\.)*)'/g;
 const NONE = /Result\.none\(\s*'([^'\\]*)'/g;
-const SERVICE = /services\.(unless_disabled|idle)\(\s*[^,]+,\s*'([^']+)'/g;
+// [^,] does not match a newline on one ucode: the argument may span lines.
+const SERVICE = /services\.(unless_disabled|idle)\(\s*([^,]|\n)+,\s*'([^']+)'/g;
 
 // [ { name, type, help } ] of the families `text` declares with a literal name,
 // as out.gauge('node_load1', '1m load average.') does, once each, in order;
@@ -57,7 +59,7 @@ export function reasons(text, states) {
 
 	for (let m in match(text, SERVICE) ?? [])
 		for (let s in states)
-			push(out, `${m[2]} is ${s}`);
+			push(out, `${m[3]} is ${s}`);
 
 	return uniq(out);
 };

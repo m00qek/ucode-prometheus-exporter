@@ -4,6 +4,10 @@ What each release changes, for those who run the exporter and those who write co
 
 ## [Unreleased]
 
+### Fixed
+
+- **The exporter works on ucode 2026.07.09, which every 25.12 release's package index now has.** That ucode compiles a regular expression without the `s` flag with `REG_NEWLINE`: its `^` and `$` match at each line, and its `.` and `[^...]` match no newline, the opposite of the ucode before it. On it, 0.3.2 loads no collector at all, each refused as `not in strict mode` though its first statement is `'use strict'`, ethtool writes text Prometheus refuses, and checks of a single value, the basic auth user and hash among them, take a value of two lines of which one passes. The exporter now reads the same on either ucode: a check of a whole value refuses a newline first (`prometheus.exporter.line`), the directive is found without a regular expression, and what reads many lines at once names the newline in its pattern. CI runs the tests and lint on both, with `UCODE_ENGINE` (see [Make targets](docs/reference/make-targets.md)).
+
 ## [0.3.2] - 2026-10-22
 
 ### Fixed

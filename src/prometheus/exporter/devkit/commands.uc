@@ -29,7 +29,9 @@ const TAIL = substr(exec_script([ '' ], 1), length("set -- 1 ''"));
  * @returns {?{ seconds: int, line: string }} its limit and command line.
  */
 export function parse(script) {
-	let head = match(script, /^set -- ([0-9]+) /);
+	// On its first line alone: one ucode's ^ is the start of any line.
+	let nl = index(script, '\n');
+	let head = match((nl < 0) ? script : substr(script, 0, nl), /^set -- ([0-9]+) /);
 
 	if (!head || length(script) < length(head[0]) + length(TAIL) || substr(script, -length(TAIL)) != TAIL)
 		return null;

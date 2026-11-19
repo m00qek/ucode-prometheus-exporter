@@ -111,7 +111,8 @@ describe('crypt.is_hash', () => {
 	];
 
 	function as_one(s) {
-		return length(filter(AS_ONE, (re) => match(s, re))) > 0;
+		// No newline: one ucode's $ is the end of any line (prometheus.exporter.line).
+		return index(s, '\n') < 0 && length(filter(AS_ONE, (re) => match(s, re))) > 0;
 	}
 
 	prop('takes what the formats as a regex each take, of hashes cut, grown or changed anywhere',

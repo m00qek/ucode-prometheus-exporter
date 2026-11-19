@@ -9,6 +9,7 @@
 import * as Result from 'prometheus.exporter.result';
 import * as errors from 'prometheus.exporter.errors';
 import * as breaker from 'prometheus.exporter.breaker';
+import { match_line } from 'prometheus.exporter.line';
 
 /**
  * A collector's entry in the ledger; an absent field is its default.
@@ -290,7 +291,7 @@ export function outcome_of(run) {
 };
 
 function count_failure(e, code) {
-	if (type(code) != 'string' || length(code) > CODE_MAX || !match(code, CODE))
+	if (type(code) != 'string' || length(code) > CODE_MAX || !match_line(code, CODE))
 		code = OTHER;
 
 	let fails = { ...(e.fails ?? {}) };

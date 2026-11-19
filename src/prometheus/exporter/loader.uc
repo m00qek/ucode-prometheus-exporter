@@ -15,6 +15,7 @@ import * as config from 'prometheus.exporter.config';
 import * as scan from 'prometheus.exporter.loader.imports';
 import * as purity from 'prometheus.exporter.loader.purity';
 import * as collection from 'prometheus.exporter.collection';
+import { match_line } from 'prometheus.exporter.line';
 
 /**
  * A collector as the loader takes it (validate's).
@@ -84,7 +85,7 @@ function is_title(v) {
 }
 
 function validate_option(id, key, spec) {
-	if (!match(key, /^[a-z][a-z0-9_]*$/))
+	if (!match_line(key, /^[a-z][a-z0-9_]*$/))
 		return invalid(id, `option '${key}' needs a name of a-z, 0-9 and _`);
 	if (type(spec) != 'object')
 		return invalid(id, `option '${key}' must be { default, title, help, datatype }`);
@@ -157,7 +158,7 @@ export function validate(id, mod) {
 
 	if (type(meta) != 'object')
 		return invalid(id, 'exports no meta');
-	if (type(meta.name) != 'string' || !match(meta.name, NAME) || id_of(meta.name) != id)
+	if (type(meta.name) != 'string' || !match_line(meta.name, NAME) || id_of(meta.name) != id)
 		return invalid(id, `meta.name must be '${id}', or it with '-' for '_'`);
 	if (!is_title(meta.title))
 		return invalid(id, `meta.title must be a label of 1 to ${TITLE_MAX} characters`);
@@ -174,7 +175,7 @@ export function validate(id, mod) {
 		if (!is_strings(meta.configs) || !length(meta.configs))
 			return invalid(id, 'meta.configs must list the uci configs it reads');
 		for (let c in meta.configs)
-			if (!match(c, /^[a-z0-9_-]+$/) || c == config.NAME)
+			if (!match_line(c, /^[a-z0-9_-]+$/) || c == config.NAME)
 				return invalid(id, `meta.configs cannot name '${c}'; its own options come as options`);
 	} else if (meta.configs != null) {
 		return invalid(id, 'meta.configs without uci in meta.needs');
@@ -241,22 +242,38 @@ export function validate(id, mod) {
 
 export const discover = collection.discover;
 
-const LEADING = /^(\s+|\/\/[^\n]*|\/\*([^*]|\*+[^*\/])*\*+\/)/;
 const DIRECTIVES = [ "'use strict'", '"use strict"' ];
+const BLANK = [ ' ', '\t', '\n', '\r', '\v', '\f' ];
 
-const WINDOW = 1024;
+// Where the blank space and comments text starts with end, or -1 when a
+// block comment there never does. Scanned rather than matched: a regular
+// expression's ^ is the start of the text on one ucode and of any line on
+// another, and its [^*] crosses a newline on one alone.
+function after_leading(text) {
+	let i = 0, n = length(text);
 
-function leading(text) {
-	if (length(text) <= WINDOW)
-		return match(text, LEADING);
+	while (i < n) {
+		let two = substr(text, i, 2);
 
-	let w = substr(text, 0, WINDOW);
-	let m = match(w, LEADING);
+		if (substr(text, i, 1) in BLANK)
+			i++;
+		else if (two == '//') {
+			let nl = index(substr(text, i), '\n');
+			i = (nl < 0) ? n : i + nl;
+		}
+		else if (two == '/*') {
+			let end = index(substr(text, i + 2), '*/');
 
-	if ((m && length(m[0]) == WINDOW) || (!m && substr(w, 0, 2) == '/*'))
-		return match(text, LEADING);
+			if (end < 0)
+				return -1;
 
-	return m;
+			i += end + 4;
+		}
+		else
+			break;
+	}
+
+	return i;
 }
 
 /**
@@ -274,8 +291,12 @@ export function is_strict(text) {
 		text = (nl < 0) ? '' : substr(text, nl);
 	}
 
-	for (let m = leading(text); m; m = leading(text))
-		text = substr(text, length(m[0]));
+	let start = after_leading(text);
+
+	if (start < 0)
+		return false;
+
+	text = substr(text, start);
 
 	if (!(substr(text, 0, 12) in DIRECTIVES))
 		return false;

@@ -7,6 +7,7 @@
 'use strict';
 
 import * as errors from 'prometheus.exporter.errors';
+import { match_line } from 'prometheus.exporter.line';
 
 /**
  * The installed collectors' directory, as the packages install them.
@@ -170,7 +171,7 @@ export function import_modules(ids) {
  * @returns {string[]} the names of its [a-z0-9_]+.uc files, without .uc.
  */
 export function discover(fs, dir) {
-	let files = filter(fs.lsdir(dir) ?? [], (f) => match(f, /^[a-z0-9_]+\.uc$/));
+	let files = filter(fs.lsdir(dir) ?? [], (f) => match_line(f, /^[a-z0-9_]+\.uc$/));
 
 	return sort(map(files, (f) => substr(f, 0, -3)));
 };
@@ -189,7 +190,7 @@ export function discover(fs, dir) {
  * @returns {string} the message.
  */
 export function load_error(id, error) {
-	let m = match(error, /^([A-Z_]+) \((.*)\)$/);
+	let m = match_line(error, /^([A-Z_]+) \((.*)\)$/);
 
 	if (m && m[1] == IMPURE)
 		return `skipping collector: ${IMPURE} (${id}: ${m[2]})`;

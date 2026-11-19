@@ -3,8 +3,9 @@
 
 import { probe } from 'prometheus.exporter.probe';
 import { import_module } from 'prometheus.exporter.loader';
+import { match_line } from 'prometheus.exporter.line';
 
-if (!length(ARGV) || length(filter(ARGV, (id) => !match(id, /^[a-z0-9_]+$/)))) {
+if (!length(ARGV) || length(filter(ARGV, (id) => !match_line(id, /^[a-z0-9_]+$/)))) {
 	warn('usage: probe.uc MODULE...\n');
 	exit(2);
 }

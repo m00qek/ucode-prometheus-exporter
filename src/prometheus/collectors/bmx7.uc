@@ -16,14 +16,15 @@ export const meta = {
 const SCALE = { K: 1000, M: 1000000, G: 1000000000 };
 
 export function interpret_suffix(v) {
-	let m = type(v) == 'string' ? match(v, /^(-?[0-9]+(\.[0-9]+)?)([KMG])$/) : null;
+	// Of one line alone: one ucode's ^ and $ match at each.
+	let m = (type(v) == 'string' && index(v, '\n') < 0) ? match(v, /^(-?[0-9]+(\.[0-9]+)?)([KMG])$/) : null;
 
 	return m ? +m[1] * SCALE[m[3]] : v;
 };
 
 export function ratio(v) {
 	let n = (type(v) in [ 'int', 'double' ]) ? v
-		: (type(v) == 'string' && match(trim(v), /^-?[0-9]+(\.[0-9]+)?$/)) ? +trim(v) : null;
+		: (type(v) == 'string' && index(trim(v), '\n') < 0 && match(trim(v), /^-?[0-9]+(\.[0-9]+)?$/)) ? +trim(v) : null;
 
 	return n == null ? null : n / 100.0;
 };

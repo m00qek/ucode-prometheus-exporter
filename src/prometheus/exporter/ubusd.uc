@@ -6,6 +6,8 @@
 
 'use strict';
 
+import { match_line } from 'prometheus.exporter.line';
+
 /**
  * The milliseconds ubusd is given to read its ACLs: it reads them at once, or crashes doing it.
  *
@@ -124,7 +126,7 @@ export function host(fs, connect) {
 	return {
 		ubusd_pid: function() {
 			for (let p in fs.lsdir('/proc') ?? [])
-				if (match(p, /^[0-9]+$/) && trim(fs.readfile(`/proc/${p}/comm`) ?? '') == 'ubusd')
+				if (match_line(p, /^[0-9]+$/) && trim(fs.readfile(`/proc/${p}/comm`) ?? '') == 'ubusd')
 					return +p;
 			return null;
 		},

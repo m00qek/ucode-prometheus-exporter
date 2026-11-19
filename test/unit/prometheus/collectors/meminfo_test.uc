@@ -130,7 +130,8 @@ describe('collectors.meminfo', () => {
 			let want = [];
 
 			for (let i, f in fields) {
-				let name = `F${i}${f.name}`;
+				// The _ keeps two apart: F1 and 2a, and F12 and a, would both be F12a.
+				let name = `F${i}_${f.name}`;
 
 				text += sprintf('%-16s %10d%s\n', name + (f.sub != null ? `(${f.sub})` : '') + ':', f.value, f.kb ? ' kB' : '');
 				push(want, `node_memory_${name}${f.sub != null ? '_' + f.sub : ''}${f.kb ? '_bytes' : ''} ${f.kb ? f.value * 1024 : f.value}`);

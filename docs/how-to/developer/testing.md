@@ -66,4 +66,11 @@ make docs
 
 ---
 
-CI runs `lint`, `test`, `package-check` and `e2e` on 25.12.0 and 25.12.5, and `bench`, `browser` and `feed-check` once. A failed `e2e` on 25.12.0 does not fail the run: on GitHub's runners, about a third of its runs lost rpcd partway through, when a SIGHUP crashed ubusd (see [When ubusd crashes](../../reference/jail.md#when-ubusd-crashes)). Its first failure prints what rpcd and ubusd were doing. The docs workflow builds the site. [Make targets](../../reference/make-targets.md) lists every target.
+CI runs `lint`, `test`, `package-check` and `e2e` on 25.12.0 and 25.12.5, `lint`, `test`, `package-check` and `e2e` on two ucode releases: 25.12.0 with the ucode its rootfs image holds, 25.12.5 with the one its package index has (`UCODE_ENGINE`, in [Make targets](../../reference/make-targets.md)). From ucode 2026.07.09 on, a regular expression's `^` and `$` match at each line, and `.` and `[^...]` match no newline; before, the opposite. Code that checks a whole value uses `match_line` (`prometheus.exporter.line`), and code that reads many lines at once names the newline in its pattern. To run both:
+
+```bash
+make test UCODE_ENGINE=index
+make test UCODE_ENGINE=rootfs
+```
+
+CI also runs `bench`, `browser` and `feed-check` once. A failed `e2e` on 25.12.0 does not fail the run: on GitHub's runners, about a third of its runs lost rpcd partway through, when a SIGHUP crashed ubusd (see [When ubusd crashes](../../reference/jail.md#when-ubusd-crashes)). Its first failure prints what rpcd and ubusd were doing. The docs workflow builds the site. [Make targets](../../reference/make-targets.md) lists every target.

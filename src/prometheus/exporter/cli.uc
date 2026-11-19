@@ -78,7 +78,7 @@ Options:
 `;
 
 function urlencode(s) {
-	return replace(s, /[^A-Za-z0-9_.~-]/g, (c) => sprintf('%%%02X', ord(c)));
+	return replace(s, /[^A-Za-z0-9_.~-]|\n/g, (c) => sprintf('%%%02X', ord(c)));
 }
 
 /**

@@ -14,11 +14,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # The first 25.12 release is the API floor; the latest catches regressions.
-        openwrt: [ '25.12.0', '25.12.5' ]
+        # The first 25.12 release is the API floor, with the ucode its rootfs
+        # image holds; the latest, with the ucode of its package index, what a
+        # device gets. The two read newlines in regular expressions apart
+        # (devenv/services/openwrt/Dockerfile), and the code must work on both.
+        include:
+          - { openwrt: '25.12.0', ucode: rootfs }
+          - { openwrt: '25.12.5', ucode: index }
     env:
       CI: 1
       OPENWRT_VERSION: ${{ matrix.openwrt }}
+      UCODE_ENGINE: ${{ matrix.ucode }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - run: make lint
@@ -76,10 +82,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        openwrt: [ '25.12.0', '25.12.5' ]
+        # As the test job: the API floor on its rootfs image's ucode, the
+        # latest on its package index's.
+        include:
+          - { openwrt: '25.12.0', ucode: rootfs }
+          - { openwrt: '25.12.5', ucode: index }
     env:
       CI: 1
       OPENWRT_VERSION: ${{ matrix.openwrt }}
+      UCODE_ENGINE: ${{ matrix.ucode }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - run: make e2e

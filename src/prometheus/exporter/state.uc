@@ -6,6 +6,8 @@
 
 'use strict';
 
+import { match_line } from 'prometheus.exporter.line';
+
 /**
  * The state of an instance, as open() gives it.
  *
@@ -90,7 +92,7 @@ export function instance_id(fs) {
 	let pid = substr(stat, 0, index(stat, ' '));
 	let start = split(substr(stat, close + 2), ' ')[19];
 
-	if (!match(pid, DIGITS) || !match(start ?? '', DIGITS))
+	if (!match_line(pid, DIGITS) || !match_line(start ?? '', DIGITS))
 		return null;
 
 	return `${pid}-${start}`;
@@ -117,7 +119,7 @@ export function start_of(fs, pid) {
  * @returns {?int} the pid, or null for what is not an id.
  */
 export function pid_of(id) {
-	let m = (type(id) == 'string') ? match(id, ID) : null;
+	let m = (type(id) == 'string') ? match_line(id, ID) : null;
 
 	return m ? +m[1] : null;
 };
@@ -141,7 +143,7 @@ export function make(fs, owner) {
 };
 
 function file_of(dir, id, name) {
-	return (id != null && type(name) == 'string' && name != LOCK && match(name, NAME)) ? `${dir}/${id}.${name}` : null;
+	return (id != null && type(name) == 'string' && name != LOCK && match_line(name, NAME)) ? `${dir}/${id}.${name}` : null;
 }
 
 function locked(fs, dir, id, cb) {
@@ -186,7 +188,7 @@ function writable(p, data) {
 export function open(fs, dir, id) {
 	if (id != null)
 		for (let f in fs.lsdir(dir) ?? [])
-			if (match(f, FILE) && substr(f, 0, length(id) + 1) != `${id}.`)
+			if (match_line(f, FILE) && substr(f, 0, length(id) + 1) != `${id}.`)
 				fs.unlink(`${dir}/${f}`);
 
 	let prefix = `${id}.p`;
@@ -240,7 +242,7 @@ export function open(fs, dir, id) {
 				if (substr(f, 0, length(prefix)) != prefix)
 					continue;
 
-				let m = match(substr(f, length(prefix)), PROGRESS);
+				let m = match_line(substr(f, length(prefix)), PROGRESS);
 
 				if (!m || start_of(fs, m[1]) == m[2])
 					continue;
@@ -325,7 +327,7 @@ export function latest(fs, dir) {
 		return null;
 
 	for (let f in fs.lsdir(dir) ?? []) {
-		let m = match(f, FILE);
+		let m = match_line(f, FILE);
 
 		if (m && +m[2] > start) {
 			start = +m[2];

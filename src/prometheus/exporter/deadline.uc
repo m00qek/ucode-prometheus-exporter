@@ -7,6 +7,7 @@
 'use strict';
 
 import { SCRIPT_TIMEOUT } from 'prometheus.exporter.config';
+import { match_line } from 'prometheus.exporter.line';
 
 /**
  * The request header, as uhttpd-mod-ucode names headers: in lower case.
@@ -43,7 +44,7 @@ export function seconds(t) {
  */
 export function timeout(value, fallback) {
 	let v = (type(value) == 'string') ? trim(value) : '';
-	let t = match(v, NUMBER) ? +((substr(v, 0, 1) == '.') ? '0' + v : v) : null;
+	let t = match_line(v, NUMBER) ? +((substr(v, 0, 1) == '.') ? '0' + v : v) : null;
 
 	if (t == null || t <= 0)
 		t = fallback;

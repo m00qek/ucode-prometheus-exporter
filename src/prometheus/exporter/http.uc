@@ -6,6 +6,8 @@
 
 'use strict';
 
+import { match_line } from 'prometheus.exporter.line';
+
 /**
  * A reply: its status line, its headers as [ name, value ] pairs, and its body.
  *
@@ -33,10 +35,10 @@ export function header(env, name) {
 };
 
 function positive(q) {
-	if (!match(q, /^(0(\.[0-9]{0,3})?|1(\.0{0,3})?)$/))
+	if (!match_line(q, /^(0(\.[0-9]{0,3})?|1(\.0{0,3})?)$/))
 		return null;
 
-	return !match(q, /^0(\.0*)?$/);
+	return !match_line(q, /^0(\.0*)?$/);
 }
 
 /**
@@ -57,7 +59,7 @@ export function accepts_gzip(value) {
 		let ok = true;
 
 		for (let i = 1; i < length(params); i++) {
-			let m = match(trim(params[i]), /^[qQ][ \t]*=[ \t]*(.*)$/);
+			let m = match_line(trim(params[i]), /^[qQ][ \t]*=[ \t]*(.*)$/);
 
 			if (m)
 				ok = positive(m[1]) == true;

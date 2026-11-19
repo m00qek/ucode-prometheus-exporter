@@ -9,6 +9,7 @@
 import * as Result from 'prometheus.exporter.result';
 import * as format from 'prometheus.exporter.exposition.format';
 import { METRIC_NAME, METRIC_NAMES, LABEL_PREFIXES, SPECIAL, label_text, label_problem, utf8_valid, sample_line, header, add_family, family_set, families_of } from 'prometheus.exporter.exposition.format';
+import { match_line } from 'prometheus.exporter.line';
 
 /**
  * A sample as parse() reads it: labels as [ name, value ] pairs, value and ts as spelled.
@@ -95,7 +96,15 @@ export const INVALID = 'prometheus_exporter: text Prometheus refuses';
 
 const TYPES_RECORDED = [ 'counter', 'gauge', 'untyped' ];
 const HIGH_BYTE = regexp('[\x80-\xff]');
-const METRIC_NAME_LINES = /^[a-zA-Z_:][a-zA-Z0-9_:]*(\n[a-zA-Z_:][a-zA-Z0-9_:]*)*$/;
+// Metric names, one per line, checked at once. Neither the not-a-name class,
+// which names the newline, nor a newline before an empty name or a digit
+// depends on how a ucode reads newlines (prometheus.exporter.line).
+const NOT_IN_NAMES = /[^a-zA-Z0-9_:\n]/;
+const NAME_START_BAD = /\n(\n|[0-9])/;
+
+function metric_name_lines(all) {
+	return !match(all, NOT_IN_NAMES) && !match(`\n${all}\n`, NAME_START_BAD);
+}
 
 function dropped(labels, value) {
 	return dropped;
@@ -155,7 +164,7 @@ export function recorder(max) {
 
 		if (!target || target.name != name) {
 			target = null;
-			if (!s || index(name, '\0') >= 0 || !match(name, METRIC_NAME)) {
+			if (!s || index(name, '\0') >= 0 || !match_line(name, METRIC_NAME)) {
 				named(name);
 				name = METRIC_NAMES[name] ?? sanitize(name);
 				target = set.by_name[name];
@@ -256,14 +265,14 @@ export function recorder(max) {
 		let counter = (mtype == 'counter');
 		let listed = (strings && index(join('', names), '\0') < 0) ? uniq(names) : [];
 		let all = join('\n', listed);
-		let valid = length(listed) > 0 && match(all, METRIC_NAME_LINES) != null && length(split(all, '\n')) == length(listed);
+		let valid = length(listed) > 0 && metric_name_lines(all) && length(split(all, '\n')) == length(listed);
 
 		for (let r in rows) {
 			let name = r[0], help = r[1], value = r[2], labels = r[3];
 
 			if (!valid) {
 				named(name);
-				name = METRIC_NAMES[name] ?? ((type(name) == 'string' && match(name, METRIC_NAME)) ? name : sanitize(name));
+				name = METRIC_NAMES[name] ?? ((type(name) == 'string' && match_line(name, METRIC_NAME)) ? name : sanitize(name));
 			}
 
 			let target = set.by_name[name];

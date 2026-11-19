@@ -41,6 +41,10 @@ describe('docs_gen.source.reasons', () => {
 		], source.reasons(COLLECTOR, [ 'disabled', 'not installed' ]));
 	});
 
+	it('reads a service asked of in a call of many lines', () => {
+		assert.match([ 'dnsmasq is off' ], source.reasons("services.idle(deps\n\t.services, 'dnsmasq')", [ 'off' ]));
+	});
+
 	it('tells a collector that can have nothing to observe', () => {
 		assert.match([ true, false ], [ source.has_none(COLLECTOR), source.has_none("out.gauge('x', 'y');") ]);
 	});

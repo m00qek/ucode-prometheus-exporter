@@ -20,7 +20,8 @@ const EXCLUDED_FS_TYPES = [
 ];
 
 export function excluded(mount_point, fs_type) {
-	return match(mount_point, EXCLUDED_MOUNT_POINTS) != null || fs_type in EXCLUDED_FS_TYPES;
+	// Of a mount point of one line alone: one ucode's ^ and $ match at each.
+	return (index(mount_point, '\n') < 0 && match(mount_point, EXCLUDED_MOUNT_POINTS) != null) || fs_type in EXCLUDED_FS_TYPES;
 };
 
 export function collect(deps, out) {

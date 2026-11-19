@@ -51,7 +51,8 @@ function read_value(fs, path) {
 }
 
 export function clean(name) {
-	return trim(replace(lc(name), /[^a-z0-9:_]/g, '_'), '_');
+	// A newline named too: one ucode's [^...] matches it, the other's not.
+	return trim(replace(lc(name), /[^a-z0-9:_]|\n/g, '_'), '_');
 };
 
 function base_name(fs, dir, hw, name_file) {
