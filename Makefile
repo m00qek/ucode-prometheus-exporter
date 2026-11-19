@@ -1,9 +1,13 @@
 OPENWRT_ARCH    ?= x86_64
-# The ucode API floor is 25.12.0's; every 25.12 release so far ships the same ucode.
+# The ucode API floor is 25.12.0's.
 OPENWRT_VERSION ?= 25.12.5
+# index: the ucode of the release's package index, what a device gets; rootfs:
+# the one its rootfs image holds, which can be older. Their regular expressions
+# differ on newlines (devenv/services/openwrt/Dockerfile); CI tests both.
+UCODE_ENGINE    ?= index
 # Keyed by the image's inputs, so worktrees with different Dockerfiles don't overwrite each other's image.
-IMAGE_TAG       := $(OPENWRT_ARCH)-$(OPENWRT_VERSION)-$(shell cat devenv/services/openwrt/Dockerfile | sha256sum | cut -c1-12)
-export OPENWRT_ARCH OPENWRT_VERSION IMAGE_TAG
+IMAGE_TAG       := $(OPENWRT_ARCH)-$(OPENWRT_VERSION)-$(UCODE_ENGINE)-$(shell cat devenv/services/openwrt/Dockerfile | sha256sum | cut -c1-12)
+export OPENWRT_ARCH OPENWRT_VERSION UCODE_ENGINE IMAGE_TAG
 
 COMPOSE     := docker compose -f devenv/docker-compose.yaml
 RUN          = $(COMPOSE) --progress quiet run --rm $(if $(CI),-T) openwrt
@@ -81,10 +85,10 @@ template-package:
 # the checks still read them.
 WATCHED         := mwan3 modemmanager chrony ubnt-manager rpcd-mod-wireguard
 INPUTS_OF       = $(shell { cat $(1); devenv/scripts/package-info.sh feed-depends; devenv/scripts/package-info.sh app-depends; echo $(WATCHED); } | sha256sum | cut -c1-12)
-PKGCHECK_IMAGE := ucode-prometheus-exporter-pkgcheck:$(OPENWRT_ARCH)-$(OPENWRT_VERSION)-$(call INPUTS_OF,devenv/services/pkgcheck/Dockerfile)
+PKGCHECK_IMAGE := ucode-prometheus-exporter-pkgcheck:$(OPENWRT_ARCH)-$(OPENWRT_VERSION)-$(UCODE_ENGINE)-$(call INPUTS_OF,devenv/services/pkgcheck/Dockerfile)
 
 pkgcheck-image:
-	docker build -q -t $(PKGCHECK_IMAGE) --build-arg OPENWRT_ARCH --build-arg OPENWRT_VERSION \
+	docker build -q -t $(PKGCHECK_IMAGE) --build-arg OPENWRT_ARCH --build-arg OPENWRT_VERSION --build-arg UCODE_ENGINE \
 		--build-arg FEED_DEPENDS="$$(devenv/scripts/package-info.sh feed-depends) $$(devenv/scripts/package-info.sh app-depends) $(WATCHED) quickjs unbound-daemon" \
 		devenv/services/pkgcheck >/dev/null
 
@@ -98,7 +102,7 @@ package-check: package pkgcheck-image
 
 # Containers are named per checkout, so worktrees run them side by side.
 CHECKOUT      := $(shell echo '$(CURDIR)' | sha256sum | cut -c1-8)
-E2E_CONTAINER := ucode-prometheus-exporter-e2e-$(OPENWRT_ARCH)-$(OPENWRT_VERSION)-$(CHECKOUT)
+E2E_CONTAINER := ucode-prometheus-exporter-e2e-$(OPENWRT_ARCH)-$(OPENWRT_VERSION)-$(UCODE_ENGINE)-$(CHECKOUT)
 
 # The packages on a booted OpenWrt: procd as PID 1, with ubusd and netifd,
 # and ujail, which needs the container privileged. No network either.
@@ -118,10 +122,10 @@ LAB_NAME         ?= ucode-prometheus-exporter-lab
 LAB_ADDRESS      ?= 127.0.0.1
 LAB_LUCI_PORT    ?= 8080
 LAB_METRICS_PORT ?= 9100
-LAB_IMAGE        := ucode-prometheus-exporter-lab:$(OPENWRT_ARCH)-$(OPENWRT_VERSION)-$(call INPUTS_OF,devenv/services/luci/Dockerfile)
+LAB_IMAGE        := ucode-prometheus-exporter-lab:$(OPENWRT_ARCH)-$(OPENWRT_VERSION)-$(UCODE_ENGINE)-$(call INPUTS_OF,devenv/services/luci/Dockerfile)
 
 lab: package
-	docker build -q -t $(LAB_IMAGE) --build-arg OPENWRT_ARCH --build-arg OPENWRT_VERSION \
+	docker build -q -t $(LAB_IMAGE) --build-arg OPENWRT_ARCH --build-arg OPENWRT_VERSION --build-arg UCODE_ENGINE \
 		--build-arg FEED_DEPENDS="$$(devenv/scripts/package-info.sh feed-depends) $$(devenv/scripts/package-info.sh app-depends) $(WATCHED) unbound-daemon" \
 		devenv/services/luci >/dev/null
 	@LAB_NAME=$(LAB_NAME) LAB_IMAGE=$(LAB_IMAGE) LAB_ADDRESS=$(LAB_ADDRESS) LAB_LUCI_PORT=$(LAB_LUCI_PORT) \
@@ -229,7 +233,7 @@ failure-demo: package pkgcheck-image
 		devenv/scripts/failure-demo.sh $(FD_SCENARIOS)
 
 # ---- luci-app-prometheus-exporter --------------------------------------------
-LUCI_IMAGE    := ucode-prometheus-exporter-luci:$(OPENWRT_ARCH)-$(OPENWRT_VERSION)-$(call INPUTS_OF,devenv/services/luci/Dockerfile)
+LUCI_IMAGE    := ucode-prometheus-exporter-luci:$(OPENWRT_ARCH)-$(OPENWRT_VERSION)-$(UCODE_ENGINE)-$(call INPUTS_OF,devenv/services/luci/Dockerfile)
 BROWSER_IMAGE := ucode-prometheus-exporter-browser:$(shell sed -n 's/.*"@playwright\/test": "\(.*\)".*/\1/p' devenv/services/browser/package.json)
 # The collector packages the browser tests install besides the base package: options of
 # each type, a regex option (diskstats'), configs read, a name with '-'.
@@ -237,7 +241,7 @@ BROWSER_COLLECTORS := dhcp_leases diskstats ltq-dsl textfile unbound wifi wiregu
 
 # The LuCI pages against the built packages and a stand-in for procd; see devenv/scripts/browser.sh.
 browser: package
-	docker build -q -t $(LUCI_IMAGE) --build-arg OPENWRT_ARCH --build-arg OPENWRT_VERSION \
+	docker build -q -t $(LUCI_IMAGE) --build-arg OPENWRT_ARCH --build-arg OPENWRT_VERSION --build-arg UCODE_ENGINE \
 		--build-arg FEED_DEPENDS="$$(devenv/scripts/package-info.sh feed-depends) $$(devenv/scripts/package-info.sh app-depends) $(WATCHED)" \
 		devenv/services/luci >/dev/null
 	docker build -q -t $(BROWSER_IMAGE) devenv/services/browser >/dev/null
