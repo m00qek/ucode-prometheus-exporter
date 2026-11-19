@@ -33,6 +33,19 @@ ARG UCODE_FEED=https://m00qek.github.io/packages.ucode.dev
 ARG DOCOPT_VERSION=1.0.2-r1
 ARG UTEST_VERSION=1.5.1-r1
 ARG FEED_DEPENDS
+# What the image takes from its author's feed installed and fetched, the feed
+# is left out of apk's repositories: it publishes the exporter's packages, and
+# one of the version the tree builds would stand beside the built one, apk
+# installing either and listing both.
+#
+# uhttpd and its modules are upgraded together: the rootfs image holds an
+# older uhttpd than the index's uhttpd-mod-ucode, which apk add installs, and
+# that module does not open a handler in the older uhttpd.
+#
+# ucode as the release's package index has it (UCODE_ENGINE=index), what a
+# device gets, or as the rootfs image holds it (rootfs): the two read newlines
+# in regular expressions apart (devenv/services/openwrt/Dockerfile).
+ARG UCODE_ENGINE=index
 RUN mkdir -p /var/lock /var/run /etc/apk/keys /etc/apk/repositories.d && \
     feed="$UCODE_FEED/$(echo "$OPENWRT_VERSION" | cut -d. -f1,2)" && \
     wget -qO /etc/apk/keys/packages.ucode.dev.pem "$feed/feed.pub.pem" && \
@@ -46,4 +59,8 @@ RUN mkdir -p /var/lock /var/run /etc/apk/keys /etc/apk/repositories.d && \
         exit 1; }; } && \
     apk fetch -o /opt/feed prometheus-node-exporter-ucode && \
     { [ ! -x /etc/init.d/unbound ] || /etc/init.d/unbound disable; } && \
-    { [ ! -x /etc/init.d/chronyd ] || /etc/init.d/chronyd disable; }
+    { [ ! -x /etc/init.d/chronyd ] || /etc/init.d/chronyd disable; } && \
+    apk upgrade --no-cache uhttpd 'uhttpd-mod-*' && \
+    { [ "$UCODE_ENGINE" = rootfs ] || apk upgrade --no-cache 'libucode*' ucode 'ucode-mod-*'; } && \
+    apk list -I 'libucode*' 2>/dev/null && \
+    rm /etc/apk/repositories.d/ucode-dev.list
