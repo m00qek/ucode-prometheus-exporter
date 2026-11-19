@@ -26,12 +26,23 @@ const NAME = /^[0-9A-Za-z_]*$/;
 const RX = /(^|_)rx(_|$)/g;
 const TX = /(^|_)tx(_|$)/g;
 
-const STATISTIC = /^[ \t\r]*([^ \t\r].*):[ \t]+([^ \t]*[^ \t\r])[ \t\r]*$/gs;
+// Of one line, or of many at once where \n is in them: how ^, $, . and [^...]
+// read a newline differs between ucode releases, a newline written out does
+// not (prometheus.exporter.line).
+const STATISTIC = /^[ \t\r]*([^ \t\r].*):[ \t]+([^ \t]*[^ \t\r])[ \t\r]*$/;
 const NOT_NAMES = /_*[^0-9A-Za-z_\n]+_*/g;
-const NAMES_OK = /^[0-9A-Za-z_\n]*$/;
-const LEADING = /^_+/gs;
-const RXS = /(^|_)rx(_|$)/gs;
-const TXS = /(^|_)tx(_|$)/gs;
+const NOT_NAMES_CHAR = /[^0-9A-Za-z_\n]/;
+const LEADING = /\n_+/g;
+const RXS = /(\n|_)rx(_|\n)/g;
+const TXS = /(\n|_)tx(_|\n)/g;
+
+// replace() of each line of text at once: each line gets a newline of its own
+// on either side, which re reads as where the line starts or ends.
+function replace_lines(text, re, by) {
+	let t = replace(`\n${replace(text, '\n', '\n\n')}\n`, re, by);
+
+	return replace(substr(t, 1, length(t) - 2), '\n\n', '\n');
+}
 
 export function sanitize(stat) {
 	return match(stat, NAME) ? stat : replace(stat, NOT_NAME, '_');
@@ -91,15 +102,15 @@ function name_all(stats, k) {
 		return;
 
 	let joined = join('\n', uniq(fresh));
-	let keys = match(joined, NAMES_OK) ? joined : replace(joined, NOT_NAMES, '_');
+	let keys = match(joined, NOT_NAMES_CHAR) ? replace(joined, NOT_NAMES, '_') : joined;
 	let fqs = lc(keys);
 
 	if (index(fqs, '_') >= 0)
-		fqs = replace(fqs, LEADING, '');
+		fqs = replace_lines(fqs, LEADING, '\n');
 	if (index(fqs, 'rx') >= 0)
-		fqs = replace(fqs, RXS, '$1received$2');
+		fqs = replace_lines(fqs, RXS, '$1received$2');
 	if (index(fqs, 'tx') >= 0)
-		fqs = replace(fqs, TXS, '$1transmitted$2');
+		fqs = replace_lines(fqs, TXS, '$1transmitted$2');
 
 	let stat = split(joined, '\n'), key = split(keys, '\n'), fq = split(fqs, '\n');
 
@@ -145,7 +156,16 @@ export function exported(stats) {
 };
 
 function matched(text) {
-	return match(text ?? '', STATISTIC) ?? [];
+	let found = [];
+
+	for (let line in split(text ?? '', '\n')) {
+		let m = match(line, STATISTIC);
+
+		if (m)
+			push(found, m);
+	}
+
+	return found;
 }
 
 export function statistics(text) {

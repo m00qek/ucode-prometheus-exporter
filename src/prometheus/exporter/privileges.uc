@@ -6,6 +6,8 @@
 
 'use strict';
 
+import { match_line } from 'prometheus.exporter.line';
+
 /**
  * What the enabled collectors' privileges add up to: what grant's make() grants and takes back.
  *
@@ -144,7 +146,7 @@ function is_strings(v, pattern) {
 		return false;
 
 	for (let s in v)
-		if (type(s) != 'string' || !match(s, pattern))
+		if (type(s) != 'string' || !match_line(s, pattern))
 			return false;
 
 	return true;
@@ -164,7 +166,7 @@ export function meta_problem(meta) {
 			return 'meta.ubus must list the ubus objects and methods it calls: { object: [ method ] }';
 
 		for (let object, methods in meta.ubus) {
-			if (!match(object, OBJECT))
+			if (!match_line(object, OBJECT))
 				return `meta.ubus: '${object}' is not the name of a ubus object, nor a prefix of names that ends in '.*'`;
 			if (type(methods) != 'function' && (!is_strings(methods, METHOD) || !length(methods)))
 				return `meta.ubus: ${object}: its methods must be a list of names, or a function of its options that gives one`;

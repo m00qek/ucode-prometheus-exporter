@@ -129,8 +129,11 @@ export function lua_families(text) {
 		i = index(substr(text, at + 7), 'metric(');
 		i = i < 0 ? -1 : at + 7 + i;
 
-		// A call, not a definition, nor a name that ends in metric.
-		if (match(before, /[A-Za-z0-9_]$/) || match(before, /function[ \t]+$/))
+		// A call, not a definition, nor a name that ends in metric. Read
+		// without $, which one ucode matches before any newline in before.
+		let bare = rtrim(before, ' \t');
+
+		if (match(substr(before, -1), /[A-Za-z0-9_]/) || (bare != before && substr(bare, -8) == 'function'))
 			continue;
 
 		let name = argument(text, at + 7);
@@ -185,13 +188,20 @@ export function keys_of(text, comment) {
 
 	text = replace(text, comment, '');
 
-	for (let block in match(text, /\{([^{}]*)\}/g))
-		for (let entry in split(block[1], ','))
-			for (let m in [ match(entry, /^[ \t\n]*\[?["']?([A-Za-z_][A-Za-z0-9_]*)["']?\]?[ \t]*[=:]/), match(entry, /^[ \t\n]*([A-Za-z_][A-Za-z0-9_]*)[ \t\n]*$/) ])
+	// \n named: one ucode's [^...] matches a newline, the other's not.
+	for (let block in match(text, /\{(([^{}]|\n)*)\}/g))
+		for (let entry in split(block[1], ',')) {
+			// Of its first line, and of the whole of it, each of one line:
+			// one ucode's ^ and $ match at each line.
+			let head = split(ltrim(entry, ' \t\n'), '\n')[0];
+			let whole = trim(entry, ' \t\n');
+
+			for (let m in [ match(head, /^\[?["']?([A-Za-z_][A-Za-z0-9_]*)["']?\]?[ \t]*[=:]/), (index(whole, '\n') < 0) ? match(whole, /^([A-Za-z_][A-Za-z0-9_]*)$/) : null ])
 				if (m)
 					seen[m[1]] = true;
+		}
 
-	for (let m in match(text, /labels(\.([A-Za-z_][A-Za-z0-9_]*)|\[["']([A-Za-z_][A-Za-z0-9_]*)["']\])[ \t]*=[^=]/g))
+	for (let m in match(text, /labels(\.([A-Za-z_][A-Za-z0-9_]*)|\[["']([A-Za-z_][A-Za-z0-9_]*)["']\])[ \t]*=([^=]|\n)/g))
 		seen[m[2] || m[3]] = true;
 
 	return sort(keys(seen));

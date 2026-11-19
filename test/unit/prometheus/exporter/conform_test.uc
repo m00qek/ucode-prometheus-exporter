@@ -146,5 +146,6 @@ describe('conform.run', () => {
 
 	it('names a module by its file', () => {
 		assert.match([ 'ltq_dsl', 'a', null, null ], map([ '/x/ltq_dsl.uc', 'a.uc', '/x/a.txt', null ], conform.id_of_path));
+		assert.match([ null, null ], map([ '/tmp/evil\nok.uc', 'ok.uc\nx' ], conform.id_of_path));
 	});
 });

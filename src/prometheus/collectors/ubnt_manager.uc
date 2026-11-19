@@ -90,7 +90,8 @@ export function number(v) {
 	if (type(v) == 'bool')
 		return v ? 1 : 0;
 
-	let m = (type(v) == 'string') ? match(trim(v), /^(-?[0-9]+(\.[0-9]+)?)([[:space:]]+[A-Za-z]+)?$/) : null;
+	// Of one line alone: one ucode's ^ and $ match at each.
+	let m = (type(v) == 'string' && index(trim(v), '\n') < 0) ? match(trim(v), /^(-?[0-9]+(\.[0-9]+)?)([[:space:]]+[A-Za-z]+)?$/) : null;
 	return m ? +m[1] : null;
 };
 

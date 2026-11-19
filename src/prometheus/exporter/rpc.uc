@@ -474,7 +474,7 @@ export function cached_probe(fs, dir, helper, known) {
 		if (!length(need))
 			return out;
 
-		let p = fs.popen(`${helper} ${join(' ', need)} 2>/dev/null`, 'r');
+		let p = fs.popen(`${helper} ${join(' ', map(need, deps.shell_quote))} 2>/dev/null`, 'r');
 		let text = p?.read('all');
 		let found = null;
 

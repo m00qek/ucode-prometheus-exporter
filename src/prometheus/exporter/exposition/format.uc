@@ -6,6 +6,8 @@
 
 'use strict';
 
+import { match_line } from 'prometheus.exporter.line';
+
 /**
  * The ordered set of families: `list` in the order added, `by_name` by their names.
  *
@@ -28,8 +30,9 @@ export const METRIC_NAME = /^[a-zA-Z_:][a-zA-Z0-9_:]*$/;
 const LABEL_NAME = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 const NUMBER = /^[+-]?([0-9]+\.?[0-9]*|\.[0-9]+)([eE][+-]?[0-9]+)?$/;
 const HEX = /^0[xX][0-9a-fA-F]+$/;
-const NOT_METRIC = /[^a-zA-Z0-9_:]/g;
-const NOT_LABEL = /[^a-zA-Z0-9_]/g;
+// A newline too: one ucode's [^...] matches it, the other's not (prometheus.exporter.line).
+const NOT_METRIC = /[^a-zA-Z0-9_:]|\n/g;
+const NOT_LABEL = /[^a-zA-Z0-9_]|\n/g;
 const LEADING_DIGIT = /^[0-9]/;
 const HIGH = regexp('[\x80-\xff]');
 
@@ -73,7 +76,7 @@ export function sanitize(name, is_label) {
 	let s = memo[name];
 
 	if (s == null) {
-		if (match(name, is_label ? LABEL_NAME : METRIC_NAME)) {
+		if (match_line(name, is_label ? LABEL_NAME : METRIC_NAME)) {
 			s = name;
 		} else {
 			s = replace(name, is_label ? NOT_LABEL : NOT_METRIC, '_');
@@ -130,7 +133,7 @@ export function format_value(value) {
 			return value;
 		if (value == 'Inf')
 			return '+Inf';
-		if (match(value, NUMBER) || match(value, HEX))
+		if (match_line(value, NUMBER) || match_line(value, HEX))
 			return format_value(+value);
 		return null;
 	}

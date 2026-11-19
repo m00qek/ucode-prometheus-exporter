@@ -12,6 +12,7 @@ import * as loader from 'prometheus.exporter.loader';
 import * as config from 'prometheus.exporter.config';
 import * as scrape from 'prometheus.exporter.scrape';
 import * as exposition from 'prometheus.exporter.exposition';
+import { match_line } from 'prometheus.exporter.line';
 
 /**
  * What `collector check` takes of the system, and load_timeout.
@@ -50,7 +51,7 @@ export const BROKEN = [
  * @returns {?string} the module name, or null for what is not a .uc file.
  */
 export function id_of_path(path) {
-	let m = match(path ?? '', /(^|\/)([^\/]+)\.uc$/);
+	let m = match_line(path, /(^|\/)([^\/]+)\.uc$/);
 
 	return m ? m[2] : null;
 };
@@ -83,7 +84,7 @@ export function run(sys, path) {
 	let done = () => ({ ok, report: join('\n', lines) });
 	let id = id_of_path(path);
 
-	if (id == null || !match(id, /^[a-z0-9_]+$/)) {
+	if (id == null || !match_line(id, /^[a-z0-9_]+$/)) {
 		add('fail', `${path}: a collector is a file <module>.uc, its module named of a-z, 0-9 and _`);
 		return done();
 	}

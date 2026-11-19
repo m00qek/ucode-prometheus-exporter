@@ -123,6 +123,16 @@ describe('exposition.recorder, refusing what Prometheus refuses a scrape for', (
 		}
 	});
 
+	it('names a family of batch() whose name is not a string as sanitize() does, as a writer does', () => {
+		let text = text_of((out) => {
+			out.batch('gauge', [ [ true, 'h', 1 ], [ 'true', 'h2', 2 ] ]);
+			out.batch('gauge', [ [ NaN, 'h', 1 ] ]);
+			out.gauge('true', 'h3')(null, 3);
+		});
+
+		assert.match([ '# HELP true h', '# TYPE true gauge', 'true 1', 'true 2', 'true 3', '# HELP NaN h', '# TYPE NaN gauge', 'NaN 1' ], lines(text));
+	});
+
 	it('stops at a NUL byte in HELP text or in a family\'s name, by a writer or batch()', () => {
 		assert.match([ exposition.INVALID, { family: 'h', label: null, why: 'its HELP text holds a NUL byte' } ],
 			refused((out) => out.gauge('h', 'a\0\xe9')(null, 1)));

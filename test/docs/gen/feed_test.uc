@@ -20,6 +20,11 @@ describe('docs_gen.feed.lua_families', () => {
 				'm = metric(fqname, "untyped")\n'));
 	});
 
+	it('takes a call at the start of a line after a word', () => {
+		assert.match([ { name: 'node_foo_total', type: 'counter' } ],
+			feed.lua_families('local x = 1\nif y then\n  z()\nend\nmetric("node_foo_total", "counter")(1)\n'));
+	});
+
 	it('leaves out the definition of metric() and names that end in metric', () => {
 		assert.match([], feed.lua_families('function metric(name, mtype, labels, value)\nget_metric("all")\n'));
 	});
@@ -37,6 +42,11 @@ describe('docs_gen.feed.keys_of', () => {
 	it('takes the keys of tables and objects, shorthand ones, and those set on labels', () => {
 		assert.match([ 'device', 'ifname', 'mac', 'mode', 'radio', 'zone' ],
 			feed.keys_of('m({ radio, ifname }, 1); m({ device: d }); labels.mode = x; labels["mac"] = y; t = {zone = i}', /\/\/[^\n]*/g));
+	});
+
+	it('takes the key of an entry of many lines alone, and a labels key before a newline', () => {
+		assert.match([ 'value' ], feed.keys_of('{ value = a +\n  b }', /--[^\n]*/g));
+		assert.match([ 'mode' ], feed.keys_of('labels.mode =\n  x', /--[^\n]*/g));
 	});
 
 	it('leaves out the line comments', () => {

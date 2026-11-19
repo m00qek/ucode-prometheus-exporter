@@ -33,7 +33,8 @@ function number(v) {
 	if (type(v) in [ 'int', 'double' ])
 		return v;
 
-	return type(v) == 'string' && match(trim(v), /^[+-]?([0-9]+\.?[0-9]*|\.[0-9]+)$/) ? +v : null;
+	// Of one line alone: one ucode's ^ and $ match at each.
+	return type(v) == 'string' && index(trim(v), '\n') < 0 && match(trim(v), /^[+-]?([0-9]+\.?[0-9]*|\.[0-9]+)$/) ? +v : null;
 }
 
 export const UNITS = {

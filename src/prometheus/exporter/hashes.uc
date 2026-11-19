@@ -6,6 +6,8 @@
 
 'use strict';
 
+import { match_line } from 'prometheus.exporter.line';
+
 /**
  * The rounds of a $5$ or $6$ hash that names none.
  *
@@ -37,7 +39,7 @@ export function is_hash(value) {
 	if (n == 5) {
 		let r = parts[2];
 
-		if (parts[1] == '1' || length(r) < 11 || length(r) > 14 || !match(r, ROUNDS))
+		if (parts[1] == '1' || length(r) < 11 || length(r) > 14 || !match_line(r, ROUNDS))
 			return false;
 	} else if (n != 4) {
 		return false;
@@ -45,7 +47,7 @@ export function is_hash(value) {
 
 	let s = parts[n - 2], d = parts[n - 1];
 
-	return length(s) <= f[0] && length(d) == f[1] && match(s + d, ALPHABET) != null;
+	return length(s) <= f[0] && length(d) == f[1] && match_line(s + d, ALPHABET) != null;
 };
 
 /**
@@ -73,7 +75,7 @@ export function rounds(hash) {
  * @returns {boolean} whether it is one.
  */
 export function is_user(user) {
-	return type(user) == 'string' && match(user, /^[^:[:space:][:cntrl:]]{1,64}$/) != null;
+	return type(user) == 'string' && match_line(user, /^[^:[:space:][:cntrl:]]{1,64}$/) != null;
 };
 
 /**

@@ -362,3 +362,27 @@ describe('auth.allowed, with the cache', () => {
 			}
 		}, { runs: 30 });
 });
+
+// ucode 2026.07.09 reads ^ and $ at each line: a check of one value by a
+// regular expression must still refuse a value of two lines, of which one
+// passes (prometheus.exporter.line).
+describe('auth, of a value with a newline in it', () => {
+	it('refuses it as a user, a hash, an Authorization header and a config file', () => {
+		assert.match([ false, false, false, false ], [
+			auth.is_user('prom\nroot'),
+			auth.is_user('prom\n'),
+			auth.is_hash(HASH + '\nx'),
+			auth.is_hash('x\n' + HASH),
+		]);
+		assert.match([ null, null, null ], [
+			auth.credentials(basic('prom:secret') + '\nx'),
+			auth.parse_conf(`/metrics:prom:${HASH}\n/metrics:other:${HASH}\n`),
+			auth.parse_conf(`/metrics:prom:${HASH}\n\n`),
+		]);
+	});
+
+	it('still reads a config file of one line, its newline or not', () => {
+		assert.match([ { user: 'prom', hash: HASH }, { user: 'prom', hash: HASH } ],
+			[ auth.parse_conf(`/metrics:prom:${HASH}\n`), auth.parse_conf(`/metrics:prom:${HASH}`) ]);
+	});
+});

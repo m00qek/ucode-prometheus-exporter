@@ -293,7 +293,7 @@ describe('rpc.cached_probe', () => {
 	function fs_of(sigs, out, cmds) {
 		return {
 			stat: function(p) {
-				let id = match(p, /\/([a-z0-9_]+)\.uc$/)[1];
+				let id = match(p, /\/([^\/]+)\.uc$/)[1];
 				let s = sigs[id];
 
 				return s ? { inode: split(s, ':')[0], size: split(s, ':')[1], mtime: split(s, ':')[2] } : null;
@@ -312,7 +312,15 @@ describe('rpc.cached_probe', () => {
 		assert.match({ a: { ok: true }, b: { ok: false, hung: true, error: 'still loading after 5 s: stopped' } }, probe([ 'a', 'b' ]));
 		sigs.b = '3:21:300';
 		probe([ 'a', 'b' ]);
-		assert.match([ '/probe.uc a b 2>/dev/null', '/probe.uc b 2>/dev/null' ], cmds);
+		assert.match([ "/probe.uc 'a' 'b' 2>/dev/null", "/probe.uc 'b' 2>/dev/null" ], cmds);
+	});
+
+	it('quotes each module it asks of for the shell', () => {
+		let cmds = [];
+		let probe = rpc.cached_probe(fs_of({ "a;b'c": '1:1:1' }, '{}', cmds), '/c', '/probe.uc');
+
+		probe([ "a;b'c" ]);
+		assert.match([ "/probe.uc 'a;b'\\''c' 2>/dev/null" ], cmds);
 	});
 
 	it('takes a module the helper says nothing of as not loaded, and asks again next time', () => {

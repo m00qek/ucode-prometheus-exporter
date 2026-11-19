@@ -15,6 +15,7 @@ import * as config from 'prometheus.exporter.config';
 import * as jail from 'prometheus.exporter.jail';
 import * as codes from 'prometheus.exporter.errors';
 import * as Result from 'prometheus.exporter.result';
+import { match_line } from 'prometheus.exporter.line';
 
 const real_fs = require('fs');
 
@@ -173,7 +174,7 @@ function jailed_fs(fs, mounts, touched) {
 		open: function(path, mode, ...rest) {
 			let p = normal(path);
 
-			if (mode != null && !match(mode, /^r[be]*$/))
+			if (mode != null && !match_line(mode, /^r[be]*$/))
 				return outside('write', path, null, { mode });
 
 			return (p != null && inside(mounts, p)) ? fs.open(path, mode, ...rest) : outside('open', path, null);

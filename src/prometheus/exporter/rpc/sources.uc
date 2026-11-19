@@ -8,6 +8,7 @@
 
 import * as errors from 'prometheus.exporter.errors';
 import { NO_UCI_DELTAS } from 'prometheus.exporter.state';
+import { match_line } from 'prometheus.exporter.line';
 
 /**
  * What the sources' methods take of the system, in rpcd's own process.
@@ -266,7 +267,7 @@ export function wireguard_peers(uci) {
 
 	uci.load('network');
 	uci.foreach('network', null, function(s) {
-		let m = match(s['.type'] ?? '', /^wireguard_(.+)$/);
+		let m = match_line(s['.type'] ?? '', /^wireguard_(.+)$/);
 
 		if (m && type(s.public_key) == 'string' && type(s.description) == 'string') {
 			interfaces[m[1]] ??= {};
@@ -329,7 +330,7 @@ export function running_in_proc(fs) {
 	}
 
 	for (let pid in fs.lsdir('/proc') ?? []) {
-		if (!match(pid, /^[0-9]+$/))
+		if (!match_line(pid, /^[0-9]+$/))
 			continue;
 
 		let name = names[split(fs.readfile(`/proc/${pid}/cmdline`) ?? '', '\0')[0]];

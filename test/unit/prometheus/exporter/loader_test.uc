@@ -218,6 +218,8 @@ describe('loader.is_strict', () => {
 			"// A collector.\n\n/* Of things. */\n'use strict';\n",
 			"#!/usr/bin/ucode\n'use strict';\n",
 			"'use strict'",
+			"'use strict';\n\nimport { Result } from 'prometheus.exporter';\n",
+			"/* A collector,\n * of things. */\n\n'use strict';\n\nexport const x = 1;\n",
 		])
 			assert.match(true, loader.is_strict(text), text);
 	});
@@ -340,6 +342,14 @@ describe('loader.discover and load', () => {
 	it('finds the modules of a directory, sorted', () => {
 		mock.inject('fs', { strict: true, data: FILES }, (fs) => {
 			assert.match([ 'a', 'b', 'broken', 'odd' ], loader.discover(fs, DIR));
+		});
+	});
+
+	// One ucode's ^ and $ match at each line: a name of which one line is a
+	// module's would pass, and rpcd's probe puts the names in a command line.
+	it('leaves out a file whose name holds a newline', () => {
+		mock.inject('fs', { strict: true, data: { [DIR + '/a.uc']: STRICT, [DIR + '/x\n;touch /tmp/pwn;\ncpu.uc']: STRICT, [DIR + '/cpu.uc\nzz']: STRICT } }, (fs) => {
+			assert.match([ 'a' ], loader.discover(fs, DIR));
 		});
 	});
 

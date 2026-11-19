@@ -13,6 +13,7 @@ import * as state from 'prometheus.exporter.state';
 import * as Result from 'prometheus.exporter.result';
 import * as errors from 'prometheus.exporter.errors';
 import { GROUP } from 'prometheus.exporter.privileges';
+import { match_line } from 'prometheus.exporter.line';
 
 /**
  * Basic auth as the config and uhttpd's file set it: the user, and the crypt hash of the password.
@@ -118,7 +119,8 @@ export function write_conf(fs, auth) {
  * @returns {?BasicAuth} basic auth, or null.
  */
 export function parse_conf(text) {
-	let m = (type(text) == 'string') ? match(text, /^([^:\n]*):([^:\n]*):([^:\n]*)\n?$/) : null;
+	let line = (type(text) == 'string' && substr(text, -1) == '\n') ? substr(text, 0, -1) : text;
+	let m = match_line(line, /^([^:]*):([^:]*):([^:]*)$/);
 
 	if (!m || m[1] != PATH || !is_user(m[2]) || !is_hash(m[3]))
 		return null;
@@ -133,7 +135,7 @@ export function parse_conf(text) {
  * @returns {?Credentials} the user and password, or null.
  */
 export function credentials(value) {
-	let m = (type(value) == 'string') ? match(value, /^[Bb][Aa][Ss][Ii][Cc][ \t]+([A-Za-z0-9+\/]+={0,2})[ \t]*$/) : null;
+	let m = match_line(value, /^[Bb][Aa][Ss][Ii][Cc][ \t]+([A-Za-z0-9+\/]+={0,2})[ \t]*$/);
 	let text = m ? b64dec(m[1]) : null;
 	let i = (type(text) == 'string') ? index(text, ':') : -1;
 

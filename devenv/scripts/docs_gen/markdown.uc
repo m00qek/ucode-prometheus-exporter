@@ -61,7 +61,7 @@ export function heading(level, title, anchor) {
 
 // The anchor of a collector's section: its name, which may hold '-' and '_'.
 export function anchor(name) {
-	return replace(lc(name), /[^a-z0-9_-]/g, '-');
+	return replace(lc(name), /[^a-z0-9_-]|\n/g, '-');
 };
 
 // Paragraphs, headings and tables joined into a page that ends in a newline.

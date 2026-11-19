@@ -10,6 +10,7 @@ import * as Result from 'prometheus.exporter.result';
 import * as errors from 'prometheus.exporter.errors';
 import * as problems from 'prometheus.exporter.config.problems';
 import { is_user, is_hash, is_auth_hash, AUTH_ROUNDS_MAX } from 'prometheus.exporter.hashes';
+import { match_line } from 'prometheus.exporter.line';
 
 /**
  * A datatype the core enforces: the value types it takes, its problem, and its check.
@@ -103,7 +104,7 @@ const UHTTPD_FILE = /^\/etc\/uhttpd[A-Za-z0-9._-]*$/;
 export function is_tls_path(v) {
 	if (type(v) != 'string' || !absolute_path(v) || match(v, /\/\/|\/\.\.?(\/|$)|\/$/))
 		return false;
-	if (match(v, UHTTPD_FILE))
+	if (match_line(v, UHTTPD_FILE))
 		return true;
 
 	for (let d in TLS_DIRS)
@@ -191,7 +192,7 @@ export function datatype(name) {
 	if (known)
 		return known;
 
-	let z = match(name, /^zero_or_min\(([1-9][0-9]*)\)$/);
+	let z = match_line(name, /^zero_or_min\(([1-9][0-9]*)\)$/);
 
 	if (z) {
 		if (length(RANGES) < RANGES_MAX)
@@ -200,7 +201,7 @@ export function datatype(name) {
 		return RANGES[name] ?? zero_or_min_of(int(z[1]));
 	}
 
-	let m = match(name, /^range\((-?[0-9]+),(-?[0-9]+)\)$/);
+	let m = match_line(name, /^range\((-?[0-9]+),(-?[0-9]+)\)$/);
 
 	if (!m)
 		return null;
@@ -243,7 +244,7 @@ function typed(name, value, spec) {
 		return invalid(name, problems.problem(problems.BOOLEAN), value, spec);
 
 	case 'int':
-		if (type(value) == 'string' && match(value, INTEGER))
+		if (type(value) == 'string' && match_line(value, INTEGER))
 			return Result.ok(int(value));
 		return invalid(name, problems.problem(problems.INTEGER), value, spec);
 
