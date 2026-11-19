@@ -2478,7 +2478,11 @@ make<span class="w"> </span>docs
 </code></pre></div>
 <p><code>docs-test</code> runs the publishing scripts' tests. <code>docs</code> builds the site, strictly. See <a href="../documentation/">How to write documentation</a>.</p>
 <hr />
-<p>CI runs <code>lint</code>, <code>test</code>, <code>package-check</code> and <code>e2e</code> on 25.12.0 and 25.12.5, and <code>bench</code>, <code>browser</code> and <code>feed-check</code> once. A failed <code>e2e</code> on 25.12.0 does not fail the run: on GitHub's runners, about a third of its runs lost rpcd partway through, when a SIGHUP crashed ubusd (see <a href="../../../reference/jail/#when-ubusd-crashes">When ubusd crashes</a>). Its first failure prints what rpcd and ubusd were doing. The docs workflow builds the site. <a href="../../../reference/make-targets/">Make targets</a> lists every target.</p>
+<p>CI runs <code>lint</code>, <code>test</code>, <code>package-check</code> and <code>e2e</code> on 25.12.0 and 25.12.5, <code>lint</code>, <code>test</code>, <code>package-check</code> and <code>e2e</code> on two ucode releases: 25.12.0 with the ucode its rootfs image holds, 25.12.5 with the one its package index has (<code>UCODE_ENGINE</code>, in <a href="../../../reference/make-targets/">Make targets</a>). From ucode 2026.07.09 on, a regular expression's <code>^</code> and <code>$</code> match at each line, and <code>.</code> and <code>[^...]</code> match no newline; before, the opposite. Code that checks a whole value uses <code>match_line</code> (<code>prometheus.exporter.line</code>), and code that reads many lines at once names the newline in its pattern. To run both:</p>
+<div class="highlight"><pre><span></span><code>make<span class="w"> </span><span class="nb">test</span><span class="w"> </span><span class="nv">UCODE_ENGINE</span><span class="o">=</span>index
+make<span class="w"> </span><span class="nb">test</span><span class="w"> </span><span class="nv">UCODE_ENGINE</span><span class="o">=</span>rootfs
+</code></pre></div>
+<p>CI also runs <code>bench</code>, <code>browser</code> and <code>feed-check</code> once. A failed <code>e2e</code> on 25.12.0 does not fail the run: on GitHub's runners, about a third of its runs lost rpcd partway through, when a SIGHUP crashed ubusd (see <a href="../../../reference/jail/#when-ubusd-crashes">When ubusd crashes</a>). Its first failure prints what rpcd and ubusd were doing. The docs workflow builds the site. <a href="../../../reference/make-targets/">Make targets</a> lists every target.</p>
 
 
 

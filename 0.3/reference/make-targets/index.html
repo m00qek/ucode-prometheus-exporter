@@ -2726,6 +2726,12 @@
 <td style="text-align: left;">The OpenWrt release of the images and the SDK. CI also runs <code>25.12.0</code>, the API floor.</td>
 </tr>
 <tr>
+<td style="text-align: left;"><code>UCODE_ENGINE</code></td>
+<td style="text-align: left;"><code>index</code></td>
+<td style="text-align: left;">all but <code>package</code></td>
+<td style="text-align: left;"><code>index</code>: ucode as the release's package index has it, what a device gets. <code>rootfs</code>: as the release's rootfs image holds it, which can be older. ucode 2026.07.09 reads newlines in regular expressions apart from the ucode before it, so CI runs <code>test</code>, <code>lint</code>, <code>package-check</code> and <code>e2e</code> with <code>rootfs</code> on <code>25.12.0</code> and <code>index</code> on <code>25.12.5</code>.</td>
+</tr>
+<tr>
 <td style="text-align: left;"><code>OPENWRT_ARCH</code></td>
 <td style="text-align: left;"><code>x86_64</code></td>
 <td style="text-align: left;">all</td>
