@@ -4,9 +4,11 @@ What each release changes, for those who run the exporter and those who write co
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-11-19
+
 ### Fixed
 
-- **The exporter works on ucode 2026.07.09, which every 25.12 release's package index now has.** That ucode compiles a regular expression without the `s` flag with `REG_NEWLINE`: its `^` and `$` match at each line, and its `.` and `[^...]` match no newline, the opposite of the ucode before it. On it, 0.3.2 loads no collector at all, each refused as `not in strict mode` though its first statement is `'use strict'`, ethtool writes text Prometheus refuses, and checks of a single value, the basic auth user and hash among them, take a value of two lines of which one passes. The exporter now reads the same on either ucode: a check of a whole value refuses a newline first (`prometheus.exporter.line`), the directive is found without a regular expression, and what reads many lines at once names the newline in its pattern. CI runs the tests and lint on both, with `UCODE_ENGINE` (see [Make targets](docs/reference/make-targets.md)).
+- **The exporter works on ucode 2026.07.09, which every 25.12 release's package index now has.** That ucode compiles a regular expression without the `s` flag with `REG_NEWLINE`: its `^` and `$` match at each line, and its `.` and `[^...]` match no newline, the opposite of the ucode before it. On it, 0.3.2 loads no collector at all, each refused as `not in strict mode` though its first statement is `'use strict'`, ethtool writes text Prometheus refuses, and checks of a single value, the basic auth user and hash among them, take a value of two lines of which one passes. The exporter now reads the same on either ucode: a check of a whole value refuses a newline first (`prometheus.exporter.line`), the directive is found without a regular expression, and what reads many lines at once names the newline in its pattern. CI runs the tests and lint on both, with `UCODE_ENGINE` (see [Make targets](https://m00qek.github.io/ucode-prometheus-exporter/0.3/reference/make-targets/)).
 
 ## [0.3.2] - 2026-10-22
 
@@ -208,7 +210,8 @@ The first release: a rewrite of the packages feed's `prometheus-node-exporter-uc
 - A ubus object, `prometheus-exporter`, which the LuCI app, `luci-app-prometheus-exporter`, uses for its settings and status pages.
 - The documentation site, in the Diátaxis structure, published per minor version.
 
-[Unreleased]: https://github.com/m00qek/ucode-prometheus-exporter/compare/v0.3.2...HEAD
+[Unreleased]: https://github.com/m00qek/ucode-prometheus-exporter/compare/v0.3.3...HEAD
+[0.3.3]: https://github.com/m00qek/ucode-prometheus-exporter/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/m00qek/ucode-prometheus-exporter/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/m00qek/ucode-prometheus-exporter/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/m00qek/ucode-prometheus-exporter/compare/v0.2.1...v0.3.0
